@@ -49,6 +49,9 @@ import {
 import { validateGeneratedVegaSpec } from '../utils/validateGeneratedVegaSpec';
 
 const MODAL_SCROLL_HEIGHT = 'calc(88vh - 260px)';
+const LAST_SELECTED_TEMPLATE_STORAGE_KEY = 'lastSelectedChartTemplateId';
+const LAST_SELECTED_TEMPLATE_CHART_TYPE_STORAGE_KEY =
+    'lastSelectedChartTemplateChartType';
 type ModalStep = 'template' | 'ai' | 'mapping';
 type CandidateWithValidation =
     GenerateChartTemplateCandidatesResponse['candidates'][number] & {
@@ -74,7 +77,16 @@ export const SelectTemplate = ({
     const [selectedTemplateId, setSelectedTemplateId] = useState<
         string | undefined
     >(undefined);
-    const [selectedChartType, setSelectedChartType] = useState<string>('all');
+    const [selectedChartType, setSelectedChartType] = useState<string>(() => {
+        try {
+            const remembered = localStorage.getItem(
+                LAST_SELECTED_TEMPLATE_CHART_TYPE_STORAGE_KEY,
+            );
+            return remembered || 'all';
+        } catch {
+            return 'all';
+        }
+    });
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const [previewImageTitle, setPreviewImageTitle] = useState<string>('');
     const [isSpecPreviewOpen, setIsSpecPreviewOpen] = useState(false);
@@ -134,7 +146,6 @@ export const SelectTemplate = ({
             (template) => template.chart_type === selectedChartType,
         );
     }, [templates, selectedChartType]);
-
     useEffect(() => {
         if (!opened || filteredTemplates.length === 0) return;
 
@@ -143,7 +154,26 @@ export const SelectTemplate = ({
         );
 
         if (!selectedTemplateId || !hasCurrentSelection) {
-            setSelectedTemplateId(String(filteredTemplates[0].id));
+            let rememberedTemplateId: string | null = null;
+            try {
+                rememberedTemplateId = localStorage.getItem(
+                    LAST_SELECTED_TEMPLATE_STORAGE_KEY,
+                );
+            } catch {
+                rememberedTemplateId = null;
+            }
+
+            const hasRememberedSelection =
+                rememberedTemplateId &&
+                filteredTemplates.some(
+                    (template) => String(template.id) === rememberedTemplateId,
+                );
+
+            if (hasRememberedSelection && rememberedTemplateId) {
+                setSelectedTemplateId(rememberedTemplateId);
+            } else {
+                setSelectedTemplateId(String(filteredTemplates[0].id));
+            }
         }
     }, [opened, filteredTemplates, selectedTemplateId]);
 
@@ -262,6 +292,44 @@ export const SelectTemplate = ({
             fieldIds.map((fieldId) => getFieldDisplayName(fieldId)),
         [getFieldDisplayName],
     );
+    const rememberSelectedTemplateId = useCallback((templateId: string) => {
+        try {
+            localStorage.setItem(
+                LAST_SELECTED_TEMPLATE_STORAGE_KEY,
+                templateId,
+            );
+        } catch {
+            // Ignore localStorage write failures
+        }
+    }, []);
+    const selectTemplateId = useCallback(
+        (templateId: string) => {
+            setSelectedTemplateId(templateId);
+            rememberSelectedTemplateId(templateId);
+        },
+        [rememberSelectedTemplateId],
+    );
+    const updateSelectedChartType = useCallback((chartType: string) => {
+        setSelectedChartType(chartType);
+        try {
+            localStorage.setItem(
+                LAST_SELECTED_TEMPLATE_CHART_TYPE_STORAGE_KEY,
+                chartType,
+            );
+        } catch {
+            // Ignore localStorage write failures
+        }
+    }, []);
+    useEffect(() => {
+        if (!opened || selectedChartType === 'all') return;
+
+        const hasSelectedChartType = templates.some(
+            (template) => template.chart_type === selectedChartType,
+        );
+        if (!hasSelectedChartType) {
+            updateSelectedChartType('all');
+        }
+    }, [opened, selectedChartType, templates, updateSelectedChartType]);
 
     const currentFieldKindById = useMemo(
         () =>
@@ -358,6 +426,9 @@ export const SelectTemplate = ({
     const hasSelectionMetaDetails = useMemo(() => {
         if (!selectionMetaTips) return false;
         return (
+            selectionMetaTips.aiCandidateMetrics.length > 0 ||
+            selectionMetaTips.chosenMetrics.length > 0 ||
+            selectionMetaTips.chosenDimensions.length > 0 ||
             selectionMetaTips.ignoredDimensions.length > 0 ||
             selectionMetaTips.ignoredMetrics.length > 0 ||
             selectionMetaTips.ambiguityReasons.length > 0 ||
@@ -368,6 +439,9 @@ export const SelectTemplate = ({
 
     const applyTemplate = useCallback(() => {
         if (!selectedTemplateSpec) return;
+        if (selectedTemplateId) {
+            rememberSelectedTemplateId(selectedTemplateId);
+        }
         const mappedSpec = applyMappingsToSpec(
             selectedTemplateSpec,
             fieldMappings,
@@ -382,6 +456,8 @@ export const SelectTemplate = ({
         setModalStep('template');
     }, [
         selectedTemplateSpec,
+        selectedTemplateId,
+        rememberSelectedTemplateId,
         fieldMappings,
         unresolvedOptionalFields,
         setEditorConfig,
@@ -391,16 +467,25 @@ export const SelectTemplate = ({
         if (!selectedCandidate || !selectedCandidate.valid) {
             return;
         }
+        if (selectedTemplateId) {
+            rememberSelectedTemplateId(selectedTemplateId);
+        }
 
         setEditorConfig(
             JSON.stringify(selectedCandidate.normalizedSpec, null, 2),
         );
         setOpened(false);
         setModalStep('template');
-    }, [selectedCandidate, setEditorConfig]);
+    }, [
+        selectedCandidate,
+        selectedTemplateId,
+        rememberSelectedTemplateId,
+        setEditorConfig,
+    ]);
 
     const generateAiCandidates = useCallback(async () => {
         if (!selectedTemplateId) return;
+        rememberSelectedTemplateId(selectedTemplateId);
 
         setCompatibilityTips(null);
         setSelectionMetaTips(null);
@@ -420,6 +505,25 @@ export const SelectTemplate = ({
 
         if (!response) return;
 
+        if (!response.success) {
+            const compatibility = response.compatibility || {
+                level: 'warning',
+                reasons: [],
+                suggestions: [],
+            };
+            setCompatibilityTips({
+                level: compatibility.level,
+                reasons:
+                    compatibility.reasons.length > 0
+                        ? compatibility.reasons
+                        : response.msg
+                          ? [response.msg]
+                          : [],
+                suggestions: compatibility.suggestions || [],
+            });
+            return;
+        }
+
         if (!response.renderable || response.candidates.length === 0) {
             const compatibility = response.compatibility || {
                 level: 'warning',
@@ -436,6 +540,11 @@ export const SelectTemplate = ({
             if (selectionMeta?.ignoredMetrics.length) {
                 selectionSuggestions.push(
                     `自动忽略指标: ${formatFieldList(selectionMeta.ignoredMetrics).join(', ')}`,
+                );
+            }
+            if (selectionMeta?.chosenMetrics.length) {
+                selectionSuggestions.push(
+                    `最终采用指标: ${formatFieldList(selectionMeta.chosenMetrics).join(', ')}`,
                 );
             }
             if (selectionMeta?.ambiguityReasons.length) {
@@ -477,6 +586,7 @@ export const SelectTemplate = ({
         selectedMetrics,
         availableFieldIds,
         formatFieldList,
+        rememberSelectedTemplateId,
     ]);
 
     const copyTemplateSpec = useCallback(() => {
@@ -513,10 +623,13 @@ export const SelectTemplate = ({
         };
     };
 
-    const openTemplateDetailFromList = useCallback((templateId: string) => {
-        setSelectedTemplateId(templateId);
-        setIsSpecPreviewOpen(true);
-    }, []);
+    const openTemplateDetailFromList = useCallback(
+        (templateId: string) => {
+            selectTemplateId(templateId);
+            setIsSpecPreviewOpen(true);
+        },
+        [selectTemplateId],
+    );
 
     const copyTemplateFromList = useCallback(
         async (templateId: string) => {
@@ -524,13 +637,13 @@ export const SelectTemplate = ({
             const spec = getTemplateSpec(detail);
             if (!spec) return;
 
-            setSelectedTemplateId(templateId);
+            selectTemplateId(templateId);
             clipboard.copy(JSON.stringify(spec, null, 2));
             showToastSuccess({
                 title: t('components_json_viewer_modal.copied'),
             });
         },
-        [clipboard, showToastSuccess, t],
+        [clipboard, selectTemplateId, showToastSuccess, t],
     );
 
     return (
@@ -538,6 +651,7 @@ export const SelectTemplate = ({
             <MantineModal
                 opened={opened}
                 onClose={() => {
+                    if (isGeneratingCandidates) return;
                     setOpened(false);
                     setModalStep('template');
                     setAiCandidates([]);
@@ -573,6 +687,7 @@ export const SelectTemplate = ({
                     <>
                         <Button
                             variant="default"
+                            disabled={isGeneratingCandidates}
                             onClick={() => {
                                 if (
                                     modalStep === 'mapping' ||
@@ -634,467 +749,647 @@ export const SelectTemplate = ({
                     </>
                 }
             >
-                {modalStep === 'template' ? (
-                    <Stack spacing="sm">
-                        <Text size="xs" color="dimmed">
-                            {t(
-                                'components_visualization_configs_custom_vis_template.selecting_new_template_will_reset_the_config',
-                            )}
-                        </Text>
-                        {compatibilityTips ? (
-                            <Alert
-                                color={
-                                    compatibilityTips.level === 'good'
-                                        ? 'green'
-                                        : 'yellow'
-                                }
-                                variant="light"
-                                title={t(
-                                    'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                )}
-                                p="sm"
-                            >
-                                <Box
-                                    sx={{
-                                        maxHeight: 96,
-                                        overflowY: 'auto',
-                                    }}
-                                >
-                                    <Stack spacing={4}>
-                                        {compatibilityTips.reasons.map(
-                                            (reason, idx) => (
-                                                <Text
-                                                    key={`compatibility-reason-${idx}`}
-                                                    size="11px"
-                                                    c="dimmed"
-                                                >
-                                                    - {reason}
-                                                </Text>
-                                            ),
+                <Box pos="relative">
+                    {modalStep === 'template' ? (
+                        <Stack spacing="sm">
+                            {isGeneratingCandidates ? (
+                                <Group spacing={6}>
+                                    <Loader size="xs" color="blue" />
+                                    <Text size="xs" c="dimmed">
+                                        {t(
+                                            'components_visualization_configs_custom_vis_template.ai_generating',
                                         )}
-                                        {compatibilityTips.suggestions.map(
-                                            (suggestion, idx) => (
-                                                <Text
-                                                    key={`compatibility-suggestion-${idx}`}
-                                                    size="11px"
-                                                    c="dimmed"
-                                                >
-                                                    - {suggestion}
-                                                </Text>
-                                            ),
-                                        )}
-                                        {compatibilityTips.reasons.length ===
-                                            0 &&
-                                        compatibilityTips.suggestions.length ===
-                                            0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                {t(
-                                                    'components_visualization_configs_custom_vis_template.ai_no_candidates',
-                                                )}
-                                            </Text>
-                                        ) : null}
-                                    </Stack>
-                                </Box>
-                            </Alert>
-                        ) : null}
-                        <Select
-                            size="xs"
-                            value={selectedChartType}
-                            onChange={(value) =>
-                                setSelectedChartType(value || 'all')
-                            }
-                            data={chartTypeOptions}
-                        />
-
-                        <div
-                            style={{
-                                display: 'block',
-                            }}
-                        >
-                            <ScrollArea
-                                h={MODAL_SCROLL_HEIGHT}
-                                offsetScrollbars
-                                styles={{
-                                    viewport: {
-                                        paddingRight: 14,
-                                    },
-                                }}
-                            >
-                                <Stack spacing="xs">
-                                    {isTemplatesLoading ? (
-                                        <Loader color="gray" size="sm" />
-                                    ) : filteredTemplates.length === 0 ? (
-                                        <Text size="sm" color="dimmed">
-                                            {t(
-                                                'components_visualization_configs_custom_vis_template.no_templates_available',
-                                            )}
-                                        </Text>
-                                    ) : (
-                                        filteredTemplates.map((template) => {
-                                            const templateId = String(
-                                                template.id,
-                                            );
-                                            const selected =
-                                                templateId ===
-                                                selectedTemplateId;
-                                            const {
-                                                primaryName,
-                                                secondaryName,
-                                            } =
-                                                getTemplateDisplayName(
-                                                    template,
-                                                );
-                                            return (
-                                                <Box
-                                                    key={templateId}
-                                                    onClick={() =>
-                                                        setSelectedTemplateId(
-                                                            templateId,
-                                                        )
-                                                    }
-                                                    sx={(theme) => ({
-                                                        minHeight: 58,
-                                                        borderRadius:
-                                                            theme.radius.sm,
-                                                        border: `1px solid ${
-                                                            selected
-                                                                ? theme.colors
-                                                                      .blue[5]
-                                                                : theme.colors
-                                                                      .gray[3]
-                                                        }`,
-                                                        backgroundColor:
-                                                            selected
-                                                                ? theme.colors
-                                                                      .blue[0]
-                                                                : theme.white,
-                                                        padding: 8,
-                                                        cursor: 'pointer',
-                                                    })}
-                                                >
-                                                    <Group
-                                                        spacing="xs"
-                                                        align="center"
-                                                        noWrap
-                                                        sx={{ width: '100%' }}
-                                                    >
-                                                        {template.cover_image_url ? (
-                                                            <Image
-                                                                src={
-                                                                    template.cover_image_url
-                                                                }
-                                                                width={52}
-                                                                height={52}
-                                                                radius="xs"
-                                                                withPlaceholder
-                                                                alt={
-                                                                    primaryName
-                                                                }
-                                                                onClick={(
-                                                                    event,
-                                                                ) => {
-                                                                    event.stopPropagation();
-                                                                    setPreviewImageUrl(
-                                                                        template.cover_image_url ||
-                                                                            null,
-                                                                    );
-                                                                    setPreviewImageTitle(
-                                                                        primaryName,
-                                                                    );
-                                                                }}
-                                                                sx={{
-                                                                    flexShrink: 0,
-                                                                    background:
-                                                                        '#f8f9fa',
-                                                                    cursor: 'zoom-in',
-                                                                }}
-                                                                styles={{
-                                                                    image: {
-                                                                        objectFit:
-                                                                            'contain',
-                                                                    },
-                                                                }}
-                                                            />
-                                                        ) : null}
-                                                        <Box
-                                                            sx={{
-                                                                display: 'flex',
-                                                                flexDirection:
-                                                                    'column',
-                                                                alignItems:
-                                                                    'flex-start',
-                                                                gap: 2,
-                                                                minWidth: 0,
-                                                            }}
-                                                        >
-                                                            <Text
-                                                                size="sm"
-                                                                fw={500}
-                                                                title={
-                                                                    primaryName
-                                                                }
-                                                                sx={{
-                                                                    width: '100%',
-                                                                    maxWidth:
-                                                                        '100%',
-                                                                    overflow:
-                                                                        'hidden',
-                                                                    textOverflow:
-                                                                        'ellipsis',
-                                                                    whiteSpace:
-                                                                        'nowrap',
-                                                                }}
-                                                            >
-                                                                {primaryName}
-                                                            </Text>
-                                                            {secondaryName ? (
-                                                                <Text
-                                                                    size="11px"
-                                                                    color="dimmed"
-                                                                    title={
-                                                                        secondaryName
-                                                                    }
-                                                                    sx={{
-                                                                        width: '100%',
-                                                                        maxWidth:
-                                                                            '100%',
-                                                                        overflow:
-                                                                            'hidden',
-                                                                        textOverflow:
-                                                                            'ellipsis',
-                                                                        whiteSpace:
-                                                                            'nowrap',
-                                                                    }}
-                                                                >
-                                                                    {
-                                                                        secondaryName
-                                                                    }
-                                                                </Text>
-                                                            ) : null}
-                                                            {template.chart_type ? (
-                                                                <Text
-                                                                    size="11px"
-                                                                    color="dimmed"
-                                                                >
-                                                                    {
-                                                                        template.chart_type
-                                                                    }
-                                                                </Text>
-                                                            ) : null}
-                                                        </Box>
-                                                        <Group
-                                                            spacing={4}
-                                                            ml="auto"
-                                                            align="center"
-                                                            onClick={(
-                                                                event,
-                                                            ) => {
-                                                                event.stopPropagation();
-                                                            }}
-                                                        >
-                                                            <Button
-                                                                variant="subtle"
-                                                                size="xs"
-                                                                compact
-                                                                onClick={() => {
-                                                                    openTemplateDetailFromList(
-                                                                        templateId,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                {t(
-                                                                    'components_visualization_configs_custom_vis_template.view_template_detail',
-                                                                )}
-                                                            </Button>
-                                                            <Button
-                                                                variant="subtle"
-                                                                size="xs"
-                                                                compact
-                                                                onClick={() => {
-                                                                    void copyTemplateFromList(
-                                                                        templateId,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                {t(
-                                                                    'components_json_viewer_modal.copy',
-                                                                )}
-                                                            </Button>
-                                                        </Group>
-                                                    </Group>
-                                                </Box>
-                                            );
-                                        })
-                                    )}
-                                </Stack>
-                            </ScrollArea>
-                        </div>
-                    </Stack>
-                ) : modalStep === 'ai' ? (
-                    <Stack spacing="sm">
-                        {selectedCandidate ? (
-                            <Group spacing={6} noWrap>
-                                <Text
-                                    size="xs"
-                                    c={
-                                        selectedCandidate.valid
-                                            ? 'green.7'
-                                            : 'orange.8'
-                                    }
-                                    fw={500}
-                                >
-                                    {t(
-                                        selectedCandidate.valid
-                                            ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
-                                            : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                    )}
-                                </Text>
-                                <Text size="xs" c="dimmed" lineClamp={1}>
-                                    {selectedCandidateReasoningText}
-                                </Text>
-                            </Group>
-                        ) : null}
-                        {hasSelectionMetaDetails && selectionMetaTips ? (
-                            <Alert color="blue" variant="light" p="sm">
-                                <Stack spacing={4}>
-                                    {selectionMetaTips.mappingConfidence ? (
-                                        <Group spacing={6}>
-                                            <Text size="11px" c="dimmed">
-                                                映射置信度:
-                                            </Text>
-                                            <Badge
-                                                size="xs"
-                                                variant="light"
-                                                color={
-                                                    selectionMetaTips.mappingConfidence ===
-                                                    'high'
-                                                        ? 'green'
-                                                        : selectionMetaTips.mappingConfidence ===
-                                                            'medium'
-                                                          ? 'yellow'
-                                                          : 'orange'
-                                                }
-                                            >
-                                                {
-                                                    selectionMetaTips.mappingConfidence
-                                                }
-                                            </Badge>
-                                        </Group>
-                                    ) : null}
-                                    {selectionMetaTips.usedAiFallback ? (
-                                        <Text size="11px" c="dimmed">
-                                            - 已触发 AI 兜底选择
-                                        </Text>
-                                    ) : null}
-                                    {selectionMetaTips.ignoredDimensions
-                                        .length > 0 ? (
-                                        <Text size="11px" c="dimmed">
-                                            - 自动忽略维度:{' '}
-                                            {formatFieldList(
-                                                selectionMetaTips.ignoredDimensions,
-                                            ).join(', ')}
-                                        </Text>
-                                    ) : null}
-                                    {selectionMetaTips.ignoredMetrics.length >
-                                    0 ? (
-                                        <Text size="11px" c="dimmed">
-                                            - 自动忽略指标:{' '}
-                                            {formatFieldList(
-                                                selectionMetaTips.ignoredMetrics,
-                                            ).join(', ')}
-                                        </Text>
-                                    ) : null}
-                                    {selectionMetaTips.ambiguityReasons.map(
-                                        (reason, idx) => (
-                                            <Text
-                                                key={`ambiguity-reason-${idx}`}
-                                                size="11px"
-                                                c="dimmed"
-                                            >
-                                                - {reason}
-                                            </Text>
-                                        ),
-                                    )}
-                                </Stack>
-                            </Alert>
-                        ) : null}
-
-                        {aiCandidates.length === 0 ? (
-                            <Text size="sm" color="dimmed">
+                                    </Text>
+                                </Group>
+                            ) : null}
+                            <Text size="xs" color="dimmed">
                                 {t(
-                                    'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                                    'components_visualization_configs_custom_vis_template.selecting_new_template_will_reset_the_config',
                                 )}
                             </Text>
-                        ) : (
-                            <>
-                                {aiCandidates.length > 1 ? (
-                                    <Group spacing={6}>
-                                        {aiCandidates.map(
-                                            (candidate, index) => {
-                                                const isValid = candidate.valid;
-                                                const isSelected =
-                                                    index ===
-                                                    selectedCandidateIndex;
-                                                return (
-                                                    <Badge
-                                                        key={`${candidate.strategy}-${index}`}
-                                                        size="sm"
-                                                        radius="sm"
-                                                        variant={
-                                                            isSelected
-                                                                ? 'filled'
-                                                                : 'light'
-                                                        }
-                                                        color={
-                                                            isValid
-                                                                ? 'blue'
-                                                                : 'gray'
-                                                        }
-                                                        sx={{
-                                                            cursor: 'pointer',
-                                                            userSelect: 'none',
-                                                        }}
-                                                        onClick={() =>
-                                                            setSelectedCandidateIndex(
-                                                                index,
-                                                            )
-                                                        }
+                            {compatibilityTips ? (
+                                <Alert
+                                    color={
+                                        compatibilityTips.level === 'good'
+                                            ? 'green'
+                                            : 'yellow'
+                                    }
+                                    variant="light"
+                                    title={t(
+                                        'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                    )}
+                                    p="sm"
+                                >
+                                    <Box
+                                        sx={{
+                                            maxHeight: 96,
+                                            overflowY: 'auto',
+                                        }}
+                                    >
+                                        <Stack spacing={4}>
+                                            {compatibilityTips.reasons.map(
+                                                (reason, idx) => (
+                                                    <Text
+                                                        key={`compatibility-reason-${idx}`}
+                                                        size="11px"
+                                                        c="dimmed"
                                                     >
-                                                        {t(
-                                                            `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
-                                                        )}
-                                                    </Badge>
-                                                );
-                                            },
-                                        )}
-                                    </Group>
-                                ) : null}
+                                                        - {reason}
+                                                    </Text>
+                                                ),
+                                            )}
+                                            {compatibilityTips.suggestions.map(
+                                                (suggestion, idx) => (
+                                                    <Text
+                                                        key={`compatibility-suggestion-${idx}`}
+                                                        size="11px"
+                                                        c="dimmed"
+                                                    >
+                                                        - {suggestion}
+                                                    </Text>
+                                                ),
+                                            )}
+                                            {compatibilityTips.reasons
+                                                .length === 0 &&
+                                            compatibilityTips.suggestions
+                                                .length === 0 ? (
+                                                <Text size="11px" c="dimmed">
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                                                    )}
+                                                </Text>
+                                            ) : null}
+                                        </Stack>
+                                    </Box>
+                                </Alert>
+                            ) : null}
+                            <Select
+                                size="xs"
+                                value={selectedChartType}
+                                disabled={isGeneratingCandidates}
+                                onChange={(value) =>
+                                    updateSelectedChartType(value || 'all')
+                                }
+                                data={chartTypeOptions}
+                            />
 
-                                {selectedCandidate ? (
-                                    <Stack spacing={6}>
-                                        {!selectedCandidate.valid
-                                            ? (selectedCandidate.errors || [])
-                                                  .slice(0, 6)
-                                                  .map((error, idx) => (
-                                                      <Text
-                                                          key={`${error}-${idx}`}
-                                                          size="11px"
-                                                          c="dimmed"
-                                                      >
-                                                          - {error}
-                                                      </Text>
-                                                  ))
-                                            : null}
-                                        {selectedCandidate.frontendErrors
-                                            .length > 0 ? (
+                            <div
+                                style={{
+                                    display: 'block',
+                                }}
+                            >
+                                <ScrollArea
+                                    h={MODAL_SCROLL_HEIGHT}
+                                    offsetScrollbars
+                                    styles={{
+                                        viewport: {
+                                            paddingRight: 14,
+                                        },
+                                    }}
+                                >
+                                    <Stack spacing="xs">
+                                        {isTemplatesLoading ? (
+                                            <Loader color="gray" size="sm" />
+                                        ) : filteredTemplates.length === 0 ? (
+                                            <Text size="sm" color="dimmed">
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.no_templates_available',
+                                                )}
+                                            </Text>
+                                        ) : (
+                                            filteredTemplates.map(
+                                                (template) => {
+                                                    const templateId = String(
+                                                        template.id,
+                                                    );
+                                                    const selected =
+                                                        templateId ===
+                                                        selectedTemplateId;
+                                                    const {
+                                                        primaryName,
+                                                        secondaryName,
+                                                    } =
+                                                        getTemplateDisplayName(
+                                                            template,
+                                                        );
+                                                    return (
+                                                        <Box
+                                                            key={templateId}
+                                                            onClick={() => {
+                                                                if (
+                                                                    isGeneratingCandidates
+                                                                )
+                                                                    return;
+                                                                selectTemplateId(
+                                                                    templateId,
+                                                                );
+                                                            }}
+                                                            sx={(theme) => ({
+                                                                minHeight: 58,
+                                                                borderRadius:
+                                                                    theme.radius
+                                                                        .sm,
+                                                                border: `1px solid ${
+                                                                    selected
+                                                                        ? theme
+                                                                              .colors
+                                                                              .blue[5]
+                                                                        : theme
+                                                                              .colors
+                                                                              .gray[3]
+                                                                }`,
+                                                                backgroundColor:
+                                                                    selected
+                                                                        ? theme
+                                                                              .colors
+                                                                              .blue[0]
+                                                                        : theme.white,
+                                                                padding: 8,
+                                                                cursor: isGeneratingCandidates
+                                                                    ? 'default'
+                                                                    : 'pointer',
+                                                            })}
+                                                        >
+                                                            <Group
+                                                                spacing="xs"
+                                                                align="center"
+                                                                noWrap
+                                                                sx={{
+                                                                    width: '100%',
+                                                                }}
+                                                            >
+                                                                {template.cover_image_url ? (
+                                                                    <Image
+                                                                        src={
+                                                                            template.cover_image_url
+                                                                        }
+                                                                        width={
+                                                                            52
+                                                                        }
+                                                                        height={
+                                                                            52
+                                                                        }
+                                                                        radius="xs"
+                                                                        withPlaceholder
+                                                                        alt={
+                                                                            primaryName
+                                                                        }
+                                                                        onClick={(
+                                                                            event,
+                                                                        ) => {
+                                                                            event.stopPropagation();
+                                                                            setPreviewImageUrl(
+                                                                                template.cover_image_url ||
+                                                                                    null,
+                                                                            );
+                                                                            setPreviewImageTitle(
+                                                                                primaryName,
+                                                                            );
+                                                                        }}
+                                                                        sx={{
+                                                                            flexShrink: 0,
+                                                                            background:
+                                                                                '#f8f9fa',
+                                                                            cursor: 'zoom-in',
+                                                                        }}
+                                                                        styles={{
+                                                                            image: {
+                                                                                objectFit:
+                                                                                    'contain',
+                                                                            },
+                                                                        }}
+                                                                    />
+                                                                ) : null}
+                                                                <Box
+                                                                    sx={{
+                                                                        display:
+                                                                            'flex',
+                                                                        flexDirection:
+                                                                            'column',
+                                                                        alignItems:
+                                                                            'flex-start',
+                                                                        gap: 2,
+                                                                        minWidth: 0,
+                                                                    }}
+                                                                >
+                                                                    <Text
+                                                                        size="sm"
+                                                                        fw={500}
+                                                                        title={
+                                                                            primaryName
+                                                                        }
+                                                                        sx={{
+                                                                            width: '100%',
+                                                                            maxWidth:
+                                                                                '100%',
+                                                                            overflow:
+                                                                                'hidden',
+                                                                            textOverflow:
+                                                                                'ellipsis',
+                                                                            whiteSpace:
+                                                                                'nowrap',
+                                                                        }}
+                                                                    >
+                                                                        {
+                                                                            primaryName
+                                                                        }
+                                                                    </Text>
+                                                                    {secondaryName ? (
+                                                                        <Text
+                                                                            size="11px"
+                                                                            color="dimmed"
+                                                                            title={
+                                                                                secondaryName
+                                                                            }
+                                                                            sx={{
+                                                                                width: '100%',
+                                                                                maxWidth:
+                                                                                    '100%',
+                                                                                overflow:
+                                                                                    'hidden',
+                                                                                textOverflow:
+                                                                                    'ellipsis',
+                                                                                whiteSpace:
+                                                                                    'nowrap',
+                                                                            }}
+                                                                        >
+                                                                            {
+                                                                                secondaryName
+                                                                            }
+                                                                        </Text>
+                                                                    ) : null}
+                                                                    {template.chart_type ? (
+                                                                        <Text
+                                                                            size="11px"
+                                                                            color="dimmed"
+                                                                        >
+                                                                            {
+                                                                                template.chart_type
+                                                                            }
+                                                                        </Text>
+                                                                    ) : null}
+                                                                </Box>
+                                                                <Group
+                                                                    spacing={4}
+                                                                    ml="auto"
+                                                                    align="center"
+                                                                    onClick={(
+                                                                        event,
+                                                                    ) => {
+                                                                        event.stopPropagation();
+                                                                    }}
+                                                                >
+                                                                    <Button
+                                                                        variant="subtle"
+                                                                        size="xs"
+                                                                        compact
+                                                                        disabled={
+                                                                            isGeneratingCandidates
+                                                                        }
+                                                                        onClick={() => {
+                                                                            openTemplateDetailFromList(
+                                                                                templateId,
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        {t(
+                                                                            'components_visualization_configs_custom_vis_template.view_template_detail',
+                                                                        )}
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="subtle"
+                                                                        size="xs"
+                                                                        compact
+                                                                        disabled={
+                                                                            isGeneratingCandidates
+                                                                        }
+                                                                        onClick={() => {
+                                                                            void copyTemplateFromList(
+                                                                                templateId,
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        {t(
+                                                                            'components_json_viewer_modal.copy',
+                                                                        )}
+                                                                    </Button>
+                                                                </Group>
+                                                            </Group>
+                                                        </Box>
+                                                    );
+                                                },
+                                            )
+                                        )}
+                                    </Stack>
+                                </ScrollArea>
+                            </div>
+                        </Stack>
+                    ) : modalStep === 'ai' ? (
+                        <Stack spacing="sm">
+                            {isGeneratingCandidates ? (
+                                <Group spacing={6}>
+                                    <Loader size="xs" color="blue" />
+                                    <Text size="xs" c="dimmed">
+                                        {t(
+                                            'components_visualization_configs_custom_vis_template.ai_generating',
+                                        )}
+                                    </Text>
+                                </Group>
+                            ) : null}
+                            {selectedCandidate ? (
+                                <Group spacing={6} noWrap>
+                                    <Text
+                                        size="xs"
+                                        c={
+                                            selectedCandidate.valid
+                                                ? 'green.7'
+                                                : 'orange.8'
+                                        }
+                                        fw={500}
+                                    >
+                                        {t(
+                                            selectedCandidate.valid
+                                                ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
+                                                : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                        )}
+                                    </Text>
+                                    <Text size="xs" c="dimmed" lineClamp={1}>
+                                        {selectedCandidateReasoningText}
+                                    </Text>
+                                </Group>
+                            ) : null}
+                            {hasSelectionMetaDetails && selectionMetaTips ? (
+                                <Alert color="blue" variant="light" p="sm">
+                                    <Stack spacing={4}>
+                                        {selectionMetaTips.mappingConfidence ? (
+                                            <Group spacing={6}>
+                                                <Text size="11px" c="dimmed">
+                                                    映射置信度:
+                                                </Text>
+                                                <Badge
+                                                    size="xs"
+                                                    variant="light"
+                                                    color={
+                                                        selectionMetaTips.mappingConfidence ===
+                                                        'high'
+                                                            ? 'green'
+                                                            : selectionMetaTips.mappingConfidence ===
+                                                                'medium'
+                                                              ? 'yellow'
+                                                              : 'orange'
+                                                    }
+                                                >
+                                                    {
+                                                        selectionMetaTips.mappingConfidence
+                                                    }
+                                                </Badge>
+                                            </Group>
+                                        ) : null}
+                                        {selectionMetaTips.usedAiFallback ? (
                                             <Text size="11px" c="dimmed">
-                                                {
-                                                    selectedCandidate
-                                                        .frontendErrors[0]
-                                                }
+                                                - 已触发 AI 兜底选择
                                             </Text>
                                         ) : null}
+                                        {selectionMetaTips.aiCandidateMetrics
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                - 候选指标:{' '}
+                                                {formatFieldList(
+                                                    selectionMetaTips.aiCandidateMetrics,
+                                                ).join(', ')}
+                                            </Text>
+                                        ) : null}
+                                        {selectionMetaTips.chosenMetrics
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                - 最终采用指标:{' '}
+                                                {formatFieldList(
+                                                    selectionMetaTips.chosenMetrics,
+                                                ).join(', ')}
+                                            </Text>
+                                        ) : null}
+                                        {selectionMetaTips.chosenDimensions
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                - 最终采用维度:{' '}
+                                                {formatFieldList(
+                                                    selectionMetaTips.chosenDimensions,
+                                                ).join(', ')}
+                                            </Text>
+                                        ) : null}
+                                        {selectionMetaTips.ignoredDimensions
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                - 自动忽略维度:{' '}
+                                                {formatFieldList(
+                                                    selectionMetaTips.ignoredDimensions,
+                                                ).join(', ')}
+                                            </Text>
+                                        ) : null}
+                                        {selectionMetaTips.ignoredMetrics
+                                            .length > 0 ? (
+                                            <Text size="11px" c="dimmed">
+                                                - 自动忽略指标:{' '}
+                                                {formatFieldList(
+                                                    selectionMetaTips.ignoredMetrics,
+                                                ).join(', ')}
+                                            </Text>
+                                        ) : null}
+                                        {selectionMetaTips.ambiguityReasons.map(
+                                            (reason, idx) => (
+                                                <Text
+                                                    key={`ambiguity-reason-${idx}`}
+                                                    size="11px"
+                                                    c="dimmed"
+                                                >
+                                                    -{' '}
+                                                    {reason.includes(
+                                                        '候选指标数量超出模板可承载槽位',
+                                                    ) &&
+                                                    selectionMetaTips
+                                                        .chosenMetrics.length >
+                                                        0
+                                                        ? `${reason}（当前采用: ${formatFieldList(selectionMetaTips.chosenMetrics).join(', ')}）`
+                                                        : reason}
+                                                </Text>
+                                            ),
+                                        )}
+                                    </Stack>
+                                </Alert>
+                            ) : null}
 
+                            {aiCandidates.length === 0 ? (
+                                <Text size="sm" color="dimmed">
+                                    {t(
+                                        'components_visualization_configs_custom_vis_template.ai_no_candidates',
+                                    )}
+                                </Text>
+                            ) : (
+                                <>
+                                    {aiCandidates.length > 1 ? (
+                                        <Group spacing={6}>
+                                            {aiCandidates.map(
+                                                (candidate, index) => {
+                                                    const isValid =
+                                                        candidate.valid;
+                                                    const isSelected =
+                                                        index ===
+                                                        selectedCandidateIndex;
+                                                    return (
+                                                        <Badge
+                                                            key={`${candidate.strategy}-${index}`}
+                                                            size="sm"
+                                                            radius="sm"
+                                                            variant={
+                                                                isSelected
+                                                                    ? 'filled'
+                                                                    : 'light'
+                                                            }
+                                                            color={
+                                                                isValid
+                                                                    ? 'blue'
+                                                                    : 'gray'
+                                                            }
+                                                            sx={{
+                                                                cursor: isGeneratingCandidates
+                                                                    ? 'default'
+                                                                    : 'pointer',
+                                                                userSelect:
+                                                                    'none',
+                                                            }}
+                                                            onClick={() =>
+                                                                !isGeneratingCandidates
+                                                                    ? setSelectedCandidateIndex(
+                                                                          index,
+                                                                      )
+                                                                    : undefined
+                                                            }
+                                                        >
+                                                            {t(
+                                                                `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
+                                                            )}
+                                                        </Badge>
+                                                    );
+                                                },
+                                            )}
+                                        </Group>
+                                    ) : null}
+
+                                    {selectedCandidate ? (
+                                        <Stack spacing={6}>
+                                            {!selectedCandidate.valid
+                                                ? (
+                                                      selectedCandidate.errors ||
+                                                      []
+                                                  )
+                                                      .slice(0, 6)
+                                                      .map((error, idx) => (
+                                                          <Text
+                                                              key={`${error}-${idx}`}
+                                                              size="11px"
+                                                              c="dimmed"
+                                                          >
+                                                              - {error}
+                                                          </Text>
+                                                      ))
+                                                : null}
+                                            {selectedCandidate.frontendErrors
+                                                .length > 0 ? (
+                                                <Text size="11px" c="dimmed">
+                                                    {
+                                                        selectedCandidate
+                                                            .frontendErrors[0]
+                                                    }
+                                                </Text>
+                                            ) : null}
+
+                                            <Group spacing={4}>
+                                                <Button
+                                                    variant="light"
+                                                    color="gray"
+                                                    size="sm"
+                                                    fz="xs"
+                                                    onClick={() =>
+                                                        setIsSpecPreviewOpen(
+                                                            true,
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        !selectedCandidateSpecString
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.view_template_json',
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    variant="light"
+                                                    color="gray"
+                                                    size="sm"
+                                                    fz="xs"
+                                                    onClick={copyTemplateSpec}
+                                                    disabled={
+                                                        !selectedCandidateSpecString
+                                                    }
+                                                >
+                                                    {clipboard.copied
+                                                        ? t(
+                                                              'components_json_viewer_modal.copied',
+                                                          )
+                                                        : t(
+                                                              'components_json_viewer_modal.copy',
+                                                          )}
+                                                </Button>
+                                                <Button
+                                                    variant="light"
+                                                    color="blue"
+                                                    size="sm"
+                                                    fz="xs"
+                                                    onClick={() => {
+                                                        void generateAiCandidates();
+                                                    }}
+                                                    disabled={
+                                                        isGeneratingCandidates
+                                                    }
+                                                    loading={
+                                                        isGeneratingCandidates
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.ai_regenerate',
+                                                    )}
+                                                </Button>
+                                            </Group>
+                                        </Stack>
+                                    ) : null}
+                                </>
+                            )}
+                        </Stack>
+                    ) : (
+                        <Stack spacing="sm">
+                            <Text size="xs" color="dimmed">
+                                {t(
+                                    'components_visualization_configs_custom_vis_template.field_mapping_title',
+                                )}
+                            </Text>
+                            {templateFieldRefs.length === 0 ? (
+                                <Text size="sm" color="dimmed">
+                                    {t(
+                                        'components_visualization_configs_custom_vis_template.no_template_fields_required',
+                                    )}
+                                </Text>
+                            ) : (
+                                <>
+                                    <Group position="apart" align="center">
+                                        <Text size="xs" color="dimmed">
+                                            {t(
+                                                'components_visualization_configs_custom_vis_template.mapping_progress',
+                                                {
+                                                    mapped: mappedRequiredCount,
+                                                    total: requiredCount,
+                                                },
+                                            )}
+                                        </Text>
                                         <Group spacing={4}>
                                             <Button
                                                 variant="light"
@@ -1105,7 +1400,7 @@ export const SelectTemplate = ({
                                                     setIsSpecPreviewOpen(true)
                                                 }
                                                 disabled={
-                                                    !selectedCandidateSpecString
+                                                    !selectedTemplateSpecString
                                                 }
                                             >
                                                 {t(
@@ -1119,7 +1414,7 @@ export const SelectTemplate = ({
                                                 fz="xs"
                                                 onClick={copyTemplateSpec}
                                                 disabled={
-                                                    !selectedCandidateSpecString
+                                                    !selectedTemplateSpecString
                                                 }
                                             >
                                                 {clipboard.copied
@@ -1130,199 +1425,124 @@ export const SelectTemplate = ({
                                                           'components_json_viewer_modal.copy',
                                                       )}
                                             </Button>
-                                            <Button
-                                                variant="light"
-                                                color="blue"
-                                                size="sm"
-                                                fz="xs"
-                                                onClick={() => {
-                                                    void generateAiCandidates();
-                                                }}
-                                                loading={isGeneratingCandidates}
-                                            >
-                                                {t(
-                                                    'components_visualization_configs_custom_vis_template.ai_regenerate',
-                                                )}
-                                            </Button>
                                         </Group>
-                                    </Stack>
-                                ) : null}
-                            </>
-                        )}
-                    </Stack>
-                ) : (
-                    <Stack spacing="sm">
-                        <Text size="xs" color="dimmed">
-                            {t(
-                                'components_visualization_configs_custom_vis_template.field_mapping_title',
-                            )}
-                        </Text>
-                        {templateFieldRefs.length === 0 ? (
-                            <Text size="sm" color="dimmed">
-                                {t(
-                                    'components_visualization_configs_custom_vis_template.no_template_fields_required',
-                                )}
-                            </Text>
-                        ) : (
-                            <>
-                                <Group position="apart" align="center">
-                                    <Text size="xs" color="dimmed">
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.mapping_progress',
-                                            {
-                                                mapped: mappedRequiredCount,
-                                                total: requiredCount,
-                                            },
-                                        )}
-                                    </Text>
-                                    <Group spacing={4}>
-                                        <Button
-                                            variant="light"
-                                            color="gray"
-                                            size="sm"
-                                            fz="xs"
-                                            onClick={() =>
-                                                setIsSpecPreviewOpen(true)
-                                            }
-                                            disabled={
-                                                !selectedTemplateSpecString
-                                            }
-                                        >
-                                            {t(
-                                                'components_visualization_configs_custom_vis_template.view_template_json',
-                                            )}
-                                        </Button>
-                                        <Button
-                                            variant="light"
-                                            color="gray"
-                                            size="sm"
-                                            fz="xs"
-                                            onClick={copyTemplateSpec}
-                                            disabled={
-                                                !selectedTemplateSpecString
-                                            }
-                                        >
-                                            {clipboard.copied
-                                                ? t(
-                                                      'components_json_viewer_modal.copied',
-                                                  )
-                                                : t(
-                                                      'components_json_viewer_modal.copy',
-                                                  )}
-                                        </Button>
                                     </Group>
-                                </Group>
-                                {unresolvedRequiredFields.length > 0 && (
-                                    <Text size="xs" c="orange.8">
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.field_mapping_unresolved',
-                                            {
-                                                count: unresolvedRequiredFields.length,
+                                    {unresolvedRequiredFields.length > 0 && (
+                                        <Text size="xs" c="orange.8">
+                                            {t(
+                                                'components_visualization_configs_custom_vis_template.field_mapping_unresolved',
+                                                {
+                                                    count: unresolvedRequiredFields.length,
+                                                },
+                                            )}
+                                        </Text>
+                                    )}
+                                    {unresolvedOptionalFields.length > 0 && (
+                                        <Text size="xs" color="dimmed">
+                                            {t(
+                                                'components_visualization_configs_custom_vis_template.field_mapping_optional_unresolved',
+                                                {
+                                                    count: unresolvedOptionalFields.length,
+                                                },
+                                            )}
+                                        </Text>
+                                    )}
+                                    <Divider />
+                                    <ScrollArea
+                                        h={MODAL_SCROLL_HEIGHT}
+                                        offsetScrollbars
+                                        styles={{
+                                            viewport: {
+                                                paddingRight: 14,
                                             },
-                                        )}
-                                    </Text>
-                                )}
-                                {unresolvedOptionalFields.length > 0 && (
-                                    <Text size="xs" color="dimmed">
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.field_mapping_optional_unresolved',
-                                            {
-                                                count: unresolvedOptionalFields.length,
-                                            },
-                                        )}
-                                    </Text>
-                                )}
-                                <Divider />
-                                <ScrollArea
-                                    h={MODAL_SCROLL_HEIGHT}
-                                    offsetScrollbars
-                                    styles={{
-                                        viewport: {
-                                            paddingRight: 14,
-                                        },
-                                    }}
-                                >
-                                    <Stack spacing="xs">
-                                        {templateFieldRefs.map(
-                                            (templateField) => (
-                                                <Group
-                                                    key={templateField.field}
-                                                    align="flex-end"
-                                                    grow
-                                                >
-                                                    <Box>
-                                                        <Text
-                                                            size="xs"
-                                                            fw={500}
-                                                        >
-                                                            {
-                                                                templateField.field
-                                                            }
-                                                        </Text>
-                                                        <Text
-                                                            size="11px"
-                                                            color={
-                                                                fieldMappings[
+                                        }}
+                                    >
+                                        <Stack spacing="xs">
+                                            {templateFieldRefs.map(
+                                                (templateField) => (
+                                                    <Group
+                                                        key={
+                                                            templateField.field
+                                                        }
+                                                        align="flex-end"
+                                                        grow
+                                                    >
+                                                        <Box>
+                                                            <Text
+                                                                size="xs"
+                                                                fw={500}
+                                                            >
+                                                                {
+                                                                    templateField.field
+                                                                }
+                                                            </Text>
+                                                            <Text
+                                                                size="11px"
+                                                                color={
+                                                                    fieldMappings[
+                                                                        templateField
+                                                                            .field
+                                                                    ]
+                                                                        ? 'dimmed'
+                                                                        : templateField.required
+                                                                          ? 'orange.8'
+                                                                          : 'dimmed'
+                                                                }
+                                                            >
+                                                                {fieldMappings[
                                                                     templateField
                                                                         .field
                                                                 ]
-                                                                    ? 'dimmed'
+                                                                    ? t(
+                                                                          'components_visualization_configs_custom_vis_template.field_mapping_required',
+                                                                      )
                                                                     : templateField.required
-                                                                      ? 'orange.8'
-                                                                      : 'dimmed'
+                                                                      ? t(
+                                                                            'components_visualization_configs_custom_vis_template.field_mapping_unresolved_single',
+                                                                        )
+                                                                      : t(
+                                                                            'components_visualization_configs_custom_vis_template.field_mapping_optional',
+                                                                        )}
+                                                            </Text>
+                                                        </Box>
+                                                        <Select
+                                                            searchable
+                                                            clearable
+                                                            data={
+                                                                mappingFieldOptions
                                                             }
-                                                        >
-                                                            {fieldMappings[
-                                                                templateField
-                                                                    .field
-                                                            ]
-                                                                ? t(
-                                                                      'components_visualization_configs_custom_vis_template.field_mapping_required',
-                                                                  )
-                                                                : templateField.required
-                                                                  ? t(
-                                                                        'components_visualization_configs_custom_vis_template.field_mapping_unresolved_single',
-                                                                    )
-                                                                  : t(
-                                                                        'components_visualization_configs_custom_vis_template.field_mapping_optional',
-                                                                    )}
-                                                        </Text>
-                                                    </Box>
-                                                    <Select
-                                                        searchable
-                                                        clearable
-                                                        data={
-                                                            mappingFieldOptions
-                                                        }
-                                                        value={
-                                                            fieldMappings[
-                                                                templateField
-                                                                    .field
-                                                            ] ?? null
-                                                        }
-                                                        onChange={(value) =>
-                                                            setFieldMappings(
-                                                                (previous) => ({
-                                                                    ...previous,
-                                                                    [templateField.field]:
-                                                                        value ??
-                                                                        null,
-                                                                }),
-                                                            )
-                                                        }
-                                                        placeholder={t(
-                                                            'components_visualization_configs_custom_vis_template.field_mapping_select_placeholder',
-                                                        )}
-                                                    />
-                                                </Group>
-                                            ),
-                                        )}
-                                    </Stack>
-                                </ScrollArea>
-                            </>
-                        )}
-                    </Stack>
-                )}
+                                                            value={
+                                                                fieldMappings[
+                                                                    templateField
+                                                                        .field
+                                                                ] ?? null
+                                                            }
+                                                            onChange={(value) =>
+                                                                setFieldMappings(
+                                                                    (
+                                                                        previous,
+                                                                    ) => ({
+                                                                        ...previous,
+                                                                        [templateField.field]:
+                                                                            value ??
+                                                                            null,
+                                                                    }),
+                                                                )
+                                                            }
+                                                            placeholder={t(
+                                                                'components_visualization_configs_custom_vis_template.field_mapping_select_placeholder',
+                                                            )}
+                                                        />
+                                                    </Group>
+                                                ),
+                                            )}
+                                        </Stack>
+                                    </ScrollArea>
+                                </>
+                            )}
+                        </Stack>
+                    )}
+                </Box>
             </MantineModal>
 
             <Button

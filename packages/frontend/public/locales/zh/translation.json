@@ -5152,7 +5152,7 @@
     },
     "components_visualization_configs_custom_vis_template": {
         "selecting_new_template_will_reset_the_config": "选择新模板将重置配置。使用 \"ctrl+z\" 撤消。",
-        "insert_template": "插入模板",
+        "insert_template": "选择模板",
         "view_template_detail": "查看详情",
         "all_chart_types": "全部图表类型",
         "cancel": "取消",

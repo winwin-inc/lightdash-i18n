@@ -5155,7 +5155,7 @@
     },
     "components_visualization_configs_custom_vis_template": {
         "selecting_new_template_will_reset_the_config": "Selecting a new template will reset the config. Use \"ctrl+z\" to undo.",
-        "insert_template": "Insert template",
+        "insert_template": "Select template",
         "view_template_detail": "View details",
         "all_chart_types": "All chart types",
         "cancel": "Cancel",

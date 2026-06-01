@@ -33,11 +33,19 @@ export type GenerateChartTemplateCandidatesResponse = {
         selectionMeta?: {
             chosenDimensions?: string[];
             chosenMetrics?: string[];
+            aiCandidateDimensions?: string[];
+            aiCandidateMetrics?: string[];
             ignoredDimensions?: string[];
             ignoredMetrics?: string[];
             mappingConfidence?: 'high' | 'medium' | 'low';
             usedAiFallback?: boolean;
+            aiPrimaryUsed?: boolean;
+            aiConfidence?: 'high' | 'medium' | 'low' | null;
+            fieldBindings?: Record<string, string>;
+            bindingSource?: string;
+            aiFallbackReason?: string;
             ambiguityReasons?: string[];
+            reasoningTags?: string[];
         };
         candidates: Array<{
             strategy: 'primary' | 'secondary' | 'conservative';

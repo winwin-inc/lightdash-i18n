@@ -51,14 +51,24 @@ export type GeneratedTemplateCompatibility = {
 export type GeneratedTemplateSelectionMeta = {
     chosenDimensions: string[];
     chosenMetrics: string[];
+    aiCandidateDimensions: string[];
+    aiCandidateMetrics: string[];
     ignoredDimensions: string[];
     ignoredMetrics: string[];
     mappingConfidence: 'high' | 'medium' | 'low' | null;
     usedAiFallback: boolean;
+    aiPrimaryUsed: boolean;
+    aiConfidence: 'high' | 'medium' | 'low' | null;
+    fieldBindings: Record<string, string>;
+    bindingSource: string | null;
+    aiFallbackReason: string | null;
     ambiguityReasons: string[];
+    reasoningTags: string[];
 };
 
 export type GenerateChartTemplateCandidatesResponse = {
+    success: boolean;
+    msg: string | null;
     templateId: number;
     model: string;
     renderable: boolean;
@@ -212,16 +222,43 @@ const normalizeGeneratedCandidates = (
         return {
             chosenDimensions: normalizeStringList(input.chosenDimensions),
             chosenMetrics: normalizeStringList(input.chosenMetrics),
+            aiCandidateDimensions: normalizeStringList(
+                input.aiCandidateDimensions,
+            ),
+            aiCandidateMetrics: normalizeStringList(input.aiCandidateMetrics),
             ignoredDimensions: normalizeStringList(input.ignoredDimensions),
             ignoredMetrics: normalizeStringList(input.ignoredMetrics),
             mappingConfidence,
             usedAiFallback: Boolean(input.usedAiFallback),
+            aiPrimaryUsed: Boolean(input.aiPrimaryUsed),
+            aiConfidence:
+                input.aiConfidence === 'high' ||
+                input.aiConfidence === 'medium' ||
+                input.aiConfidence === 'low'
+                    ? input.aiConfidence
+                    : null,
+            fieldBindings: isRecord(input.fieldBindings)
+                ? (input.fieldBindings as Record<string, string>)
+                : {},
+            bindingSource:
+                typeof input.bindingSource === 'string'
+                    ? input.bindingSource
+                    : null,
+            aiFallbackReason:
+                typeof input.aiFallbackReason === 'string'
+                    ? input.aiFallbackReason
+                    : null,
             ambiguityReasons: normalizeStringList(input.ambiguityReasons),
+            reasoningTags: normalizeStringList(input.reasoningTags),
         };
     };
 
     const normalizeGenerateData = (
         value: unknown,
+        meta?: {
+            success?: boolean;
+            msg?: string | null;
+        },
     ): GenerateChartTemplateCandidatesResponse | null => {
         if (!isRecord(value)) {
             return null;
@@ -234,6 +271,8 @@ const normalizeGeneratedCandidates = (
                 : candidates.length > 0;
 
         return {
+            success: meta?.success ?? true,
+            msg: meta?.msg ?? null,
             templateId:
                 typeof value.templateId === 'number' ? value.templateId : -1,
             model: typeof value.model === 'string' ? value.model : '',
@@ -245,12 +284,44 @@ const normalizeGeneratedCandidates = (
         };
     };
 
-    if (
-        isRecord(response) &&
-        typeof response.success === 'boolean' &&
-        isRecord(response.data)
-    ) {
-        return normalizeGenerateData(response.data);
+    const buildFailureResponse = (msg?: unknown) => {
+        const normalizedMsg = typeof msg === 'string' ? msg : null;
+        return {
+            success: false,
+            msg: normalizedMsg,
+            templateId: -1,
+            model: '',
+            renderable: false,
+            usedFallback: false,
+            compatibility: {
+                isReasonable: false,
+                level: 'warning',
+                reasons: normalizedMsg ? [normalizedMsg] : [],
+                suggestions: [],
+            },
+            selectionMeta: null,
+            candidates: [],
+        } as GenerateChartTemplateCandidatesResponse;
+    };
+
+    if (isRecord(response) && typeof response.success === 'boolean') {
+        if (!response.success) {
+            return buildFailureResponse(response.msg ?? response.message);
+        }
+
+        if (isRecord(response.data)) {
+            return normalizeGenerateData(response.data, {
+                success: true,
+                msg:
+                    typeof response.msg === 'string'
+                        ? response.msg
+                        : typeof response.message === 'string'
+                          ? response.message
+                          : null,
+            });
+        }
+
+        return buildFailureResponse(response.msg ?? response.message);
     }
 
     if (isRecord(response) && isRecord(response.results)) {
