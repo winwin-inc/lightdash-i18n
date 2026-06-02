@@ -10,8 +10,10 @@
 |------|------------|
 | `get_site_info` | 看当前 MCP 连的 **站点根地址**（`siteBaseUrl`），不要自己猜域名。 |
 | `list_projects` | 不知道当前该选哪个项目时，先看有权限的项目列表。 |
+| `list_spaces` | 看当前项目下有哪些**空间（文件夹）**（层级浏览）。 |
+| `list_dashboards` | 已知 **spaceUuid** 时，列出该空间下全部看板（层级浏览，非关键词搜索）。 |
+| `list_charts` | 已知 **dashboardUuid** 时，列出看板内已保存图表磁贴（层级浏览）。 |
 | `find_content` / `find_charts` / `find_dashboards` / `find_spaces` | 按关键词找**看板、已保存图表、空间**；结果里带 **`webUrl`**。已知类型时用 `find_charts` 等；不确定时用 `find_content` 混合搜。 |
-| `list_spaces` | 看当前项目下有哪些**空间（文件夹）**。 |
 | `get_saved_chart` | 已知道图表 ID，想看**名称、参数怎么填、用的哪个数据主题**。 |
 | `run_saved_chart` | 跑**已保存图表**出数；用 `parameters` 改筛选（如年份）；`limit` 会按环境自动封顶。 |
 | `list_explores` | 列的是**数据主题（模型）**，不是已保存图表名。 |
@@ -24,9 +26,10 @@
 
 ## 2. 典型用法（口语化）
 
-1. **找东西**：`list_projects`（若需要）→ `find_charts` / `find_content` 搜「销售」「驾驶舱」等。  
-2. **跑一张现成的图**：`find_charts` 或 `find_content` 得到 `chartUuid` → 可先 `get_saved_chart` 看参数 → `run_saved_chart`。  
-3. **自己从数据里拖维度/指标**：`list_explores` → `find_fields` → `run_metric_query`。
+1. **层级浏览**：`list_projects`（若需要）→ `set_project` → `list_spaces` → `list_dashboards(spaceUuid)` → `list_charts(dashboardUuid)`。  
+2. **关键词搜索**：`find_charts` / `find_dashboards` / `find_content` 搜「销售」「驾驶舱」等。  
+3. **跑一张现成的图**：`find_charts` 或 `list_charts` 得到 `chartUuid` → 可先 `get_saved_chart` 看参数 → `run_saved_chart`。  
+4. **自己从数据里拖维度/指标**：`list_explores` → `find_fields` → `run_metric_query`（或 Explorer 底部复制 Metric Query JSON）。
 
 ---
 

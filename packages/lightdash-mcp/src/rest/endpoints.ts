@@ -58,6 +58,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         options: {
             search?: string;
             contentTypes?: string[];
+            spaceUuids?: string[];
             page?: number;
             pageSize?: number;
         },
@@ -66,6 +67,9 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         if (options.search) params.set('search', options.search);
         if (options.contentTypes?.length) {
             options.contentTypes.forEach((t) => params.append('contentTypes', t));
+        }
+        if (options.spaceUuids?.length) {
+            options.spaceUuids.forEach((id) => params.append('spaceUuids', id));
         }
         if (options.page) params.set('page', String(options.page));
         if (options.pageSize) params.set('pageSize', String(options.pageSize));

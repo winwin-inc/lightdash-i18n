@@ -4,7 +4,7 @@ import { buildAccount } from '../../auth/account/account.mock';
 import { jwtAuthMiddleware } from './jwtAuthMiddleware';
 
 describe('Embed Auth Middleware', () => {
-    let mockRequest: Partial<express.Request>;
+    let mockRequest: Partial<express.Request> & { path?: string };
     let mockResponse: Partial<express.Response>;
     let mockNext: jest.Mock;
 

@@ -1,13 +1,29 @@
 import { subject } from '@casl/ability';
-import { ActionIcon, CopyButton, Skeleton, Tooltip } from '@mantine/core';
+import {
+    ActionIcon,
+    CopyButton,
+    Group,
+    SegmentedControl,
+    Skeleton,
+    Tooltip,
+} from '@mantine/core';
 import { useHover } from '@mantine/hooks';
 import { IconCheck, IconClipboard } from '@tabler/icons-react';
-import { lazy, memo, Suspense, useCallback, type FC } from 'react';
+import {
+    lazy,
+    memo,
+    Suspense,
+    useCallback,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
     selectIsSqlExpanded,
+    selectMetricQuery,
     selectTableName,
     useExplorerDispatch,
     useExplorerSelector,
@@ -24,22 +40,29 @@ interface SqlCardProps {
     projectUuid: string;
 }
 
-// Lazy load because it imports heavy module "@monaco-editor/react"
+type QueryView = 'sql' | 'metricQuery';
+
 const LazyRenderedSql = lazy(() =>
     import('../../RenderedSql').then((module) => ({
         default: module.RenderedSql,
     })),
 );
 
+const LazyRenderedMetricQuery = lazy(() =>
+    import('../../RenderedMetricQuery').then((module) => ({
+        default: module.RenderedMetricQuery,
+    })),
+);
+
 const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const { t } = useTranslation();
-
     const { hovered, ref: headingRef } = useHover();
+    const [queryView, setQueryView] = useState<QueryView>('sql');
 
     const sqlIsOpen = useExplorerSelector(selectIsSqlExpanded);
     const dispatch = useExplorerDispatch();
-
-    const unsavedChartVersionTableName = useExplorerSelector(selectTableName);
+    const tableName = useExplorerSelector(selectTableName);
+    const metricQuery = useExplorerSelector(selectMetricQuery);
 
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {
@@ -50,41 +73,81 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const { user } = useApp();
 
     const { data, isSuccess } = useCompiledSql({
-        enabled: !!unsavedChartVersionTableName,
+        enabled: !!tableName && queryView === 'sql',
     });
+
+    const metricQueryJson = useMemo(() => {
+        if (!tableName) return '';
+        return JSON.stringify(metricQuery, null, 2);
+    }, [metricQuery, tableName]);
+
+    const copyValue =
+        queryView === 'sql' ? (data?.query ?? '') : metricQueryJson;
+
+    const canCopy =
+        queryView === 'sql'
+            ? !!(data && isSuccess && data.query)
+            : metricQueryJson.length > 0;
+
+    const copyLabel =
+        queryView === 'sql'
+            ? t('components_explorer_sql_card.copy_sql')
+            : t('components_explorer_sql_card.copy_metric_query');
+
     return (
         <CollapsableCard
             isVisualizationCard
             headingRef={headingRef}
-            title="SQL"
+            title={t('components_explorer_sql_card.query_title')}
             isOpen={sqlIsOpen}
             onToggle={() => toggleExpandedSection(ExplorerSection.SQL)}
-            disabled={!unsavedChartVersionTableName}
+            disabled={!tableName}
             headerElement={
-                (hovered || sqlIsOpen) && data && isSuccess ? (
-                    <CopyButton value={data.query} timeout={2000}>
-                        {({ copied, copy }) => (
-                            <Tooltip
-                                variant="xs"
-                                label={
-                                    copied
-                                        ? t(
-                                              'components_explorer_sql_card.copied_to_clipboard',
-                                          )
-                                        : t(
-                                              'components_explorer_sql_card.copy_sql',
-                                          )
-                                }
-                                withArrow
-                                position="right"
-                                color={copied ? 'green' : 'dark'}
-                                fw={500}
-                            >
-                                <ActionIcon
-                                    color={copied ? 'teal' : 'gray'}
-                                    onClick={copy}
+                <Group spacing="xs">
+                    {sqlIsOpen ? (
+                        <SegmentedControl
+                            size="xs"
+                            value={queryView}
+                            onChange={(value) =>
+                                setQueryView(value as QueryView)
+                            }
+                            data={[
+                                {
+                                    label: t(
+                                        'components_explorer_sql_card.tab_sql',
+                                    ),
+                                    value: 'sql',
+                                },
+                                {
+                                    label: t(
+                                        'components_explorer_sql_card.tab_metric_query',
+                                    ),
+                                    value: 'metricQuery',
+                                },
+                            ]}
+                        />
+                    ) : null}
+                    {(hovered || sqlIsOpen) && canCopy ? (
+                        <CopyButton value={copyValue} timeout={2000}>
+                            {({ copied, copy }) => (
+                                <Tooltip
+                                    variant="xs"
+                                    label={
+                                        copied
+                                            ? t(
+                                                  'components_explorer_sql_card.copied_to_clipboard',
+                                              )
+                                            : copyLabel
+                                    }
+                                    withArrow
+                                    position="right"
+                                    color={copied ? 'green' : 'dark'}
+                                    fw={500}
                                 >
-                                    {
+                                    <ActionIcon
+                                        color={copied ? 'teal' : 'gray'}
+                                        onClick={copy}
+                                    >
                                         <MantineIcon
                                             icon={
                                                 copied
@@ -92,15 +155,15 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
                                                     : IconClipboard
                                             }
                                         />
-                                    }
-                                </ActionIcon>
-                            </Tooltip>
-                        )}
-                    </CopyButton>
-                ) : undefined
+                                    </ActionIcon>
+                                </Tooltip>
+                            )}
+                        </CopyButton>
+                    ) : null}
+                </Group>
             }
             rightHeaderElement={
-                sqlIsOpen && (
+                sqlIsOpen && queryView === 'sql' ? (
                     <Can
                         I="manage"
                         this={subject('SqlRunner', {
@@ -110,11 +173,15 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
                     >
                         <OpenInSqlRunnerButton projectUuid={projectUuid} />
                     </Can>
-                )
+                ) : undefined
             }
         >
             <Suspense fallback={<Skeleton height={60} radius="sm" />}>
-                <LazyRenderedSql />
+                {queryView === 'sql' ? (
+                    <LazyRenderedSql />
+                ) : (
+                    <LazyRenderedMetricQuery />
+                )}
             </Suspense>
         </CollapsableCard>
     );

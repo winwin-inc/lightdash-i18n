@@ -5786,8 +5786,15 @@
         "results_may_be_incorrect": "Results may be incorrect"
     },
     "components_explorer_sql_card": {
+        "query_title": "Query",
+        "tab_sql": "SQL",
+        "tab_metric_query": "Metric Query",
         "copied_to_clipboard": "Copied to clipboard",
-        "copy_sql": "Copy SQL"
+        "copy_sql": "Copy SQL",
+        "copy_metric_query": "Copy Metric Query"
+    },
+    "components_rendered_metric_query": {
+        "loading": "Loading metric query"
     },
     "components_explorer_write_back_modal": {
         "title": "Write back to dbt",

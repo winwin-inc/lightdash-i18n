@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/mcp",
-    "version": "0.2101.4",
+    "version": "0.2101.6",
     "private": true,
     "license": "MIT",
     "description": "MCP for Lightdash REST API（Streamable HTTP）",
@@ -15,7 +15,7 @@
     "scripts": {
         "build": "tsc --build tsconfig.json --force",
         "typecheck": "tsc --project tsconfig.json --noEmit",
-        "test": "tsx --test src/http/authAndCache.test.ts src/lib/catalogSearchHeuristics.test.ts src/lib/toolOutput.test.ts src/mcp/coreToolsContext.test.ts src/mcp/tools/registerExploreCatalogTools.test.ts src/mcp/tools/registerQueryTools.test.ts src/mcp/tools/registerContentTools.test.ts src/mcp/tools/registerSessionProjectTools.test.ts",
+        "test": "tsx --test src/http/authAndCache.test.ts src/lib/catalogSearchHeuristics.test.ts src/lib/dashboardTiles.test.ts src/lib/toolOutput.test.ts src/mcp/coreToolsContext.test.ts src/mcp/tools/registerExploreCatalogTools.test.ts src/mcp/tools/registerQueryTools.test.ts src/mcp/tools/registerContentTools.test.ts src/mcp/tools/registerSessionProjectTools.test.ts",
         "start:http": "node dist/http.js",
         "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
         "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts"
@@ -29,7 +29,7 @@
         "zod": "^3.23.8"
     },
     "devDependencies": {
-        "@types/express": "^4.17.11",
+        "@types/express": "4.17.23",
         "tsx": "^4.19.2",
         "typescript": "5.5.4"
     }

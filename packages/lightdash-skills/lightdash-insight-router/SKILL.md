@@ -11,13 +11,19 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 ## 三分支（各含 MCP 链）
 
-1. **保存图表/看板**（默认优先）：看板、图表、报表、驾驶舱、某张图数据 — `find_charts` / `find_dashboards`（已知类型）或 `find_content`（混合）→ `get_saved_chart` → `run_saved_chart`（可先 `set_project` / `list_projects`）。
+1. **保存图表/看板**（默认优先）：看板、图表、报表、驾驶舱、某张图数据 — **层级浏览**：`list_projects` → `set_project` → `list_spaces` → `list_dashboards` → `list_charts`；**关键词搜索**：`find_charts` / `find_dashboards` / `find_content` → `get_saved_chart` → `run_saved_chart`。
 2. **维度指标**（高级）：按维度/指标分析、临时拉数、自定义筛选 — `list_explores` →（类目依 SOP 小枚举/降级；字段不准用 `find_fields` / `find_explores`）→ `run_metric_query`；非类目可直接 `run_metric_query`，失败再收窄或核对 `exploreName`/字段 ID。
 3. **SQL/查表**（高级）：查表、SQL、明细 — 有 SQL tool 则用；否则走分支 2 并说明。
 
 ## 工具顺序（按优先级）
 
-`get_site_info`（可选）→ `list_projects` → `set_project`（按需）→ `find_charts` / `find_dashboards` 或 `find_content` → `list_spaces`（按需）→ `get_saved_chart` → `run_saved_chart` → `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
+**层级浏览**（已知父级 ID）：`list_projects` → `set_project` → `list_spaces` → `list_dashboards` → `list_charts`
+
+**关键词搜索**（按名称）：`find_charts` / `find_dashboards` / `find_spaces` / `find_content`
+
+**跑数**：`get_saved_chart` → `run_saved_chart`；或 Explorer 复制 Metric Query JSON → `run_metric_query`
+
+通用：`get_site_info`（可选）→ `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
 
 说明：工具名与参数以当前 MCP **`tools/list`** 与实际返回为准。
 
