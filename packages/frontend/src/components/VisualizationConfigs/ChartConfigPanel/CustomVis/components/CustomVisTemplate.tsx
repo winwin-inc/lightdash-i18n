@@ -22,7 +22,7 @@ import {
     Textarea,
 } from '@mantine/core';
 import { useClipboard } from '@mantine/hooks';
-import { IconAlertTriangle, IconCode, IconPlus } from '@tabler/icons-react';
+import { IconCode, IconPlus } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -304,6 +304,10 @@ export const SelectTemplate = ({
         (templateId: string) => {
             setSelectedTemplateId(templateId);
             rememberSelectedTemplateId(templateId);
+            setCompatibilityTips(null);
+            setSelectionMetaTips(null);
+            setAiCandidates([]);
+            setSelectedCandidateIndex(0);
         },
         [rememberSelectedTemplateId],
     );
@@ -419,102 +423,6 @@ export const SelectTemplate = ({
         }
         return hints;
     }, [compatibilityTips]);
-
-    const isAiStepBlocked = modalStep === 'ai' && aiCandidates.length === 0;
-    const isAiStepReady = modalStep === 'ai' && aiCandidates.length > 0;
-
-    const aiStepBlockedContent = useMemo(() => {
-        const normalizeLine = (line: string) =>
-            line.replace(/\s+/g, ' ').trim();
-        const seenIssues = new Set<string>();
-        const issues: string[] = [];
-
-        const addIssue = (line: string) => {
-            const normalized = normalizeLine(line);
-            if (!normalized) return;
-            const isDuplicate = Array.from(seenIssues).some(
-                (existing) =>
-                    existing === normalized ||
-                    existing.includes(normalized) ||
-                    normalized.includes(existing),
-            );
-            if (isDuplicate) return;
-            seenIssues.add(normalized);
-            issues.push(line.trim());
-        };
-
-        const isFieldMappingSummaryLine = (line: string) =>
-            /^(自动忽略|最终采用|已自动忽略)/.test(line.trim());
-
-        compatibilityTips?.reasons.forEach(addIssue);
-        compatibilityTips?.suggestions.forEach((line) => {
-            if (!isFieldMappingSummaryLine(line)) {
-                addIssue(line);
-            }
-        });
-
-        const fieldSummary: Array<{ label: string; value: string }> = [];
-        if (selectionMetaTips) {
-            if (selectionMetaTips.chosenDimensions.length > 0) {
-                fieldSummary.push({
-                    label: t(
-                        'components_visualization_configs_custom_vis_template.ai_blocked_chosen_dimensions',
-                    ),
-                    value: formatFieldList(
-                        selectionMetaTips.chosenDimensions,
-                    ).join('、'),
-                });
-            }
-            if (selectionMetaTips.chosenMetrics.length > 0) {
-                fieldSummary.push({
-                    label: t(
-                        'components_visualization_configs_custom_vis_template.ai_blocked_chosen_metrics',
-                    ),
-                    value: formatFieldList(
-                        selectionMetaTips.chosenMetrics,
-                    ).join('、'),
-                });
-            }
-            if (selectionMetaTips.ignoredDimensions.length > 0) {
-                fieldSummary.push({
-                    label: t(
-                        'components_visualization_configs_custom_vis_template.ai_blocked_ignored_dimensions',
-                    ),
-                    value: formatFieldList(
-                        selectionMetaTips.ignoredDimensions,
-                    ).join('、'),
-                });
-            }
-            if (selectionMetaTips.ignoredMetrics.length > 0) {
-                fieldSummary.push({
-                    label: t(
-                        'components_visualization_configs_custom_vis_template.ai_blocked_ignored_metrics',
-                    ),
-                    value: formatFieldList(
-                        selectionMetaTips.ignoredMetrics,
-                    ).join('、'),
-                });
-            }
-
-            selectionMetaTips.ambiguityReasons.forEach((reason) => {
-                const trimmed = reason.trim();
-                if (!trimmed) return;
-                if (
-                    trimmed.includes('候选指标数量超出模板可承载槽位') &&
-                    selectionMetaTips.chosenMetrics.length > 0
-                ) {
-                    seenIssues.add(normalizeLine(trimmed));
-                    addIssue(
-                        `${trimmed}（${t('components_visualization_configs_custom_vis_template.ai_blocked_current_metrics')}：${formatFieldList(selectionMetaTips.chosenMetrics).join('、')}）`,
-                    );
-                    return;
-                }
-                addIssue(trimmed);
-            });
-        }
-
-        return { issues, fieldSummary };
-    }, [compatibilityTips, selectionMetaTips, formatFieldList, t]);
 
     const selectedTemplateSpecString = useMemo(() => {
         if (!selectedTemplateSpec) return '';
@@ -635,10 +543,6 @@ export const SelectTemplate = ({
         if (!response) return;
 
         if (!response.success) {
-            setAiCandidates([]);
-            setSelectedCandidateIndex(0);
-            setModalStep('ai');
-
             const compatibility = response.compatibility || {
                 level: 'warning',
                 reasons: [],
@@ -654,32 +558,31 @@ export const SelectTemplate = ({
                           : [],
                 suggestions: compatibility.suggestions || [],
             });
+            setSelectionMetaTips(response.selectionMeta);
             syncRegenerateFromSelectionMeta(response.selectionMeta);
-            if (modalStep === 'ai') {
-                setSelectionMetaTips(response.selectionMeta);
+            if (modalStep === 'template') {
+                setAiCandidates([]);
+                setSelectedCandidateIndex(0);
             }
             return;
         }
 
         if (!response.renderable || response.candidates.length === 0) {
-            setAiCandidates([]);
-            setSelectedCandidateIndex(0);
-
             const compatibility = response.compatibility || {
                 level: 'warning',
                 reasons: [],
                 suggestions: [],
             };
-            const selectionMeta = response.selectionMeta;
             setCompatibilityTips({
                 level: compatibility.level,
                 reasons: compatibility.reasons || [],
                 suggestions: compatibility.suggestions || [],
             });
-            setSelectionMetaTips(selectionMeta);
-            syncRegenerateFromSelectionMeta(selectionMeta);
-            if (modalStep !== 'ai') {
-                setModalStep('ai');
+            setSelectionMetaTips(response.selectionMeta);
+            syncRegenerateFromSelectionMeta(response.selectionMeta);
+            if (modalStep === 'template') {
+                setAiCandidates([]);
+                setSelectedCandidateIndex(0);
             }
             return;
         }
@@ -848,24 +751,18 @@ export const SelectTemplate = ({
                                     ? () => {
                                           void generateAiCandidates();
                                       }
-                                    : isAiStepBlocked
-                                      ? () => {
-                                            void generateAiCandidates();
-                                        }
-                                      : applyAiCandidate
+                                    : applyAiCandidate
                             }
                             disabled={
                                 modalStep === 'template'
                                     ? !selectedTemplateSpec ||
                                       isGeneratingCandidates
-                                    : isAiStepBlocked
-                                      ? isGeneratingCandidates
-                                      : !selectedCandidate ||
-                                        !previewValidationPassed
+                                    : !selectedCandidate ||
+                                      !previewValidationPassed ||
+                                      isGeneratingCandidates
                             }
                             loading={
-                                modalStep !== 'template' &&
-                                isAiStepBlocked &&
+                                modalStep === 'template' &&
                                 isGeneratingCandidates
                             }
                         >
@@ -875,15 +772,9 @@ export const SelectTemplate = ({
                                           ? 'components_visualization_configs_custom_vis_template.ai_generating'
                                           : 'components_visualization_configs_custom_vis_template.ai_generate_candidates',
                                   )
-                                : isAiStepBlocked
-                                  ? t(
-                                        isGeneratingCandidates
-                                            ? 'components_visualization_configs_custom_vis_template.ai_generating'
-                                            : 'components_visualization_configs_custom_vis_template.ai_regenerate',
-                                    )
-                                  : t(
-                                        'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
-                                    )}
+                                : t(
+                                      'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
+                                  )}
                         </Button>
                     </>
                 }
@@ -1234,441 +1125,359 @@ export const SelectTemplate = ({
                                         </Text>
                                     </Group>
                                 ) : null}
-                                {isAiStepBlocked ? (
-                                    <Alert
-                                        color="yellow"
-                                        variant="light"
-                                        icon={
-                                            <MantineIcon
-                                                icon={IconAlertTriangle}
-                                                size="md"
-                                            />
-                                        }
-                                        title={t(
-                                            'components_visualization_configs_custom_vis_template.ai_step_blocked_title',
-                                        )}
-                                        styles={{
-                                            title: {
-                                                fontSize: 14,
-                                                fontWeight: 600,
-                                                lineHeight: 1.4,
-                                            },
-                                            message: {
-                                                fontSize: 12,
-                                                lineHeight: 1.55,
-                                            },
-                                        }}
-                                    >
-                                        <Stack spacing="xs">
-                                            <Text fz={12} c="dimmed" lh={1.55}>
-                                                {t(
-                                                    'components_visualization_configs_custom_vis_template.ai_step_blocked_description',
-                                                )}
-                                            </Text>
-                                            {aiStepBlockedContent.issues.map(
-                                                (hint, idx) => (
-                                                    <Text
-                                                        key={`blocked-issue-${idx}`}
-                                                        fz={12}
-                                                        lh={1.55}
-                                                    >
-                                                        {hint}
-                                                    </Text>
-                                                ),
+                                <Stack spacing="sm">
+                                    {aiCandidates.length > 1 ? (
+                                        <Group spacing={6}>
+                                            {aiCandidates.map(
+                                                (candidate, index) => {
+                                                    const isValid =
+                                                        candidate.valid;
+                                                    const isSelected =
+                                                        index ===
+                                                        selectedCandidateIndex;
+                                                    return (
+                                                        <Badge
+                                                            key={`${candidate.strategy}-${index}`}
+                                                            size="sm"
+                                                            radius="sm"
+                                                            variant={
+                                                                isSelected
+                                                                    ? 'filled'
+                                                                    : 'light'
+                                                            }
+                                                            color={
+                                                                isValid
+                                                                    ? 'blue'
+                                                                    : 'gray'
+                                                            }
+                                                            sx={{
+                                                                cursor: isGeneratingCandidates
+                                                                    ? 'default'
+                                                                    : 'pointer',
+                                                                userSelect:
+                                                                    'none',
+                                                            }}
+                                                            onClick={() =>
+                                                                !isGeneratingCandidates
+                                                                    ? setSelectedCandidateIndex(
+                                                                          index,
+                                                                      )
+                                                                    : undefined
+                                                            }
+                                                        >
+                                                            {t(
+                                                                `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
+                                                            )}
+                                                        </Badge>
+                                                    );
+                                                },
                                             )}
-                                            {aiStepBlockedContent.fieldSummary
-                                                .length > 0 ? (
-                                                <Stack spacing={4} mt={4}>
-                                                    {aiStepBlockedContent.fieldSummary.map(
-                                                        (row) => (
-                                                            <Text
-                                                                key={row.label}
-                                                                fz={12}
-                                                                lh={1.55}
-                                                            >
-                                                                <Text
-                                                                    component="span"
-                                                                    c="dimmed"
-                                                                >
-                                                                    {row.label}
-                                                                    ：
-                                                                </Text>
-                                                                {row.value}
-                                                            </Text>
-                                                        ),
-                                                    )}
-                                                </Stack>
-                                            ) : null}
-                                        </Stack>
-                                    </Alert>
-                                ) : null}
-                                {isAiStepReady ? (
-                                    <Stack spacing="sm">
-                                        {aiCandidates.length > 1 ? (
-                                            <Group spacing={6}>
-                                                {aiCandidates.map(
-                                                    (candidate, index) => {
-                                                        const isValid =
-                                                            candidate.valid;
-                                                        const isSelected =
-                                                            index ===
-                                                            selectedCandidateIndex;
-                                                        return (
-                                                            <Badge
-                                                                key={`${candidate.strategy}-${index}`}
-                                                                size="sm"
-                                                                radius="sm"
-                                                                variant={
-                                                                    isSelected
-                                                                        ? 'filled'
-                                                                        : 'light'
-                                                                }
-                                                                color={
-                                                                    isValid
-                                                                        ? 'blue'
-                                                                        : 'gray'
-                                                                }
-                                                                sx={{
-                                                                    cursor: isGeneratingCandidates
-                                                                        ? 'default'
-                                                                        : 'pointer',
-                                                                    userSelect:
-                                                                        'none',
-                                                                }}
-                                                                onClick={() =>
-                                                                    !isGeneratingCandidates
-                                                                        ? setSelectedCandidateIndex(
-                                                                              index,
-                                                                          )
-                                                                        : undefined
-                                                                }
-                                                            >
-                                                                {t(
-                                                                    `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
-                                                                )}
-                                                            </Badge>
-                                                        );
-                                                    },
-                                                )}
-                                            </Group>
-                                        ) : null}
-                                        {selectedCandidate ? (
-                                            <Stack spacing={4}>
-                                                <Group
-                                                    spacing={6}
-                                                    align="flex-start"
-                                                    sx={{
-                                                        flexWrap: 'wrap',
-                                                        overflow: 'hidden',
-                                                    }}
-                                                >
-                                                    <Text
-                                                        size="xs"
-                                                        c={
-                                                            previewValidationPassed
-                                                                ? 'green.7'
-                                                                : 'orange.8'
-                                                        }
-                                                        fw={500}
-                                                        sx={{ flexShrink: 0 }}
-                                                    >
-                                                        {t(
-                                                            previewValidationPassed
-                                                                ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
-                                                                : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                                        )}
-                                                    </Text>
-                                                    <Text
-                                                        size="xs"
-                                                        c="dimmed"
-                                                        lineClamp={2}
-                                                        sx={{
-                                                            flex: 1,
-                                                            minWidth: 0,
-                                                        }}
-                                                    >
-                                                        {
-                                                            selectedCandidateReasoningText
-                                                        }
-                                                    </Text>
-                                                </Group>
-                                                {!previewValidationPassed
-                                                    ? [
-                                                          ...(selectedCandidate.errors ||
-                                                              []),
-                                                          ...previewDerivedErrors,
-                                                          ...selectedCandidate.frontendErrors,
-                                                      ]
-                                                          .filter(
-                                                              (
-                                                                  error,
-                                                                  idx,
-                                                                  arr,
-                                                              ) =>
-                                                                  arr.indexOf(
-                                                                      error,
-                                                                  ) === idx,
-                                                          )
-                                                          .slice(0, 6)
-                                                          .map((error, idx) => (
-                                                              <Text
-                                                                  key={`preview-error-${idx}`}
-                                                                  size="11px"
-                                                                  c="dimmed"
-                                                              >
-                                                                  - {error}
-                                                              </Text>
-                                                          ))
-                                                    : null}
-                                            </Stack>
-                                        ) : null}
-                                        {regenerateDimensions.length > 0 ||
-                                        regenerateMetrics.length > 0 ? (
+                                        </Group>
+                                    ) : null}
+                                    {selectedCandidate ? (
+                                        <Stack spacing={4}>
                                             <Group
-                                                spacing="md"
-                                                align="center"
+                                                spacing={6}
+                                                align="flex-start"
                                                 sx={{
                                                     flexWrap: 'wrap',
                                                     overflow: 'hidden',
                                                 }}
                                             >
-                                                {regenerateDimensions.length >
-                                                0 ? (
-                                                    <Text size="xs" lh={1.5}>
-                                                        <Text
-                                                            component="span"
-                                                            c="dimmed"
-                                                        >
-                                                            {t(
-                                                                'components_visualization_configs_custom_vis_template.ai_preview_active_dimensions',
-                                                            )}
-                                                            ：
-                                                        </Text>
-                                                        {formatFieldList(
-                                                            regenerateDimensions,
-                                                        ).join('、')}
-                                                    </Text>
-                                                ) : null}
-                                                {regenerateMetrics.length >
-                                                0 ? (
-                                                    <Text size="xs" lh={1.5}>
-                                                        <Text
-                                                            component="span"
-                                                            c="dimmed"
-                                                        >
-                                                            {t(
-                                                                'components_visualization_configs_custom_vis_template.ai_preview_active_metrics',
-                                                            )}
-                                                            ：
-                                                        </Text>
-                                                        {formatFieldList(
-                                                            regenerateMetrics,
-                                                        ).join('、')}
-                                                    </Text>
-                                                ) : null}
-                                            </Group>
-                                        ) : null}
-                                        {selectedCandidatePreview?.normalizedSpec ? (
-                                            <CandidateVegaPreview
-                                                spec={
-                                                    selectedCandidatePreview.normalizedSpec
-                                                }
-                                                fieldIds={
-                                                    returnedFieldIds.length > 0
-                                                        ? returnedFieldIds
-                                                        : selectedFieldIds
-                                                }
-                                                isLoading={
-                                                    isGeneratingCandidates
-                                                }
-                                                previewKey={`${selectedCandidateIndex}-${selectedCandidate.strategy}-${regenerateDimensions.join(',')}-${regenerateMetrics.join(',')}-${selectedCandidatePreview.isValid}`}
-                                            />
-                                        ) : null}
-                                        {selectedCandidate ? (
-                                            <Group spacing={4}>
-                                                <Button
-                                                    variant="light"
-                                                    color="gray"
-                                                    size="sm"
-                                                    fz="xs"
-                                                    onClick={() =>
-                                                        setIsSpecPreviewOpen(
-                                                            true,
-                                                        )
+                                                <Text
+                                                    size="xs"
+                                                    c={
+                                                        previewValidationPassed
+                                                            ? 'green.7'
+                                                            : 'orange.8'
                                                     }
-                                                    disabled={
-                                                        !selectedCandidateSpecString
-                                                    }
+                                                    fw={500}
+                                                    sx={{ flexShrink: 0 }}
                                                 >
                                                     {t(
-                                                        'components_visualization_configs_custom_vis_template.view_template_json',
-                                                    )}
-                                                </Button>
-                                                <Button
-                                                    variant="light"
-                                                    color="gray"
-                                                    size="sm"
-                                                    fz="xs"
-                                                    onClick={copyTemplateSpec}
-                                                    disabled={
-                                                        !selectedCandidateSpecString
-                                                    }
-                                                >
-                                                    {clipboard.copied
-                                                        ? t(
-                                                              'components_json_viewer_modal.copied',
-                                                          )
-                                                        : t(
-                                                              'components_json_viewer_modal.copy',
-                                                          )}
-                                                </Button>
-                                            </Group>
-                                        ) : null}
-                                        {regenerateConfigHints.length > 0 ? (
-                                            <Alert
-                                                color={
-                                                    compatibilityTips?.level ===
-                                                    'good'
-                                                        ? 'green'
-                                                        : 'yellow'
-                                                }
-                                                variant="light"
-                                                p="sm"
-                                            >
-                                                <Stack spacing={4}>
-                                                    {regenerateConfigHints.map(
-                                                        (hint, idx) => (
-                                                            <Text
-                                                                key={`regenerate-hint-${idx}`}
-                                                                size="11px"
-                                                                c="dimmed"
-                                                            >
-                                                                - {hint}
-                                                            </Text>
-                                                        ),
-                                                    )}
-                                                </Stack>
-                                            </Alert>
-                                        ) : null}
-                                        <Box
-                                            sx={(theme) => ({
-                                                border: `1px solid ${theme.colors.gray[3]}`,
-                                                borderRadius: theme.radius.sm,
-                                                padding: theme.spacing.sm,
-                                                backgroundColor:
-                                                    theme.colors.gray[0],
-                                            })}
-                                        >
-                                            <Stack spacing="sm">
-                                                <Text size="sm" fw={600}>
-                                                    {t(
-                                                        'components_visualization_configs_custom_vis_template.ai_adjust_section_title',
+                                                        previewValidationPassed
+                                                            ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
+                                                            : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
                                                     )}
                                                 </Text>
                                                 <Text
                                                     size="xs"
                                                     c="dimmed"
-                                                    lh={1.45}
+                                                    lineClamp={2}
                                                     sx={{
-                                                        wordBreak: 'break-word',
+                                                        flex: 1,
+                                                        minWidth: 0,
                                                     }}
                                                 >
-                                                    {t(
-                                                        'components_visualization_configs_custom_vis_template.ai_adjust_section_hint',
-                                                    )}
-                                                    {!selectedSpecSupportsFieldRemap
-                                                        ? ` · ${t(
-                                                              'components_visualization_configs_custom_vis_template.ai_field_preview_unsupported_hint',
-                                                          )}`
-                                                        : null}
+                                                    {
+                                                        selectedCandidateReasoningText
+                                                    }
                                                 </Text>
-                                                <MultiSelect
-                                                    data={dimensionFieldOptions}
-                                                    value={regenerateDimensions}
-                                                    onChange={
-                                                        setRegenerateDimensions
-                                                    }
-                                                    label={t(
-                                                        isPieTemplate
-                                                            ? 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions_pie'
-                                                            : 'components_visualization_configs_custom_vis_template.ai_adjust_dimensions',
-                                                    )}
-                                                    placeholder={t(
-                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
-                                                    )}
-                                                    searchable
-                                                    clearable
-                                                    disabled={
-                                                        isGeneratingCandidates
-                                                    }
-                                                    maxDropdownHeight={200}
-                                                />
-                                                <MultiSelect
-                                                    data={metricFieldOptions}
-                                                    value={regenerateMetrics}
-                                                    onChange={
-                                                        setRegenerateMetrics
-                                                    }
-                                                    label={t(
-                                                        isPieTemplate
-                                                            ? 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics_pie'
-                                                            : 'components_visualization_configs_custom_vis_template.ai_adjust_metrics',
-                                                    )}
-                                                    placeholder={t(
-                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
-                                                    )}
-                                                    searchable
-                                                    clearable
-                                                    disabled={
-                                                        isGeneratingCandidates
-                                                    }
-                                                    maxDropdownHeight={200}
-                                                />
-                                                <Textarea
-                                                    label={t(
-                                                        'components_visualization_configs_custom_vis_template.ai_adjust_prompt',
-                                                    )}
-                                                    placeholder={t(
-                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_hint_placeholder',
-                                                    )}
-                                                    value={regenerateUserPrompt}
-                                                    onChange={(event) =>
-                                                        setRegenerateUserPrompt(
-                                                            event.currentTarget
-                                                                .value,
-                                                        )
-                                                    }
-                                                    minRows={2}
-                                                    autosize
-                                                    disabled={
-                                                        isGeneratingCandidates
-                                                    }
-                                                />
-                                                <Group position="right">
-                                                    <Button
-                                                        variant="filled"
-                                                        color="blue"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            void generateAiCandidates();
-                                                        }}
-                                                        disabled={
-                                                            isGeneratingCandidates ||
-                                                            !regenerateUserPrompt.trim()
-                                                        }
-                                                        loading={
-                                                            isGeneratingCandidates
-                                                        }
+                                            </Group>
+                                            {!previewValidationPassed
+                                                ? [
+                                                      ...(selectedCandidate.errors ||
+                                                          []),
+                                                      ...previewDerivedErrors,
+                                                      ...selectedCandidate.frontendErrors,
+                                                  ]
+                                                      .filter(
+                                                          (error, idx, arr) =>
+                                                              arr.indexOf(
+                                                                  error,
+                                                              ) === idx,
+                                                      )
+                                                      .slice(0, 6)
+                                                      .map((error, idx) => (
+                                                          <Text
+                                                              key={`preview-error-${idx}`}
+                                                              size="11px"
+                                                              c="dimmed"
+                                                          >
+                                                              - {error}
+                                                          </Text>
+                                                      ))
+                                                : null}
+                                        </Stack>
+                                    ) : null}
+                                    {regenerateDimensions.length > 0 ||
+                                    regenerateMetrics.length > 0 ? (
+                                        <Group
+                                            spacing="md"
+                                            align="center"
+                                            sx={{
+                                                flexWrap: 'wrap',
+                                                overflow: 'hidden',
+                                            }}
+                                        >
+                                            {regenerateDimensions.length > 0 ? (
+                                                <Text size="xs" lh={1.5}>
+                                                    <Text
+                                                        component="span"
+                                                        c="dimmed"
                                                     >
                                                         {t(
-                                                            'components_visualization_configs_custom_vis_template.ai_regenerate_with_ai',
+                                                            'components_visualization_configs_custom_vis_template.ai_preview_active_dimensions',
                                                         )}
-                                                    </Button>
-                                                </Group>
+                                                        ：
+                                                    </Text>
+                                                    {formatFieldList(
+                                                        regenerateDimensions,
+                                                    ).join('、')}
+                                                </Text>
+                                            ) : null}
+                                            {regenerateMetrics.length > 0 ? (
+                                                <Text size="xs" lh={1.5}>
+                                                    <Text
+                                                        component="span"
+                                                        c="dimmed"
+                                                    >
+                                                        {t(
+                                                            'components_visualization_configs_custom_vis_template.ai_preview_active_metrics',
+                                                        )}
+                                                        ：
+                                                    </Text>
+                                                    {formatFieldList(
+                                                        regenerateMetrics,
+                                                    ).join('、')}
+                                                </Text>
+                                            ) : null}
+                                        </Group>
+                                    ) : null}
+                                    {selectedCandidatePreview?.normalizedSpec ? (
+                                        <CandidateVegaPreview
+                                            spec={
+                                                selectedCandidatePreview.normalizedSpec
+                                            }
+                                            fieldIds={
+                                                returnedFieldIds.length > 0
+                                                    ? returnedFieldIds
+                                                    : selectedFieldIds
+                                            }
+                                            isLoading={isGeneratingCandidates}
+                                            previewKey={`${selectedCandidateIndex}-${selectedCandidate.strategy}-${regenerateDimensions.join(',')}-${regenerateMetrics.join(',')}-${selectedCandidatePreview.isValid}`}
+                                        />
+                                    ) : null}
+                                    {selectedCandidate ? (
+                                        <Group spacing={4}>
+                                            <Button
+                                                variant="light"
+                                                color="gray"
+                                                size="sm"
+                                                fz="xs"
+                                                onClick={() =>
+                                                    setIsSpecPreviewOpen(true)
+                                                }
+                                                disabled={
+                                                    !selectedCandidateSpecString
+                                                }
+                                            >
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.view_template_json',
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="light"
+                                                color="gray"
+                                                size="sm"
+                                                fz="xs"
+                                                onClick={copyTemplateSpec}
+                                                disabled={
+                                                    !selectedCandidateSpecString
+                                                }
+                                            >
+                                                {clipboard.copied
+                                                    ? t(
+                                                          'components_json_viewer_modal.copied',
+                                                      )
+                                                    : t(
+                                                          'components_json_viewer_modal.copy',
+                                                      )}
+                                            </Button>
+                                        </Group>
+                                    ) : null}
+                                    {regenerateConfigHints.length > 0 ? (
+                                        <Alert
+                                            color={
+                                                compatibilityTips?.level ===
+                                                'good'
+                                                    ? 'green'
+                                                    : 'yellow'
+                                            }
+                                            variant="light"
+                                            p="sm"
+                                        >
+                                            <Stack spacing={4}>
+                                                {regenerateConfigHints.map(
+                                                    (hint, idx) => (
+                                                        <Text
+                                                            key={`regenerate-hint-${idx}`}
+                                                            size="11px"
+                                                            c="dimmed"
+                                                        >
+                                                            - {hint}
+                                                        </Text>
+                                                    ),
+                                                )}
                                             </Stack>
-                                        </Box>
-                                    </Stack>
-                                ) : null}
+                                        </Alert>
+                                    ) : null}
+                                    <Box
+                                        sx={(theme) => ({
+                                            border: `1px solid ${theme.colors.gray[3]}`,
+                                            borderRadius: theme.radius.sm,
+                                            padding: theme.spacing.sm,
+                                            backgroundColor:
+                                                theme.colors.gray[0],
+                                        })}
+                                    >
+                                        <Stack spacing="sm">
+                                            <Text size="sm" fw={600}>
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.ai_adjust_section_title',
+                                                )}
+                                            </Text>
+                                            <Text
+                                                size="xs"
+                                                c="dimmed"
+                                                lh={1.45}
+                                                sx={{
+                                                    wordBreak: 'break-word',
+                                                }}
+                                            >
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.ai_adjust_section_hint',
+                                                )}
+                                                {!selectedSpecSupportsFieldRemap
+                                                    ? ` · ${t(
+                                                          'components_visualization_configs_custom_vis_template.ai_field_preview_unsupported_hint',
+                                                      )}`
+                                                    : null}
+                                            </Text>
+                                            <MultiSelect
+                                                data={dimensionFieldOptions}
+                                                value={regenerateDimensions}
+                                                onChange={
+                                                    setRegenerateDimensions
+                                                }
+                                                label={t(
+                                                    isPieTemplate
+                                                        ? 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions_pie'
+                                                        : 'components_visualization_configs_custom_vis_template.ai_adjust_dimensions',
+                                                )}
+                                                placeholder={t(
+                                                    'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
+                                                )}
+                                                searchable
+                                                clearable
+                                                disabled={
+                                                    isGeneratingCandidates
+                                                }
+                                                maxDropdownHeight={200}
+                                            />
+                                            <MultiSelect
+                                                data={metricFieldOptions}
+                                                value={regenerateMetrics}
+                                                onChange={setRegenerateMetrics}
+                                                label={t(
+                                                    isPieTemplate
+                                                        ? 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics_pie'
+                                                        : 'components_visualization_configs_custom_vis_template.ai_adjust_metrics',
+                                                )}
+                                                placeholder={t(
+                                                    'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
+                                                )}
+                                                searchable
+                                                clearable
+                                                disabled={
+                                                    isGeneratingCandidates
+                                                }
+                                                maxDropdownHeight={200}
+                                            />
+                                            <Textarea
+                                                label={t(
+                                                    'components_visualization_configs_custom_vis_template.ai_adjust_prompt',
+                                                )}
+                                                placeholder={t(
+                                                    'components_visualization_configs_custom_vis_template.ai_regenerate_hint_placeholder',
+                                                )}
+                                                value={regenerateUserPrompt}
+                                                onChange={(event) =>
+                                                    setRegenerateUserPrompt(
+                                                        event.currentTarget
+                                                            .value,
+                                                    )
+                                                }
+                                                minRows={2}
+                                                autosize
+                                                disabled={
+                                                    isGeneratingCandidates
+                                                }
+                                            />
+                                            <Group position="right">
+                                                <Button
+                                                    variant="filled"
+                                                    color="blue"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        void generateAiCandidates();
+                                                    }}
+                                                    disabled={
+                                                        isGeneratingCandidates ||
+                                                        !regenerateUserPrompt.trim()
+                                                    }
+                                                    loading={
+                                                        isGeneratingCandidates
+                                                    }
+                                                >
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_with_ai',
+                                                    )}
+                                                </Button>
+                                            </Group>
+                                        </Stack>
+                                    </Box>
+                                </Stack>
                             </Stack>
                         </ScrollArea>
                     )}
