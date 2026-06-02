@@ -12,7 +12,7 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 ## 三分支（各含 MCP 链）
 
 1. **保存图表/看板**（默认优先）：看板、图表、报表、驾驶舱、某张图数据 — **层级浏览**：`list_projects` → `set_project` → `list_spaces` → `list_dashboards` → `list_charts`；**关键词搜索**：`find_charts` / `find_dashboards` / `find_content` → `get_saved_chart` → `run_saved_chart`。
-2. **维度指标**（高级）：按维度/指标分析、临时拉数、自定义筛选 — `list_explores` →（类目依 SOP 小枚举/降级；字段不准用 `find_fields` / `find_explores`）→ `run_metric_query`；非类目可直接 `run_metric_query`，失败再收窄或核对 `exploreName`/字段 ID。
+2. **维度指标**（高级）：按维度/指标分析、临时拉数、自定义筛选 — `list_explores` →（类目依 SOP 小枚举/降级；字段不准用 `find_fields` / `find_explores`）→ **`run_semantic_metric_query`**（Explorer 复制的整段 `metricQuery`）；极简无复杂 filters 时可用 `run_metric_query` 扁平参数。
 3. **SQL/查表**（高级）：查表、SQL、明细 — 有 SQL tool 则用；否则走分支 2 并说明。
 
 ## 工具顺序（按优先级）
@@ -21,24 +21,24 @@ description: Lightdash 唯一入口技能。按业务意图在「保存图表」
 
 **关键词搜索**（按名称）：`find_charts` / `find_dashboards` / `find_spaces` / `find_content`
 
-**跑数**：`get_saved_chart` → `run_saved_chart`；或 Explorer 复制 Metric Query JSON → `run_metric_query`
+**跑数**：`get_saved_chart` → `run_saved_chart`；或 Explorer 复制 Metric Query JSON → **`run_semantic_metric_query`**
 
-通用：`get_site_info`（可选）→ `list_explores` → `find_explores` / `find_fields`（按需）→ `run_metric_query`
+通用：`get_site_info`（可选）→ `list_explores` → `find_explores` / `find_fields`（按需）→ **`run_semantic_metric_query`**（默认）或 `run_metric_query`（仅简单扁平）
 
-说明：工具名与参数以当前 MCP **`tools/list`** 与实际返回为准。
+说明：工具名、参数与用法以当前 MCP **`tools/list` 各工具的 description** 为准，勿引用仓库 `docs/mcp`。
 
 ### 可选参数 `projectUuid`
 
-多数需项目的工具支持**可选** `projectUuid`。省略时顺序：**本次参数** → **`set_project` 会话** → **环境 `LIGHTDASH_PROJECT_UUID`**（未配环境须先 `set_project` 或传参）。含 `find_*`、`list_explores`、`run_metric_query`、`run_saved_chart` 等（完整列表以 **`tools/list`** 与 MCP 服务方文档为准）。
+多数需项目的工具支持**可选** `projectUuid`。省略时顺序：**本次参数** → **`set_project` 会话** → **环境 `LIGHTDASH_PROJECT_UUID`**（未配环境须先 `set_project` 或传参）。完整工具列表以 **`tools/list`** 为准。
 
 ## 硬规则（必须遵守）
 
 - 缺 **时间范围** 等关键槽位先问清，不盲查。项目默认由 MCP；多项目歧义用 **`list_projects`** / **`set_project`**（见 **`./ROUTER-SOP.md`**）。
-- **先保存图表路径**，找不到再走 explore + `run_metric_query`。
+- **先保存图表路径**，找不到再走 explore + **`run_semantic_metric_query`**。
 - 输出顺序：**结论 → 关键数字 → 口径说明**；不回显 PAT/密钥。
-- **`run_metric_query` 只用扁平参数**（`exploreName`、`dimensions`、`metrics`、`filters`…），禁止嵌套 `query`；首次 `limit` 50~200，维度 1~2 + 核心指标 1 个。
+- **Explorer 整段 JSON** → **`run_semantic_metric_query`** + `metricQuery`；改筛选只改 `filters.dimensions.and[].values`。**`run_metric_query`** 仅扁平顶层字段；首次 `limit` 50~200。
 - **调用次数**：一般 ≤3；**含类目校验/单层降级**时 ≤4（多 1 次仅用于降级枚举）。超限则阶段性结果 + 候选反问。
-- **同一意图**下已用 `list_explores` 且 explore 无误时，**禁止**再次 `list_explores`；改 `find_fields`、收窄 `run_metric_query` 或走保存图。
+- **同一意图**下已用 `list_explores` 且 explore 无误时，**禁止**再次 `list_explores`；改 `find_fields`、收窄 `metricQuery` / `run_metric_query` 或走保存图。
 - **连续失败 2 次**：停止试错，回报「已确认信息 + 原因 + 需补充项」。
 - **打开 Lightdash**：用工具返回的 `webUrl` / `siteBaseUrl`，勿手拼链接。
 

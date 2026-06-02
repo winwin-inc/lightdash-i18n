@@ -24,7 +24,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         projectRaw.length > 0 ? projectRaw : null;
     if (!raw) {
         throw new Error(
-            'LIGHTDASH_SITE_URL is required（请设置环境变量，或在 packages/lightdash-mcp/.env 中配置，参考 .env.example）',
+            'LIGHTDASH_SITE_URL is required（请设置环境变量，或在服务启动目录的 .env 中配置，参考 .env.example）',
         );
     }
     const baseUrl = raw.replace(/\/$/, '');

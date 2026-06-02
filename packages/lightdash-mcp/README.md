@@ -125,16 +125,18 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 工具名以本服务实际注册为准；命名列表见 **[`DEV_TOOL_NAMES.md`](./DEV_TOOL_NAMES.md)**。
 
-### 核心工具（16 个）
+### 核心工具（17 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_sql` · `run_metric_query`
+`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_sql` · `run_semantic_metric_query` · `run_metric_query`
 
 说明要点：
 
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
-- `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**。推荐参数为 `queryConfig`（兼容 `metricQuery` 与扁平参数）。调用示例见 [`docs/mcp/lightdash-mcp-run-metric-query-examples.md`](../../docs/mcp/lightdash-mcp-run-metric-query-examples.md)。
+- `run_semantic_metric_query`：Explorer 整段 **metricQuery** JSON 直通（AI 主路径）。首条 **CSV**；`full=true` 时第二条为 JSON，响应含 **`structuredContent`**。规则与案例在 `src/mcp/toolDescriptions/runSemanticMetricQuery.ts`（构建后进 `tools/list` description）。
+- `run_metric_query`：扁平参数（`exploreName` + `dimensions[]` + `metrics[]`），简单查询；同样首条 **CSV**。规则在 `src/mcp/toolDescriptions/runMetricQueryFlat.ts`。
+- 维护者文档（AI 不可见）：[`docs/mcp/lightdash-mcp-metric-query-guide.md`](../../docs/mcp/lightdash-mcp-metric-query-guide.md) 及同目录 `lightdash-mcp-run-*.md`
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 - `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 
@@ -210,7 +212,7 @@ CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdas
 ## 常见排障（含 422）
 
 - **422**：多为请求体验证失败；权限问题更常见 **401 / 403**。
-- `**run_metric_query`**：`parameters` 传 JSON **对象**，不要传字符串形式的 `"{}"`。
+- **Metric Query**：Explorer JSON → `run_semantic_metric_query` + `metricQuery`；简单查询 → `run_metric_query` 扁平字段。
 - `**context`**：须为 Lightdash 支持的枚举（如 `mcp`），不要传自然语言描述。
 - 过滤条件依赖 `**lightdash.user.email**` 时，请使用当前 PAT 用户的邮箱；主邮箱未验证时可能为空。
 - OAuth 报 `missing required scopes`：检查主站客户端授权 scope，至少包含 `OAUTH_REQUIRED_SCOPES`。

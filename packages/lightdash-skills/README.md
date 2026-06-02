@@ -29,12 +29,12 @@
 ## 当前技能
 
 - **[`lightdash-insight-router/SKILL.md`](./lightdash-insight-router/SKILL.md)**：唯一入口；完整门禁见 **[`ROUTER-SOP.md`](./lightdash-insight-router/ROUTER-SOP.md)**。
-- **[`lightdash-metric-query/SKILL.md`](./lightdash-metric-query/SKILL.md)**：高级 `run_metric_query` 与 **[`QUERY-CHECKLIST.md`](./lightdash-metric-query/QUERY-CHECKLIST.md)**。
+- **[`lightdash-metric-query/SKILL.md`](./lightdash-metric-query/SKILL.md)**：高级 `run_semantic_metric_query` / `run_metric_query` 与 **[`QUERY-CHECKLIST.md`](./lightdash-metric-query/QUERY-CHECKLIST.md)**。
 - **[`lightdash-chart-semantics/SKILL.md`](./lightdash-chart-semantics/SKILL.md)**：图表语义与 MCP 返回解读。
 
 ## 使用约定
 
-- 提数优先使用当前 MCP 暴露的工具（例如 `find_charts`、`find_content`、`run_metric_query`、`get_site_info`、`get_saved_chart` 等，以 **`tools/list`** 为准）；内容类结果中的 `webUrl` 以工具返回值为准。
+- 提数优先使用当前 MCP 暴露的工具（例如 `find_charts`、`find_content`、`run_semantic_metric_query`、`run_metric_query`、`get_site_info`、`get_saved_chart` 等，以 **`tools/list`** 为准）；内容类结果中的 `webUrl` 以工具返回值为准。
 - 不在技能正文写明文密钥。
 - 能先跑保存图表就先跑保存图表；需要自定义再走 explore + metric query。
 

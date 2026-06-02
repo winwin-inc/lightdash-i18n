@@ -1,6 +1,6 @@
 # 图表族与看板
 
-能走**保存图**则 `find_*` → `get_saved_chart` → `run_saved_chart`；自定义再用 `run_metric_query`，维度/指标取**最小集**（多余维度会改分组、易扭曲指标）。展示字段见 [mcp-response-mapping.md](./mcp-response-mapping.md)。
+能走**保存图**则 `find_*` → `get_saved_chart` → `run_saved_chart`；自定义再用 `run_semantic_metric_query`（或极简扁平 `run_metric_query`），维度/指标取**最小集**。展示字段见 [mcp-response-mapping.md](./mcp-response-mapping.md)。
 
 ## cartesian
 

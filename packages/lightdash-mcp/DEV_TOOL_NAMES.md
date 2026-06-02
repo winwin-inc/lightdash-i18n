@@ -1,8 +1,8 @@
 # MCP tool names
 
-> 共 **24** 个工具；与当前包内 MCP 注册一致。
+> 共 **25** 个工具；与当前包内 MCP 注册一致。
 
-- Core-like count: **16**
+- Core-like count: **17**
 - Extension (site/chart helpers) count: **8**
 
 ## All tools (sorted)
@@ -26,6 +26,7 @@
 - `list_spaces`
 - `list_verified_content`
 - `run_metric_query`
+- `run_semantic_metric_query`
 - `run_saved_chart`
 - `run_dashboard_tiles`
 - `run_sql`

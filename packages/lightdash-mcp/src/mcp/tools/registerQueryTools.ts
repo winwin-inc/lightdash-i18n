@@ -2,7 +2,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { QueryExecutionContext, QueryHistoryStatus } from '@lightdash/common';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
-import { metricQueryResultToCsvColumns, rowsToCsv } from '../../lib/csvUtils';
 import { assertReadonlySql } from '../../lib/sqlSafety';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
@@ -11,56 +10,28 @@ import {
     resolveCoreToolsApiKey,
     resolveCoreToolsProjectUuid,
 } from '../coreToolsContext';
+import { RUN_METRIC_QUERY_FLAT_DESCRIPTION } from '../toolDescriptions/runMetricQueryFlat';
+import { RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION } from '../toolDescriptions/runSemanticMetricQuery';
 import {
     toArray,
     toArrayLike,
     toFilters,
     toObjectLike,
     toOptionalQueryContext,
-    toMetricQueryFieldIds,
     toSorts,
     toStringArray,
 } from './metricQueryToolArgs';
-
-function toMetricQueryBlock(value: unknown): Record<string, unknown> | null {
-    if (!value) return null;
-    if (typeof value === 'string') {
-        try {
-            const parsed = JSON.parse(value) as unknown;
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                return parsed as Record<string, unknown>;
-            }
-            return null;
-        } catch {
-            return null;
-        }
-    }
-    if (typeof value === 'object' && !Array.isArray(value)) {
-        return value as Record<string, unknown>;
-    }
-    return null;
-}
-
-function hasFlatMetricInputs(args: Record<string, unknown>): boolean {
-    return (
-        args.exploreName !== undefined ||
-        args.dimensions !== undefined ||
-        args.metrics !== undefined ||
-        args.filters !== undefined ||
-        args.sorts !== undefined ||
-        args.limit !== undefined ||
-        args.tableCalculations !== undefined ||
-        args.additionalMetrics !== undefined ||
-        args.customDimensions !== undefined ||
-        args.timezone !== undefined ||
-        args.metricOverrides !== undefined
-    );
-}
+import {
+    assertNoFlatMetricQueryArgs,
+    assertNoSemanticMetricQueryArgs,
+    prepareSemanticMetricQueryBody,
+} from './metricQueryPassthrough';
+import { buildMetricQueryToolResult } from './metricQueryToolResult';
 
 function collectFilterRulesFromGroup(group: unknown): unknown[] {
     if (Array.isArray(group)) return group;
     if (group && typeof group === 'object' && !Array.isArray(group)) {
-        const and = (group as { and?: unknown }).and;
+        const { and } = group as { and?: unknown };
         if (Array.isArray(and)) return and;
     }
     return [];
@@ -93,10 +64,15 @@ function buildMissingFilterErrorMessage(params: {
     ].join('\n');
 }
 
-function formatRunMetricQueryError(error: unknown): string {
+function formatFlatMetricQueryError(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('filters.dimensions.and')) return message;
-    return `run_metric_query 执行失败：${message}\n请检查 queryConfig/exploreName、filters、sorts 与字段拼写是否正确。`;
+    return `run_metric_query 执行失败：${message}\n请检查 exploreName、dimensions、metrics、filters、sorts 与字段拼写；Explorer 整段 JSON 请用 run_semantic_metric_query。`;
+}
+
+function formatSemanticMetricQueryError(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    return `run_semantic_metric_query 执行失败：${message}\n校验由 Lightdash API 完成；422 时请修改 metricQuery 后重试。`;
 }
 
 function toSqlIdentifier(input: string): string {
@@ -438,17 +414,98 @@ export function registerQueryTools(
         },
     );
 
+    const sharedMetricQueryPollParams = {
+        projectUuid: z.string().optional(),
+        context: z.string().optional(),
+        invalidateCache: z.boolean().optional(),
+        parameters: z.any().optional(),
+        dateZoom: z.any().optional(),
+        pivotConfiguration: z.any().optional(),
+        dashboardUuid: z.string().optional(),
+        pageSize: z.number().optional(),
+        maxPollAttempts: z.number().optional(),
+        pollIntervalMs: z.number().optional(),
+        full: z.boolean().optional(),
+    };
+
+    registerToolTyped(
+        server,
+        'core-tool',
+        'run_semantic_metric_query',
+        RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION,
+        {
+            ...sharedMetricQueryPollParams,
+            metricQuery: z.record(z.string(), z.unknown()),
+            limit: z.number().optional(),
+        },
+        async (args) => {
+            const apiKey = resolveCoreToolsApiKey(config);
+            const projectUuid = resolveCoreToolsProjectUuid(
+                config,
+                apiKey,
+                args.projectUuid as string | undefined,
+            );
+            assertNoFlatMetricQueryArgs(args as Record<string, unknown>);
+            const pageSize = (args.pageSize as number | undefined) ?? poll.pageSize;
+            const maxPollAttempts =
+                (args.maxPollAttempts as number | undefined) ??
+                poll.maxPollAttempts;
+            const pollIntervalMs =
+                (args.pollIntervalMs as number | undefined) ??
+                poll.pollIntervalMs;
+            const full = (args.full as boolean | undefined) ?? false;
+            try {
+                const queryBody = prepareSemanticMetricQueryBody(
+                    args.metricQuery,
+                    args.limit as number | undefined,
+                );
+                const result = await api.runMetricQueryUntilReady(
+                    apiKey,
+                    projectUuid,
+                    {
+                        context:
+                            toOptionalQueryContext(args.context) ??
+                            QueryExecutionContext.MCP,
+                        invalidateCache: args.invalidateCache as
+                            | boolean
+                            | undefined,
+                        parameters: toObjectLike(args.parameters, 'parameters') as
+                            | never
+                            | undefined,
+                        dateZoom: toObjectLike(args.dateZoom, 'dateZoom') as
+                            | never
+                            | undefined,
+                        pivotConfiguration: toObjectLike(
+                            args.pivotConfiguration,
+                            'pivotConfiguration',
+                        ) as never | undefined,
+                        dashboardUuid: args.dashboardUuid as string | undefined,
+                        query: queryBody,
+                    },
+                    { pageSize, maxPollAttempts, pollIntervalMs },
+                );
+                return buildMetricQueryToolResult({
+                    queryUuid: result.queryUuid,
+                    rows: result.rows,
+                    columns: result.columns,
+                    executeResult: result.executeResult,
+                    full,
+                    extraStructured: { mode: 'semantic_passthrough' },
+                });
+            } catch (error) {
+                throw new Error(formatSemanticMetricQueryError(error));
+            }
+        },
+    );
+
     registerToolTyped(
         server,
         'core-tool',
         'run_metric_query',
-        '异步指标查询（v2 metric-query + 轮询）。推荐使用 queryConfig(JSON 块)；metricQuery/扁平参数保留兼容。示例：run_metric_query(queryConfig:{exploreName:"orders",dimensions:["orders_date"],metrics:["orders_count"],filters:{dimensions:{and:[{target:{fieldId:"orders_date"},operator:"inThePast",values:["30 days"]}]}}})。',
+        RUN_METRIC_QUERY_FLAT_DESCRIPTION,
         {
-            projectUuid: z.string().optional(),
-            queryConfig: z.record(z.string(), z.unknown()).optional(),
-            config: z.record(z.string(), z.unknown()).optional(),
-            exploreName: z.string().min(1).optional(),
-            metricQuery: z.record(z.string(), z.unknown()).optional(),
+            ...sharedMetricQueryPollParams,
+            exploreName: z.string().min(1),
             requiredFilterFieldIds: z.array(z.string()).optional(),
             dimensions: z.array(z.string()).optional(),
             metrics: z.array(z.string()).optional(),
@@ -460,16 +517,6 @@ export function registerQueryTools(
             customDimensions: z.any().optional(),
             timezone: z.string().optional(),
             metricOverrides: z.any().optional(),
-            context: z.string().optional(),
-            invalidateCache: z.boolean().optional(),
-            parameters: z.any().optional(),
-            dateZoom: z.any().optional(),
-            pivotConfiguration: z.any().optional(),
-            dashboardUuid: z.string().optional(),
-            pageSize: z.number().optional(),
-            maxPollAttempts: z.number().optional(),
-            pollIntervalMs: z.number().optional(),
-            full: z.boolean().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
@@ -478,6 +525,7 @@ export function registerQueryTools(
                 apiKey,
                 args.projectUuid as string | undefined,
             );
+            assertNoSemanticMetricQueryArgs(args as Record<string, unknown>);
             const pageSize = (args.pageSize as number | undefined) ?? poll.pageSize;
             const maxPollAttempts =
                 (args.maxPollAttempts as number | undefined) ??
@@ -485,51 +533,23 @@ export function registerQueryTools(
             const pollIntervalMs =
                 (args.pollIntervalMs as number | undefined) ??
                 poll.pollIntervalMs;
-            const exploreName = args.exploreName as string | undefined;
-            const queryConfigBlock =
-                toMetricQueryBlock(args.queryConfig) ??
-                toMetricQueryBlock(args.config);
-            const metricQueryBlock = toMetricQueryBlock(args.metricQuery);
-            const effectiveExploreName =
-                (queryConfigBlock?.exploreName as string | undefined) ??
-                (metricQueryBlock?.exploreName as string | undefined) ??
-                exploreName;
-            if (!effectiveExploreName) {
-                throw new Error(
-                    'run_metric_query 缺少 exploreName，请在 exploreName 或 metricQuery.exploreName 中提供',
-                );
-            }
+            const exploreName = args.exploreName as string;
             const resolveFieldId = await deps.getFieldResolver(
                 apiKey,
                 projectUuid,
-                effectiveExploreName,
+                exploreName,
             );
-            const mqDimensions =
-                queryConfigBlock?.dimensions !== undefined
-                    ? toMetricQueryFieldIds(queryConfigBlock.dimensions)
-                    : metricQueryBlock?.dimensions !== undefined
-                      ? toMetricQueryFieldIds(metricQueryBlock.dimensions)
-                      : toStringArray(args.dimensions);
-            const mqMetrics =
-                queryConfigBlock?.metrics !== undefined
-                    ? toMetricQueryFieldIds(queryConfigBlock.metrics)
-                    : metricQueryBlock?.metrics !== undefined
-                      ? toMetricQueryFieldIds(metricQueryBlock.metrics)
-                      : toStringArray(args.metrics);
+            const mqDimensions = toStringArray(args.dimensions);
+            const mqMetrics = toStringArray(args.metrics);
+            const full = (args.full as boolean | undefined) ?? false;
             try {
                 const normalizedFilters = toFilters(
-                    queryConfigBlock?.filters ??
-                        metricQueryBlock?.filters ??
-                        args.filters,
+                    args.filters,
                     resolveFieldId,
                 );
-                const requiredFilterFieldIds = (
-                    (queryConfigBlock?.requiredFilterFieldIds as
-                        | unknown[]
-                        | undefined) ??
-                    (args.requiredFilterFieldIds as unknown[] | undefined) ??
-                    []
-                ).filter((x): x is string => typeof x === 'string');
+                const requiredFilterFieldIds = toStringArray(
+                    args.requiredFilterFieldIds,
+                );
                 if (requiredFilterFieldIds.length > 0) {
                     const existingFieldIds = new Set(
                         getNormalizedDimensionFilterFieldIds(normalizedFilters),
@@ -569,123 +589,40 @@ export function registerQueryTools(
                         ) as never | undefined,
                         dashboardUuid: args.dashboardUuid as string | undefined,
                         query: {
-                            exploreName: effectiveExploreName,
+                            exploreName,
                             dimensions: mqDimensions.map(resolveFieldId),
                             metrics: mqMetrics.map(resolveFieldId),
                             filters: normalizedFilters,
-                            sorts: toSorts(
-                                queryConfigBlock?.sorts ??
-                                    metricQueryBlock?.sorts ??
-                                    args.sorts,
-                                resolveFieldId,
-                            ),
-                            limit:
-                                (queryConfigBlock?.limit as number | undefined) ??
-                                (metricQueryBlock?.limit as number | undefined) ??
-                                (args.limit as number | undefined),
-                            tableCalculations: toArray(
-                                queryConfigBlock?.tableCalculations ??
-                                    metricQueryBlock?.tableCalculations ??
-                                    args.tableCalculations,
-                            ),
+                            sorts: toSorts(args.sorts, resolveFieldId),
+                            limit: args.limit as number | undefined,
+                            tableCalculations: toArray(args.tableCalculations),
                             additionalMetrics: toArrayLike(
-                                queryConfigBlock?.additionalMetrics ??
-                                    metricQueryBlock?.additionalMetrics ??
-                                    args.additionalMetrics,
+                                args.additionalMetrics,
                                 'additionalMetrics',
                             ),
                             customDimensions: toArrayLike(
-                                queryConfigBlock?.customDimensions ??
-                                    metricQueryBlock?.customDimensions ??
-                                    args.customDimensions,
+                                args.customDimensions,
                                 'customDimensions',
                             ),
-                            timezone:
-                                (queryConfigBlock?.timezone as
-                                    | string
-                                    | undefined) ??
-                                (metricQueryBlock?.timezone as
-                                    | string
-                                    | undefined) ??
-                                (args.timezone as string | undefined),
+                            timezone: args.timezone as string | undefined,
                             metricOverrides: toObjectLike(
-                                queryConfigBlock?.metricOverrides ??
-                                    metricQueryBlock?.metricOverrides ??
-                                    args.metricOverrides,
+                                args.metricOverrides,
                                 'metricOverrides',
                             ),
                         },
                     },
                     { pageSize, maxPollAttempts, pollIntervalMs },
                 );
-            const full = (args.full as boolean | undefined) ?? false;
-            const rowsUnknown = result.rows as unknown[];
-            const rowRecords = rowsUnknown.filter(
-                (r): r is Record<string, unknown> =>
-                    r !== null && typeof r === 'object' && !Array.isArray(r),
-            );
-            const { columnIds, headerLabels } = metricQueryResultToCsvColumns({
-                columns: result.columns,
-                fields: result.executeResult.fields,
-                rows: rowsUnknown,
-            });
-            const csv =
-                columnIds.length > 0
-                    ? rowsToCsv({
-                          columnIds,
-                          headerLabels,
-                          rows: rowRecords,
-                      })
-                    : '';
-            const structuredContent = {
-                ...(full
-                    ? {
-                          queryUuid: result.queryUuid,
-                          rows: result.rows,
-                          columns: result.columns,
-                          fields: result.executeResult.fields,
-                          warnings: result.executeResult.warnings,
-                      }
-                    : {
-                          queryUuid: result.queryUuid,
-                          rows: rowsToScalarFlat(result.rows),
-                      }),
-                deprecatedInputsUsed:
-                    queryConfigBlock === null &&
-                    metricQueryBlock === null &&
-                    hasFlatMetricInputs(args as Record<string, unknown>)
-                        ? [
-                              'exploreName',
-                              'dimensions',
-                              'metrics',
-                              'filters',
-                              'sorts',
-                              'limit',
-                          ]
-                        : [],
-            };
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text:
-                            csv.length > 0
-                                ? csv
-                                : '(no tabular columns)',
-                    },
-                    ...(full
-                        ? [
-                              {
-                                  type: 'text' as const,
-                                  text: JSON.stringify(structuredContent, null, 2),
-                              },
-                          ]
-                        : []),
-                ],
-                structuredContent,
-            };
+                return buildMetricQueryToolResult({
+                    queryUuid: result.queryUuid,
+                    rows: result.rows,
+                    columns: result.columns,
+                    executeResult: result.executeResult,
+                    full,
+                    extraStructured: { mode: 'flat' },
+                });
             } catch (error) {
-                throw new Error(formatRunMetricQueryError(error));
+                throw new Error(formatFlatMetricQueryError(error));
             }
         },
     );
