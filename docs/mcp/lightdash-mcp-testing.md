@@ -55,6 +55,7 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 - `list_explores`
 - `find_explores` / `find_fields`
+- `run_semantic_metric_query`
 - `run_metric_query`
 
 ---
@@ -84,8 +85,9 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 |------|------|------|
 | 3.1 | `list_explores(filtered: true)` | 返回可用 explores |
 | 3.2 | `find_fields(table, fieldSearchQueries)` | 返回目录检索结果（含 fieldId 线索）；或配合 `list_explores` 选定 explore 名 |
-| 3.3 | `run_metric_query`（最小 query） | 正常返回数据 |
-| 3.4 | `filters + sorts + limit` 组合 | 结果筛选与排序正确 |
+| 3.3 | `run_metric_query`（扁平最小 query） | 正常返回数据 |
+| 3.3b | `run_semantic_metric_query`（brand_cls4 或 Explorer JSON） | 正常返回 CSV；改 filter values 可重试 |
+| 3.4 | 扁平：`filters + sorts + limit`；语义：整段 `metricQuery` | 结果筛选与排序正确 |
 
 最小 query 示例：
 
@@ -126,7 +128,7 @@ LIGHTDASH_MCP_HTTP_PORT=3333
 
 1. 问「有哪些销售图表」-> 应优先走 `find_charts` / `find_content`
 2. 问「跑营收趋势去年数据」-> 应走 `get_saved_chart` + `run_saved_chart`
-3. 问「我要按维度临时分析」-> 应走 `list_explores` -> `find_fields` -> `run_metric_query`
+3. 问「我要按维度临时分析」-> 应走 `list_explores` -> `run_semantic_metric_query`（有 Explorer JSON）或 `run_metric_query`（极简扁平）
 4. 问「查表/SQL/明细」-> 应进入高级分支（若无 SQL tool，回退到 explore 路径并说明）
 
 ---

@@ -18,7 +18,8 @@
 | `run_saved_chart` | 跑**已保存图表**出数；用 `parameters` 改筛选（如年份）；`limit` 会按环境自动封顶。 |
 | `list_explores` | 列的是**数据主题（模型）**，不是已保存图表名。 |
 | `find_explores` / `find_fields` | 搜 explore 名，或在某个 table（explore）内用目录搜**字段 ID**。 |
-| `run_metric_query` | **高级**：自己拼维度、指标、筛选；需先 `find_fields` 等拿到字段 ID。 |
+| `run_semantic_metric_query` | **推荐（AI）**：Explorer 复制整段 Metric Query → 参数 `metricQuery`。 |
+| `run_metric_query` | **简单查询**：顶层 `exploreName` + 维度/指标数组；复杂 JSON 请用上者。 |
 
 日常优先用**前五项**；后三项适合临时探索或复杂自定义查询。
 
@@ -29,7 +30,7 @@
 1. **层级浏览**：`list_projects`（若需要）→ `set_project` → `list_spaces` → `list_dashboards(spaceUuid)` → `list_charts(dashboardUuid)`。  
 2. **关键词搜索**：`find_charts` / `find_dashboards` / `find_content` 搜「销售」「驾驶舱」等。  
 3. **跑一张现成的图**：`find_charts` 或 `list_charts` 得到 `chartUuid` → 可先 `get_saved_chart` 看参数 → `run_saved_chart`。  
-4. **自己从数据里拖维度/指标**：`list_explores` → `find_fields` → `run_metric_query`（或 Explorer 底部复制 Metric Query JSON）。
+4. **自己从数据里拖维度/指标**：Explorer 复制 JSON → `run_semantic_metric_query`；或 `list_explores` → `find_fields` → `run_metric_query`（简单扁平）。
 
 ---
 
@@ -50,7 +51,7 @@
 - 对外只暴露一个名称：`lightdash-insight-router`
 - 在 router 内部处理三类需求：
   - **查已有内容**：看板 / 图表 / 空间
-  - **维度指标分析**：先跑保存图表；没有保存图再走 `list_explores -> find_fields -> run_metric_query`
+  - **维度指标分析**：先跑保存图表；没有保存图再走 `list_explores` → `run_semantic_metric_query` 或扁平 `run_metric_query`
   - **SQL/表查询（高级）**：基于表结构或 SQL 模板取数（类似 `lightdash-charts-viewer` 这类处理链路）
 - `lightdash-metric-query` 与 SQL 查询能力统一归到 router 的「高级模式」里
 
@@ -74,7 +75,7 @@
 > 工作规则：  
 > - 先确认项目与时间范围；  
 > - 优先走已保存图表（find_charts/find_content -> get_saved_chart -> run_saved_chart）；  
-> - 找不到现成图表再走 explore 查询（list_explores -> find_fields -> run_metric_query）；  
+> - 找不到现成图表再走 explore（list_explores → run_semantic_metric_query 或 run_metric_query）；  
 > - 当用户明确要查表/SQL/明细时，进入 SQL 或表查询高级模式；  
 > - 输出要简洁，先给结论，再给关键数字与口径。  
 

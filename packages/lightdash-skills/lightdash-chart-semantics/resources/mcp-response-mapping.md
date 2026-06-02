@@ -2,7 +2,7 @@
 
 **仅使用**最近一次工具响应里**确实出现**的字段；若某字段缺失，**不要**臆造。
 
-## `run_metric_query`
+## `run_semantic_metric_query` / `run_metric_query`
 
 字段布局以你方 MCP 对该工具的实际返回为准（见线上 `tools/list` 与响应 JSON）：
 
