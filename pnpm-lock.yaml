@@ -474,6 +474,15 @@ importers:
         specifier: ^3.25.55
         version: 3.25.55
     devDependencies:
+      '@octokit/plugin-paginate-rest':
+        specifier: ^11.3.1
+        version: 11.3.1(@octokit/core@5.2.0)
+      '@octokit/plugin-rest-endpoint-methods':
+        specifier: ^13.2.2
+        version: 13.2.2(@octokit/core@5.2.0)
+      '@octokit/types':
+        specifier: ^13.8.0
+        version: 13.8.0
       '@tsoa/cli':
         specifier: ^6.6.0
         version: 6.6.0
@@ -498,6 +507,9 @@ importers:
       '@types/express':
         specifier: 4.17.23
         version: 4.17.23
+      '@types/express-serve-static-core':
+        specifier: 4.19.6
+        version: 4.19.6
       '@types/express-session':
         specifier: ^1.17.4
         version: 1.17.4
@@ -546,6 +558,9 @@ importers:
       '@types/pg':
         specifier: ^8.10.7
         version: 8.11.10
+      '@types/qs':
+        specifier: 6.15.1
+        version: 6.15.1
       '@types/uuid':
         specifier: ^8.3.4
         version: 8.3.4
@@ -1390,8 +1405,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@types/express':
-        specifier: 4.17.14
-        version: 4.17.14
+        specifier: 4.17.23
+        version: 4.17.23
       tsx:
         specifier: ^4.19.2
         version: 4.19.2
@@ -4645,9 +4660,6 @@ packages:
   '@octokit/openapi-types@19.1.0':
     resolution: {integrity: sha512-6G+ywGClliGQwRsjvqVYpklIfa7oRPA0vyhPQG/1Feh+B+wU0vGH1JiJ5T25d3g1JZYBHzR2qefLi9x8Gt+cpw==}
 
-  '@octokit/openapi-types@22.2.0':
-    resolution: {integrity: sha512-QBhVjcUa9W7Wwhm6DBFu6ZZ+1/t/oYxqc2tp81Pi41YNuJinbFRx8B133qVOrAaBbF7D/m0Et6f9/pZt9Rc+tg==}
-
   '@octokit/openapi-types@23.0.1':
     resolution: {integrity: sha512-izFjMJ1sir0jn0ldEKhZ7xegCTj/ObmEDlEfpFrx4k/JyZSMRHbO3/rBwgE7f3m2DHt+RrNGIVw4wSmwnm3t/g==}
 
@@ -4717,9 +4729,6 @@ packages:
 
   '@octokit/types@12.4.0':
     resolution: {integrity: sha512-FLWs/AvZllw/AGVs+nJ+ELCDZZJk+kY0zMen118xhL2zD0s1etIUHm1odgjP7epxYU1ln7SZxEUWYop5bhsdgQ==}
-
-  '@octokit/types@13.5.0':
-    resolution: {integrity: sha512-HdqWTf5Z3qwDVlzCrP8UJquMwunpDiMPt5er+QjGzL4hqr/vBVY/MauQgS1xWxCDT1oMx1EULyqxncdCY/NVSQ==}
 
   '@octokit/types@13.8.0':
     resolution: {integrity: sha512-x7DjTIbEpEWXK99DMd01QfWy0hd5h4EN+Q7shkdKds3otGQP+oWE/y0A76i1OvH9fygo4ddvNf7ZvF0t78P98A==}
@@ -8099,14 +8108,14 @@ packages:
   '@types/express-handlebars@5.3.1':
     resolution: {integrity: sha512-DSzaERLO4gHb8AqnrL58jzSDyT0yDdl6HqDc+bGz1Hf0nrG1FK30nHGzv8NBEGR8QV9eUGB/YaE0Qj3NjF7siw==}
 
-  '@types/express-serve-static-core@4.17.22':
-    resolution: {integrity: sha512-WdqmrUsRS4ootGha6tVwk/IVHM1iorU8tGehftQD2NWiPniw/sm7xdJOIlXLwqdInL9wBw/p7oO8vaYEF3NDmA==}
+  '@types/express-serve-static-core@4.19.6':
+    resolution: {integrity: sha512-N4LZ2xG7DatVqhCZzOGb1Yi5lMbXSZcmdLDe9EzSndPV2HpWYWzRbaerl2n27irrm94EPpprqa8KpskPT085+A==}
 
   '@types/express-session@1.17.4':
     resolution: {integrity: sha512-7cNlSI8+oOBUHTfPXMwDxF/Lchx5aJ3ho7+p9jJZYVg9dVDJFh3qdMXmJtRsysnvS+C6x46k9DRYmrmCkE+MVg==}
 
-  '@types/express@4.17.14':
-    resolution: {integrity: sha512-TEbt+vaPFQ+xpxFLFssxUDXj5cWCxZJjIcB7Yg0k0GMHGtgtQgpvx/MUQUeAkNbA9AAGrwkAsoeItdTgS7FMyg==}
+  '@types/express@4.17.23':
+    resolution: {integrity: sha512-Crp6WY9aTYP3qPi2wGDo9iUe/rceX01UMhnF1jmwDcKCFM6cx7YhGP/Mpr3y9AASpfHixIG0E6azCcL5OcDHsQ==}
 
   '@types/fs-extra@9.0.13':
     resolution: {integrity: sha512-nEnwB++1u5lVDM2UI4c1+5R+FYaKfaAzS4OococimjVm3nQw3TuzH5UNsocrcTBbhnerblyHj4A49qXbIiZdpA==}
@@ -8331,8 +8340,8 @@ packages:
   '@types/promise.allsettled@1.0.3':
     resolution: {integrity: sha512-b/IFHHTkYkTqu41IH9UtpICwqrpKj2oNlb4KHPzFQDMiz+h1BgAeATeO0/XTph4+UkH9W2U0E4B4j64KWOovag==}
 
-  '@types/qs@6.14.0':
-    resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
+  '@types/qs@6.15.1':
+    resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
 
   '@types/raf@3.4.3':
     resolution: {integrity: sha512-c4YAvMedbPZ5tEyxzQdMoOhhJ4RD3rngZIdwC2/qDN3d7JpEhB6fiBRKVY1lg5B7Wk+uPBjn5f39j1/2MY1oOw==}
@@ -18048,7 +18057,7 @@ snapshots:
   '@a2a-js/sdk@0.2.5':
     dependencies:
       '@types/cors': 2.8.17
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       body-parser: 2.2.0
       cors: 2.8.5
       express: 4.21.2
@@ -22514,7 +22523,7 @@ snapshots:
       '@octokit/graphql': 7.1.0
       '@octokit/request': 8.4.1
       '@octokit/request-error': 5.1.0
-      '@octokit/types': 13.5.0
+      '@octokit/types': 13.8.0
       before-after-hook: 2.2.3
       universal-user-agent: 6.0.1
 
@@ -22526,7 +22535,7 @@ snapshots:
   '@octokit/graphql@7.1.0':
     dependencies:
       '@octokit/request': 8.4.1
-      '@octokit/types': 13.5.0
+      '@octokit/types': 13.8.0
       universal-user-agent: 6.0.1
 
   '@octokit/oauth-app@6.1.0':
@@ -22551,8 +22560,6 @@ snapshots:
       btoa-lite: 1.0.0
 
   '@octokit/openapi-types@19.1.0': {}
-
-  '@octokit/openapi-types@22.2.0': {}
 
   '@octokit/openapi-types@23.0.1': {}
 
@@ -22626,10 +22633,6 @@ snapshots:
   '@octokit/types@12.4.0':
     dependencies:
       '@octokit/openapi-types': 19.1.0
-
-  '@octokit/types@13.5.0':
-    dependencies:
-      '@octokit/openapi-types': 22.2.0
 
   '@octokit/types@13.8.0':
     dependencies:
@@ -25042,7 +25045,7 @@ snapshots:
       '@slack/socket-mode': 1.3.6
       '@slack/types': 2.13.1
       '@slack/web-api': 6.13.0
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/promise.allsettled': 1.0.3
       '@types/tsscmp': 1.0.0
       axios: 1.12.2
@@ -26901,7 +26904,7 @@ snapshots:
 
   '@types/connect-flash@0.0.37':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
 
   '@types/connect@3.4.38':
     dependencies:
@@ -26916,7 +26919,7 @@ snapshots:
   '@types/cookies@0.7.7':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/keygrip': 1.0.2
       '@types/node': 22.15.3
 
@@ -26985,21 +26988,21 @@ snapshots:
 
   '@types/express-handlebars@5.3.1': {}
 
-  '@types/express-serve-static-core@4.17.22':
+  '@types/express-serve-static-core@4.19.6':
     dependencies:
       '@types/node': 22.15.3
-      '@types/qs': 6.14.0
+      '@types/qs': 6.15.1
       '@types/range-parser': 1.2.7
 
   '@types/express-session@1.17.4':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
 
-  '@types/express@4.17.14':
+  '@types/express@4.17.23':
     dependencies:
       '@types/body-parser': 1.19.6
-      '@types/express-serve-static-core': 4.17.22
-      '@types/qs': 6.14.0
+      '@types/express-serve-static-core': 4.19.6
+      '@types/qs': 6.15.1
       '@types/serve-static': 1.15.8
 
   '@types/fs-extra@9.0.13':
@@ -27119,7 +27122,7 @@ snapshots:
 
   '@types/multer@1.4.12':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
 
   '@types/mysql@2.15.26':
     dependencies:
@@ -27176,7 +27179,7 @@ snapshots:
 
   '@types/oauth2-server@3.0.18':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
 
   '@types/oauth@0.9.1':
     dependencies:
@@ -27200,13 +27203,13 @@ snapshots:
 
   '@types/passport-google-oauth20@2.0.11':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/passport': 1.0.12
       '@types/passport-oauth2': 1.4.17
 
   '@types/passport-local@1.0.34':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/passport': 1.0.12
       '@types/passport-strategy': 0.2.35
 
@@ -27217,18 +27220,18 @@ snapshots:
 
   '@types/passport-oauth2@1.4.17':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/oauth': 0.9.1
       '@types/passport': 1.0.12
 
   '@types/passport-strategy@0.2.35':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
       '@types/passport': 1.0.12
 
   '@types/passport@1.0.12':
     dependencies:
-      '@types/express': 4.17.14
+      '@types/express': 4.17.23
 
   '@types/pegjs@0.10.3': {}
 
@@ -27269,7 +27272,7 @@ snapshots:
 
   '@types/promise.allsettled@1.0.3': {}
 
-  '@types/qs@6.14.0': {}
+  '@types/qs@6.15.1': {}
 
   '@types/raf@3.4.3':
     optional: true
