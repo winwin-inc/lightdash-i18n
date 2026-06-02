@@ -332,12 +332,14 @@ export const sanitizeSpecForExplore = (
     const next = JSON.parse(JSON.stringify(spec)) as Record<string, unknown>;
 
     if (Array.isArray(next.layer)) {
-        next.layer = next.layer.filter(
-            (layer) => isRecord(layer) && !layerUsesMustachePlaceholder(layer),
+        const layers = next.layer.filter(
+            (layer): layer is Record<string, unknown> =>
+                isRecord(layer) && !layerUsesMustachePlaceholder(layer),
         );
+        next.layer = layers;
 
-        if (next.layer.length === 1 && isRecord(next.layer[0])) {
-            const onlyLayer = next.layer[0];
+        if (layers.length === 1) {
+            const onlyLayer = layers[0];
             const markType =
                 typeof onlyLayer.mark === 'string'
                     ? onlyLayer.mark
