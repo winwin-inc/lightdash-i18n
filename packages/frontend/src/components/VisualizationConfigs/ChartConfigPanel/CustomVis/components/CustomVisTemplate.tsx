@@ -479,6 +479,7 @@ export const SelectTemplate = ({
             const validation = validateGeneratedVegaSpec(
                 candidate.spec,
                 availableFieldIds,
+                { selectedDimensions, selectedMetrics },
             );
             return {
                 ...candidate,

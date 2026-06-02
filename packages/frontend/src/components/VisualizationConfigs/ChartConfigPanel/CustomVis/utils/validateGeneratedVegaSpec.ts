@@ -130,6 +130,181 @@ const collectReferencedFields = (
     return refs;
 };
 
+const MUSTACHE_PLACEHOLDER_RE = /\{\{[^}]+\}\}/;
+
+const containsMustachePlaceholder = (value: string): boolean =>
+    MUSTACHE_PLACEHOLDER_RE.test(value);
+
+const walkStrings = (value: unknown, visit: (text: string) => void): void => {
+    if (typeof value === 'string') {
+        visit(value);
+        return;
+    }
+    if (Array.isArray(value)) {
+        value.forEach((item) => walkStrings(item, visit));
+        return;
+    }
+    if (!isRecord(value)) return;
+    Object.values(value).forEach((item) => walkStrings(item, visit));
+};
+
+const layerUsesMustachePlaceholder = (
+    layer: Record<string, unknown>,
+): boolean => {
+    let found = false;
+    walkStrings(layer, (text) => {
+        if (containsMustachePlaceholder(text)) {
+            found = true;
+        }
+    });
+    return found;
+};
+
+const dimensionGranularityScore = (fieldId: string): number => {
+    if (/(cls_4|四级|lv4|level_4)/i.test(fieldId)) return 400;
+    if (/(cls_3|三级|lv3|level_3)/i.test(fieldId)) return 300;
+    if (/(cls_2|二级|lv2|level_2)/i.test(fieldId)) return 200;
+    if (/(cls_1|一级|lv1|level_1)/i.test(fieldId)) return 100;
+    return 0;
+};
+
+const pickPrimaryPieDimension = (candidates: string[]): string | null => {
+    if (candidates.length === 0) return null;
+    const ranked = [...candidates].sort(
+        (a, b) => dimensionGranularityScore(b) - dimensionGranularityScore(a),
+    );
+    return ranked[0] || null;
+};
+
+const isArcPieSpec = (spec: Record<string, unknown>): boolean => {
+    const markType = (mark: unknown): string | null => {
+        if (typeof mark === 'string') return mark;
+        if (isRecord(mark) && typeof mark.type === 'string') {
+            return mark.type;
+        }
+        return null;
+    };
+
+    if (markType(spec.mark) === 'arc') return true;
+    if (Array.isArray(spec.layer)) {
+        return spec.layer.some(
+            (layer) => isRecord(layer) && markType(layer.mark) === 'arc',
+        );
+    }
+    return false;
+};
+
+const fixArcEncoding = (
+    encoding: Record<string, unknown>,
+    dimensionField: string,
+    metricField: string,
+): void => {
+    if (isRecord(encoding.color)) {
+        delete encoding.color.value;
+        encoding.color.field = dimensionField;
+        encoding.color.type = encoding.color.type || 'nominal';
+    }
+
+    if (isRecord(encoding.theta)) {
+        encoding.theta.field = metricField;
+        encoding.theta.type = 'quantitative';
+        encoding.theta.aggregate = 'sum';
+        delete encoding.theta.stack;
+    }
+};
+
+type SanitizeSpecForExploreOptions = {
+    selectedDimensions?: string[];
+    selectedMetrics?: string[];
+};
+
+/** 探索页：去掉未替换的 {{highlight}} 层，饼图按最细维度 sum 聚合 */
+export const sanitizeSpecForExplore = (
+    spec: Record<string, unknown>,
+    availableFieldIds: Set<string>,
+    options?: SanitizeSpecForExploreOptions,
+): Record<string, unknown> => {
+    const next = JSON.parse(JSON.stringify(spec)) as Record<string, unknown>;
+
+    if (Array.isArray(next.layer)) {
+        next.layer = next.layer.filter(
+            (layer) => isRecord(layer) && !layerUsesMustachePlaceholder(layer),
+        );
+
+        if (next.layer.length === 1 && isRecord(next.layer[0])) {
+            const onlyLayer = next.layer[0];
+            const markType =
+                typeof onlyLayer.mark === 'string'
+                    ? onlyLayer.mark
+                    : isRecord(onlyLayer.mark)
+                      ? onlyLayer.mark.type
+                      : null;
+            if (markType === 'arc' && isRecord(onlyLayer.encoding)) {
+                const flattened = JSON.parse(
+                    JSON.stringify(onlyLayer),
+                ) as Record<string, unknown>;
+                delete next.layer;
+                if (flattened.mark) next.mark = flattened.mark;
+                if (flattened.encoding) next.encoding = flattened.encoding;
+                if (flattened.transform) next.transform = flattened.transform;
+            }
+        }
+    }
+
+    if (!isArcPieSpec(next)) {
+        return next;
+    }
+
+    const dimensions =
+        options?.selectedDimensions?.filter((fieldId) =>
+            availableFieldIds.has(fieldId),
+        ) ||
+        [...availableFieldIds].filter((fieldId) =>
+            /(cls_|category|class|类目|品类|品牌|channel|region|biz_period|month|date)/i.test(
+                fieldId,
+            ),
+        );
+    const metrics =
+        options?.selectedMetrics?.filter((fieldId) =>
+            availableFieldIds.has(fieldId),
+        ) ||
+        [...availableFieldIds].filter(
+            (fieldId) => !dimensions.includes(fieldId),
+        );
+    const dimensionField = pickPrimaryPieDimension(dimensions);
+    const metricField =
+        metrics.find((fieldId) =>
+            /(amount|sales|gmv|metric|yoy|mom|同比|环比|销售额|金额)/i.test(
+                fieldId,
+            ),
+        ) ||
+        metrics[0] ||
+        null;
+    if (!dimensionField || !metricField) {
+        return next;
+    }
+
+    if (isRecord(next.encoding)) {
+        fixArcEncoding(next.encoding, dimensionField, metricField);
+    }
+    if (Array.isArray(next.layer)) {
+        next.layer.forEach((layer) => {
+            if (!isRecord(layer) || !isRecord(layer.encoding)) return;
+            const markType =
+                typeof layer.mark === 'string'
+                    ? layer.mark
+                    : isRecord(layer.mark)
+                      ? layer.mark.type
+                      : null;
+            if (markType === 'arc') {
+                fixArcEncoding(layer.encoding, dimensionField, metricField);
+            }
+        });
+    }
+
+    return next;
+};
+
 export const normalizeSpecToV5 = (
     spec: Record<string, unknown>,
 ): Record<string, unknown> => {
@@ -151,12 +326,17 @@ export const normalizeSpecToV5 = (
 export const validateGeneratedVegaSpec = (
     spec: Record<string, unknown>,
     availableFieldIds: Set<string>,
+    options?: SanitizeSpecForExploreOptions,
 ): {
     normalizedSpec: Record<string, unknown>;
     isValid: boolean;
     errors: string[];
 } => {
-    const normalizedSpec = normalizeSpecToV5(spec);
+    const normalizedSpec = sanitizeSpecForExplore(
+        normalizeSpecToV5(spec),
+        availableFieldIds,
+        options,
+    );
     const errors: string[] = [];
 
     if (normalizedSpec.$schema !== V5_SCHEMA) {
