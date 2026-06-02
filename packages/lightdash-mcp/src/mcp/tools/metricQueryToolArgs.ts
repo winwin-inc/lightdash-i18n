@@ -67,8 +67,17 @@ export function toStringArray(value: unknown): string[] {
                   }
               })()
             : value;
-    if (!Array.isArray(raw)) return [];
+    if (!Array.isArray(raw)) {
+        if (typeof raw === 'string' && raw.length > 0) return [raw];
+        return [];
+    }
     return raw.filter((item): item is string => typeof item === 'string');
+}
+
+/** dimensions/metrics from queryConfig/metricQuery blocks (must not call .filter on non-arrays). */
+export function toMetricQueryFieldIds(value: unknown): string[] {
+    if (value === undefined || value === null) return [];
+    return toStringArray(value);
 }
 
 export function toArray(value: unknown): unknown[] {

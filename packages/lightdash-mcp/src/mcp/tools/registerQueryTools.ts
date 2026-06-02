@@ -17,6 +17,7 @@ import {
     toFilters,
     toObjectLike,
     toOptionalQueryContext,
+    toMetricQueryFieldIds,
     toSorts,
     toStringArray,
 } from './metricQueryToolArgs';
@@ -56,12 +57,20 @@ function hasFlatMetricInputs(args: Record<string, unknown>): boolean {
     );
 }
 
+function collectFilterRulesFromGroup(group: unknown): unknown[] {
+    if (Array.isArray(group)) return group;
+    if (group && typeof group === 'object' && !Array.isArray(group)) {
+        const and = (group as { and?: unknown }).and;
+        if (Array.isArray(and)) return and;
+    }
+    return [];
+}
+
 function getNormalizedDimensionFilterFieldIds(
     normalizedFilters: Record<string, unknown>,
 ): string[] {
-    const { dimensions } = normalizedFilters;
-    if (!Array.isArray(dimensions)) return [];
-    return dimensions
+    const rules = collectFilterRulesFromGroup(normalizedFilters.dimensions);
+    return rules
         .map((rule) => {
             if (!rule || typeof rule !== 'object') return null;
             const { target } = rule as Record<string, unknown>;
@@ -436,9 +445,10 @@ export function registerQueryTools(
         '异步指标查询（v2 metric-query + 轮询）。推荐使用 queryConfig(JSON 块)；metricQuery/扁平参数保留兼容。示例：run_metric_query(queryConfig:{exploreName:"orders",dimensions:["orders_date"],metrics:["orders_count"],filters:{dimensions:{and:[{target:{fieldId:"orders_date"},operator:"inThePast",values:["30 days"]}]}}})。',
         {
             projectUuid: z.string().optional(),
-            queryConfig: z.any().optional(),
+            queryConfig: z.record(z.string(), z.unknown()).optional(),
+            config: z.record(z.string(), z.unknown()).optional(),
             exploreName: z.string().min(1).optional(),
-            metricQuery: z.any().optional(),
+            metricQuery: z.record(z.string(), z.unknown()).optional(),
             requiredFilterFieldIds: z.array(z.string()).optional(),
             dimensions: z.array(z.string()).optional(),
             metrics: z.array(z.string()).optional(),
@@ -476,7 +486,9 @@ export function registerQueryTools(
                 (args.pollIntervalMs as number | undefined) ??
                 poll.pollIntervalMs;
             const exploreName = args.exploreName as string | undefined;
-            const queryConfigBlock = toMetricQueryBlock(args.queryConfig);
+            const queryConfigBlock =
+                toMetricQueryBlock(args.queryConfig) ??
+                toMetricQueryBlock(args.config);
             const metricQueryBlock = toMetricQueryBlock(args.metricQuery);
             const effectiveExploreName =
                 (queryConfigBlock?.exploreName as string | undefined) ??
@@ -493,19 +505,17 @@ export function registerQueryTools(
                 effectiveExploreName,
             );
             const mqDimensions =
-                (
-                    (queryConfigBlock?.dimensions as unknown[] | undefined) ??
-                    (metricQueryBlock?.dimensions as unknown[] | undefined)
-                )?.filter(
-                    (d): d is string => typeof d === 'string',
-                ) ?? toStringArray(args.dimensions);
+                queryConfigBlock?.dimensions !== undefined
+                    ? toMetricQueryFieldIds(queryConfigBlock.dimensions)
+                    : metricQueryBlock?.dimensions !== undefined
+                      ? toMetricQueryFieldIds(metricQueryBlock.dimensions)
+                      : toStringArray(args.dimensions);
             const mqMetrics =
-                (
-                    (queryConfigBlock?.metrics as unknown[] | undefined) ??
-                    (metricQueryBlock?.metrics as unknown[] | undefined)
-                )?.filter(
-                    (d): d is string => typeof d === 'string',
-                ) ?? toStringArray(args.metrics);
+                queryConfigBlock?.metrics !== undefined
+                    ? toMetricQueryFieldIds(queryConfigBlock.metrics)
+                    : metricQueryBlock?.metrics !== undefined
+                      ? toMetricQueryFieldIds(metricQueryBlock.metrics)
+                      : toStringArray(args.metrics);
             try {
                 const normalizedFilters = toFilters(
                     queryConfigBlock?.filters ??
