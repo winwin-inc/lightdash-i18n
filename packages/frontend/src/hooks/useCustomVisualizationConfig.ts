@@ -1,30 +1,7 @@
-import { type CustomVis, type ResultRow } from '@lightdash/common';
+import { type CustomVis } from '@lightdash/common';
 import { useEffect, useMemo, useState } from 'react';
+import { convertRowsToSeries } from '../components/VisualizationConfigs/ChartConfigPanel/CustomVis/components/convertRowsToSeries';
 import { type InfiniteQueryResults } from './useQueryResults';
-
-// 优化：使用更高效的数据转换方法，避免 Object.entries/fromEntries 的开销
-const convertRowsToSeries = (rows: ResultRow[]) => {
-    if (rows.length === 0) return [];
-
-    // 预分配数组大小，避免动态扩容
-    const result = new Array(rows.length);
-
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const convertedRow: { [k: string]: unknown } = {};
-
-        // 直接遍历对象属性，避免 Object.entries 的开销
-        for (const key in row) {
-            if (row.hasOwnProperty(key)) {
-                convertedRow[key] = row[key].value.raw;
-            }
-        }
-
-        result[i] = convertedRow;
-    }
-
-    return result;
-};
 
 export interface CustomVisualizationConfigAndData {
     validConfig: CustomVis;

@@ -14,10 +14,12 @@ import {
     Image,
     Loader,
     Modal,
+    MultiSelect,
     ScrollArea,
     Select,
     Stack,
     Text,
+    Textarea,
 } from '@mantine/core';
 import { useClipboard } from '@mantine/hooks';
 import { IconCode, IconPlus } from '@tabler/icons-react';
@@ -39,7 +41,9 @@ import MantineIcon from '../../../../common/MantineIcon';
 import MantineModal from '../../../../common/MantineModal';
 import { isCustomVisualizationConfig } from '../../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../../LightdashVisualization/useVisualizationContext';
+import { Config } from '../../../common/Config';
 import { validateGeneratedVegaSpec } from '../utils/validateGeneratedVegaSpec';
+import { CandidateVegaPreview } from './CandidateVegaPreview';
 
 type CurrentQueryField = {
     fieldId: string;
@@ -102,6 +106,11 @@ export const SelectTemplate = ({
     } | null>(null);
     const [selectionMetaTips, setSelectionMetaTips] =
         useState<GeneratedSelectionMeta>(null);
+    const [regenerateDimensions, setRegenerateDimensions] = useState<string[]>(
+        [],
+    );
+    const [regenerateMetrics, setRegenerateMetrics] = useState<string[]>([]);
+    const [regenerateUserPrompt, setRegenerateUserPrompt] = useState('');
     const {
         mutateAsync: generateCandidates,
         isLoading: isGeneratingCandidates,
@@ -327,6 +336,68 @@ export const SelectTemplate = ({
         [selectedFieldIds, currentFieldKindById],
     );
 
+    const syncRegenerateFromExplore = useCallback(() => {
+        setRegenerateDimensions(selectedDimensions);
+        setRegenerateMetrics(selectedMetrics);
+    }, [selectedDimensions, selectedMetrics]);
+
+    const syncRegenerateFromSelectionMeta = useCallback(
+        (meta: GeneratedSelectionMeta | null) => {
+            if (!meta) return;
+            if (meta.chosenDimensions.length > 0) {
+                setRegenerateDimensions(meta.chosenDimensions);
+            }
+            if (meta.chosenMetrics.length > 0) {
+                setRegenerateMetrics(meta.chosenMetrics);
+            }
+        },
+        [],
+    );
+
+    useEffect(() => {
+        if (opened) {
+            syncRegenerateFromExplore();
+        }
+    }, [opened, syncRegenerateFromExplore]);
+
+    const dimensionFieldOptions = useMemo(
+        () =>
+            currentQueryFields
+                .filter((field) => field.fieldKind === 'dimension')
+                .map((field) => ({
+                    value: field.fieldId,
+                    label: field.label,
+                })),
+        [currentQueryFields],
+    );
+
+    const metricFieldOptions = useMemo(
+        () =>
+            currentQueryFields
+                .filter((field) => field.fieldKind === 'metric')
+                .map((field) => ({
+                    value: field.fieldId,
+                    label: field.label,
+                })),
+        [currentQueryFields],
+    );
+
+    const isPieTemplate = useMemo(() => {
+        const chartType = selectedTemplate?.chart_type?.toLowerCase() || '';
+        return chartType.includes('pie') || chartType.includes('饼');
+    }, [selectedTemplate?.chart_type]);
+
+    const regenerateConfigHints = useMemo(() => {
+        const hints: string[] = [];
+        if (compatibilityTips?.suggestions.length) {
+            hints.push(...compatibilityTips.suggestions);
+        }
+        if (compatibilityTips?.reasons.length) {
+            hints.push(...compatibilityTips.reasons);
+        }
+        return hints;
+    }, [compatibilityTips]);
+
     const selectedTemplateSpecString = useMemo(() => {
         if (!selectedTemplateSpec) return '';
         return JSON.stringify(selectedTemplateSpec, null, 2);
@@ -411,8 +482,9 @@ export const SelectTemplate = ({
                     fieldKind: field.fieldKind || 'unknown',
                     isSelected: field.isSelected,
                 })),
-                selectedDimensions,
-                selectedMetrics,
+                selectedDimensions: regenerateDimensions,
+                selectedMetrics: regenerateMetrics,
+                userPrompt: regenerateUserPrompt.trim() || undefined,
             },
         });
 
@@ -434,6 +506,10 @@ export const SelectTemplate = ({
                           : [],
                 suggestions: compatibility.suggestions || [],
             });
+            syncRegenerateFromSelectionMeta(response.selectionMeta);
+            if (modalStep === 'ai') {
+                setSelectionMetaTips(response.selectionMeta);
+            }
             return;
         }
 
@@ -472,6 +548,10 @@ export const SelectTemplate = ({
                 ],
             });
             setSelectionMetaTips(selectionMeta);
+            syncRegenerateFromSelectionMeta(selectionMeta);
+            if (modalStep !== 'ai') {
+                setModalStep('ai');
+            }
             return;
         }
 
@@ -479,7 +559,10 @@ export const SelectTemplate = ({
             const validation = validateGeneratedVegaSpec(
                 candidate.spec,
                 availableFieldIds,
-                { selectedDimensions, selectedMetrics },
+                {
+                    selectedDimensions: regenerateDimensions,
+                    selectedMetrics: regenerateMetrics,
+                },
             );
             return {
                 ...candidate,
@@ -491,16 +574,20 @@ export const SelectTemplate = ({
         setAiCandidates(candidates);
         setSelectedCandidateIndex(0);
         setSelectionMetaTips(response.selectionMeta);
+        syncRegenerateFromSelectionMeta(response.selectionMeta);
         setModalStep('ai');
     }, [
         selectedTemplateId,
         generateCandidates,
         currentQueryFields,
-        selectedDimensions,
-        selectedMetrics,
+        regenerateDimensions,
+        regenerateMetrics,
+        regenerateUserPrompt,
         availableFieldIds,
         formatFieldList,
         rememberSelectedTemplateId,
+        syncRegenerateFromSelectionMeta,
+        modalStep,
     ]);
 
     const copyTemplateSpec = useCallback(() => {
@@ -572,6 +659,8 @@ export const SelectTemplate = ({
                     setSelectedCandidateIndex(0);
                     setCompatibilityTips(null);
                     setSelectionMetaTips(null);
+                    setRegenerateUserPrompt('');
+                    syncRegenerateFromExplore();
                 }}
                 title={t(
                     modalStep === 'template'
@@ -611,6 +700,8 @@ export const SelectTemplate = ({
                                 setSelectedCandidateIndex(0);
                                 setCompatibilityTips(null);
                                 setSelectionMetaTips(null);
+                                setRegenerateUserPrompt('');
+                                syncRegenerateFromExplore();
                             }}
                         >
                             {modalStep === 'template'
@@ -987,6 +1078,105 @@ export const SelectTemplate = ({
                         </Stack>
                     ) : (
                         <Stack spacing="sm">
+                            <Config>
+                                <Config.Section>
+                                    <Config.Heading>
+                                        {t(
+                                            'components_visualization_configs_custom_vis_template.ai_regenerate_config_title',
+                                        )}
+                                    </Config.Heading>
+                                    <MultiSelect
+                                        data={dimensionFieldOptions}
+                                        value={regenerateDimensions}
+                                        onChange={setRegenerateDimensions}
+                                        label={t(
+                                            isPieTemplate
+                                                ? 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions_pie'
+                                                : 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
+                                        )}
+                                        placeholder={t(
+                                            'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
+                                        )}
+                                        searchable
+                                        clearable
+                                        disabled={isGeneratingCandidates}
+                                        maxDropdownHeight={200}
+                                    />
+                                    <MultiSelect
+                                        data={metricFieldOptions}
+                                        value={regenerateMetrics}
+                                        onChange={setRegenerateMetrics}
+                                        label={t(
+                                            isPieTemplate
+                                                ? 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics_pie'
+                                                : 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
+                                        )}
+                                        placeholder={t(
+                                            'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
+                                        )}
+                                        searchable
+                                        clearable
+                                        disabled={isGeneratingCandidates}
+                                        maxDropdownHeight={200}
+                                    />
+                                    <Textarea
+                                        label={t(
+                                            'components_visualization_configs_custom_vis_template.ai_regenerate_hint',
+                                        )}
+                                        placeholder={t(
+                                            'components_visualization_configs_custom_vis_template.ai_regenerate_hint_placeholder',
+                                        )}
+                                        value={regenerateUserPrompt}
+                                        onChange={(event) =>
+                                            setRegenerateUserPrompt(
+                                                event.currentTarget.value,
+                                            )
+                                        }
+                                        minRows={2}
+                                        autosize
+                                        disabled={isGeneratingCandidates}
+                                    />
+                                </Config.Section>
+                            </Config>
+                            {regenerateConfigHints.length > 0 ? (
+                                <Alert
+                                    color={
+                                        compatibilityTips?.level === 'good'
+                                            ? 'green'
+                                            : 'yellow'
+                                    }
+                                    variant="light"
+                                    p="sm"
+                                >
+                                    <Stack spacing={4}>
+                                        {regenerateConfigHints.map(
+                                            (hint, idx) => (
+                                                <Text
+                                                    key={`regenerate-hint-${idx}`}
+                                                    size="11px"
+                                                    c="dimmed"
+                                                >
+                                                    - {hint}
+                                                </Text>
+                                            ),
+                                        )}
+                                    </Stack>
+                                </Alert>
+                            ) : null}
+                            <CandidateVegaPreview
+                                spec={selectedCandidate?.normalizedSpec ?? null}
+                                fieldIds={
+                                    returnedFieldIds.length > 0
+                                        ? returnedFieldIds
+                                        : selectedFieldIds
+                                }
+                                isLoading={isGeneratingCandidates}
+                                previewKey={
+                                    selectedCandidate
+                                        ? `${selectedCandidateIndex}-${selectedCandidate.strategy}`
+                                        : 'none'
+                                }
+                            />
                             {isGeneratingCandidates ? (
                                 <Group spacing={6}>
                                     <Loader size="xs" color="blue" />
