@@ -176,7 +176,7 @@ const pickPrimaryPieDimension = (candidates: string[]): string | null => {
     return ranked[0] || null;
 };
 
-const isArcPieSpec = (spec: Record<string, unknown>): boolean => {
+export const isArcPieSpec = (spec: Record<string, unknown>): boolean => {
     const markType = (mark: unknown): string | null => {
         if (typeof mark === 'string') return mark;
         if (isRecord(mark) && typeof mark.type === 'string') {
@@ -216,6 +216,111 @@ const fixArcEncoding = (
 type SanitizeSpecForExploreOptions = {
     selectedDimensions?: string[];
     selectedMetrics?: string[];
+    baselineDimensions?: string[];
+    baselineMetrics?: string[];
+};
+
+const buildFieldRemap = (
+    baselineDimensions: string[],
+    baselineMetrics: string[],
+    selectedDimensions: string[],
+    selectedMetrics: string[],
+): Map<string, string> => {
+    const remap = new Map<string, string>();
+
+    const pair = (from: string[], to: string[]) => {
+        if (to.length === 0) return;
+        from.forEach((fromId, index) => {
+            const toId = to[index] ?? to[0];
+            if (fromId && toId && fromId !== toId) {
+                remap.set(fromId, toId);
+            }
+        });
+    };
+
+    pair(baselineDimensions, selectedDimensions);
+    pair(baselineMetrics, selectedMetrics);
+    return remap;
+};
+
+const replaceFieldIdsInSpec = (
+    spec: Record<string, unknown>,
+    remap: Map<string, string>,
+): Record<string, unknown> => {
+    const next = JSON.parse(JSON.stringify(spec)) as Record<string, unknown>;
+
+    const replaceDatumExpression = (expression: string): string => {
+        let result = expression;
+        remap.forEach((toId, fromId) => {
+            result = result
+                .split(`datum["${fromId}"]`)
+                .join(`datum["${toId}"]`)
+                .split(`datum['${fromId}']`)
+                .join(`datum['${toId}']`)
+                .split(`datum.${fromId}`)
+                .join(`datum.${toId}`);
+        });
+        return result;
+    };
+
+    const walk = (value: unknown): void => {
+        if (Array.isArray(value)) {
+            value.forEach(walk);
+            return;
+        }
+        if (!isRecord(value)) return;
+
+        Object.entries(value).forEach(([key, item]) => {
+            if (
+                (key === 'field' || key === 'key' || key === 'pivot') &&
+                typeof item === 'string'
+            ) {
+                const trimmed = item.trim();
+                const replacement = remap.get(trimmed);
+                if (replacement) {
+                    value[key] = replacement;
+                }
+            } else if (
+                key === 'value' &&
+                typeof item === 'string' &&
+                typeof value.pivot === 'string'
+            ) {
+                const trimmed = item.trim();
+                const replacement = remap.get(trimmed);
+                if (replacement) {
+                    value[key] = replacement;
+                }
+            } else if (
+                (key === 'fields' ||
+                    key === 'groupby' ||
+                    key === 'row' ||
+                    key === 'column') &&
+                Array.isArray(item)
+            ) {
+                item.forEach((fieldName, index) => {
+                    if (typeof fieldName !== 'string') return;
+                    const trimmed = fieldName.trim();
+                    const replacement = remap.get(trimmed);
+                    if (replacement) {
+                        item[index] = replacement;
+                    }
+                });
+            } else if (
+                (key === 'calculate' ||
+                    key === 'filter' ||
+                    key === 'test' ||
+                    key === 'expr') &&
+                typeof item === 'string'
+            ) {
+                value[key] = replaceDatumExpression(item);
+            }
+
+            walk(item);
+        });
+    };
+
+    walk(next);
+    return next;
 };
 
 /** 探索页：去掉未替换的 {{highlight}} 层，饼图按最细维度 sum 聚合 */
@@ -252,25 +357,36 @@ export const sanitizeSpecForExplore = (
     }
 
     if (!isArcPieSpec(next)) {
+        const remap = buildFieldRemap(
+            options?.baselineDimensions ?? [],
+            options?.baselineMetrics ?? [],
+            options?.selectedDimensions ?? [],
+            options?.selectedMetrics ?? [],
+        );
+        if (remap.size > 0) {
+            return replaceFieldIdsInSpec(next, remap);
+        }
         return next;
     }
 
     const dimensions =
-        options?.selectedDimensions?.filter((fieldId) =>
-            availableFieldIds.has(fieldId),
-        ) ||
-        [...availableFieldIds].filter((fieldId) =>
-            /(cls_|category|class|类目|品类|品牌|channel|region|biz_period|month|date)/i.test(
-                fieldId,
-            ),
-        );
+        options?.selectedDimensions !== undefined
+            ? options.selectedDimensions.filter((fieldId) =>
+                  availableFieldIds.has(fieldId),
+              )
+            : [...availableFieldIds].filter((fieldId) =>
+                  /(cls_|category|class|类目|品类|品牌|channel|region|biz_period|month|date)/i.test(
+                      fieldId,
+                  ),
+              );
     const metrics =
-        options?.selectedMetrics?.filter((fieldId) =>
-            availableFieldIds.has(fieldId),
-        ) ||
-        [...availableFieldIds].filter(
-            (fieldId) => !dimensions.includes(fieldId),
-        );
+        options?.selectedMetrics !== undefined
+            ? options.selectedMetrics.filter((fieldId) =>
+                  availableFieldIds.has(fieldId),
+              )
+            : [...availableFieldIds].filter(
+                  (fieldId) => !dimensions.includes(fieldId),
+              );
     const dimensionField = pickPrimaryPieDimension(dimensions);
     const metricField =
         metrics.find((fieldId) =>

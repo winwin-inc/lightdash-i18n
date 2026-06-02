@@ -134,7 +134,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
-- `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**。推荐参数为 `queryConfig`（兼容 `metricQuery` 与扁平参数）。
+- `run_metric_query`：首条为 **CSV**，第二条为 JSON；响应中含 `**structuredContent`**。推荐参数为 `queryConfig`（兼容 `metricQuery` 与扁平参数）。调用示例见 [`docs/mcp/lightdash-mcp-run-metric-query-examples.md`](../../docs/mcp/lightdash-mcp-run-metric-query-examples.md)。
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 - `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 

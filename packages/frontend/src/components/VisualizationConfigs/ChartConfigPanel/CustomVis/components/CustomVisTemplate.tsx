@@ -22,7 +22,7 @@ import {
     Textarea,
 } from '@mantine/core';
 import { useClipboard } from '@mantine/hooks';
-import { IconCode, IconPlus } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCode, IconPlus } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,8 +41,10 @@ import MantineIcon from '../../../../common/MantineIcon';
 import MantineModal from '../../../../common/MantineModal';
 import { isCustomVisualizationConfig } from '../../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../../LightdashVisualization/useVisualizationContext';
-import { Config } from '../../../common/Config';
-import { validateGeneratedVegaSpec } from '../utils/validateGeneratedVegaSpec';
+import {
+    isArcPieSpec,
+    validateGeneratedVegaSpec,
+} from '../utils/validateGeneratedVegaSpec';
 import { CandidateVegaPreview } from './CandidateVegaPreview';
 
 type CurrentQueryField = {
@@ -54,6 +56,26 @@ type CurrentQueryField = {
 };
 
 const MODAL_SCROLL_HEIGHT = 'calc(88vh - 260px)';
+const MODAL_SCROLL_AREA_PROPS = {
+    h: MODAL_SCROLL_HEIGHT,
+    offsetScrollbars: true,
+    className: 'only-vertical',
+    variant: 'primary' as const,
+    styles: {
+        root: {
+            overflowX: 'hidden' as const,
+        },
+        viewport: {
+            paddingRight: 14,
+            overflowX: 'hidden' as const,
+        },
+        scrollbar: {
+            '&[data-orientation="horizontal"]': {
+                display: 'none',
+            },
+        },
+    },
+};
 const LAST_SELECTED_TEMPLATE_STORAGE_KEY = 'lastSelectedChartTemplateId';
 const LAST_SELECTED_TEMPLATE_CHART_TYPE_STORAGE_KEY =
     'lastSelectedChartTemplateChartType';
@@ -398,15 +420,146 @@ export const SelectTemplate = ({
         return hints;
     }, [compatibilityTips]);
 
+    const isAiStepBlocked = modalStep === 'ai' && aiCandidates.length === 0;
+    const isAiStepReady = modalStep === 'ai' && aiCandidates.length > 0;
+
+    const aiStepBlockedContent = useMemo(() => {
+        const normalizeLine = (line: string) =>
+            line.replace(/\s+/g, ' ').trim();
+        const seenIssues = new Set<string>();
+        const issues: string[] = [];
+
+        const addIssue = (line: string) => {
+            const normalized = normalizeLine(line);
+            if (!normalized) return;
+            const isDuplicate = Array.from(seenIssues).some(
+                (existing) =>
+                    existing === normalized ||
+                    existing.includes(normalized) ||
+                    normalized.includes(existing),
+            );
+            if (isDuplicate) return;
+            seenIssues.add(normalized);
+            issues.push(line.trim());
+        };
+
+        const isFieldMappingSummaryLine = (line: string) =>
+            /^(自动忽略|最终采用|已自动忽略)/.test(line.trim());
+
+        compatibilityTips?.reasons.forEach(addIssue);
+        compatibilityTips?.suggestions.forEach((line) => {
+            if (!isFieldMappingSummaryLine(line)) {
+                addIssue(line);
+            }
+        });
+
+        const fieldSummary: Array<{ label: string; value: string }> = [];
+        if (selectionMetaTips) {
+            if (selectionMetaTips.chosenDimensions.length > 0) {
+                fieldSummary.push({
+                    label: t(
+                        'components_visualization_configs_custom_vis_template.ai_blocked_chosen_dimensions',
+                    ),
+                    value: formatFieldList(
+                        selectionMetaTips.chosenDimensions,
+                    ).join('、'),
+                });
+            }
+            if (selectionMetaTips.chosenMetrics.length > 0) {
+                fieldSummary.push({
+                    label: t(
+                        'components_visualization_configs_custom_vis_template.ai_blocked_chosen_metrics',
+                    ),
+                    value: formatFieldList(
+                        selectionMetaTips.chosenMetrics,
+                    ).join('、'),
+                });
+            }
+            if (selectionMetaTips.ignoredDimensions.length > 0) {
+                fieldSummary.push({
+                    label: t(
+                        'components_visualization_configs_custom_vis_template.ai_blocked_ignored_dimensions',
+                    ),
+                    value: formatFieldList(
+                        selectionMetaTips.ignoredDimensions,
+                    ).join('、'),
+                });
+            }
+            if (selectionMetaTips.ignoredMetrics.length > 0) {
+                fieldSummary.push({
+                    label: t(
+                        'components_visualization_configs_custom_vis_template.ai_blocked_ignored_metrics',
+                    ),
+                    value: formatFieldList(
+                        selectionMetaTips.ignoredMetrics,
+                    ).join('、'),
+                });
+            }
+
+            selectionMetaTips.ambiguityReasons.forEach((reason) => {
+                const trimmed = reason.trim();
+                if (!trimmed) return;
+                if (
+                    trimmed.includes('候选指标数量超出模板可承载槽位') &&
+                    selectionMetaTips.chosenMetrics.length > 0
+                ) {
+                    seenIssues.add(normalizeLine(trimmed));
+                    addIssue(
+                        `${trimmed}（${t('components_visualization_configs_custom_vis_template.ai_blocked_current_metrics')}：${formatFieldList(selectionMetaTips.chosenMetrics).join('、')}）`,
+                    );
+                    return;
+                }
+                addIssue(trimmed);
+            });
+        }
+
+        return { issues, fieldSummary };
+    }, [compatibilityTips, selectionMetaTips, formatFieldList, t]);
+
     const selectedTemplateSpecString = useMemo(() => {
         if (!selectedTemplateSpec) return '';
         return JSON.stringify(selectedTemplateSpec, null, 2);
     }, [selectedTemplateSpec]);
     const selectedCandidate = aiCandidates[selectedCandidateIndex];
+    const selectedCandidatePreview = useMemo(() => {
+        if (!selectedCandidate?.spec) return null;
+        return validateGeneratedVegaSpec(
+            selectedCandidate.spec,
+            availableFieldIds,
+            {
+                selectedDimensions: regenerateDimensions,
+                selectedMetrics: regenerateMetrics,
+                baselineDimensions: selectionMetaTips?.chosenDimensions ?? [],
+                baselineMetrics: selectionMetaTips?.chosenMetrics ?? [],
+            },
+        );
+    }, [
+        selectedCandidate?.spec,
+        regenerateDimensions,
+        regenerateMetrics,
+        availableFieldIds,
+        selectionMetaTips,
+    ]);
+    const selectedSpecSupportsFieldRemap = useMemo(() => {
+        if (!selectedCandidate?.spec) return false;
+        if (isArcPieSpec(selectedCandidate.spec)) return true;
+        return (
+            (selectionMetaTips?.chosenDimensions.length ?? 0) > 0 ||
+            (selectionMetaTips?.chosenMetrics.length ?? 0) > 0
+        );
+    }, [selectedCandidate?.spec, selectionMetaTips]);
+    const previewValidationPassed = useMemo(() => {
+        if (!selectedCandidate?.valid) return false;
+        return selectedCandidatePreview?.isValid ?? false;
+    }, [selectedCandidate?.valid, selectedCandidatePreview?.isValid]);
+    const previewDerivedErrors = useMemo(
+        () => selectedCandidatePreview?.errors ?? [],
+        [selectedCandidatePreview?.errors],
+    );
     const selectedCandidateSpecString = useMemo(() => {
-        if (!selectedCandidate?.normalizedSpec) return '';
-        return JSON.stringify(selectedCandidate.normalizedSpec, null, 2);
-    }, [selectedCandidate]);
+        if (!selectedCandidatePreview?.normalizedSpec) return '';
+        return JSON.stringify(selectedCandidatePreview.normalizedSpec, null, 2);
+    }, [selectedCandidatePreview?.normalizedSpec]);
     const selectedTemplateDisplayName = useMemo(() => {
         const rawTemplateName = selectedTemplate?.example_name;
         if (!rawTemplateName) {
@@ -433,22 +586,11 @@ export const SelectTemplate = ({
             `基于模板「${selectedTemplateDisplayName}」规则映射生成`,
         );
     }, [selectedCandidate, selectedTemplateDisplayName, t]);
-    const hasSelectionMetaDetails = useMemo(() => {
-        if (!selectionMetaTips) return false;
-        return (
-            selectionMetaTips.aiCandidateMetrics.length > 0 ||
-            selectionMetaTips.chosenMetrics.length > 0 ||
-            selectionMetaTips.chosenDimensions.length > 0 ||
-            selectionMetaTips.ignoredDimensions.length > 0 ||
-            selectionMetaTips.ignoredMetrics.length > 0 ||
-            selectionMetaTips.ambiguityReasons.length > 0 ||
-            selectionMetaTips.mappingConfidence !== null ||
-            selectionMetaTips.usedAiFallback
-        );
-    }, [selectionMetaTips]);
-
     const applyAiCandidate = useCallback(() => {
-        if (!selectedCandidate || !selectedCandidate.valid) {
+        if (!selectedCandidate || !previewValidationPassed) {
+            return;
+        }
+        if (!selectedCandidatePreview?.normalizedSpec) {
             return;
         }
         if (selectedTemplateId) {
@@ -456,12 +598,14 @@ export const SelectTemplate = ({
         }
 
         setEditorConfig(
-            JSON.stringify(selectedCandidate.normalizedSpec, null, 2),
+            JSON.stringify(selectedCandidatePreview.normalizedSpec, null, 2),
         );
         setOpened(false);
         setModalStep('template');
     }, [
         selectedCandidate,
+        previewValidationPassed,
+        selectedCandidatePreview?.normalizedSpec,
         selectedTemplateId,
         rememberSelectedTemplateId,
         setEditorConfig,
@@ -491,6 +635,10 @@ export const SelectTemplate = ({
         if (!response) return;
 
         if (!response.success) {
+            setAiCandidates([]);
+            setSelectedCandidateIndex(0);
+            setModalStep('ai');
+
             const compatibility = response.compatibility || {
                 level: 'warning',
                 reasons: [],
@@ -514,38 +662,19 @@ export const SelectTemplate = ({
         }
 
         if (!response.renderable || response.candidates.length === 0) {
+            setAiCandidates([]);
+            setSelectedCandidateIndex(0);
+
             const compatibility = response.compatibility || {
                 level: 'warning',
                 reasons: [],
                 suggestions: [],
             };
             const selectionMeta = response.selectionMeta;
-            const selectionSuggestions: string[] = [];
-            if (selectionMeta?.ignoredDimensions.length) {
-                selectionSuggestions.push(
-                    `自动忽略维度: ${formatFieldList(selectionMeta.ignoredDimensions).join(', ')}`,
-                );
-            }
-            if (selectionMeta?.ignoredMetrics.length) {
-                selectionSuggestions.push(
-                    `自动忽略指标: ${formatFieldList(selectionMeta.ignoredMetrics).join(', ')}`,
-                );
-            }
-            if (selectionMeta?.chosenMetrics.length) {
-                selectionSuggestions.push(
-                    `最终采用指标: ${formatFieldList(selectionMeta.chosenMetrics).join(', ')}`,
-                );
-            }
-            if (selectionMeta?.ambiguityReasons.length) {
-                selectionSuggestions.push(...selectionMeta.ambiguityReasons);
-            }
             setCompatibilityTips({
                 level: compatibility.level,
                 reasons: compatibility.reasons || [],
-                suggestions: [
-                    ...(compatibility.suggestions || []),
-                    ...selectionSuggestions,
-                ],
+                suggestions: compatibility.suggestions || [],
             });
             setSelectionMetaTips(selectionMeta);
             syncRegenerateFromSelectionMeta(selectionMeta);
@@ -575,6 +704,7 @@ export const SelectTemplate = ({
         setSelectedCandidateIndex(0);
         setSelectionMetaTips(response.selectionMeta);
         syncRegenerateFromSelectionMeta(response.selectionMeta);
+        setRegenerateUserPrompt('');
         setModalStep('ai');
     }, [
         selectedTemplateId,
@@ -584,7 +714,6 @@ export const SelectTemplate = ({
         regenerateMetrics,
         regenerateUserPrompt,
         availableFieldIds,
-        formatFieldList,
         rememberSelectedTemplateId,
         syncRegenerateFromSelectionMeta,
         modalStep,
@@ -682,6 +811,7 @@ export const SelectTemplate = ({
                     sx: {
                         maxHeight: 'calc(88vh - 130px)',
                         overflow: 'hidden',
+                        overflowX: 'hidden',
                     },
                 }}
                 actions={
@@ -718,14 +848,25 @@ export const SelectTemplate = ({
                                     ? () => {
                                           void generateAiCandidates();
                                       }
-                                    : applyAiCandidate
+                                    : isAiStepBlocked
+                                      ? () => {
+                                            void generateAiCandidates();
+                                        }
+                                      : applyAiCandidate
                             }
                             disabled={
                                 modalStep === 'template'
                                     ? !selectedTemplateSpec ||
                                       isGeneratingCandidates
-                                    : !selectedCandidate ||
-                                      !selectedCandidate.valid
+                                    : isAiStepBlocked
+                                      ? isGeneratingCandidates
+                                      : !selectedCandidate ||
+                                        !previewValidationPassed
+                            }
+                            loading={
+                                modalStep !== 'template' &&
+                                isAiStepBlocked &&
+                                isGeneratingCandidates
                             }
                         >
                             {modalStep === 'template'
@@ -734,9 +875,15 @@ export const SelectTemplate = ({
                                           ? 'components_visualization_configs_custom_vis_template.ai_generating'
                                           : 'components_visualization_configs_custom_vis_template.ai_generate_candidates',
                                   )
-                                : t(
-                                      'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
-                                  )}
+                                : isAiStepBlocked
+                                  ? t(
+                                        isGeneratingCandidates
+                                            ? 'components_visualization_configs_custom_vis_template.ai_generating'
+                                            : 'components_visualization_configs_custom_vis_template.ai_regenerate',
+                                    )
+                                  : t(
+                                        'components_visualization_configs_custom_vis_template.ai_apply_selected_candidate',
+                                    )}
                         </Button>
                     </>
                 }
@@ -830,15 +977,7 @@ export const SelectTemplate = ({
                                     display: 'block',
                                 }}
                             >
-                                <ScrollArea
-                                    h={MODAL_SCROLL_HEIGHT}
-                                    offsetScrollbars
-                                    styles={{
-                                        viewport: {
-                                            paddingRight: 14,
-                                        },
-                                    }}
-                                >
+                                <ScrollArea {...MODAL_SCROLL_AREA_PROPS}>
                                     <Stack spacing="xs">
                                         {isTemplatesLoading ? (
                                             <Loader color="gray" size="sm" />
@@ -1077,323 +1216,275 @@ export const SelectTemplate = ({
                             </div>
                         </Stack>
                     ) : (
-                        <Stack spacing="sm">
-                            <Config>
-                                <Config.Section>
-                                    <Config.Heading>
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.ai_regenerate_config_title',
-                                        )}
-                                    </Config.Heading>
-                                    <MultiSelect
-                                        data={dimensionFieldOptions}
-                                        value={regenerateDimensions}
-                                        onChange={setRegenerateDimensions}
-                                        label={t(
-                                            isPieTemplate
-                                                ? 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions_pie'
-                                                : 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
-                                        )}
-                                        placeholder={t(
-                                            'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
-                                        )}
-                                        searchable
-                                        clearable
-                                        disabled={isGeneratingCandidates}
-                                        maxDropdownHeight={200}
-                                    />
-                                    <MultiSelect
-                                        data={metricFieldOptions}
-                                        value={regenerateMetrics}
-                                        onChange={setRegenerateMetrics}
-                                        label={t(
-                                            isPieTemplate
-                                                ? 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics_pie'
-                                                : 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
-                                        )}
-                                        placeholder={t(
-                                            'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
-                                        )}
-                                        searchable
-                                        clearable
-                                        disabled={isGeneratingCandidates}
-                                        maxDropdownHeight={200}
-                                    />
-                                    <Textarea
-                                        label={t(
-                                            'components_visualization_configs_custom_vis_template.ai_regenerate_hint',
-                                        )}
-                                        placeholder={t(
-                                            'components_visualization_configs_custom_vis_template.ai_regenerate_hint_placeholder',
-                                        )}
-                                        value={regenerateUserPrompt}
-                                        onChange={(event) =>
-                                            setRegenerateUserPrompt(
-                                                event.currentTarget.value,
-                                            )
+                        <ScrollArea {...MODAL_SCROLL_AREA_PROPS}>
+                            <Stack
+                                spacing="sm"
+                                sx={{
+                                    maxWidth: '100%',
+                                    overflowX: 'hidden',
+                                }}
+                            >
+                                {isGeneratingCandidates ? (
+                                    <Group spacing={6}>
+                                        <Loader size="xs" color="blue" />
+                                        <Text size="xs" c="dimmed">
+                                            {t(
+                                                'components_visualization_configs_custom_vis_template.ai_generating',
+                                            )}
+                                        </Text>
+                                    </Group>
+                                ) : null}
+                                {isAiStepBlocked ? (
+                                    <Alert
+                                        color="yellow"
+                                        variant="light"
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconAlertTriangle}
+                                                size="md"
+                                            />
                                         }
-                                        minRows={2}
-                                        autosize
-                                        disabled={isGeneratingCandidates}
-                                    />
-                                </Config.Section>
-                            </Config>
-                            {regenerateConfigHints.length > 0 ? (
-                                <Alert
-                                    color={
-                                        compatibilityTips?.level === 'good'
-                                            ? 'green'
-                                            : 'yellow'
-                                    }
-                                    variant="light"
-                                    p="sm"
-                                >
-                                    <Stack spacing={4}>
-                                        {regenerateConfigHints.map(
-                                            (hint, idx) => (
-                                                <Text
-                                                    key={`regenerate-hint-${idx}`}
-                                                    size="11px"
-                                                    c="dimmed"
-                                                >
-                                                    - {hint}
-                                                </Text>
-                                            ),
+                                        title={t(
+                                            'components_visualization_configs_custom_vis_template.ai_step_blocked_title',
                                         )}
-                                    </Stack>
-                                </Alert>
-                            ) : null}
-                            <CandidateVegaPreview
-                                spec={selectedCandidate?.normalizedSpec ?? null}
-                                fieldIds={
-                                    returnedFieldIds.length > 0
-                                        ? returnedFieldIds
-                                        : selectedFieldIds
-                                }
-                                isLoading={isGeneratingCandidates}
-                                previewKey={
-                                    selectedCandidate
-                                        ? `${selectedCandidateIndex}-${selectedCandidate.strategy}`
-                                        : 'none'
-                                }
-                            />
-                            {isGeneratingCandidates ? (
-                                <Group spacing={6}>
-                                    <Loader size="xs" color="blue" />
-                                    <Text size="xs" c="dimmed">
-                                        {t(
-                                            'components_visualization_configs_custom_vis_template.ai_generating',
-                                        )}
-                                    </Text>
-                                </Group>
-                            ) : null}
-                            {selectedCandidate ? (
-                                <Group spacing={6} noWrap>
-                                    <Text
-                                        size="xs"
-                                        c={
-                                            selectedCandidate.valid
-                                                ? 'green.7'
-                                                : 'orange.8'
-                                        }
-                                        fw={500}
+                                        styles={{
+                                            title: {
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                lineHeight: 1.4,
+                                            },
+                                            message: {
+                                                fontSize: 12,
+                                                lineHeight: 1.55,
+                                            },
+                                        }}
                                     >
-                                        {t(
-                                            selectedCandidate.valid
-                                                ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
-                                                : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
-                                        )}
-                                    </Text>
-                                    <Text size="xs" c="dimmed" lineClamp={1}>
-                                        {selectedCandidateReasoningText}
-                                    </Text>
-                                </Group>
-                            ) : null}
-                            {hasSelectionMetaDetails && selectionMetaTips ? (
-                                <Alert color="blue" variant="light" p="sm">
-                                    <Stack spacing={4}>
-                                        {selectionMetaTips.mappingConfidence ? (
+                                        <Stack spacing="xs">
+                                            <Text fz={12} c="dimmed" lh={1.55}>
+                                                {t(
+                                                    'components_visualization_configs_custom_vis_template.ai_step_blocked_description',
+                                                )}
+                                            </Text>
+                                            {aiStepBlockedContent.issues.map(
+                                                (hint, idx) => (
+                                                    <Text
+                                                        key={`blocked-issue-${idx}`}
+                                                        fz={12}
+                                                        lh={1.55}
+                                                    >
+                                                        {hint}
+                                                    </Text>
+                                                ),
+                                            )}
+                                            {aiStepBlockedContent.fieldSummary
+                                                .length > 0 ? (
+                                                <Stack spacing={4} mt={4}>
+                                                    {aiStepBlockedContent.fieldSummary.map(
+                                                        (row) => (
+                                                            <Text
+                                                                key={row.label}
+                                                                fz={12}
+                                                                lh={1.55}
+                                                            >
+                                                                <Text
+                                                                    component="span"
+                                                                    c="dimmed"
+                                                                >
+                                                                    {row.label}
+                                                                    ：
+                                                                </Text>
+                                                                {row.value}
+                                                            </Text>
+                                                        ),
+                                                    )}
+                                                </Stack>
+                                            ) : null}
+                                        </Stack>
+                                    </Alert>
+                                ) : null}
+                                {isAiStepReady ? (
+                                    <Stack spacing="sm">
+                                        {aiCandidates.length > 1 ? (
                                             <Group spacing={6}>
-                                                <Text size="11px" c="dimmed">
-                                                    映射置信度:
-                                                </Text>
-                                                <Badge
-                                                    size="xs"
-                                                    variant="light"
-                                                    color={
-                                                        selectionMetaTips.mappingConfidence ===
-                                                        'high'
-                                                            ? 'green'
-                                                            : selectionMetaTips.mappingConfidence ===
-                                                                'medium'
-                                                              ? 'yellow'
-                                                              : 'orange'
-                                                    }
-                                                >
-                                                    {
-                                                        selectionMetaTips.mappingConfidence
-                                                    }
-                                                </Badge>
+                                                {aiCandidates.map(
+                                                    (candidate, index) => {
+                                                        const isValid =
+                                                            candidate.valid;
+                                                        const isSelected =
+                                                            index ===
+                                                            selectedCandidateIndex;
+                                                        return (
+                                                            <Badge
+                                                                key={`${candidate.strategy}-${index}`}
+                                                                size="sm"
+                                                                radius="sm"
+                                                                variant={
+                                                                    isSelected
+                                                                        ? 'filled'
+                                                                        : 'light'
+                                                                }
+                                                                color={
+                                                                    isValid
+                                                                        ? 'blue'
+                                                                        : 'gray'
+                                                                }
+                                                                sx={{
+                                                                    cursor: isGeneratingCandidates
+                                                                        ? 'default'
+                                                                        : 'pointer',
+                                                                    userSelect:
+                                                                        'none',
+                                                                }}
+                                                                onClick={() =>
+                                                                    !isGeneratingCandidates
+                                                                        ? setSelectedCandidateIndex(
+                                                                              index,
+                                                                          )
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                {t(
+                                                                    `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
+                                                                )}
+                                                            </Badge>
+                                                        );
+                                                    },
+                                                )}
                                             </Group>
                                         ) : null}
-                                        {selectionMetaTips.usedAiFallback ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 已触发 AI 兜底选择
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.aiCandidateMetrics
-                                            .length > 0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 候选指标:{' '}
-                                                {formatFieldList(
-                                                    selectionMetaTips.aiCandidateMetrics,
-                                                ).join(', ')}
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.chosenMetrics
-                                            .length > 0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 最终采用指标:{' '}
-                                                {formatFieldList(
-                                                    selectionMetaTips.chosenMetrics,
-                                                ).join(', ')}
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.chosenDimensions
-                                            .length > 0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 最终采用维度:{' '}
-                                                {formatFieldList(
-                                                    selectionMetaTips.chosenDimensions,
-                                                ).join(', ')}
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.ignoredDimensions
-                                            .length > 0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 自动忽略维度:{' '}
-                                                {formatFieldList(
-                                                    selectionMetaTips.ignoredDimensions,
-                                                ).join(', ')}
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.ignoredMetrics
-                                            .length > 0 ? (
-                                            <Text size="11px" c="dimmed">
-                                                - 自动忽略指标:{' '}
-                                                {formatFieldList(
-                                                    selectionMetaTips.ignoredMetrics,
-                                                ).join(', ')}
-                                            </Text>
-                                        ) : null}
-                                        {selectionMetaTips.ambiguityReasons.map(
-                                            (reason, idx) => (
-                                                <Text
-                                                    key={`ambiguity-reason-${idx}`}
-                                                    size="11px"
-                                                    c="dimmed"
+                                        {selectedCandidate ? (
+                                            <Stack spacing={4}>
+                                                <Group
+                                                    spacing={6}
+                                                    align="flex-start"
+                                                    sx={{
+                                                        flexWrap: 'wrap',
+                                                        overflow: 'hidden',
+                                                    }}
                                                 >
-                                                    -{' '}
-                                                    {reason.includes(
-                                                        '候选指标数量超出模板可承载槽位',
-                                                    ) &&
-                                                    selectionMetaTips
-                                                        .chosenMetrics.length >
-                                                        0
-                                                        ? `${reason}（当前采用: ${formatFieldList(selectionMetaTips.chosenMetrics).join(', ')}）`
-                                                        : reason}
-                                                </Text>
-                                            ),
-                                        )}
-                                    </Stack>
-                                </Alert>
-                            ) : null}
-
-                            {aiCandidates.length === 0 ? (
-                                <Text size="sm" color="dimmed">
-                                    {t(
-                                        'components_visualization_configs_custom_vis_template.ai_no_candidates',
-                                    )}
-                                </Text>
-                            ) : (
-                                <>
-                                    {aiCandidates.length > 1 ? (
-                                        <Group spacing={6}>
-                                            {aiCandidates.map(
-                                                (candidate, index) => {
-                                                    const isValid =
-                                                        candidate.valid;
-                                                    const isSelected =
-                                                        index ===
-                                                        selectedCandidateIndex;
-                                                    return (
-                                                        <Badge
-                                                            key={`${candidate.strategy}-${index}`}
-                                                            size="sm"
-                                                            radius="sm"
-                                                            variant={
-                                                                isSelected
-                                                                    ? 'filled'
-                                                                    : 'light'
-                                                            }
-                                                            color={
-                                                                isValid
-                                                                    ? 'blue'
-                                                                    : 'gray'
-                                                            }
-                                                            sx={{
-                                                                cursor: isGeneratingCandidates
-                                                                    ? 'default'
-                                                                    : 'pointer',
-                                                                userSelect:
-                                                                    'none',
-                                                            }}
-                                                            onClick={() =>
-                                                                !isGeneratingCandidates
-                                                                    ? setSelectedCandidateIndex(
-                                                                          index,
-                                                                      )
-                                                                    : undefined
-                                                            }
+                                                    <Text
+                                                        size="xs"
+                                                        c={
+                                                            previewValidationPassed
+                                                                ? 'green.7'
+                                                                : 'orange.8'
+                                                        }
+                                                        fw={500}
+                                                        sx={{ flexShrink: 0 }}
+                                                    >
+                                                        {t(
+                                                            previewValidationPassed
+                                                                ? 'components_visualization_configs_custom_vis_template.ai_validation_passed'
+                                                                : 'components_visualization_configs_custom_vis_template.ai_validation_failed',
+                                                        )}
+                                                    </Text>
+                                                    <Text
+                                                        size="xs"
+                                                        c="dimmed"
+                                                        lineClamp={2}
+                                                        sx={{
+                                                            flex: 1,
+                                                            minWidth: 0,
+                                                        }}
+                                                    >
+                                                        {
+                                                            selectedCandidateReasoningText
+                                                        }
+                                                    </Text>
+                                                </Group>
+                                                {!previewValidationPassed
+                                                    ? [
+                                                          ...(selectedCandidate.errors ||
+                                                              []),
+                                                          ...previewDerivedErrors,
+                                                          ...selectedCandidate.frontendErrors,
+                                                      ]
+                                                          .filter(
+                                                              (
+                                                                  error,
+                                                                  idx,
+                                                                  arr,
+                                                              ) =>
+                                                                  arr.indexOf(
+                                                                      error,
+                                                                  ) === idx,
+                                                          )
+                                                          .slice(0, 6)
+                                                          .map((error, idx) => (
+                                                              <Text
+                                                                  key={`preview-error-${idx}`}
+                                                                  size="11px"
+                                                                  c="dimmed"
+                                                              >
+                                                                  - {error}
+                                                              </Text>
+                                                          ))
+                                                    : null}
+                                            </Stack>
+                                        ) : null}
+                                        {regenerateDimensions.length > 0 ||
+                                        regenerateMetrics.length > 0 ? (
+                                            <Group
+                                                spacing="md"
+                                                align="center"
+                                                sx={{
+                                                    flexWrap: 'wrap',
+                                                    overflow: 'hidden',
+                                                }}
+                                            >
+                                                {regenerateDimensions.length >
+                                                0 ? (
+                                                    <Text size="xs" lh={1.5}>
+                                                        <Text
+                                                            component="span"
+                                                            c="dimmed"
                                                         >
                                                             {t(
-                                                                `components_visualization_configs_custom_vis_template.ai_strategy_${candidate.strategy}`,
+                                                                'components_visualization_configs_custom_vis_template.ai_preview_active_dimensions',
                                                             )}
-                                                        </Badge>
-                                                    );
-                                                },
-                                            )}
-                                        </Group>
-                                    ) : null}
-
-                                    {selectedCandidate ? (
-                                        <Stack spacing={6}>
-                                            {!selectedCandidate.valid
-                                                ? (
-                                                      selectedCandidate.errors ||
-                                                      []
-                                                  )
-                                                      .slice(0, 6)
-                                                      .map((error, idx) => (
-                                                          <Text
-                                                              key={`${error}-${idx}`}
-                                                              size="11px"
-                                                              c="dimmed"
-                                                          >
-                                                              - {error}
-                                                          </Text>
-                                                      ))
-                                                : null}
-                                            {selectedCandidate.frontendErrors
-                                                .length > 0 ? (
-                                                <Text size="11px" c="dimmed">
-                                                    {
-                                                        selectedCandidate
-                                                            .frontendErrors[0]
-                                                    }
-                                                </Text>
-                                            ) : null}
-
+                                                            ：
+                                                        </Text>
+                                                        {formatFieldList(
+                                                            regenerateDimensions,
+                                                        ).join('、')}
+                                                    </Text>
+                                                ) : null}
+                                                {regenerateMetrics.length >
+                                                0 ? (
+                                                    <Text size="xs" lh={1.5}>
+                                                        <Text
+                                                            component="span"
+                                                            c="dimmed"
+                                                        >
+                                                            {t(
+                                                                'components_visualization_configs_custom_vis_template.ai_preview_active_metrics',
+                                                            )}
+                                                            ：
+                                                        </Text>
+                                                        {formatFieldList(
+                                                            regenerateMetrics,
+                                                        ).join('、')}
+                                                    </Text>
+                                                ) : null}
+                                            </Group>
+                                        ) : null}
+                                        {selectedCandidatePreview?.normalizedSpec ? (
+                                            <CandidateVegaPreview
+                                                spec={
+                                                    selectedCandidatePreview.normalizedSpec
+                                                }
+                                                fieldIds={
+                                                    returnedFieldIds.length > 0
+                                                        ? returnedFieldIds
+                                                        : selectedFieldIds
+                                                }
+                                                isLoading={
+                                                    isGeneratingCandidates
+                                                }
+                                                previewKey={`${selectedCandidateIndex}-${selectedCandidate.strategy}-${regenerateDimensions.join(',')}-${regenerateMetrics.join(',')}-${selectedCandidatePreview.isValid}`}
+                                            />
+                                        ) : null}
+                                        {selectedCandidate ? (
                                             <Group spacing={4}>
                                                 <Button
                                                     variant="light"
@@ -1431,31 +1522,155 @@ export const SelectTemplate = ({
                                                               'components_json_viewer_modal.copy',
                                                           )}
                                                 </Button>
-                                                <Button
-                                                    variant="light"
-                                                    color="blue"
-                                                    size="sm"
-                                                    fz="xs"
-                                                    onClick={() => {
-                                                        void generateAiCandidates();
+                                            </Group>
+                                        ) : null}
+                                        {regenerateConfigHints.length > 0 ? (
+                                            <Alert
+                                                color={
+                                                    compatibilityTips?.level ===
+                                                    'good'
+                                                        ? 'green'
+                                                        : 'yellow'
+                                                }
+                                                variant="light"
+                                                p="sm"
+                                            >
+                                                <Stack spacing={4}>
+                                                    {regenerateConfigHints.map(
+                                                        (hint, idx) => (
+                                                            <Text
+                                                                key={`regenerate-hint-${idx}`}
+                                                                size="11px"
+                                                                c="dimmed"
+                                                            >
+                                                                - {hint}
+                                                            </Text>
+                                                        ),
+                                                    )}
+                                                </Stack>
+                                            </Alert>
+                                        ) : null}
+                                        <Box
+                                            sx={(theme) => ({
+                                                border: `1px solid ${theme.colors.gray[3]}`,
+                                                borderRadius: theme.radius.sm,
+                                                padding: theme.spacing.sm,
+                                                backgroundColor:
+                                                    theme.colors.gray[0],
+                                            })}
+                                        >
+                                            <Stack spacing="sm">
+                                                <Text size="sm" fw={600}>
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.ai_adjust_section_title',
+                                                    )}
+                                                </Text>
+                                                <Text
+                                                    size="xs"
+                                                    c="dimmed"
+                                                    lh={1.45}
+                                                    sx={{
+                                                        wordBreak: 'break-word',
                                                     }}
+                                                >
+                                                    {t(
+                                                        'components_visualization_configs_custom_vis_template.ai_adjust_section_hint',
+                                                    )}
+                                                    {!selectedSpecSupportsFieldRemap
+                                                        ? ` · ${t(
+                                                              'components_visualization_configs_custom_vis_template.ai_field_preview_unsupported_hint',
+                                                          )}`
+                                                        : null}
+                                                </Text>
+                                                <MultiSelect
+                                                    data={dimensionFieldOptions}
+                                                    value={regenerateDimensions}
+                                                    onChange={
+                                                        setRegenerateDimensions
+                                                    }
+                                                    label={t(
+                                                        isPieTemplate
+                                                            ? 'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions_pie'
+                                                            : 'components_visualization_configs_custom_vis_template.ai_adjust_dimensions',
+                                                    )}
+                                                    placeholder={t(
+                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_dimensions',
+                                                    )}
+                                                    searchable
+                                                    clearable
                                                     disabled={
                                                         isGeneratingCandidates
                                                     }
-                                                    loading={
+                                                    maxDropdownHeight={200}
+                                                />
+                                                <MultiSelect
+                                                    data={metricFieldOptions}
+                                                    value={regenerateMetrics}
+                                                    onChange={
+                                                        setRegenerateMetrics
+                                                    }
+                                                    label={t(
+                                                        isPieTemplate
+                                                            ? 'components_visualization_configs_custom_vis_template.ai_regenerate_metrics_pie'
+                                                            : 'components_visualization_configs_custom_vis_template.ai_adjust_metrics',
+                                                    )}
+                                                    placeholder={t(
+                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_metrics',
+                                                    )}
+                                                    searchable
+                                                    clearable
+                                                    disabled={
                                                         isGeneratingCandidates
                                                     }
-                                                >
-                                                    {t(
-                                                        'components_visualization_configs_custom_vis_template.ai_regenerate',
+                                                    maxDropdownHeight={200}
+                                                />
+                                                <Textarea
+                                                    label={t(
+                                                        'components_visualization_configs_custom_vis_template.ai_adjust_prompt',
                                                     )}
-                                                </Button>
-                                            </Group>
-                                        </Stack>
-                                    ) : null}
-                                </>
-                            )}
-                        </Stack>
+                                                    placeholder={t(
+                                                        'components_visualization_configs_custom_vis_template.ai_regenerate_hint_placeholder',
+                                                    )}
+                                                    value={regenerateUserPrompt}
+                                                    onChange={(event) =>
+                                                        setRegenerateUserPrompt(
+                                                            event.currentTarget
+                                                                .value,
+                                                        )
+                                                    }
+                                                    minRows={2}
+                                                    autosize
+                                                    disabled={
+                                                        isGeneratingCandidates
+                                                    }
+                                                />
+                                                <Group position="right">
+                                                    <Button
+                                                        variant="filled"
+                                                        color="blue"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            void generateAiCandidates();
+                                                        }}
+                                                        disabled={
+                                                            isGeneratingCandidates ||
+                                                            !regenerateUserPrompt.trim()
+                                                        }
+                                                        loading={
+                                                            isGeneratingCandidates
+                                                        }
+                                                    >
+                                                        {t(
+                                                            'components_visualization_configs_custom_vis_template.ai_regenerate_with_ai',
+                                                        )}
+                                                    </Button>
+                                                </Group>
+                                            </Stack>
+                                        </Box>
+                                    </Stack>
+                                ) : null}
+                            </Stack>
+                        </ScrollArea>
                     )}
                 </Box>
             </MantineModal>
