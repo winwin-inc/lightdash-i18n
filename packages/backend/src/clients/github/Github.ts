@@ -9,8 +9,20 @@ import {
 } from '@lightdash/common';
 import { App } from '@octokit/app';
 import { Octokit as OctokitRest } from '@octokit/rest';
+import type { OctokitResponse } from '@octokit/types';
 
 const { createAppAuth } = require('@octokit/auth-app');
+
+type OctokitAuthHeaders = {
+    authorization: string;
+};
+
+type OctokitWithOptionalHeaders = {
+    octokit: OctokitRest;
+    headers: OctokitAuthHeaders | undefined;
+};
+
+type OctokitApiResponse = OctokitResponse<Record<string, unknown>>;
 
 const privateKey = process.env.GITHUB_PRIVATE_KEY
     ? Buffer.from(process.env.GITHUB_PRIVATE_KEY, 'base64').toString('utf-8')
@@ -38,7 +50,9 @@ export const getGithubApp = () => {
     return githubApp;
 };
 
-export const getOctokitRestForUser = (authToken: string) => {
+export const getOctokitRestForUser = (
+    authToken: string,
+): { octokit: OctokitRest; headers: OctokitAuthHeaders } => {
     const octokit = new OctokitRest();
     const headers = {
         authorization: `Bearer ${authToken}`,
@@ -49,7 +63,7 @@ export const getOctokitRestForUser = (authToken: string) => {
     };
 };
 
-export const getOctokitRestForApp = (installationId: string) => {
+export const getOctokitRestForApp = (installationId: string): OctokitRest => {
     if (appId === undefined)
         throw new Error('Github integration not configured');
 
@@ -68,7 +82,10 @@ export const getOctokitRestForApp = (installationId: string) => {
  * otherwise use the token as a user
  * The token can be generated using the installation id
  */
-export const getOctokit = (installationId?: string, token?: string) => {
+export const getOctokit = (
+    installationId?: string,
+    token?: string,
+): OctokitWithOptionalHeaders => {
     if (installationId) {
         return {
             octokit: getOctokitRestForApp(installationId),
@@ -187,7 +204,7 @@ export const createBranch = async ({
     branch: string;
     token: string;
     hostDomain?: string;
-}) => {
+}): Promise<OctokitApiResponse> => {
     const { octokit, headers } = getOctokitRestForUser(token);
 
     try {
@@ -235,7 +252,7 @@ export const updateFile = async ({
     branch: string;
     message: string;
     token: string;
-}) => {
+}): Promise<OctokitApiResponse> => {
     const { octokit, headers } = getOctokitRestForUser(token);
     try {
         const response = await octokit.rest.repos.createOrUpdateFileContents({
@@ -278,7 +295,7 @@ export const createFile = async ({
     branch: string;
     message: string;
     token: string;
-}) => {
+}): Promise<OctokitApiResponse> => {
     const { octokit, headers } = getOctokitRestForUser(token);
 
     try {
