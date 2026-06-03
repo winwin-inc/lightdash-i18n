@@ -132,6 +132,15 @@ describe('assertNoFlatMetricQueryArgs', () => {
             /请勿传扁平字段/,
         );
     });
+
+    it('allows top-level limit override alongside metricQuery', () => {
+        assert.doesNotThrow(() =>
+            assertNoFlatMetricQueryArgs({
+                metricQuery: '{}',
+                limit: 5,
+            }),
+        );
+    });
 });
 
 describe('assertNoSemanticMetricQueryArgs', () => {

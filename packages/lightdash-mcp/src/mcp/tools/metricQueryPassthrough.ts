@@ -99,7 +99,7 @@ const FLAT_ONLY_KEYS = [
     'metrics',
     'filters',
     'sorts',
-    'limit',
+    // note: top-level `limit` is valid on run_semantic_metric_query (overrides metricQuery.limit)
     'tableCalculations',
     'additionalMetrics',
     'customDimensions',
