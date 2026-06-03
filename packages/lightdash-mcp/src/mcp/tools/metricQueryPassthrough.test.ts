@@ -5,6 +5,7 @@ import { RUN_METRIC_QUERY_FLAT_DESCRIPTION } from '../toolDescriptions/runMetric
 import {
     assertNoFlatMetricQueryArgs,
     assertNoSemanticMetricQueryArgs,
+    metricQueryInputSchema,
     omitEmptyOptionalMetricQueryFields,
     prepareSemanticMetricQueryBody,
 } from './metricQueryPassthrough';
@@ -75,7 +76,7 @@ describe('omitEmptyOptionalMetricQueryFields', () => {
 describe('prepareSemanticMetricQueryBody', () => {
     it('preserves Explorer filters.and for brand_cls4 fixture', () => {
         const body = prepareSemanticMetricQueryBody(
-            { ...BRAND_CLS4_METRIC_QUERY_FIXTURE },
+            JSON.stringify({ ...BRAND_CLS4_METRIC_QUERY_FIXTURE }),
             undefined,
         );
         const dimensions = body.filters as {
@@ -92,10 +93,31 @@ describe('prepareSemanticMetricQueryBody', () => {
 
     it('applies limit override at top level', () => {
         const body = prepareSemanticMetricQueryBody(
-            { exploreName: 'orders', dimensions: [], metrics: [], limit: 10 },
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: [],
+                metrics: [],
+                limit: 10,
+            }),
             200,
         );
         assert.equal(body.limit, 200);
+    });
+
+    it('parses Explorer JSON string like run_sql sql', () => {
+        const body = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: ['orders_status'],
+                metrics: ['orders_unique_order_count'],
+                filters: {},
+                limit: 50,
+            }),
+            undefined,
+        );
+        assert.equal(body.exploreName, 'orders');
+        assert.deepEqual(body.dimensions, ['orders_status']);
+        assert.equal(body.limit, 50);
     });
 });
 
@@ -104,10 +126,10 @@ describe('assertNoFlatMetricQueryArgs', () => {
         assert.throws(
             () =>
                 assertNoFlatMetricQueryArgs({
-                    metricQuery: {},
+                    metricQuery: '{}',
                     exploreName: 'x',
                 }),
-            /请勿同时传扁平字段/,
+            /请勿传扁平字段/,
         );
     });
 });
@@ -115,19 +137,39 @@ describe('assertNoFlatMetricQueryArgs', () => {
 describe('assertNoSemanticMetricQueryArgs', () => {
     it('rejects metricQuery on flat tool', () => {
         assert.throws(
-            () => assertNoSemanticMetricQueryArgs({ metricQuery: {} }),
+            () => assertNoSemanticMetricQueryArgs({ metricQuery: '{}' }),
             /run_semantic_metric_query/,
         );
     });
 });
 
+describe('metricQueryInputSchema', () => {
+    it('accepts JSON string', () => {
+        assert.equal(
+            metricQueryInputSchema.safeParse('{"exploreName":"x"}').success,
+            true,
+        );
+        assert.equal(metricQueryInputSchema.safeParse('').success, false);
+        assert.equal(metricQueryInputSchema.safeParse([]).success, false);
+    });
+
+    it('coerces object input to JSON string via preprocess', () => {
+        const result = metricQueryInputSchema.safeParse({ exploreName: 'x' });
+        assert.equal(result.success, true);
+        if (result.success) {
+            assert.equal(result.data, '{"exploreName":"x"}');
+        }
+    });
+});
+
 describe('tool descriptions', () => {
-    it('semantic description has rules and brand_cls4 case', () => {
+    it('semantic description has rules and JSON string guidance', () => {
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /强制规则/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /metricQuery/);
-        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /brand_cls4_insight_list/);
-        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /非冷藏即饮果汁/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /JSON 字符串/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /run_sql/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /filter is not a function/);
+        assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /也可：object/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /docs\/mcp/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /详见/);
     });

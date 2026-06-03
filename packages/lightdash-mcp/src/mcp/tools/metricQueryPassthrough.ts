@@ -1,3 +1,23 @@
+import { z } from 'zod';
+
+function coerceMetricQueryToJsonString(value: unknown): unknown {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        return JSON.stringify(value);
+    }
+    return value;
+}
+
+/** MCP tool arg: Explorer JSON string — same ergonomics as run_sql.sql (Apifox shows one text field). */
+export const metricQueryInputSchema = z.preprocess(
+    coerceMetricQueryToJsonString,
+    z
+        .string()
+        .min(1)
+        .describe(
+            'Explorer 复制的 Metric Query JSON 字符串（用法同 run_sql 的 sql）',
+        ),
+);
+
 const EMPTY_ARRAY_KEYS = [
     'additionalMetrics',
     'customDimensions',
@@ -7,7 +27,7 @@ const EMPTY_ARRAY_KEYS = [
 export function parseMetricQueryInput(value: unknown): Record<string, unknown> {
     if (value === undefined || value === null) {
         throw new Error(
-            'run_semantic_metric_query 缺少 metricQuery：请传入 Explorer 复制的 Metric Query 对象',
+            'run_semantic_metric_query 缺少 metricQuery：请传入 Explorer 复制的 Metric Query JSON 字符串',
         );
     }
     if (typeof value === 'string') {
@@ -22,15 +42,15 @@ export function parseMetricQueryInput(value: unknown): Record<string, unknown> {
             }
         } catch {
             throw new Error(
-                'metricQuery 必须是 JSON 对象或 object，字符串需为合法 JSON',
+                'metricQuery 须为合法 JSON 对象字符串（用法同 run_sql 的 sql）',
             );
         }
-        throw new Error('metricQuery 必须是 JSON 对象');
+        throw new Error('metricQuery JSON 须解析为 object（非数组）');
     }
     if (typeof value === 'object' && !Array.isArray(value)) {
         return { ...(value as Record<string, unknown>) };
     }
-    throw new Error('metricQuery 必须是 object（非数组）');
+    throw new Error('metricQuery 须为 JSON 字符串或 object（非数组）');
 }
 
 export function omitEmptyOptionalMetricQueryFields(
@@ -92,7 +112,11 @@ export function assertNoFlatMetricQueryArgs(args: Record<string, unknown>): void
     const present = FLAT_ONLY_KEYS.filter((k) => args[k] !== undefined);
     if (present.length > 0) {
         throw new Error(
-            `run_semantic_metric_query 仅接受 metricQuery，请勿同时传扁平字段：${present.join(', ')}。简单查询请用 run_metric_query。`,
+            [
+                `run_semantic_metric_query 仅接受 metricQuery 字符串，请勿传扁平字段：${present.join(', ')}。`,
+                '请把 Explorer 整段 JSON 作为字符串放进 metricQuery（用法同 run_sql 的 sql），',
+                '或使用 run_metric_query 扁平参数。',
+            ].join(''),
         );
     }
 }
@@ -102,7 +126,7 @@ export function assertNoSemanticMetricQueryArgs(
 ): void {
     if (args.metricQuery !== undefined) {
         throw new Error(
-            '整段 Metric Query 请使用 run_semantic_metric_query，参数名为 metricQuery。',
+            '整段 Metric Query 请使用 run_semantic_metric_query，参数名为 metricQuery（JSON 字符串）。',
         );
     }
 }

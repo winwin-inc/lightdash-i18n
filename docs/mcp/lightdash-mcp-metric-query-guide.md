@@ -7,7 +7,7 @@
 | | `run_semantic_metric_query` | `run_metric_query` |
 |---|---------------------------|-------------------|
 | **适用** | AI、Explorer「复制 Metric Query」、多条件 `filters.dimensions.and` | 简单查询、Cursor 表单项 |
-| **入参** | `metricQuery`（整段对象） | `exploreName` + `dimensions[]` + `metrics[]` + … |
+| **入参** | `metricQuery`（Explorer **JSON 字符串**，同 `run_sql.sql`） | `exploreName` + `dimensions[]` + `metrics[]` + … |
 | **MCP 处理** | 直通 API（仅 parse、limit clamp、去掉空 `[]`/`{}`） | `toFilters`、`resolveFieldId` 等 |
 | **出错** | 改 `metricQuery` 重试（类 SQL） | 检查扁平字段与 fieldId |
 

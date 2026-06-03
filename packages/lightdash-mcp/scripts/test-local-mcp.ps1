@@ -145,7 +145,35 @@ $preview = if ($flatText.Length -gt 400) { $flatText.Substring(0, 400) + '...' }
 Write-Host $preview
 if ($flatText -match 'FieldReferenceError|API 4\d\d:|执行失败') { throw 'run_metric_query failed' }
 
-Write-Host "`n==> 7. run_semantic_metric_query"
+Write-Host "`n==> 7. run_semantic_metric_query (metricQuery JSON string, same as run_sql.sql)"
+$metricQueryJson = (@{
+    exploreName = 'brand_cls4_insight_list'
+    dimensions  = @('brand_cls4_insight_list_brand_name')
+    metrics     = @('brand_cls4_insight_list_total_brand_growth_cls_4')
+    filters     = @{
+        dimensions = @{
+            and = @(
+                @{
+                    target   = @{ fieldId = 'brand_cls4_insight_list_cls_4' }
+                    operator = 'equals'
+                    values   = @('运动饮料')
+                }
+                @{
+                    target   = @{ fieldId = 'brand_cls4_insight_list_period' }
+                    operator = 'equals'
+                    values   = @('2026Q1')
+                }
+            )
+        }
+    }
+    sorts       = @(
+        @{
+            fieldId    = 'brand_cls4_insight_list_total_brand_growth_cls_4'
+            descending = $true
+        }
+    )
+    limit       = 5
+} | ConvertTo-Json -Depth 20 -Compress)
 $semanticResp = Invoke-Mcp -SessionId $sessionId -ApiKey $apiKey -Body @{
     jsonrpc = '2.0'
     method  = 'tools/call'
@@ -153,34 +181,8 @@ $semanticResp = Invoke-Mcp -SessionId $sessionId -ApiKey $apiKey -Body @{
         name      = 'run_semantic_metric_query'
         arguments = @{
             projectUuid = $projectUuid
-            metricQuery = @{
-                exploreName = 'brand_cls4_insight_list'
-                dimensions  = @('brand_cls4_insight_list_brand_name')
-                metrics     = @('brand_cls4_insight_list_total_brand_growth_cls_4')
-                filters     = @{
-                    dimensions = @{
-                        and = @(
-                            @{
-                                target   = @{ fieldId = 'brand_cls4_insight_list_cls_4' }
-                                operator = 'equals'
-                                values   = @('运动饮料')
-                            }
-                            @{
-                                target   = @{ fieldId = 'brand_cls4_insight_list_period' }
-                                operator = 'equals'
-                                values   = @('2026Q1')
-                            }
-                        )
-                    }
-                }
-                sorts       = @(
-                    @{
-                        fieldId    = 'brand_cls4_insight_list_total_brand_growth_cls_4'
-                        descending = $true
-                    }
-                )
-                limit       = 5
-            }
+            metricQuery = $metricQueryJson
+            limit       = 5
         }
     }
     id = 5

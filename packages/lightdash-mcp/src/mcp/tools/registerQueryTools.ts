@@ -24,6 +24,7 @@ import {
 import {
     assertNoFlatMetricQueryArgs,
     assertNoSemanticMetricQueryArgs,
+    metricQueryInputSchema,
     prepareSemanticMetricQueryBody,
 } from './metricQueryPassthrough';
 import { buildMetricQueryToolResult } from './metricQueryToolResult';
@@ -434,9 +435,11 @@ export function registerQueryTools(
         'run_semantic_metric_query',
         RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION,
         {
-            ...sharedMetricQueryPollParams,
-            metricQuery: z.record(z.string(), z.unknown()),
+            projectUuid: z.string().optional(),
+            metricQuery: metricQueryInputSchema,
             limit: z.number().optional(),
+            invalidateCache: z.boolean().optional(),
+            full: z.boolean().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
@@ -446,13 +449,6 @@ export function registerQueryTools(
                 args.projectUuid as string | undefined,
             );
             assertNoFlatMetricQueryArgs(args as Record<string, unknown>);
-            const pageSize = (args.pageSize as number | undefined) ?? poll.pageSize;
-            const maxPollAttempts =
-                (args.maxPollAttempts as number | undefined) ??
-                poll.maxPollAttempts;
-            const pollIntervalMs =
-                (args.pollIntervalMs as number | undefined) ??
-                poll.pollIntervalMs;
             const full = (args.full as boolean | undefined) ?? false;
             try {
                 const queryBody = prepareSemanticMetricQueryBody(
@@ -463,26 +459,13 @@ export function registerQueryTools(
                     apiKey,
                     projectUuid,
                     {
-                        context:
-                            toOptionalQueryContext(args.context) ??
-                            QueryExecutionContext.MCP,
+                        context: QueryExecutionContext.MCP,
                         invalidateCache: args.invalidateCache as
                             | boolean
                             | undefined,
-                        parameters: toObjectLike(args.parameters, 'parameters') as
-                            | never
-                            | undefined,
-                        dateZoom: toObjectLike(args.dateZoom, 'dateZoom') as
-                            | never
-                            | undefined,
-                        pivotConfiguration: toObjectLike(
-                            args.pivotConfiguration,
-                            'pivotConfiguration',
-                        ) as never | undefined,
-                        dashboardUuid: args.dashboardUuid as string | undefined,
                         query: queryBody,
                     },
-                    { pageSize, maxPollAttempts, pollIntervalMs },
+                    poll,
                 );
                 return buildMetricQueryToolResult({
                     queryUuid: result.queryUuid,
