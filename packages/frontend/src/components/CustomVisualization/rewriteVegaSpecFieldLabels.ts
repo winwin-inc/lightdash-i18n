@@ -103,7 +103,10 @@ function collectSpecFieldRefNamesInValuesContext(
                         key === 'groupby' ||
                         key === 'row' ||
                         key === 'column' ||
-                        key === 'layer') &&
+                        key === 'layer' ||
+                        key === 'hconcat' ||
+                        key === 'vconcat' ||
+                        key === 'concat') &&
                     Array.isArray(value)
                 ) {
                     value.forEach((v) => {
@@ -392,7 +395,12 @@ function rewriteSpecRecursive(
                   )
                 : value;
         } else if (
-            (key === 'row' || key === 'column' || key === 'layer') &&
+            (key === 'row' ||
+                key === 'column' ||
+                key === 'layer' ||
+                key === 'hconcat' ||
+                key === 'vconcat' ||
+                key === 'concat') &&
             Array.isArray(value)
         ) {
             result[key] = value.map((item) =>
@@ -491,6 +499,10 @@ export function prepareSpecForVega(
     const needsRewrite = spec[REWRITE_KEY] === true;
     let out = { ...spec };
     if (needsRewrite && fieldIds.length > 0) {
+        // 渲染时 Lightdash 始终在根级注入 values 数据集；改写前补上以便复合子视图继承上下文
+        if (out.data === undefined) {
+            out = { ...out, data: { name: 'values' } };
+        }
         const labelToFieldId = buildMapFromDataKeys(out, fieldIds);
         if (DEBUG_REWRITE_DIAG) {
             console.log('[Vega rewrite] 诊断:', {

@@ -17,6 +17,10 @@ import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import { LoadingChart } from '../SimpleChart';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
+import {
+    getVegaAutosizeConfig,
+    normalizeVegaSpecSizing,
+} from './normalizeVegaSpecSizing';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 
 const VegaLite = lazy(() =>
@@ -139,6 +143,16 @@ const CustomVisualization: FC<Props> = (props) => {
     const height = rh > 0 ? rh : earlyRect.height;
     const hasSize = width > 0 && height > 0;
 
+    const sizedSpec = normalizeVegaSpecSizing(
+        specForVega as Record<string, unknown>,
+        { width, height },
+        visProps.series,
+    );
+    const autosizeConfig = getVegaAutosizeConfig(
+        specForVega as Record<string, unknown>,
+        isDashboard,
+    );
+
     return (
         <div
             data-testid={props['data-testid']}
@@ -163,10 +177,7 @@ const CustomVisualization: FC<Props> = (props) => {
                             height,
                         }}
                         config={{
-                            autosize: {
-                                type: 'fit',
-                                ...(isDashboard && { resize: true }),
-                            },
+                            autosize: autosizeConfig,
                         }}
                         // TODO: We are ignoring some typescript errors here because the type
                         // that vegalite expects doesn't include a few of the properties
@@ -175,11 +186,7 @@ const CustomVisualization: FC<Props> = (props) => {
                         // picked, or a bug in the vegalite typescript definitions.
                         // @ts-ignore
                         spec={{
-                            ...specForVega,
-                            // @ts-ignore, see above
-                            width: 'container',
-                            // @ts-ignore, see above
-                            height: 'container',
+                            ...sizedSpec,
                             data: { name: 'values' },
                         }}
                         data={data}
