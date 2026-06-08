@@ -117,29 +117,68 @@ export function rowsToFlat(rows: unknown): unknown[] {
     });
 }
 
-function unwrapScalarValue(value: unknown): unknown {
-    const valueObj = asRecord(value);
-    if (!valueObj) return value;
-    const nestedValue = valueObj.value;
-    const nestedObj = asRecord(nestedValue);
-    if (nestedObj) {
-        if (nestedObj.formatted !== undefined && nestedObj.formatted !== null) {
-            return nestedObj.formatted;
-        }
-        if (nestedObj.raw !== undefined) {
-            return nestedObj.raw;
-        }
+export type ScalarCell = {
+    raw: unknown;
+    formatted: string | null;
+};
+
+function stringifyFormatted(value: unknown): string | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
     }
-    if (valueObj.formatted !== undefined && valueObj.formatted !== null) {
-        return valueObj.formatted;
-    }
-    if (valueObj.raw !== undefined) {
-        return valueObj.raw;
-    }
-    return nestedValue ?? value;
+    return JSON.stringify(value);
 }
 
-export function rowsToScalarFlat(rows: unknown): Record<string, unknown>[] {
+/** Extract Lightdash ResultRow cell into raw + formatted pair. */
+export function unwrapScalarCell(value: unknown): ScalarCell {
+    const valueObj = asRecord(value);
+    if (!valueObj) {
+        return {
+            raw: value,
+            formatted: stringifyFormatted(value),
+        };
+    }
+    const nestedValue = valueObj.value;
+    const nestedObj = asRecord(nestedValue);
+    if (
+        nestedObj &&
+        ('raw' in nestedObj || 'formatted' in nestedObj)
+    ) {
+        return {
+            raw: nestedObj.raw ?? null,
+            formatted: stringifyFormatted(nestedObj.formatted),
+        };
+    }
+    if ('raw' in valueObj || 'formatted' in valueObj) {
+        return {
+            raw: valueObj.raw ?? null,
+            formatted: stringifyFormatted(valueObj.formatted),
+        };
+    }
+    return {
+        raw: nestedValue ?? value,
+        formatted: stringifyFormatted(nestedValue ?? value),
+    };
+}
+
+export type MetricQueryValueFormat = 'raw' | 'formatted';
+
+function scalarCellToFlatValue(
+    cell: ScalarCell,
+    valueFormat: MetricQueryValueFormat,
+): unknown {
+    if (valueFormat === 'formatted') {
+        return cell.formatted ?? cell.raw;
+    }
+    return cell.raw;
+}
+
+export function rowsToScalarFlat(
+    rows: unknown,
+    valueFormat: MetricQueryValueFormat = 'raw',
+): Record<string, unknown>[] {
     if (!Array.isArray(rows)) return [];
     return rows
         .map((row) => {
@@ -147,7 +186,10 @@ export function rowsToScalarFlat(rows: unknown): Record<string, unknown>[] {
             const record = row as AnyRecord;
             return Object.entries(record).reduce<Record<string, unknown>>(
                 (acc, [k, v]) => {
-                    acc[k] = unwrapScalarValue(v);
+                    acc[k] = scalarCellToFlatValue(
+                        unwrapScalarCell(v),
+                        valueFormat,
+                    );
                     return acc;
                 },
                 {},

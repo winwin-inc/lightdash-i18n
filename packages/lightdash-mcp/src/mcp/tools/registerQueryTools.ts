@@ -415,6 +415,8 @@ export function registerQueryTools(
         },
     );
 
+    const metricQueryValueFormatSchema = z.enum(['raw', 'formatted']).optional();
+
     const sharedMetricQueryPollParams = {
         projectUuid: z.string().optional(),
         context: z.string().optional(),
@@ -427,6 +429,7 @@ export function registerQueryTools(
         maxPollAttempts: z.number().optional(),
         pollIntervalMs: z.number().optional(),
         full: z.boolean().optional(),
+        valueFormat: metricQueryValueFormatSchema,
     };
 
     registerToolTyped(
@@ -440,6 +443,7 @@ export function registerQueryTools(
             limit: z.number().optional(),
             invalidateCache: z.boolean().optional(),
             full: z.boolean().optional(),
+            valueFormat: metricQueryValueFormatSchema,
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
@@ -450,6 +454,8 @@ export function registerQueryTools(
             );
             assertNoFlatMetricQueryArgs(args as Record<string, unknown>);
             const full = (args.full as boolean | undefined) ?? false;
+            const valueFormat =
+                (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
             try {
                 const queryBody = prepareSemanticMetricQueryBody(
                     args.metricQuery,
@@ -473,6 +479,7 @@ export function registerQueryTools(
                     columns: result.columns,
                     executeResult: result.executeResult,
                     full,
+                    valueFormat,
                     extraStructured: { mode: 'semantic_passthrough' },
                 });
             } catch (error) {
@@ -525,6 +532,8 @@ export function registerQueryTools(
             const mqDimensions = toStringArray(args.dimensions);
             const mqMetrics = toStringArray(args.metrics);
             const full = (args.full as boolean | undefined) ?? false;
+            const valueFormat =
+                (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
             try {
                 const normalizedFilters = toFilters(
                     args.filters,
@@ -602,6 +611,7 @@ export function registerQueryTools(
                     columns: result.columns,
                     executeResult: result.executeResult,
                     full,
+                    valueFormat,
                     extraStructured: { mode: 'flat' },
                 });
             } catch (error) {

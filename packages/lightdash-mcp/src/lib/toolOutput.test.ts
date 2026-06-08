@@ -4,7 +4,32 @@ import {
     slimChartSearchItem,
     slimContentItem,
     slimDashboardSearchItem,
+    rowsToScalarFlat,
 } from './toolOutput';
+
+describe('rowsToScalarFlat', () => {
+    const row = [
+        {
+            share: {
+                value: {
+                    raw: 0.0817654321,
+                    formatted: '8.2%',
+                },
+            },
+        },
+    ];
+
+    it('returns raw by default', () => {
+        assert.equal(rowsToScalarFlat(row)[0]?.share, 0.0817654321);
+    });
+
+    it('returns formatted when valueFormat is formatted', () => {
+        assert.equal(
+            rowsToScalarFlat(row, 'formatted')[0]?.share,
+            '8.2%',
+        );
+    });
+});
 
 describe('content slim outputs', () => {
     const baseItem = {

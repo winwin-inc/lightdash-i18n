@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ApiExecuteAsyncMetricQueryResults } from '@lightdash/common';
 import { z, type ZodRawShape } from 'zod';
 import type { LightdashMcpEnvConfig } from '../config';
 import {
@@ -16,6 +17,9 @@ import { getHttpRequestApiKey } from '../lib/requestContext';
 import type { LightdashRestClient } from '../rest/lightdashRest';
 import { resolveCoreToolsProjectUuid } from './coreToolsContext';
 import { registerToolTyped } from './registerToolTyped';
+import { buildMetricQueryToolResult } from './tools/metricQueryToolResult';
+
+const metricQueryValueFormatSchema = z.enum(['raw', 'formatted']).optional();
 
 const runSavedChartParams = {
     projectUuid: z.string().optional(),
@@ -27,6 +31,7 @@ const runSavedChartParams = {
     maxPollAttempts: z.number().optional(),
     pollIntervalMs: z.number().optional(),
     full: z.boolean().optional(),
+    valueFormat: metricQueryValueFormatSchema,
 } satisfies ZodRawShape;
 
 const getSiteInfoParams = {
@@ -75,14 +80,6 @@ function resolveExtensionApiKey(
         );
     }
     return key;
-}
-
-function escapeCsvValue(value: unknown): string {
-    const text = String(value ?? '');
-    if (text.includes('"') || text.includes(',') || text.includes('\n')) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
 }
 
 export function registerExtensionTools(
@@ -209,33 +206,24 @@ export function registerExtensionTools(
                 { pageSize, maxPollAttempts, pollIntervalMs },
             );
             const full = (args.full as boolean | undefined) ?? false;
-            const flatRows = rowsToScalarFlat(
-                (result as { rows?: unknown }).rows ?? [],
-            );
-            const header = flatRows.length > 0 ? Object.keys(flatRows[0]) : [];
-            const csv =
-                header.length > 0
-                    ? [
-                          header.join(','),
-                          ...flatRows.map((row) =>
-                              header
-                                  .map((key) => escapeCsvValue(row[key]))
-                                  .join(','),
-                          ),
-                      ].join('\n')
-                    : '';
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: (() => {
-                            if (full) return JSON.stringify(result, null, 2);
-                            if (csv.length > 0) return csv;
-                            return JSON.stringify({ rows: flatRows }, null, 2);
-                        })(),
-                    },
-                ],
-            };
+            const valueFormat =
+                (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
+
+            return buildMetricQueryToolResult({
+                queryUuid: result.queryUuid,
+                rows: result.rows,
+                columns: result.columns,
+                executeResult: {
+                    fields: result.fields,
+                    warnings: result.warnings,
+                } as ApiExecuteAsyncMetricQueryResults,
+                full,
+                valueFormat,
+                extraStructured: {
+                    mode: 'saved_chart',
+                    chartUuid: args.chartUuid as string,
+                },
+            });
         },
     );
 

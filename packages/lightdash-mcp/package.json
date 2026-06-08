@@ -15,7 +15,7 @@
     "scripts": {
         "build": "tsc --build tsconfig.json --force",
         "typecheck": "tsc --project tsconfig.json --noEmit",
-        "test": "tsx --test src/http/authAndCache.test.ts src/lib/catalogSearchHeuristics.test.ts src/lib/dashboardTiles.test.ts src/lib/toolOutput.test.ts src/mcp/coreToolsContext.test.ts src/mcp/tools/metricQueryToolArgs.test.ts src/mcp/tools/metricQueryPassthrough.test.ts src/mcp/tools/registerExploreCatalogTools.test.ts src/mcp/tools/registerQueryTools.test.ts src/mcp/tools/registerContentTools.test.ts src/mcp/tools/registerSessionProjectTools.test.ts",
+        "test": "tsx --test src/http/authAndCache.test.ts src/lib/catalogSearchHeuristics.test.ts src/lib/dashboardTiles.test.ts src/lib/toolOutput.test.ts src/mcp/coreToolsContext.test.ts src/mcp/tools/metricQueryToolArgs.test.ts src/mcp/tools/metricQueryPassthrough.test.ts src/mcp/tools/metricQueryToolResult.test.ts src/mcp/tools/registerExploreCatalogTools.test.ts src/mcp/tools/registerQueryTools.test.ts src/mcp/tools/registerContentTools.test.ts src/mcp/tools/registerSessionProjectTools.test.ts",
         "start:http": "node dist/http.js",
         "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
         "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts"

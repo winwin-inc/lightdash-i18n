@@ -1,7 +1,10 @@
 import type { ApiExecuteAsyncMetricQueryResults } from '@lightdash/common';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { metricQueryResultToCsvColumns, rowsToCsv } from '../../lib/csvUtils';
-import { rowsToScalarFlat } from '../../lib/toolOutput';
+import {
+    rowsToScalarFlat,
+    type MetricQueryValueFormat,
+} from '../../lib/toolOutput';
 
 export function buildMetricQueryToolResult(params: {
     queryUuid: string;
@@ -9,26 +12,31 @@ export function buildMetricQueryToolResult(params: {
     columns: unknown;
     executeResult: ApiExecuteAsyncMetricQueryResults;
     full: boolean;
+    valueFormat?: MetricQueryValueFormat;
     extraStructured?: Record<string, unknown>;
 }): CallToolResult {
-    const { queryUuid, rows, columns, executeResult, full, extraStructured } =
-        params;
+    const {
+        queryUuid,
+        rows,
+        columns,
+        executeResult,
+        full,
+        valueFormat = 'raw',
+        extraStructured,
+    } = params;
     const rowsUnknown = rows as unknown[];
-    const rowRecords = rowsUnknown.filter(
-        (r): r is Record<string, unknown> =>
-            r !== null && typeof r === 'object' && !Array.isArray(r),
-    );
     const { columnIds, headerLabels } = metricQueryResultToCsvColumns({
         columns,
         fields: executeResult.fields,
         rows: rowsUnknown,
     });
+    const flatRows = rowsToScalarFlat(rowsUnknown, valueFormat);
     const csv =
         columnIds.length > 0
             ? rowsToCsv({
                   columnIds,
                   headerLabels,
-                  rows: rowRecords,
+                  rows: flatRows,
               })
             : '';
     const structuredContent = {
@@ -42,7 +50,8 @@ export function buildMetricQueryToolResult(params: {
               }
             : {
                   queryUuid,
-                  rows: rowsToScalarFlat(rows),
+                  valueFormat,
+                  rows: flatRows,
               }),
         ...extraStructured,
     };

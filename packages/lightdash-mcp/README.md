@@ -134,7 +134,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
-- `run_semantic_metric_query`：Explorer **metricQuery JSON 字符串**（参数表与 `run_sql` 同级）。首条 **CSV**。规则在 `src/mcp/toolDescriptions/runSemanticMetricQuery.ts`（构建后进 `tools/list` description）。
+- `run_semantic_metric_query` / `run_metric_query`：首条 **CSV** + `structuredContent`（默认 `valueFormat=raw`；`valueFormat=formatted` 为 Explorer 展示值；`full=true` 额外返回嵌套 rows、fields、warnings 及第二条 JSON）
 - `run_metric_query`：扁平参数（`exploreName` + `dimensions[]` + `metrics[]`），简单查询。规则在 `src/mcp/toolDescriptions/runMetricQueryFlat.ts`。
 - 维护者文档（AI 不可见）：`docs/mcp/lightdash-mcp-*.md`
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
@@ -150,7 +150,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 | `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
 | `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴（层级浏览）                  |
 | `get_saved_chart`    | 按图表 UUID 拉取已保存图表定义（含 `webUrl`，默认精简输出）                      |
-| `run_saved_chart`    | 按已保存图表 UUID 执行查询（默认平铺行，`full=true` 返回完整结构）                  |
+| `run_saved_chart`    | 按已保存图表 UUID 执行查询（与 metric 查询一致：CSV + valueFormat；`full=true` 返回 fields/warnings） |
 | `get_dashboard_tiles`| 查看看板磁贴布局与图表关联                                              |
 | `run_dashboard_tiles`| 批量执行看板中的 `saved_chart` 磁贴（其他磁贴类型会跳过并给出原因）                 |
 | `get_dashboard_code` | 导出看板 as-code 配置（基于 `/api/v1/projects/{projectUuid}/dashboards/code`） |
