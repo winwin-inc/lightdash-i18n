@@ -364,17 +364,9 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
                         <Checkbox
                             label={gridSecondaryAxisLabel}
-                            checked={
-                                dirtyLayout?.showGridY !== undefined
-                                    ? dirtyLayout?.showGridY
-                                    : true
-                            }
+                            checked={!!dirtyLayout?.showGridY}
                             onChange={() => {
-                                setShowGridY(
-                                    dirtyLayout?.showGridY !== undefined
-                                        ? !dirtyLayout?.showGridY
-                                        : false,
-                                );
+                                setShowGridY(!dirtyLayout?.showGridY);
                             }}
                         />
                     </Stack>

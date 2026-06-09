@@ -1127,10 +1127,7 @@ const getEchartAxes = ({
     );
 
     const showGridX = !!validCartesianConfig.layout.showGridX;
-    const showGridY =
-        validCartesianConfig.layout.showGridY !== undefined
-            ? validCartesianConfig.layout.showGridY
-            : true;
+    const showGridY = !!validCartesianConfig.layout.showGridY;
 
     const showXAxis =
         validCartesianConfig.layout.showXAxis !== undefined
