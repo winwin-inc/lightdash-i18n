@@ -246,6 +246,7 @@ export type Series = {
     hidden?: boolean;
     areaStyle?: Record<string, unknown>;
     showSymbol?: boolean;
+    filledSymbol?: boolean;
     smooth?: boolean;
     markLine?: MarkLine;
     isFilteredOut?: boolean;

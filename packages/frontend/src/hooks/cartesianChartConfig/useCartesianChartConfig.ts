@@ -953,6 +953,7 @@ const useCartesianChartConfig = ({
                 const defaultLabel = prev?.series?.[0]?.label;
 
                 const defaultShowSymbol = prev?.series?.[0]?.showSymbol;
+                const defaultFilledSymbol = prev?.series?.[0]?.filledSymbol;
                 // Preserve tooltipSortByValue from the template series
                 // so it propagates to all expanded pivot series
                 const defaultTooltipSortByValue =
@@ -960,6 +961,7 @@ const useCartesianChartConfig = ({
                 const expectedSeriesMap = getExpectedSeriesMap({
                     defaultSmooth,
                     defaultShowSymbol,
+                    defaultFilledSymbol,
                     defaultAreaStyle,
                     defaultCartesianType,
                     availableDimensions,

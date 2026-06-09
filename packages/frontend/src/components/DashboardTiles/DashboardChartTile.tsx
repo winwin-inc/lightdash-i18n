@@ -139,7 +139,7 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
             showTableNames: isTableChartConfig(savedChart.chartConfig.config)
-                ? savedChart.chartConfig.config.showTableNames ?? false
+                ? (savedChart.chartConfig.config.showTableNames ?? false)
                 : true,
             customLabels: getCustomLabelsFromTableConfig(
                 savedChart.chartConfig.config,
@@ -186,6 +186,7 @@ const computeDashboardChartSeries = (
         const expectedSeriesMap = getExpectedSeriesMap({
             defaultSmooth: firstSerie?.smooth,
             defaultShowSymbol: firstSerie?.showSymbol,
+            defaultFilledSymbol: firstSerie?.filledSymbol,
             defaultAreaStyle: firstSerie?.areaStyle,
             defaultCartesianType: CartesianSeriesType.BAR,
             availableDimensions: chart.metricQuery.dimensions,
@@ -302,7 +303,7 @@ const ValidDashboardChartTile: FC<{
     const colorPalette = shouldSyncColors
         ? dashboardPalette && dashboardPalette.length > 0
             ? dashboardPalette
-            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
+            : (organization?.chartColors ?? ECHARTS_DEFAULT_COLORS)
         : chart.colorPalette;
 
     return (
@@ -432,7 +433,7 @@ const ValidDashboardChartTileMinimal: FC<{
     const colorPalette = shouldSyncColors
         ? dashboardPalette && dashboardPalette.length > 0
             ? dashboardPalette
-            : organization?.chartColors ?? ECHARTS_DEFAULT_COLORS
+            : (organization?.chartColors ?? ECHARTS_DEFAULT_COLORS)
         : chart.colorPalette;
 
     return (

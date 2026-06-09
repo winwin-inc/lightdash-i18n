@@ -301,6 +301,20 @@ const SingleSeriesConfiguration: FC<Props> = ({
                                 }}
                             />
                             <Checkbox
+                                checked={Boolean(series.filledSymbol)}
+                                label={t(
+                                    'components_visualization_configs_chart.series.filled_symbol',
+                                )}
+                                onChange={() => {
+                                    updateSingleSeries({
+                                        ...series,
+                                        filledSymbol: !Boolean(
+                                            series.filledSymbol,
+                                        ),
+                                    });
+                                }}
+                            />
+                            <Checkbox
                                 checked={series.smooth}
                                 label={t(
                                     'components_visualization_configs_chart.series.smooth',

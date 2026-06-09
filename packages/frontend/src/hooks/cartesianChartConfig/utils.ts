@@ -17,6 +17,7 @@ import type { InfiniteQueryResults } from '../useQueryResults';
 export type GetExpectedSeriesMapArgs = {
     defaultSmooth?: boolean;
     defaultShowSymbol?: boolean;
+    defaultFilledSymbol?: boolean;
     defaultCartesianType: CartesianSeriesType;
     defaultAreaStyle: Series['areaStyle'];
     isStacked: boolean;
@@ -32,6 +33,7 @@ export type GetExpectedSeriesMapArgs = {
 export const getExpectedSeriesMap = ({
     defaultSmooth,
     defaultShowSymbol,
+    defaultFilledSymbol,
     defaultCartesianType,
     defaultAreaStyle,
     isStacked,
@@ -48,6 +50,7 @@ export const getExpectedSeriesMap = ({
     const defaultProperties = {
         smooth: defaultSmooth,
         showSymbol: defaultShowSymbol,
+        filledSymbol: defaultFilledSymbol,
         type: defaultCartesianType,
         areaStyle: defaultAreaStyle,
         yAxisIndex: 0,

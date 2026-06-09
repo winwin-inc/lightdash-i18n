@@ -4866,7 +4866,18 @@
             "truncate_label": "Truncate x-axis",
             "sort": "Sort",
             "rotation": "Rotation",
-            "show_grid": "Show grid"
+            "show_grid": "Show grid",
+            "show_axis": "Show axis",
+            "x_axis_label": "X-axis label",
+            "y_axis_label": "Y-axis label",
+            "y_axis_label_left": "Y-axis label (left)",
+            "y_axis_label_right": "Y-axis label (right)",
+            "x_axis_label_bottom": "X-axis label (bottom)",
+            "x_axis_label_top": "X-axis label (top)",
+            "auto_x_axis_range": "Auto x-axis range",
+            "auto_y_axis_range": "Auto y-axis range",
+            "x_axis": "X-axis",
+            "y_axis": "Y-axis"
         },
         "sort": {
             "ascending": "Ascending",
@@ -4933,6 +4944,7 @@
             "value_labels": "Value labels",
             "total": "Total",
             "show_symbol": "Show symbol",
+            "filled_symbol": "Filled symbol",
             "smooth": "Smooth",
             "tooltip_sort_by_value": "Sort by value",
             "tooltip_sort_direction": "Sort direction",

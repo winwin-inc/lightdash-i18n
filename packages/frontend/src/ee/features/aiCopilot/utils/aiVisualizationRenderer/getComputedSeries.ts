@@ -42,6 +42,7 @@ export const getComputedSeries = ({
     const expectedSeriesMap = getExpectedSeriesMap({
         defaultSmooth: firstSerie?.smooth,
         defaultShowSymbol: firstSerie?.showSymbol,
+        defaultFilledSymbol: firstSerie?.filledSymbol,
         defaultAreaStyle: firstSerie?.areaStyle,
         defaultCartesianType: CartesianSeriesType.BAR,
         availableDimensions: metricQuery.dimensions,

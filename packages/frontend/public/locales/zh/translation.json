@@ -4861,7 +4861,18 @@
             "truncate_label": "截断x轴",
             "sort": "排序",
             "rotation": "旋转",
-            "show_grid": "显示网格"
+            "show_grid": "显示网格",
+            "show_axis": "显示坐标轴",
+            "x_axis_label": "X 轴标签",
+            "y_axis_label": "Y 轴标签",
+            "y_axis_label_left": "Y 轴标签（左侧）",
+            "y_axis_label_right": "Y 轴标签（右侧）",
+            "x_axis_label_bottom": "X 轴标签（底部）",
+            "x_axis_label_top": "X 轴标签（顶部）",
+            "auto_x_axis_range": "自动 X 轴范围",
+            "auto_y_axis_range": "自动 Y 轴范围",
+            "x_axis": "X 轴",
+            "y_axis": "Y 轴"
         },
         "sort": {
             "ascending": "升序",
@@ -4928,6 +4939,7 @@
             "value_labels": "值标签",
             "total": "总计",
             "show_symbol": "显示符号",
+            "filled_symbol": "实心数据点",
             "smooth": "平滑",
             "tooltip_sort_by_value": "值排序",
             "tooltip_sort_direction": "排序方向",

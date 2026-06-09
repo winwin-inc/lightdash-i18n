@@ -116,13 +116,39 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
     const showYAxis =
         dirtyLayout?.showYAxis !== undefined ? dirtyLayout?.showYAxis : true;
 
+    const primaryAxisLabelKey = dirtyLayout?.flipAxes
+        ? 'components_visualization_configs_chart.axes.y_axis_label'
+        : 'components_visualization_configs_chart.axes.x_axis_label';
+
+    const secondaryAxisLabelKey = dirtyLayout?.flipAxes
+        ? 'components_visualization_configs_chart.axes.x_axis_label_bottom'
+        : 'components_visualization_configs_chart.axes.y_axis_label_left';
+
+    const tertiaryAxisLabelKey = dirtyLayout?.flipAxes
+        ? 'components_visualization_configs_chart.axes.x_axis_label_top'
+        : 'components_visualization_configs_chart.axes.y_axis_label_right';
+
+    const primaryAutoRangeKey = dirtyLayout?.flipAxes
+        ? 'components_visualization_configs_chart.axes.auto_y_axis_range'
+        : 'components_visualization_configs_chart.axes.auto_x_axis_range';
+
+    const secondaryAutoRangeKey = dirtyLayout?.flipAxes
+        ? 'components_visualization_configs_chart.axes.auto_x_axis_range'
+        : 'components_visualization_configs_chart.axes.auto_y_axis_range';
+
+    const gridPrimaryAxisLabel = dirtyLayout?.flipAxes
+        ? t('components_visualization_configs_chart.axes.y_axis')
+        : t('components_visualization_configs_chart.axes.x_axis');
+
+    const gridSecondaryAxisLabel = dirtyLayout?.flipAxes
+        ? t('components_visualization_configs_chart.axes.x_axis')
+        : t('components_visualization_configs_chart.axes.y_axis');
+
     return (
         <Stack>
             <Config>
                 <Config.Section>
-                    <Config.Heading>{`${
-                        dirtyLayout?.flipAxes ? 'Y' : 'X'
-                    }-axis label`}</Config.Heading>
+                    <Config.Heading>{t(primaryAxisLabelKey)}</Config.Heading>
                     <TextInput
                         placeholder={t(
                             'components_visualization_configs_chart.axes.enter_axis_label',
@@ -138,9 +164,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
                     {isNumericItem(xAxisField) && (
                         <AxisMinMax
-                            label={`Auto ${
-                                dirtyLayout?.flipAxes ? 'y' : 'x'
-                            }-axis range`}
+                            label={t(primaryAutoRangeKey)}
                             min={dirtyEchartsConfig?.xAxis?.[0]?.min}
                             max={dirtyEchartsConfig?.xAxis?.[0]?.max}
                             setMin={(newValue) => setXMinValue(0, newValue)}
@@ -180,7 +204,11 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     )}
                     <Group spacing="xs">
                         <Group spacing="xs">
-                            <Config.Label>Sort</Config.Label>
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_chart.axes.sort',
+                                )}
+                            </Config.Label>
                             <Select
                                 value={getXAxisSort(
                                     dirtyEchartsConfig?.xAxis?.[0],
@@ -252,11 +280,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
             <Config>
                 <Config.Section>
-                    <Config.Heading>{`${
-                        dirtyLayout?.flipAxes ? 'X' : 'Y'
-                    }-axis label (${
-                        dirtyLayout?.flipAxes ? 'bottom' : 'left'
-                    })`}</Config.Heading>
+                    <Config.Heading>{t(secondaryAxisLabelKey)}</Config.Heading>
 
                     <TextInput
                         placeholder={t(
@@ -277,9 +301,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                     />
                     {showFirstAxisRange && (
                         <AxisMinMax
-                            label={`Auto ${
-                                dirtyLayout?.flipAxes ? 'x' : 'y'
-                            }-axis range`}
+                            label={t(secondaryAutoRangeKey)}
                             min={dirtyEchartsConfig?.yAxis?.[0]?.min}
                             max={dirtyEchartsConfig?.yAxis?.[0]?.max}
                             setMin={(newValue) => setYMinValue(0, newValue)}
@@ -291,11 +313,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
             <Config>
                 <Config.Section>
-                    <Config.Heading>{`${
-                        dirtyLayout?.flipAxes ? 'X' : 'Y'
-                    }-axis label (${
-                        dirtyLayout?.flipAxes ? 'top' : 'right'
-                    })`}</Config.Heading>
+                    <Config.Heading>{t(tertiaryAxisLabelKey)}</Config.Heading>
 
                     <TextInput
                         placeholder={t(
@@ -317,9 +335,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
                     {showSecondAxisRange && (
                         <AxisMinMax
-                            label={`Auto ${
-                                dirtyLayout?.flipAxes ? 'x' : 'y'
-                            }-axis range`}
+                            label={t(secondaryAutoRangeKey)}
                             min={dirtyEchartsConfig?.yAxis?.[1]?.min}
                             max={dirtyEchartsConfig?.yAxis?.[1]?.max}
                             setMin={(newValue) => setYMinValue(1, newValue)}
@@ -339,7 +355,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
 
                     <Stack spacing="xs">
                         <Checkbox
-                            label={`${dirtyLayout?.flipAxes ? 'Y' : 'X'}-axis`}
+                            label={gridPrimaryAxisLabel}
                             checked={!!dirtyLayout?.showGridX}
                             onChange={() => {
                                 setShowGridX(!dirtyLayout?.showGridX);
@@ -347,7 +363,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                         />
 
                         <Checkbox
-                            label={`${dirtyLayout?.flipAxes ? 'X' : 'Y'}-axis`}
+                            label={gridSecondaryAxisLabel}
                             checked={
                                 dirtyLayout?.showGridY !== undefined
                                     ? dirtyLayout?.showGridY
@@ -366,11 +382,15 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
             </Config>
             <Config>
                 <Config.Section>
-                    <Config.Heading>Show axis</Config.Heading>
+                    <Config.Heading>
+                        {t(
+                            'components_visualization_configs_chart.axes.show_axis',
+                        )}
+                    </Config.Heading>
 
                     <Stack spacing="xs">
                         <Checkbox
-                            label={`${dirtyLayout?.flipAxes ? 'Y' : 'X'}-axis`}
+                            label={gridPrimaryAxisLabel}
                             checked={
                                 dirtyLayout?.flipAxes ? showYAxis : showXAxis
                             }
@@ -383,7 +403,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                             }}
                         />
                         <Checkbox
-                            label={`${dirtyLayout?.flipAxes ? 'X' : 'Y'}-axis`}
+                            label={gridSecondaryAxisLabel}
                             checked={
                                 dirtyLayout?.flipAxes ? showXAxis : showYAxis
                             }

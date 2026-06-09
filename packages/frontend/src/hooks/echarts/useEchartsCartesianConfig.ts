@@ -393,16 +393,27 @@ const mergeLegendSettings = <T = Record<any, any>>(
     series: EChartSeries[],
 ) => {
     const normalizedConfig = removeEmptyProperties(legendConfig);
+    const hasFilledLineSymbol = series.some(
+        (s) =>
+            isLineSeriesOption(s) &&
+            'symbol' in s &&
+            (s as { symbol?: string }).symbol === 'circle',
+    );
+    const filledLegendIcon = hasFilledLineSymbol
+        ? { icon: 'circle' as const }
+        : {};
     if (!normalizedConfig) {
         return {
             show: series.length > 1,
             type: 'scroll',
             selected: legendsSelected,
+            ...filledLegendIcon,
         };
     }
     return {
         ...normalizedConfig,
         selected: legendsSelected,
+        ...filledLegendIcon,
     };
 };
 
@@ -735,6 +746,7 @@ const getPivotSeries = ({
             ),
         },
         showSymbol: series.showSymbol ?? true,
+        ...(series.filledSymbol === true ? { symbol: 'circle' as const } : {}),
         ...(series.label?.show && {
             label: {
                 ...series.label,
@@ -761,13 +773,14 @@ const getPivotSeries = ({
  * Issue reference: https://github.com/apache/echarts/issues/19178
  */
 const getSimpleSeriesSymbolConfig = (series: Series) => {
-    const { showSymbol, type } = series;
+    const { showSymbol, filledSymbol, type } = series;
     switch (type) {
         case CartesianSeriesType.LINE:
         case CartesianSeriesType.AREA:
             return {
                 showSymbol: true,
                 symbolSize: showSymbol ? 4 : 0,
+                ...(filledSymbol === true ? { symbol: 'circle' as const } : {}),
             };
         case CartesianSeriesType.BAR:
         case CartesianSeriesType.SCATTER:
@@ -1169,6 +1182,8 @@ const getEchartAxes = ({
     const rightAxisYFieldIds = validCartesianConfig.eChartsConfig.series
         ?.filter((serie) => serie.yAxisIndex === 1)
         .map((s) => s.encode.yRef.field);
+
+    const hasRightAxisSeries = (rightAxisYFieldIds?.length ?? 0) > 0;
 
     const rightAxisYId =
         rightAxisYFieldIds?.[0] || validCartesianConfig.layout?.yField?.[1];
@@ -1899,7 +1914,7 @@ const getEchartAxes = ({
             },
             {
                 type: rightAxisType,
-                ...(showYAxis
+                ...(showYAxis && hasRightAxisSeries
                     ? {
                           name: validCartesianConfig.layout.flipAxes
                               ? yAxisConfiguration?.[1]?.name
@@ -1944,10 +1959,10 @@ const getEchartAxes = ({
                 ...getAxisFormatterConfig({
                     axisItem: rightAxisYField,
                     defaultNameGap: rightYaxisGap + defaultAxisLabelGap,
-                    show: showYAxis,
+                    show: showYAxis && hasRightAxisSeries,
                 }),
                 splitLine: {
-                    show: isAxisTheSameForAllSeries,
+                    show: isAxisTheSameForAllSeries && hasRightAxisSeries,
                 },
                 ...rightAxisExtraConfig,
             },

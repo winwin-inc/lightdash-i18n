@@ -353,6 +353,19 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                 }}
                             />
                             <Checkbox
+                                checked={Boolean(seriesGroup[0].filledSymbol)}
+                                label={t(
+                                    'components_visualization_configs_chart.series.filled_symbol',
+                                )}
+                                onChange={() => {
+                                    updateAllGroupedSeries(fieldKey, {
+                                        filledSymbol: !Boolean(
+                                            seriesGroup[0].filledSymbol,
+                                        ),
+                                    });
+                                }}
+                            />
+                            <Checkbox
                                 checked={seriesGroup[0].smooth}
                                 label={t(
                                     'components_visualization_configs_chart.series.smooth',
@@ -374,7 +387,8 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                     checked={
                                         isTooltipSortByValueTheSameForAllSeries
                                             ? Boolean(
-                                                  seriesGroup[0].tooltipSortByValue,
+                                                  seriesGroup[0]
+                                                      .tooltipSortByValue,
                                               )
                                             : false
                                     }
@@ -401,7 +415,9 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                         label={t(
                                             'components_visualization_configs_chart.series.tooltip_sort_direction',
                                         )}
-                                        value={seriesGroup[0].tooltipSortByValue}
+                                        value={
+                                            seriesGroup[0].tooltipSortByValue
+                                        }
                                         data={TOOLTIP_SORT_DIRECTION_OPTIONS}
                                         onChange={(value) => {
                                             updateAllGroupedSeries(fieldKey, {
