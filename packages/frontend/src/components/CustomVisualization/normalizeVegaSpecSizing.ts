@@ -1,3 +1,5 @@
+import type { ResponsiveLayout } from './responsive/types';
+
 const COMPOSITE_KEYS = [
     'hconcat',
     'vconcat',
@@ -362,10 +364,17 @@ export function normalizeVegaSpecSizing(
     spec: VegaSpec,
     containerSize: { width: number; height: number },
     series?: Record<string, unknown>[],
+    layout?: ResponsiveLayout,
 ): VegaSpec {
     const { width, height } = containerSize;
 
     if (!isCompositeVegaSpec(spec)) {
+        if (layout?.useStepHeight) {
+            return {
+                ...spec,
+                width: 'container',
+            };
+        }
         return {
             ...spec,
             width: 'container',
@@ -394,11 +403,15 @@ export function normalizeVegaSpecSizing(
 export function getVegaAutosizeConfig(
     spec: VegaSpec,
     isDashboard: boolean,
+    layout?: ResponsiveLayout,
 ): {
-    type: 'fit' | 'pad';
+    type: 'fit' | 'pad' | 'none';
     resize?: boolean;
     contains?: 'padding' | 'content';
 } {
+    if (layout?.useAutosizeNone) {
+        return { type: 'none' };
+    }
     if (isCompositeVegaSpec(spec)) {
         // contains: padding 使子视图 width/height 与边距一并纳入布局计算
         return { type: 'pad', contains: 'padding' };

@@ -21,6 +21,11 @@ import {
     getVegaAutosizeConfig,
     normalizeVegaSpecSizing,
 } from './normalizeVegaSpecSizing';
+import {
+    computeResponsiveLayout,
+    extractLightdashConfig,
+    resolveActiveSpec,
+} from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 
 const VegaLite = lazy(() =>
@@ -122,14 +127,9 @@ const CustomVisualization: FC<Props> = (props) => {
     const fieldIds =
         visProps.fields ??
         (visProps.series?.[0] ? Object.keys(visProps.series[0]) : []);
-    const needsRewrite = (spec as Record<string, unknown>)?.rewrite === true;
+    const rawSpec = spec as Record<string, unknown>;
+    const needsRewrite = rawSpec.rewrite === true;
     const canRewrite = needsRewrite && fieldIds.length > 0;
-    const specForVega =
-        prepareSpecForVega(
-            spec as Record<string, unknown>,
-            itemsMap,
-            fieldIds,
-        ) ?? spec;
 
     const data = { values: visProps.series };
 
@@ -143,14 +143,40 @@ const CustomVisualization: FC<Props> = (props) => {
     const height = rh > 0 ? rh : earlyRect.height;
     const hasSize = width > 0 && height > 0;
 
+    const { desktopSpec, responsiveConfig } =
+        extractLightdashConfig(rawSpec);
+    const resolveWidth = width > 0 ? width : Number.POSITIVE_INFINITY;
+    const { spec: activeSpecRaw, variant: layoutVariant } = resolveActiveSpec(
+        desktopSpec,
+        responsiveConfig,
+        resolveWidth,
+    );
+    const specForVega =
+        prepareSpecForVega(
+            needsRewrite
+                ? { ...activeSpecRaw, rewrite: true }
+                : activeSpecRaw,
+            itemsMap,
+            fieldIds,
+        ) ?? activeSpecRaw;
+
+    const layout = computeResponsiveLayout(
+        layoutVariant,
+        activeSpecRaw,
+        width,
+        height,
+        visProps.series,
+    );
     const sizedSpec = normalizeVegaSpecSizing(
         specForVega as Record<string, unknown>,
-        { width, height },
+        layout.chartSize,
         visProps.series,
+        layout,
     );
     const autosizeConfig = getVegaAutosizeConfig(
         specForVega as Record<string, unknown>,
         isDashboard,
+        layout,
     );
 
     return (
@@ -161,21 +187,18 @@ const CustomVisualization: FC<Props> = (props) => {
                 minHeight: 'inherit',
                 height: '100%',
                 width: '100%',
-                overflow: 'hidden',
+                ...layout.containerStyle,
             }}
             ref={measureRef}
         >
             {hasSize ? (
                 <Suspense fallback={<LoadingChart />}>
                     <VegaLite
-                        key={`vega-${visProps.series?.length ?? 0}-${
-                            resultsData?.hasFetchedAllRows ?? false
-                        }`}
+                        key={`vega-${layout.layoutId}-${
+                            visProps.series?.length ?? 0
+                        }-${resultsData?.hasFetchedAllRows ?? false}`}
                         ref={chartRef}
-                        style={{
-                            width,
-                            height,
-                        }}
+                        style={layout.vegaStyle}
                         config={{
                             autosize: autosizeConfig,
                         }}

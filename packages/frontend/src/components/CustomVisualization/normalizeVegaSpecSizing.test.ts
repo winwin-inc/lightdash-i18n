@@ -4,6 +4,7 @@ import {
     isCompositeVegaSpec,
     normalizeVegaSpecSizing,
 } from './normalizeVegaSpecSizing';
+import type { ResponsiveLayout } from './responsive/types';
 
 const singleViewSpec = {
     mark: 'bar',
@@ -83,6 +84,33 @@ describe('normalizeVegaSpecSizing', () => {
         );
         expect(result.width).toBe('container');
         expect(result.height).toBe('container');
+    });
+
+    it('preserves height step for mobile responsive layout', () => {
+        const mobileLayout: ResponsiveLayout = {
+            layoutId: 'mobile',
+            variant: 'mobile',
+            useStepHeight: true,
+            useAutosizeNone: true,
+            chartSize: { width: 375, height: 320 },
+            containerStyle: { overflowY: 'auto' },
+            vegaStyle: { width: 375, height: 320 },
+        };
+        const result = normalizeVegaSpecSizing(
+            {
+                layer: [{ mark: 'bar', orient: 'horizontal' }],
+                height: { step: 32 },
+                encoding: {
+                    y: { field: 'brand', type: 'nominal' },
+                    x: { field: 'growth', type: 'quantitative' },
+                },
+            },
+            { width: 375, height: 320 },
+            undefined,
+            mobileLayout,
+        );
+        expect(result.width).toBe('container');
+        expect(result.height).toEqual({ step: 32 });
     });
 
     it('distributes width for hconcat views and reserves axis space', () => {
@@ -244,5 +272,20 @@ describe('getVegaAutosizeConfig', () => {
             type: 'pad',
             contains: 'padding',
         });
+    });
+
+    it('uses none autosize for mobile step height layout', () => {
+        const mobileLayout: ResponsiveLayout = {
+            layoutId: 'mobile',
+            variant: 'mobile',
+            useStepHeight: true,
+            useAutosizeNone: true,
+            chartSize: { width: 375, height: 320 },
+            containerStyle: { overflowY: 'auto' },
+            vegaStyle: { width: 375, height: 320 },
+        };
+        expect(getVegaAutosizeConfig(singleViewSpec, true, mobileLayout)).toEqual(
+            { type: 'none' },
+        );
     });
 });

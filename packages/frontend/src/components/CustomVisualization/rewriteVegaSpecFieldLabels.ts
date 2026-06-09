@@ -526,7 +526,7 @@ export function prepareSpecForVega(
         }
         out = rewriteSpecFieldLabels(out, labelToFieldId);
     }
-    const { [REWRITE_KEY]: _, ...forVega } = out;
+    const { [REWRITE_KEY]: _, lightdash: __, ...forVega } = out;
     if (DEBUG_REWRITE && needsRewrite) {
         console.log(
             '[Vega rewrite] 改写后完整 spec (供对比):',
