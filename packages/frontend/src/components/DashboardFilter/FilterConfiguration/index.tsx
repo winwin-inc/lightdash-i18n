@@ -4,22 +4,18 @@ import {
     createDashboardFilterRuleFromSqlColumn,
     DimensionType,
     FilterType,
+    findDefaultTileFilterField,
     getFilterTypeFromItem,
     getFilterTypeFromItemType,
     getItemId,
     isFilterableField,
     isMetric,
     isTableCalculation,
-    matchFieldByLabel,
-    matchFieldByType,
-    matchFieldByTypeAndName,
-    matchFieldExact,
     type DashboardFieldTarget,
     type DashboardFilterableField,
     type DashboardFilterRule,
     type DashboardTab,
     type DashboardTile,
-    type Field,
     type ResultColumn,
 } from '@lightdash/common';
 import {
@@ -46,6 +42,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { isCategoryField } from '../../../utils/categoryFilters';
@@ -84,24 +81,7 @@ interface Props {
 const getDefaultField = (
     fields: DashboardFilterableField[],
     selectedField: DashboardFilterableField,
-) => {
-    const selectedAsField = selectedField as unknown as Field;
-    return (
-        fields.find((f) => getItemId(f) === getItemId(selectedField)) ??
-        fields.find((f) =>
-            matchFieldExact(selectedAsField)(f as unknown as Field),
-        ) ??
-        fields.find((f) =>
-            matchFieldByLabel(selectedAsField)(f as unknown as Field),
-        ) ??
-        fields.find((f) =>
-            matchFieldByTypeAndName(selectedAsField)(f as unknown as Field),
-        ) ??
-        fields.find((f) =>
-            matchFieldByType(selectedAsField)(f as unknown as Field),
-        )
-    );
-};
+) => findDefaultTileFilterField(fields, selectedField);
 
 const FilterConfiguration: FC<Props> = ({
     isEditMode,
@@ -124,6 +104,7 @@ const FilterConfiguration: FC<Props> = ({
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: project } = useProject(projectUuid);
     const isCustomerUse = project?.isCustomerUse ?? false;
+    const isMobileDevice = useIsMobileDevice();
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
     const [selectedField, setSelectedField] = useState<
@@ -390,10 +371,15 @@ const FilterConfiguration: FC<Props> = ({
                 const newFilterRule = produce(draftFilterRule, (draftState) => {
                     if (!draftState || !selectedField) return;
                     targetTileUuids.forEach((tileUuid) => {
-                        if (!draftState.tileTargets) return;
+                        if (!draftState.tileTargets || !selectedField) return;
+                        const defaultField = findDefaultTileFilterField(
+                            availableTileFilters[tileUuid] ?? [],
+                            selectedField,
+                        );
+                        if (!defaultField) return;
                         draftState.tileTargets[tileUuid] = {
-                            fieldId: getItemId(selectedField),
-                            tableName: selectedField.table,
+                            fieldId: getItemId(defaultField),
+                            tableName: defaultField.table,
                         };
                     });
                     return draftState;
@@ -561,7 +547,12 @@ const FilterConfiguration: FC<Props> = ({
                         </Tabs.List>
                     ) : null}
 
-                    <Tabs.Panel value={FilterTabs.SETTINGS} miw={350} maw={520}>
+                    <Tabs.Panel
+                        value={FilterTabs.SETTINGS}
+                        miw={isMobileDevice ? 0 : 350}
+                        maw={isMobileDevice ? '100%' : 520}
+                        w={isMobileDevice ? '100%' : undefined}
+                    >
                         <Stack spacing="sm">
                             {isCreatingNew ? (
                                 !!fields && fields.length > 0 ? (
@@ -683,7 +674,9 @@ const FilterConfiguration: FC<Props> = ({
                     {draftFilterRule && (
                         <Tabs.Panel
                             value={FilterTabs.TILES}
-                            w={500}
+                            w={isMobileDevice ? '100%' : 500}
+                            miw={0}
+                            maw="100%"
                             data-testid="DashboardFilterConfiguration/ChartTiles"
                         >
                             <TileFilterConfiguration
@@ -691,6 +684,7 @@ const FilterConfiguration: FC<Props> = ({
                                 tabs={tabs}
                                 activeTabUuid={activeTabUuid}
                                 filterRule={draftFilterRule}
+                                filterScope={filterScope}
                                 popoverProps={popoverProps}
                                 tiles={tiles}
                                 availableTileFilters={availableTileFilters}

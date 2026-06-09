@@ -17,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useFilterDropdownStyles } from './filterDropdownStyles';
 
+import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
@@ -74,6 +75,7 @@ const AddFilterButton: FC<Props> = ({
 
     const isPopoverOpen = openPopoverId === popoverId;
     const dropdownClasses = useFilterDropdownStyles();
+    const isMobileDevice = useIsMobileDevice();
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
@@ -224,6 +226,10 @@ const AddFilterButton: FC<Props> = ({
                 offset={1}
                 arrowOffset={14}
                 withinPortal
+                {...(isMobileDevice && {
+                    position: 'bottom' as const,
+                    middlewares: { shift: true, flip: true, size: true },
+                })}
             >
                 <Popover.Target>
                     <Tooltip

@@ -1,3 +1,4 @@
+import { DimensionType, FieldType, type Dimension } from '../types/field';
 import {
     FilterOperator,
     type AndFilterGroup,
@@ -12,8 +13,10 @@ import {
     addDashboardFiltersToMetricQuery,
     addFilterRule,
     createFilterRuleFromModelRequiredFilterRule,
+    findDefaultTileFilterField,
     getDashboardFilterRulesForTileAndReferences,
     isFilterRuleInQuery,
+    isTileFilterFieldAvailable,
     overrideChartFilter,
     reduceRequiredDimensionFiltersToFilterRules,
     resetRequiredFilterRules,
@@ -506,5 +509,101 @@ describe('getDashboardFilterRulesForTileAndReferences', () => {
 
         // Verify filter-3 is not included (isSqlColumn is true but fieldId doesn't match)
         expect(result).toHaveLength(0);
+    });
+});
+
+describe('dashboard tile filter field matching', () => {
+    const sourceProvince: Dimension = {
+        fieldType: FieldType.DIMENSION,
+        type: DimensionType.STRING,
+        name: 'province_name',
+        label: '省份',
+        table: 'ads_chain_province_sales',
+        tableLabel: '连锁省份',
+        sql: '${TABLE}.province_name',
+        hidden: false,
+    };
+
+    const targetProvince: Dimension = {
+        ...sourceProvince,
+        table: 'ads_octopus_province_sales',
+        tableLabel: '章鱼哥省份',
+    };
+
+    const targetNumberField: Dimension = {
+        ...sourceProvince,
+        name: 'amount',
+        label: '销售额',
+        type: DimensionType.NUMBER,
+        table: 'ads_octopus_province_sales',
+    };
+
+    const compiledCustomSqlDimension = {
+        ...customSqlDimension,
+        label: 'Custom SQL Dimension',
+        tableLabel: 'custom_sql',
+        compiledSql: 'CASE WHEN 1=1 THEN 1 END',
+        tablesReferences: ['orders'],
+    };
+
+    test('findDefaultTileFilterField matches regular dimensions by label across explores', () => {
+        const result = findDefaultTileFilterField(
+            [targetProvince],
+            sourceProvince,
+        );
+
+        expect(result).toEqual(targetProvince);
+    });
+
+    test('findDefaultTileFilterField requires exact fieldId for custom SQL dimensions', () => {
+        const sameId = findDefaultTileFilterField(
+            [compiledCustomSqlDimension],
+            compiledCustomSqlDimension,
+        );
+        expect(sameId).toEqual(compiledCustomSqlDimension);
+
+        const differentId = findDefaultTileFilterField(
+            [
+                {
+                    ...compiledCustomSqlDimension,
+                    id: 'other-custom-sql-id',
+                    label: 'Custom SQL Dimension',
+                    tableLabel: 'custom_sql',
+                },
+            ],
+            compiledCustomSqlDimension,
+        );
+        expect(differentId).toBeUndefined();
+    });
+
+    test('isTileFilterFieldAvailable allows regular dimensions with same type only', () => {
+        expect(
+            isTileFilterFieldAvailable([targetProvince], sourceProvince),
+        ).toBe(true);
+
+        expect(
+            isTileFilterFieldAvailable([targetNumberField], sourceProvince),
+        ).toBe(false);
+    });
+
+    test('isTileFilterFieldAvailable requires exact fieldId for custom SQL dimensions', () => {
+        expect(
+            isTileFilterFieldAvailable(
+                [compiledCustomSqlDimension],
+                compiledCustomSqlDimension,
+            ),
+        ).toBe(true);
+
+        expect(
+            isTileFilterFieldAvailable(
+                [
+                    {
+                        ...compiledCustomSqlDimension,
+                        id: 'other-custom-sql-id',
+                    },
+                ],
+                compiledCustomSqlDimension,
+            ),
+        ).toBe(false);
     });
 });

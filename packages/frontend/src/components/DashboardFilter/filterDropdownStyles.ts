@@ -8,6 +8,12 @@ export const useFilterDropdownStyles = createStyles(() => ({
         width: 'min(90vw, 500px)',
         maxHeight: 'none',
         overflow: 'visible',
+        '@media (max-width: 768px)': {
+            maxWidth: 'calc(100vw - 32px)',
+            width: 'calc(100vw - 32px)',
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
+        },
     },
     /** 内部下拉打开时：其他筛选器（编辑已有筛选）使用，默认预留高度 */
     dropdownWithSubOpen: {
@@ -29,15 +35,28 @@ export const useFilterDropdownStyles = createStyles(() => ({
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
+        '@media (max-width: 768px)': {
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
+        },
         '& > *': {
             flex: 1,
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
+            '@media (max-width: 768px)': {
+                minWidth: 0,
+                maxWidth: '100%',
+            },
         },
         '& > * > *:first-child': {
             flex: 1,
             minHeight: 0,
+            '@media (max-width: 768px)': {
+                minWidth: 0,
+                maxWidth: '100%',
+            },
         },
     },
 }));

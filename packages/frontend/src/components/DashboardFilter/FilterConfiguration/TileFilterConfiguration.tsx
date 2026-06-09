@@ -1,10 +1,12 @@
 import {
+    findDefaultTileFilterField,
     getItemId,
     isCompiledCustomSqlDimension,
     isDashboardChartTileType,
     isDashboardFieldTarget,
     isDashboardSqlChartTile,
     isField,
+    isTileFilterFieldAvailable,
     matchFieldByLabel,
     matchFieldByType,
     matchFieldByTypeAndName,
@@ -83,6 +85,7 @@ type Props = {
         target?: DashboardFieldTarget,
     ) => void;
     onToggleAll: (checked: boolean, tileUuids: string[]) => void;
+    filterScope: 'global' | 'tab';
 };
 
 const TileFilterConfiguration: FC<Props> = ({
@@ -95,6 +98,7 @@ const TileFilterConfiguration: FC<Props> = ({
     popoverProps,
     onChange,
     onToggleAll,
+    filterScope,
 }) => {
     const { t } = useTranslation();
 
@@ -175,10 +179,8 @@ const TileFilterConfiguration: FC<Props> = ({
                                           tileConfig?.fieldId === getItemId(f),
                                   )
                                 : field
-                                ? filters?.find(
-                                      (f) => getItemId(f) === getItemId(field),
-                                  )
-                                : undefined;
+                                  ? findDefaultTileFilterField(filters, field)
+                                  : undefined;
 
                         // If tileConfig?.fieldId is set, but the field is not found in the filters, we mark it as invalid filter (missing dimension in model)
                         invalidField =
@@ -191,9 +193,7 @@ const TileFilterConfiguration: FC<Props> = ({
                     }
 
                     const isFilterAvailable = field
-                        ? filters?.some(
-                              (f) => getItemId(f) === getItemId(field),
-                          ) ?? false
+                        ? isTileFilterFieldAvailable(filters, field)
                         : false;
 
                     const sortedFilters:
@@ -397,9 +397,9 @@ const TileFilterConfiguration: FC<Props> = ({
         tileList: Array<TileWithTargetFields | TileWithTargetColumns>;
     }) => {
         return (
-            <Stack spacing="md">
+            <Stack spacing="md" miw={0} maw="100%">
                 {tileList.map((value) => (
-                    <Box key={value.key}>
+                    <Box key={value.key} miw={0} maw="100%">
                         <Tooltip
                             label={
                                 value.invalidField
@@ -471,9 +471,11 @@ const TileFilterConfiguration: FC<Props> = ({
 
                         {value.sortedFilters && (
                             <Box
-                                ml="xl"
+                                pl="xl"
                                 mt="sm"
-                                display={!value.checked ? 'none' : 'auto'}
+                                miw={0}
+                                maw="100%"
+                                display={!value.checked ? 'none' : 'block'}
                             >
                                 {isField(value.selectedField) ||
                                 isCompiledCustomSqlDimension(
@@ -489,6 +491,17 @@ const TileFilterConfiguration: FC<Props> = ({
                                         }
                                         onDropdownOpen={popoverProps?.onOpen}
                                         onDropdownClose={popoverProps?.onClose}
+                                        styles={{
+                                            root: {
+                                                maxWidth: '100%',
+                                                minWidth: 0,
+                                            },
+                                            input: {
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                            },
+                                        }}
                                         onChange={(newField) => {
                                             onChange(
                                                 FilterActions.ADD,
@@ -520,6 +533,17 @@ const TileFilterConfiguration: FC<Props> = ({
                                         allowDeselect={false}
                                         value={value.selectedField}
                                         data={value.sortedFilters as string[]}
+                                        styles={{
+                                            root: {
+                                                maxWidth: '100%',
+                                                minWidth: 0,
+                                            },
+                                            input: {
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                            },
+                                        }}
                                         onChange={(newField) => {
                                             onChange(
                                                 FilterActions.ADD,
@@ -555,39 +579,60 @@ const TileFilterConfiguration: FC<Props> = ({
 
     const tileList =
         tabs.length > 0 ? (
-            <Accordion defaultValue={activeTabUuid} variant="contained">
-                {tabs.map((tab, index) => (
-                    <Flex align="center" gap="sm" key={index}>
-                        <Accordion.Item
-                            key={index}
-                            value={tab.uuid}
-                            style={{ flexGrow: 1 }}
+            <Accordion
+                defaultValue={activeTabUuid}
+                variant="contained"
+                style={{ width: '100%', minWidth: 0 }}
+            >
+                {tabs.map((tab) => {
+                    const tabTileList = filteredTileTargetList(tab.uuid);
+                    return (
+                        <Flex
+                            align="center"
+                            gap="sm"
+                            key={tab.uuid}
+                            w="100%"
+                            miw={0}
                         >
-                            <Accordion.Control
-                                fw={500}
-                                style={{ fontSize: '14px', fontWeight: 500 }}
+                            <Accordion.Item
+                                value={tab.uuid}
+                                style={{
+                                    flex: '1 1 0',
+                                    minWidth: 0,
+                                    overflow: 'hidden',
+                                }}
                             >
-                                {tab.name}
-                            </Accordion.Control>
-                            <Accordion.Panel>
-                                <StackSubComponent
-                                    tileList={filteredTileTargetList(tab.uuid)}
+                                <Accordion.Control
+                                    fw={500}
+                                    style={{
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                    }}
+                                >
+                                    {tab.name}
+                                </Accordion.Control>
+                                <Accordion.Panel style={{ overflow: 'hidden' }}>
+                                    <StackSubComponent tileList={tabTileList} />
+                                </Accordion.Panel>
+                            </Accordion.Item>
+                            <Box style={{ flexShrink: 0 }}>
+                                <SwitchToggle
+                                    tileList={tabTileList}
+                                    tabName={tab.name}
                                 />
-                            </Accordion.Panel>
-                        </Accordion.Item>
-                        <SwitchToggle
-                            tileList={filteredTileTargetList(tab.uuid)}
-                            tabName={tab.name}
-                        />
-                    </Flex>
-                ))}
+                            </Box>
+                        </Flex>
+                    );
+                })}
             </Accordion>
         ) : (
             <StackSubComponent tileList={tileTargetList} />
         );
 
+    const tileListMaxHeight = filterScope === 'global' ? '55vh' : '50vh';
+
     return (
-        <Stack spacing="lg">
+        <Stack spacing="lg" miw={0} maw="100%">
             <Checkbox
                 size="xs"
                 checked={isAllChecked}
@@ -620,7 +665,14 @@ const TileFilterConfiguration: FC<Props> = ({
                     }
                 }}
             />
-            {tileList}
+            <Box
+                miw={0}
+                maw="100%"
+                mah={tileListMaxHeight}
+                style={{ overflowY: 'auto', minHeight: 0 }}
+            >
+                {tileList}
+            </Box>
         </Stack>
     );
 };

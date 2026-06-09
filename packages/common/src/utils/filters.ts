@@ -16,6 +16,7 @@ import {
     MetricType,
     TableCalculationType,
     convertFieldRefToFieldId,
+    isCompiledCustomSqlDimension,
     isCustomSqlDimension,
     isDimension,
     isTableCalculation,
@@ -370,6 +371,63 @@ export const matchFieldByType = (a: Field) => (b: Field) => a.type === b.type;
 export const matchFieldByLabel = (a: Field) => (b: Field) =>
     !!(a.label && b.label && a.label === b.label && a.type === b.type);
 
+/**
+ * Resolves the default tile filter field when creating a filter or auto-mapping
+ * tile targets. Custom SQL dimensions require an exact fieldId match; regular
+ * dimensions use semantic matching (fieldId → exact → label → type+name).
+ */
+export const findDefaultTileFilterField = (
+    availableFilters: DashboardFilterableField[] | undefined,
+    selectedField: DashboardFilterableField,
+): DashboardFilterableField | undefined => {
+    if (!availableFilters) return undefined;
+
+    if (isCompiledCustomSqlDimension(selectedField)) {
+        return availableFilters.find(
+            (f) => getItemId(f) === getItemId(selectedField),
+        );
+    }
+
+    const selectedAsField = selectedField as unknown as Field;
+
+    return (
+        availableFilters.find(
+            (f) => getItemId(f) === getItemId(selectedField),
+        ) ??
+        availableFilters.find((f) =>
+            matchFieldExact(selectedAsField)(f as unknown as Field),
+        ) ??
+        availableFilters.find((f) =>
+            matchFieldByLabel(selectedAsField)(f as unknown as Field),
+        ) ??
+        availableFilters.find((f) =>
+            matchFieldByTypeAndName(selectedAsField)(f as unknown as Field),
+        )
+    );
+};
+
+/**
+ * Whether a tile can accept the selected filter field in manual tile configuration.
+ * Regular dimensions: same type is enough. Custom SQL dimensions: exact fieldId only.
+ */
+export const isTileFilterFieldAvailable = (
+    availableFilters: DashboardFilterableField[] | undefined,
+    selectedField: DashboardFilterableField,
+): boolean => {
+    if (!availableFilters) return false;
+
+    if (isCompiledCustomSqlDimension(selectedField)) {
+        return availableFilters.some(
+            (f) => getItemId(f) === getItemId(selectedField),
+        );
+    }
+
+    const selectedAsField = selectedField as unknown as Field;
+    return availableFilters.some((f) =>
+        matchFieldByType(selectedAsField)(f as unknown as Field),
+    );
+};
+
 export const isTileFilterable = (tile: DashboardTile) =>
     ![DashboardTileTypes.MARKDOWN, DashboardTileTypes.LOOM].includes(tile.type);
 
@@ -385,25 +443,10 @@ const getDefaultTileTargets = (
     >((acc, [tileUuid, availableFilters]) => {
         if (!availableFilters) return acc;
 
-        let filterableField = availableFilters.find(
-            (f) => getItemId(f) === getItemId(field),
+        const filterableField = findDefaultTileFilterField(
+            availableFilters,
+            field as DashboardFilterableField,
         );
-
-        const fieldAsField = field as unknown as Field;
-
-        // 优先尝试精确匹配 (type + name + table)
-        if (!filterableField) {
-            filterableField = availableFilters.find((f) =>
-                matchFieldExact(fieldAsField)(f as unknown as Field),
-            );
-        }
-
-        // 如果没有精确匹配，尝试 label 匹配 (label + type)
-        if (!filterableField) {
-            filterableField = availableFilters.find((f) =>
-                matchFieldByLabel(fieldAsField)(f as unknown as Field),
-            );
-        }
 
         if (!filterableField) return acc;
 

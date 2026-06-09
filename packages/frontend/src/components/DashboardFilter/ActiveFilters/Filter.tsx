@@ -20,6 +20,7 @@ import { IconGripVertical } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import {
     getFilterRuleTables,
@@ -80,6 +81,7 @@ const Filter: FC<Props> = ({
 
     const { classes } = useDashboardFilterStyles();
     const dropdownClasses = useFilterDropdownStyles();
+    const isMobileDevice = useIsMobileDevice();
     const popoverId = useId();
 
     const getConditionalRuleLabel = useConditionalRuleLabel();
@@ -326,6 +328,10 @@ const Filter: FC<Props> = ({
                 offset={1}
                 arrowOffset={14}
                 withinPortal
+                {...(isMobileDevice && {
+                    position: 'bottom' as const,
+                    middlewares: { shift: true, flip: true, size: true },
+                })}
             >
                 <Popover.Target>
                     <Indicator
@@ -463,7 +469,9 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {filterRuleLabels?.operator}{' '}
+                                                    {
+                                                        filterRuleLabels?.operator
+                                                    }{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
@@ -514,7 +522,7 @@ const Filter: FC<Props> = ({
                                 filterScope={filterScope}
                                 tabUuid={
                                     filterScope === 'tab'
-                                        ? appliesToTabs[0] ?? activeTabUuid
+                                        ? (appliesToTabs[0] ?? activeTabUuid)
                                         : undefined
                                 }
                             />

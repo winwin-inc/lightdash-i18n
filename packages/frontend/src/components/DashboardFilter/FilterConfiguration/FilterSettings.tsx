@@ -26,6 +26,7 @@ import { IconHelpCircle } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
@@ -65,6 +66,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 }) => {
     const { t } = useTranslation();
 
+    const isMobileDevice = useIsMobileDevice();
     const [filterLabel, setFilterLabel] = useState<string>();
 
     const getFilterOperatorOptions = useFilterOperatorOptions();
@@ -180,7 +182,32 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             marginRight: '8px',
                         },
                     }}
+                    {...(isMobileDevice && {
+                        w: '100%',
+                        rightSectionWidth: undefined,
+                        styles: {
+                            root: {
+                                maxWidth: '100%',
+                                width: '100%',
+                                minWidth: 0,
+                            },
+                            wrapper: {
+                                maxWidth: '100%',
+                                width: '100%',
+                                minWidth: 0,
+                            },
+                            input: {
+                                maxWidth: '100%',
+                                minWidth: 0,
+                            },
+                            dropdown: {
+                                maxWidth: 'calc(100vw - 32px)',
+                                width: 'calc(100vw - 32px)',
+                            },
+                        },
+                    })}
                     rightSection={
+                        !isMobileDevice &&
                         supportsSingleValue(filterType, filterRule.operator) &&
                         isEditMode && (
                             <Button

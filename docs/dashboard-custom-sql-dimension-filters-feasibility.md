@@ -147,3 +147,26 @@ flowchart LR
 |------|------|
 | 2025-03-26 | 初版：基于当前仓库代码路径的可行性评估 |
 | 2025-03-26 | 补充实现状态说明、§6 与已落地代码的对照（与初版同日迭代） |
+| 2026-06-09 | 补充看板图块筛选匹配策略：自动绑定阶段语义匹配；Custom SQL 仅 fieldId；手工配置普通维度同类型可选 |
+
+---
+
+## 10. 看板图块筛选匹配策略（回归说明）
+
+为避免跨 Explore 普通维度（如 `province_name`）在图块配置中被误判为不可用，同时保留 Custom SQL 维度的安全绑定，匹配规则按场景分流：
+
+| 场景 | 规则 | 实现位置 |
+|------|------|----------|
+| **自动绑定**（创建筛选器、默认 tileTargets、全选图块） | Custom SQL：仅 `fieldId`；普通维度：`fieldId` → `exact` → `label+type` → `type+name`（不用 type-only） | `findDefaultTileFilterField` / `getDefaultTileTargets` |
+| **手工图块配置**（图块可选/禁用） | Custom SQL：仅 `fieldId`；普通维度：同 `type` 即可选 | `isTileFilterFieldAvailable` |
+| **类目筛选器** | 保留现有层级/父级/批量绑定逻辑，不放宽 Custom SQL 规则 | `BatchBindModal` 等 |
+
+### 回归用例矩阵
+
+| 用例 | 预期 |
+|------|------|
+| 普通维度跨 Explore 同 label（如省份） | 图块可选；自动绑定时映射到各 Explore 对应 fieldId |
+| 普通维度跨 Explore 仅 type 相同、语义不同 | 图块可选；自动绑定不默认映射（避免误绑） |
+| Custom SQL 维度 | 仅同 fieldId 的图块可选且可自动绑定 |
+| 类目筛选器批量绑定 | 层级与父级关系行为不回退 |
+| 已保存 tileTargets | 不被重写，仅影响新交互判定 |
