@@ -13,6 +13,7 @@ import { explorerStore } from '../features/explorer/store';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useExplorerQueryEffects } from '../hooks/useExplorerQueryEffects';
 import { useSavedQuery } from '../hooks/useSavedQuery';
+import useSearchParams from '../hooks/useSearchParams';
 import useApp from '../providers/App/useApp';
 import { defaultQueryExecution } from '../providers/Explorer/defaultState';
 import ExplorerProvider from '../providers/Explorer/ExplorerProvider';
@@ -46,6 +47,8 @@ const SavedExplorer = () => {
     }>();
 
     const isEditMode = mode === 'edit';
+
+    const fromDashboard = useSearchParams('fromDashboard');
 
     const { setDashboardChartInfo } = useDashboardStorage();
 
@@ -117,6 +120,7 @@ const SavedExplorer = () => {
                                   },
                               },
                               queryExecution: defaultQueryExecution,
+                              fromDashboard: fromDashboard ?? undefined,
                           }
                         : undefined
                 }

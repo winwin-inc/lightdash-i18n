@@ -12,6 +12,7 @@ import ExploreSideBar from '../components/Explorer/ExploreSideBar/index';
 import ForbiddenPanel from '../components/ForbiddenPanel';
 import {
     explorerStore,
+    selectFromDashboard,
     selectTableName,
     useExplorerSelector,
 } from '../features/explorer/store';
@@ -36,7 +37,8 @@ const ExplorerWithUrlParams = memo(() => {
 
     // Get table name from Redux
     const tableId = useExplorerSelector(selectTableName);
-    const { data } = useExplore(tableId);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
+    const { data } = useExplore(tableId, undefined, fromDashboard ?? undefined);
 
     const clearQuery = useExplorerContext(
         (context) => context.actions.clearQuery,

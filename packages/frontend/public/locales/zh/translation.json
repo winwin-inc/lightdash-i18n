@@ -5674,7 +5674,13 @@
         "active_filter": "{{count}} 个激活筛选器",
         "active_filter_suffix": "",
         "tip": "您必须处于“编辑”或“探索”模式才能更改过滤器",
-        "rule_error": "尝试引用具有未知 ID 的字段："
+        "rule_error": "尝试引用具有未知 ID 的字段：",
+        "dashboard_context_title": "看板上下文",
+        "dashboard_context_hint": "看板上下文：以下属性会默认携带到后端查询，用于权限与数据过滤。",
+        "dashboard_context_tooltip": "名称：{{name}}\nslug：{{slug}}\nID：{{uuid}}",
+        "dashboard_name": "看板名称",
+        "dashboard_slug": "看板 slug",
+        "dashboard_uuid": "看板 ID"
     },
     "components_explorer_space_browser": {
         "dashboard": "看板",

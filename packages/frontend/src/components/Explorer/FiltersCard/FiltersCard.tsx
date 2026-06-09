@@ -28,6 +28,7 @@ import {
     selectAdditionalMetrics,
     selectCustomDimensions,
     selectFilters,
+    selectFromDashboard,
     selectIsEditMode,
     selectIsFiltersExpanded,
     selectMetricQuery,
@@ -45,6 +46,7 @@ import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import FiltersForm from '../../common/Filters';
 import { useConditionalRuleLabelFromItem } from '../../common/Filters/FilterInputs/utils';
 import FiltersProvider from '../../common/Filters/FiltersProvider';
+import DashboardContextFilters from './DashboardContextFilters';
 import { useFieldsWithSuggestions } from './useFieldsWithSuggestions';
 
 const FiltersCard: FC = memo(() => {
@@ -63,8 +65,13 @@ const FiltersCard: FC = memo(() => {
     const dispatch = useExplorerDispatch();
 
     const tableName = useExplorerSelector(selectTableName);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
     const metricQuery = useExplorerSelector(selectMetricQuery);
-    const { data } = useExplore(tableName);
+    const { data } = useExplore(
+        tableName,
+        undefined,
+        fromDashboard ?? undefined,
+    );
 
     const refreshRequiredFiltersProperty = useCallback(
         (inputFilters: Filters): Filters => {
@@ -302,83 +309,91 @@ const FiltersCard: FC = memo(() => {
     );
 
     return (
-        <CollapsableCard
-            isOpen={filterIsOpen}
-            title={t('components_explorer_filters_card.title')}
-            disabled={!tableName || (totalActiveFilters === 0 && !isEditMode)}
-            toggleTooltip={
-                totalActiveFilters === 0 && !isEditMode
-                    ? t('components_explorer_filters_card.no_filter')
-                    : ''
-            }
-            onToggle={() => toggleExpandedSection(ExplorerSection.FILTERS)}
-            headerElement={
-                <>
-                    {totalActiveFilters > 0 && !filterIsOpen ? (
-                        <Tooltip
-                            variant="xs"
-                            arrowOffset={12}
-                            label={
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '4px',
+        <>
+            <DashboardContextFilters />
+            <CollapsableCard
+                isOpen={filterIsOpen}
+                title={t('components_explorer_filters_card.title')}
+                disabled={
+                    !tableName || (totalActiveFilters === 0 && !isEditMode)
+                }
+                toggleTooltip={
+                    totalActiveFilters === 0 && !isEditMode
+                        ? t('components_explorer_filters_card.no_filter')
+                        : ''
+                }
+                onToggle={() => toggleExpandedSection(ExplorerSection.FILTERS)}
+                headerElement={
+                    <>
+                        {totalActiveFilters > 0 && !filterIsOpen ? (
+                            <Tooltip
+                                variant="xs"
+                                arrowOffset={12}
+                                label={
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '4px',
+                                        }}
+                                    >
+                                        {allFilterRules.map(renderFilterRule)}
+                                    </div>
+                                }
+                                position="bottom-start"
+                            >
+                                <Badge
+                                    color="gray"
+                                    sx={{
+                                        textTransform: 'unset',
                                     }}
                                 >
-                                    {allFilterRules.map(renderFilterRule)}
-                                </div>
-                            }
-                            position="bottom-start"
-                        >
-                            <Badge
-                                color="gray"
-                                sx={{
-                                    textTransform: 'unset',
-                                }}
-                            >
-                                <Text span fw={500}>
-                                    {t(
-                                        'components_explorer_filters_card.active_filter',
-                                        {
-                                            count: totalActiveFilters,
-                                        },
-                                    )}
-                                    {totalActiveFilters === 1
-                                        ? ''
-                                        : t(
-                                              'components_explorer_filters_card.active_filter_suffix',
-                                          )}
-                                </Text>
-                            </Badge>
-                        </Tooltip>
-                    ) : null}
-                    {totalActiveFilters > 0 && filterIsOpen && !isEditMode ? (
-                        <Text color="gray">
-                            {t('components_explorer_filters_card.tip')}
-                        </Text>
-                    ) : null}
-                </>
-            }
-        >
-            <FiltersProvider
-                projectUuid={projectUuid}
-                itemsMap={fieldsWithSuggestions}
-                startOfWeek={
-                    project.data?.warehouseConnection?.startOfWeek ?? undefined
+                                    <Text span fw={500}>
+                                        {t(
+                                            'components_explorer_filters_card.active_filter',
+                                            {
+                                                count: totalActiveFilters,
+                                            },
+                                        )}
+                                        {totalActiveFilters === 1
+                                            ? ''
+                                            : t(
+                                                  'components_explorer_filters_card.active_filter_suffix',
+                                              )}
+                                    </Text>
+                                </Badge>
+                            </Tooltip>
+                        ) : null}
+                        {totalActiveFilters > 0 &&
+                        filterIsOpen &&
+                        !isEditMode ? (
+                            <Text color="gray">
+                                {t('components_explorer_filters_card.tip')}
+                            </Text>
+                        ) : null}
+                    </>
                 }
-                popoverProps={{
-                    withinPortal: true,
-                }}
-                baseTable={data?.baseTable}
             >
-                <FiltersForm
-                    isEditMode={isEditMode}
-                    filters={processedFilters}
-                    setFilters={setFilters}
-                />
-            </FiltersProvider>
-        </CollapsableCard>
+                <FiltersProvider
+                    projectUuid={projectUuid}
+                    itemsMap={fieldsWithSuggestions}
+                    startOfWeek={
+                        project.data?.warehouseConnection?.startOfWeek ??
+                        undefined
+                    }
+                    popoverProps={{
+                        withinPortal: true,
+                    }}
+                    baseTable={data?.baseTable}
+                >
+                    <FiltersForm
+                        isEditMode={isEditMode}
+                        filters={processedFilters}
+                        setFilters={setFilters}
+                    />
+                </FiltersProvider>
+            </CollapsableCard>
+        </>
     );
 });
 

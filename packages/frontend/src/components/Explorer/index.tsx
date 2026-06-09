@@ -8,6 +8,7 @@ import {
     selectColumnOrder,
     selectDimensions,
     selectFormatModal,
+    selectFromDashboard,
     selectIsEditMode,
     selectMetricQuery,
     selectMetrics,
@@ -42,6 +43,7 @@ import { WriteBackModal } from './WriteBackModal';
 const Explorer: FC<{ hideHeader?: boolean }> = memo(
     ({ hideHeader = false }) => {
         const tableName = useExplorerSelector(selectTableName);
+        const fromDashboard = useExplorerSelector(selectFromDashboard);
         const dimensions = useExplorerSelector(selectDimensions);
         const metrics = useExplorerSelector(selectMetrics);
         const columnOrder = useExplorerSelector(selectColumnOrder);
@@ -65,7 +67,11 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
         const { query } = useExplorerQuery();
         const queryUuid = query.data?.queryUuid;
 
-        const { data: explore } = useExplore(tableName);
+        const { data: explore } = useExplore(
+            tableName,
+            undefined,
+            fromDashboard ?? undefined,
+        );
 
         const { data: { parameterReferences } = {}, isError } = useCompiledSql({
             enabled: !!tableName,

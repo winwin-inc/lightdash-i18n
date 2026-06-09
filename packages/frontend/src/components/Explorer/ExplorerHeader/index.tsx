@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import useEmbed from '../../../ee/providers/Embed/useEmbed';
 import {
+    selectFromDashboard,
     selectIsValidQuery,
     selectQueryLimit,
     selectTimezone,
@@ -39,6 +40,7 @@ const ExplorerHeader: FC = memo(() => {
     const limit = useExplorerSelector(selectQueryLimit);
     const selectedTimezone = useExplorerSelector(selectTimezone);
     const isValidQuery = useExplorerSelector(selectIsValidQuery);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
     const { query, queryResults } = useExplorerQuery();
 
     // Compute values from new hook data
@@ -71,13 +73,14 @@ const ExplorerHeader: FC = memo(() => {
                 projectUuid,
                 mergedUnsavedChartVersion,
                 true,
+                fromDashboard,
             );
             return {
                 pathname: urlArgs.pathname,
                 search: `?${urlArgs.search}`,
             };
         }
-    }, [mergedUnsavedChartVersion, projectUuid]);
+    }, [mergedUnsavedChartVersion, projectUuid, fromDashboard]);
 
     useEffect(() => {
         const checkReload = (event: BeforeUnloadEvent) => {

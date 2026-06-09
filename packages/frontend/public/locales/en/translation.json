@@ -5679,7 +5679,13 @@
         "active_filter": "{{count}} active filter",
         "active_filter_suffix": "s",
         "tip": "You must be in 'edit' or 'explore' mode to change the filters",
-        "rule_error": "Tried to reference field with unknown id: "
+        "rule_error": "Tried to reference field with unknown id: ",
+        "dashboard_context_title": "Dashboard context",
+        "dashboard_context_hint": "Dashboard context: These attributes are automatically included in backend queries for permissions and data filtering.",
+        "dashboard_context_tooltip": "Name: {{name}}\nslug: {{slug}}\nID: {{uuid}}",
+        "dashboard_name": "Dashboard name",
+        "dashboard_slug": "Dashboard slug",
+        "dashboard_uuid": "Dashboard ID"
     },
     "components_explorer_space_browser": {
         "dashboard": "Dashboard",

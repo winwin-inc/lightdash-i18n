@@ -20,6 +20,7 @@ import {
 } from 'react-router';
 import {
     explorerActions,
+    selectFromDashboard,
     selectMetricQuery,
     selectTableName,
     useExplorerDispatch,
@@ -67,6 +68,7 @@ export const getExplorerUrlFromCreateSavedChartVersion = (
     // For example, the explore from here button uses the entire URL to create
     // shareable, shortened links.
     preserveLongUrl?: boolean,
+    fromDashboard?: string | null,
 ): { pathname: string; search: string } => {
     if (!projectUuid) {
         return { pathname: '', search: '' };
@@ -99,6 +101,10 @@ export const getExplorerUrlFromCreateSavedChartVersion = (
         );
     }
     newParams.set('create_saved_chart_version', stringifiedChart);
+
+    if (fromDashboard) {
+        newParams.set('fromDashboard', fromDashboard);
+    }
 
     return {
         pathname: `/projects/${projectUuid}/tables/${createSavedChart.tableName}`,
@@ -180,6 +186,10 @@ export const useExplorerRoute = () => {
     );
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const tableName = useExplorerSelector(selectTableName);
+    const fromDashboardFromRedux = useExplorerSelector(selectFromDashboard);
+    const [searchParams] = useSearchParams();
+    const fromDashboard =
+        fromDashboardFromRedux ?? searchParams.get('fromDashboard');
 
     // Update url params based on pristine state
     // Only sync URL when we're actually on a table page (pathParams.tableId exists)
@@ -192,6 +202,8 @@ export const useExplorerRoute = () => {
                         ...mergedUnsavedChartVersion,
                         metricQuery,
                     },
+                    false,
+                    fromDashboard,
                 ),
                 { replace: true },
             );
@@ -203,6 +215,7 @@ export const useExplorerRoute = () => {
         pathParams.tableId,
         mergedUnsavedChartVersion,
         tableName,
+        fromDashboard,
     ]);
 
     useEffect(() => {
