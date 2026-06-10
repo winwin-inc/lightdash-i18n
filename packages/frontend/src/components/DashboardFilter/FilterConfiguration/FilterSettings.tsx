@@ -170,7 +170,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 <Select
                     size="xs"
                     data={filterOperatorOptions}
-                    withinPortal={popoverProps?.withinPortal}
+                    withinPortal={popoverProps?.withinPortal ?? true}
                     onDropdownOpen={popoverProps?.onOpen}
                     onDropdownClose={popoverProps?.onClose}
                     onChange={handleChangeFilterOperator}
@@ -201,8 +201,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 minWidth: 0,
                             },
                             dropdown: {
-                                maxWidth: 'calc(100vw - 32px)',
-                                width: 'calc(100vw - 32px)',
+                                maxWidth: '80vw',
+                                width: '80vw',
                             },
                         },
                     })}

@@ -76,6 +76,7 @@ interface Props {
     onSave: (value: DashboardFilterRule) => void;
     filterScope: 'global' | 'tab';
     tabUuid?: string;
+    onSelectedTabChange?: (tab: FilterTabs) => void;
 }
 
 const getDefaultField = (
@@ -99,6 +100,7 @@ const FilterConfiguration: FC<Props> = ({
     onSave,
     filterScope,
     tabUuid,
+    onSelectedTabChange,
 }) => {
     const { t } = useTranslation();
     const { projectUuid } = useParams<{ projectUuid: string }>();
@@ -506,13 +508,22 @@ const FilterConfiguration: FC<Props> = ({
                 sx={{
                     flex: 1,
                     minHeight: 0,
-                    overflow: 'auto',
+                    // 图表图块：仅内层列表滚动；查看模式：超出 60vh 可滚；编辑模式：不压高度，无需外层滚动
+                    overflow:
+                        selectedTabId === FilterTabs.TILES ||
+                        isEditMode ||
+                        isMobileDevice
+                            ? 'hidden'
+                            : 'auto',
                 }}
                 data-filter-scroll-content
             >
                 <Tabs
                     value={selectedTabId}
-                    onTabChange={(tabId: FilterTabs) => setSelectedTabId(tabId)}
+                    onTabChange={(tabId: FilterTabs) => {
+                        setSelectedTabId(tabId);
+                        onSelectedTabChange?.(tabId);
+                    }}
                 >
                     {isCreatingNew || isEditMode || isTemporary ? (
                         <Tabs.List mb="md">
@@ -571,7 +582,7 @@ const FilterConfiguration: FC<Props> = ({
                                             </Text>
                                         }
                                         withinPortal={
-                                            popoverProps?.withinPortal
+                                            popoverProps?.withinPortal ?? true
                                         }
                                         onDropdownOpen={popoverProps?.onOpen}
                                         onDropdownClose={popoverProps?.onClose}
@@ -685,7 +696,6 @@ const FilterConfiguration: FC<Props> = ({
                                 activeTabUuid={activeTabUuid}
                                 filterRule={draftFilterRule}
                                 filterScope={filterScope}
-                                popoverProps={popoverProps}
                                 tiles={tiles}
                                 availableTileFilters={availableTileFilters}
                                 onChange={handleChangeTileConfiguration}

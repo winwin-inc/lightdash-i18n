@@ -31,7 +31,6 @@ import {
     Text,
     Tooltip,
     useMantineTheme,
-    type PopoverProps,
 } from '@mantine/core';
 import { useCallback, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -78,7 +77,6 @@ type Props = {
     >;
     field?: DashboardFilterableField;
     filterRule: DashboardFilterRule;
-    popoverProps?: Omit<PopoverProps, 'children'>;
     onChange: (
         action: FilterActions,
         tileUuid: string,
@@ -95,7 +93,6 @@ const TileFilterConfiguration: FC<Props> = ({
     field,
     filterRule,
     availableTileFilters,
-    popoverProps,
     onChange,
     onToggleAll,
     filterScope,
@@ -486,11 +483,7 @@ const TileFilterConfiguration: FC<Props> = ({
                                         disabled={!value.checked}
                                         item={value.selectedField as Item}
                                         items={value.sortedFilters as Item[]}
-                                        withinPortal={
-                                            popoverProps?.withinPortal
-                                        }
-                                        onDropdownOpen={popoverProps?.onOpen}
-                                        onDropdownClose={popoverProps?.onClose}
+                                        withinPortal
                                         styles={{
                                             root: {
                                                 maxWidth: '100%',
@@ -528,6 +521,7 @@ const TileFilterConfiguration: FC<Props> = ({
                                         w="100%"
                                         size="xs"
                                         searchable
+                                        withinPortal
                                         dropdownComponent="div"
                                         icon={undefined}
                                         allowDeselect={false}
@@ -669,7 +663,12 @@ const TileFilterConfiguration: FC<Props> = ({
                 miw={0}
                 maw="100%"
                 mah={tileListMaxHeight}
-                style={{ overflowY: 'auto', minHeight: 0 }}
+                pb="md"
+                style={{
+                    overflowY: 'auto',
+                    minHeight: 0,
+                    boxSizing: 'border-box',
+                }}
             >
                 {tileList}
             </Box>
