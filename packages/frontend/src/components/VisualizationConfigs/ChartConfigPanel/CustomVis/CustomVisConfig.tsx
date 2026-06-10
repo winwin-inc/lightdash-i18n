@@ -1,13 +1,33 @@
 import { FeatureFlags } from '@lightdash/common';
-import { Button, Flex, Group, Loader, Text } from '@mantine/core';
-import { useDebouncedValue } from '@mantine/hooks';
+import {
+    Button,
+    Flex,
+    Group,
+    Loader,
+    SegmentedControl,
+    Text,
+} from '@mantine/core';
 import Editor, { type EditorProps, type Monaco } from '@monaco-editor/react';
 import { type IDisposable, type languages } from 'monaco-editor';
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDeepCompareEffect } from 'react-use';
 
 import { useFeatureFlagEnabled } from '../../../../hooks/useFeatureFlagEnabled';
+import {
+    composeCustomVisSpec,
+    decomposeCustomVisSpec,
+    DEFAULT_RESPONSIVE_BREAKPOINT,
+    isEffectiveMobileSpec,
+    type VegaSpec,
+} from '../../../CustomVisualization/responsive';
 import DocumentationHelpButton from '../../../DocumentationHelpButton';
 import { isCustomVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
@@ -15,6 +35,8 @@ import { Config } from '../../common/Config';
 import { GenerateVizWithAi } from './components/CustomVisAi';
 import { SelectTemplate } from './components/CustomVisTemplate';
 import { type Schema } from './types/types';
+
+type EditorTab = 'desktop' | 'mobile';
 
 const MONACO_DEFAULT_OPTIONS: EditorProps['options'] = {
     cursorBlinking: 'smooth',
@@ -27,6 +49,9 @@ const MONACO_DEFAULT_OPTIONS: EditorProps['options'] = {
     contextmenu: false,
     fixedOverflowWidgets: true,
 };
+
+const formatSpecJson = (spec: VegaSpec): string =>
+    JSON.stringify(spec, null, 2);
 
 const initVegaLazySchema = async () => {
     const vegaLiteSchema = await import(
@@ -104,6 +129,7 @@ export const ConfigTabs: React.FC = memo(() => {
 
     const [isLoading, setIsLoading] = useState(true);
     const schemas = useRef<Schema[] | null>(null);
+    const isInternalVisSpecUpdateRef = useRef(false);
 
     const { t } = useTranslation();
 
@@ -111,6 +137,49 @@ export const ConfigTabs: React.FC = memo(() => {
         () => (isCustomConfig ? visualizationConfig.chartConfig : undefined),
         [isCustomConfig, visualizationConfig.chartConfig],
     );
+
+    const initFromVisSpec = useCallback((visSpec: string) => {
+        try {
+            const decomposed = decomposeCustomVisSpec(
+                JSON.parse(visSpec) as VegaSpec,
+            );
+            return {
+                desktopJson: formatSpecJson(decomposed.desktop),
+                mobileJson: decomposed.mobile
+                    ? formatSpecJson(decomposed.mobile)
+                    : '',
+                rewrite: decomposed.rewrite,
+            };
+        } catch {
+            return {
+                desktopJson: visSpec,
+                mobileJson: '',
+                rewrite: false,
+            };
+        }
+    }, []);
+
+    const initialVisSpec = isCustomConfig
+        ? visualizationConfig.chartConfig.visSpec || ''
+        : '';
+    const initialEditorState = initFromVisSpec(initialVisSpec);
+
+    const [desktopJson, setDesktopJson] = useState(
+        initialEditorState.desktopJson,
+    );
+    const [mobileJson, setMobileJson] = useState(initialEditorState.mobileJson);
+    const [rewriteEnabled, setRewriteEnabled] = useState(
+        initialEditorState.rewrite,
+    );
+
+    const activeTab = chartConfig?.editorResponsiveTab ?? 'desktop';
+    const setActiveTab = useCallback(
+        (tab: EditorTab) => {
+            chartConfig?.setEditorResponsiveTab(tab);
+        },
+        [chartConfig],
+    );
+
     const completionProviderRef = useRef<IDisposable | null>(null);
     const monacoInstanceRef = useRef<Monaco | null>(null);
 
@@ -119,6 +188,17 @@ export const ConfigTabs: React.FC = memo(() => {
             fields: chartConfig?.fields,
         };
     }, [chartConfig]);
+
+    useEffect(() => {
+        if (!chartConfig?.visSpec || isInternalVisSpecUpdateRef.current) {
+            isInternalVisSpecUpdateRef.current = false;
+            return;
+        }
+        const next = initFromVisSpec(chartConfig.visSpec);
+        setDesktopJson(next.desktopJson);
+        setMobileJson(next.mobileJson);
+        setRewriteEnabled(next.rewrite);
+    }, [chartConfig?.visSpec, initFromVisSpec]);
 
     useDeepCompareEffect(() => {
         if (!chartConfig || !isLoading) return;
@@ -142,11 +222,9 @@ export const ConfigTabs: React.FC = memo(() => {
         };
     }, []);
 
-    // Effect to refresh completion provider when fields change
     useEffect(() => {
         if (!monacoInstanceRef.current) return;
 
-        // Clean up previous provider if it exists
         if (completionProviderRef.current) {
             console.debug(
                 'Refreshing Monaco completion provider with new fields',
@@ -161,16 +239,36 @@ export const ConfigTabs: React.FC = memo(() => {
             );
     }, [fields]);
 
-    const [editorConfig, setEditorConfig] = useState<string>(
-        isCustomConfig ? visualizationConfig.chartConfig.visSpec || '' : '',
-    );
-    const [debouncedTooltipValue] = useDebouncedValue(editorConfig, 1000);
+    const composeAndSetVisSpec = useCallback(() => {
+        if (isLoading || !chartConfig) return;
+
+        try {
+            const desktop = JSON.parse(desktopJson) as VegaSpec;
+            const parsedMobile =
+                mobileJson.trim() !== ''
+                    ? (JSON.parse(mobileJson) as VegaSpec)
+                    : null;
+            const mobile = isEffectiveMobileSpec(parsedMobile)
+                ? parsedMobile
+                : null;
+
+            const composed = composeCustomVisSpec({
+                desktop,
+                mobile,
+                breakpoint: DEFAULT_RESPONSIVE_BREAKPOINT,
+                rewrite: rewriteEnabled || desktop.rewrite === true,
+            });
+
+            isInternalVisSpecUpdateRef.current = true;
+            chartConfig.setVisSpec(formatSpecJson(composed));
+        } catch {
+            // Invalid JSON while typing — skip compose until valid
+        }
+    }, [isLoading, chartConfig, desktopJson, mobileJson, rewriteEnabled]);
 
     useEffect(() => {
-        if (isLoading || !chartConfig) return;
-        if (debouncedTooltipValue)
-            chartConfig.setVisSpec(debouncedTooltipValue);
-    }, [isLoading, debouncedTooltipValue, chartConfig]);
+        composeAndSetVisSpec();
+    }, [composeAndSetVisSpec]);
 
     const [monacoOptions, setMonacoOptions] = useState<
         EditorProps['options'] | undefined
@@ -178,10 +276,6 @@ export const ConfigTabs: React.FC = memo(() => {
 
     const isAiEnabled = useFeatureFlagEnabled(FeatureFlags.AiCustomViz);
     useDeepCompareEffect(() => {
-        /** Creates a container that belongs to body, outside of the sidebar
-         * so we can place the autocomplete tooltip and it doesn't overflow
-         * CSS for this component is set on `monaco.css`
-         */
         const containerId = 'monaco-overflow-container';
         let container = document.getElementById(containerId);
         if (!container) {
@@ -197,7 +291,29 @@ export const ConfigTabs: React.FC = memo(() => {
             overflowWidgetsDomNode: container,
         });
     }, [monacoOptions]);
+
     const { itemsMap } = useVisualizationContext();
+
+    const setDesktopEditorConfig = useCallback(
+        (config: string) => {
+            setActiveTab('desktop');
+            setDesktopJson(config);
+        },
+        [setActiveTab],
+    );
+
+    const editorValue = activeTab === 'desktop' ? desktopJson : mobileJson;
+
+    const setEditorValue = useCallback(
+        (value: string) => {
+            if (activeTab === 'desktop') {
+                setDesktopJson(value);
+            } else {
+                setMobileJson(value);
+            }
+        },
+        [activeTab],
+    );
 
     if (!isCustomConfig) return null;
 
@@ -207,7 +323,7 @@ export const ConfigTabs: React.FC = memo(() => {
 
     const { series } = visualizationConfig.chartConfig;
 
-    const isEditorEmpty = (editorConfig || '')?.length === 0;
+    const isEditorEmpty = (editorValue || '').length === 0;
 
     return (
         <>
@@ -225,23 +341,54 @@ export const ConfigTabs: React.FC = memo(() => {
                             </Flex>
                         </Config.Heading>
 
-                        <Button.Group>
-                            <SelectTemplate
-                                itemsMap={itemsMap}
-                                isCustomConfig={isCustomConfig}
-                                isEditorEmpty={isEditorEmpty}
-                                setEditorConfig={setEditorConfig}
-                            />
-
-                            {isAiEnabled && (
-                                <GenerateVizWithAi
+                        <Flex
+                            align="center"
+                            justify="space-between"
+                            wrap="wrap"
+                            gap="md"
+                            mb="xs"
+                        >
+                            <Button.Group style={{ flexShrink: 0 }}>
+                                <SelectTemplate
                                     itemsMap={itemsMap}
-                                    sampleResults={series.slice(0, 3)}
-                                    setEditorConfig={setEditorConfig}
-                                    editorConfig={editorConfig}
+                                    isCustomConfig={isCustomConfig}
+                                    isEditorEmpty={isEditorEmpty}
+                                    setEditorConfig={setDesktopEditorConfig}
                                 />
-                            )}
-                        </Button.Group>
+
+                                {isAiEnabled && (
+                                    <GenerateVizWithAi
+                                        itemsMap={itemsMap}
+                                        sampleResults={series.slice(0, 3)}
+                                        setEditorConfig={setDesktopEditorConfig}
+                                        editorConfig={desktopJson}
+                                    />
+                                )}
+                            </Button.Group>
+
+                            <SegmentedControl
+                                size="xs"
+                                style={{ flexShrink: 0 }}
+                                value={activeTab}
+                                onChange={(value) =>
+                                    setActiveTab(value as EditorTab)
+                                }
+                                data={[
+                                    {
+                                        label: t(
+                                            'components_visualization_configs_custom_vis.responsive.desktop',
+                                        ),
+                                        value: 'desktop',
+                                    },
+                                    {
+                                        label: t(
+                                            'components_visualization_configs_custom_vis.responsive.mobile',
+                                        ),
+                                        value: 'mobile',
+                                    },
+                                ]}
+                            />
+                        </Flex>
                     </Config.Group>
                 </Config.Section>
             </Config>
@@ -253,7 +400,6 @@ export const ConfigTabs: React.FC = memo(() => {
                     borderTop: '0.125rem solid #dee2e6',
                 }}
             >
-                {/* Hack to show a monaco placeholder */}
                 {isEditorEmpty ? (
                     <Text
                         pos="absolute"
@@ -263,7 +409,7 @@ export const ConfigTabs: React.FC = memo(() => {
                             pointerEvents: 'none',
                             zIndex: 100,
                             fontFamily: 'monospace',
-                            marginLeft: '35px', // Stye to match Monaco text
+                            marginLeft: '35px',
                             fontSize: '12px',
                             lineHeight: '19px',
                             letterSpacing: '0px',
@@ -276,12 +422,12 @@ export const ConfigTabs: React.FC = memo(() => {
                 ) : null}
 
                 <Editor
+                    key={activeTab}
                     loading={<Loader color="gray" size="xs" />}
                     beforeMount={(monaco) => {
                         loadMonaco(monaco, schemas.current!);
                         monacoInstanceRef.current = monaco;
 
-                        // Clean up previous provider if it exists
                         if (completionProviderRef.current) {
                             console.debug(
                                 'Clearing Monaco completion provider on beforeMount',
@@ -300,9 +446,9 @@ export const ConfigTabs: React.FC = memo(() => {
                     }}
                     defaultLanguage="json"
                     options={monacoOptions}
-                    value={editorConfig}
+                    value={editorValue}
                     onChange={(config) => {
-                        setEditorConfig(config ?? '');
+                        setEditorValue(config ?? '');
                     }}
                 />
             </Group>

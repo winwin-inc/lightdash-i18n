@@ -5160,6 +5160,17 @@
             "funnel_chart": "Funnel chart",
             "waterfall_chart": "Waterfall chart",
             "map": "Map"
+        },
+        "responsive": {
+            "desktop": "PC",
+            "mobile": "Mobile",
+            "breakpoint": "Breakpoint (viewport width px)",
+            "preview_label": "Preview",
+            "preview_auto": "Auto",
+            "preview_desktop": "PC",
+            "preview_mobile": "Mobile",
+            "copy_from_desktop": "Copy from PC",
+            "clear_mobile": "Clear mobile config"
         }
     },
     "components_visualization_configs_custom_vis_ai": {

@@ -1,3 +1,4 @@
+import { isEffectiveMobileSpec } from './isEffectiveMobileSpec';
 import {
     DEFAULT_RESPONSIVE_BREAKPOINT,
     type LightdashResponsiveConfig,
@@ -9,7 +10,9 @@ export type ExtractedLightdashConfig = {
     responsiveConfig: LightdashResponsiveConfig | null;
 };
 
-export function extractLightdashConfig(spec: VegaSpec): ExtractedLightdashConfig {
+export function extractLightdashConfig(
+    spec: VegaSpec,
+): ExtractedLightdashConfig {
     const lightdash = spec.lightdash;
     const { lightdash: _lightdash, ...desktopSpec } = spec;
 
@@ -37,19 +40,19 @@ export function extractLightdashConfig(spec: VegaSpec): ExtractedLightdashConfig
             ? responsiveRaw.breakpoint
             : DEFAULT_RESPONSIVE_BREAKPOINT;
 
-    const mobile =
+    const mobileCandidate =
         responsiveRaw.mobile !== undefined &&
         typeof responsiveRaw.mobile === 'object' &&
         responsiveRaw.mobile !== null
             ? (responsiveRaw.mobile as VegaSpec)
             : null;
 
-    if (mobile === null) {
+    if (!isEffectiveMobileSpec(mobileCandidate)) {
         return { desktopSpec, responsiveConfig: null };
     }
 
     return {
         desktopSpec,
-        responsiveConfig: { breakpoint, mobile },
+        responsiveConfig: { breakpoint, mobile: mobileCandidate },
     };
 }

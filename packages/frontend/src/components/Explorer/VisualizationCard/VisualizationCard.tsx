@@ -6,7 +6,7 @@ import {
     NotFoundError,
     type ApiErrorDetail,
 } from '@lightdash/common';
-import { Button } from '@mantine/core';
+import { Button, Flex } from '@mantine/core';
 import {
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarLeftExpand,
@@ -279,14 +279,18 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                     onToggle={toggleSection}
                     headerElement={
                         isOpen && (
-                            <VisualizationWarning
-                                pivotDimensions={
-                                    unsavedChartVersion.pivotConfig?.columns
-                                }
-                                chartConfig={unsavedChartVersion.chartConfig}
-                                resultsData={resultsData}
-                                isLoading={isLoadingQueryResults}
-                            />
+                            <Flex align="center" gap="sm">
+                                <VisualizationWarning
+                                    pivotDimensions={
+                                        unsavedChartVersion.pivotConfig?.columns
+                                    }
+                                    chartConfig={
+                                        unsavedChartVersion.chartConfig
+                                    }
+                                    resultsData={resultsData}
+                                    isLoading={isLoadingQueryResults}
+                                />
+                            </Flex>
                         )
                     }
                     rightHeaderElement={

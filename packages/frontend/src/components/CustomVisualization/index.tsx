@@ -25,6 +25,8 @@ import {
     computeResponsiveLayout,
     extractLightdashConfig,
     resolveActiveSpec,
+    useViewportWidth,
+    type ResponsivePreviewOverride,
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 
@@ -47,6 +49,7 @@ const CustomVisualization: FC<Props> = (props) => {
         itemsMap,
     } = useVisualizationContext();
     const { t } = useTranslation();
+    const viewportWidth = useViewportWidth();
 
     const [ref, rect] = useResizeObserver();
     const [earlyRect, setEarlyRect] = useState({ width: 0, height: 0 });
@@ -143,19 +146,21 @@ const CustomVisualization: FC<Props> = (props) => {
     const height = rh > 0 ? rh : earlyRect.height;
     const hasSize = width > 0 && height > 0;
 
-    const { desktopSpec, responsiveConfig } =
-        extractLightdashConfig(rawSpec);
-    const resolveWidth = width > 0 ? width : Number.POSITIVE_INFINITY;
+    const { desktopSpec, responsiveConfig } = extractLightdashConfig(rawSpec);
+
+    const previewOverride: ResponsivePreviewOverride | undefined = !isDashboard
+        ? visProps.editorResponsiveTab
+        : undefined;
+
     const { spec: activeSpecRaw, variant: layoutVariant } = resolveActiveSpec(
         desktopSpec,
         responsiveConfig,
-        resolveWidth,
+        viewportWidth,
+        previewOverride,
     );
     const specForVega =
         prepareSpecForVega(
-            needsRewrite
-                ? { ...activeSpecRaw, rewrite: true }
-                : activeSpecRaw,
+            needsRewrite ? { ...activeSpecRaw, rewrite: true } : activeSpecRaw,
             itemsMap,
             fieldIds,
         ) ?? activeSpecRaw;
@@ -195,8 +200,10 @@ const CustomVisualization: FC<Props> = (props) => {
                 <Suspense fallback={<LoadingChart />}>
                     <VegaLite
                         key={`vega-${layout.layoutId}-${
-                            visProps.series?.length ?? 0
-                        }-${resultsData?.hasFetchedAllRows ?? false}`}
+                            visProps.editorResponsiveTab
+                        }-${visProps.series?.length ?? 0}-${
+                            resultsData?.hasFetchedAllRows ?? false
+                        }`}
                         ref={chartRef}
                         style={layout.vegaStyle}
                         config={{

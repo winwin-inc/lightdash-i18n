@@ -1,6 +1,9 @@
 import { type CustomVis, type ResultRow } from '@lightdash/common';
 import { useEffect, useMemo, useState } from 'react';
+
 import { type InfiniteQueryResults } from './useQueryResults';
+
+export type EditorResponsiveTab = 'desktop' | 'mobile';
 
 // 优化：使用更高效的数据转换方法，避免 Object.entries/fromEntries 的开销
 const convertRowsToSeries = (rows: ResultRow[]) => {
@@ -35,6 +38,8 @@ export interface CustomVisualizationConfigAndData {
         [k: string]: unknown;
     }[];
     fields?: string[];
+    editorResponsiveTab: EditorResponsiveTab;
+    setEditorResponsiveTab: (tab: EditorResponsiveTab) => void;
 }
 
 const useCustomVisualizationConfig = (
@@ -43,6 +48,8 @@ const useCustomVisualizationConfig = (
 ): CustomVisualizationConfigAndData => {
     const [visSpec, setVisSpec] = useState<string | undefined>();
     const [visSpecObject, setVisSpecObject] = useState();
+    const [editorResponsiveTab, setEditorResponsiveTab] =
+        useState<EditorResponsiveTab>('desktop');
 
     // Set initial value
     useEffect(() => {
@@ -88,8 +95,17 @@ const useCustomVisualizationConfig = (
             setVisSpec,
             series: convertedRows,
             fields,
+            editorResponsiveTab,
+            setEditorResponsiveTab,
         }),
-        [visSpecObject, visSpec, setVisSpec, convertedRows, fields],
+        [
+            visSpecObject,
+            visSpec,
+            setVisSpec,
+            convertedRows,
+            fields,
+            editorResponsiveTab,
+        ],
     );
 };
 

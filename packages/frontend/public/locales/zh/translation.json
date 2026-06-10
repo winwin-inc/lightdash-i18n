@@ -5155,6 +5155,17 @@
             "funnel_chart": "漏斗图",
             "waterfall_chart": "瀑布图",
             "map": "地图"
+        },
+        "responsive": {
+            "desktop": "桌面端",
+            "mobile": "移动端",
+            "breakpoint": "断点（页面宽度 px）",
+            "preview_label": "预览",
+            "preview_auto": "自动",
+            "preview_desktop": "桌面",
+            "preview_mobile": "移动",
+            "copy_from_desktop": "从桌面端复制",
+            "clear_mobile": "清空移动端配置"
         }
     },
     "components_visualization_configs_custom_vis_ai": {

@@ -1,5 +1,12 @@
 import { isCompositeVegaSpec } from '../normalizeVegaSpecSizing';
-import type { LightdashResponsiveConfig, VegaSpec } from './types';
+import { isEffectiveMobileSpec } from './isEffectiveMobileSpec';
+import {
+    DEFAULT_RESPONSIVE_BREAKPOINT,
+    type LightdashResponsiveConfig,
+    type VegaSpec,
+} from './types';
+
+export type ResponsivePreviewOverride = 'desktop' | 'mobile';
 
 export type ActiveSpecResolution = {
     spec: VegaSpec;
@@ -11,9 +18,12 @@ let compositeResponsiveWarned = false;
 export function resolveActiveSpec(
     desktopSpec: VegaSpec,
     responsiveConfig: LightdashResponsiveConfig | null,
-    containerWidth: number,
+    viewportWidth: number,
+    previewOverride?: ResponsivePreviewOverride,
 ): ActiveSpecResolution {
-    if (responsiveConfig?.mobile === null || !responsiveConfig?.mobile) {
+    const mobile = responsiveConfig?.mobile ?? null;
+
+    if (!isEffectiveMobileSpec(mobile)) {
         return { spec: desktopSpec, variant: 'desktop' };
     }
 
@@ -27,8 +37,19 @@ export function resolveActiveSpec(
         return { spec: desktopSpec, variant: 'desktop' };
     }
 
-    if (containerWidth < responsiveConfig.breakpoint) {
-        return { spec: responsiveConfig.mobile, variant: 'mobile' };
+    if (previewOverride === 'mobile') {
+        return { spec: mobile, variant: 'mobile' };
+    }
+
+    if (previewOverride === 'desktop') {
+        return { spec: desktopSpec, variant: 'desktop' };
+    }
+
+    const breakpoint =
+        responsiveConfig?.breakpoint ?? DEFAULT_RESPONSIVE_BREAKPOINT;
+
+    if (viewportWidth < breakpoint) {
+        return { spec: mobile, variant: 'mobile' };
     }
 
     return { spec: desktopSpec, variant: 'desktop' };
