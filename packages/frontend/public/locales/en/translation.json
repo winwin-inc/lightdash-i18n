@@ -4829,7 +4829,8 @@
             }
         },
         "comparison": {
-            "value": "Value",
+            "format_raw": "Raw value",
+            "format_percentage": "Percentage",
             "compare_to_previous_row": "Compare to previous row",
             "compare_by": "Compare by",
             "flip_positive_color": "Flip positive color",
@@ -4866,6 +4867,13 @@
             "truncate_label": "Truncate x-axis",
             "sort": "Sort",
             "rotation": "Rotation",
+            "bar_max_width_section": "Max bar width",
+            "bar_max_width": "Desktop",
+            "bar_max_width_hint": "Leave empty for no bar width limit",
+            "bar_max_width_placeholder": "40",
+            "bar_max_width_mobile": "Mobile",
+            "bar_max_width_mobile_hint": "Leave empty to use desktop value",
+            "bar_max_width_mobile_placeholder": "28",
             "show_grid": "Show grid",
             "show_axis": "Show axis",
             "x_axis_label": "X-axis label",
@@ -4914,7 +4922,8 @@
             "label": "Label",
             "average": "Average",
             "user_series_average": "User series average",
-            "reference_lines": "Reference lines"
+            "reference_lines": "Reference lines",
+            "interaction_hint": "Click to toggle visibility. Double click to isolate"
         },
         "series": {
             "type_options": {
@@ -7522,7 +7531,14 @@
             "part_3": "Y-axis(right)"
         },
         "label": "Label",
-        "format": "Format"
+        "format": "Format",
+        "bar_max_width_section": "Max bar width",
+        "bar_max_width": "Desktop",
+        "bar_max_width_hint": "Leave empty for no bar width limit",
+        "bar_max_width_placeholder": "40",
+        "bar_max_width_mobile": "Mobile",
+        "bar_max_width_mobile_hint": "Leave empty to use desktop value",
+        "bar_max_width_mobile_placeholder": "28"
     },
     "components_dataviz_config_cartesian_chart": {
         "title": "No series found. Add a metric to create a series.",

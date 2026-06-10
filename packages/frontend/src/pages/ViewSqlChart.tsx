@@ -1,5 +1,6 @@
 import {
     getParameterReferences,
+    isVizCartesianChartConfig,
     isVizTableConfig,
     type ParameterValue,
 } from '@lightdash/common';
@@ -42,12 +43,9 @@ import {
     setSavedChartData,
     updateParameterValue,
 } from '../features/sqlRunner/store/sqlRunnerSlice';
+import { useResponsiveCartesianChartSpec } from '../hooks/echarts/useResponsiveCartesianChartSpec';
 
-enum TabOption {
-    CHART = 'chart',
-    RESULTS = 'results',
-    SQL = 'sql',
-}
+enum TabOption
 
 const ViewSqlChart = () => {
     const { t } = useTranslation();
@@ -93,6 +91,13 @@ const ViewSqlChart = () => {
     const clearAllParameters = useCallback(() => {
         dispatch(clearParameterValues());
     }, [dispatch]);
+
+    const responsiveChartSpec = useResponsiveCartesianChartSpec(
+        chartResultsData?.chartSpec,
+        chartData && isVizCartesianChartConfig(chartData.config)
+            ? chartData.config.display
+            : undefined,
+    );
 
     // TODO: remove state sync - this is because the <Header /> component depends on the Redux state
     useEffect(() => {
@@ -277,9 +282,7 @@ const ViewSqlChart = () => {
                                             chartData.sql && (
                                                 <ChartView
                                                     config={chartData.config}
-                                                    spec={
-                                                        chartResultsData?.chartSpec
-                                                    }
+                                                    spec={responsiveChartSpec}
                                                     isLoading={
                                                         isChartLoading ||
                                                         isChartResultsFetching

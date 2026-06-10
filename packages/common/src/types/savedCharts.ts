@@ -346,6 +346,8 @@ export type CompleteCartesianChartLayout = {
     showXAxis?: boolean | undefined;
     showYAxis?: boolean | undefined;
     stack?: boolean | string | undefined; // Support both old boolean and new StackType string for backward compatibility
+    barMaxWidth?: number;
+    barMaxWidthMobile?: number;
 };
 
 export type CartesianChartLayout = Partial<CompleteCartesianChartLayout>;

@@ -30,6 +30,7 @@ import { getAxisTypeFromField } from '../../../../hooks/echarts/useEchartsCartes
 import MantineIcon from '../../../common/MantineIcon';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
+import { BarMaxWidthInputs } from '../../common/BarMaxWidthInputs';
 import { Config } from '../../common/Config';
 import { AxisMinMax } from './AxisMinMax';
 
@@ -76,6 +77,8 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
+        setBarMaxWidth,
+        setBarMaxWidthMobile,
         dirtyChartType,
     } = visualizationConfig.chartConfig;
 
@@ -275,6 +278,15 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                             </Group>
                         )}
                     </Group>
+                    {dirtyChartType === CartesianSeriesType.BAR && (
+                        <BarMaxWidthInputs
+                            translationPrefix="components_visualization_configs_chart.axes"
+                            desktopValue={dirtyLayout?.barMaxWidth}
+                            mobileValue={dirtyLayout?.barMaxWidthMobile}
+                            onDesktopChange={setBarMaxWidth}
+                            onMobileChange={setBarMaxWidthMobile}
+                        />
+                    )}
                 </Config.Section>
             </Config>
 

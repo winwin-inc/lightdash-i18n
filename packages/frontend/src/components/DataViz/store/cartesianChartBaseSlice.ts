@@ -30,7 +30,7 @@ export type CartesianChartState = {
     chartData:
         | Awaited<
               ReturnType<
-                  typeof prepareAndFetchChartData['fulfilled']
+                  (typeof prepareAndFetchChartData)['fulfilled']
               >['payload']
           >
         | undefined;
@@ -305,6 +305,19 @@ export const cartesianChartConfigSlice = createSlice({
             // Also set in display for backward compatibility
             state.display = state.display || {};
             state.display.stack = stackValue;
+        },
+
+        setBarMaxWidth: (state, action: PayloadAction<number | undefined>) => {
+            state.display = state.display || {};
+            state.display.barMaxWidth = action.payload;
+        },
+
+        setBarMaxWidthMobile: (
+            state,
+            action: PayloadAction<number | undefined>,
+        ) => {
+            state.display = state.display || {};
+            state.display.barMaxWidthMobile = action.payload;
         },
 
         setYAxisFormat: (

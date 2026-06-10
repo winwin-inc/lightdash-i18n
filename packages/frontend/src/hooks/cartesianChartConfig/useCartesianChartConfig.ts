@@ -430,6 +430,21 @@ const useCartesianChartConfig = ({
             };
         });
     }, []);
+    const setBarMaxWidth = useCallback((barMaxWidth: number | undefined) => {
+        setDirtyLayout((prev) => ({
+            ...prev,
+            barMaxWidth,
+        }));
+    }, []);
+    const setBarMaxWidthMobile = useCallback(
+        (barMaxWidthMobile: number | undefined) => {
+            setDirtyLayout((prev) => ({
+                ...prev,
+                barMaxWidthMobile,
+            }));
+        },
+        [],
+    );
     const addSingleSeries = useCallback((yField: string) => {
         setDirtyLayout((prev) => ({
             ...prev,
@@ -1081,6 +1096,8 @@ const useCartesianChartConfig = ({
         setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
+        setBarMaxWidth,
+        setBarMaxWidthMobile,
         updateSeries,
         referenceLines,
         setReferenceLines,

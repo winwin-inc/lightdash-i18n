@@ -17,6 +17,8 @@ import {
 } from '../types/savedCharts';
 import { type SqlRunnerQuery } from '../types/sqlRunner';
 import { applyCustomFormat } from '../utils/formatting';
+import { resolveBarMaxWidth } from './barChartWidth';
+import { getSeriesLabelLayout } from './cartesianChartResponsive';
 import {
     createStack100TooltipFormatter,
     transformToPercentageStacking,
@@ -625,6 +627,7 @@ export class CartesianChartDataModel {
     getSpec(
         display?: CartesianChartDisplay,
         colors?: Organization['chartColors'],
+        options?: { isMobile?: boolean },
     ): Record<string, AnyType> {
         const transformedData = this.pivotedChartData;
 
@@ -639,6 +642,11 @@ export class CartesianChartDataModel {
 
         const defaultSeriesType =
             type === ChartKind.VERTICAL_BAR ? 'bar' : 'line';
+
+        const barMaxWidth = resolveBarMaxWidth(
+            display,
+            options?.isMobile ?? false,
+        );
 
         // Handle both old boolean format and new StackType string format
         const stackValue = display?.stack;
@@ -742,15 +750,18 @@ export class CartesianChartDataModel {
                                   : undefined,
                           }
                         : undefined,
-                    labelLayout: {
-                        hideOverlap: true,
-                    },
+                    labelLayout: getSeriesLabelLayout(
+                        options?.isMobile ?? false,
+                    ),
                     color:
                         seriesColor ||
                         CartesianChartDataModel.getDefaultColor(
                             index,
                             orgColors,
                         ),
+                    ...(barMaxWidth != null && seriesType === 'bar'
+                        ? { barMaxWidth }
+                        : {}),
                 };
             },
         );
@@ -931,4 +942,6 @@ export type CartesianChartDisplay = {
         align: 'start' | 'center' | 'end';
     };
     stack?: boolean | StackType; // Support both old boolean and new StackType for backward compatibility
+    barMaxWidth?: number;
+    barMaxWidthMobile?: number;
 };

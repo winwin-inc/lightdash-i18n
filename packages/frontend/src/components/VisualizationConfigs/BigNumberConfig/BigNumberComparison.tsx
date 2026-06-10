@@ -8,7 +8,6 @@ import {
     Switch,
     TextInput,
 } from '@mantine/core';
-import startCase from 'lodash/startCase';
 import { useTranslation } from 'react-i18next';
 
 import { isBigNumberVisualizationConfig } from '../../LightdashVisualization/types';
@@ -67,16 +66,14 @@ export const Comparison = () => {
                                     data={[
                                         {
                                             value: ComparisonFormatTypes.RAW,
-                                            label: `${startCase(
-                                                ComparisonFormatTypes.RAW,
-                                            )} ${t(
-                                                'components_visualization_configs_big_number.comparison.value',
-                                            )}`,
+                                            label: t(
+                                                'components_visualization_configs_big_number.comparison.format_raw',
+                                            ),
                                         },
                                         {
                                             value: ComparisonFormatTypes.PERCENTAGE,
-                                            label: startCase(
-                                                ComparisonFormatTypes.PERCENTAGE,
+                                            label: t(
+                                                'components_visualization_configs_big_number.comparison.format_percentage',
                                             ),
                                         },
                                     ]}

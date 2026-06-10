@@ -20,7 +20,7 @@ import {
     Tooltip,
     Transition,
 } from '@mantine/core';
-import { useElementSize, useHotkeys } from '@mantine/hooks';
+import { useElementSize, useHotkeys, useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
     IconAlertCircle,
@@ -116,6 +116,7 @@ export const ContentPanel: FC = () => {
     // Get organization colors to generate chart specs with a color palette defined by the organization
     const { data: organization } = useOrganization();
     const { health } = useApp();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const { showToastError } = useToaster();
 
@@ -366,7 +367,7 @@ export const ContentPanel: FC = () => {
                     sql,
                     downloadLimit === null
                         ? MAX_SAFE_INTEGER
-                        : downloadLimit ?? limit,
+                        : (downloadLimit ?? limit),
                 );
                 return newQuery.queryUuid;
             }
@@ -675,6 +676,10 @@ export const ContentPanel: FC = () => {
                                                                             }
                                                                             spec={pivotedChartInfo?.data?.getChartSpec(
                                                                                 organization?.chartColors,
+                                                                                {
+                                                                                    isMobile:
+                                                                                        !!isMobile,
+                                                                                },
                                                                             )}
                                                                             isLoading={
                                                                                 !!pivotedChartInfo?.loading

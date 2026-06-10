@@ -4824,7 +4824,8 @@
             }
         },
         "comparison": {
-            "value": "value",
+            "format_raw": "原始值",
+            "format_percentage": "百分比",
             "compare_to_previous_row": "与上一行比较",
             "compare_by": "比较依据",
             "flip_positive_color": "翻转正数颜色",
@@ -4861,6 +4862,13 @@
             "truncate_label": "截断x轴",
             "sort": "排序",
             "rotation": "旋转",
+            "bar_max_width_section": "柱体最大宽度",
+            "bar_max_width": "桌面端",
+            "bar_max_width_hint": "留空则不限制柱宽",
+            "bar_max_width_placeholder": "40",
+            "bar_max_width_mobile": "移动端",
+            "bar_max_width_mobile_hint": "留空则沿用桌面端",
+            "bar_max_width_mobile_placeholder": "28",
             "show_grid": "显示网格",
             "show_axis": "显示坐标轴",
             "x_axis_label": "X 轴标签",
@@ -4909,7 +4917,8 @@
             "label": "标签",
             "average": "平均值",
             "user_series_average": "用户系列平均值",
-            "reference_lines": "参考线"
+            "reference_lines": "参考线",
+            "interaction_hint": "单击切换显示/隐藏。双击单独显示"
         },
         "series": {
             "type_options": {
@@ -7527,7 +7536,14 @@
             "part_3": "右侧Y轴"
         },
         "label": "标签",
-        "format": "格式"
+        "format": "格式",
+        "bar_max_width_section": "柱体最大宽度",
+        "bar_max_width": "桌面端",
+        "bar_max_width_hint": "留空则不限制柱宽",
+        "bar_max_width_placeholder": "40",
+        "bar_max_width_mobile": "移动端",
+        "bar_max_width_mobile_hint": "留空则沿用桌面端",
+        "bar_max_width_mobile_placeholder": "28"
     },
     "components_dataviz_config_cartesian_chart": {
         "title": "未找到系列。添加一个指标以创建系列。",

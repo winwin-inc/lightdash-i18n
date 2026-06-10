@@ -99,13 +99,16 @@ export const prepareAndFetchChartData = createAsyncThunk(
             filters: [],
         });
 
-        const getChartSpec = (orgColors?: string[]) => {
+        const getChartSpec = (
+            orgColors?: string[],
+            options?: { isMobile?: boolean },
+        ) => {
             const currentState = getState() as RootState;
             const currentDisplay = selectChartDisplayByKind(
                 currentState,
                 selectedChartType,
             );
-            return vizDataModel.getSpec(currentDisplay, orgColors);
+            return vizDataModel.getSpec(currentDisplay, orgColors, options);
         };
 
         const info = {

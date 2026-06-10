@@ -1,4 +1,4 @@
-import { type ChartKind } from '@lightdash/common';
+import { ChartKind } from '@lightdash/common';
 import { Group, Stack, TextInput } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
@@ -6,6 +6,7 @@ import {
     useAppDispatch as useVizDispatch,
     useAppSelector as useVizSelector,
 } from '../../../features/sqlRunner/store/hooks';
+import { BarMaxWidthInputs } from '../../VisualizationConfigs/common/BarMaxWidthInputs';
 import { Config } from '../../VisualizationConfigs/common/Config';
 import { type BarChartActionsType } from '../store/barChartSlice';
 import { type LineChartActionsType } from '../store/lineChartSlice';
@@ -155,6 +156,33 @@ export const CartesianChartDisplayConfig = ({
                                 }}
                             />
                         </Config.Group>
+                    </Config.Section>
+                </Config>
+            )}
+            {selectedChartType === ChartKind.VERTICAL_BAR && (
+                <Config>
+                    <Config.Section>
+                        <BarMaxWidthInputs
+                            translationPrefix="components_dataviz_config"
+                            desktopValue={currentConfig?.display?.barMaxWidth}
+                            mobileValue={
+                                currentConfig?.display?.barMaxWidthMobile
+                            }
+                            onDesktopChange={(value) => {
+                                dispatch(
+                                    (
+                                        actions as BarChartActionsType
+                                    ).setBarMaxWidth(value),
+                                );
+                            }}
+                            onMobileChange={(value) => {
+                                dispatch(
+                                    (
+                                        actions as BarChartActionsType
+                                    ).setBarMaxWidthMobile(value),
+                                );
+                            }}
+                        />
                     </Config.Section>
                 </Config>
             )}

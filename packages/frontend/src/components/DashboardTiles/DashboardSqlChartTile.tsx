@@ -25,6 +25,7 @@ import { useParams } from 'react-router';
 
 import { useSavedSqlChartResults } from '../../features/sqlRunner/hooks/useSavedSqlChartResults';
 import useDashboardFiltersForTile from '../../hooks/dashboard/useDashboardFiltersForTile';
+import { useResponsiveCartesianChartSpec } from '../../hooks/echarts/useResponsiveCartesianChartSpec';
 import useSearchParams from '../../hooks/useSearchParams';
 import useApp from '../../providers/App/useApp';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
@@ -125,14 +126,20 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
         parameters,
     });
 
-    // Charts in Dashboard shouldn't have animation
-    const specWithoutAnimation = useMemo(() => {
+    const chartSpecWithoutAnimation = useMemo(() => {
         if (!chartResultsData?.chartSpec) return chartResultsData?.chartSpec;
         return {
             ...chartResultsData.chartSpec,
             animation: false,
         };
     }, [chartResultsData?.chartSpec]);
+
+    const responsiveChartSpec = useResponsiveCartesianChartSpec(
+        chartSpecWithoutAnimation,
+        chartData && isVizCartesianChartConfig(chartData.config)
+            ? chartData.config.display
+            : undefined,
+    );
 
     // Update SQL chart columns in the dashboard context
     useEffect(() => {
@@ -271,7 +278,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                 isVizPieChartConfig(chartData.config)) && (
                 <ChartView
                     config={chartData.config}
-                    spec={specWithoutAnimation}
+                    spec={responsiveChartSpec}
                     isLoading={isChartResultsFetching}
                     error={undefined}
                     style={{

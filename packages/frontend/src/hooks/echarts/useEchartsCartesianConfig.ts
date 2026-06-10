@@ -1,7 +1,9 @@
 import {
     applyCustomFormat,
+    applyMobileSeriesLabelAdjustments,
     assertUnreachable,
     CartesianSeriesType,
+    computeMobileBarLabelPlan,
     createStack100TooltipFormatter,
     DimensionType,
     formatItemValue,
@@ -26,6 +28,7 @@ import {
     isPivotReferenceWithValues,
     isTableCalculation,
     MetricType,
+    resolveBarMaxWidth,
     StackType,
     TableCalculationType,
     TimeFrames,
@@ -323,9 +326,18 @@ export type EChartSeries = {
         position?: 'left' | 'top' | 'right' | 'bottom' | 'inside';
         formatter?: (param: { data: Record<string, unknown> }) => string;
     };
-    labelLayout?: {
-        hideOverlap?: boolean;
-    };
+    labelLayout?:
+        | {
+              hideOverlap?: boolean;
+              moveOverlap?: 'shiftX' | 'shiftY';
+          }
+        | ((params: { dataIndex?: number }) => {
+              hideOverlap?: boolean;
+              moveOverlap?: 'shiftX' | 'shiftY';
+              dy?: number;
+          });
+    barCategoryGap?: string;
+    barGap?: string;
     tooltip?: {
         show?: boolean;
         valueFormatter?: (value: unknown) => string;
@@ -333,10 +345,7 @@ export type EChartSeries = {
     data?: unknown[];
     showSymbol?: boolean;
     symbolSize?: number;
-    // 柱状图宽度配置
-    barWidth?: number | string;
-    barGap?: string;
-    barCategoryGap?: string;
+    barMaxWidth?: number;
 };
 
 const convertPivotValuesColumnsIntoMap = (
@@ -1975,6 +1984,41 @@ const getValidStack = (series: EChartSeries | undefined) => {
 
 type LegendValues = { [name: string]: boolean } | undefined;
 
+const getSerieValuesByCategory = (
+    serie: EChartSeries,
+    rows: ResultRow[],
+    flipAxes?: boolean,
+): number[] => {
+    if (Array.isArray(serie.data) && serie.data.length > 0) {
+        return serie.data.map((value) => {
+            const num = toNumber(value);
+            return Number.isFinite(num) ? num : 0;
+        });
+    }
+
+    const yFieldHash = flipAxes ? serie.encode?.x : serie.encode?.y;
+    if (!yFieldHash) return [];
+
+    return rows.map((row) => {
+        let value = row[yFieldHash]?.value?.raw;
+
+        if (value === undefined) {
+            const parts = yFieldHash.split('.');
+            if (parts.length >= 3) {
+                const metricField = parts[0];
+                const dimensionField = parts[1];
+                const categoryValue = parts.slice(2).join('.');
+                if (row[dimensionField]?.value?.raw === categoryValue) {
+                    value = row[metricField]?.value?.raw;
+                }
+            }
+        }
+
+        const num = toNumber(value);
+        return Number.isFinite(num) ? num : 0;
+    });
+};
+
 const calculateStackTotal = (
     row: ResultRow,
     series: EChartSeries[],
@@ -2218,42 +2262,18 @@ const useEchartsCartesianConfig = (
         isMobile,
     ]);
 
-    // 计算数据点数量，用于调整柱状图宽度
-    const dataPointCount = useMemo(() => {
-        return rows.length;
-    }, [rows]);
-
-    // 计算柱状图宽度配置
     const barWidthConfig = useMemo(() => {
         const hasBarSeries = series.some(
             (s) => s.type === CartesianSeriesType.BAR,
         );
-        if (!hasBarSeries) return null;
+        const barMaxWidth = resolveBarMaxWidth(
+            validCartesianConfig?.layout,
+            isMobile,
+        );
+        if (!hasBarSeries || barMaxWidth == null) return null;
 
-        // 当数据点少且是移动端时，减小柱状图宽度，增加类别间距
-        const shouldAdjustForMobile =
-            isMobile && dataPointCount > 0 && dataPointCount <= 5;
-
-        if (shouldAdjustForMobile) {
-            // 移动端且数据点少时，使用适中的柱状图宽度和较大的间距
-            // barWidth: 柱状图宽度，可以是像素值或百分比字符串
-            // barCategoryGap: 同一类目内不同系列的间距，百分比字符串
-            // barGap: 不同类目之间的间距，百分比字符串
-            // 根据数据点数量动态调整宽度：数据点越少，柱状图越宽（但不超过合理范围）
-            const calculatedWidth = Math.max(
-                25, // 最小宽度从 15% 增加到 25%
-                Math.min(50, (100 / dataPointCount) * 0.5), // 最大宽度从 35% 增加到 50%，系数从 0.3 增加到 0.5
-            );
-            return {
-                barWidth: `${calculatedWidth}%`, // 使用百分比，更灵活
-                barCategoryGap: '20%', // 类别内间距从 30% 减少到 20%
-                barGap: '15%', // 类别间间距从 20% 减少到 15%
-            };
-        }
-
-        // 默认情况下，ECharts 会自动计算，返回 null 表示不设置
-        return null;
-    }, [isMobile, dataPointCount, series]);
+        return { barMaxWidth };
+    }, [series, validCartesianConfig?.layout, isMobile]);
 
     const stackedSeriesWithColorAssignments = useMemo(() => {
         if (!itemsMap) return;
@@ -2458,7 +2478,7 @@ const useEchartsCartesianConfig = (
             }
         }
 
-        return [
+        const allSeries = [
             ...sortedSeries,
             ...getStackTotalSeries(
                 rows,
@@ -2468,6 +2488,44 @@ const useEchartsCartesianConfig = (
                 validCartesianConfigLegend,
             ),
         ];
+
+        if (!isMobile) return allSeries;
+
+        const mobileBarLabelPlan = computeMobileBarLabelPlan({
+            series: allSeries.map((serie) => ({
+                type: serie.type,
+                name: serie.name,
+                yAxisIndex: serie.yAxisIndex,
+                labelShows: !!serie.label?.show,
+                legendVisible:
+                    !serie.name ||
+                    !validCartesianConfigLegend ||
+                    validCartesianConfigLegend[serie.name] !== false,
+                valuesByCategory: getSerieValuesByCategory(
+                    serie,
+                    rows,
+                    validCartesianConfig?.layout.flipAxes,
+                ),
+            })),
+        });
+
+        return allSeries.map((serie): EChartSeries => {
+            if (!serie.label?.show) return serie;
+
+            const adjustments = applyMobileSeriesLabelAdjustments(
+                serie,
+                mobileBarLabelPlan,
+            );
+
+            return {
+                ...serie,
+                labelLayout: adjustments.labelLayout,
+                label: {
+                    ...serie.label,
+                    ...adjustments.label,
+                },
+            };
+        });
     }, [
         series,
         rows,
@@ -2477,6 +2535,7 @@ const useEchartsCartesianConfig = (
         validCartesianConfigLegend,
         getSeriesColor,
         barWidthConfig,
+        isMobile,
     ]);
     const sortedResults = useMemo(() => {
         const results =
@@ -3009,6 +3068,17 @@ const useEchartsCartesianConfig = (
 
         // Adds extra gap to grid to make room for axis labels -> there is an open ticket in echarts to fix this: https://github.com/apache/echarts/issues/9265
         // Only works for px values, percentage values are not supported because it cannot use calc()
+        const hasValueLabels = stackedSeriesWithColorAssignments?.some(
+            (serie) => serie.label?.show,
+        );
+        const gridTop =
+            isMobile &&
+            hasValueLabels &&
+            typeof grid.top === 'string' &&
+            grid.top.includes('px')
+                ? `${Math.max(parseInt(grid.top, 10) || 70, 85)}px`
+                : grid.top;
+
         return {
             ...grid,
             left: gridLeft.includes('px')
@@ -3020,8 +3090,13 @@ const useEchartsCartesianConfig = (
                       defaultAxisLabelGap
                   }px`
                 : grid.right,
+            top: gridTop,
         };
-    }, [validCartesianConfig?.eChartsConfig.grid, isMobile]);
+    }, [
+        validCartesianConfig?.eChartsConfig.grid,
+        isMobile,
+        stackedSeriesWithColorAssignments,
+    ]);
 
     const { tooltip: legendDoubleClickTooltip } = useLegendDoubleClickTooltip();
 

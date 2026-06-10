@@ -1,5 +1,11 @@
-import { ECHARTS_DEFAULT_COLORS } from '../types/savedCharts';
+import { ChartKind, ECHARTS_DEFAULT_COLORS } from '../types/savedCharts';
 import { CartesianChartDataModel } from './CartesianChartDataModel';
+import {
+    VizAggregationOptions,
+    VizIndexType,
+    type PivotChartData,
+} from './types';
+import type { IResultsRunner } from './types/IResultsRunner';
 
 describe('CartesianChartDataModel.getDefaultColor', () => {
     it('should return palette colors for indices within palette size', () => {
@@ -56,5 +62,93 @@ describe('CartesianChartDataModel.getDefaultColor', () => {
         expect(color9).not.toBe(color10);
         expect(color10).not.toBe(color11);
         expect(color9).not.toBe(color11);
+    });
+});
+
+const mockResultsRunner: IResultsRunner = {
+    getPivotedVisualizationData: jest.fn(),
+    getColumnNames: () => [],
+    getRows: () => [],
+    getPivotQueryDimensions: () => [],
+    getPivotQueryMetrics: () => [],
+    getPivotQueryCustomMetrics: () => [],
+};
+
+const mockPivotChartData: PivotChartData = {
+    queryUuid: undefined,
+    fileUrl: undefined,
+    results: [
+        { category: 'A', metric: 10 },
+        { category: 'B', metric: 20 },
+    ],
+    indexColumn: {
+        reference: 'category',
+        type: VizIndexType.CATEGORY,
+    },
+    valuesColumns: [
+        {
+            referenceField: 'metric',
+            pivotColumnName: 'metric',
+            aggregation: VizAggregationOptions.SUM,
+            pivotValues: [],
+        },
+    ],
+    columns: [],
+    columnCount: 2,
+};
+
+describe('CartesianChartDataModel.getSpec barMaxWidth', () => {
+    const createModelWithData = () => {
+        const model = new CartesianChartDataModel({
+            resultsRunner: mockResultsRunner,
+            type: ChartKind.VERTICAL_BAR,
+            fieldConfig: {
+                x: { reference: 'category', type: VizIndexType.CATEGORY },
+                y: [
+                    {
+                        reference: 'metric',
+                        aggregation: VizAggregationOptions.SUM,
+                    },
+                ],
+                groupBy: [],
+            },
+        });
+        (
+            model as unknown as { pivotedChartData: PivotChartData }
+        ).pivotedChartData = mockPivotChartData;
+        return model;
+    };
+
+    it('applies barMaxWidth to bar series when configured', () => {
+        const spec = createModelWithData().getSpec({ barMaxWidth: 40 });
+
+        expect(spec.series).toHaveLength(1);
+        expect(spec.series[0].barMaxWidth).toBe(40);
+    });
+
+    it('does not set barMaxWidth when display config is omitted', () => {
+        const spec = createModelWithData().getSpec();
+
+        expect(spec.series[0].barMaxWidth).toBeUndefined();
+    });
+
+    it('uses mobile barMaxWidth when isMobile is true', () => {
+        const spec = createModelWithData().getSpec(
+            { barMaxWidth: 40, barMaxWidthMobile: 24 },
+            undefined,
+            { isMobile: true },
+        );
+
+        expect(spec.series[0].barMaxWidth).toBe(24);
+    });
+
+    it('falls back to desktop barMaxWidth on mobile when mobile value is unset', () => {
+        const spec = createModelWithData().getSpec(
+            { barMaxWidth: 40 },
+            undefined,
+            { isMobile: true },
+        );
+
+        expect(spec.series[0].barMaxWidth).toBe(40);
     });
 });
