@@ -86,24 +86,28 @@ describe('formatPieSliceLabel', () => {
 
 describe('wrapLongPieLabel', () => {
     test('keeps short comma labels on one line', () => {
-        expect(wrapLongPieLabel('农夫山泉, 35.31%')).toBe('农夫山泉, 35.31%');
+        expect(wrapLongPieLabel('娃哈哈, 19.84%')).toBe('娃哈哈, 19.84%');
+    });
+
+    test('wraps labels that exceed one-line display width without separator', () => {
+        expect(wrapLongPieLabel('农夫山泉, 35.31%')).toBe('农夫山泉\n35.31%');
     });
 
     test('wraps long comma labels before percentage', () => {
         expect(wrapLongPieLabel('其他品牌—包含199个品牌, 7.67%')).toBe(
-            '其他品牌—包含199个品牌,\n7.67%',
+            '其他品牌\n—包含199个品牌\n7.67%',
         );
     });
 
     test('wraps long Chinese comma labels before percentage', () => {
         expect(wrapLongPieLabel('其他品牌—包含199个品牌，7.67%')).toBe(
-            '其他品牌—包含199个品牌，\n7.67%',
+            '其他品牌\n—包含199个品牌\n7.67%',
         );
     });
 
     test('wraps long colon labels after colon', () => {
         expect(wrapLongPieLabel('其他品牌—包含199个品牌: 7.67%')).toBe(
-            '其他品牌—包含199个品牌:\n7.67%',
+            '其他品牌\n—包含199个品牌\n7.67%',
         );
     });
 

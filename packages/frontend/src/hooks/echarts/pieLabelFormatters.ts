@@ -131,8 +131,76 @@ const PIE_LABEL_WRAP_SEPARATORS = [
     { separator: '、', replacement: '、\n' },
 ] as const;
 
+const PIE_LABEL_NAME_WRAP_THRESHOLD = 9;
+const PIE_LABEL_ONE_LINE_DISPLAY_WIDTH = 14;
+
+const PIE_LABEL_NAME_VALUE_SEPARATORS = [', ', '，', ': ', '：'] as const;
+
+function getLabelDisplayWidth(label: string): number {
+    return Array.from(label).reduce((width, char) => {
+        // CJK and full-width punctuation take roughly twice the visual width.
+        return width + (/[\u3400-\u9fff\uff00-\uffef]/.test(char) ? 2 : 1);
+    }, 0);
+}
+
+function splitLongPieLabelName(name: string): string[] {
+    if (name.length <= PIE_LABEL_NAME_WRAP_THRESHOLD) {
+        return [name];
+    }
+
+    const midPoint = Math.ceil(name.length / 2);
+    const preferredBreakpoints = ['—', '-', ' ', '、'];
+    const breakpoint = preferredBreakpoints
+        .map((separator) => {
+            const before = name.lastIndexOf(separator, midPoint);
+            const after = name.indexOf(separator, midPoint);
+
+            return [before, after].filter((index) => index > 0);
+        })
+        .flat()
+        .sort(
+            (left, right) =>
+                Math.abs(left - midPoint) - Math.abs(right - midPoint),
+        )[0];
+
+    const splitIndex = breakpoint ?? midPoint;
+    return [
+        name.slice(0, splitIndex).trim(),
+        name.slice(splitIndex).trim(),
+    ].filter(Boolean);
+}
+
+function wrapLongNameValueLabel(label: string): string | undefined {
+    const separator = PIE_LABEL_NAME_VALUE_SEPARATORS.find((candidate) =>
+        label.includes(candidate),
+    );
+    if (!separator) {
+        return undefined;
+    }
+
+    const [name, ...rest] = label.split(separator);
+    const valueText = rest.join(separator).trim();
+    if (!name || !valueText) {
+        return undefined;
+    }
+
+    if (
+        name.length <= PIE_LABEL_NAME_WRAP_THRESHOLD &&
+        getLabelDisplayWidth(label) <= PIE_LABEL_ONE_LINE_DISPLAY_WIDTH
+    ) {
+        return undefined;
+    }
+
+    return [...splitLongPieLabelName(name), valueText].join('\n');
+}
+
 /** 移动端外侧标签：长文本换行（在分隔符或中间位置插入 \\n） */
 export function wrapLongPieLabel(label: string): string {
+    const nameValueLabel = wrapLongNameValueLabel(label);
+    if (nameValueLabel) {
+        return nameValueLabel;
+    }
+
     if (label.length <= 15) {
         return label;
     }

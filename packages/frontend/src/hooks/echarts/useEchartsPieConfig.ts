@@ -144,6 +144,7 @@ const useEchartsPieConfig = (
                         ...(isMobileOutsideLabel
                             ? {
                                   alignTo: 'edge',
+                                  align: 'left',
                                   edgeDistance: 8,
                                   distanceToLabelLine: 4,
                                   bleedMargin: 8,
