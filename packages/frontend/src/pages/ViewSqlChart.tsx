@@ -45,7 +45,11 @@ import {
 } from '../features/sqlRunner/store/sqlRunnerSlice';
 import { useResponsiveCartesianChartSpec } from '../hooks/echarts/useResponsiveCartesianChartSpec';
 
-enum TabOption
+enum TabOption {
+    CHART = 'chart',
+    RESULTS = 'results',
+    SQL = 'sql',
+}
 
 const ViewSqlChart = () => {
     const { t } = useTranslation();
