@@ -205,14 +205,16 @@ const FilterConfiguration: FC<Props> = ({
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
             setDraftFilterRule(() => {
-                // Any explicit value means the filter is enabled; empty values preserve the configured disabled state.
+                // 有具体取值则启用；查看模式下清空取值即回到「任何值」(disabled)
                 const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
                     ? false
-                    : newFilterRule.disabled;
+                    : isEditMode
+                      ? newFilterRule.disabled
+                      : true;
                 return { ...newFilterRule, disabled: isNewFilterDisabled };
             });
         },
-        [setDraftFilterRule],
+        [isEditMode, setDraftFilterRule],
     );
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
@@ -420,7 +422,11 @@ const FilterConfiguration: FC<Props> = ({
             return false;
         }
 
-        return !hasFilterValueSet(baselineFilterRule);
+        // 草稿无取值：允许「清空已生效的筛选」，或草稿与已应用状态不一致（如 disabled 标志）
+        return (
+            !hasFilterValueSet(baselineFilterRule) &&
+            !isDraftModifiedFromApplied
+        );
     }, [
         draftFilterRuleWithPendingExcludedValue,
         originalFilterRule,
