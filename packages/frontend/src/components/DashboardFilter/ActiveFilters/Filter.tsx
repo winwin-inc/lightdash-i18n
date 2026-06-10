@@ -17,7 +17,14 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
 import { IconGripVertical } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
@@ -29,6 +36,7 @@ import {
 } from '../../common/Filters/FilterInputs/utils';
 import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
+import { FilterTabs } from '../FilterConfiguration/constants';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
 import { useFilterDropdownStyles } from '../filterDropdownStyles';
 
@@ -111,6 +119,38 @@ const Filter: FC<Props> = ({
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
+    const [filterConfigTab, setFilterConfigTab] = useState<FilterTabs>(
+        FilterTabs.SETTINGS,
+    );
+
+    const isTilesConfigTab = filterConfigTab === FilterTabs.TILES;
+
+    /** 筛选器设置 Tab：PC 内部下拉打开时占位高度；移动端下拉走 Portal，不补高避免弹窗瞬间变大 */
+    const shouldReserveSubOpenHeight =
+        isSubPopoverOpen && !isTilesConfigTab && !isMobileDevice;
+
+    const filterDropdownClassName = useMemo(() => {
+        const names = [dropdownClasses.classes.dropdown];
+        if (isMobileDevice) {
+            names.push(dropdownClasses.classes.dropdownMobile);
+        }
+        if (shouldReserveSubOpenHeight) {
+            names.push(
+                isEditMode
+                    ? dropdownClasses.classes.dropdownWithSubOpenEdit
+                    : dropdownClasses.classes.dropdownWithSubOpen,
+            );
+        }
+        return names.join(' ');
+    }, [
+        dropdownClasses.classes.dropdown,
+        dropdownClasses.classes.dropdownMobile,
+        dropdownClasses.classes.dropdownWithSubOpen,
+        dropdownClasses.classes.dropdownWithSubOpenEdit,
+        isMobileDevice,
+        isEditMode,
+        shouldReserveSubOpenHeight,
+    ]);
 
     const closeTimeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
     const allowSubOpenRef = useRef(false);
@@ -122,6 +162,7 @@ const Filter: FC<Props> = ({
             allowSubOpenRef.current = false;
             subPopoverOpenCountRef.current = 0;
             closeSubPopover();
+            setFilterConfigTab(FilterTabs.SETTINGS);
             return;
         }
         allowSubOpenRef.current = false;
@@ -318,8 +359,10 @@ const Filter: FC<Props> = ({
                 position="bottom-start"
                 trapFocus
                 opened={isPopoverOpen}
-                closeOnEscape={!isSubPopoverOpen}
-                closeOnClickOutside={!isSubPopoverOpen}
+                closeOnEscape={isTilesConfigTab ? true : !isSubPopoverOpen}
+                closeOnClickOutside={
+                    isTilesConfigTab ? false : !isSubPopoverOpen
+                }
                 onClose={handleClose}
                 disabled={disabled || (isFilterReadOnly && !isEditMode)}
                 transitionProps={{ transition: 'pop-top-left' }}
@@ -330,7 +373,7 @@ const Filter: FC<Props> = ({
                 withinPortal
                 {...(isMobileDevice && {
                     position: 'bottom' as const,
-                    middlewares: { shift: true, flip: true, size: true },
+                    middlewares: { shift: true, flip: true },
                 })}
             >
                 <Popover.Target>
@@ -485,17 +528,11 @@ const Filter: FC<Props> = ({
                     </Indicator>
                 </Popover.Target>
 
-                <Popover.Dropdown
-                    className={
-                        isSubPopoverOpen
-                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownWithSubOpen}`
-                            : dropdownClasses.classes.dropdown
-                    }
-                >
+                <Popover.Dropdown className={filterDropdownClassName}>
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isSubPopoverOpen
+                                shouldReserveSubOpenHeight
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }
@@ -518,7 +555,9 @@ const Filter: FC<Props> = ({
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,
                                     onClose: closeSubPopoverWrapped,
+                                    withinPortal: true,
                                 }}
+                                onSelectedTabChange={setFilterConfigTab}
                                 filterScope={filterScope}
                                 tabUuid={
                                     filterScope === 'tab'

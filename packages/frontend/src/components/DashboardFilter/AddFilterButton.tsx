@@ -21,6 +21,7 @@ import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
+import { FilterTabs } from './FilterConfiguration/constants';
 
 type Props = {
     filterScope: 'global' | 'tab';
@@ -79,8 +80,36 @@ const AddFilterButton: FC<Props> = ({
 
     const [isSubPopoverOpen, { close: closeSubPopover, open: openSubPopover }] =
         useDisclosure();
+    const [filterConfigTab, setFilterConfigTab] = useState<FilterTabs>(
+        FilterTabs.SETTINGS,
+    );
     /** 主面板打开后，是否已经关闭过内部下拉；用于「默认打开有占位，关闭选择维度后占位消失」 */
     const [hasSubClosedSinceOpen, setHasSubClosedSinceOpen] = useState(false);
+
+    const isTilesConfigTab = filterConfigTab === FilterTabs.TILES;
+
+    const shouldReserveAddFilterHeight =
+        !isMobileDevice &&
+        filterConfigTab !== FilterTabs.TILES &&
+        (isSubPopoverOpen || !hasSubClosedSinceOpen);
+
+    const filterDropdownClassName = useMemo(() => {
+        const names = [dropdownClasses.classes.dropdown];
+        if (isMobileDevice) {
+            names.push(dropdownClasses.classes.dropdownMobile);
+        }
+        if (isPopoverOpen && shouldReserveAddFilterHeight) {
+            names.push(dropdownClasses.classes.dropdownAddFilterWithSubOpen);
+        }
+        return names.join(' ');
+    }, [
+        dropdownClasses.classes.dropdown,
+        dropdownClasses.classes.dropdownMobile,
+        dropdownClasses.classes.dropdownAddFilterWithSubOpen,
+        isMobileDevice,
+        isPopoverOpen,
+        shouldReserveAddFilterHeight,
+    ]);
 
     const closeTimeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
     /** 仅在有真实用户点击/触摸或短延时后再响应 onOpen，避免首次打开面板时 focusOnRender 触发的下拉误判为「打开 Select」 */
@@ -93,6 +122,7 @@ const AddFilterButton: FC<Props> = ({
             subPopoverOpenCountRef.current = 0;
             closeSubPopover();
             setHasSubClosedSinceOpen(false);
+            setFilterConfigTab(FilterTabs.SETTINGS);
             return;
         }
         setHasSubClosedSinceOpen(false);
@@ -216,8 +246,10 @@ const AddFilterButton: FC<Props> = ({
                 position="bottom-start"
                 trapFocus
                 opened={isPopoverOpen}
-                closeOnEscape={!isSubPopoverOpen}
-                closeOnClickOutside={!isSubPopoverOpen}
+                closeOnEscape={isTilesConfigTab ? true : !isSubPopoverOpen}
+                closeOnClickOutside={
+                    isTilesConfigTab ? false : !isSubPopoverOpen
+                }
                 onClose={handleClose}
                 disabled={disabled}
                 transitionProps={{ transition: 'pop-top-left' }}
@@ -228,7 +260,7 @@ const AddFilterButton: FC<Props> = ({
                 withinPortal
                 {...(isMobileDevice && {
                     position: 'bottom' as const,
-                    middlewares: { shift: true, flip: true, size: true },
+                    middlewares: { shift: true, flip: true },
                 })}
             >
                 <Popover.Target>
@@ -278,19 +310,11 @@ const AddFilterButton: FC<Props> = ({
                 </Popover.Target>
 
                 {/* 添加全局/tab：默认打开有占位；当「选择维度」等内部下拉关闭后，占位消失 */}
-                <Popover.Dropdown
-                    className={
-                        isPopoverOpen &&
-                        (isSubPopoverOpen || !hasSubClosedSinceOpen)
-                            ? `${dropdownClasses.classes.dropdown} ${dropdownClasses.classes.dropdownAddFilterWithSubOpen}`
-                            : dropdownClasses.classes.dropdown
-                    }
-                >
+                <Popover.Dropdown className={filterDropdownClassName}>
                     {appliedDashboardTiles && (
                         <Box
                             className={
-                                isPopoverOpen &&
-                                (isSubPopoverOpen || !hasSubClosedSinceOpen)
+                                isPopoverOpen && shouldReserveAddFilterHeight
                                     ? dropdownClasses.classes.dropdownContent
                                     : undefined
                             }
@@ -309,7 +333,9 @@ const AddFilterButton: FC<Props> = ({
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,
                                     onClose: closeSubPopoverWrapped,
+                                    withinPortal: true,
                                 }}
+                                onSelectedTabChange={setFilterConfigTab}
                                 filterScope={filterScope}
                                 tabUuid={
                                     filterScope === 'tab'
