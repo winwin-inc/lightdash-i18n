@@ -34,12 +34,12 @@ export const BarMaxWidthInputs: FC<Props> = ({
             <Text size="xs" fw={500} c="gray.6">
                 {t(`${translationPrefix}.bar_max_width_section`)}
             </Text>
-            <Group spacing="md" align="flex-end" wrap="nowrap">
+            <Group spacing="md" align="flex-end" noWrap>
                 <Tooltip
                     variant="xs"
                     label={t(`${translationPrefix}.bar_max_width_hint`)}
                 >
-                    <Group spacing="xs" wrap="nowrap" align="baseline">
+                    <Group spacing="xs" noWrap align="baseline">
                         <Config.Label>
                             {t(`${translationPrefix}.bar_max_width`)}
                         </Config.Label>
@@ -63,7 +63,7 @@ export const BarMaxWidthInputs: FC<Props> = ({
                     variant="xs"
                     label={t(`${translationPrefix}.bar_max_width_mobile_hint`)}
                 >
-                    <Group spacing="xs" wrap="nowrap" align="baseline">
+                    <Group spacing="xs" noWrap align="baseline">
                         <Config.Label>
                             {t(`${translationPrefix}.bar_max_width_mobile`)}
                         </Config.Label>
