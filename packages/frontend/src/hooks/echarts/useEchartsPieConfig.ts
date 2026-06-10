@@ -145,14 +145,14 @@ const useEchartsPieConfig = (
                             ? {
                                   alignTo: 'edge',
                                   align: 'left',
-                                  edgeDistance: 8,
+                                  edgeDistance: 4,
                                   distanceToLabelLine: 4,
-                                  bleedMargin: 8,
+                                  bleedMargin: 6,
                                   fontSize: 10,
                                   lineHeight: 15,
                                   overflow: 'break',
                                   padding: [2, 0],
-                                  width: 80,
+                                  width: 76,
                               }
                             : {}),
                         formatter: (params) => {
@@ -223,8 +223,8 @@ const useEchartsPieConfig = (
         if (isMobileWithOutsideLabels) {
             center =
                 showLegend && legendPosition === 'horizontal'
-                    ? ['50%', '58%']
-                    : ['50%', '52%'];
+                    ? ['52%', '58%']
+                    : ['52%', '52%'];
         } else if (legendPosition === 'horizontal') {
             center =
                 showLegend &&
@@ -248,8 +248,9 @@ const useEchartsPieConfig = (
                 ? {
                       labelLine: {
                           show: true,
-                          length: 10,
-                          length2: 8,
+                          length: 16,
+                          length2: 16,
+                          maxSurfaceAngle: 80,
                           smooth: false,
                           lineStyle: {
                               width: 1,
