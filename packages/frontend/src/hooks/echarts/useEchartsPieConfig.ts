@@ -14,10 +14,11 @@ import { useMemo } from 'react';
 import { isPieVisualizationConfig } from '../../components/LightdashVisualization/types';
 import { useVisualizationContext } from '../../components/LightdashVisualization/useVisualizationContext';
 import {
-    applyPieLabelTemplate,
     formatPercentForLabel,
+    formatPieSliceLabel,
 } from './pieLabelFormatters';
 import { useLegendDoubleClickTooltip } from './useLegendDoubleClickTooltip';
+
 export type PieSeriesDataPoint = NonNullable<
     PieSeriesOption['data']
 >[number] & {
@@ -32,6 +33,20 @@ type PieChartWithTemplate = PieChart & {
     valueLabelTemplate?: PieChartValueOptions['labelTemplate'];
     groupValueOptionOverrides?: Record<string, Partial<PieChartValueOptions>>;
 };
+
+function itemHasOutsideLabel(
+    item: PieSeriesDataPoint | number | string,
+): boolean {
+    return (
+        typeof item === 'object' &&
+        item !== null &&
+        'label' in item &&
+        typeof item.label === 'object' &&
+        item.label !== null &&
+        'position' in item.label &&
+        item.label.position === 'outside'
+    );
+}
 
 const useEchartsPieConfig = (
     selectedLegends?: Record<string, boolean>,
@@ -106,9 +121,7 @@ const useEchartsPieConfig = (
                     groupValueOptionsMap?.[name]?.labelTemplate ??
                     valueLabelTemplateDefault;
 
-                // Use all group field IDs as the group prefix for color assignment:
                 const groupPrefix = groupFieldIds.join('_');
-                // 哈希模式下，忽略 groupColorOverrides，强制走哈希分配
                 const itemColor = useHashBased
                     ? getGroupColor(groupPrefix, name)
                     : (groupColorOverrides?.[name] ??
@@ -128,156 +141,42 @@ const useEchartsPieConfig = (
                     label: {
                         show: valueLabel !== 'hidden',
                         position: isOutsideLabel ? 'outside' : 'inside',
-                        // 移动端外侧标签优化：设置宽度和字体大小，防止文本截断
                         ...(isMobileOutsideLabel
                             ? {
-                                  width: 80, // 设置标签宽度为 80px，防止超出屏幕
-                                  fontSize: 10, // 移动端使用更小的字体
-                                  lineHeight: 12, // 设置行高，支持多行显示
-                                  distanceToLabelLine: 3, // 标签到引导线的距离，缩短距离
-                                  alignTo: 'labelLine', // 对齐到引导线，避免标签重叠
-                                  bleedMargin: 3, // 标签边距，防止超出容器
+                                  alignTo: 'edge',
+                                  edgeDistance: 8,
+                                  distanceToLabelLine: 4,
+                                  bleedMargin: 8,
+                                  fontSize: 10,
+                                  lineHeight: 15,
+                                  overflow: 'break',
+                                  padding: [2, 0],
+                                  width: 80,
                               }
                             : {}),
                         formatter: (params) => {
-                            // In ECharts pie chart formatter:
-                            // params.value is the raw numeric value we passed in
-                            // params.percent is the calculated percentage (0-100)
-                            // params.data contains our custom data object with meta
                             const percentValue =
                                 typeof params.percent === 'number'
                                     ? params.percent
                                     : Number(params.percent) || 0;
 
-                            // Get the raw value from params (ECharts provides this)
                             const rawValueFromParams =
                                 typeof params.value === 'number'
                                     ? params.value
                                     : Number(params.value) || 0;
 
-                            // Use custom template if useCustomFormat is true and template is provided
-                            if (
-                                useCustomFormat &&
-                                labelTemplate &&
-                                labelTemplate.trim() !== ''
-                            ) {
-                                const rawNum =
-                                    meta.value.raw ?? rawValueFromParams;
-                                const formattedValue =
-                                    meta.value.formatted ?? '';
-
-                                // 未写 :N 时默认 2 位小数，与原有行为一致
-                                let formattedLabel = applyPieLabelTemplate(
-                                    labelTemplate,
-                                    {
-                                        name: params.name ?? '',
-                                        percentValue,
-                                        formattedValue,
-                                        rawValue: rawNum,
-                                    },
-                                    2,
-                                );
-
-                                formattedLabel = formattedLabel.trim();
-
-                                // 移动端外侧标签：如果自定义模板文本较长，在合适位置插入换行符
-                                if (
-                                    isMobileOutsideLabel &&
-                                    formattedLabel.length > 15
-                                ) {
-                                    // 如果包含 " - "，在 " - " 处换行
-                                    if (formattedLabel.includes(' - ')) {
-                                        formattedLabel = formattedLabel.replace(
-                                            ' - ',
-                                            '\n- ',
-                                        );
-                                    }
-                                    // 如果文本仍然很长，在中间位置换行
-                                    else if (formattedLabel.length > 20) {
-                                        const midPoint = Math.floor(
-                                            formattedLabel.length / 2,
-                                        );
-                                        // 尝试在空格处换行，如果没有空格则在中间换行
-                                        const spaceIndex =
-                                            formattedLabel.lastIndexOf(
-                                                ' ',
-                                                midPoint,
-                                            );
-                                        if (spaceIndex > 0) {
-                                            formattedLabel =
-                                                formattedLabel.slice(
-                                                    0,
-                                                    spaceIndex,
-                                                ) +
-                                                '\n' +
-                                                formattedLabel.slice(
-                                                    spaceIndex + 1,
-                                                );
-                                        } else {
-                                            formattedLabel =
-                                                formattedLabel.slice(
-                                                    0,
-                                                    midPoint,
-                                                ) +
-                                                '\n' +
-                                                formattedLabel.slice(midPoint);
-                                        }
-                                    }
-                                }
-
-                                if (formattedLabel.length > 0) {
-                                    return formattedLabel;
-                                }
-                            }
-
-                            // Default behavior for non-custom modes (percent fixed 2 decimals for consistency)
-                            const percentFormattedDefault =
-                                formatPercentForLabel(percentValue, 2);
-                            let labelText =
-                                valueLabel !== 'hidden' &&
-                                showValue &&
-                                showPercentage
-                                    ? `${percentFormattedDefault}% - ${meta.value.formatted}`
-                                    : showValue
-                                      ? `${meta.value.formatted}`
-                                      : showPercentage
-                                        ? `${percentFormattedDefault}%`
-                                        : `${params.name}`;
-
-                            // 移动端外侧标签：如果文本较长，在合适位置插入换行符
-                            if (isMobileOutsideLabel && labelText.length > 15) {
-                                // 如果包含 " - "，在 " - " 处换行
-                                if (labelText.includes(' - ')) {
-                                    labelText = labelText.replace(
-                                        ' - ',
-                                        '\n- ',
-                                    );
-                                }
-                                // 如果文本仍然很长，在中间位置换行
-                                else if (labelText.length > 20) {
-                                    const midPoint = Math.floor(
-                                        labelText.length / 2,
-                                    );
-                                    // 尝试在空格处换行，如果没有空格则在中间换行
-                                    const spaceIndex = labelText.lastIndexOf(
-                                        ' ',
-                                        midPoint,
-                                    );
-                                    if (spaceIndex > 0) {
-                                        labelText =
-                                            labelText.slice(0, spaceIndex) +
-                                            '\n' +
-                                            labelText.slice(spaceIndex + 1);
-                                    } else {
-                                        labelText =
-                                            labelText.slice(0, midPoint) +
-                                            '\n' +
-                                            labelText.slice(midPoint);
-                                    }
-                                }
-                            }
-
-                            return labelText;
+                            return formatPieSliceLabel({
+                                name: params.name ?? '',
+                                percentValue,
+                                formattedValue: meta.value.formatted ?? '',
+                                rawValue: meta.value.raw ?? rawValueFromParams,
+                                valueLabel: valueLabel ?? 'outside',
+                                showValue: showValue ?? false,
+                                showPercentage: showPercentage ?? false,
+                                useCustomFormat,
+                                labelTemplate,
+                                wrapLongLines: isMobileOutsideLabel,
+                            });
                         },
                     },
                     meta,
@@ -302,35 +201,29 @@ const useEchartsPieConfig = (
             selectedMetric,
         } = chartConfig;
 
-        // 检测是否有外侧标签
-        const hasOutsideLabels = seriesData?.some(
-            (item) =>
-                typeof item === 'object' &&
-                item !== null &&
-                'label' in item &&
-                typeof item.label === 'object' &&
-                item.label !== null &&
-                'position' in item.label &&
-                item.label.position === 'outside',
-        );
-
-        // 移动端优化：如果有外侧标签，减小半径并调整中心位置
+        const hasOutsideLabels = seriesData?.some(itemHasOutsideLabel);
         const isMobileWithOutsideLabels = isMobile && hasOutsideLabels;
+        const sliceCount = seriesData?.length ?? 0;
 
-        // 移动端外侧标签时，减小半径以留出标签空间
+        const mobileOuterRadius =
+            sliceCount > 8 ? '42%' : sliceCount > 5 ? '46%' : '50%';
+        const mobileInnerRadius =
+            sliceCount > 8 ? '21%' : sliceCount > 5 ? '23%' : '25%';
+
         const radius = isMobileWithOutsideLabels
             ? isDonut
-                ? ['15%', '40%'] // 进一步减小半径，为标签留出更多空间
-                : '40%' // 移动端外侧标签使用更小的半径
+                ? [mobileInnerRadius, mobileOuterRadius]
+                : mobileOuterRadius
             : isDonut
               ? ['30%', '70%']
               : '70%';
 
-        // 移动端外侧标签时，调整中心位置以留出标签空间
         let center: [string, string];
         if (isMobileWithOutsideLabels) {
-            // 移动端外侧标签：居中但稍微上移，为下方标签留出空间
-            center = ['50%', '50%']; // 保持居中，通过减小半径来留出空间
+            center =
+                showLegend && legendPosition === 'horizontal'
+                    ? ['50%', '58%']
+                    : ['50%', '52%'];
         } else if (legendPosition === 'horizontal') {
             center =
                 showLegend &&
@@ -349,20 +242,18 @@ const useEchartsPieConfig = (
             data: seriesData,
             radius,
             center,
-            // 移动端外侧标签：配置引导线，防止超出屏幕
+            avoidLabelOverlap: true,
             ...(isMobileWithOutsideLabels
                 ? {
                       labelLine: {
                           show: true,
-                          length: 10, // 缩短引导线长度，移动端使用更短的引导线
-                          length2: 5, // 第二段引导线长度，进一步缩短
-                          smooth: 0.1, // 使用轻微平滑曲线
+                          length: 10,
+                          length2: 8,
+                          smooth: false,
                           lineStyle: {
                               width: 1,
                               type: 'solid',
                           },
-                          // 限制引导线在容器内
-                          minTurnAngle: 15, // 最小转角，避免引导线过于弯曲
                       },
                   }
                 : hasOutsideLabels
@@ -407,40 +298,15 @@ const useEchartsPieConfig = (
             validConfig: { showLegend, legendPosition, legendMaxItemLength },
         } = chartConfig;
 
-        // 检测是否有外侧标签
-        const hasOutsideLabels = seriesData?.some(
-            (item) =>
-                typeof item === 'object' &&
-                item !== null &&
-                'label' in item &&
-                typeof item.label === 'object' &&
-                item.label !== null &&
-                'position' in item.label &&
-                item.label.position === 'outside',
-        );
-
-        // 移动端外侧标签时，添加 grid 配置为标签留出空间
+        const hasOutsideLabels = seriesData?.some(itemHasOutsideLabel);
         const isMobileWithOutsideLabels = isMobile && hasOutsideLabels;
 
         return {
             textStyle: {
                 fontFamily: theme?.other?.chartFont as string | undefined,
             },
-            // 移动端外侧标签：添加 grid 配置，为标签和引导线留出足够空间
-            ...(isMobileWithOutsideLabels
-                ? {
-                      grid: {
-                          left: '10%', // 左侧留出 10% 空间给标签
-                          right: '10%', // 右侧留出 10% 空间给标签
-                          top: '10%', // 顶部留出 10% 空间给标签
-                          bottom: '10%', // 底部留出 10% 空间给标签
-                          containLabel: false, // 不包含标签，让标签可以超出 grid
-                      },
-                  }
-                : {}),
             legend: {
                 show: showLegend,
-                orient: legendPosition,
                 type: 'scroll',
                 formatter: (name) => {
                     return name.length >
@@ -455,17 +321,26 @@ const useEchartsPieConfig = (
                 },
                 tooltip: legendDoubleClickTooltip,
                 selected: selectedLegends,
-                ...(legendPosition === 'vertical'
+                ...(isMobileWithOutsideLabels
                     ? {
-                          left: 'left',
-                          top: 'middle',
-                          align: 'left',
-                      }
-                    : {
                           left: 'center',
-                          top: 'top',
+                          top: 0,
+                          orient: 'horizontal' as const,
                           align: 'auto',
-                      }),
+                      }
+                    : legendPosition === 'vertical'
+                      ? {
+                            left: 'left',
+                            top: 'middle',
+                            orient: 'vertical' as const,
+                            align: 'left',
+                        }
+                      : {
+                            left: 'center',
+                            top: 'top',
+                            orient: 'horizontal' as const,
+                            align: 'auto',
+                        }),
             },
             tooltip: {
                 trigger: 'item',

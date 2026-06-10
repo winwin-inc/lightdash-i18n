@@ -36,9 +36,7 @@ export function formatValueForLabel(
     decimals: number = DEFAULT_DECIMALS,
 ): string {
     const rawNum =
-        typeof raw === 'number' && !Number.isNaN(raw)
-            ? raw
-            : Number(raw);
+        typeof raw === 'number' && !Number.isNaN(raw) ? raw : Number(raw);
     const hasValidRaw = Number.isFinite(rawNum);
 
     if (
@@ -73,27 +71,145 @@ export function applyPieLabelTemplate(
     ctx: PieLabelReplacementContext,
     defaultDecimals: number = DEFAULT_DECIMALS,
 ): string {
-    return template.replace(PLACEHOLDER_REGEX, (_, key: string, decimalsStr: string | undefined) => {
-        const decimals =
-            decimalsStr !== undefined
-                ? Math.max(0, Math.min(20, Math.floor(Number(decimalsStr) || 0)))
-                : defaultDecimals;
+    return template.replace(
+        PLACEHOLDER_REGEX,
+        (_, key: string, decimalsStr: string | undefined) => {
+            const decimals =
+                decimalsStr !== undefined
+                    ? Math.max(
+                          0,
+                          Math.min(20, Math.floor(Number(decimalsStr) || 0)),
+                      )
+                    : defaultDecimals;
 
-        switch (key) {
-            case 'name':
-                return ctx.name ?? '';
-            case 'percent':
-                return formatPercentForLabel(ctx.percentValue, decimals);
-            case 'value':
-                return formatValueForLabel(
-                    ctx.formattedValue,
-                    ctx.rawValue,
-                    decimals,
-                );
-            case 'rawValue':
-                return formatRawValueForLabel(ctx.rawValue, decimals);
-            default:
-                return `{${key}${decimalsStr !== undefined ? `:${decimalsStr}` : ''}}`;
+            switch (key) {
+                case 'name':
+                    return ctx.name ?? '';
+                case 'percent':
+                    return formatPercentForLabel(ctx.percentValue, decimals);
+                case 'value':
+                    return formatValueForLabel(
+                        ctx.formattedValue,
+                        ctx.rawValue,
+                        decimals,
+                    );
+                case 'rawValue':
+                    return formatRawValueForLabel(ctx.rawValue, decimals);
+                default:
+                    return `{${key}${decimalsStr !== undefined ? `:${decimalsStr}` : ''}}`;
+            }
+        },
+    );
+}
+
+export type PieChartValueLabelMode = 'hidden' | 'inside' | 'outside';
+
+export type FormatPieSliceLabelOptions = {
+    name: string;
+    percentValue: number;
+    formattedValue: string;
+    rawValue: unknown;
+    valueLabel: PieChartValueLabelMode;
+    showValue: boolean;
+    showPercentage: boolean;
+    useCustomFormat: boolean;
+    labelTemplate?: string;
+    /** 移动端外侧标签：长文本插入换行 */
+    wrapLongLines?: boolean;
+};
+
+const PIE_LABEL_WRAP_SEPARATORS = [
+    { separator: ', ', replacement: ',\n' },
+    { separator: '，', replacement: '，\n' },
+    { separator: ': ', replacement: ':\n' },
+    { separator: '：', replacement: '：\n' },
+    { separator: ' - ', replacement: '\n- ' },
+    { separator: ' – ', replacement: '\n– ' },
+    { separator: ' — ', replacement: '\n— ' },
+    { separator: ' / ', replacement: ' /\n' },
+    { separator: ' | ', replacement: ' |\n' },
+    { separator: '、', replacement: '、\n' },
+] as const;
+
+/** 移动端外侧标签：长文本换行（在分隔符或中间位置插入 \\n） */
+export function wrapLongPieLabel(label: string): string {
+    if (label.length <= 15) {
+        return label;
+    }
+
+    const wrapSeparator = PIE_LABEL_WRAP_SEPARATORS.find(({ separator }) =>
+        label.includes(separator),
+    );
+    if (wrapSeparator) {
+        return label.replace(
+            wrapSeparator.separator,
+            wrapSeparator.replacement,
+        );
+    }
+
+    if (label.length > 20) {
+        const midPoint = Math.floor(label.length / 2);
+        const spaceIndex = label.lastIndexOf(' ', midPoint);
+        if (spaceIndex > 0) {
+            return (
+                label.slice(0, spaceIndex) + '\n' + label.slice(spaceIndex + 1)
+            );
         }
-    });
+        return label.slice(0, midPoint) + '\n' + label.slice(midPoint);
+    }
+
+    return label;
+}
+
+/** 饼图扇区标签文案（ECharts formatter 与移动端侧栏共用） */
+export function formatPieSliceLabel(
+    options: FormatPieSliceLabelOptions,
+): string {
+    const {
+        name,
+        percentValue,
+        formattedValue,
+        rawValue,
+        valueLabel,
+        showValue,
+        showPercentage,
+        useCustomFormat,
+        labelTemplate,
+        wrapLongLines = false,
+    } = options;
+
+    if (valueLabel === 'hidden') {
+        return '';
+    }
+
+    if (useCustomFormat && labelTemplate && labelTemplate.trim() !== '') {
+        let formattedLabel = applyPieLabelTemplate(
+            labelTemplate,
+            {
+                name,
+                percentValue,
+                formattedValue,
+                rawValue,
+            },
+            2,
+        ).trim();
+
+        if (formattedLabel.length > 0) {
+            return wrapLongLines
+                ? wrapLongPieLabel(formattedLabel)
+                : formattedLabel;
+        }
+    }
+
+    const percentFormatted = formatPercentForLabel(percentValue, 2);
+    let labelText =
+        showValue && showPercentage
+            ? `${percentFormatted}% - ${formattedValue}`
+            : showValue
+              ? `${formattedValue}`
+              : showPercentage
+                ? `${percentFormatted}%`
+                : name;
+
+    return wrapLongLines ? wrapLongPieLabel(labelText) : labelText;
 }

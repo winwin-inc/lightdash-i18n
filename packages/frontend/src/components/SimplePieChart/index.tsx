@@ -3,7 +3,14 @@ import { IconChartPieOff } from '@tabler/icons-react';
 import { type ECElementEvent } from 'echarts';
 import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
-import { memo, useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useEchartsPieConfig, {
@@ -72,7 +79,6 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
     }>();
 
     useEffect(() => {
-        // Load all the rows
         resultsData?.setFetchAll(true);
     }, [resultsData]);
 
@@ -106,10 +112,8 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
         close();
     }, [close]);
 
-    // 移动端优化：检测是否有外侧标签，如果有则允许标签超出容器显示
     const hasOutsideLabels = useMemo(() => {
         if (!pieChartOptions?.pieSeriesOption?.data) return false;
-        // 检查饼图数据项中是否有外侧标签
         const seriesData = pieChartOptions.pieSeriesOption.data;
         return seriesData.some(
             (item) =>
@@ -144,10 +148,8 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
                           }
                         : {
                               minHeight: 'inherit',
-                              // height defaults to 300px
                               width: '100%',
                           }),
-                    // 移动端外侧标签：允许标签超出容器显示
                     ...(shouldAllowOverflow
                         ? {
                               overflow: 'visible',
