@@ -8,30 +8,29 @@ import type {
     ConditionalFormattingMinMaxMap,
     ItemsMap,
     PivotData,
+    PivotMetricHeaderPosition,
     ResultRow,
+    TableCellAlignment,
 } from '@lightdash/common';
+import { Box, Menu, Portal, type BoxProps } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { type Cell } from '@tanstack/react-table';
 import {
     ListTable,
     TABLE_EVENT_TYPE,
     type ListTableConstructorOptions,
 } from '@visactor/vtable';
-import { Box, Menu, Portal, type BoxProps } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { type Cell } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 
 import { useConditionalRuleLabelFromItem } from '../Filters/FilterInputs/utils';
 import { type CellContextMenuProps } from '../Table/types';
-import {
-    computePivotFormatMap,
-    type CellFormatValue,
-} from './pivotFormatMap';
 import {
     pivotDataToVTable,
     type VTableColumnDef,
     type VTableColumnGroup,
     type VTableListOption,
 } from './pivotDataToVTable';
+import { computePivotFormatMap, type CellFormatValue } from './pivotFormatMap';
 
 /**
  * 对列树递归添加条件格式 style；条形图列（progressbar 或 customRender）不设置 bgColor，避免盖住条形图
@@ -49,7 +48,9 @@ function addConditionalStyleToColumns(
     for (const c of cols) {
         if ('field' in c) {
             const fieldId = c.field;
-            const isBarColumn = c.cellType === 'progressbar' || !!(c as VTableColumnDef).customRender;
+            const isBarColumn =
+                c.cellType === 'progressbar' ||
+                !!(c as VTableColumnDef).customRender;
             const staticStyle =
                 typeof c.style === 'object' && c.style
                     ? (c.style as Record<string, string>)
@@ -79,13 +80,14 @@ function addConditionalStyleToColumns(
             });
             idx += 1;
         } else {
-            const { result: children, nextIndex } = addConditionalStyleToColumns(
-                c.columns,
-                formatMap,
-                dataRowCount,
-                headerRowCount,
-                idx,
-            );
+            const { result: children, nextIndex } =
+                addConditionalStyleToColumns(
+                    c.columns,
+                    formatMap,
+                    dataRowCount,
+                    headerRowCount,
+                    idx,
+                );
             result.push({ ...c, columns: children });
             idx = nextIndex;
         }
@@ -108,7 +110,9 @@ function flattenLeafColumns(
 /**
  * 列树深度 = 表头行数（VTable 中 row 0..depth-1 为表头，body 从 row=depth 开始）
  */
-function getHeaderRowCount(cols: (VTableColumnDef | VTableColumnGroup)[]): number {
+function getHeaderRowCount(
+    cols: (VTableColumnDef | VTableColumnGroup)[],
+): number {
     let max = 1;
     for (const c of cols) {
         if (!('field' in c)) {
@@ -135,6 +139,8 @@ export type PivotTableVTableProps = BoxProps &
         getField: (fieldId: string) => ItemsMap[string] | undefined;
         showSubtotals?: boolean;
         columnProperties?: Record<string, ColumnProperties>;
+        pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+        cellAlignment?: TableCellAlignment;
         cellContextMenu?: FC<React.PropsWithChildren<CellContextMenuProps>>;
     };
 
@@ -146,6 +152,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     getFieldLabel,
     getField,
     columnProperties = {},
+    pivotMetricHeaderPosition = 'bottom',
+    cellAlignment = 'left',
     cellContextMenu: CellContextMenuComponent,
     className,
     ...boxProps
@@ -157,11 +165,13 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         y: number;
         cell: Cell<ResultRow, unknown>;
     } | null>(null);
-    const [menuOpened, { open: openMenu, close: closeMenu }] = useDisclosure(false);
+    const [menuOpened, { open: openMenu, close: closeMenu }] =
+        useDisclosure(false);
     const getConditionalRuleLabel = useConditionalRuleLabelFromItem();
 
     const formatMap = useMemo(() => {
-        if (!conditionalFormattings?.length) return new Map<string, CellFormatValue>();
+        if (!conditionalFormattings?.length)
+            return new Map<string, CellFormatValue>();
         return computePivotFormatMap({
             data,
             conditionalFormattings,
@@ -178,7 +188,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     ]);
 
     const dataRowCount = data.retrofitData.allCombinedData.length;
-    const allRecordsRef = useRef<Record<string, string | number | null | undefined>[]>([]);
+    const allRecordsRef = useRef<
+        Record<string, string | number | null | undefined>[]
+    >([]);
     const flattenedColsRef = useRef<VTableColumnDef[]>([]);
     const originalRowsRef = useRef<ResultRow[]>([]);
     const pivotColumnInfoRef = useRef(data.retrofitData.pivotColumnInfo);
@@ -193,6 +205,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             minMaxMap,
             columnProperties,
             getField,
+            pivotMetricHeaderPosition,
+            cellAlignment,
         });
 
         const allRecords = [
@@ -227,7 +241,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                     fontSize: 13,
                     lineHeight: 16,
                     bgColor: (args: { row: number }) =>
-                        (args.row - headerRowCount) % 2 === 1 ? '#fafafa' : '#ffffff',
+                        (args.row - headerRowCount) % 2 === 1
+                            ? '#fafafa'
+                            : '#ffffff',
                     borderColor: '#e8e8e8',
                     borderLineWidth: 1,
                     padding: [1, 8],
@@ -238,6 +254,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                     bgColor: '#f5f5f5',
                     borderColor: '#e8e8e8',
                     borderLineWidth: 1,
+                    textAlign: 'center',
                 },
                 frameStyle: {
                     borderColor: '#e8e8e8',
@@ -267,6 +284,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         columnProperties,
         getField,
         minMaxMap,
+        pivotMetricHeaderPosition,
+        cellAlignment,
     ]);
 
     useEffect(() => {
@@ -287,15 +306,29 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             }
         });
 
-        const showCellMenu = (col: number, row: number, clientX: number, clientY: number) => {
+        const showCellMenu = (
+            col: number,
+            row: number,
+            clientX: number,
+            clientY: number,
+        ) => {
             if (!CellContextMenuComponent) return;
             const cols = flattenedColsRef.current;
             const records = allRecordsRef.current;
             const headerRowCount = headerRowCountRef.current;
             const recordIndex = row - headerRowCount;
-            if (col < 0 || col >= cols.length || recordIndex < 0 || recordIndex >= records.length) return;
+            if (
+                col < 0 ||
+                col >= cols.length ||
+                recordIndex < 0 ||
+                recordIndex >= records.length
+            )
+                return;
             const originalRows = originalRowsRef.current;
-            const rowOriginal = recordIndex < originalRows.length ? originalRows[recordIndex] : null;
+            const rowOriginal =
+                recordIndex < originalRows.length
+                    ? originalRows[recordIndex]
+                    : null;
             const rowRecord = records[recordIndex];
             const allRowCells: Cell<ResultRow, unknown>[] = cols.map((c) => {
                 const fid = c.field;
@@ -304,9 +337,19 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                 const cv = orig?.[fid];
                 const val =
                     cv && typeof cv === 'object' && 'value' in cv
-                        ? (cv as { value: { raw?: unknown; formatted?: string } }).value
-                        : { raw: rec[fid], formatted: rec[fid] != null ? String(rec[fid]) : '-' };
-                const pc = pivotColumnInfoRef.current.find((x) => x.fieldId === fid);
+                        ? (
+                              cv as {
+                                  value: { raw?: unknown; formatted?: string };
+                              }
+                          ).value
+                        : {
+                              raw: rec[fid],
+                              formatted:
+                                  rec[fid] != null ? String(rec[fid]) : '-',
+                          };
+                const pc = pivotColumnInfoRef.current.find(
+                    (x) => x.fieldId === fid,
+                );
                 const bid = pc?.underlyingId ?? pc?.baseId ?? fid;
                 const item = getFieldRef.current?.(bid);
                 return {
@@ -330,21 +373,40 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         };
 
         const handleCellClick = (args: unknown) => {
-            const a = args as { col: number; row: number; event?: { clientX: number; clientY: number } };
-            if (a?.event) showCellMenu(a.col, a.row, a.event.clientX, a.event.clientY);
+            const a = args as {
+                col: number;
+                row: number;
+                event?: { clientX: number; clientY: number };
+            };
+            if (a?.event)
+                showCellMenu(a.col, a.row, a.event.clientX, a.event.clientY);
         };
         const handleContextMenu = (args: unknown) => {
-            const a = args as { col: number; row: number; event?: { clientX: number; clientY: number; preventDefault?: () => void } };
+            const a = args as {
+                col: number;
+                row: number;
+                event?: {
+                    clientX: number;
+                    clientY: number;
+                    preventDefault?: () => void;
+                };
+            };
             if (a?.event) {
                 a.event.preventDefault?.();
                 showCellMenu(a.col, a.row, a.event.clientX, a.event.clientY);
             }
         };
         table.on(TABLE_EVENT_TYPE.CLICK_CELL, handleCellClick as () => void);
-        table.on(TABLE_EVENT_TYPE.CONTEXTMENU_CELL, handleContextMenu as () => void);
+        table.on(
+            TABLE_EVENT_TYPE.CONTEXTMENU_CELL,
+            handleContextMenu as () => void,
+        );
 
         return () => {
-            if (typeof (table as unknown as { release?: () => void }).release === 'function') {
+            if (
+                typeof (table as unknown as { release?: () => void })
+                    .release === 'function'
+            ) {
                 (table as unknown as { release: () => void }).release();
             }
             tableRef.current = null;
@@ -396,7 +458,12 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                         </Menu.Target>
                         <Menu.Dropdown>
                             <CellContextMenuComponent
-                                cell={cellMenuState.cell as Cell<ResultRow, ResultRow[0]>}
+                                cell={
+                                    cellMenuState.cell as Cell<
+                                        ResultRow,
+                                        ResultRow[0]
+                                    >
+                                }
                             />
                         </Menu.Dropdown>
                     </Menu>

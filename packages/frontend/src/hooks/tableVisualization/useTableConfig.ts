@@ -17,6 +17,8 @@ import {
     type ParametersValuesMap,
     type PivotConfig,
     type PivotData,
+    type PivotMetricHeaderPosition,
+    type TableCellAlignment,
     type TableChart,
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
@@ -84,6 +86,14 @@ const useTableConfig = (
 
     const [metricsAsRows, setMetricsAsRows] = useState<boolean>(
         tableChartConfig?.metricsAsRows || false,
+    );
+
+    const [pivotMetricHeaderPosition, setPivotMetricHeaderPosition] =
+        useState<PivotMetricHeaderPosition>(
+            tableChartConfig?.pivotMetricHeaderPosition ?? 'bottom',
+        );
+    const [cellAlignment, setCellAlignment] = useState<TableCellAlignment>(
+        tableChartConfig?.cellAlignment ?? 'left',
     );
 
     useEffect(() => {
@@ -558,6 +568,8 @@ const useTableConfig = (
             hideRowNumbers,
             conditionalFormattings,
             metricsAsRows,
+            pivotMetricHeaderPosition,
+            cellAlignment,
         }),
         [
             showColumnCalculation,
@@ -569,6 +581,8 @@ const useTableConfig = (
             columnProperties,
             conditionalFormattings,
             metricsAsRows,
+            pivotMetricHeaderPosition,
+            cellAlignment,
         ],
     );
 
@@ -605,6 +619,10 @@ const useTableConfig = (
             pivotTableData,
             metricsAsRows,
             setMetricsAsRows,
+            pivotMetricHeaderPosition,
+            setPivotMetricHeaderPosition,
+            cellAlignment,
+            setCellAlignment,
             isPivotTableEnabled,
             canUseSubtotals,
             groupedSubtotals,
@@ -641,6 +659,10 @@ const useTableConfig = (
             pivotTableData,
             metricsAsRows,
             setMetricsAsRows,
+            pivotMetricHeaderPosition,
+            setPivotMetricHeaderPosition,
+            cellAlignment,
+            setCellAlignment,
             isPivotTableEnabled,
             canUseSubtotals,
             groupedSubtotals,

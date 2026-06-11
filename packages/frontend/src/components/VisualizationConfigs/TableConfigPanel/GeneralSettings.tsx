@@ -1,5 +1,14 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
-import { Box, Checkbox, Stack, Switch, Tooltip } from '@mantine/core';
+import { type TableCellAlignment } from '@lightdash/common';
+import {
+    Box,
+    Checkbox,
+    Group,
+    SegmentedControl,
+    Stack,
+    Switch,
+    Tooltip,
+} from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,10 +20,7 @@ import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
 import { MAX_PIVOTS } from './constants';
 
-enum DroppableIds {
-    COLUMNS = 'COLUMNS',
-    ROWS = 'ROWS',
-}
+enum DroppableIds
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
@@ -67,6 +73,7 @@ const GeneralSettings: FC = () => {
             setShowColumnCalculation,
             setShowRowCalculation,
             setMetricsAsRows,
+            setPivotMetricHeaderPosition,
         } = chartConfig;
 
         const newValue = !metricsAsRows;
@@ -74,6 +81,7 @@ const GeneralSettings: FC = () => {
         if (newValue) {
             setShowColumnCalculation(showColumnCalculation);
             setShowRowCalculation(showRowCalculation);
+            setPivotMetricHeaderPosition('bottom');
         } else {
             setShowColumnCalculation(showColumnCalculation);
             setShowRowCalculation(showRowCalculation);
@@ -163,6 +171,10 @@ const GeneralSettings: FC = () => {
         showRowCalculation,
         showSubtotals,
         showTableNames,
+        pivotMetricHeaderPosition,
+        setPivotMetricHeaderPosition,
+        cellAlignment,
+        setCellAlignment,
     } = chartConfig;
 
     return (
@@ -241,6 +253,42 @@ const GeneralSettings: FC = () => {
                             />
                         </Box>
                     </Tooltip>
+                    <Tooltip
+                        disabled={
+                            !!isPivotTableEnabled &&
+                            !metricsAsRows &&
+                            metrics.length > 0
+                        }
+                        label={t(
+                            'components_visualization_configs_table.settings.pivot_metric_header_top_disabled',
+                        )}
+                        w={300}
+                        multiline
+                        withinPortal
+                        position="top-start"
+                    >
+                        <Box>
+                            <Switch
+                                disabled={
+                                    !isPivotTableEnabled ||
+                                    metricsAsRows ||
+                                    metrics.length === 0
+                                }
+                                label={t(
+                                    'components_visualization_configs_table.settings.pivot_metric_header_top',
+                                )}
+                                labelPosition="right"
+                                checked={pivotMetricHeaderPosition === 'top'}
+                                onChange={() =>
+                                    setPivotMetricHeaderPosition(
+                                        pivotMetricHeaderPosition === 'top'
+                                            ? 'bottom'
+                                            : 'top',
+                                    )
+                                }
+                            />
+                        </Box>
+                    </Tooltip>
                 </Config.Section>
             </Config.Section>
 
@@ -275,6 +323,47 @@ const GeneralSettings: FC = () => {
                         setHideRowNumbers(!hideRowNumbers);
                     }}
                 />
+            </Config.Section>
+
+            <Config.Section>
+                <Config.Heading>
+                    {t(
+                        'components_visualization_configs_table.settings.value_alignment',
+                    )}
+                </Config.Heading>
+                <Group spacing="xs">
+                    <Config.Label>
+                        {t(
+                            'components_visualization_configs_table.settings.alignment',
+                        )}
+                    </Config.Label>
+                    <SegmentedControl
+                        value={cellAlignment}
+                        onChange={(value: TableCellAlignment) =>
+                            setCellAlignment(value)
+                        }
+                        data={[
+                            {
+                                label: t(
+                                    'components_visualization_configs_table.settings.cell_alignment_left',
+                                ),
+                                value: 'left',
+                            },
+                            {
+                                label: t(
+                                    'components_visualization_configs_table.settings.cell_alignment_center',
+                                ),
+                                value: 'center',
+                            },
+                            {
+                                label: t(
+                                    'components_visualization_configs_table.settings.cell_alignment_right',
+                                ),
+                                value: 'right',
+                            },
+                        ]}
+                    />
+                </Group>
             </Config.Section>
 
             <Config.Section>

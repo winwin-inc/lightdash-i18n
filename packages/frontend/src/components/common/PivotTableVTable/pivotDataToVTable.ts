@@ -10,6 +10,8 @@ import {
     type ConditionalFormattingMinMaxMap,
     type ItemsMap,
     type PivotData,
+    type PivotMetricHeaderPosition,
+    type TableCellAlignment,
 } from '@lightdash/common';
 
 import { ROW_NUMBER_COLUMN_ID } from '../Table/constants';
@@ -33,6 +35,8 @@ export type PivotDataToVTableOptions = {
     minMaxMap?: ConditionalFormattingMinMaxMap;
     columnProperties?: Record<string, ColumnProperties>;
     getField?: (fieldId: string) => ItemsMap[string] | undefined;
+    pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+    cellAlignment?: TableCellAlignment;
 };
 
 /** customRender 条形图用：与 BarChartDisplay 一致的柱上/柱后文字与颜色 */
@@ -46,6 +50,10 @@ export type BarCustomRenderOptions = {
 
 /** 数据列（非条形图）最小宽度，避免合并表头下子列过窄导致表头文字省略 */
 const DATA_COLUMN_MIN_WIDTH = 88;
+/** 行维度列最小宽度，避免长维度值（如商品名称）被数据列挤压 */
+const DIMENSION_COLUMN_MIN_WIDTH = 160;
+
+type VTableCellStyle = Record<string, string | number | (number | string)[]>;
 
 export type VTableColumnDef = {
     field: string;
@@ -95,14 +103,8 @@ export type VTableColumnDef = {
         expectedWidth: number;
     };
     style?:
-        | {
-              barColor?: string;
-              barBgColor?: string;
-              barHeight?: number | string;
-              barPadding?: (number | string)[];
-              barBottom?: number | string;
-          }
-        | ((args: { row: number; col: number }) => Record<string, string>);
+        | VTableCellStyle
+        | ((args: { row: number; col: number }) => VTableCellStyle);
 };
 
 /** 分组表头：多级 columns */
@@ -158,8 +160,8 @@ function makeBarCustomRender(
             record?.[fieldId] != null
                 ? String(record[fieldId])
                 : args.value != null
-                ? String(args.value)
-                : '-'
+                  ? String(args.value)
+                  : '-'
         ) as string;
         const barNum = record?.[barValueFieldId];
         const num = typeof barNum === 'number' ? barNum : Number(barNum);
@@ -186,8 +188,8 @@ function makeBarCustomRender(
         const textX = showTextOnBar
             ? BAR_TEXT_PADDING
             : showBar
-            ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
-            : BAR_TEXT_PADDING;
+              ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
+              : BAR_TEXT_PADDING;
         const offsetY = Math.max(0, (cellH - BAR_RENDER_HEIGHT) / 2);
         const elements: ReturnType<
             NonNullable<VTableColumnDef['customRender']>
@@ -220,6 +222,75 @@ function makeBarCustomRender(
     };
 }
 
+/** 指标作为顶层表头时，按指标优先、再按各层维度值排序列索引（保留原始出现顺序） */
+function reorderColIndicesForMetricFirst(
+    data: PivotData,
+    colIndices: number[],
+    valueColumnStart: number,
+    getFieldLabel: (fieldId: string) => string | undefined,
+): number[] {
+    const headerValues = data.headerValues ?? [];
+    const nRows = headerValues.length;
+    if (nRows < 2) return colIndices;
+
+    const metricOrder: string[] = [];
+    const dimensionOrders: string[][] = Array.from(
+        { length: nRows - 1 },
+        () => [],
+    );
+
+    const getMetricKey = (headerColIndex: number): string => {
+        const cell = headerValues[nRows - 1]?.[headerColIndex];
+        if (!cell) return '';
+        return cell.type === 'label'
+            ? cell.fieldId
+            : getHeaderDisplay(cell, getFieldLabel);
+    };
+
+    const getDimensionKey = (
+        headerColIndex: number,
+        dimRow: number,
+    ): string => {
+        const cell = headerValues[dimRow]?.[headerColIndex];
+        return cell ? getHeaderDisplay(cell, getFieldLabel) : '';
+    };
+
+    [...colIndices]
+        .sort((a, b) => a - b)
+        .forEach((colIndex) => {
+            const headerColIndex = colIndex - valueColumnStart;
+            const metricKey = getMetricKey(headerColIndex);
+            if (metricKey && !metricOrder.includes(metricKey)) {
+                metricOrder.push(metricKey);
+            }
+            for (let r = 0; r < nRows - 1; r += 1) {
+                const dimKey = getDimensionKey(headerColIndex, r);
+                if (dimKey && !dimensionOrders[r].includes(dimKey)) {
+                    dimensionOrders[r].push(dimKey);
+                }
+            }
+        });
+
+    return [...colIndices].sort((a, b) => {
+        const headerColIndexA = a - valueColumnStart;
+        const headerColIndexB = b - valueColumnStart;
+        const metricCmp =
+            metricOrder.indexOf(getMetricKey(headerColIndexA)) -
+            metricOrder.indexOf(getMetricKey(headerColIndexB));
+        if (metricCmp !== 0) return metricCmp;
+
+        for (let r = 0; r < nRows - 1; r += 1) {
+            const dimCmp =
+                dimensionOrders[r].indexOf(
+                    getDimensionKey(headerColIndexA, r),
+                ) -
+                dimensionOrders[r].indexOf(getDimensionKey(headerColIndexB, r));
+            if (dimCmp !== 0) return dimCmp;
+        }
+        return a - b;
+    });
+}
+
 /**
  * 根据 headerValues 多级表头构建分组 column 树（仅数据列，不含维度列）
  * valueColumnStart: pivotColumnInfo 中「数据列」起始下标，headerValues 与数据列一一对应
@@ -230,12 +301,14 @@ function buildGroupedDataColumns(
     depth: number,
     colIndices: number[],
     valueColumnStart: number,
+    metricHeaderFirst = false,
 ): (VTableColumnDef | VTableColumnGroup)[] {
     const {
         getFieldLabel,
         minMaxMap = {},
         columnProperties = {},
         getField,
+        cellAlignment = 'left',
     } = options;
     const headerValues = data.headerValues ?? [];
     const pivotColumnInfo = data.retrofitData.pivotColumnInfo;
@@ -252,11 +325,15 @@ function buildGroupedDataColumns(
         const minMax = minMaxMap[baseId] ?? minMaxMap[col.fieldId];
         const isBarColumn =
             minMax && columnProperties[baseId]?.displayStyle === 'bar' && item;
-        const colDef: VTableColumnDef = { field: col.fieldId, title };
+        const colDef: VTableColumnDef = {
+            field: col.fieldId,
+            title,
+            style: { textAlign: cellAlignment },
+        };
         if (isBarColumn) {
             const isPercentageField = hasPercentageFormat(item);
-            const minVal = isPercentageField ? 0 : minMax?.min ?? 0;
-            const maxVal = isPercentageField ? 100 : minMax?.max ?? 100;
+            const minVal = isPercentageField ? 0 : (minMax?.min ?? 0);
+            const maxVal = isPercentageField ? 100 : (minMax?.max ?? 100);
             colDef.width = BAR_RENDER_WIDTH;
             colDef.customRender = makeBarCustomRender({
                 fieldId: col.fieldId,
@@ -274,8 +351,11 @@ function buildGroupedDataColumns(
         return colIndices.map((i) => makeLeafCol(i));
     }
 
-    const sorted = [...colIndices].sort((a, b) => a - b);
-    const row = headerValues[depth];
+    const sorted = metricHeaderFirst
+        ? [...colIndices]
+        : [...colIndices].sort((a, b) => a - b);
+    const headerRowIndex = metricHeaderFirst ? nRows - 1 - depth : depth;
+    const row = headerValues[headerRowIndex];
     const groups: { display: string; indices: number[] }[] = [];
     for (const i of sorted) {
         const headerColIndex = i - valueColumnStart;
@@ -307,6 +387,7 @@ function buildGroupedDataColumns(
                 depth + 1,
                 g.indices,
                 valueColumnStart,
+                metricHeaderFirst,
             );
             result.push({ title: g.display, columns: children });
         }
@@ -327,7 +408,12 @@ export function pivotDataToVTable(
         minMaxMap = {},
         columnProperties = {},
         getField,
+        pivotMetricHeaderPosition = 'bottom',
+        cellAlignment = 'left',
     } = options;
+
+    const metricHeaderFirst =
+        pivotMetricHeaderPosition === 'top' && !data.pivotConfig.metricsAsRows;
 
     const allDimensionsPivoted =
         data.indexValueTypes.length === 0 && data.titleFields[0]?.length === 1;
@@ -381,8 +467,18 @@ export function pivotDataToVTable(
             return {
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
+                minWidth: DIMENSION_COLUMN_MIN_WIDTH,
             };
         });
+
+    const groupedValueColIndices = metricHeaderFirst
+        ? reorderColIndicesForMetricFirst(
+              data,
+              valueColIndices,
+              valueColumnStart,
+              getFieldLabel,
+          )
+        : valueColIndices;
 
     const dataColumns: (VTableColumnDef | VTableColumnGroup)[] =
         useGroupedHeaders
@@ -390,49 +486,51 @@ export function pivotDataToVTable(
                   data,
                   options,
                   0,
-                  valueColIndices,
+                  groupedValueColIndices,
                   valueColumnStart,
+                  metricHeaderFirst,
               )
             : valueColumnStart >= 0
-            ? pivotColumnInfo
-                  .slice(valueColumnStart, valueColumnEnd)
-                  .map((col) => {
-                      const baseId =
-                          col.underlyingId || col.baseId || col.fieldId;
-                      const title = getFieldLabel(baseId) ?? col.fieldId;
-                      const item = getField?.(baseId);
-                      const minMax =
-                          minMaxMap[baseId] ?? minMaxMap[col.fieldId];
-                      const isBarColumn =
-                          minMax &&
-                          columnProperties[baseId]?.displayStyle === 'bar' &&
-                          item;
-                      const colDef: VTableColumnDef = {
-                          field: col.fieldId,
-                          title,
-                      };
-                      if (isBarColumn) {
-                          const isPercentageField = hasPercentageFormat(item);
-                          const minVal = isPercentageField
-                              ? 0
-                              : minMax?.min ?? 0;
-                          const maxVal = isPercentageField
-                              ? 100
-                              : minMax?.max ?? 100;
-                          colDef.width = BAR_RENDER_WIDTH;
-                          colDef.customRender = makeBarCustomRender({
-                              fieldId: col.fieldId,
-                              barValueFieldId:
-                                  col.fieldId + BAR_VALUE_FIELD_SUFFIX,
-                              min: minVal,
-                              max: maxVal,
-                          });
-                      } else {
-                          colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                      }
-                      return colDef;
-                  })
-            : [];
+              ? pivotColumnInfo
+                    .slice(valueColumnStart, valueColumnEnd)
+                    .map((col) => {
+                        const baseId =
+                            col.underlyingId || col.baseId || col.fieldId;
+                        const title = getFieldLabel(baseId) ?? col.fieldId;
+                        const item = getField?.(baseId);
+                        const minMax =
+                            minMaxMap[baseId] ?? minMaxMap[col.fieldId];
+                        const isBarColumn =
+                            minMax &&
+                            columnProperties[baseId]?.displayStyle === 'bar' &&
+                            item;
+                        const colDef: VTableColumnDef = {
+                            field: col.fieldId,
+                            title,
+                            style: { textAlign: cellAlignment },
+                        };
+                        if (isBarColumn) {
+                            const isPercentageField = hasPercentageFormat(item);
+                            const minVal = isPercentageField
+                                ? 0
+                                : (minMax?.min ?? 0);
+                            const maxVal = isPercentageField
+                                ? 100
+                                : (minMax?.max ?? 100);
+                            colDef.width = BAR_RENDER_WIDTH;
+                            colDef.customRender = makeBarCustomRender({
+                                fieldId: col.fieldId,
+                                barValueFieldId:
+                                    col.fieldId + BAR_VALUE_FIELD_SUFFIX,
+                                min: minVal,
+                                max: maxVal,
+                            });
+                        } else {
+                            colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+                        }
+                        return colDef;
+                    })
+              : [];
 
     const rowTotalColumns: VTableColumnDef[] =
         hasRowTotal && valueColumnEnd < pivotColumnInfo.length
@@ -440,6 +538,7 @@ export function pivotDataToVTable(
                   field: col.fieldId,
                   title:
                       getFieldLabel(col.baseId ?? col.fieldId) ?? col.fieldId,
+                  style: { textAlign: cellAlignment },
               }))
             : [];
 
@@ -483,16 +582,16 @@ export function pivotDataToVTable(
                         record[col.fieldId + BAR_VALUE_FIELD_SUFFIX] = barNum;
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : value.formatted ?? String(raw ?? '');
+                            : (value.formatted ?? String(raw ?? ''));
                     } else {
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : value.formatted ?? value.raw ?? '';
+                            : (value.formatted ?? value.raw ?? '');
                     }
                 } else {
                     record[col.fieldId] = item
                         ? formatItemValue(item, value?.raw)
-                        : value?.formatted ?? value?.raw ?? null ?? '';
+                        : (value?.formatted ?? value?.raw ?? null ?? '');
                 }
             });
 
@@ -530,8 +629,8 @@ export function pivotDataToVTable(
                     record[col.fieldId] = item
                         ? formatItemValue(item, total)
                         : typeof total === 'number'
-                        ? String(total)
-                        : (total as string);
+                          ? String(total)
+                          : (total as string);
                 });
 
                 return record;

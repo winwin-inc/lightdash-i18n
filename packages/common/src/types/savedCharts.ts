@@ -162,6 +162,11 @@ export type ColumnProperties = {
     displayStyle?: 'text' | 'bar';
 };
 
+/** 透视表列头中指标与维度值的上下层级，默认 dimension 在上 */
+export type PivotMetricHeaderPosition = 'bottom' | 'top';
+
+export type TableCellAlignment = 'left' | 'center' | 'right';
+
 export type TableChart = {
     showColumnCalculation?: boolean;
     showRowCalculation?: boolean;
@@ -172,6 +177,8 @@ export type TableChart = {
     columns?: Record<string, ColumnProperties>;
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;
+    pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+    cellAlignment?: TableCellAlignment;
 };
 
 export enum CartesianSeriesType {
