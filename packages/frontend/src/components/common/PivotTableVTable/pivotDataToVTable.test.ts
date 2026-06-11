@@ -1,7 +1,9 @@
 import { pivotQueryResults } from '@lightdash/common/src/pivot/pivotQueryResults';
 import {
     METRIC_QUERY_1DIM_2METRIC,
+    METRIC_QUERY_2DIM_2METRIC,
     RESULT_ROWS_1DIM_2METRIC,
+    RESULT_ROWS_2DIM_2METRIC,
 } from '@lightdash/common/src/pivot/pivotQueryResults.mock';
 
 import {
@@ -70,6 +72,16 @@ const getLeafDataColumns = (
     return leafColumns;
 };
 
+const getDimensionColumns = (
+    columns: (VTableColumnDef | VTableColumnGroup)[],
+): VTableColumnDef[] =>
+    columns.filter(
+        (col): col is VTableColumnDef =>
+            !isColumnGroup(col) &&
+            col.field !== '__pivot_spacer__' &&
+            !col.field.includes('__'),
+    );
+
 describe('pivotDataToVTable', () => {
     const pivotData = pivotQueryResults({
         pivotConfig: {
@@ -87,6 +99,36 @@ describe('pivotDataToVTable', () => {
         getFieldLabel: (fieldId: string) => fieldId,
         hideRowNumbers: true,
     };
+
+    const twoDimensionPivotData = pivotQueryResults({
+        pivotConfig: {
+            pivotDimensions: ['page'],
+            metricsAsRows: false,
+        },
+        metricQuery: METRIC_QUERY_2DIM_2METRIC,
+        rows: RESULT_ROWS_2DIM_2METRIC,
+        options: { maxColumns: 60 },
+        getFieldLabel: (fieldId) => fieldId,
+        getField: () => undefined,
+    });
+
+    const threeDimensionPivotData = pivotQueryResults({
+        pivotConfig: {
+            pivotDimensions: ['page'],
+            metricsAsRows: false,
+        },
+        metricQuery: {
+            ...METRIC_QUERY_2DIM_2METRIC,
+            dimensions: ['page', 'site', 'region'],
+        },
+        rows: RESULT_ROWS_2DIM_2METRIC.map((row) => ({
+            ...row,
+            region: { value: { raw: 'global', formatted: 'Global' } },
+        })),
+        options: { maxColumns: 60 },
+        getFieldLabel: (fieldId) => fieldId,
+        getField: () => undefined,
+    });
 
     it('默认将透视维度作为顶层分组表头', () => {
         const { columns } = pivotDataToVTable(pivotData, {
@@ -159,6 +201,39 @@ describe('pivotDataToVTable', () => {
 
         expect(getLeafDataColumns(columns).map((col) => col.style)).toEqual(
             Array.from({ length: 6 }, () => ({ textAlign: 'left' })),
+        );
+    });
+
+    it('默认布局不强制行维度列最小宽度', () => {
+        const { columns } = pivotDataToVTable(
+            twoDimensionPivotData,
+            baseOptions,
+        );
+
+        expect(getDimensionColumns(columns).map((col) => col.minWidth)).toEqual(
+            [undefined],
+        );
+    });
+
+    it('指标作为顶层表头且只有一个行维度时，保护行维度列宽', () => {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
+            ...baseOptions,
+            pivotMetricHeaderPosition: 'top',
+        });
+
+        expect(getDimensionColumns(columns).map((col) => col.minWidth)).toEqual(
+            [160],
+        );
+    });
+
+    it('多个行维度时不强制行维度列最小宽度', () => {
+        const { columns } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            pivotMetricHeaderPosition: 'top',
+        });
+
+        expect(getDimensionColumns(columns).map((col) => col.minWidth)).toEqual(
+            [undefined, undefined],
         );
     });
 });

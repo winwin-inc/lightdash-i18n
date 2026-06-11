@@ -457,19 +457,24 @@ export function pivotDataToVTable(
         });
     }
 
-    const dimensionColumns: VTableColumnDef[] = pivotColumnInfo
-        .slice(
-            0,
-            valueColumnStart >= 0 ? valueColumnStart : pivotColumnInfo.length,
-        )
-        .map((col) => {
+    const rawDimensionColumns = pivotColumnInfo.slice(
+        0,
+        valueColumnStart >= 0 ? valueColumnStart : pivotColumnInfo.length,
+    );
+    const shouldProtectDimensionColumnWidth =
+        metricHeaderFirst && rawDimensionColumns.length === 1;
+    const dimensionColumns: VTableColumnDef[] = rawDimensionColumns.map(
+        (col) => {
             const baseId = col.underlyingId || col.baseId || col.fieldId;
             return {
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
-                minWidth: DIMENSION_COLUMN_MIN_WIDTH,
+                ...(shouldProtectDimensionColumnWidth
+                    ? { minWidth: DIMENSION_COLUMN_MIN_WIDTH }
+                    : {}),
             };
-        });
+        },
+    );
 
     const groupedValueColIndices = metricHeaderFirst
         ? reorderColIndicesForMetricFirst(
