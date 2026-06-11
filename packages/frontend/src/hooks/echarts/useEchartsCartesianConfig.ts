@@ -1862,37 +1862,28 @@ const getEchartAxes = ({
                 ...(() => {
                     const baseConfig = getAxisFormatterConfig({
                         axisItem: leftAxisYField,
-                        defaultNameGap: isMobile
-                            ? Math.max(
-                                  20,
-                                  (leftYaxisGap + defaultAxisLabelGap) * 0.7,
-                              ) // 移动端减少 30% 的 nameGap
-                            : leftYaxisGap + defaultAxisLabelGap,
+                        defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
                         show: showYAxis,
                     });
 
-                    // 移动端优化：减小 Y 轴标题和标签字体大小
+                    // 移动端仅缩小字体，保留轴标题与轴线之间的距离。
                     if (isMobile && showYAxis) {
                         return {
                             ...baseConfig,
                             nameTextStyle: baseConfig.nameTextStyle
                                 ? {
                                       ...baseConfig.nameTextStyle,
-                                      fontSize: 11, // 移动端减小标题字体
+                                      fontSize: 11,
                                   }
                                 : {
                                       fontSize: 11,
                                       fontWeight: 'bold',
                                       align: 'center',
                                   },
-                            nameGap: Math.max(
-                                15,
-                                (leftYaxisGap + defaultAxisLabelGap) * 0.6,
-                            ),
                             axisLabel: baseConfig.axisLabel
                                 ? {
                                       ...baseConfig.axisLabel,
-                                      fontSize: 10, // 移动端减小标签字体
+                                      fontSize: 10,
                                   }
                                 : {
                                       fontSize: 10,
