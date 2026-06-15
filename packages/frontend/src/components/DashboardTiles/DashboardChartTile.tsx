@@ -6,7 +6,6 @@ import {
     DashboardTileTypes,
     ECHARTS_DEFAULT_COLORS,
     FeatureFlags,
-    getCustomLabelsFromTableConfig,
     getDimensions,
     getFields,
     getHiddenTableFields,
@@ -22,6 +21,7 @@ import {
     type ApiError,
     type Dashboard,
     type DashboardFilterRule,
+    type Explore,
     type FilterDashboardToRule,
     type DashboardChartTile as IDashboardChartTile,
     type ItemsMap,
@@ -122,19 +122,21 @@ import EditChartMenuItem from './EditChartMenuItem';
 import ExportDataModal from './ExportDataModal';
 import TileBase from './TileBase/index';
 import { UnderlyingDataMenuItem } from './UnderlyingDataMenuItem';
+import {
+    getChartExportCustomLabels,
+    getChartExportItemsMap,
+    getChartExportShowTableNames,
+} from './dashboardChartExportUtils';
 
 interface ExportGoogleSheetProps {
     savedChart: SavedChart;
+    explore?: Explore;
     disabled?: boolean;
 }
 
-const getChartExportShowTableNames = (savedChart: SavedChart): boolean =>
-    isTableChartConfig(savedChart.chartConfig.config)
-        ? (savedChart.chartConfig.config.showTableNames ?? false)
-        : false;
-
 const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
     savedChart,
+    explore,
     disabled,
 }) => {
     const getGsheetLink = async () => {
@@ -144,8 +146,9 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
             showTableNames: getChartExportShowTableNames(savedChart),
-            customLabels: getCustomLabelsFromTableConfig(
-                savedChart.chartConfig.config,
+            customLabels: getChartExportCustomLabels(
+                savedChart,
+                getChartExportItemsMap(savedChart, explore),
             ),
             hiddenFields: getHiddenTableFields(savedChart.chartConfig),
             pivotConfig: getPivotConfig(savedChart),
@@ -953,6 +956,15 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         [],
     );
 
+    const chartExportCustomLabels = useMemo(
+        () =>
+            getChartExportCustomLabels(
+                chart,
+                getChartExportItemsMap(chart, explore),
+            ),
+        [chart, explore],
+    );
+
     return (
         <>
             <TileBase
@@ -1303,6 +1315,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                                 savedChart={
                                                     chartWithDashboardFilters
                                                 }
+                                                explore={explore}
                                                 disabled={isEditMode}
                                             />
                                         )}
@@ -1483,9 +1496,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                 showTableNames={getChartExportShowTableNames(chart)}
                 chartName={title || chart.name}
                 columnOrder={chart.tableConfig.columnOrder}
-                customLabels={getCustomLabelsFromTableConfig(
-                    chart.chartConfig.config,
-                )}
+                customLabels={chartExportCustomLabels}
                 hiddenFields={getHiddenTableFields(chart.chartConfig)}
                 pivotConfig={getPivotConfig(chart)}
             />
@@ -1629,6 +1640,15 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         [],
     );
 
+    const chartExportCustomLabels = useMemo(
+        () =>
+            getChartExportCustomLabels(
+                chart,
+                getChartExportItemsMap(chart, explore),
+            ),
+        [chart, explore],
+    );
+
     // For minimal tiles, we can reuse the existing queryUuid from dashboardChartReadyQuery
     const getDownloadQueryUuid = useCallback(
         async (_limit: number | null): Promise<string> => {
@@ -1758,9 +1778,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
                     showTableNames={getChartExportShowTableNames(chart)}
                     chartName={title || chart.name}
                     columnOrder={chart.tableConfig.columnOrder}
-                    customLabels={getCustomLabelsFromTableConfig(
-                        chart.chartConfig.config,
-                    )}
+                    customLabels={chartExportCustomLabels}
                     hiddenFields={getHiddenTableFields(chart.chartConfig)}
                     pivotConfig={getPivotConfig(chart)}
                 />
