@@ -105,6 +105,10 @@ const useTableConfig = (
     const [cellAlignment, setCellAlignment] = useState<TableCellAlignment>(
         tableChartConfig?.cellAlignment ?? 'left',
     );
+    const [pivotRowDimensionAlignment, setPivotRowDimensionAlignment] =
+        useState<TableCellAlignment>(
+            tableChartConfig?.pivotRowDimensionAlignment ?? 'left',
+        );
 
     useEffect(() => {
         hasUserSetShowTableNames.current = false;
@@ -630,6 +634,7 @@ const useTableConfig = (
             metricsAsRows,
             pivotMetricHeaderPosition,
             cellAlignment,
+            pivotRowDimensionAlignment,
         }),
         [
             showColumnCalculation,
@@ -643,6 +648,7 @@ const useTableConfig = (
             metricsAsRows,
             pivotMetricHeaderPosition,
             cellAlignment,
+            pivotRowDimensionAlignment,
         ],
     );
 
@@ -683,6 +689,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             cellAlignment,
             setCellAlignment,
+            pivotRowDimensionAlignment,
+            setPivotRowDimensionAlignment,
             isPivotTableEnabled,
             canUseSubtotals,
             groupedSubtotals,
@@ -723,6 +731,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             cellAlignment,
             setCellAlignment,
+            pivotRowDimensionAlignment,
+            setPivotRowDimensionAlignment,
             isPivotTableEnabled,
             canUseSubtotals,
             groupedSubtotals,

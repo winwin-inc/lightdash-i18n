@@ -145,6 +145,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         showSubtotals,
         pivotMetricHeaderPosition,
         cellAlignment,
+        pivotRowDimensionAlignment,
     } = visualizationConfig.chartConfig;
 
     if (pivotTableData.error) {
@@ -220,6 +221,9 @@ const SimpleTable: FC<SimpleTableProps> = ({
                                 pivotMetricHeaderPosition
                             }
                             cellAlignment={cellAlignment}
+                            pivotRowDimensionAlignment={
+                                pivotRowDimensionAlignment
+                            }
                             cellContextMenu={cellContextMenu}
                             {...rest}
                         />

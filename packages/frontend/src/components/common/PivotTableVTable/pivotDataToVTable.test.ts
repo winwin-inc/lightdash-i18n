@@ -82,6 +82,11 @@ const getDimensionColumns = (
             !col.field.includes('__'),
     );
 
+const getMetricValueLeafColumns = (
+    columns: (VTableColumnDef | VTableColumnGroup)[],
+): VTableColumnDef[] =>
+    getLeafDataColumns(columns).filter((col) => col.field.includes('__'));
+
 describe('pivotDataToVTable', () => {
     const pivotData = pivotQueryResults({
         pivotConfig: {
@@ -186,22 +191,51 @@ describe('pivotDataToVTable', () => {
     });
 
     it('仅对数据列应用单元格对齐方式', () => {
-        const { columns } = pivotDataToVTable(pivotData, {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
             ...baseOptions,
             cellAlignment: 'right',
         });
 
-        expect(getLeafDataColumns(columns).map((col) => col.style)).toEqual(
-            Array.from({ length: 6 }, () => ({ textAlign: 'right' })),
+        expect(getDimensionColumns(columns).map((col) => col.style)).toEqual([
+            { textAlign: 'left' },
+        ]);
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
+    });
+
+    it('对行维度列应用行维度对齐配置', () => {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
+            ...baseOptions,
+            pivotRowDimensionAlignment: 'center',
+            cellAlignment: 'right',
+        });
+
+        expect(getDimensionColumns(columns).map((col) => col.style)).toEqual([
+            { textAlign: 'center' },
+        ]);
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
+    });
+
+    it('行维度列默认左对齐', () => {
+        const { columns } = pivotDataToVTable(
+            twoDimensionPivotData,
+            baseOptions,
         );
+
+        expect(getDimensionColumns(columns).map((col) => col.style)).toEqual([
+            { textAlign: 'left' },
+        ]);
     });
 
     it('数据列默认左对齐', () => {
         const { columns } = pivotDataToVTable(pivotData, baseOptions);
 
-        expect(getLeafDataColumns(columns).map((col) => col.style)).toEqual(
-            Array.from({ length: 6 }, () => ({ textAlign: 'left' })),
-        );
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'left' })));
     });
 
     it('默认布局不强制行维度列最小宽度', () => {

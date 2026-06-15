@@ -5108,6 +5108,7 @@
             "cell_alignment_left": "Left",
             "cell_alignment_center": "Center",
             "cell_alignment_right": "Right",
+            "pivot_row_dimension_alignment": "Row dimension alignment",
             "results": "Results",
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",

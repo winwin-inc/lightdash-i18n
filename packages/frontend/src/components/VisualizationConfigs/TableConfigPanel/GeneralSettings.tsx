@@ -20,10 +20,7 @@ import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
 import { MAX_PIVOTS } from './constants';
 
-enum DroppableIds {
-    COLUMNS = 'COLUMNS',
-    ROWS = 'ROWS',
-}
+enum DroppableIds
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
@@ -178,6 +175,8 @@ const GeneralSettings: FC = () => {
         setPivotMetricHeaderPosition,
         cellAlignment,
         setCellAlignment,
+        pivotRowDimensionAlignment,
+        setPivotRowDimensionAlignment,
     } = chartConfig;
 
     return (
@@ -334,39 +333,76 @@ const GeneralSettings: FC = () => {
                         'components_visualization_configs_table.settings.value_alignment',
                     )}
                 </Config.Heading>
-                <Group spacing="xs">
-                    <Config.Label>
-                        {t(
-                            'components_visualization_configs_table.settings.alignment',
-                        )}
-                    </Config.Label>
-                    <SegmentedControl
-                        value={cellAlignment}
-                        onChange={(value: TableCellAlignment) =>
-                            setCellAlignment(value)
-                        }
-                        data={[
-                            {
-                                label: t(
-                                    'components_visualization_configs_table.settings.cell_alignment_left',
-                                ),
-                                value: 'left',
-                            },
-                            {
-                                label: t(
-                                    'components_visualization_configs_table.settings.cell_alignment_center',
-                                ),
-                                value: 'center',
-                            },
-                            {
-                                label: t(
-                                    'components_visualization_configs_table.settings.cell_alignment_right',
-                                ),
-                                value: 'right',
-                            },
-                        ]}
-                    />
-                </Group>
+                <Stack spacing={4}>
+                    <Group spacing="xs" noWrap>
+                        <Config.Label>
+                            {t(
+                                'components_visualization_configs_table.settings.alignment',
+                            )}
+                        </Config.Label>
+                        <SegmentedControl
+                            value={cellAlignment}
+                            onChange={(value: TableCellAlignment) =>
+                                setCellAlignment(value)
+                            }
+                            data={[
+                                {
+                                    label: t(
+                                        'components_visualization_configs_table.settings.cell_alignment_left',
+                                    ),
+                                    value: 'left',
+                                },
+                                {
+                                    label: t(
+                                        'components_visualization_configs_table.settings.cell_alignment_center',
+                                    ),
+                                    value: 'center',
+                                },
+                                {
+                                    label: t(
+                                        'components_visualization_configs_table.settings.cell_alignment_right',
+                                    ),
+                                    value: 'right',
+                                },
+                            ]}
+                        />
+                    </Group>
+                    {isPivotTableEnabled ? (
+                        <Group spacing="xs" noWrap>
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_table.settings.pivot_row_dimension_alignment',
+                                )}
+                            </Config.Label>
+                            <SegmentedControl
+                                value={pivotRowDimensionAlignment}
+                                onChange={(value: TableCellAlignment) =>
+                                    setPivotRowDimensionAlignment(value)
+                                }
+                                data={[
+                                    {
+                                        label: t(
+                                            'components_visualization_configs_table.settings.cell_alignment_left',
+                                        ),
+                                        value: 'left',
+                                    },
+                                    {
+                                        label: t(
+                                            'components_visualization_configs_table.settings.cell_alignment_center',
+                                        ),
+                                        value: 'center',
+                                    },
+                                    {
+                                        label: t(
+                                            'components_visualization_configs_table.settings.cell_alignment_right',
+                                        ),
+                                        value: 'right',
+                                    },
+                                ]}
+                            />
+                        </Group>
+                    ) : null}
+                </Stack>
             </Config.Section>
 
             <Config.Section>

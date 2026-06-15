@@ -5103,6 +5103,7 @@
             "cell_alignment_left": "靠左",
             "cell_alignment_center": "居中",
             "cell_alignment_right": "靠右",
+            "pivot_row_dimension_alignment": "行维度对齐",
             "results": "结果",
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",

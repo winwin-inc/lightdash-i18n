@@ -141,6 +141,7 @@ export type PivotTableVTableProps = BoxProps &
         columnProperties?: Record<string, ColumnProperties>;
         pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
         cellAlignment?: TableCellAlignment;
+        pivotRowDimensionAlignment?: TableCellAlignment;
         cellContextMenu?: FC<React.PropsWithChildren<CellContextMenuProps>>;
     };
 
@@ -154,6 +155,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     columnProperties = {},
     pivotMetricHeaderPosition = 'bottom',
     cellAlignment = 'left',
+    pivotRowDimensionAlignment = 'left',
     cellContextMenu: CellContextMenuComponent,
     className,
     ...boxProps
@@ -207,6 +209,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             getField,
             pivotMetricHeaderPosition,
             cellAlignment,
+            pivotRowDimensionAlignment,
         });
 
         const allRecords = [
@@ -286,6 +289,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         minMaxMap,
         pivotMetricHeaderPosition,
         cellAlignment,
+        pivotRowDimensionAlignment,
     ]);
 
     useEffect(() => {

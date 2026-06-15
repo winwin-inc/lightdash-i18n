@@ -1,6 +1,7 @@
 import { assertUnreachable, ChartType } from '@lightdash/common';
 import {
     ActionIcon,
+    Box,
     Divider,
     Group,
     Loader,
@@ -104,7 +105,9 @@ const VisualizationConfig: FC<Props> = ({ chartType, onClose }) => {
                 type="hover"
                 scrollbarSize={8}
             >
-                <ConfigTab />
+                <Box pb="xl">
+                    <ConfigTab />
+                </Box>
             </ScrollArea>
         </>
     );

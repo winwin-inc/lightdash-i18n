@@ -179,6 +179,7 @@ export type TableChart = {
     metricsAsRows?: boolean;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
     cellAlignment?: TableCellAlignment;
+    pivotRowDimensionAlignment?: TableCellAlignment;
 };
 
 export enum CartesianSeriesType {

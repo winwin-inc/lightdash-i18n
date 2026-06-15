@@ -37,6 +37,7 @@ export type PivotDataToVTableOptions = {
     getField?: (fieldId: string) => ItemsMap[string] | undefined;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
     cellAlignment?: TableCellAlignment;
+    pivotRowDimensionAlignment?: TableCellAlignment;
 };
 
 /** customRender 条形图用：与 BarChartDisplay 一致的柱上/柱后文字与颜色 */
@@ -410,6 +411,7 @@ export function pivotDataToVTable(
         getField,
         pivotMetricHeaderPosition = 'bottom',
         cellAlignment = 'left',
+        pivotRowDimensionAlignment = 'left',
     } = options;
 
     const metricHeaderFirst =
@@ -469,6 +471,7 @@ export function pivotDataToVTable(
             return {
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
+                style: { textAlign: pivotRowDimensionAlignment },
                 ...(shouldProtectDimensionColumnWidth
                     ? { minWidth: DIMENSION_COLUMN_MIN_WIDTH }
                     : {}),

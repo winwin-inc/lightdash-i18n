@@ -245,4 +245,24 @@ describe('useTableConfig', () => {
             'Orders Custom Column A',
         );
     });
+
+    it('should persist pivotRowDimensionAlignment after reopening table configuration', () => {
+        const { result } = renderTableConfigHook({
+            pivotRowDimensionAlignment: 'center',
+        });
+
+        expect(result.current.pivotRowDimensionAlignment).toBe('center');
+        expect(result.current.validConfig.pivotRowDimensionAlignment).toBe(
+            'center',
+        );
+
+        const persistedTableChartConfig = result.current.validConfig;
+        const { result: reopenedResult } = renderTableConfigHook(
+            persistedTableChartConfig,
+        );
+
+        expect(reopenedResult.current.pivotRowDimensionAlignment).toBe(
+            'center',
+        );
+    });
 });
