@@ -23,7 +23,7 @@ import {
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
 import uniq from 'lodash/uniq';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
 import { useCalculateSubtotals } from '../useCalculateSubtotals';
 import { useCalculateTotal } from '../useCalculateTotal';
@@ -72,6 +72,16 @@ const useTableConfig = (
             ? true
             : tableChartConfig.showTableNames,
     );
+    const hasUserSetShowTableNames = useRef(false);
+    const hasAutoDetectedShowTableNames = useRef(false);
+
+    const handleSetShowTableNames = useCallback(
+        (value: boolean | ((prev: boolean) => boolean)) => {
+            hasUserSetShowTableNames.current = true;
+            setShowTableNames(value);
+        },
+        [],
+    );
     const [showResultsTotal, setShowResultsTotal] = useState<boolean>(
         tableChartConfig?.showResultsTotal ?? false,
     );
@@ -97,20 +107,51 @@ const useTableConfig = (
     );
 
     useEffect(() => {
+        hasUserSetShowTableNames.current = false;
+        hasAutoDetectedShowTableNames.current = false;
+    }, [savedChartUuid]);
+
+    useEffect(() => {
+        if (tableChartConfig?.showTableNames !== undefined) {
+            const configuredShowTableNames = tableChartConfig.showTableNames;
+
+            setShowTableNames((current) =>
+                current === configuredShowTableNames
+                    ? current
+                    : configuredShowTableNames,
+            );
+            hasAutoDetectedShowTableNames.current = true;
+        }
+    }, [tableChartConfig?.showTableNames]);
+
+    useEffect(() => {
         if (
-            tableChartConfig?.showTableNames === undefined &&
-            itemsMap !== undefined
+            hasUserSetShowTableNames.current ||
+            hasAutoDetectedShowTableNames.current
         ) {
-            const hasItemsFromMultipleTables =
-                Object.values(itemsMap).reduce<string[]>((acc, item) => {
-                    if (isField(item)) {
-                        acc.push(item.table);
-                    }
-                    return uniq(acc);
-                }, []).length > 0;
-            if (hasItemsFromMultipleTables) {
-                setShowTableNames(true);
-            }
+            return;
+        }
+        if (tableChartConfig?.showTableNames !== undefined) {
+            return;
+        }
+        if (itemsMap === undefined) {
+            return;
+        }
+
+        const uniqueTableCount = Object.values(itemsMap).reduce<string[]>(
+            (acc, item) => {
+                if (isField(item)) {
+                    acc.push(item.table);
+                }
+                return uniq(acc);
+            },
+            [],
+        ).length;
+
+        hasAutoDetectedShowTableNames.current = true;
+
+        if (uniqueTableCount > 1) {
+            setShowTableNames(true);
         }
     }, [itemsMap, tableChartConfig?.showTableNames]);
 
@@ -154,11 +195,28 @@ const useTableConfig = (
 
     const getFieldLabel = useCallback(
         (fieldId: string | null | undefined) => {
-            return (
-                getFieldLabelOverride(fieldId) || getFieldLabelDefault(fieldId)
-            );
+            const labelOverride = getFieldLabelOverride(fieldId);
+
+            if (!labelOverride) {
+                return getFieldLabelDefault(fieldId);
+            }
+
+            const item = fieldId && itemsMap ? itemsMap[fieldId] : undefined;
+
+            if (isField(item) && showTableNames) {
+                const tableNamePrefix = `${item.tableLabel} `;
+                const labelWithoutTableName = labelOverride.startsWith(
+                    tableNamePrefix,
+                )
+                    ? labelOverride.slice(tableNamePrefix.length)
+                    : labelOverride;
+
+                return `${item.tableLabel} ${labelWithoutTableName}`;
+            }
+
+            return labelOverride;
         },
-        [getFieldLabelOverride, getFieldLabelDefault],
+        [getFieldLabelOverride, getFieldLabelDefault, itemsMap, showTableNames],
     );
 
     // This is controlled by the state in this component.
@@ -287,6 +345,7 @@ const useTableConfig = (
             showTableNames,
             getFieldLabelOverride,
             columnProperties,
+            cellAlignment,
             isColumnFrozen,
             columnOrder,
             totals: totalCalculations,
@@ -300,6 +359,7 @@ const useTableConfig = (
         columnProperties,
         isColumnVisible,
         showTableNames,
+        cellAlignment,
         isColumnFrozen,
         getFieldLabelOverride,
         totalCalculations,
@@ -596,7 +656,7 @@ const useTableConfig = (
             showRowCalculation,
             setShowRowCalculation,
             showTableNames,
-            setShowTableNames,
+            setShowTableNames: handleSetShowTableNames,
             hideRowNumbers,
             setHideRowNumbers,
             showResultsTotal,
@@ -636,7 +696,7 @@ const useTableConfig = (
             showRowCalculation,
             setShowRowCalculation,
             showTableNames,
-            setShowTableNames,
+            handleSetShowTableNames,
             hideRowNumbers,
             setHideRowNumbers,
             showResultsTotal,

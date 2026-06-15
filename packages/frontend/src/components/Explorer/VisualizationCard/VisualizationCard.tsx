@@ -1,10 +1,9 @@
 import { subject } from '@casl/ability';
 import {
     ECHARTS_DEFAULT_COLORS,
-    getHiddenTableFields,
-    getPivotConfig,
     NotFoundError,
     type ApiErrorDetail,
+    type PivotConfig,
 } from '@lightdash/common';
 import { Button, Flex } from '@mantine/core';
 import {
@@ -227,6 +226,8 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         exportColumnOrder: string[],
         showTableNames: boolean,
         customLabels?: Record<string, string>,
+        hiddenFields?: string[],
+        exportPivotConfig?: PivotConfig,
     ) => {
         if (explore?.name && unsavedChartVersion?.metricQuery && projectUuid) {
             const gsheetResponse = await uploadGsheet({
@@ -236,10 +237,8 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                 columnOrder: exportColumnOrder,
                 showTableNames,
                 customLabels,
-                hiddenFields: getHiddenTableFields(
-                    unsavedChartVersion.chartConfig,
-                ),
-                pivotConfig: getPivotConfig(unsavedChartVersion),
+                hiddenFields,
+                pivotConfig: exportPivotConfig,
             });
             return gsheetResponse;
         }

@@ -213,6 +213,7 @@ export const Td = styled.td<{
     $maxWidth?: string;
     $minWidth?: string;
     $width?: string;
+    $textAlign?: string;
 }>`
     ${({ $width }) => ($width ? `width: ${$width};` : '')}
     max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
@@ -241,6 +242,9 @@ export const Td = styled.td<{
             : ''}
 
     ${CellStyles}
+
+    ${({ $textAlign }) =>
+        $textAlign ? `text-align: ${$textAlign} !important;` : ''}
 
     ${({ $hasUrls }) =>
         $hasUrls

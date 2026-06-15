@@ -314,7 +314,7 @@ const GeneralSettings: FC = () => {
                     )}
                     checked={showTableNames}
                     onChange={() => {
-                        setShowTableNames(!showTableNames);
+                        setShowTableNames((current) => !current);
                     }}
                 />
                 <Checkbox

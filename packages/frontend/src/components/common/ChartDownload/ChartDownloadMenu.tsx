@@ -4,7 +4,9 @@ import {
     getCustomLabelsFromColumnProperties,
     getHiddenTableFields,
     getPivotConfig,
+    isField,
     type ApiScheduledDownloadCsv,
+    type ChartConfig,
 } from '@lightdash/common';
 import { ActionIcon, Popover } from '@mantine/core';
 import { IconShare2 } from '@tabler/icons-react';
@@ -33,6 +35,8 @@ export type ChartDownloadMenuProps = {
         columnOrder: string[],
         showTableNames: boolean,
         customLabels?: Record<string, string>,
+        hiddenFields?: string[],
+        pivotConfig?: ReturnType<typeof getPivotConfig>,
     ) => Promise<ApiScheduledDownloadCsv>;
 };
 
@@ -45,6 +49,7 @@ const ChartDownloadMenu: React.FC<ChartDownloadMenuProps> = memo(
             pivotDimensions,
             chartConfig,
             columnOrder,
+            itemsMap,
         } = useVisualizationContext();
 
         const eChartsOptions = useEchartsCartesianConfig();
@@ -62,16 +67,62 @@ const ChartDownloadMenu: React.FC<ChartDownloadMenuProps> = memo(
             [chartRef],
         );
 
-        // Build pivot config with pivot dimensions
-        const pivotConfig = getPivotConfig({
-            chartConfig,
+        const exportChartConfig: ChartConfig = isTableVisualizationConfig(
+            visualizationConfig,
+        )
+            ? {
+                  type: ChartType.TABLE,
+                  config: visualizationConfig.chartConfig.validConfig,
+              }
+            : chartConfig;
+
+        const exportColumnOrder = isTableVisualizationConfig(
+            visualizationConfig,
+        )
+            ? visualizationConfig.chartConfig.columnOrder
+            : columnOrder;
+
+        const exportHiddenFields = getHiddenTableFields(exportChartConfig);
+        const exportShowTableNames = isTableVisualizationConfig(
+            visualizationConfig,
+        )
+            ? visualizationConfig.chartConfig.showTableNames
+            : false;
+        const exportCustomLabels = isTableVisualizationConfig(
+            visualizationConfig,
+        )
+            ? Object.fromEntries(
+                  Object.entries(
+                      getCustomLabelsFromColumnProperties(
+                          visualizationConfig.chartConfig.columnProperties,
+                      ) ?? {},
+                  ).map(([fieldId, label]) => {
+                      const item = itemsMap?.[fieldId];
+                      const tableNamePrefix =
+                          isField(item) && exportShowTableNames
+                              ? `${item.tableLabel} `
+                              : '';
+
+                      return [
+                          fieldId,
+                          tableNamePrefix && !label.startsWith(tableNamePrefix)
+                              ? `${tableNamePrefix}${label}`
+                              : label,
+                      ];
+                  }),
+              )
+            : undefined;
+
+        // Build pivot config with the current preview config and pivot dimensions.
+        const exportPivotConfig = getPivotConfig({
+            chartConfig: exportChartConfig,
             pivotConfig: pivotDimensions
                 ? {
                       columns: pivotDimensions,
                   }
                 : undefined,
             tableConfig: {
-                columnOrder,
+                columnOrder: exportColumnOrder,
             },
         });
 
@@ -112,37 +163,22 @@ const ChartDownloadMenu: React.FC<ChartDownloadMenuProps> = memo(
                             projectUuid={projectUuid}
                             totalResults={resultsData?.totalResults}
                             getDownloadQueryUuid={getChartDownloadQueryUuid}
-                            columnOrder={
-                                visualizationConfig.chartConfig.columnOrder
-                            }
-                            customLabels={getCustomLabelsFromColumnProperties(
-                                visualizationConfig.chartConfig
-                                    .columnProperties,
-                            )}
-                            hiddenFields={getHiddenTableFields({
-                                type: ChartType.TABLE,
-                                config: visualizationConfig.chartConfig
-                                    .validConfig,
-                            })}
-                            showTableNames={
-                                visualizationConfig.chartConfig.showTableNames
-                            }
+                            columnOrder={exportColumnOrder}
+                            customLabels={exportCustomLabels}
+                            hiddenFields={exportHiddenFields}
+                            showTableNames={exportShowTableNames}
                             chartName={chartName}
-                            pivotConfig={pivotConfig}
+                            pivotConfig={exportPivotConfig}
                             getGsheetLink={
                                 getGsheetLink === undefined
                                     ? undefined
                                     : () =>
                                           getGsheetLink(
-                                              visualizationConfig.chartConfig
-                                                  .columnOrder,
-                                              visualizationConfig.chartConfig
-                                                  .showTableNames,
-                                              getCustomLabelsFromColumnProperties(
-                                                  visualizationConfig
-                                                      .chartConfig
-                                                      .columnProperties,
-                                              ),
+                                              exportColumnOrder,
+                                              exportShowTableNames,
+                                              exportCustomLabels,
+                                              exportHiddenFields,
+                                              exportPivotConfig,
                                           )
                             }
                         />

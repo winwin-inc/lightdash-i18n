@@ -131,4 +131,118 @@ describe('useTableConfig', () => {
             reopenedResult.current.getFieldLabelOverride('orders_col_b'),
         ).toBe('Custom Column B');
     });
+
+    it('should keep showTableNames false after user toggles it off', () => {
+        const multiTableItemsMap = {
+            ...itemsMap,
+            customers_col_c: {
+                fieldType: 'dimension',
+                type: 'string',
+                name: 'col_c',
+                table: 'customers',
+                tableLabel: 'Customers',
+                label: 'Col C',
+                hidden: false,
+                sql: '${TABLE}.col_c',
+            },
+        } as unknown as ItemsMap;
+
+        const multiTableResultsData = {
+            ...resultsData,
+            fields: multiTableItemsMap,
+            metricQuery: {
+                ...metricQuery,
+                dimensions: [...columnOrder, 'customers_col_c'],
+            },
+        } as typeof resultsData;
+
+        const { result, rerender } = renderHook(
+            ({ config, fields }) =>
+                useTableConfig(
+                    config,
+                    multiTableResultsData,
+                    fields,
+                    [...columnOrder, 'customers_col_c'],
+                    ['orders_col_a'],
+                    1000,
+                ),
+            {
+                initialProps: {
+                    config: undefined as TableChart | undefined,
+                    fields: multiTableItemsMap,
+                },
+            },
+        );
+
+        expect(result.current.showTableNames).toBe(true);
+
+        act(() => {
+            result.current.setShowTableNames(false);
+        });
+
+        expect(result.current.showTableNames).toBe(false);
+        expect(result.current.validConfig.showTableNames).toBe(false);
+
+        rerender({
+            config: undefined,
+            fields: { ...multiTableItemsMap },
+        });
+
+        expect(result.current.showTableNames).toBe(false);
+    });
+
+    it('should sync showTableNames from saved chart config', () => {
+        const { result, rerender } = renderHook(
+            ({ config }: { config: TableChart | undefined }) =>
+                useTableConfig(
+                    config,
+                    resultsData,
+                    itemsMap,
+                    columnOrder,
+                    ['orders_col_a'],
+                    1000,
+                ),
+            { initialProps: { config: undefined as TableChart | undefined } },
+        );
+
+        rerender({ config: { showTableNames: false } });
+
+        expect(result.current.showTableNames).toBe(false);
+    });
+
+    it('should include table names with custom column names when enabled', () => {
+        const { result } = renderTableConfigHook();
+
+        act(() => {
+            result.current.updateColumnProperty('orders_col_a', {
+                name: 'Custom Column A',
+            });
+        });
+
+        expect(result.current.getFieldLabel('orders_col_a')).toBe(
+            'Orders Custom Column A',
+        );
+
+        act(() => {
+            result.current.setShowTableNames(false);
+        });
+
+        expect(result.current.getFieldLabel('orders_col_a')).toBe(
+            'Custom Column A',
+        );
+    });
+
+    it('should not duplicate table names in custom column names', () => {
+        const { result } = renderTableConfigHook();
+
+        act(() => {
+            result.current.updateColumnProperty('orders_col_a', {
+                name: 'Orders Custom Column A',
+            });
+        });
+
+        expect(result.current.getFieldLabel('orders_col_a')).toBe(
+            'Orders Custom Column A',
+        );
+    });
 });

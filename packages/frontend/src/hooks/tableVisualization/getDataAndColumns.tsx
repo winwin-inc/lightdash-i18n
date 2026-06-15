@@ -5,6 +5,7 @@ import {
     isField,
     type ItemsMap,
     type ResultRow,
+    type TableCellAlignment,
 } from '@lightdash/common';
 import { Text } from '@mantine/core';
 import type { CellContext } from '@tanstack/react-table';
@@ -31,6 +32,7 @@ type Args = {
     totals?: Record<string, number>;
     groupedSubtotals?: Record<string, Record<string, number>[]>;
     columnProperties?: Record<string, { displayStyle?: 'text' | 'bar' }>;
+    cellAlignment?: TableCellAlignment;
 };
 
 export function getGroupingValuesAndSubtotalKey(
@@ -85,6 +87,7 @@ const getDataAndColumns = ({
     totals,
     groupedSubtotals,
     columnProperties,
+    cellAlignment = 'left',
 }: Args): Array<TableHeader | TableColumn> => {
     return selectedItemIds.reduce<Array<TableHeader | TableColumn>>(
         (acc, itemId) => {
@@ -100,6 +103,11 @@ const getDataAndColumns = ({
             // Check if this column should have bar chart display
             const hasBarDisplay =
                 columnProperties?.[itemId]?.displayStyle === 'bar';
+            const fieldHeaderLabel =
+                isField(item) &&
+                headerOverride?.startsWith(`${item.tableLabel} `)
+                    ? headerOverride.slice(`${item.tableLabel} `.length)
+                    : headerOverride;
 
             const column: TableHeader | TableColumn = columnHelper.accessor(
                 (row) => row[itemId],
@@ -107,11 +115,7 @@ const getDataAndColumns = ({
                     id: itemId,
                     header: () => (
                         <TableHeaderLabelContainer>
-                            {!!headerOverride ? (
-                                <TableHeaderBoldLabel>
-                                    {headerOverride}
-                                </TableHeaderBoldLabel>
-                            ) : isField(item) ? (
+                            {isField(item) ? (
                                 <>
                                     {showTableNames && (
                                         <TableHeaderRegularLabel>
@@ -120,9 +124,13 @@ const getDataAndColumns = ({
                                     )}
 
                                     <TableHeaderBoldLabel>
-                                        {item.label}
+                                        {fieldHeaderLabel ?? item.label}
                                     </TableHeaderBoldLabel>
                                 </>
+                            ) : !!headerOverride ? (
+                                <TableHeaderBoldLabel>
+                                    {headerOverride}
+                                </TableHeaderBoldLabel>
                             ) : isCustomDimension(item) ? (
                                 <TableHeaderBoldLabel>
                                     {item.name}
@@ -156,6 +164,9 @@ const getDataAndColumns = ({
                                 maxWidth: '160px',
                             },
                         }),
+                        cellStyle: {
+                            textAlign: cellAlignment,
+                        },
                     },
                     // Some features work in the TanStack Table demos but not here, for unknown reasons.
                     // For example, setting grouping value here does not work. The workaround is to use

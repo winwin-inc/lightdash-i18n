@@ -160,6 +160,7 @@ const BodyCell: FC<React.PropsWithChildren<CommonBodyCellProps>> = ({
                 $width={width}
                 $maxWidth={maxWidth}
                 $minWidth={minWidth}
+                $textAlign={style?.textAlign}
                 onClick={canHaveMenu ? toggleMenu : undefined}
                 onMouseEnter={canHaveTooltip ? openTooltip : undefined}
                 onMouseLeave={canHaveTooltip ? closeTooltip : undefined}

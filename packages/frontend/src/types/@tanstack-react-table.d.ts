@@ -18,6 +18,7 @@ declare module '@tanstack/react-table' {
         sort?: Sort;
         className?: string;
         style?: CSSProperties;
+        cellStyle?: CSSProperties;
         frozen?: boolean;
         isVisible?: boolean;
         onHeaderClick?: MouseEventHandler<HTMLTableHeaderCellElement>;

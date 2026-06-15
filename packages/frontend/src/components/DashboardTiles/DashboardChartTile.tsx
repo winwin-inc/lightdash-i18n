@@ -128,6 +128,11 @@ interface ExportGoogleSheetProps {
     disabled?: boolean;
 }
 
+const getChartExportShowTableNames = (savedChart: SavedChart): boolean =>
+    isTableChartConfig(savedChart.chartConfig.config)
+        ? (savedChart.chartConfig.config.showTableNames ?? false)
+        : false;
+
 const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
     savedChart,
     disabled,
@@ -138,9 +143,7 @@ const ExportGoogleSheet: FC<ExportGoogleSheetProps> = ({
             exploreId: savedChart.tableName,
             metricQuery: savedChart.metricQuery,
             columnOrder: savedChart.tableConfig.columnOrder,
-            showTableNames: isTableChartConfig(savedChart.chartConfig.config)
-                ? (savedChart.chartConfig.config.showTableNames ?? false)
-                : true,
+            showTableNames: getChartExportShowTableNames(savedChart),
             customLabels: getCustomLabelsFromTableConfig(
                 savedChart.chartConfig.config,
             ),
@@ -1477,7 +1480,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                 projectUuid={projectUuid!}
                 totalResults={totalResults}
                 getDownloadQueryUuid={getDownloadQueryUuid}
-                showTableNames
+                showTableNames={getChartExportShowTableNames(chart)}
                 chartName={title || chart.name}
                 columnOrder={chart.tableConfig.columnOrder}
                 customLabels={getCustomLabelsFromTableConfig(
@@ -1752,7 +1755,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
                     projectUuid={projectUuid!}
                     totalResults={resultsData.totalResults}
                     getDownloadQueryUuid={getDownloadQueryUuid}
-                    showTableNames
+                    showTableNames={getChartExportShowTableNames(chart)}
                     chartName={title || chart.name}
                     columnOrder={chart.tableConfig.columnOrder}
                     customLabels={getCustomLabelsFromTableConfig(

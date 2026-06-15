@@ -9,6 +9,7 @@ const waitForDownloadToComplete = (
         timeout?: number;
         maxPolls?: number;
         pollInterval?: number;
+        expectedShowTableNames?: boolean;
     } = {},
 ) => {
     const {
@@ -17,6 +18,7 @@ const waitForDownloadToComplete = (
         timeout = 10000,
         maxPolls = 10,
         pollInterval = 1000,
+        expectedShowTableNames,
     } = options;
 
     // Intercept the schedule download endpoint
@@ -41,6 +43,11 @@ const waitForDownloadToComplete = (
         // Validate schedule response
         expect(interception?.response?.statusCode).to.eq(200);
         expect(interception?.response?.body.results).to.have.property('jobId');
+        if (expectedShowTableNames !== undefined) {
+            expect(interception?.request.body.showTableNames).to.eq(
+                expectedShowTableNames,
+            );
+        }
 
         const jobId = interception.response?.body.results.jobId;
         cy.log(`Download job scheduled with ID: ${jobId}`);
@@ -140,6 +147,7 @@ describe('Download CSV on Dashboards', () => {
         waitForDownloadToComplete(SEED_PROJECT.project_uuid, {
             scheduleAlias: 'dashboardCsvDownload',
             pollAlias: 'dashboardCsvPoll',
+            expectedShowTableNames: false,
         });
     });
 });
@@ -187,6 +195,7 @@ describe('Download CSV on Explore', () => {
         waitForDownloadToComplete(SEED_PROJECT.project_uuid, {
             scheduleAlias: 'exploreCsvDownload',
             pollAlias: 'exploreCsvPoll',
+            expectedShowTableNames: true,
         });
     });
 
@@ -223,6 +232,7 @@ describe('Download CSV on Explore', () => {
         waitForDownloadToComplete(SEED_PROJECT.project_uuid, {
             scheduleAlias: 'exploreTableCsvDownload',
             pollAlias: 'exploreTableCsvPoll',
+            expectedShowTableNames: false,
         });
     });
 });

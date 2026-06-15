@@ -296,7 +296,7 @@ const SqlChartTile: FC<Props> = ({ tile, isEditMode, ...rest }) => {
                     chartResultsData.chartUnderlyingData?.rows.length ?? 0
                 }
                 getDownloadQueryUuid={getDownloadQueryUuid}
-                showTableNames
+                showTableNames={false}
                 chartName={tile.properties.title || chartData.name}
                 columnOrder={chartResultsData.chartUnderlyingData?.columns}
             />

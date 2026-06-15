@@ -152,12 +152,16 @@ const TableRow: FC<TableRowProps> = ({
                 const width = meta?.style?.width as string | undefined;
                 const maxWidth = meta?.style?.maxWidth as string | undefined;
                 const minWidth = meta?.style?.minWidth as string | undefined;
+                const cellStyle = {
+                    ...meta?.style,
+                    ...meta?.cellStyle,
+                };
 
                 return (
                     <BodyCell
                         minimal={minimal}
                         key={cell.id}
-                        style={meta?.style}
+                        style={cellStyle}
                         backgroundColor={backgroundColor}
                         fontColor={fontColor}
                         className={meta?.className}

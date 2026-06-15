@@ -44,6 +44,7 @@ export type TableColumn = ColumnDef<ResultRow, ResultRow[0]> & {
         sort?: Sort;
         className?: string;
         style?: CSSProperties;
+        cellStyle?: CSSProperties;
         frozen?: boolean;
         isVisible?: boolean;
     };

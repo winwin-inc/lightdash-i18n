@@ -49,12 +49,19 @@ const ColumnConfigurationInput: FC<ColumnConfigurationInputProps> = ({
     useEffect(() => {
         const currentValue = fieldLabelOverride ?? fieldLabelDefault ?? '';
 
+        if (value !== debouncedValue) {
+            return;
+        }
+
         if (debouncedValue === currentValue) {
             return;
         }
 
         updateColumnProperty(fieldId, {
-            name: debouncedValue,
+            name:
+                debouncedValue === fieldLabelDefault
+                    ? undefined
+                    : debouncedValue,
         });
     }, [
         debouncedValue,
@@ -62,6 +69,7 @@ const ColumnConfigurationInput: FC<ColumnConfigurationInputProps> = ({
         fieldLabelDefault,
         fieldLabelOverride,
         updateColumnProperty,
+        value,
     ]);
 
     return (

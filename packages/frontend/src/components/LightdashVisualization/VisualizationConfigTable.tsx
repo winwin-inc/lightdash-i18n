@@ -34,14 +34,16 @@ const VisualizationTableConfig: FC<VisualizationTableConfigProps> = ({
         dashboardName,
     );
 
+    const { validConfig } = tableConfig;
+
     useEffect(() => {
-        if (!onChartConfigChange || !tableConfig.validConfig) return;
+        if (!onChartConfigChange || !validConfig) return;
 
         onChartConfigChange({
             type: ChartType.TABLE,
-            config: tableConfig.validConfig,
+            config: validConfig,
         });
-    }, [tableConfig, onChartConfigChange]);
+    }, [validConfig, onChartConfigChange]);
 
     return children({
         visualizationConfig: {
