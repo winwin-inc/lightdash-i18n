@@ -4955,7 +4955,7 @@
             "show_symbol": "Show symbol",
             "filled_symbol": "Filled symbol",
             "smooth": "Smooth",
-            "tooltip_sort_by_value": "Sort by value",
+            "tooltip_sort_by_value": "Sort stacked series",
             "tooltip_sort_direction": "Sort direction",
             "tooltip_sort_by_value_options": {
                 "desc": "Descending",

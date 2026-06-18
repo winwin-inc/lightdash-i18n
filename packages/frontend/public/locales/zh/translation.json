@@ -4950,7 +4950,7 @@
             "show_symbol": "显示符号",
             "filled_symbol": "实心数据点",
             "smooth": "平滑",
-            "tooltip_sort_by_value": "值排序",
+            "tooltip_sort_by_value": "堆叠系列排序",
             "tooltip_sort_direction": "排序方向",
             "tooltip_sort_by_value_options": {
                 "desc": "降序",
