@@ -4950,12 +4950,13 @@
             "show_symbol": "显示符号",
             "filled_symbol": "实心数据点",
             "smooth": "平滑",
-            "tooltip_sort_by_value": "堆叠系列排序",
+            "tooltip_sort_by_value": "悬停值排序",
             "tooltip_sort_direction": "排序方向",
             "tooltip_sort_by_value_options": {
                 "desc": "降序",
                 "asc": "升序"
             },
+            "stack_series_sort_by_value": "堆叠系列排序",
             "tried": "尝试引用未知ID的字段:"
         }
     },

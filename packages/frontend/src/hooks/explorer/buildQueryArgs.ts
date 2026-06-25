@@ -1,5 +1,6 @@
 import {
     derivePivotConfigurationFromChart,
+    getChartRequiresPivotResults,
     getFieldsFromMetricQuery,
     type DateGranularity,
     type Explore,
@@ -54,9 +55,16 @@ export function buildQueryArgs(options: {
         return null;
     }
 
+    const shouldUsePivotResults =
+        useSqlPivotResults ||
+        getChartRequiresPivotResults(
+            options.savedChart.chartConfig,
+            options.savedChart.pivotConfig,
+        );
+
     let pivotConfiguration = undefined;
 
-    if (useSqlPivotResults) {
+    if (shouldUsePivotResults) {
         const items = getFieldsFromMetricQuery(computedMetricQuery, explore);
         pivotConfiguration = derivePivotConfigurationFromChart(
             options.savedChart,
@@ -64,6 +72,7 @@ export function buildQueryArgs(options: {
             items,
         );
     }
+
     return {
         projectUuid,
         tableId: tableName,
@@ -73,6 +82,9 @@ export function buildQueryArgs(options: {
         invalidateCache: minimal,
         parameters: parameters || {},
         pivotConfiguration,
+        ...(!isEditMode && viewModeQueryArgs
+            ? { pivotResults: shouldUsePivotResults }
+            : {}),
         fromDashboard,
     };
 }

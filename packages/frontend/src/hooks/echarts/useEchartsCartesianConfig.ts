@@ -67,6 +67,10 @@ import {
 } from '../../components/VisualizationConfigs/ChartConfigPanel/Grid/constants';
 import { EMPTY_X_AXIS } from '../cartesianChartConfig/useCartesianChartConfig';
 import {
+    getStackSeriesSortDirection,
+    getTooltipSortDirection,
+} from '../cartesianChartConfig/utils';
+import {
     getPivotedDataFromPivotDetails,
     getPlottedData,
     type RowKeyMap,
@@ -396,6 +400,8 @@ const removeEmptyProperties = <T = Record<any, any>>(obj: T | undefined) => {
     );
 };
 
+const DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH = 10;
+
 const mergeLegendSettings = <T = Record<any, any>>(
     legendConfig: T | undefined,
     legendsSelected: LegendValues,
@@ -416,10 +422,12 @@ const mergeLegendSettings = <T = Record<any, any>>(
             show: series.length > 1,
             type: 'scroll',
             selected: legendsSelected,
+            itemWidth: DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH,
             ...filledLegendIcon,
         };
     }
     return {
+        itemWidth: DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH,
         ...normalizedConfig,
         selected: legendsSelected,
         ...filledLegendIcon,
@@ -902,18 +910,16 @@ const getEchartsSeriesFromPivotedData = (
 
     const allSeries = cartesianChart.eChartsConfig.series || [];
 
-    // Check if any series has tooltipSortByValue enabled
-    const hasTooltipSortByValue = allSeries.some(
-        (s) =>
-            s.tooltipSortByValue === 'asc' || s.tooltipSortByValue === 'desc',
+    const hasStackSeriesSortByValue = Boolean(
+        getStackSeriesSortDirection(allSeries),
     );
 
     const resultSeries = allSeries
         .filter((s) => !s.hidden)
         .sort((a, b) => {
-            // If tooltipSortByValue is enabled, preserve the original order
-            // The sorting will be done later in stackedSeriesWithColorAssignments
-            if (hasTooltipSortByValue) {
+            // If stack series sorting is enabled, preserve the original order.
+            // The sorting will be done later in stackedSeriesWithColorAssignments.
+            if (hasStackSeriesSortByValue) {
                 return 0;
             }
 
@@ -2288,18 +2294,9 @@ const useEchartsCartesianConfig = (
         });
 
         // Check if value sorting is enabled for stacked bar charts
-        const sortDirection = (() => {
-            const seriesConfig = validCartesianConfig?.eChartsConfig.series;
-            if (!seriesConfig) return undefined;
-            for (const s of seriesConfig) {
-                const sortValue = (s as Record<string, unknown>)
-                    .tooltipSortByValue as 'asc' | 'desc' | undefined;
-                if (sortValue === 'asc' || sortValue === 'desc') {
-                    return sortValue;
-                }
-            }
-            return undefined;
-        })();
+        const sortDirection = getStackSeriesSortDirection(
+            validCartesianConfig?.eChartsConfig.series,
+        );
 
         // If value sorting is enabled and we have stacked bar charts, sort series by total value
         let sortedSeries = seriesWithValidStack;
@@ -2796,21 +2793,9 @@ const useEchartsCartesianConfig = (
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
 
-                // Check if any series has tooltipSortByValue enabled and get the sort direction
-                const sortDirection = (() => {
-                    const sortSeries =
-                        validCartesianConfig?.eChartsConfig.series;
-                    if (!sortSeries) return undefined;
-                    for (const s of sortSeries) {
-                        // Access tooltipSortByValue using index access since EChartsConfig.series is Partial<Series[]>
-                        const sortValue = (s as Record<string, unknown>)
-                            .tooltipSortByValue as 'asc' | 'desc' | undefined;
-                        if (sortValue === 'asc' || sortValue === 'desc') {
-                            return sortValue;
-                        }
-                    }
-                    return undefined;
-                })();
+                const sortDirection = getTooltipSortDirection(
+                    validCartesianConfig?.eChartsConfig.series,
+                );
 
                 // Sort params by value if tooltipSortByValue is enabled
                 let sortedParams = params;
@@ -2935,16 +2920,19 @@ const useEchartsCartesianConfig = (
                                 typeof value === 'object' &&
                                 dim in value
                             ) {
-                                return `<tr>
-                                <td>${marker}</td>
-                                <td>${seriesName}</td>
-                                <td style="text-align: right;"><b>${getFormattedValue(
+                                const formattedTooltipValue = getFormattedValue(
                                     tooltipValue,
-                                    dim.split('.')[0],
+                                    pivotValuesColumnsMap?.[dim]
+                                        ? dim
+                                        : dim.split('.')[0],
                                     itemsMap,
                                     undefined,
                                     pivotValuesColumnsMap,
-                                )}</b></td>
+                                );
+                                return `<tr>
+                                <td>${marker}</td>
+                                <td>${seriesName}</td>
+                                <td style="text-align: right;"><b>${formattedTooltipValue}</b></td>
                             </tr>
                         `;
                             }

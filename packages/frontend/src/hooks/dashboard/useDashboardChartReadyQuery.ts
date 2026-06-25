@@ -1,11 +1,10 @@
 import {
     FeatureFlags,
     getAvailableParametersFromTables,
+    getChartRequiresPivotResults,
     getDimensions,
     getItemId,
-    isCartesianChartConfig,
     isDateItem,
-    isPivotReferenceWithValues,
     QueryExecutionContext,
     type ApiError,
     type ApiExecuteAsyncDashboardChartQueryResults,
@@ -60,18 +59,6 @@ export type DashboardChartReadyQuery = {
     executeQueryResponse: ApiExecuteAsyncDashboardChartQueryResults;
     chart: SavedChart;
     explore: ApiExploreResults;
-};
-
-const getChartRequiresPivotResults = (
-    chart: SavedChart | undefined,
-): boolean => {
-    if (!chart || !isCartesianChartConfig(chart.chartConfig.config)) {
-        return false;
-    }
-
-    return (chart.chartConfig.config.eChartsConfig.series ?? []).some(
-        (series) => isPivotReferenceWithValues(series.encode.yRef),
-    );
 };
 
 export const useDashboardChartReadyQuery = (
@@ -198,7 +185,10 @@ export const useDashboardChartReadyQuery = (
 
     const shouldUsePivotResults =
         useSqlPivotResults?.enabled ||
-        getChartRequiresPivotResults(chartQuery.data);
+        getChartRequiresPivotResults(
+            chartQuery.data?.chartConfig,
+            chartQuery.data?.pivotConfig,
+        );
 
     const queryKey = useMemo(
         () => [

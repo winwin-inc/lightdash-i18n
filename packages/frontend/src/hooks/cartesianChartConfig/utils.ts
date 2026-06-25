@@ -4,6 +4,8 @@ import {
     getItemId,
     getSeriesId,
     isDimension,
+    StackType,
+    type CartesianChart,
     type CartesianSeriesType,
     type ItemsMap,
     type Series,
@@ -13,6 +15,38 @@ import {
     getPivotedDataFromPivotDetails,
 } from '../plottedData/getPlottedData';
 import type { InfiniteQueryResults } from '../useQueryResults';
+
+export const isStackEnabled = (stack: unknown): boolean =>
+    stack === StackType.NORMAL ||
+    stack === StackType.PERCENT ||
+    stack === true;
+
+export const applyStackFromLayout = (
+    series: Series[],
+    layout: Partial<CartesianChart['layout']> | undefined,
+    pivotKeys: string[] | undefined,
+): Series[] => {
+    if (!isStackEnabled(layout?.stack)) {
+        return series.map((serie) =>
+            serie.stack === undefined ? serie : { ...serie, stack: undefined },
+        );
+    }
+
+    const isPivoted = Boolean(pivotKeys && pivotKeys.length > 0);
+    const yFields = layout?.yField ?? [];
+
+    return series.map((serie) => {
+        const { field } = serie.encode.yRef;
+        if (!yFields.includes(field)) {
+            return serie;
+        }
+
+        return {
+            ...serie,
+            stack: isPivoted ? field : 'stack-all-series',
+        };
+    });
+};
 
 export type GetExpectedSeriesMapArgs = {
     defaultSmooth?: boolean;
@@ -50,7 +84,9 @@ export const getExpectedSeriesMap = ({
     const defaultProperties = {
         smooth: defaultSmooth,
         showSymbol: defaultShowSymbol,
-        filledSymbol: defaultFilledSymbol,
+        ...(defaultFilledSymbol !== undefined && {
+            filledSymbol: defaultFilledSymbol,
+        }),
         type: defaultCartesianType,
         areaStyle: defaultAreaStyle,
         yAxisIndex: 0,
@@ -182,7 +218,14 @@ export const mergeExistingAndExpectedSeries = ({
         (acc, [expectedSeriesId, expectedSeries]) => {
             // Don't add the expected series if there is a valid one already
             if (existingValidSeriesIds.includes(expectedSeriesId)) {
-                return [...acc];
+                return acc.map((series) =>
+                    getSeriesId(series) === expectedSeriesId
+                        ? {
+                              ...series,
+                              stack: expectedSeries.stack ?? series.stack,
+                          }
+                        : series,
+                );
             }
             // Add series to the end of its group
             if (
@@ -286,4 +329,80 @@ export const sortDimensions = (
                 ),
             ];
     }
+};
+
+export type SeriesSortDirection = 'asc' | 'desc';
+
+export const isSeriesSortDirection = (
+    value: unknown,
+): value is SeriesSortDirection => value === 'asc' || value === 'desc';
+
+/**
+ * Legacy charts stored stack sorting under `tooltipSortByValue`.
+ * Only use when loading saved chart config, not during runtime series rebuilds.
+ */
+export const migrateLegacySeriesSortConfig = (serie: Series): Series => {
+    const normalized = normalizeSeriesSortConfig(serie);
+
+    if (normalized.stackSeriesSortByValue !== undefined) {
+        return normalized;
+    }
+
+    if (isSeriesSortDirection(normalized.tooltipSortByValue)) {
+        return {
+            ...normalized,
+            stackSeriesSortByValue: normalized.tooltipSortByValue,
+        };
+    }
+
+    return normalized;
+};
+
+export const migrateLegacySeriesListSortConfig = (
+    series: Series[],
+): Series[] => series.map(migrateLegacySeriesSortConfig);
+
+export const normalizeSeriesSortConfig = (serie: Series): Series => {
+    const normalized = { ...serie };
+
+    if (isSeriesSortDirection(serie.tooltipSortByValue)) {
+        normalized.tooltipSortByValue = serie.tooltipSortByValue;
+    } else {
+        delete normalized.tooltipSortByValue;
+    }
+
+    if (isSeriesSortDirection(serie.stackSeriesSortByValue)) {
+        normalized.stackSeriesSortByValue = serie.stackSeriesSortByValue;
+    } else {
+        delete normalized.stackSeriesSortByValue;
+    }
+
+    return normalized;
+};
+
+export const normalizeSeriesListSortConfig = (series: Series[]): Series[] =>
+    series.map(normalizeSeriesSortConfig);
+
+export const getTooltipSortDirection = (
+    series: Series[] | undefined,
+): SeriesSortDirection | undefined => {
+    if (!series) return undefined;
+    for (const serie of series) {
+        if (isSeriesSortDirection(serie.tooltipSortByValue)) {
+            return serie.tooltipSortByValue;
+        }
+    }
+    return undefined;
+};
+
+export const getStackSeriesSortDirection = (
+    series: Series[] | undefined,
+): SeriesSortDirection | undefined => {
+    if (!series) return undefined;
+    for (const serie of series) {
+        if (isSeriesSortDirection(serie.stackSeriesSortByValue)) {
+            return serie.stackSeriesSortByValue;
+        }
+    }
+    return undefined;
 };

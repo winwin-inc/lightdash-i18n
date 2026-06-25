@@ -90,7 +90,11 @@ export const useExplorerQueryManager = () => {
     );
 
     // Get explore data and pivot configuration
-    const { data: explore } = useExplore(tableName);
+    const { data: explore } = useExplore(
+        tableName,
+        undefined,
+        fromDashboard ?? undefined,
+    );
     const { data: useSqlPivotResults } = useFeatureFlag(
         FeatureFlags.UseSqlPivotResults,
     );
@@ -206,13 +210,14 @@ export const useExplorerQueryManager = () => {
         const isCreatingQuery = query.isFetching;
         const isFetchingFirstPage = queryResults.isFetchingFirstPage;
         const isFetchingAllRows = queryResults.isFetchingAllPages;
-        const isQueryError = queryResults.error;
+        const isQueryError = query.error || queryResults.error;
         return (
             (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
             !isQueryError
         );
     }, [
         query.isFetching,
+        query.error,
         queryResults.isFetchingFirstPage,
         queryResults.isFetchingAllPages,
         queryResults.error,

@@ -31,8 +31,13 @@ import {
 import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import type { InfiniteQueryResults } from '../useQueryResults';
 import {
+    applyStackFromLayout,
     getExpectedSeriesMap,
+    isStackEnabled,
     mergeExistingAndExpectedSeries,
+    migrateLegacySeriesListSortConfig,
+    migrateLegacySeriesSortConfig,
+    normalizeSeriesListSortConfig,
     sortDimensions,
 } from './utils';
 
@@ -88,8 +93,11 @@ const applyReferenceLines = (
             },
         );
 
-        if (referenceLinesForSerie.length === 0)
-            return { ...serie, markLine: undefined };
+        if (referenceLinesForSerie.length === 0) {
+            return serie.markLine === undefined
+                ? serie
+                : { ...serie, markLine: undefined };
+        }
         const markLineData: MarkLineData[] = referenceLinesForSerie.map(
             (line) => {
                 if (line.fieldId === undefined) return line.data;
@@ -181,10 +189,23 @@ const useCartesianChartConfig = ({
 
     const [dirtyEchartsConfig, setDirtyEchartsConfig] = useState<
         Partial<CartesianChart['eChartsConfig']> | undefined
-    >(initialChartConfig?.eChartsConfig);
-    const isInitiallyStacked = (dirtyEchartsConfig?.series || []).some(
-        (series: Series) => series.stack !== undefined,
+    >(() =>
+        initialChartConfig?.eChartsConfig
+            ? {
+                  ...initialChartConfig.eChartsConfig,
+                  series: initialChartConfig.eChartsConfig.series
+                      ? migrateLegacySeriesListSortConfig(
+                            initialChartConfig.eChartsConfig.series,
+                        )
+                      : undefined,
+              }
+            : undefined,
     );
+    const isInitiallyStacked =
+        isStackEnabled(initialChartConfig?.layout?.stack) ||
+        (initialChartConfig?.eChartsConfig?.series || []).some(
+            (series) => series.stack !== undefined,
+        );
     const [isStacked, setIsStacked] = useState<boolean>(isInitiallyStacked);
 
     // Sync series configuration (like tooltipSortByValue) from initialChartConfig
@@ -194,7 +215,7 @@ const useCartesianChartConfig = ({
             setDirtyEchartsConfig((prevState) => {
                 if (!prevState?.series) return prevState;
 
-                // Merge tooltipSortByValue and other config from initialChartConfig into existing series
+                // Merge sort config from initialChartConfig into existing series
                 const updatedSeries = prevState.series.map((serie) => {
                     const serieId = getSeriesId(serie);
                     // Find matching series in initialChartConfig
@@ -204,11 +225,13 @@ const useCartesianChartConfig = ({
                         );
 
                     if (initialSerie) {
-                        // Merge config properties (tooltipSortByValue, etc.) from initialSerie
-                        return {
+                        return migrateLegacySeriesSortConfig({
                             ...serie,
-                            tooltipSortByValue: initialSerie.tooltipSortByValue,
-                        };
+                            tooltipSortByValue:
+                                initialSerie.tooltipSortByValue,
+                            stackSeriesSortByValue:
+                                initialSerie.stackSeriesSortByValue,
+                        });
                     }
                     return serie;
                 });
@@ -782,6 +805,13 @@ const useCartesianChartConfig = ({
 
                 // current configuration is still valid
                 if (isCurrentXFieldValid && isCurrentYFieldsValid) {
+                    if (
+                        prev?.xField === xField &&
+                        isEqual(prev?.yField, currentValidYFields)
+                    ) {
+                        return prev;
+                    }
+
                     return {
                         ...prev,
                         xField,
@@ -969,10 +999,12 @@ const useCartesianChartConfig = ({
 
                 const defaultShowSymbol = prev?.series?.[0]?.showSymbol;
                 const defaultFilledSymbol = prev?.series?.[0]?.filledSymbol;
-                // Preserve tooltipSortByValue from the template series
+                // Preserve sort config from the template series
                 // so it propagates to all expanded pivot series
                 const defaultTooltipSortByValue =
                     prev?.series?.[0]?.tooltipSortByValue;
+                const defaultStackSeriesSortByValue =
+                    prev?.series?.[0]?.stackSeriesSortByValue;
                 const expectedSeriesMap = getExpectedSeriesMap({
                     defaultSmooth,
                     defaultShowSymbol,
@@ -980,7 +1012,8 @@ const useCartesianChartConfig = ({
                     defaultAreaStyle,
                     defaultCartesianType,
                     availableDimensions,
-                    isStacked,
+                    isStacked:
+                        isStackEnabled(dirtyLayout?.stack) || isStacked,
                     pivotKeys,
                     resultsData,
                     xField: dirtyLayout.xField,
@@ -993,26 +1026,41 @@ const useCartesianChartConfig = ({
                     existingSeries: prev?.series || [],
                 });
 
-                const seriesWithReferenceLines = applyReferenceLines(
+                const seriesWithStack = applyStackFromLayout(
                     newSeries,
+                    dirtyLayout,
+                    pivotKeys,
+                );
+
+                const seriesWithReferenceLines = applyReferenceLines(
+                    seriesWithStack,
                     dirtyLayout,
                     referenceLines,
                 );
 
-                return {
-                    ...prev,
-                    series: seriesWithReferenceLines.map((serie) => ({
+                const updatedSeries = normalizeSeriesListSortConfig(
+                    seriesWithReferenceLines.map((serie) => ({
                         ...serie,
                         // NOTE: Addresses old chart configs where yAxisIndex was not set
                         ...(!serie.yAxisIndex && {
                             yAxisIndex: 0,
                         }),
-                        // Propagate tooltipSortByValue from template series to all expanded series
+                        // Propagate sort config from template series to all expanded series
                         ...(defaultTooltipSortByValue &&
                             !serie.tooltipSortByValue && {
                                 tooltipSortByValue: defaultTooltipSortByValue,
                             }),
+                        ...(defaultStackSeriesSortByValue &&
+                            !serie.stackSeriesSortByValue && {
+                                stackSeriesSortByValue:
+                                    defaultStackSeriesSortByValue,
+                            }),
                     })),
+                );
+
+                return {
+                    ...prev,
+                    series: updatedSeries,
                 };
             });
         }

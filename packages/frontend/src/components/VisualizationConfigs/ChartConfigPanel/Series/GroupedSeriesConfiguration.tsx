@@ -163,7 +163,14 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
         new Set(seriesGroup.map(({ tooltipSortByValue }) => tooltipSortByValue))
             .size === 1;
 
-    const TOOLTIP_SORT_DIRECTION_OPTIONS = [
+    const isStackSeriesSortByValueTheSameForAllSeries: boolean =
+        new Set(
+            seriesGroup.map(
+                ({ stackSeriesSortByValue }) => stackSeriesSortByValue,
+            ),
+        ).size === 1;
+
+    const SORT_DIRECTION_OPTIONS = [
         {
             value: 'desc',
             label: t(
@@ -186,6 +193,11 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
 
     const chartValue = isChartTypeTheSameForAllSeries ? chartType : 'mixed';
     const fieldKey = getItemId(item);
+    const canSortTooltipByValue = seriesGroup.length > 1;
+    const canSortStackSeriesByValue =
+        Boolean(seriesGroup[0].stack) &&
+        chartValue === CartesianSeriesType.BAR &&
+        seriesGroup.length > 1;
 
     const onDragEnd = useCallback(
         (result: DropResult) => {
@@ -380,66 +392,105 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             />
                         </Group>
                     )}
-                    {seriesGroup[0].stack &&
-                        chartValue === CartesianSeriesType.BAR &&
-                        seriesGroup.length > 1 && (
-                            <Stack spacing="xs" mt="xs">
-                                <Group spacing="xs">
-                                    <Checkbox
-                                        checked={
-                                            isTooltipSortByValueTheSameForAllSeries
-                                                ? Boolean(
-                                                      seriesGroup[0]
-                                                          .tooltipSortByValue,
-                                                  )
-                                                : false
-                                        }
-                                        indeterminate={
-                                            !isTooltipSortByValueTheSameForAllSeries
-                                        }
+                    {canSortTooltipByValue && (
+                        <Stack spacing="xs" mt="xs">
+                            <Group spacing="xs">
+                                <Checkbox
+                                    checked={
+                                        isTooltipSortByValueTheSameForAllSeries
+                                            ? Boolean(
+                                                  seriesGroup[0]
+                                                      .tooltipSortByValue,
+                                              )
+                                            : false
+                                    }
+                                    indeterminate={
+                                        !isTooltipSortByValueTheSameForAllSeries
+                                    }
+                                    label={t(
+                                        'components_visualization_configs_chart.series.tooltip_sort_by_value',
+                                    )}
+                                    onChange={() => {
+                                        const currentValue =
+                                            seriesGroup[0].tooltipSortByValue;
+                                        updateAllGroupedSeries(fieldKey, {
+                                            tooltipSortByValue: currentValue
+                                                ? undefined
+                                                : 'desc',
+                                        });
+                                    }}
+                                />
+                            </Group>
+                            {isTooltipSortByValueTheSameForAllSeries &&
+                                seriesGroup[0].tooltipSortByValue && (
+                                    <Select
                                         label={t(
-                                            'components_visualization_configs_chart.series.tooltip_sort_by_value',
+                                            'components_visualization_configs_chart.series.tooltip_sort_direction',
                                         )}
-                                        onChange={() => {
-                                            const currentValue =
-                                                seriesGroup[0]
-                                                    .tooltipSortByValue;
+                                        value={seriesGroup[0].tooltipSortByValue}
+                                        data={SORT_DIRECTION_OPTIONS}
+                                        onChange={(value) => {
                                             updateAllGroupedSeries(fieldKey, {
-                                                tooltipSortByValue: currentValue
-                                                    ? undefined
-                                                    : 'desc',
+                                                tooltipSortByValue: value as
+                                                    | 'asc'
+                                                    | 'desc',
                                             });
                                         }}
                                     />
-                                </Group>
-                                {isTooltipSortByValueTheSameForAllSeries &&
-                                    seriesGroup[0].tooltipSortByValue && (
-                                        <Select
-                                            label={t(
-                                                'components_visualization_configs_chart.series.tooltip_sort_direction',
-                                            )}
-                                            value={
-                                                seriesGroup[0]
-                                                    .tooltipSortByValue
-                                            }
-                                            data={
-                                                TOOLTIP_SORT_DIRECTION_OPTIONS
-                                            }
-                                            onChange={(value) => {
-                                                updateAllGroupedSeries(
-                                                    fieldKey,
-                                                    {
-                                                        tooltipSortByValue:
-                                                            value as
-                                                                | 'asc'
-                                                                | 'desc',
-                                                    },
-                                                );
-                                            }}
-                                        />
+                                )}
+                        </Stack>
+                    )}
+                    {canSortStackSeriesByValue && (
+                        <Stack spacing="xs" mt="xs">
+                            <Group spacing="xs">
+                                <Checkbox
+                                    checked={
+                                        isStackSeriesSortByValueTheSameForAllSeries
+                                            ? Boolean(
+                                                  seriesGroup[0]
+                                                      .stackSeriesSortByValue,
+                                              )
+                                            : false
+                                    }
+                                    indeterminate={
+                                        !isStackSeriesSortByValueTheSameForAllSeries
+                                    }
+                                    label={t(
+                                        'components_visualization_configs_chart.series.stack_series_sort_by_value',
                                     )}
-                            </Stack>
-                        )}
+                                    onChange={() => {
+                                        const currentValue =
+                                            seriesGroup[0]
+                                                .stackSeriesSortByValue;
+                                        updateAllGroupedSeries(fieldKey, {
+                                            stackSeriesSortByValue: currentValue
+                                                ? undefined
+                                                : 'desc',
+                                        });
+                                    }}
+                                />
+                            </Group>
+                            {isStackSeriesSortByValueTheSameForAllSeries &&
+                                seriesGroup[0].stackSeriesSortByValue && (
+                                    <Select
+                                        label={t(
+                                            'components_visualization_configs_chart.series.tooltip_sort_direction',
+                                        )}
+                                        value={
+                                            seriesGroup[0].stackSeriesSortByValue
+                                        }
+                                        data={SORT_DIRECTION_OPTIONS}
+                                        onChange={(value) => {
+                                            updateAllGroupedSeries(fieldKey, {
+                                                stackSeriesSortByValue: value as
+                                                    | 'asc'
+                                                    | 'desc',
+                                            });
+                                        }}
+                                    />
+                                )}
+                        </Stack>
+                    )}
                 </Stack>
                 <Box
                     bg="gray.1"

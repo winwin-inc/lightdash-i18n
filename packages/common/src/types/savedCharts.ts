@@ -204,6 +204,26 @@ export const isPivotReferenceWithValues = (
 ): value is Required<PivotReference> =>
     !!value.pivotValues && value.pivotValues.length > 0;
 
+export const getChartRequiresPivotResults = (
+    chartConfig: ChartConfig | undefined,
+    pivotConfig: SavedChartDAO['pivotConfig'] | undefined,
+): boolean => {
+    if (!chartConfig || !isCartesianChartConfig(chartConfig.config)) {
+        return false;
+    }
+
+    const hasPivotSeries = (
+        chartConfig.config.eChartsConfig.series ?? []
+    ).some((series) => isPivotReferenceWithValues(series.encode.yRef));
+
+    if (hasPivotSeries) {
+        return true;
+    }
+
+    const pivotColumns = pivotConfig?.columns;
+    return Boolean(pivotColumns && pivotColumns.length > 0);
+};
+
 export type MarkLineData = {
     yAxis?: string;
     xAxis?: string;
@@ -259,6 +279,7 @@ export type Series = {
     markLine?: MarkLine;
     isFilteredOut?: boolean;
     tooltipSortByValue?: 'asc' | 'desc';
+    stackSeriesSortByValue?: 'asc' | 'desc';
 };
 
 export type EchartsLegend = {
