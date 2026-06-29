@@ -36,6 +36,9 @@ export type PivotDataToVTableOptions = {
     columnProperties?: Record<string, ColumnProperties>;
     getField?: (fieldId: string) => ItemsMap[string] | undefined;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+    pivotAutoFillWidth?: boolean;
+    pivotDimensionColumnMaxWidth?: number;
+    pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;
 };
@@ -54,6 +57,17 @@ const DATA_COLUMN_MIN_WIDTH = 88;
 /** 行维度列最小宽度，避免长维度值（如商品名称）被数据列挤压 */
 const DIMENSION_COLUMN_MIN_WIDTH = 160;
 
+const getColumnMaxWidth = (
+    pivotAutoFillWidth: boolean | undefined,
+    columnMaxWidth: number | undefined,
+): number | undefined => {
+    if (!pivotAutoFillWidth) return undefined;
+    if (columnMaxWidth === undefined || columnMaxWidth <= 0) {
+        return undefined;
+    }
+    return columnMaxWidth;
+};
+
 type VTableCellStyle = Record<string, string | number | (number | string)[]>;
 
 export type VTableColumnDef = {
@@ -61,6 +75,7 @@ export type VTableColumnDef = {
     title: string;
     width?: number;
     minWidth?: number;
+    maxWidth?: number;
     cellType?: string;
     dependField?: string;
     min?: (args: { row: number; col: number }) => number;
@@ -310,7 +325,13 @@ function buildGroupedDataColumns(
         columnProperties = {},
         getField,
         cellAlignment = 'left',
+        pivotAutoFillWidth,
+        pivotColumnMaxWidth,
     } = options;
+    const dataColumnMaxWidth = getColumnMaxWidth(
+        pivotAutoFillWidth,
+        pivotColumnMaxWidth,
+    );
     const headerValues = data.headerValues ?? [];
     const pivotColumnInfo = data.retrofitData.pivotColumnInfo;
     const nRows = headerValues.length;
@@ -344,6 +365,9 @@ function buildGroupedDataColumns(
             });
         } else {
             colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+            if (dataColumnMaxWidth !== undefined) {
+                colDef.maxWidth = dataColumnMaxWidth;
+            }
         }
         return colDef;
     };
@@ -410,9 +434,21 @@ export function pivotDataToVTable(
         columnProperties = {},
         getField,
         pivotMetricHeaderPosition = 'bottom',
+        pivotAutoFillWidth,
+        pivotDimensionColumnMaxWidth,
+        pivotColumnMaxWidth,
         cellAlignment = 'left',
         pivotRowDimensionAlignment = 'left',
     } = options;
+
+    const dataColumnMaxWidth = getColumnMaxWidth(
+        pivotAutoFillWidth,
+        pivotColumnMaxWidth,
+    );
+    const dimensionColumnMaxWidth = getColumnMaxWidth(
+        pivotAutoFillWidth,
+        pivotDimensionColumnMaxWidth,
+    );
 
     const metricHeaderFirst =
         pivotMetricHeaderPosition === 'top' && !data.pivotConfig.metricsAsRows;
@@ -468,14 +504,24 @@ export function pivotDataToVTable(
     const dimensionColumns: VTableColumnDef[] = rawDimensionColumns.map(
         (col) => {
             const baseId = col.underlyingId || col.baseId || col.fieldId;
-            return {
+            const colDef: VTableColumnDef = {
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
                 style: { textAlign: pivotRowDimensionAlignment },
-                ...(shouldProtectDimensionColumnWidth
-                    ? { minWidth: DIMENSION_COLUMN_MIN_WIDTH }
-                    : {}),
             };
+            if (shouldProtectDimensionColumnWidth) {
+                colDef.minWidth =
+                    dimensionColumnMaxWidth !== undefined
+                        ? Math.min(
+                              DIMENSION_COLUMN_MIN_WIDTH,
+                              dimensionColumnMaxWidth,
+                          )
+                        : DIMENSION_COLUMN_MIN_WIDTH;
+            }
+            if (dimensionColumnMaxWidth !== undefined) {
+                colDef.maxWidth = dimensionColumnMaxWidth;
+            }
+            return colDef;
         },
     );
 
@@ -535,6 +581,9 @@ export function pivotDataToVTable(
                             });
                         } else {
                             colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+                            if (dataColumnMaxWidth !== undefined) {
+                                colDef.maxWidth = dataColumnMaxWidth;
+                            }
                         }
                         return colDef;
                     })
@@ -542,12 +591,20 @@ export function pivotDataToVTable(
 
     const rowTotalColumns: VTableColumnDef[] =
         hasRowTotal && valueColumnEnd < pivotColumnInfo.length
-            ? pivotColumnInfo.slice(valueColumnEnd).map((col) => ({
-                  field: col.fieldId,
-                  title:
-                      getFieldLabel(col.baseId ?? col.fieldId) ?? col.fieldId,
-                  style: { textAlign: cellAlignment },
-              }))
+            ? pivotColumnInfo.slice(valueColumnEnd).map((col) => {
+                  const colDef: VTableColumnDef = {
+                      field: col.fieldId,
+                      title:
+                          getFieldLabel(col.baseId ?? col.fieldId) ??
+                          col.fieldId,
+                      style: { textAlign: cellAlignment },
+                  };
+                  if (dataColumnMaxWidth !== undefined) {
+                      colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+                      colDef.maxWidth = dataColumnMaxWidth;
+                  }
+                  return colDef;
+              })
             : [];
 
     const columns: (VTableColumnDef | VTableColumnGroup)[] = [

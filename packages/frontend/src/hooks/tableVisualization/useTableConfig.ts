@@ -109,6 +109,16 @@ const useTableConfig = (
         useState<TableCellAlignment>(
             tableChartConfig?.pivotRowDimensionAlignment ?? 'left',
         );
+    const [pivotAutoFillWidth, setPivotAutoFillWidth] = useState<boolean>(
+        tableChartConfig?.pivotAutoFillWidth ?? false,
+    );
+    const [pivotColumnMaxWidth, setPivotColumnMaxWidth] = useState<
+        number | undefined
+    >(tableChartConfig?.pivotColumnMaxWidth);
+    const [pivotDimensionColumnMaxWidth, setPivotDimensionColumnMaxWidth] =
+        useState<number | undefined>(
+            tableChartConfig?.pivotDimensionColumnMaxWidth,
+        );
 
     useEffect(() => {
         hasUserSetShowTableNames.current = false;
@@ -633,6 +643,9 @@ const useTableConfig = (
             conditionalFormattings,
             metricsAsRows,
             pivotMetricHeaderPosition,
+            pivotAutoFillWidth,
+            pivotDimensionColumnMaxWidth,
+            pivotColumnMaxWidth,
             cellAlignment,
             pivotRowDimensionAlignment,
         }),
@@ -647,6 +660,9 @@ const useTableConfig = (
             conditionalFormattings,
             metricsAsRows,
             pivotMetricHeaderPosition,
+            pivotAutoFillWidth,
+            pivotDimensionColumnMaxWidth,
+            pivotColumnMaxWidth,
             cellAlignment,
             pivotRowDimensionAlignment,
         ],
@@ -687,6 +703,12 @@ const useTableConfig = (
             setMetricsAsRows,
             pivotMetricHeaderPosition,
             setPivotMetricHeaderPosition,
+            pivotAutoFillWidth,
+            setPivotAutoFillWidth,
+            pivotDimensionColumnMaxWidth,
+            setPivotDimensionColumnMaxWidth,
+            pivotColumnMaxWidth,
+            setPivotColumnMaxWidth,
             cellAlignment,
             setCellAlignment,
             pivotRowDimensionAlignment,
@@ -729,6 +751,12 @@ const useTableConfig = (
             setMetricsAsRows,
             pivotMetricHeaderPosition,
             setPivotMetricHeaderPosition,
+            pivotAutoFillWidth,
+            setPivotAutoFillWidth,
+            pivotDimensionColumnMaxWidth,
+            setPivotDimensionColumnMaxWidth,
+            pivotColumnMaxWidth,
+            setPivotColumnMaxWidth,
             cellAlignment,
             setCellAlignment,
             pivotRowDimensionAlignment,

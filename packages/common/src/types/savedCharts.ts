@@ -178,6 +178,12 @@ export type TableChart = {
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+    /** 透视表列少时自动撑满容器宽度 */
+    pivotAutoFillWidth?: boolean;
+    /** 透视表行维度列拉伸上限（px），未设置表示不限制 */
+    pivotDimensionColumnMaxWidth?: number;
+    /** 透视表数据列拉伸上限（px），未设置表示不限制 */
+    pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;
 };
@@ -203,26 +209,6 @@ export const isPivotReferenceWithValues = (
     value: PivotReference,
 ): value is Required<PivotReference> =>
     !!value.pivotValues && value.pivotValues.length > 0;
-
-export const getChartRequiresPivotResults = (
-    chartConfig: ChartConfig | undefined,
-    pivotConfig: SavedChartDAO['pivotConfig'] | undefined,
-): boolean => {
-    if (!chartConfig || !isCartesianChartConfig(chartConfig.config)) {
-        return false;
-    }
-
-    const hasPivotSeries = (
-        chartConfig.config.eChartsConfig.series ?? []
-    ).some((series) => isPivotReferenceWithValues(series.encode.yRef));
-
-    if (hasPivotSeries) {
-        return true;
-    }
-
-    const pivotColumns = pivotConfig?.columns;
-    return Boolean(pivotColumns && pivotColumns.length > 0);
-};
 
 export type MarkLineData = {
     yAxis?: string;
@@ -539,6 +525,26 @@ export const isCartesianChartConfig = (
     value: ChartConfig['config'],
 ): value is CartesianChart =>
     !!value && 'layout' in value && 'eChartsConfig' in value;
+
+export const getChartRequiresPivotResults = (
+    chartConfig: ChartConfig | undefined,
+    pivotConfig: SavedChartDAO['pivotConfig'] | undefined,
+): boolean => {
+    if (!chartConfig || !isCartesianChartConfig(chartConfig.config)) {
+        return false;
+    }
+
+    const hasPivotSeries = (chartConfig.config.eChartsConfig.series ?? []).some(
+        (series) => isPivotReferenceWithValues(series.encode.yRef),
+    );
+
+    if (hasPivotSeries) {
+        return true;
+    }
+
+    const pivotColumns = pivotConfig?.columns;
+    return Boolean(pivotColumns && pivotColumns.length > 0);
+};
 
 export const isBigNumberConfig = (
     value: ChartConfig['config'],

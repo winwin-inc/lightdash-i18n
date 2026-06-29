@@ -270,4 +270,87 @@ describe('pivotDataToVTable', () => {
             [undefined, undefined],
         );
     });
+
+    it('默认或未开启自动撑满时不设置数据列 maxWidth', () => {
+        const { columns: defaultColumns } = pivotDataToVTable(
+            pivotData,
+            baseOptions,
+        );
+        const { columns: disabledColumns } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            pivotAutoFillWidth: false,
+            pivotColumnMaxWidth: 240,
+        });
+
+        expect(
+            getMetricValueLeafColumns(defaultColumns).map(
+                (col) => col.maxWidth,
+            ),
+        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        expect(
+            getMetricValueLeafColumns(disabledColumns).map(
+                (col) => col.maxWidth,
+            ),
+        ).toEqual(Array.from({ length: 6 }, () => undefined));
+    });
+
+    it('开启自动撑满且设置最大宽度时，数据列带 maxWidth', () => {
+        const { columns } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            pivotAutoFillWidth: true,
+            pivotColumnMaxWidth: 240,
+        });
+
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.maxWidth),
+        ).toEqual(Array.from({ length: 6 }, () => 240));
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.minWidth),
+        ).toEqual(Array.from({ length: 6 }, () => 88));
+    });
+
+    it('开启自动撑满且设置最大宽度时，行维度列带 maxWidth', () => {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
+            ...baseOptions,
+            pivotAutoFillWidth: true,
+            pivotDimensionColumnMaxWidth: 300,
+        });
+
+        expect(getDimensionColumns(columns).map((col) => col.maxWidth)).toEqual(
+            [300],
+        );
+    });
+
+    it('行维度列 maxWidth 小于默认 minWidth 保护值时，minWidth 随 maxWidth 下调', () => {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
+            ...baseOptions,
+            pivotMetricHeaderPosition: 'top',
+            pivotAutoFillWidth: true,
+            pivotDimensionColumnMaxWidth: 120,
+        });
+
+        expect(getDimensionColumns(columns)).toEqual([
+            expect.objectContaining({ maxWidth: 120, minWidth: 120 }),
+        ]);
+    });
+
+    it('开启自动撑满且最大宽度为 0 或未设置时不限制数据列 maxWidth', () => {
+        const { columns: zeroColumns } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            pivotAutoFillWidth: true,
+            pivotColumnMaxWidth: 0,
+        });
+        const { columns: unsetColumns } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            pivotAutoFillWidth: true,
+            pivotColumnMaxWidth: undefined,
+        });
+
+        expect(
+            getMetricValueLeafColumns(zeroColumns).map((col) => col.maxWidth),
+        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        expect(
+            getMetricValueLeafColumns(unsetColumns).map((col) => col.maxWidth),
+        ).toEqual(Array.from({ length: 6 }, () => undefined));
+    });
 });

@@ -144,6 +144,9 @@ const SimpleTable: FC<SimpleTableProps> = ({
         showResultsTotal,
         showSubtotals,
         pivotMetricHeaderPosition,
+        pivotAutoFillWidth,
+        pivotDimensionColumnMaxWidth,
+        pivotColumnMaxWidth,
         cellAlignment,
         pivotRowDimensionAlignment,
     } = visualizationConfig.chartConfig;
@@ -220,6 +223,11 @@ const SimpleTable: FC<SimpleTableProps> = ({
                             pivotMetricHeaderPosition={
                                 pivotMetricHeaderPosition
                             }
+                            pivotAutoFillWidth={pivotAutoFillWidth}
+                            pivotDimensionColumnMaxWidth={
+                                pivotDimensionColumnMaxWidth
+                            }
+                            pivotColumnMaxWidth={pivotColumnMaxWidth}
                             cellAlignment={cellAlignment}
                             pivotRowDimensionAlignment={
                                 pivotRowDimensionAlignment

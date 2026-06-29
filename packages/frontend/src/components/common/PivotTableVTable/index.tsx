@@ -140,6 +140,9 @@ export type PivotTableVTableProps = BoxProps &
         showSubtotals?: boolean;
         columnProperties?: Record<string, ColumnProperties>;
         pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
+        pivotAutoFillWidth?: boolean;
+        pivotDimensionColumnMaxWidth?: number;
+        pivotColumnMaxWidth?: number;
         cellAlignment?: TableCellAlignment;
         pivotRowDimensionAlignment?: TableCellAlignment;
         cellContextMenu?: FC<React.PropsWithChildren<CellContextMenuProps>>;
@@ -154,6 +157,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     getField,
     columnProperties = {},
     pivotMetricHeaderPosition = 'bottom',
+    pivotAutoFillWidth = false,
+    pivotDimensionColumnMaxWidth,
+    pivotColumnMaxWidth,
     cellAlignment = 'left',
     pivotRowDimensionAlignment = 'left',
     cellContextMenu: CellContextMenuComponent,
@@ -208,6 +214,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             columnProperties,
             getField,
             pivotMetricHeaderPosition,
+            pivotAutoFillWidth,
+            pivotDimensionColumnMaxWidth,
+            pivotColumnMaxWidth,
             cellAlignment,
             pivotRowDimensionAlignment,
         });
@@ -233,6 +242,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         const fullOption: Record<string, unknown> = {
             columns: columnsWithStyle,
             records: allRecords,
+            ...(pivotAutoFillWidth ? { autoFillWidth: true } : {}),
             select: {
                 disableSelect: true,
             },
@@ -288,6 +298,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         getField,
         minMaxMap,
         pivotMetricHeaderPosition,
+        pivotAutoFillWidth,
+        pivotDimensionColumnMaxWidth,
+        pivotColumnMaxWidth,
         cellAlignment,
         pivotRowDimensionAlignment,
     ]);

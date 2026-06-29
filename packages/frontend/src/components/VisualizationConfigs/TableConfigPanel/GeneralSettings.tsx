@@ -4,9 +4,11 @@ import {
     Box,
     Checkbox,
     Group,
+    NumberInput,
     SegmentedControl,
     Stack,
     Switch,
+    Text,
     Tooltip,
 } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
@@ -20,10 +22,7 @@ import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
 import { MAX_PIVOTS } from './constants';
 
-enum DroppableIds {
-    COLUMNS = 'COLUMNS',
-    ROWS = 'ROWS',
-}
+enum DroppableIds
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
@@ -176,6 +175,12 @@ const GeneralSettings: FC = () => {
         showTableNames,
         pivotMetricHeaderPosition,
         setPivotMetricHeaderPosition,
+        pivotAutoFillWidth,
+        setPivotAutoFillWidth,
+        pivotDimensionColumnMaxWidth,
+        setPivotDimensionColumnMaxWidth,
+        pivotColumnMaxWidth,
+        setPivotColumnMaxWidth,
         cellAlignment,
         setCellAlignment,
         pivotRowDimensionAlignment,
@@ -294,6 +299,85 @@ const GeneralSettings: FC = () => {
                             />
                         </Box>
                     </Tooltip>
+                    {isPivotTableEnabled ? (
+                        <>
+                            <Switch
+                                label={t(
+                                    'components_visualization_configs_table.settings.pivot_auto_fill_width',
+                                )}
+                                labelPosition="right"
+                                checked={pivotAutoFillWidth}
+                                onChange={(event) =>
+                                    setPivotAutoFillWidth(
+                                        event.currentTarget.checked,
+                                    )
+                                }
+                            />
+                            {pivotAutoFillWidth ? (
+                                <Stack spacing={4}>
+                                    <NumberInput
+                                        label={t(
+                                            'components_visualization_configs_table.settings.pivot_dimension_column_max_width',
+                                        )}
+                                        placeholder={t(
+                                            'components_visualization_configs_table.settings.pivot_dimension_column_max_width_placeholder',
+                                        )}
+                                        value={
+                                            pivotDimensionColumnMaxWidth ?? ''
+                                        }
+                                        min={88}
+                                        onChange={(value) => {
+                                            if (
+                                                value === '' ||
+                                                value === undefined
+                                            ) {
+                                                setPivotDimensionColumnMaxWidth(
+                                                    undefined,
+                                                );
+                                                return;
+                                            }
+                                            setPivotDimensionColumnMaxWidth(
+                                                typeof value === 'number'
+                                                    ? value
+                                                    : Number(value),
+                                            );
+                                        }}
+                                    />
+                                    <NumberInput
+                                        label={t(
+                                            'components_visualization_configs_table.settings.pivot_data_column_max_width',
+                                        )}
+                                        placeholder={t(
+                                            'components_visualization_configs_table.settings.pivot_data_column_max_width_placeholder',
+                                        )}
+                                        value={pivotColumnMaxWidth ?? ''}
+                                        min={88}
+                                        onChange={(value) => {
+                                            if (
+                                                value === '' ||
+                                                value === undefined
+                                            ) {
+                                                setPivotColumnMaxWidth(
+                                                    undefined,
+                                                );
+                                                return;
+                                            }
+                                            setPivotColumnMaxWidth(
+                                                typeof value === 'number'
+                                                    ? value
+                                                    : Number(value),
+                                            );
+                                        }}
+                                    />
+                                    <Text size="xs" color="dimmed">
+                                        {t(
+                                            'components_visualization_configs_table.settings.pivot_column_max_width_hint',
+                                        )}
+                                    </Text>
+                                </Stack>
+                            ) : null}
+                        </>
+                    ) : null}
                 </Config.Section>
             </Config.Section>
 
