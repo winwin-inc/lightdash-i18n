@@ -3,6 +3,7 @@ import {
     FilterType,
     getFilterRuleWithDefaultValue,
     getItemLabel,
+    getVisibleFilterOperatorOptions,
     supportsSingleValue,
     type DashboardFilterRule,
     type FilterableDimension,
@@ -14,6 +15,7 @@ import {
     Button,
     Checkbox,
     Group,
+    MultiSelect,
     Select,
     Stack,
     Switch,
@@ -73,9 +75,25 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     const getPlaceholderByFilterTypeAndOperator =
         usePlaceholderByFilterTypeAndOperator();
 
-    const filterOperatorOptions = useMemo(
+    const allFilterOperatorOptions = useMemo(
         () => getFilterOperatorOptions(filterType),
         [filterType, getFilterOperatorOptions],
+    );
+
+    const filterOperatorOptions = useMemo(
+        () =>
+            getVisibleFilterOperatorOptions(
+                allFilterOperatorOptions,
+                filterRule.allowedOperators,
+                isEditMode,
+                filterRule.operator,
+            ),
+        [
+            allFilterOperatorOptions,
+            filterRule.allowedOperators,
+            filterRule.operator,
+            isEditMode,
+        ],
     );
 
     // Set default label when using revert (undo) button
@@ -292,6 +310,63 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
                 {isEditMode && (
                     <>
+                        <MultiSelect
+                            mt="xs"
+                            size="xs"
+                            label={
+                                <Text size="xs" mt="two" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.allowed_operators.label',
+                                    )}
+                                </Text>
+                            }
+                            description={t(
+                                'components_dashboard_filter.configuration.allowed_operators.description',
+                            )}
+                            placeholder={t(
+                                'components_dashboard_filter.configuration.allowed_operators.placeholder',
+                            )}
+                            clearable
+                            data={allFilterOperatorOptions}
+                            value={filterRule.allowedOperators ?? []}
+                            withinPortal={popoverProps?.withinPortal ?? true}
+                            onDropdownOpen={popoverProps?.onOpen}
+                            onDropdownClose={popoverProps?.onClose}
+                            onChange={(values) => {
+                                const normalizedAllowedOperators = Array.from(
+                                    new Set(values as FilterOperator[]),
+                                );
+
+                                let nextFilterRule: DashboardFilterRule = {
+                                    ...filterRule,
+                                    allowedOperators:
+                                        normalizedAllowedOperators.length > 0
+                                            ? normalizedAllowedOperators
+                                            : undefined,
+                                };
+
+                                if (
+                                    normalizedAllowedOperators.length > 0 &&
+                                    !normalizedAllowedOperators.includes(
+                                        filterRule.operator,
+                                    )
+                                ) {
+                                    nextFilterRule =
+                                        getFilterRuleWithDefaultValue(
+                                            filterType,
+                                            field,
+                                            {
+                                                ...nextFilterRule,
+                                                operator:
+                                                    normalizedAllowedOperators[0],
+                                            },
+                                        );
+                                }
+
+                                onChangeFilterRule(nextFilterRule);
+                            }}
+                        />
+
                         {filterRule.required &&
                             (filterRule?.values || []).length > 0 && (
                                 <Text size="xs" color={'gray.7'}>

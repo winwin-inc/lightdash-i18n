@@ -122,6 +122,24 @@ const Filter: FC<Props> = ({
     const [filterConfigTab, setFilterConfigTab] = useState<FilterTabs>(
         FilterTabs.SETTINGS,
     );
+    const [draftPreviewRule, setDraftPreviewRule] = useState<
+        DashboardFilterRule | undefined
+    >();
+
+    const handleDraftChange = useCallback(
+        (rule: DashboardFilterRule | undefined) => {
+            setDraftPreviewRule(rule);
+        },
+        [],
+    );
+
+    useEffect(() => {
+        if (!isPopoverOpen) {
+            setDraftPreviewRule(undefined);
+        }
+    }, [isPopoverOpen]);
+
+    const displayFilterRule = draftPreviewRule ?? filterRule;
 
     const isTilesConfigTab = filterConfigTab === FilterTabs.TILES;
 
@@ -242,30 +260,32 @@ const Filter: FC<Props> = ({
 
     const filterRuleLabels = useMemo(() => {
         if (field) {
-            return getConditionalRuleLabelFromItem(filterRule, field);
+            return getConditionalRuleLabelFromItem(displayFilterRule, field);
         } else {
             const column = Object.values(sqlChartTilesMetadata)
                 .flatMap((tileMetadata) => tileMetadata.columns)
                 .find(
-                    ({ reference }) => reference === filterRule.target.fieldId,
+                    ({ reference }) =>
+                        reference === displayFilterRule.target.fieldId,
                 );
             if (column) {
                 return getConditionalRuleLabel(
-                    filterRule,
+                    displayFilterRule,
                     getFilterTypeFromItemType(column.type),
                     column.reference,
                 );
             }
             return getConditionalRuleLabel(
-                filterRule,
+                displayFilterRule,
                 getFilterTypeFromItemType(
-                    filterRule.target.fallbackType ?? DimensionType.STRING,
+                    displayFilterRule.target.fallbackType ??
+                        DimensionType.STRING,
                 ),
-                filterRule.target.fieldId,
+                displayFilterRule.target.fieldId,
             );
         }
     }, [
-        filterRule,
+        displayFilterRule,
         field,
         sqlChartTilesMetadata,
         getConditionalRuleLabel,
@@ -495,11 +515,11 @@ const Filter: FC<Props> = ({
                                             }
                                         >
                                             <Text fw={600} span truncate>
-                                                {filterRule?.label ||
+                                                {displayFilterRule?.label ||
                                                     filterRuleLabels?.field}{' '}
                                             </Text>
                                         </Tooltip>
-                                        {filterRule?.disabled ? (
+                                        {displayFilterRule?.disabled ? (
                                             <Text span color="gray.6" truncate>
                                                 {t(
                                                     'components_dashboard_filter.filter.filter_rules.part_1',
@@ -551,7 +571,9 @@ const Filter: FC<Props> = ({
                                     appliedFilterableFieldsByTileUuid ?? {}
                                 }
                                 defaultFilterRule={defaultFilterRule}
+                                isPopoverOpen={isPopoverOpen}
                                 onSave={handleSaveChanges}
+                                onDraftChange={handleDraftChange}
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,
                                     onClose: closeSubPopoverWrapped,

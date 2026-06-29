@@ -22,7 +22,10 @@ import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
 import { MAX_PIVOTS } from './constants';
 
-enum DroppableIds
+enum DroppableIds {
+    COLUMNS = 'COLUMNS',
+    ROWS = 'ROWS',
+}
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();

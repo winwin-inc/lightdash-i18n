@@ -34,7 +34,9 @@ import { IconRotate2, IconSql } from '@tabler/icons-react';
 import { produce } from 'immer';
 import {
     useCallback,
+    useEffect,
     useMemo,
+    useRef,
     useState,
     type FC,
     type MouseEvent,
@@ -74,6 +76,8 @@ interface Props {
     isCreatingNew?: boolean;
     isTemporary?: boolean;
     onSave: (value: DashboardFilterRule) => void;
+    onDraftChange?: (value: DashboardFilterRule | undefined) => void;
+    isPopoverOpen?: boolean;
     filterScope: 'global' | 'tab';
     tabUuid?: string;
     onSelectedTabChange?: (tab: FilterTabs) => void;
@@ -98,6 +102,8 @@ const FilterConfiguration: FC<Props> = ({
     defaultFilterRule,
     popoverProps,
     onSave,
+    onDraftChange,
+    isPopoverOpen = false,
     filterScope,
     tabUuid,
     onSelectedTabChange,
@@ -145,6 +151,21 @@ const FilterConfiguration: FC<Props> = ({
                 : undefined,
         [draftFilterRule, getRuleWithPendingExcludedValue],
     );
+
+    const wasPopoverOpenRef = useRef(false);
+    useEffect(() => {
+        const justOpened = isPopoverOpen && !wasPopoverOpenRef.current;
+        wasPopoverOpenRef.current = isPopoverOpen;
+
+        if (justOpened && defaultFilterRule) {
+            setDraftFilterRule(defaultFilterRule);
+            setPendingExcludedValue('');
+        }
+    }, [isPopoverOpen, defaultFilterRule]);
+
+    useEffect(() => {
+        onDraftChange?.(draftFilterRuleWithPendingExcludedValue);
+    }, [draftFilterRuleWithPendingExcludedValue, onDraftChange]);
 
     /** 与看板已保存配置对比，用于「还原」等需回到持久化状态的逻辑 */
     const isDraftModifiedFromSaved = useMemo(() => {
@@ -204,17 +225,20 @@ const FilterConfiguration: FC<Props> = ({
 
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
-            setDraftFilterRule(() => {
-                // 有具体取值则启用；查看模式下清空取值即回到「任何值」(disabled)
-                const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
-                    ? false
-                    : isEditMode
-                      ? newFilterRule.disabled
-                      : true;
-                return { ...newFilterRule, disabled: isNewFilterDisabled };
-            });
+            const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
+                ? false
+                : isEditMode
+                  ? newFilterRule.disabled
+                  : true;
+            const updatedRule = {
+                ...newFilterRule,
+                disabled: isNewFilterDisabled,
+            };
+
+            setDraftFilterRule(updatedRule);
+            onDraftChange?.(getRuleWithPendingExcludedValue(updatedRule));
         },
-        [isEditMode, setDraftFilterRule],
+        [isEditMode, onDraftChange, getRuleWithPendingExcludedValue],
     );
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,

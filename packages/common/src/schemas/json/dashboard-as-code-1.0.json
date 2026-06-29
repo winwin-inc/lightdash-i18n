@@ -325,6 +325,34 @@
                             "singleValue": {
                                 "type": "boolean",
                                 "description": "Whether the filter only accepts a single value"
+                            },
+                            "allowedOperators": {
+                                "type": "array",
+                                "description": "Operators available to viewers; empty means no restriction",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "isNull",
+                                        "notNull",
+                                        "equals",
+                                        "notEquals",
+                                        "startsWith",
+                                        "endsWith",
+                                        "include",
+                                        "doesNotInclude",
+                                        "lessThan",
+                                        "lessThanOrEqual",
+                                        "greaterThan",
+                                        "greaterThanOrEqual",
+                                        "inThePast",
+                                        "notInThePast",
+                                        "inTheNext",
+                                        "inTheCurrent",
+                                        "notInTheCurrent",
+                                        "inBetween",
+                                        "notInBetween"
+                                    ]
+                                }
                             }
                         }
                     }

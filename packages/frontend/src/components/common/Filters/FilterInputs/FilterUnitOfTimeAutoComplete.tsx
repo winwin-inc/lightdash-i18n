@@ -1,67 +1,10 @@
-import { getUnitsOfTimeGreaterOrEqual, UnitOfTime } from '@lightdash/common';
+import { type UnitOfTime } from '@lightdash/common';
 import { Select, type SelectProps } from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
-
-const getUnitOfTimeLabel = (
-    unitOfTime: UnitOfTime,
-    isPlural: boolean,
-    isCompleted: boolean,
-) => {
-    return `${isCompleted ? 'completed ' : ''}${
-        isPlural ? unitOfTime : unitOfTime.substring(0, unitOfTime.length - 1)
-    }`;
-};
-
-const getUnitOfTimeOptions = ({
-    isTimestamp,
-    minUnitOfTime,
-    showCompletedOptions,
-    showOptionsInPlural,
-}: {
-    isTimestamp: boolean;
-    minUnitOfTime?: UnitOfTime;
-    showCompletedOptions: boolean;
-    showOptionsInPlural: boolean;
-}) => {
-    const dateIndex = Object.keys(UnitOfTime).indexOf(UnitOfTime.days);
-
-    const unitsOfTime = minUnitOfTime
-        ? getUnitsOfTimeGreaterOrEqual(minUnitOfTime)
-        : isTimestamp
-        ? Object.values(UnitOfTime)
-        : Object.values(UnitOfTime).slice(dateIndex);
-
-    return unitsOfTime
-        .reverse()
-        .reduce<{ label: string; value: string }[]>((sum, unitOfTime) => {
-            const newOptions = [
-                ...sum,
-                {
-                    label: getUnitOfTimeLabel(
-                        unitOfTime,
-                        showOptionsInPlural,
-                        false,
-                    ),
-                    value: unitOfTime.toString(),
-                },
-            ];
-
-            if (showCompletedOptions) {
-                newOptions.push({
-                    label: getUnitOfTimeLabel(
-                        unitOfTime,
-                        showOptionsInPlural,
-                        true,
-                    ),
-                    value: `${unitOfTime}-completed`,
-                });
-            }
-            return newOptions;
-        }, []);
-};
+import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
 
 interface Props extends Omit<SelectProps, 'data' | 'onChange'> {
     isTimestamp: boolean;
@@ -84,6 +27,7 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
     ...rest
 }) => {
     const { t } = useTranslation();
+    const { getUnitLabel, getUnitOfTimeOptions } = useUnitOfTimeLabels();
 
     const { options, selectValue } = useMemo(() => {
         const standardOptions = getUnitOfTimeOptions({
@@ -93,7 +37,6 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
             showOptionsInPlural,
         });
 
-        // for a fresh filter (no unitOfTime), just return standard options
         if (!unitOfTime) {
             return {
                 options: standardOptions,
@@ -101,20 +44,17 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
             };
         }
 
-        // compute current value for existing filter
         const currentValue = `${unitOfTime}${completed ? '-completed' : ''}`;
 
-        // check if current value exists in standard options
         const currentValueExists = standardOptions.some(
             (option) => option.value === currentValue,
         );
 
-        // add current value to options if it doesn't exist
         const finalOptions = !currentValueExists
             ? [
                   ...standardOptions,
                   {
-                      label: getUnitOfTimeLabel(
+                      label: getUnitLabel(
                           unitOfTime,
                           showOptionsInPlural,
                           completed,
@@ -129,15 +69,16 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
             selectValue: currentValue,
         };
     }, [
+        completed,
+        getUnitLabel,
+        getUnitOfTimeOptions,
         isTimestamp,
         minUnitOfTime,
         showCompletedOptions,
         showOptionsInPlural,
         unitOfTime,
-        completed,
     ]);
 
-    // 检测是否为移动设备
     const isMobileDevice = useIsMobileDevice();
 
     return (
@@ -150,19 +91,16 @@ const FilterUnitOfTimeAutoComplete: FC<Props> = ({
             data={options}
             styles={{
                 input: {
-                    // 移动端：更严格限制输入框宽度，避免超出屏幕
                     ...(isMobileDevice && {
                         maxWidth: '80vw',
                     }),
                 },
                 wrapper: {
-                    // 移动端：限制包装器宽度
                     ...(isMobileDevice && {
                         maxWidth: '80vw',
                     }),
                 },
                 dropdown: {
-                    // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
                     ...(isMobileDevice && {
                         maxWidth: '80vw',
                         width: '80vw',

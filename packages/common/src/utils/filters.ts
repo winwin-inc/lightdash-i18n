@@ -1407,3 +1407,37 @@ export const mergeDashboardAvailableFiltersFromChartFilterSets = (
         allFilterableFields,
     };
 };
+
+export type FilterOperatorOption = {
+    value: FilterOperator;
+    label: string;
+};
+
+export const getVisibleFilterOperatorOptions = (
+    allOptions: FilterOperatorOption[],
+    allowedOperators: FilterOperator[] | undefined,
+    isEditMode: boolean,
+    currentOperator: FilterOperator,
+): FilterOperatorOption[] => {
+    if (!allowedOperators || allowedOperators.length === 0) {
+        return allOptions;
+    }
+
+    const allowedSet = new Set(allowedOperators);
+    const visibleOptions = allOptions.filter((option) =>
+        allowedSet.has(option.value),
+    );
+
+    if (visibleOptions.some((option) => option.value === currentOperator)) {
+        return visibleOptions;
+    }
+
+    const currentOption = allOptions.find(
+        (option) => option.value === currentOperator,
+    );
+    if (!isEditMode && currentOption) {
+        return [currentOption, ...visibleOptions];
+    }
+
+    return visibleOptions;
+};

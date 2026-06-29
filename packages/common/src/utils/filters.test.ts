@@ -21,6 +21,7 @@ import {
     reduceRequiredDimensionFiltersToFilterRules,
     resetRequiredFilterRules,
     trackWhichTimeBasedMetricFiltersToOverride,
+    getVisibleFilterOperatorOptions,
 } from './filters';
 import {
     chartAndFilterGroup,
@@ -605,5 +606,90 @@ describe('dashboard tile filter field matching', () => {
                 compiledCustomSqlDimension,
             ),
         ).toBe(false);
+    });
+});
+
+describe('getVisibleFilterOperatorOptions', () => {
+    const allOptions = [
+        { value: FilterOperator.EQUALS, label: 'Is' },
+        { value: FilterOperator.NOT_EQUALS, label: 'Is not' },
+        { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
+        { value: FilterOperator.IN_THE_CURRENT, label: 'In the current' },
+    ];
+
+    test('returns filtered options in edit mode when allowedOperators is set', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                [FilterOperator.IN_BETWEEN],
+                true,
+                FilterOperator.IN_BETWEEN,
+            ),
+        ).toEqual([
+            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
+        ]);
+    });
+
+    test('does not keep disallowed current operator in edit mode', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                [FilterOperator.IN_BETWEEN],
+                true,
+                FilterOperator.EQUALS,
+            ),
+        ).toEqual([
+            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
+        ]);
+    });
+
+    test('returns all options in edit mode when allowedOperators is empty', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                undefined,
+                true,
+                FilterOperator.EQUALS,
+            ),
+        ).toEqual(allOptions);
+    });
+
+    test('returns all options when allowedOperators is empty', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                undefined,
+                false,
+                FilterOperator.EQUALS,
+            ),
+        ).toEqual(allOptions);
+    });
+
+    test('returns only allowed operators for viewers', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                [FilterOperator.IN_BETWEEN, FilterOperator.IN_THE_CURRENT],
+                false,
+                FilterOperator.IN_BETWEEN,
+            ),
+        ).toEqual([
+            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
+            { value: FilterOperator.IN_THE_CURRENT, label: 'In the current' },
+        ]);
+    });
+
+    test('keeps current operator when it is not in the allowed list', () => {
+        expect(
+            getVisibleFilterOperatorOptions(
+                allOptions,
+                [FilterOperator.IN_BETWEEN],
+                false,
+                FilterOperator.EQUALS,
+            ),
+        ).toEqual([
+            { value: FilterOperator.EQUALS, label: 'Is' },
+            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
+        ]);
     });
 });

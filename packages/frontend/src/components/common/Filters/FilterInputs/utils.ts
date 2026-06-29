@@ -28,6 +28,7 @@ import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
 import { useFilterOperatorLabel } from './constants';
+import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
 
 const useTimeFilterOptions = (): Array<{
     value: FilterOperator;
@@ -133,6 +134,7 @@ export const useFilterOperatorOptions = () => {
 
 const useValueAsString = () => {
     const { t } = useTranslation();
+    const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
 
     return (
         filterType: FilterType,
@@ -160,16 +162,18 @@ const useValueAsString = () => {
                     case FilterOperator.IN_THE_PAST:
                     case FilterOperator.NOT_IN_THE_PAST:
                     case FilterOperator.IN_THE_NEXT:
-                        if (!isFilterRule(rule))
+                    case FilterOperator.IN_THE_CURRENT:
+                    case FilterOperator.NOT_IN_THE_CURRENT: {
+                        const relativeDisplay =
+                            formatRelativeTimeDisplay(rule);
+                        if (relativeDisplay) {
+                            return relativeDisplay;
+                        }
+                        if (!isFilterRule(rule)) {
                             throw new Error('Invalid rule');
-
-                        return `${firstValue} ${
-                            rule.settings?.completed
-                                ? t(
-                                      'components_common_filters_inputs.completed',
-                                  )
-                                : ''
-                        } ${rule.settings?.unitOfTime}`;
+                        }
+                        return `${firstValue ?? ''} ${rule.settings?.unitOfTime ?? ''}`.trim();
+                    }
                     case FilterOperator.IN_BETWEEN:
                         if (
                             isDimension(field) &&
@@ -177,26 +181,28 @@ const useValueAsString = () => {
                             isMomentInput(secondValue) &&
                             field.type === DimensionType.DATE
                         ) {
+                            const rangeSeparator = t(
+                                'components_common_filters_inputs.date_range.and',
+                            );
                             return `${formatDate(
                                 firstValue as MomentInput,
                                 field.timeInterval,
-                            )} and ${formatDate(
+                            )} ${rangeSeparator} ${formatDate(
                                 secondValue as MomentInput,
                                 field.timeInterval,
                             )}`;
                         }
-                        return `${getLocalTimeDisplay(
-                            firstValue as MomentInput,
-                            false,
-                        )} and ${getLocalTimeDisplay(
-                            secondValue as MomentInput,
-                        )}`;
-                    case FilterOperator.IN_THE_CURRENT:
-                    case FilterOperator.NOT_IN_THE_CURRENT:
-                        if (!isFilterRule(rule))
-                            throw new Error('Invalid rule');
-
-                        return rule.settings?.unitOfTime.slice(0, -1);
+                        {
+                            const rangeSeparator = t(
+                                'components_common_filters_inputs.date_range.and',
+                            );
+                            return `${getLocalTimeDisplay(
+                                firstValue as MomentInput,
+                                false,
+                            )} ${rangeSeparator} ${getLocalTimeDisplay(
+                                secondValue as MomentInput,
+                            )}`;
+                        }
                     case FilterOperator.NULL:
                     case FilterOperator.NOT_NULL:
                     case FilterOperator.EQUALS:
@@ -251,8 +257,46 @@ const useValueAsString = () => {
     };
 };
 
+const buildConditionalRuleLabel = (
+    rule: BaseFilterRule,
+    filterType: FilterType,
+    fieldLabel: string,
+    getFilterOperatorOptions: ReturnType<
+        typeof useFilterOperatorOptions
+    >,
+    filterOperatorLabel: ReturnType<
+        typeof useFilterOperatorLabel
+    >['filterOperatorLabel'],
+    getValueAsString: ReturnType<typeof useValueAsString>,
+    formatRelativeTimeDisplay: ReturnType<
+        typeof useUnitOfTimeLabels
+    >['formatRelativeTimeDisplay'],
+    field?: Field | TableCalculation | CustomSqlDimension,
+): ConditionalRuleLabel => {
+    const relativeDisplay = formatRelativeTimeDisplay(rule);
+    if (relativeDisplay) {
+        return {
+            field: fieldLabel,
+            operator: '',
+            value: relativeDisplay,
+        };
+    }
+
+    const operatorOptions = getFilterOperatorOptions(filterType);
+    const operationLabel =
+        operatorOptions.find((o) => o.value === rule.operator)?.label ||
+        filterOperatorLabel[rule.operator];
+
+    return {
+        field: fieldLabel,
+        operator: operationLabel,
+        value: getValueAsString(filterType, rule, field),
+    };
+};
+
 export const useConditionalRuleLabel = () => {
     const { filterOperatorLabel } = useFilterOperatorLabel();
+    const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
 
     const getFilterOperatorOptions = useFilterOperatorOptions();
     const getValueAsString = useValueAsString();
@@ -261,22 +305,21 @@ export const useConditionalRuleLabel = () => {
         rule: BaseFilterRule,
         filterType: FilterType,
         label: string,
-    ): ConditionalRuleLabel => {
-        const operatorOptions = getFilterOperatorOptions(filterType);
-        const operationLabel =
-            operatorOptions.find((o) => o.value === rule.operator)?.label ||
-            filterOperatorLabel[rule.operator];
-
-        return {
-            field: label,
-            operator: operationLabel,
-            value: getValueAsString(filterType, rule),
-        };
-    };
+    ): ConditionalRuleLabel =>
+        buildConditionalRuleLabel(
+            rule,
+            filterType,
+            label,
+            getFilterOperatorOptions,
+            filterOperatorLabel,
+            getValueAsString,
+            formatRelativeTimeDisplay,
+        );
 };
 
 export const useConditionalRuleLabelFromItem = () => {
     const { filterOperatorLabel } = useFilterOperatorLabel();
+    const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
 
     const getFilterOperatorOptions = useFilterOperatorOptions();
     const getValueAsString = useValueAsString();
@@ -288,16 +331,17 @@ export const useConditionalRuleLabelFromItem = () => {
         const filterType = isFilterableItem(item)
             ? getFilterTypeFromItem(item)
             : FilterType.STRING;
-        const operatorOptions = getFilterOperatorOptions(filterType);
-        const operationLabel =
-            operatorOptions.find((o) => o.value === rule.operator)?.label ||
-            filterOperatorLabel[rule.operator];
 
-        return {
-            field: isField(item) ? item.label : item.name,
-            operator: operationLabel,
-            value: getValueAsString(filterType, rule, item),
-        };
+        return buildConditionalRuleLabel(
+            rule,
+            filterType,
+            isField(item) ? item.label : item.name,
+            getFilterOperatorOptions,
+            filterOperatorLabel,
+            getValueAsString,
+            formatRelativeTimeDisplay,
+            item,
+        );
     };
 };
 

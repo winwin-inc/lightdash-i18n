@@ -2285,6 +2285,40 @@
             "is_on_or_after": "is on or after",
             "is_between": "is between"
         },
+        "date_range": {
+            "and": "and"
+        },
+        "unit_of_time": {
+            "milliseconds": "millisecond",
+            "seconds": "second",
+            "minutes": "minute",
+            "hours": "hour",
+            "days": "day",
+            "weeks": "week",
+            "months": "month",
+            "quarters": "quarter",
+            "years": "year",
+            "milliseconds_plural": "milliseconds",
+            "seconds_plural": "seconds",
+            "minutes_plural": "minutes",
+            "hours_plural": "hours",
+            "days_plural": "days",
+            "weeks_plural": "weeks",
+            "months_plural": "months",
+            "quarters_plural": "quarters",
+            "years_plural": "years",
+            "completed": "complete {{unit}}"
+        },
+        "relative_time_display": {
+            "in_the_current": "current {{unit}}",
+            "not_in_the_current": "not current {{unit}}",
+            "in_the_past": "in the last {{amount}} {{unit}}",
+            "not_in_the_past": "not in the last {{amount}} {{unit}}",
+            "in_the_next": "in the next {{amount}} {{unit}}",
+            "in_the_past_completed": "in the last {{amount}} complete {{unit}}",
+            "not_in_the_past_completed": "not in the last {{amount}} complete {{unit}}",
+            "in_the_next_completed": "in the next {{amount}} complete {{unit}}"
+        },
         "completed": "completed ",
         "multi_value_paste_popver": {
             "title": "Multiple comma-separated values detected:",
@@ -2408,8 +2442,13 @@
                 "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above."
             },
             "exclude_values": {
-                "label": "Exclude values from options",
-                "placeholder": "Add values to hide from this filter options list"
+                "label": "Exclude dropdown options",
+                "placeholder": "Add options to hide from the dropdown list"
+            },
+            "allowed_operators": {
+                "label": "Limit filter methods",
+                "description": "Leave empty for no limit; viewers can use all filter methods",
+                "placeholder": "Select filter methods available to viewers"
             }
         },
         "tabs": {

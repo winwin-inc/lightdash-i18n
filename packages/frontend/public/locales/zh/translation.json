@@ -2242,11 +2242,11 @@
             "is_less_than_or_equal": "小于或等于",
             "is_greater_than": "大于",
             "is_greater_than_or_equal": "大于或等于",
-            "is_the_last": "是最后一个",
-            "not_in_the_last": "不是最后一个",
-            "in_the_next": "在下一个",
-            "in_the_current": "在当前",
-            "not_in_the_current": "不在当前",
+            "is_the_last": "最近",
+            "not_in_the_last": "非最近",
+            "in_the_next": "未来",
+            "in_the_current": "当前",
+            "not_in_the_current": "非当前",
             "is_between": "在之间",
             "is_not_between": "不在之间"
         },
@@ -2267,6 +2267,40 @@
             "is_after": "在之后",
             "is_on_or_after": "在或之后",
             "is_between": "在之间"
+        },
+        "date_range": {
+            "and": "至"
+        },
+        "unit_of_time": {
+            "milliseconds": "毫秒",
+            "seconds": "秒",
+            "minutes": "分钟",
+            "hours": "小时",
+            "days": "天",
+            "weeks": "周",
+            "months": "月",
+            "quarters": "季度",
+            "years": "年",
+            "milliseconds_plural": "毫秒",
+            "seconds_plural": "秒",
+            "minutes_plural": "分钟",
+            "hours_plural": "小时",
+            "days_plural": "天",
+            "weeks_plural": "周",
+            "months_plural": "个月",
+            "quarters_plural": "个季度",
+            "years_plural": "年",
+            "completed": "完整{{unit}}"
+        },
+        "relative_time_display": {
+            "in_the_current": "当前{{unit}}",
+            "not_in_the_current": "非当前{{unit}}",
+            "in_the_past": "最近 {{amount}} {{unit}}",
+            "not_in_the_past": "非最近 {{amount}} {{unit}}",
+            "in_the_next": "未来 {{amount}} {{unit}}",
+            "in_the_past_completed": "最近 {{amount}} 个完整{{unit}}",
+            "not_in_the_past_completed": "非最近 {{amount}} 个完整{{unit}}",
+            "in_the_next_completed": "未来 {{amount}} 个完整{{unit}}"
         },
         "completed": "已完成",
         "multi_value_paste_popver": {
@@ -2391,8 +2425,13 @@
                 "hint": "留空表示不限制；点击下方日期框在日历中选择（存储为 YYYY-MM-DD），用于限制上方日期筛选的可选范围"
             },
             "exclude_values": {
-                "label": "排除选项值",
-                "placeholder": "添加不需要在筛选选项中展示的值"
+                "label": "排除下拉选项",
+                "placeholder": "添加不在下拉列表中展示的选项"
+            },
+            "allowed_operators": {
+                "label": "限定筛选方式",
+                "description": "留空则不限制，客户可使用全部筛选方式",
+                "placeholder": "选择允许客户使用的筛选方式"
             }
         },
         "batch_bind": {
