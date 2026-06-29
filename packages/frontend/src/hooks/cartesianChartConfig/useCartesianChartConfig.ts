@@ -227,8 +227,7 @@ const useCartesianChartConfig = ({
                     if (initialSerie) {
                         return migrateLegacySeriesSortConfig({
                             ...serie,
-                            tooltipSortByValue:
-                                initialSerie.tooltipSortByValue,
+                            tooltipSortByValue: initialSerie.tooltipSortByValue,
                             stackSeriesSortByValue:
                                 initialSerie.stackSeriesSortByValue,
                         });
@@ -986,7 +985,15 @@ const useCartesianChartConfig = ({
     );
     // Generate expected series
     useEffect(() => {
-        if (isCompleteLayout(dirtyLayout) && resultsData?.hasFetchedAllRows) {
+        const isPivoted = Boolean(pivotKeys && pivotKeys.length > 0);
+        const hasRows = (resultsData?.rows?.length ?? 0) > 0;
+        const canRegenerateSeries =
+            isCompleteLayout(dirtyLayout) &&
+            resultsData &&
+            (resultsData.hasFetchedAllRows ||
+                (hasRows && (!isPivoted || Boolean(dirtyLayout?.flipAxes))));
+
+        if (canRegenerateSeries) {
             setDirtyEchartsConfig((prev) => {
                 const defaultCartesianType =
                     prev?.series?.[0]?.type || CartesianSeriesType.BAR;
@@ -1012,8 +1019,7 @@ const useCartesianChartConfig = ({
                     defaultAreaStyle,
                     defaultCartesianType,
                     availableDimensions,
-                    isStacked:
-                        isStackEnabled(dirtyLayout?.stack) || isStacked,
+                    isStacked: isStackEnabled(dirtyLayout?.stack) || isStacked,
                     pivotKeys,
                     resultsData,
                     xField: dirtyLayout.xField,

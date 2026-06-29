@@ -1056,6 +1056,545 @@ const getLongestLabel = ({
     );
 };
 
+const getLongestTextFromValues = (values: unknown[]): string | undefined => {
+    if (!values.length) return undefined;
+
+    return values.reduce<string>((acc, value) => {
+        const text = String(value);
+        return text.length > acc.length ? text : acc;
+    }, '');
+};
+
+/** flipAxes 左侧 Y 轴：仅用户配置的轴标题参与渲染与留白计算，不回落到字段默认名 */
+const getFlipAxesLeftAxisTitle = ({
+    showYAxis,
+    flipAxes,
+    yAxisConfiguration,
+}: {
+    showYAxis?: boolean;
+    flipAxes?: boolean;
+    yAxisConfiguration?: Array<{ name?: string }>;
+}): string | undefined => {
+    if (!showYAxis || !flipAxes) return undefined;
+
+    const customName = yAxisConfiguration?.[0]?.name?.trim();
+    return customName || undefined;
+};
+
+const getFlipAxesLeftYAxisLayoutConfig = ({
+    categoryValues,
+    axisTitle,
+    showYAxis,
+    axisLabelGap = defaultAxisLabelGap,
+}: {
+    categoryValues?: unknown[];
+    axisTitle?: string;
+    showYAxis?: boolean;
+    axisLabelGap?: number;
+}) => {
+    const categoryLabelWidth = categoryValues?.length
+        ? calculateWidthText(getLongestTextFromValues(categoryValues))
+        : 0;
+    const hasAxisTitle = Boolean(showYAxis && axisTitle?.trim());
+    // 竖排轴标题在水平方向约占一列字宽
+    const verticalTitleWidth = hasAxisTitle ? 14 : 0;
+
+    return {
+        hasAxisTitle,
+        categoryLabelWidth,
+        // grid.left：刻度标签 + 可选轴标题列（containLabel 必须关闭，否则会双倍留白）
+        gridLeft:
+            categoryLabelWidth +
+            axisLabelGap +
+            (hasAxisTitle ? verticalTitleWidth + axisLabelGap : 0),
+        // nameGap：轴标题与轴线的距离，需覆盖刻度标签宽度，标题才能画在标签左外侧
+        nameGap: hasAxisTitle
+            ? categoryLabelWidth + axisLabelGap
+            : axisLabelGap,
+    };
+};
+
+/** Matches getResultValueArray(..., preferRaw: true) for category axis / dataset alignment */
+const getCategoryValueFromResultRow = (
+    row: ResultRow,
+    fieldId: string,
+): unknown | undefined => {
+    const cell = row[fieldId];
+    if (!cell) return undefined;
+    return cell.value.raw ?? cell.value.formatted;
+};
+
+const getFlipAxesCategoryValuesFromRows = ({
+    rows,
+    categoryFieldId,
+}: {
+    rows: ResultRow[];
+    categoryFieldId: string;
+}): unknown[] => {
+    const seen = new Set<string>();
+    const values: unknown[] = [];
+
+    rows.forEach((row) => {
+        const value = getCategoryValueFromResultRow(row, categoryFieldId);
+        if (value === undefined || value === null) return;
+        const key = String(value);
+        if (seen.has(key)) return;
+        seen.add(key);
+        values.push(value);
+    });
+
+    return values;
+};
+
+const getFlipAxesCategoryValuesFromDataset = (
+    datasetRows: Record<string, unknown>[],
+    categoryFieldId: string,
+): unknown[] => {
+    const seen = new Set<string>();
+    const values: unknown[] = [];
+
+    datasetRows.forEach((row) => {
+        const value = row[categoryFieldId];
+        if (value === undefined || value === null) return;
+        const key = String(value);
+        if (seen.has(key)) return;
+        seen.add(key);
+        values.push(value);
+    });
+
+    return values;
+};
+
+const getPivotIndexAndGroupByKeySet = (
+    pivotDetails?: InfiniteQueryResults['pivotDetails'],
+): Set<string> => {
+    const keys = new Set<string>();
+    if (!pivotDetails) return keys;
+
+    const indexColumns = pivotDetails.indexColumn
+        ? Array.isArray(pivotDetails.indexColumn)
+            ? pivotDetails.indexColumn
+            : [pivotDetails.indexColumn]
+        : [];
+    indexColumns.forEach((column) => {
+        if (column.reference) keys.add(column.reference);
+    });
+    pivotDetails.groupByColumns?.forEach((column) => {
+        if (column.reference) keys.add(column.reference);
+    });
+
+    return keys;
+};
+
+const isFlipAxesWidePivotDataset = ({
+    layout,
+    series,
+    datasetRows,
+    pivotDetails,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows?: Record<string, unknown>[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+}): boolean => {
+    if (!layout.flipAxes || !datasetRows?.length || !pivotDetails) {
+        return false;
+    }
+
+    const encodeY = series.find((s) => s.encode?.y)?.encode?.y;
+    if (!encodeY) return false;
+
+    const encodeYHasValues = datasetRows.some(
+        (row) => row[encodeY] !== undefined && row[encodeY] !== null,
+    );
+    if (encodeYHasValues) return false;
+
+    const indexKeys = getPivotIndexAndGroupByKeySet(pivotDetails);
+    const valueColumnCount = Object.keys(datasetRows[0] ?? {}).filter(
+        (key) => !indexKeys.has(key),
+    ).length;
+    const barSeriesCount = series.filter(
+        (s) => s.type === CartesianSeriesType.BAR && s.encode?.x,
+    ).length;
+
+    return valueColumnCount > 0 && barSeriesCount > 0;
+};
+
+const getPivotSeriesCategoryLabel = ({
+    serie,
+    columnKey,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    serie: EChartSeries;
+    columnKey: string;
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): string => {
+    if (serie.pivotReference?.pivotValues?.length) {
+        return serie.pivotReference.pivotValues
+            .map(({ field, value }) =>
+                getFormattedValue(
+                    value,
+                    field,
+                    itemsMap,
+                    true,
+                    pivotValuesColumnsMap,
+                ),
+            )
+            .join(' - ');
+    }
+
+    const valuesColumn = pivotValuesColumnsMap?.[columnKey];
+    if (valuesColumn?.pivotValues?.length) {
+        return valuesColumn.pivotValues
+            .map(
+                (pivotValue) =>
+                    pivotValue.formatted ??
+                    getFormattedValue(
+                        pivotValue.value,
+                        pivotValue.referenceField,
+                        itemsMap,
+                        true,
+                        pivotValuesColumnsMap,
+                    ),
+            )
+            .join(' - ');
+    }
+
+    return (
+        (serie.dimensions?.[1]?.displayName as string | undefined) ??
+        serie.name ??
+        columnKey
+    );
+};
+
+const getFlipAxesCategoryAxisDataFromWidePivot = ({
+    series,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    series: EChartSeries[];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): unknown[] | undefined => {
+    const barSeries = series
+        .filter(
+            (s) =>
+                s.type === CartesianSeriesType.BAR &&
+                typeof s.encode?.x === 'string',
+        )
+        .sort((a, b) => {
+            const aColumnKey = a.encode!.x as string;
+            const bColumnKey = b.encode!.x as string;
+            const aIndex =
+                pivotValuesColumnsMap?.[aColumnKey]?.columnIndex ?? 0;
+            const bIndex =
+                pivotValuesColumnsMap?.[bColumnKey]?.columnIndex ?? 0;
+            return aIndex - bIndex;
+        });
+
+    if (!barSeries.length) return undefined;
+
+    return barSeries.map((serie) =>
+        getPivotSeriesCategoryLabel({
+            serie,
+            columnKey: serie.encode!.x as string,
+            itemsMap,
+            pivotValuesColumnsMap,
+        }),
+    );
+};
+
+const isWidePivotFlipAxesBarSerie = (serie: EChartSeries): boolean =>
+    serie.type === CartesianSeriesType.BAR &&
+    typeof serie.encode?.x === 'string';
+
+/**
+ * BAR_TOTALS axis sort for flipAxes + SQL pivot wide table (dashboard).
+ * Sorts bar series by pivot column value; category order flows via stackSortCategoryAxisData.
+ */
+export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
+    layout,
+    series,
+    datasetRows,
+    pivotDetails,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows: Record<string, unknown>[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}):
+    | { sortedSeries: EChartSeries[]; sortedCategoryLabels: unknown[] }
+    | undefined => {
+    if (
+        !isFlipAxesWidePivotDataset({
+            layout,
+            series,
+            datasetRows,
+            pivotDetails,
+        })
+    ) {
+        return undefined;
+    }
+
+    const datasetRow = datasetRows[0];
+    if (!datasetRow) return undefined;
+
+    const barSeries = series.filter(isWidePivotFlipAxesBarSerie);
+    if (!barSeries.length) return undefined;
+
+    const sortedEntries = barSeries
+        .map((serie, originalIndex) => {
+            const columnKey = serie.encode!.x as string;
+            const numValue = toNumber(datasetRow[columnKey]);
+            return {
+                serie,
+                value: Number.isFinite(numValue) ? numValue : 0,
+                categoryLabel: getPivotSeriesCategoryLabel({
+                    serie,
+                    columnKey,
+                    itemsMap,
+                    pivotValuesColumnsMap,
+                }),
+                originalIndex,
+            };
+        })
+        .sort((a, b) => {
+            const diff = a.value - b.value;
+            if (diff !== 0) return diff;
+            return a.originalIndex - b.originalIndex;
+        });
+
+    const sortedBarSeries = sortedEntries.map((entry) => entry.serie);
+    const sortedCategoryLabels = sortedEntries.map(
+        (entry) => entry.categoryLabel,
+    );
+    const sortedBarColumnKeys = new Set(
+        sortedBarSeries.map((s) => s.encode!.x as string),
+    );
+
+    let barBlockInserted = false;
+    const sortedSeries = series.reduce<EChartSeries[]>((acc, serie) => {
+        if (
+            isWidePivotFlipAxesBarSerie(serie) &&
+            sortedBarColumnKeys.has(serie.encode!.x as string)
+        ) {
+            if (!barBlockInserted) {
+                acc.push(...sortedBarSeries);
+                barBlockInserted = true;
+            }
+            return acc;
+        }
+        acc.push(serie);
+        return acc;
+    }, []);
+
+    return { sortedSeries, sortedCategoryLabels };
+};
+
+/**
+ * Wide pivot + flipAxes: category lives in series (pivot columns), not in a dataset
+ * column. Injecting yAxis.data alone breaks bars because encode.y no longer matches.
+ * Map each bar series to inline [value, categoryLabel] aligned with yAxis.data.
+ */
+const applyFlipAxesWidePivotSeriesData = ({
+    layout,
+    series,
+    datasetRows,
+    pivotDetails,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows: Record<string, unknown>[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): EChartSeries[] => {
+    if (
+        !isFlipAxesWidePivotDataset({
+            layout,
+            series,
+            datasetRows,
+            pivotDetails,
+        })
+    ) {
+        return series;
+    }
+
+    return series.map((serie) => {
+        if (
+            serie.type !== CartesianSeriesType.BAR ||
+            typeof serie.encode?.x !== 'string' ||
+            Array.isArray(serie.data)
+        ) {
+            return serie;
+        }
+
+        const valueColumnKey = serie.encode.x;
+        const categoryLabel = getPivotSeriesCategoryLabel({
+            serie,
+            columnKey: valueColumnKey,
+            itemsMap,
+            pivotValuesColumnsMap,
+        });
+
+        const inlineData = datasetRows.map((row) => [
+            row[valueColumnKey],
+            categoryLabel,
+        ]);
+
+        const metricFieldId =
+            pivotValuesColumnsMap?.[valueColumnKey]?.referenceField ??
+            layout.yField?.[0];
+        const metricItem =
+            metricFieldId && itemsMap[metricFieldId]
+                ? itemsMap[metricFieldId]
+                : undefined;
+
+        return {
+            ...serie,
+            data: inlineData,
+            encode: {
+                ...serie.encode,
+                x: 0,
+                y: 1,
+                tooltip: [0],
+            } as unknown as EChartSeries['encode'],
+            ...(serie.label?.show &&
+                metricItem && {
+                    label: {
+                        ...serie.label,
+                        formatter: (params: {
+                            value?: unknown[] | { value?: unknown[] };
+                        }) => {
+                            const rawValue = Array.isArray(params.value)
+                                ? params.value[0]
+                                : params.value?.value?.[0];
+                            return seriesValueFormatter(metricItem, rawValue);
+                        },
+                    },
+                }),
+        } as EChartSeries;
+    });
+};
+
+const resolveFlipAxesCategoryFieldId = ({
+    layout,
+    series,
+    datasetRows,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows?: Record<string, unknown>[];
+}): string | undefined => {
+    if (!layout.flipAxes) return undefined;
+
+    const rowKeys = datasetRows?.[0] ? Object.keys(datasetRows[0]) : [];
+    const rowKeySet = new Set(rowKeys);
+
+    const matchExistingKey = (fieldId: string | undefined) => {
+        if (!fieldId) return undefined;
+        if (rowKeySet.has(fieldId)) return fieldId;
+
+        return rowKeys.find(
+            (key) =>
+                key === fieldId ||
+                key.endsWith(`.${fieldId}`) ||
+                key.endsWith(`_${fieldId}`) ||
+                key.split('.').pop() === fieldId,
+        );
+    };
+
+    // Must align with series encode.y — the category column ECharts reads from dataset
+    const encodeY = series.find((s) => s.encode?.y)?.encode?.y;
+    const encodeMatch = matchExistingKey(encodeY);
+    if (encodeMatch) return encodeMatch;
+
+    const xFieldMatch = matchExistingKey(layout.xField);
+    if (xFieldMatch) return xFieldMatch;
+
+    const dimensionName = series.find((s) => s.dimensions?.[0]?.name)
+        ?.dimensions?.[0]?.name;
+    const dimensionMatch = matchExistingKey(dimensionName);
+    if (dimensionMatch) return dimensionMatch;
+
+    return encodeY ?? layout.xField;
+};
+
+const resolveFlipAxesCategoryAxisData = ({
+    layout,
+    series,
+    rows,
+    datasetRows,
+    stackSortCategoryAxisData,
+    pivotDetails,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows?: Record<string, unknown>[];
+    stackSortCategoryAxisData?: unknown[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): unknown[] | undefined => {
+    if (!layout.flipAxes) return undefined;
+
+    if (stackSortCategoryAxisData?.length) {
+        return stackSortCategoryAxisData;
+    }
+
+    if (
+        isFlipAxesWidePivotDataset({
+            layout,
+            series,
+            datasetRows,
+            pivotDetails,
+        })
+    ) {
+        return getFlipAxesCategoryAxisDataFromWidePivot({
+            series,
+            itemsMap,
+            pivotValuesColumnsMap,
+        });
+    }
+
+    const categoryFieldId = resolveFlipAxesCategoryFieldId({
+        layout,
+        series,
+        datasetRows,
+    });
+    if (!categoryFieldId) return undefined;
+
+    // Only inject yAxis.data when the column exists in dataset — wrong values break bar rendering
+    if (datasetRows?.length && categoryFieldId in (datasetRows[0] ?? {})) {
+        const datasetValues = getFlipAxesCategoryValuesFromDataset(
+            datasetRows,
+            categoryFieldId,
+        );
+        if (datasetValues.length) return datasetValues;
+    }
+
+    if (rows.some((row) => row[categoryFieldId])) {
+        const rowValues = getFlipAxesCategoryValuesFromRows({
+            rows,
+            categoryFieldId,
+        });
+        if (rowValues.length) return rowValues;
+    }
+
+    return undefined;
+};
+
 const getWeekAxisConfig = (
     axisId?: string,
     axisField?: Field | TableCalculation | CustomDimension,
@@ -1090,6 +1629,7 @@ const getEchartAxes = ({
     validCartesianConfig,
     series,
     resultsData,
+    processedRows,
     minsAndMaxes,
     isMobile = false,
 }: {
@@ -1097,9 +1637,12 @@ const getEchartAxes = ({
     itemsMap: ItemsMap;
     series: EChartSeries[];
     resultsData: InfiniteQueryResults | undefined;
+    processedRows?: ResultRow[];
     minsAndMaxes: ReturnType<typeof getResultValueArray>['minsAndMaxes'];
     isMobile?: boolean;
 }) => {
+    const axisRows = processedRows ?? resultsData?.rows ?? [];
+
     const xAxisItemId = validCartesianConfig.layout.flipAxes
         ? validCartesianConfig.layout?.yField?.[0]
         : validCartesianConfig.layout?.xField;
@@ -1108,8 +1651,6 @@ const getEchartAxes = ({
     const yAxisItemId = validCartesianConfig.layout.flipAxes
         ? validCartesianConfig.layout?.xField
         : validCartesianConfig.layout?.yField?.[0];
-
-    const yAxisItem = yAxisItemId ? itemsMap[yAxisItemId] : undefined;
 
     const selectedAxisInSeries = Array.from(
         new Set(
@@ -1171,12 +1712,12 @@ const getEchartAxes = ({
     const bottomAxisXId = bottomAxisXFieldIds?.[0] || xAxisItemId;
 
     const longestValueXAxisTop: string | undefined = getLongestLabel({
-        rows: resultsData?.rows,
+        rows: axisRows,
         axisId: topAxisXId,
     });
 
     const longestValueXAxisBottom: string | undefined = getLongestLabel({
-        rows: resultsData?.rows,
+        rows: axisRows,
         axisId: bottomAxisXId,
     });
 
@@ -1201,13 +1742,13 @@ const getEchartAxes = ({
         rightAxisYFieldIds?.[0] || validCartesianConfig.layout?.yField?.[1];
 
     const longestValueYAxisLeft: string | undefined = getLongestLabel({
-        rows: resultsData?.rows,
+        rows: axisRows,
         axisId: leftAxisYId,
     });
     const leftYaxisGap = calculateWidthText(longestValueYAxisLeft);
 
     const longestValueYAxisRight: string | undefined = getLongestLabel({
-        rows: resultsData?.rows,
+        rows: axisRows,
         axisId: rightAxisYId,
     });
     const rightYaxisGap = calculateWidthText(longestValueYAxisRight);
@@ -1244,32 +1785,32 @@ const getEchartAxes = ({
         leftAxisYFieldIds,
         rightAxisYFieldIds,
         bottomAxisXFieldIds,
-        resultsData?.rows,
+        axisRows,
         validCartesianConfig.eChartsConfig.series,
         itemsMap,
     );
     const bottomAxisExtraConfig = getWeekAxisConfig(
         bottomAxisXId,
         bottomAxisXField,
-        resultsData?.rows,
+        axisRows,
         bottomAxisType,
     );
     const topAxisExtraConfig = getWeekAxisConfig(
         topAxisXId,
         topAxisXField,
-        resultsData?.rows,
+        axisRows,
         topAxisType,
     );
     const rightAxisExtraConfig = getWeekAxisConfig(
         rightAxisYId,
         rightAxisYField,
-        resultsData?.rows,
+        axisRows,
         rightAxisType,
     );
     const leftAxisExtraConfig = getWeekAxisConfig(
         leftAxisYId,
         leftAxisYField,
-        resultsData?.rows,
+        axisRows,
         leftAxisType,
     );
 
@@ -1732,6 +2273,34 @@ const getEchartAxes = ({
                   maybeGetAxisDefaultMinValue(allowFirstAxisDefaultRange)
             : undefined;
 
+    const flipAxesCategoryAxisData =
+        validCartesianConfig.layout.flipAxes && leftAxisType === 'category'
+            ? resolveFlipAxesCategoryAxisData({
+                  layout: validCartesianConfig.layout,
+                  series,
+                  rows: axisRows,
+                  datasetRows: getResultValueArray(axisRows, true, true)
+                      .results,
+                  pivotDetails: resultsData?.pivotDetails,
+                  itemsMap,
+                  pivotValuesColumnsMap: convertPivotValuesColumnsIntoMap(
+                      resultsData?.pivotDetails?.valuesColumns,
+                  ),
+              })
+            : undefined;
+
+    const flipAxesLeftAxisTitle = getFlipAxesLeftAxisTitle({
+        showYAxis,
+        flipAxes: validCartesianConfig.layout.flipAxes,
+        yAxisConfiguration,
+    });
+
+    const flipAxesLeftYAxisLayout = getFlipAxesLeftYAxisLayoutConfig({
+        categoryValues: flipAxesCategoryAxisData,
+        axisTitle: flipAxesLeftAxisTitle,
+        showYAxis,
+    });
+
     return {
         xAxis: [
             {
@@ -1839,42 +2408,53 @@ const getEchartAxes = ({
             {
                 type: leftAxisType,
                 ...(showYAxis
-                    ? {
-                          name: validCartesianConfig.layout.flipAxes
-                              ? yAxisConfiguration?.[0]?.name ||
-                                (yAxisItem
-                                    ? getDateGroupLabel(yAxisItem) ||
-                                      getItemLabelWithoutTableName(yAxisItem)
-                                    : undefined)
-                              : getAxisName({
-                                    isAxisTheSameForAllSeries,
-                                    selectedAxisIndex,
-                                    axisIndex: 0,
-                                    axisReference: 'yRef',
-                                    axisName: yAxisConfiguration?.[0]?.name,
-                                    itemsMap,
-                                    series: validCartesianConfig.eChartsConfig
-                                        .series,
-                                }),
-                          nameLocation: 'center',
-                          nameTextStyle: {
-                              fontWeight: 'bold',
-                              align: 'center',
-                          },
-                      }
+                    ? validCartesianConfig.layout.flipAxes
+                        ? flipAxesLeftAxisTitle
+                            ? {
+                                  name: flipAxesLeftAxisTitle,
+                                  nameLocation: 'center' as const,
+                                  nameTextStyle: {
+                                      fontWeight: 'bold',
+                                      align: 'center',
+                                  },
+                              }
+                            : {}
+                        : {
+                              name: getAxisName({
+                                  isAxisTheSameForAllSeries,
+                                  selectedAxisIndex,
+                                  axisIndex: 0,
+                                  axisReference: 'yRef',
+                                  axisName: yAxisConfiguration?.[0]?.name,
+                                  itemsMap,
+                                  series: validCartesianConfig.eChartsConfig
+                                      .series,
+                              }),
+                              nameLocation: 'center',
+                              nameTextStyle: {
+                                  fontWeight: 'bold',
+                                  align: 'center',
+                              },
+                          }
                     : {}),
                 min: minYAxisValue,
                 max: maxYAxisValue,
                 ...(() => {
                     const baseConfig = getAxisFormatterConfig({
                         axisItem: leftAxisYField,
-                        defaultNameGap: leftYaxisGap + defaultAxisLabelGap,
+                        defaultNameGap:
+                            validCartesianConfig.layout.flipAxes &&
+                            leftAxisType === 'category'
+                                ? flipAxesLeftYAxisLayout.nameGap
+                                : leftYaxisGap + defaultAxisLabelGap,
                         show: showYAxis,
                     });
 
+                    let config = baseConfig;
+
                     // 移动端仅缩小字体，保留轴标题与轴线之间的距离。
                     if (isMobile && showYAxis) {
-                        return {
+                        config = {
                             ...baseConfig,
                             nameTextStyle: baseConfig.nameTextStyle
                                 ? {
@@ -1897,8 +2477,33 @@ const getEchartAxes = ({
                         };
                     }
 
-                    return baseConfig;
+                    if (
+                        validCartesianConfig.layout.flipAxes &&
+                        leftAxisType === 'category' &&
+                        showYAxis
+                    ) {
+                        config = {
+                            ...config,
+                            axisLabel: {
+                                ...(typeof config.axisLabel === 'object'
+                                    ? config.axisLabel
+                                    : {}),
+                                show: true,
+                                hideOverlap: false,
+                                interval: 0,
+                            },
+                            axisTick: {
+                                show: true,
+                                alignWithLabel: true,
+                            },
+                        };
+                    }
+
+                    return config;
                 })(),
+                ...(flipAxesCategoryAxisData?.length
+                    ? { data: flipAxesCategoryAxisData }
+                    : {}),
                 // Override formatter for 100% stacking without flipped axes
                 ...(shouldStack100 &&
                     !validCartesianConfig.layout.flipAxes &&
@@ -2247,6 +2852,7 @@ const useEchartsCartesianConfig = (
             series,
             validCartesianConfig,
             resultsData,
+            processedRows: rows,
             minsAndMaxes: resultsAndMinsAndMaxes.minsAndMaxes,
             isMobile,
         });
@@ -2255,6 +2861,7 @@ const useEchartsCartesianConfig = (
         validCartesianConfig,
         series,
         resultsData,
+        rows,
         resultsAndMinsAndMaxes.minsAndMaxes,
         isMobile,
     ]);
@@ -2272,8 +2879,10 @@ const useEchartsCartesianConfig = (
         return { barMaxWidth };
     }, [series, validCartesianConfig?.layout, isMobile]);
 
-    const stackedSeriesWithColorAssignments = useMemo(() => {
-        if (!itemsMap) return;
+    const stackedSeriesResult = useMemo(() => {
+        if (!itemsMap) return undefined;
+
+        let stackSortCategoryAxisData: unknown[] | undefined;
 
         const seriesWithValidStack = series.map<EChartSeries>((serie) => {
             const baseConfig = {
@@ -2399,70 +3008,109 @@ const useEchartsCartesianConfig = (
                         ? sampleSerie?.encode?.x
                         : sampleSerie?.encode?.y;
 
-                    if (!sampleYFieldHash) return sortedSeries;
+                    if (sampleYFieldHash) {
+                        const parts = sampleYFieldHash.split('.');
+                        if (parts.length >= 2) {
+                            const metricField = parts[0];
+                            const dimensionField = parts[1];
 
-                    const parts = sampleYFieldHash.split('.');
-                    if (parts.length < 2) return sortedSeries;
+                            // 获取维度字段的所有唯一值（如 2024年, 2025年）
+                            const dimensionValues = [
+                                ...new Set(
+                                    rows
+                                        .map(
+                                            (r) =>
+                                                r[dimensionField]?.value?.raw,
+                                        )
+                                        .filter(Boolean),
+                                ),
+                            ];
 
-                    const metricField = parts[0];
-                    const dimensionField = parts[1];
+                            if (dimensionValues.length > 0) {
+                                if (validCartesianConfig?.layout.flipAxes) {
+                                    stackSortCategoryAxisData = dimensionValues;
+                                }
 
-                    // 获取维度字段的所有唯一值（如 2024年, 2025年）
-                    const dimensionValues = [
-                        ...new Set(
-                            rows
-                                .map((r) => r[dimensionField]?.value?.raw)
-                                .filter(Boolean),
-                        ),
-                    ];
+                                sortedSeries = sortedSeries.map((serie) => {
+                                    if (
+                                        serie.type !==
+                                            CartesianSeriesType.BAR ||
+                                        !serie.stack
+                                    ) {
+                                        return serie;
+                                    }
 
-                    if (dimensionValues.length > 0) {
-                        sortedSeries = sortedSeries.map((serie) => {
-                            if (
-                                serie.type !== CartesianSeriesType.BAR ||
-                                !serie.stack
-                            ) {
-                                return serie;
+                                    const yFieldHash = validCartesianConfig
+                                        ?.layout.flipAxes
+                                        ? serie.encode?.x
+                                        : serie.encode?.y;
+
+                                    if (!yFieldHash) return serie;
+
+                                    // 从 yFieldHash 提取品类名（如 "低温酸奶"）
+                                    const serieParts = yFieldHash.split('.');
+                                    const categoryValue =
+                                        serieParts.length >= 3
+                                            ? serieParts.slice(2).join('.')
+                                            : null;
+
+                                    if (!categoryValue) return serie;
+
+                                    // 构建该 series 的数据：按 dimensionValues 顺序
+                                    const data = dimensionValues.map(
+                                        (dimValue) => {
+                                            const matchingRow = rows.find(
+                                                (r) =>
+                                                    r[dimensionField]?.value
+                                                        ?.raw === dimValue &&
+                                                    r[serieParts[1]]?.value
+                                                        ?.raw === categoryValue,
+                                            );
+                                            const value =
+                                                matchingRow?.[metricField]
+                                                    ?.value?.raw;
+                                            return value !== undefined
+                                                ? Number(value)
+                                                : 0;
+                                        },
+                                    );
+
+                                    // 注入 data，ECharts 会优先使用 data 属性
+                                    return {
+                                        ...serie,
+                                        data,
+                                    };
+                                });
                             }
-
-                            const yFieldHash = validCartesianConfig?.layout
-                                .flipAxes
-                                ? serie.encode?.x
-                                : serie.encode?.y;
-
-                            if (!yFieldHash) return serie;
-
-                            // 从 yFieldHash 提取品类名（如 "低温酸奶"）
-                            const serieParts = yFieldHash.split('.');
-                            const categoryValue =
-                                serieParts.length >= 3
-                                    ? serieParts.slice(2).join('.')
-                                    : null;
-
-                            if (!categoryValue) return serie;
-
-                            // 构建该 series 的数据：按 dimensionValues 顺序
-                            const data = dimensionValues.map((dimValue) => {
-                                const matchingRow = rows.find(
-                                    (r) =>
-                                        r[dimensionField]?.value?.raw ===
-                                            dimValue &&
-                                        r[serieParts[1]]?.value?.raw ===
-                                            categoryValue,
-                                );
-                                const value =
-                                    matchingRow?.[metricField]?.value?.raw;
-                                return value !== undefined ? Number(value) : 0;
-                            });
-
-                            // 注入 data，ECharts 会优先使用 data 属性
-                            return {
-                                ...serie,
-                                data,
-                            };
-                        });
+                        }
                     }
                 }
+            }
+        }
+
+        const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
+        const datasetRowsForSort = getResultValueArray(rows, true, true)
+            .results as Record<string, unknown>[];
+
+        if (
+            validCartesianConfig?.layout.flipAxes &&
+            xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS &&
+            datasetRowsForSort.length > 0
+        ) {
+            const widePivotSortResult =
+                sortFlipAxesWidePivotBarSeriesByBarTotals({
+                    layout: validCartesianConfig.layout,
+                    series: sortedSeries,
+                    datasetRows: datasetRowsForSort,
+                    pivotDetails: resultsData?.pivotDetails,
+                    itemsMap,
+                    pivotValuesColumnsMap,
+                });
+
+            if (widePivotSortResult) {
+                sortedSeries = widePivotSortResult.sortedSeries;
+                stackSortCategoryAxisData =
+                    widePivotSortResult.sortedCategoryLabels;
             }
         }
 
@@ -2477,7 +3125,12 @@ const useEchartsCartesianConfig = (
             ),
         ];
 
-        if (!isMobile) return allSeries;
+        if (!isMobile) {
+            return {
+                series: allSeries,
+                stackSortCategoryAxisData,
+            };
+        }
 
         const mobileBarLabelPlan = computeMobileBarLabelPlan({
             series: allSeries.map((serie) => ({
@@ -2497,34 +3150,45 @@ const useEchartsCartesianConfig = (
             })),
         });
 
-        return allSeries.map((serie): EChartSeries => {
-            if (!serie.label?.show) return serie;
+        return {
+            series: allSeries.map((serie): EChartSeries => {
+                if (!serie.label?.show) return serie;
 
-            const adjustments = applyMobileSeriesLabelAdjustments(
-                serie,
-                mobileBarLabelPlan,
-            );
+                const adjustments = applyMobileSeriesLabelAdjustments(
+                    serie,
+                    mobileBarLabelPlan,
+                );
 
-            return {
-                ...serie,
-                labelLayout: adjustments.labelLayout,
-                label: {
-                    ...serie.label,
-                    ...adjustments.label,
-                },
-            };
-        });
+                return {
+                    ...serie,
+                    labelLayout: adjustments.labelLayout,
+                    label: {
+                        ...serie.label,
+                        ...adjustments.label,
+                    },
+                };
+            }),
+            stackSortCategoryAxisData,
+        };
     }, [
         series,
         rows,
         itemsMap,
-        validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.layout,
         validCartesianConfig?.eChartsConfig.series,
+        validCartesianConfig?.eChartsConfig.xAxis,
+        resultsData?.pivotDetails,
+        pivotValuesColumnsMap,
         validCartesianConfigLegend,
         getSeriesColor,
         barWidthConfig,
         isMobile,
     ]);
+
+    const stackedSeriesWithColorAssignments = stackedSeriesResult?.series;
+    const stackSortCategoryAxisData =
+        stackedSeriesResult?.stackSortCategoryAxisData;
+
     const sortedResults = useMemo(() => {
         const results =
             validCartesianConfig?.layout?.xField === EMPTY_X_AXIS
@@ -2741,6 +3405,37 @@ const useEchartsCartesianConfig = (
         validCartesianConfig?.layout.flipAxes,
         stackedSeriesWithColorAssignments,
         sortedResultsByTotals,
+    ]);
+
+    const flipAxesCategoryValuesFromDataset = useMemo(() => {
+        if (
+            !itemsMap ||
+            !validCartesianConfig?.layout.flipAxes ||
+            !dataToRender?.length
+        ) {
+            return undefined;
+        }
+
+        return resolveFlipAxesCategoryAxisData({
+            layout: validCartesianConfig.layout,
+            series: stackedSeriesWithColorAssignments ?? series,
+            rows,
+            datasetRows: dataToRender,
+            stackSortCategoryAxisData,
+            pivotDetails: resultsData?.pivotDetails,
+            itemsMap,
+            pivotValuesColumnsMap,
+        });
+    }, [
+        dataToRender,
+        rows,
+        series,
+        stackedSeriesWithColorAssignments,
+        stackSortCategoryAxisData,
+        resultsData?.pivotDetails,
+        pivotValuesColumnsMap,
+        itemsMap,
+        validCartesianConfig?.layout,
     ]);
 
     const tooltip = useMemo<TooltipOption>(
@@ -3045,6 +3740,33 @@ const useEchartsCartesianConfig = (
             ? 15
             : parseInt(gridLeft.replace('px', '')) || 25;
 
+        const defaultLeftPadding = baseLeftPadding + axisLabelGap;
+
+        const showYAxis =
+            validCartesianConfig?.layout.showYAxis !== undefined
+                ? validCartesianConfig.layout.showYAxis
+                : true;
+
+        const flipAxesLeftYAxisLayout = getFlipAxesLeftYAxisLayoutConfig({
+            categoryValues: flipAxesCategoryValuesFromDataset,
+            axisTitle: getFlipAxesLeftAxisTitle({
+                showYAxis,
+                flipAxes: validCartesianConfig?.layout.flipAxes,
+                yAxisConfiguration: validCartesianConfig?.eChartsConfig?.xAxis,
+            }),
+            showYAxis,
+            axisLabelGap,
+        });
+
+        const useManualFlipAxesLeftPadding = Boolean(
+            validCartesianConfig?.layout.flipAxes &&
+                flipAxesCategoryValuesFromDataset?.length,
+        );
+
+        const resolvedLeftPadding = useManualFlipAxesLeftPadding
+            ? Math.max(defaultLeftPadding, flipAxesLeftYAxisLayout.gridLeft)
+            : defaultLeftPadding;
+
         // Adds extra gap to grid to make room for axis labels -> there is an open ticket in echarts to fix this: https://github.com/apache/echarts/issues/9265
         // Only works for px values, percentage values are not supported because it cannot use calc()
         const hasValueLabels = stackedSeriesWithColorAssignments?.some(
@@ -3060,8 +3782,14 @@ const useEchartsCartesianConfig = (
 
         return {
             ...grid,
+            containLabel: useManualFlipAxesLeftPadding
+                ? false
+                : validCartesianConfig?.layout.flipAxes &&
+                    validCartesianConfig.layout.xField
+                  ? true
+                  : grid.containLabel,
             left: gridLeft.includes('px')
-                ? `${baseLeftPadding + axisLabelGap}px`
+                ? `${resolvedLeftPadding}px`
                 : grid.left,
             right: gridRight.includes('px')
                 ? `${
@@ -3073,6 +3801,11 @@ const useEchartsCartesianConfig = (
         };
     }, [
         validCartesianConfig?.eChartsConfig.grid,
+        validCartesianConfig?.eChartsConfig?.xAxis,
+        validCartesianConfig?.layout.flipAxes,
+        validCartesianConfig?.layout.xField,
+        validCartesianConfig?.layout.showYAxis,
+        flipAxesCategoryValuesFromDataset,
         isMobile,
         stackedSeriesWithColorAssignments,
     ]);
@@ -3097,12 +3830,69 @@ const useEchartsCartesianConfig = (
         series,
     ]);
 
+    const seriesForRender = useMemo(() => {
+        if (
+            !stackedSeriesWithColorAssignments?.length ||
+            !dataToRender?.length ||
+            !itemsMap ||
+            !validCartesianConfig
+        ) {
+            return stackedSeriesWithColorAssignments;
+        }
+
+        return applyFlipAxesWidePivotSeriesData({
+            layout: validCartesianConfig.layout,
+            series: stackedSeriesWithColorAssignments,
+            datasetRows: dataToRender as Record<string, unknown>[],
+            pivotDetails: resultsData?.pivotDetails,
+            itemsMap,
+            pivotValuesColumnsMap,
+        });
+    }, [
+        stackedSeriesWithColorAssignments,
+        dataToRender,
+        itemsMap,
+        validCartesianConfig,
+        resultsData?.pivotDetails,
+        pivotValuesColumnsMap,
+    ]);
+
     const eChartsOptions = useMemo(
         () => ({
             xAxis: axes?.xAxis || [],
-            yAxis: axes?.yAxis || [],
+            yAxis: (axes?.yAxis || []).map((axis, index) => {
+                const canInjectCategoryData = Boolean(
+                    index === 0 &&
+                        flipAxesCategoryValuesFromDataset?.length &&
+                        validCartesianConfig?.layout.flipAxes &&
+                        axis.type === 'category',
+                );
+
+                if (!canInjectCategoryData) {
+                    return axis;
+                }
+
+                return {
+                    ...axis,
+                    data: flipAxesCategoryValuesFromDataset,
+                    axisLabel: {
+                        ...('axisLabel' in axis &&
+                        axis.axisLabel &&
+                        typeof axis.axisLabel === 'object'
+                            ? axis.axisLabel
+                            : {}),
+                        show: true,
+                        hideOverlap: false,
+                        interval: 0,
+                    },
+                    axisTick: {
+                        show: true,
+                        alignWithLabel: true,
+                    },
+                };
+            }),
             useUTC: true,
-            series: stackedSeriesWithColorAssignments,
+            series: seriesForRender,
             animation: !(isInDashboard || minimal),
             legend: legendConfigWithInstructionsTooltip,
             dataset: {
@@ -3120,7 +3910,9 @@ const useEchartsCartesianConfig = (
         [
             axes?.xAxis,
             axes?.yAxis,
-            stackedSeriesWithColorAssignments,
+            flipAxesCategoryValuesFromDataset,
+            validCartesianConfig?.layout.flipAxes,
+            seriesForRender,
             isInDashboard,
             minimal,
             legendConfigWithInstructionsTooltip,

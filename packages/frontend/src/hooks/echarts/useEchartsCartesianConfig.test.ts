@@ -1,9 +1,12 @@
-import { type ResultRow } from '@lightdash/common';
+import { CartesianSeriesType, type ResultRow } from '@lightdash/common';
 import { describe, expect, test, vi } from 'vitest';
+import { type InfiniteQueryResults } from '../useQueryResults';
 import {
     getAxisDefaultMaxValue,
     getAxisDefaultMinValue,
     getMinAndMaxValues,
+    sortFlipAxesWidePivotBarSeriesByBarTotals,
+    type EChartSeries,
 } from './useEchartsCartesianConfig';
 
 vi.mock('./../../providers/TrackingProvider');
@@ -276,5 +279,196 @@ describe('getMinAndMaxValues', () => {
         expect(
             getMinAndMaxValues(axes, [...resultRow, ...resultRow2]),
         ).toStrictEqual([0, 0]);
+    });
+});
+
+describe('sortFlipAxesWidePivotBarSeriesByBarTotals', () => {
+    const layout = {
+        flipAxes: true as const,
+        xField: 'mengniu_type',
+        yField: ['1111'],
+    };
+
+    const pivotDetails = {
+        totalColumnCount: 5,
+        indexColumn: { reference: 'types' },
+        valuesColumns: [
+            {
+                pivotColumnName: '1111_any_其他',
+                columnIndex: 0,
+                referenceField: '1111',
+                aggregation: null,
+                pivotValues: [
+                    {
+                        value: '其他',
+                        formatted: '其他',
+                        referenceField: 'mengniu_type',
+                    },
+                ],
+            },
+            {
+                pivotColumnName: '1111_any_豆冰',
+                columnIndex: 1,
+                referenceField: '1111',
+                aggregation: null,
+                pivotValues: [
+                    {
+                        value: '豆冰',
+                        formatted: '豆冰',
+                        referenceField: 'mengniu_type',
+                    },
+                ],
+            },
+            {
+                pivotColumnName: '1111_any_水冰',
+                columnIndex: 2,
+                referenceField: '1111',
+                aggregation: null,
+                pivotValues: [
+                    {
+                        value: '水冰',
+                        formatted: '水冰',
+                        referenceField: 'mengniu_type',
+                    },
+                ],
+            },
+            {
+                pivotColumnName: '1111_any_奶冰',
+                columnIndex: 3,
+                referenceField: '1111',
+                aggregation: null,
+                pivotValues: [
+                    {
+                        value: '奶冰',
+                        formatted: '奶冰',
+                        referenceField: 'mengniu_type',
+                    },
+                ],
+            },
+            {
+                pivotColumnName: '1111_any_巧冰',
+                columnIndex: 4,
+                referenceField: '1111',
+                aggregation: null,
+                pivotValues: [
+                    {
+                        value: '巧冰',
+                        formatted: '巧冰',
+                        referenceField: 'mengniu_type',
+                    },
+                ],
+            },
+        ],
+        groupByColumns: undefined,
+        sortBy: undefined,
+        originalColumns: {},
+    } as unknown as InfiniteQueryResults['pivotDetails'];
+
+    const pivotValuesColumnsMap = Object.fromEntries(
+        (pivotDetails?.valuesColumns ?? []).map((column) => [
+            column.pivotColumnName,
+            column,
+        ]),
+    );
+
+    const datasetRows = [
+        {
+            types: 0,
+            '1111_any_其他': 0.01,
+            '1111_any_豆冰': 2.49,
+            '1111_any_水冰': 6.19,
+            '1111_any_奶冰': 18.76,
+            '1111_any_巧冰': 24.75,
+        },
+    ];
+
+    const makeBarSerie = (columnKey: string, _label: string): EChartSeries => ({
+        type: CartesianSeriesType.BAR,
+        connectNulls: true,
+        encode: {
+            x: columnKey,
+            y: 'mengniu_type',
+            tooltip: [columnKey],
+            seriesName: columnKey,
+        },
+    });
+
+    const unsortedSeries: EChartSeries[] = [
+        makeBarSerie('1111_any_巧冰', '巧冰'),
+        makeBarSerie('1111_any_豆冰', '豆冰'),
+        makeBarSerie('1111_any_其他', '其他'),
+        makeBarSerie('1111_any_水冰', '水冰'),
+        makeBarSerie('1111_any_奶冰', '奶冰'),
+    ];
+
+    test('should sort wide pivot bar series ascending by value for BAR_TOTALS', () => {
+        const result = sortFlipAxesWidePivotBarSeriesByBarTotals({
+            layout,
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.sortedCategoryLabels).toEqual([
+            '其他',
+            '豆冰',
+            '水冰',
+            '奶冰',
+            '巧冰',
+        ]);
+        expect(result!.sortedSeries.map((serie) => serie.encode?.x)).toEqual([
+            '1111_any_其他',
+            '1111_any_豆冰',
+            '1111_any_水冰',
+            '1111_any_奶冰',
+            '1111_any_巧冰',
+        ]);
+    });
+
+    test('should return undefined for long-format dataset where category column exists in rows', () => {
+        const longFormatRows = [
+            { mengniu_type: '其他', '1111': 0.01 },
+            { mengniu_type: '豆冰', '1111': 2.49 },
+        ];
+
+        const longFormatSeries: EChartSeries[] = [
+            {
+                type: CartesianSeriesType.BAR,
+                connectNulls: true,
+                encode: {
+                    x: '1111',
+                    y: 'mengniu_type',
+                    tooltip: ['1111'],
+                    seriesName: '1111',
+                },
+            },
+        ];
+
+        const result = sortFlipAxesWidePivotBarSeriesByBarTotals({
+            layout,
+            series: longFormatSeries,
+            datasetRows: longFormatRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(result).toBeUndefined();
+    });
+
+    test('should return undefined when flipAxes is disabled', () => {
+        const result = sortFlipAxesWidePivotBarSeriesByBarTotals({
+            layout: { ...layout, flipAxes: false },
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(result).toBeUndefined();
     });
 });
