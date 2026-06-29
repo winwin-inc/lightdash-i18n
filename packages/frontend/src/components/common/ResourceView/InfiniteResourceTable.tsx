@@ -730,8 +730,17 @@ const InfiniteResourceTable = ({
                         </Text>
                         <Text fw={400} color="gray.6">
                             {hasNextPage
-                                ? `(${flatData.length} of ${totalResults} loaded)`
-                                : `(${flatData.length})`}
+                                ? t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.loaded_count',
+                                      {
+                                          count: flatData.length,
+                                          total: totalResults,
+                                      },
+                                  )
+                                : t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.item_count',
+                                      { count: flatData.length },
+                                  )}
                         </Text>
                     </Group>
                 )}

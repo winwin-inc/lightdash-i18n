@@ -685,19 +685,34 @@ const AiAgentAdminThreadsTable = ({
             >
                 {isFetching ? (
                     <Text c="gray.8" fz="xs">
-                        Loading more...
+                        {t(
+                            'components_common_resource_view_action_menu.infinite_resource_table.toolbar.load_more',
+                        )}
                     </Text>
                 ) : (
                     <Group gap="two">
                         <Text fz="xs" c="gray.8">
                             {hasNextPage
-                                ? 'Scroll for more results'
-                                : 'All results loaded'}
+                                ? t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.scroll',
+                                  )
+                                : t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.all_results',
+                                  )}
                         </Text>
                         <Text fz="xs" fw={400} c="gray.6">
                             {hasNextPage
-                                ? `(${flatData.length} of ${totalResults} loaded)`
-                                : `(${flatData.length})`}
+                                ? t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.loaded_count',
+                                      {
+                                          count: flatData.length,
+                                          total: totalResults,
+                                      },
+                                  )
+                                : t(
+                                      'components_common_resource_view_action_menu.infinite_resource_table.toolbar.item_count',
+                                      { count: flatData.length },
+                                  )}
                         </Text>
                     </Group>
                 )}

@@ -5931,7 +5931,9 @@
                 "search_placeholder": "按名称搜索",
                 "load_more": "正在加载更多...",
                 "scroll": "向下滚动以获取更多结果",
-                "all_results": "所有结果已加载"
+                "all_results": "所有结果已加载",
+                "loaded_count": "（{{count}} / {{total}} 已加载）",
+                "item_count": "（{{count}}）"
             }
         },
         "resource_view_labels": {

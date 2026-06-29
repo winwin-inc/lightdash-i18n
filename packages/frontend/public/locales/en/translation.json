@@ -5938,7 +5938,9 @@
                 "search_placeholder": "Search by name",
                 "load_more": "Loading more...",
                 "scroll": "Scroll for more results",
-                "all_results": "All results loaded"
+                "all_results": "All results loaded",
+                "loaded_count": "({{count}} of {{total}} loaded)",
+                "item_count": "({{count}})"
             }
         },
         "resource_view_labels": {
