@@ -6,6 +6,84 @@ import {
 import { produce } from 'immer';
 import isEqual from 'lodash/isEqual';
 
+export const normalizeExcludedValues = (
+    values: string[] | undefined,
+): string[] =>
+    Array.from(
+        new Set(
+            (values ?? [])
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0),
+        ),
+    );
+
+export const mergeExcludedValues = (
+    excludedValues: string[] | undefined,
+    pendingExcludedValue?: string,
+): string[] | undefined => {
+    const pendingValue = pendingExcludedValue?.trim();
+    const merged = normalizeExcludedValues([
+        ...(excludedValues ?? []),
+        ...(pendingValue ? [pendingValue] : []),
+    ]);
+    return merged.length > 0 ? merged : undefined;
+};
+
+export const removeValuesExcludedFromFilterRule = (
+    filterRule: DashboardFilterRule,
+    excludedValues: string[] | undefined,
+): DashboardFilterRule => {
+    const excludedSet = new Set(normalizeExcludedValues(excludedValues));
+    if (excludedSet.size === 0 || !filterRule.values?.length) {
+        return filterRule;
+    }
+
+    const filteredValues = filterRule.values.filter((value) => {
+        if (value == null) {
+            return true;
+        }
+        return !excludedSet.has(String(value).trim());
+    });
+
+    if (filteredValues.length === filterRule.values.length) {
+        return filterRule;
+    }
+
+    return {
+        ...filterRule,
+        values: filteredValues.length > 0 ? filteredValues : undefined,
+    };
+};
+
+export const mergePendingExcludedValueIntoRule = (
+    filterRule: DashboardFilterRule,
+    pendingExcludedValue?: string,
+): DashboardFilterRule => ({
+    ...filterRule,
+    excludedValues: mergeExcludedValues(
+        filterRule.excludedValues,
+        pendingExcludedValue,
+    ),
+});
+
+export const applyExcludedValuesToFilterRule = (
+    filterRule: DashboardFilterRule,
+    pendingExcludedValue?: string,
+): DashboardFilterRule => {
+    const mergedExcludedValues = mergeExcludedValues(
+        filterRule.excludedValues,
+        pendingExcludedValue,
+    );
+
+    return removeValuesExcludedFromFilterRule(
+        {
+            ...filterRule,
+            excludedValues: mergedExcludedValues,
+        },
+        mergedExcludedValues,
+    );
+};
+
 export const hasFilterValueSet = (filterRule: DashboardFilterRule) => {
     switch (filterRule.operator) {
         case FilterOperator.NULL:

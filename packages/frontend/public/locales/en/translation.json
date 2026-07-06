@@ -2420,7 +2420,8 @@
                 "allow_multiple_values": "Allow selection of multiple values",
                 "prevent_multiple_values": "Prevent selection of multiple values",
                 "single_value": "Single value",
-                "multi_values": "Multiple values"
+                "multi_values": "Multiple values",
+                "requires_default_value": "Turn on \"Provide default value\" to configure single/multiple selection"
             },
             "category_level": {
                 "label": "Category Level",

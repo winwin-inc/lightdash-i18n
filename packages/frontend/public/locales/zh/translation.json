@@ -2403,7 +2403,8 @@
                 "allow_multiple_values": "允许选择多个值",
                 "prevent_multiple_values": "防止选择多个值",
                 "single_value": "单个值",
-                "multi_values": "多个值"
+                "multi_values": "多个值",
+                "requires_default_value": "需先开启「提供默认值」才能配置单/多选"
             },
             "category_level": {
                 "label": "类目层级",

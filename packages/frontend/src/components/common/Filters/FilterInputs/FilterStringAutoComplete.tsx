@@ -45,6 +45,8 @@ type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     excludedValues?: string[];
     /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
     closeDropdownOnMouseLeave?: boolean;
+    /** 搜索词变化时通知父组件（如排除项 pending 值） */
+    onExternalSearchChange?: (search: string) => void;
 };
 
 // Single value component that mimics a single select behavior - maxSelectedValues={1} behaves weirdly so we don't use it.
@@ -76,6 +78,7 @@ const FilterStringAutoComplete: FC<Props> = ({
     singleValue,
     excludedValues,
     closeDropdownOnMouseLeave = false,
+    onExternalSearchChange,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -141,8 +144,19 @@ const FilterStringAutoComplete: FC<Props> = ({
     const results = useMemo(() => [...resultsSet], [resultsSet]);
 
     const handleResetSearch = useCallback(() => {
-        setTimeout(() => setSearch(() => ''), 0);
-    }, [setSearch]);
+        setTimeout(() => {
+            setSearch(() => '');
+            onExternalSearchChange?.('');
+        }, 0);
+    }, [onExternalSearchChange, setSearch]);
+
+    const handleSearchChange = useCallback(
+        (value: string) => {
+            setSearch(value);
+            onExternalSearchChange?.(value);
+        },
+        [onExternalSearchChange],
+    );
 
     // 跟踪下拉框是否打开
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -370,6 +384,7 @@ const FilterStringAutoComplete: FC<Props> = ({
             } else {
                 onChange(uniq(updatedValues));
             }
+            onExternalSearchChange?.('');
 
             // 单选模式：立即关闭下拉框
             if (singleValue) {
@@ -383,7 +398,13 @@ const FilterStringAutoComplete: FC<Props> = ({
                 }, 300);
             }
         },
-        [onChange, singleValue, isMobileDevice, cancelDebouncedClose],
+        [
+            onChange,
+            onExternalSearchChange,
+            singleValue,
+            isMobileDevice,
+            cancelDebouncedClose,
+        ],
     );
 
     const handleAdd = useCallback(
@@ -443,16 +464,20 @@ const FilterStringAutoComplete: FC<Props> = ({
                 .map((value) => value.trim())
                 .filter((value) => value.length > 0),
         );
-        // Mantine does not show value tag if value is not found in data
-        // so we need to add it manually here
-        // also we are merging status indicator as a first item
         const visibleResults = results.filter(
             (value) => !excludedValueSet.has(value),
         );
-        return uniq([...visibleResults, ...values]).map((value) => ({
-            value,
-            label: formatDisplayValue(value),
-        }));
+        const visibleSelectedValues = values.filter(
+            (value) => !excludedValueSet.has(value),
+        );
+        // Mantine does not show value tag if value is not found in data
+        // so we need to add non-excluded selected values manually here
+        return uniq([...visibleResults, ...visibleSelectedValues]).map(
+            (value) => ({
+                value,
+                label: formatDisplayValue(value),
+            }),
+        );
     }, [excludedValues, results, values]);
 
     const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
@@ -639,7 +664,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 clearSearchOnChange
                 {...rest}
                 searchValue={search}
-                onSearchChange={setSearch}
+                onSearchChange={handleSearchChange}
                 limit={MAX_AUTOCOMPLETE_RESULTS}
                 onPaste={handlePaste}
                 nothingFound={

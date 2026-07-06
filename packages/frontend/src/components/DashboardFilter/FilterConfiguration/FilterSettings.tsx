@@ -3,7 +3,7 @@ import {
     FilterType,
     getFilterRuleWithDefaultValue,
     getItemLabel,
-    getVisibleFilterOperatorOptions,
+    isTableCalculation,
     supportsSingleValue,
     type DashboardFilterRule,
     type FilterableDimension,
@@ -29,12 +29,20 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
+import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
+import useFiltersContext from '../../common/Filters/useFiltersContext';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 import { TagInput } from '../../common/TagInput/TagInput';
 import DateRangeConstraintEditor from './DateRangeConstraintEditor';
+import {
+    mergeExcludedValues,
+    normalizeExcludedValues,
+    removeValuesExcludedFromFilterRule,
+} from './utils';
 
 type ParentFilterOption = {
     value: string;
@@ -42,15 +50,57 @@ type ParentFilterOption = {
     categoryLevel?: number;
 };
 
+type DashboardFilterRuleWithAllowedOperators = DashboardFilterRule & {
+    allowedOperators?: FilterOperator[];
+};
+
+type FilterOperatorOption = {
+    value: FilterOperator;
+    label: string;
+};
+
+const getVisibleFilterOperatorOptions = (
+    allOptions: FilterOperatorOption[],
+    allowedOperators: FilterOperator[] | undefined,
+    isEditMode: boolean,
+    currentOperator: FilterOperator,
+): FilterOperatorOption[] => {
+    if (!allowedOperators || allowedOperators.length === 0) {
+        return allOptions;
+    }
+
+    const allowedSet = new Set(allowedOperators);
+    const visibleOptions = allOptions.filter((option) =>
+        allowedSet.has(option.value),
+    );
+
+    if (visibleOptions.some((option) => option.value === currentOperator)) {
+        return visibleOptions;
+    }
+
+    const currentOption = allOptions.find(
+        (option) => option.value === currentOperator,
+    );
+
+    if (!isEditMode && currentOption) {
+        return [currentOption, ...visibleOptions];
+    }
+
+    return visibleOptions;
+};
+
 interface FilterSettingsProps {
     isEditMode: boolean;
     isCreatingNew: boolean;
     filterType: FilterType;
     field?: FilterableItem;
-    filterRule: DashboardFilterRule;
+    filterRule: DashboardFilterRuleWithAllowedOperators;
     popoverProps?: Omit<PopoverProps, 'children'>;
-    onChangeFilterRule: (value: DashboardFilterRule) => void;
+    onChangeFilterRule: (
+        value: DashboardFilterRuleWithAllowedOperators,
+    ) => void;
     onPendingExcludedValueChange?: (value: string) => void;
+    pendingExcludedValue?: string;
     isCustomerUse?: boolean;
     parentFilterOptions?: ParentFilterOption[];
 }
@@ -64,9 +114,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     popoverProps,
     onChangeFilterRule,
     onPendingExcludedValueChange,
+    pendingExcludedValue = '',
     parentFilterOptions = [],
 }) => {
     const { t } = useTranslation();
+    const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
     const [filterLabel, setFilterLabel] = useState<string>();
@@ -79,18 +131,20 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         () => getFilterOperatorOptions(filterType),
         [filterType, getFilterOperatorOptions],
     );
+    const filterRuleWithAllowedOperators =
+        filterRule as DashboardFilterRuleWithAllowedOperators;
 
     const filterOperatorOptions = useMemo(
         () =>
             getVisibleFilterOperatorOptions(
                 allFilterOperatorOptions,
-                filterRule.allowedOperators,
+                filterRuleWithAllowedOperators.allowedOperators,
                 isEditMode,
                 filterRule.operator,
             ),
         [
             allFilterOperatorOptions,
-            filterRule.allowedOperators,
+            filterRuleWithAllowedOperators.allowedOperators,
             filterRule.operator,
             isEditMode,
         ],
@@ -139,6 +193,51 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             )
         );
     }, [filterRule.operator, isFilterDisabled, isEditMode]);
+
+    const effectiveExcludedValues = useMemo(
+        () =>
+            mergeExcludedValues(
+                filterRule.excludedValues,
+                pendingExcludedValue,
+            ),
+        [filterRule.excludedValues, pendingExcludedValue],
+    );
+
+    const ruleForValueInput = useMemo(
+        () => ({
+            ...filterRule,
+            excludedValues: effectiveExcludedValues,
+        }),
+        [effectiveExcludedValues, filterRule],
+    );
+
+    const isMultiValueToggleDisabled =
+        (isFilterReadOnly && !isEditMode) || isFilterDisabled;
+
+    const fieldSuggestions = useMemo(() => {
+        return getField(filterRule)?.suggestions ?? [];
+    }, [filterRule, getField]);
+
+    const canUseExcludeAutocomplete = !!field && !isTableCalculation(field);
+
+    const handleExcludedValuesChange = (values: string[]) => {
+        onPendingExcludedValueChange?.('');
+        const normalizedExcludedValues = normalizeExcludedValues(values);
+        const nextExcludedValues =
+            normalizedExcludedValues.length > 0
+                ? normalizedExcludedValues
+                : undefined;
+
+        onChangeFilterRule(
+            removeValuesExcludedFromFilterRule(
+                {
+                    ...filterRule,
+                    excludedValues: nextExcludedValues,
+                },
+                nextExcludedValues,
+            ),
+        );
+    };
 
     return (
         <Stack
@@ -228,45 +327,57 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         !isMobileDevice &&
                         supportsSingleValue(filterType, filterRule.operator) &&
                         isEditMode && (
-                            <Button
-                                compact
-                                size="xs"
-                                variant={'light'}
-                                rightIcon={
-                                    <Tooltip
-                                        variant="xs"
-                                        label={
-                                            filterRule.singleValue
-                                                ? t(
-                                                      'components_dashboard_filter.configuration.edit_filter_operator.prevent_multiple_values',
-                                                  )
-                                                : t(
-                                                      'components_dashboard_filter.configuration.edit_filter_operator.allow_multiple_values',
-                                                  )
-                                        }
-                                    >
-                                        <MantineIcon
-                                            size="sm"
-                                            icon={IconHelpCircle}
-                                        />
-                                    </Tooltip>
-                                }
-                                disabled={isFilterReadOnly && !isEditMode}
-                                onClick={() => {
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        singleValue: !filterRule.singleValue,
-                                    });
-                                }}
+                            <Tooltip
+                                withinPortal
+                                variant="xs"
+                                disabled={!isFilterDisabled}
+                                label={t(
+                                    'components_dashboard_filter.configuration.edit_filter_operator.requires_default_value',
+                                )}
                             >
-                                {filterRule.singleValue
-                                    ? t(
-                                          'components_dashboard_filter.configuration.edit_filter_operator.single_value',
-                                      )
-                                    : t(
-                                          'components_dashboard_filter.configuration.edit_filter_operator.multi_values',
-                                      )}
-                            </Button>
+                                <Box>
+                                    <Button
+                                        compact
+                                        size="xs"
+                                        variant={'light'}
+                                        rightIcon={
+                                            <Tooltip
+                                                variant="xs"
+                                                label={
+                                                    filterRule.singleValue
+                                                        ? t(
+                                                              'components_dashboard_filter.configuration.edit_filter_operator.prevent_multiple_values',
+                                                          )
+                                                        : t(
+                                                              'components_dashboard_filter.configuration.edit_filter_operator.allow_multiple_values',
+                                                          )
+                                                }
+                                            >
+                                                <MantineIcon
+                                                    size="sm"
+                                                    icon={IconHelpCircle}
+                                                />
+                                            </Tooltip>
+                                        }
+                                        disabled={isMultiValueToggleDisabled}
+                                        onClick={() => {
+                                            onChangeFilterRule({
+                                                ...filterRule,
+                                                singleValue:
+                                                    !filterRule.singleValue,
+                                            });
+                                        }}
+                                    >
+                                        {filterRule.singleValue
+                                            ? t(
+                                                  'components_dashboard_filter.configuration.edit_filter_operator.single_value',
+                                              )
+                                            : t(
+                                                  'components_dashboard_filter.configuration.edit_filter_operator.multi_values',
+                                              )}
+                                    </Button>
+                                </Box>
+                            </Tooltip>
                         )
                     }
                 />
@@ -287,7 +398,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         popoverProps={popoverProps}
                         filterType={filterType}
                         field={field}
-                        rule={filterRule}
+                        rule={ruleForValueInput}
                         onChange={(newFilterRule) =>
                             onChangeFilterRule(
                                 newFilterRule as DashboardFilterRule,
@@ -310,63 +421,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
                 {isEditMode && (
                     <>
-                        <MultiSelect
-                            mt="xs"
-                            size="xs"
-                            label={
-                                <Text size="xs" mt="two" fw={500}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.allowed_operators.label',
-                                    )}
-                                </Text>
-                            }
-                            description={t(
-                                'components_dashboard_filter.configuration.allowed_operators.description',
-                            )}
-                            placeholder={t(
-                                'components_dashboard_filter.configuration.allowed_operators.placeholder',
-                            )}
-                            clearable
-                            data={allFilterOperatorOptions}
-                            value={filterRule.allowedOperators ?? []}
-                            withinPortal={popoverProps?.withinPortal ?? true}
-                            onDropdownOpen={popoverProps?.onOpen}
-                            onDropdownClose={popoverProps?.onClose}
-                            onChange={(values) => {
-                                const normalizedAllowedOperators = Array.from(
-                                    new Set(values as FilterOperator[]),
-                                );
-
-                                let nextFilterRule: DashboardFilterRule = {
-                                    ...filterRule,
-                                    allowedOperators:
-                                        normalizedAllowedOperators.length > 0
-                                            ? normalizedAllowedOperators
-                                            : undefined,
-                                };
-
-                                if (
-                                    normalizedAllowedOperators.length > 0 &&
-                                    !normalizedAllowedOperators.includes(
-                                        filterRule.operator,
-                                    )
-                                ) {
-                                    nextFilterRule =
-                                        getFilterRuleWithDefaultValue(
-                                            filterType,
-                                            field,
-                                            {
-                                                ...nextFilterRule,
-                                                operator:
-                                                    normalizedAllowedOperators[0],
-                                            },
-                                        );
-                                }
-
-                                onChangeFilterRule(nextFilterRule);
-                            }}
-                        />
-
                         {filterRule.required &&
                             (filterRule?.values || []).length > 0 && (
                                 <Text size="xs" color={'gray.7'}>
@@ -455,6 +509,66 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             label={t(
                                 'components_dashboard_filter.configuration.require',
                             )}
+                        />
+
+                        <MultiSelect
+                            mt="xs"
+                            size="xs"
+                            label={
+                                <Text size="xs" mt="two" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.allowed_operators.label',
+                                    )}
+                                </Text>
+                            }
+                            description={t(
+                                'components_dashboard_filter.configuration.allowed_operators.description',
+                            )}
+                            placeholder={t(
+                                'components_dashboard_filter.configuration.allowed_operators.placeholder',
+                            )}
+                            clearable
+                            data={allFilterOperatorOptions}
+                            value={
+                                filterRuleWithAllowedOperators.allowedOperators ??
+                                []
+                            }
+                            withinPortal={popoverProps?.withinPortal ?? true}
+                            onDropdownOpen={popoverProps?.onOpen}
+                            onDropdownClose={popoverProps?.onClose}
+                            onChange={(values) => {
+                                const normalizedAllowedOperators = Array.from(
+                                    new Set(values as FilterOperator[]),
+                                );
+
+                                let nextFilterRule: DashboardFilterRule = {
+                                    ...filterRule,
+                                    allowedOperators:
+                                        normalizedAllowedOperators.length > 0
+                                            ? normalizedAllowedOperators
+                                            : undefined,
+                                } as DashboardFilterRuleWithAllowedOperators;
+
+                                if (
+                                    normalizedAllowedOperators.length > 0 &&
+                                    !normalizedAllowedOperators.includes(
+                                        filterRule.operator,
+                                    )
+                                ) {
+                                    nextFilterRule =
+                                        getFilterRuleWithDefaultValue(
+                                            filterType,
+                                            field,
+                                            {
+                                                ...nextFilterRule,
+                                                operator:
+                                                    normalizedAllowedOperators[0],
+                                            },
+                                        );
+                                }
+
+                                onChangeFilterRule(nextFilterRule);
+                            }}
                         />
 
                         {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
@@ -623,47 +737,63 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             />
 
                             {filterType === FilterType.STRING && (
-                                <TagInput
-                                    mt="xs"
-                                    size="xs"
-                                    label={
-                                        <Text size="xs" mt="two" fw={500}>
-                                            {t(
-                                                'components_dashboard_filter.configuration.exclude_values.label',
+                                <Box mt="xs">
+                                    <Text size="xs" mt="two" fw={500} mb="xs">
+                                        {t(
+                                            'components_dashboard_filter.configuration.exclude_values.label',
+                                        )}
+                                    </Text>
+                                    {canUseExcludeAutocomplete ? (
+                                        <FilterStringAutoComplete
+                                            limit={FILTER_SELECT_LIMIT}
+                                            filterId={filterRule.id}
+                                            field={field}
+                                            suggestions={fieldSuggestions}
+                                            placeholder={t(
+                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
                                             )}
-                                        </Text>
-                                    }
-                                    placeholder={t(
-                                        'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                            withinPortal={
+                                                popoverProps?.withinPortal ??
+                                                true
+                                            }
+                                            onDropdownOpen={
+                                                popoverProps?.onOpen
+                                            }
+                                            onDropdownClose={
+                                                popoverProps?.onClose
+                                            }
+                                            values={
+                                                filterRule.excludedValues ?? []
+                                            }
+                                            onExternalSearchChange={
+                                                onPendingExcludedValueChange
+                                            }
+                                            onChange={
+                                                handleExcludedValuesChange
+                                            }
+                                            closeDropdownOnMouseLeave={
+                                                isEditMode
+                                            }
+                                        />
+                                    ) : (
+                                        <TagInput
+                                            size="xs"
+                                            placeholder={t(
+                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                            )}
+                                            clearable
+                                            value={
+                                                filterRule.excludedValues ?? []
+                                            }
+                                            onSearchChange={
+                                                onPendingExcludedValueChange
+                                            }
+                                            onChange={
+                                                handleExcludedValuesChange
+                                            }
+                                        />
                                     )}
-                                    clearable
-                                    value={filterRule.excludedValues ?? []}
-                                    onSearchChange={
-                                        onPendingExcludedValueChange
-                                    }
-                                    onChange={(values) => {
-                                        onPendingExcludedValueChange?.('');
-                                        const normalizedExcludedValues =
-                                            Array.from(
-                                                new Set(
-                                                    values
-                                                        .map((v) => v.trim())
-                                                        .filter(
-                                                            (v) => v.length > 0,
-                                                        ),
-                                                ),
-                                            );
-
-                                        onChangeFilterRule({
-                                            ...filterRule,
-                                            excludedValues:
-                                                normalizedExcludedValues.length >
-                                                0
-                                                    ? normalizedExcludedValues
-                                                    : undefined,
-                                        });
-                                    }}
-                                />
+                                </Box>
                             )}
                         </Box>
                     </>

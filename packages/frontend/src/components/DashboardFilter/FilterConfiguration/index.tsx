@@ -60,6 +60,9 @@ import {
     hasFilterValueSet,
     hasSavedFilterValueChanged,
     isFilterEnabled,
+    mergeExcludedValues,
+    mergePendingExcludedValueIntoRule,
+    removeValuesExcludedFromFilterRule,
 } from './utils';
 
 interface Props {
@@ -126,22 +129,8 @@ const FilterConfiguration: FC<Props> = ({
         useState<string>('');
 
     const getRuleWithPendingExcludedValue = useCallback(
-        (rule: DashboardFilterRule): DashboardFilterRule => {
-            const pendingValue = pendingExcludedValue.trim();
-            if (!pendingValue) {
-                return rule;
-            }
-            const mergedExcludedValues = Array.from(
-                new Set([...(rule.excludedValues ?? []), pendingValue]),
-            );
-            return {
-                ...rule,
-                excludedValues:
-                    mergedExcludedValues.length > 0
-                        ? mergedExcludedValues
-                        : undefined,
-            };
-        },
+        (rule: DashboardFilterRule): DashboardFilterRule =>
+            mergePendingExcludedValueIntoRule(rule, pendingExcludedValue),
         [pendingExcludedValue],
     );
     const draftFilterRuleWithPendingExcludedValue = useMemo(
@@ -169,10 +158,14 @@ const FilterConfiguration: FC<Props> = ({
 
     /** 与看板已保存配置对比，用于「还原」等需回到持久化状态的逻辑 */
     const isDraftModifiedFromSaved = useMemo(() => {
-        if (!originalFilterRule || !draftFilterRule) return false;
+        if (!originalFilterRule || !draftFilterRuleWithPendingExcludedValue)
+            return false;
 
-        return hasSavedFilterValueChanged(originalFilterRule, draftFilterRule);
-    }, [originalFilterRule, draftFilterRule]);
+        return hasSavedFilterValueChanged(
+            originalFilterRule,
+            draftFilterRuleWithPendingExcludedValue,
+        );
+    }, [originalFilterRule, draftFilterRuleWithPendingExcludedValue]);
 
     /**
      * 与当前已应用的筛选对比（打开 Popover 时的 defaultFilterRule）。
@@ -700,6 +693,7 @@ const FilterConfiguration: FC<Props> = ({
                                     filterType={filterType}
                                     field={selectedField}
                                     filterRule={draftFilterRule}
+                                    pendingExcludedValue={pendingExcludedValue}
                                     onChangeFilterRule={handleChangeFilterRule}
                                     onPendingExcludedValueChange={
                                         setPendingExcludedValue
@@ -789,10 +783,17 @@ const FilterConfiguration: FC<Props> = ({
                                     setSelectedTabId(FilterTabs.SETTINGS);
                                     popoverProps?.onClose?.();
                                     if (draftFilterRule) {
-                                        onSave(
-                                            draftFilterRuleWithPendingExcludedValue ??
-                                                draftFilterRule,
-                                        );
+                                        const ruleToSave =
+                                            removeValuesExcludedFromFilterRule(
+                                                getRuleWithPendingExcludedValue(
+                                                    draftFilterRule,
+                                                ),
+                                                mergeExcludedValues(
+                                                    draftFilterRule.excludedValues,
+                                                    pendingExcludedValue,
+                                                ),
+                                            );
+                                        onSave(ruleToSave);
                                         setPendingExcludedValue('');
                                     }
                                 }}

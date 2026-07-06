@@ -17,6 +17,9 @@ import useEmbed from '../ee/providers/Embed/useEmbed';
 
 export const MAX_AUTOCOMPLETE_RESULTS = 50;
 
+export const compareFieldValues = (a: string, b: string) =>
+    a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' });
+
 const getEmbedFilterValues = async (options: {
     embedToken: string;
     projectId: string;
@@ -90,7 +93,9 @@ export const useFieldValues = (
     const [fieldName, setFieldName] = useState<string>(field.name);
     const [debouncedSearch, setDebouncedSearch] = useState<string>(search);
     const [searches, setSearches] = useState(new Set<string>());
-    const [results, setResults] = useState(new Set(initialData));
+    const [results, setResults] = useState(
+        () => new Set([...initialData].sort(compareFieldValues)),
+    );
     const [resultCounts, setResultCounts] = useState<Map<string, number>>(
         new Map(),
     );
@@ -121,9 +126,7 @@ export const useFieldValues = (
 
             setResults((oldSet) => {
                 return new Set(
-                    [...oldSet, ...data.results].sort((a, b) =>
-                        a.localeCompare(b),
-                    ),
+                    [...oldSet, ...data.results].sort(compareFieldValues),
                 );
             });
         },
