@@ -1,7 +1,6 @@
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { IconChartPieOff } from '@tabler/icons-react';
 import { type ECElementEvent } from 'echarts';
-import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import {
     memo,
@@ -19,6 +18,7 @@ import useEchartsPieConfig, {
 import { useLegendDoubleClickSelection } from '../../hooks/echarts/useLegendDoubleClickSelection';
 import useApp from '../../providers/App/useApp';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import LightdashECharts from '../common/LightdashECharts';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import PieChartContextMenu, {
     type PieChartContextMenuProps,
@@ -52,23 +52,27 @@ const LoadingChart = () => {
     );
 };
 
-type SimplePieChartProps = Omit<EChartsReactProps, 'option'> & {
+type SimplePieChartProps = {
     isInDashboard: boolean;
     $shouldExpand?: boolean;
     className?: string;
     'data-testid'?: string;
-};
+} & Omit<EChartsReactProps, 'option'>;
 
 const EchartOptions: Opts = { renderer: 'svg' };
 
 const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
+    const {
+        isInDashboard,
+        $shouldExpand,
+        className,
+        'data-testid': dataTestId,
+    } = props;
+
     const { chartRef, isLoading, resultsData } = useVisualizationContext();
     const { selectedLegends, onLegendChange } = useLegendDoubleClickSelection();
 
-    const pieChartOptions = useEchartsPieConfig(
-        selectedLegends,
-        props.isInDashboard,
-    );
+    const pieChartOptions = useEchartsPieConfig(selectedLegends, isInDashboard);
     const { user } = useApp();
 
     const [isOpen, { open, close }] = useDisclosure();
@@ -135,12 +139,12 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
 
     return (
         <>
-            <EChartsReact
+            <LightdashECharts
                 ref={chartRef}
-                data-testid={props['data-testid']}
-                className={props.className}
+                data-testid={dataTestId}
+                className={className}
                 style={{
-                    ...(props.$shouldExpand
+                    ...($shouldExpand
                         ? {
                               minHeight: 'inherit',
                               height: '100%',
@@ -160,7 +164,6 @@ const SimplePieChart: FC<SimplePieChartProps> = memo((props) => {
                 opts={EchartOptions}
                 option={pieChartOptions.eChartsOption}
                 notMerge
-                {...props}
                 onEvents={{
                     click: handleOpenContextMenu,
                     oncontextmenu: handleOpenContextMenu,

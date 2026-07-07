@@ -17,8 +17,14 @@ if (!container) throw new Error('Root element not found!');
 
 const root = createRoot(container);
 
-root.render(
+// React StrictMode 在 dev 下会双重 mount/unmount，与 echarts-for-react 不兼容，
+// 会导致图表渲染失败（线上 prod 无此问题）。见 packages/e2e/cypress/e2e/app/dashboard.cy.ts
+const app = import.meta.env.DEV ? (
+    <App />
+) : (
     <StrictMode>
         <App />
-    </StrictMode>,
+    </StrictMode>
 );
+
+root.render(app);

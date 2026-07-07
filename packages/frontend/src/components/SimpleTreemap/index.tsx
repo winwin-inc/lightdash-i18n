@@ -1,11 +1,11 @@
 import { IconChartTreemap } from '@tabler/icons-react';
-import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import { memo, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useEchartsTreemapConfig from '../../hooks/echarts/useEchartsTreemapConfig';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import LightdashECharts from '../common/LightdashECharts';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 
 const EmptyChart = () => {
@@ -36,19 +36,26 @@ const LoadingChart = () => {
     );
 };
 
-type SimpleTreemapProps = Omit<EChartsReactProps, 'option'> & {
+type SimpleTreemapProps = {
     isInDashboard: boolean;
     $shouldExpand?: boolean;
     className?: string;
     'data-testid'?: string;
-};
+} & Omit<EChartsReactProps, 'option'>;
 
 const EchartOptions: Opts = { renderer: 'svg' };
 
 const SimpleTreemap: FC<SimpleTreemapProps> = memo((props) => {
+    const {
+        isInDashboard,
+        $shouldExpand,
+        className,
+        'data-testid': dataTestId,
+    } = props;
+
     const { chartRef, isLoading, resultsData } = useVisualizationContext();
 
-    const treemapOptions = useEchartsTreemapConfig(props.isInDashboard);
+    const treemapOptions = useEchartsTreemapConfig(isInDashboard);
 
     useEffect(() => {
         // Load all the rows
@@ -66,12 +73,12 @@ const SimpleTreemap: FC<SimpleTreemapProps> = memo((props) => {
 
     return (
         <>
-            <EChartsReact
+            <LightdashECharts
                 ref={chartRef}
-                data-testid={props['data-testid']}
-                className={props.className}
+                data-testid={dataTestId}
+                className={className}
                 style={
-                    props.$shouldExpand
+                    $shouldExpand
                         ? {
                               minHeight: 'inherit',
                               height: '100%',
@@ -86,7 +93,6 @@ const SimpleTreemap: FC<SimpleTreemapProps> = memo((props) => {
                 opts={EchartOptions}
                 option={treemapOptions.eChartsOption}
                 notMerge
-                {...props}
             />
         </>
     );

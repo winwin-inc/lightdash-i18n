@@ -2,7 +2,6 @@ import { Box } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconFilterOff } from '@tabler/icons-react';
 import { type ECElementEvent } from 'echarts';
-import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +12,7 @@ import useEchartsFunnelConfig, {
 import { useLegendDoubleClickSelection } from '../../hooks/echarts/useLegendDoubleClickSelection';
 import useApp from '../../providers/App/useApp';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
+import LightdashECharts from '../common/LightdashECharts';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import FunnelChartContextMenu, {
     type FunnelChartContextMenuProps,
@@ -46,22 +46,29 @@ const LoadingChart = () => {
     );
 };
 
-type FunnelChartProps = Omit<EChartsReactProps, 'option'> & {
+type FunnelChartProps = {
     isInDashboard: boolean;
     $shouldExpand?: boolean;
     className?: string;
     'data-testid'?: string;
-};
+} & Omit<EChartsReactProps, 'option'>;
 
 const EchartOptions: Opts = { renderer: 'svg' };
 
 const FunnelChart: FC<FunnelChartProps> = memo((props) => {
+    const {
+        isInDashboard,
+        $shouldExpand,
+        className,
+        'data-testid': dataTestId,
+    } = props;
+
     const { chartRef, isLoading, resultsData } = useVisualizationContext();
     const { selectedLegends, onLegendChange } = useLegendDoubleClickSelection();
 
     const funnelChartOptions = useEchartsFunnelConfig(
         selectedLegends,
-        props.isInDashboard,
+        isInDashboard,
     );
 
     const { user } = useApp();
@@ -114,12 +121,12 @@ const FunnelChart: FC<FunnelChartProps> = memo((props) => {
 
     return (
         <>
-            <EChartsReact
+            <LightdashECharts
                 ref={chartRef}
-                data-testid={props['data-testid']}
-                className={props.className}
+                data-testid={dataTestId}
+                className={className}
                 style={
-                    props.$shouldExpand
+                    $shouldExpand
                         ? {
                               minHeight: 'inherit',
                               height: '100%',
@@ -134,7 +141,6 @@ const FunnelChart: FC<FunnelChartProps> = memo((props) => {
                 opts={EchartOptions}
                 option={funnelChartOptions}
                 notMerge
-                {...props}
                 onEvents={{
                     click: handleOpenContextMenu,
                     oncontextmenu: handleOpenContextMenu,

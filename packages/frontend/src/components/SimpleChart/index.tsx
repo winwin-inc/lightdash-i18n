@@ -1,6 +1,5 @@
 import { type PivotReference } from '@lightdash/common';
 import { IconChartBarOff } from '@tabler/icons-react';
-import EChartsReact from 'echarts-for-react';
 import { type EChartsReactProps, type Opts } from 'echarts-for-react/lib/types';
 import { memo, useCallback, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +9,7 @@ import useEchartsCartesianConfig, {
     isLineSeriesOption,
 } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { useLegendDoubleClickSelection } from '../../hooks/echarts/useLegendDoubleClickSelection';
+import LightdashECharts from '../common/LightdashECharts';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 
@@ -82,21 +82,28 @@ export const LoadingChart = () => {
 const isSeriesClickEvent = (e: EchartClickEvent): e is EchartSeriesClickEvent =>
     e.componentType === 'series';
 
-type SimpleChartProps = Omit<EChartsReactProps, 'option'> & {
+type SimpleChartProps = {
     isInDashboard: boolean;
     $shouldExpand?: boolean;
     className?: string;
     'data-testid'?: string;
-};
+} & Omit<EChartsReactProps, 'option'>;
 
 const SimpleChart: FC<SimpleChartProps> = memo((props) => {
+    const {
+        isInDashboard,
+        $shouldExpand,
+        className,
+        'data-testid': dataTestId,
+    } = props;
+
     const { chartRef, isLoading, onSeriesContextMenu, itemsMap, resultsData } =
         useVisualizationContext();
 
     const { selectedLegends, onLegendChange } = useLegendDoubleClickSelection();
     const eChartsOptions = useEchartsCartesianConfig(
         selectedLegends,
-        props.isInDashboard,
+        isInDashboard,
     );
 
     useEffect(() => {
@@ -246,11 +253,11 @@ const SimpleChart: FC<SimpleChartProps> = memo((props) => {
     if (!eChartsOptions) return <EmptyChart />;
 
     return (
-        <EChartsReact
-            data-testid={props['data-testid']}
-            className={props.className}
+        <LightdashECharts
+            data-testid={dataTestId}
+            className={className}
             style={
-                props.$shouldExpand
+                $shouldExpand
                     ? {
                           minHeight: 'inherit',
                           height: '100%',
@@ -273,7 +280,6 @@ const SimpleChart: FC<SimpleChartProps> = memo((props) => {
                 mouseout: handleOnMouseOut,
                 legendselectchanged: onLegendChange,
             }}
-            {...props}
         />
     );
 });
