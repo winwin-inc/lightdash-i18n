@@ -208,7 +208,7 @@ const useCartesianChartConfig = ({
         );
     const [isStacked, setIsStacked] = useState<boolean>(isInitiallyStacked);
 
-    // Sync series configuration (like tooltipSortByValue) from initialChartConfig
+    // Sync series sort configuration from initialChartConfig
     // This is needed for dashboard tiles where the component doesn't remount on refresh
     useEffect(() => {
         if (initialChartConfig?.eChartsConfig?.series) {
@@ -225,12 +225,16 @@ const useCartesianChartConfig = ({
                         );
 
                     if (initialSerie) {
-                        return migrateLegacySeriesSortConfig({
+                        const migratedInitialSerie =
+                            migrateLegacySeriesSortConfig(initialSerie);
+
+                        return {
                             ...serie,
-                            tooltipSortByValue: initialSerie.tooltipSortByValue,
                             stackSeriesSortByValue:
-                                initialSerie.stackSeriesSortByValue,
-                        });
+                                migratedInitialSerie.stackSeriesSortByValue,
+                            seriesSortByValue:
+                                migratedInitialSerie.seriesSortByValue,
+                        };
                     }
                     return serie;
                 });
@@ -1008,10 +1012,10 @@ const useCartesianChartConfig = ({
                 const defaultFilledSymbol = prev?.series?.[0]?.filledSymbol;
                 // Preserve sort config from the template series
                 // so it propagates to all expanded pivot series
-                const defaultTooltipSortByValue =
-                    prev?.series?.[0]?.tooltipSortByValue;
                 const defaultStackSeriesSortByValue =
                     prev?.series?.[0]?.stackSeriesSortByValue;
+                const defaultSeriesSortByValue =
+                    prev?.series?.[0]?.seriesSortByValue;
                 const expectedSeriesMap = getExpectedSeriesMap({
                     defaultSmooth,
                     defaultShowSymbol,
@@ -1052,14 +1056,14 @@ const useCartesianChartConfig = ({
                             yAxisIndex: 0,
                         }),
                         // Propagate sort config from template series to all expanded series
-                        ...(defaultTooltipSortByValue &&
-                            !serie.tooltipSortByValue && {
-                                tooltipSortByValue: defaultTooltipSortByValue,
-                            }),
                         ...(defaultStackSeriesSortByValue &&
                             !serie.stackSeriesSortByValue && {
                                 stackSeriesSortByValue:
                                     defaultStackSeriesSortByValue,
+                            }),
+                        ...(defaultSeriesSortByValue &&
+                            !serie.seriesSortByValue && {
+                                seriesSortByValue: defaultSeriesSortByValue,
                             }),
                     })),
                 );

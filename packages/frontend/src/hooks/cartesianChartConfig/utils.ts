@@ -1,4 +1,5 @@
 import {
+    CartesianSeriesType,
     DimensionType,
     getDimensionsFromItemsMap,
     getItemId,
@@ -6,7 +7,6 @@ import {
     isDimension,
     StackType,
     type CartesianChart,
-    type CartesianSeriesType,
     type ItemsMap,
     type Series,
 } from '@lightdash/common';
@@ -333,29 +333,67 @@ export const sortDimensions = (
 
 export type SeriesSortDirection = 'asc' | 'desc';
 
+type LegacySeriesSortConfig = {
+    tooltipSortByValue?: SeriesSortDirection;
+};
+
 export const isSeriesSortDirection = (
     value: unknown,
 ): value is SeriesSortDirection => value === 'asc' || value === 'desc';
 
+const getLegacyTooltipSortDirection = (
+    serie: Series,
+): SeriesSortDirection | undefined => {
+    const legacySortConfig = serie as Series & LegacySeriesSortConfig;
+    return isSeriesSortDirection(legacySortConfig.tooltipSortByValue)
+        ? legacySortConfig.tooltipSortByValue
+        : undefined;
+};
+
 /**
- * Legacy charts stored stack sorting under `tooltipSortByValue`.
+ * Legacy charts stored sorting under `tooltipSortByValue`.
  * Only use when loading saved chart config, not during runtime series rebuilds.
  */
 export const migrateLegacySeriesSortConfig = (serie: Series): Series => {
     const normalized = normalizeSeriesSortConfig(serie);
+    const legacySortDirection = getLegacyTooltipSortDirection(serie);
+    const withoutLegacyTooltipSort = stripLegacyTooltipSortConfig(normalized);
 
-    if (normalized.stackSeriesSortByValue !== undefined) {
-        return normalized;
+    if (!legacySortDirection) {
+        return withoutLegacyTooltipSort;
     }
 
-    if (isSeriesSortDirection(normalized.tooltipSortByValue)) {
+    if (
+        withoutLegacyTooltipSort.seriesSortByValue !== undefined ||
+        withoutLegacyTooltipSort.stackSeriesSortByValue !== undefined
+    ) {
+        return withoutLegacyTooltipSort;
+    }
+
+    if (
+        serie.type === CartesianSeriesType.LINE ||
+        serie.areaStyle !== undefined
+    ) {
         return {
-            ...normalized,
-            stackSeriesSortByValue: normalized.tooltipSortByValue,
+            ...withoutLegacyTooltipSort,
+            seriesSortByValue: legacySortDirection,
         };
     }
 
-    return normalized;
+    if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+        return {
+            ...withoutLegacyTooltipSort,
+            stackSeriesSortByValue: legacySortDirection,
+        };
+    }
+
+    return withoutLegacyTooltipSort;
+};
+
+const stripLegacyTooltipSortConfig = (serie: Series): Series => {
+    const stripped = { ...serie } as Series & LegacySeriesSortConfig;
+    delete stripped.tooltipSortByValue;
+    return stripped;
 };
 
 export const migrateLegacySeriesListSortConfig = (
@@ -363,18 +401,18 @@ export const migrateLegacySeriesListSortConfig = (
 ): Series[] => series.map(migrateLegacySeriesSortConfig);
 
 export const normalizeSeriesSortConfig = (serie: Series): Series => {
-    const normalized = { ...serie };
-
-    if (isSeriesSortDirection(serie.tooltipSortByValue)) {
-        normalized.tooltipSortByValue = serie.tooltipSortByValue;
-    } else {
-        delete normalized.tooltipSortByValue;
-    }
+    const normalized = stripLegacyTooltipSortConfig({ ...serie });
 
     if (isSeriesSortDirection(serie.stackSeriesSortByValue)) {
         normalized.stackSeriesSortByValue = serie.stackSeriesSortByValue;
     } else {
         delete normalized.stackSeriesSortByValue;
+    }
+
+    if (isSeriesSortDirection(serie.seriesSortByValue)) {
+        normalized.seriesSortByValue = serie.seriesSortByValue;
+    } else {
+        delete normalized.seriesSortByValue;
     }
 
     return normalized;
@@ -383,18 +421,6 @@ export const normalizeSeriesSortConfig = (serie: Series): Series => {
 export const normalizeSeriesListSortConfig = (series: Series[]): Series[] =>
     series.map(normalizeSeriesSortConfig);
 
-export const getTooltipSortDirection = (
-    series: Series[] | undefined,
-): SeriesSortDirection | undefined => {
-    if (!series) return undefined;
-    for (const serie of series) {
-        if (isSeriesSortDirection(serie.tooltipSortByValue)) {
-            return serie.tooltipSortByValue;
-        }
-    }
-    return undefined;
-};
-
 export const getStackSeriesSortDirection = (
     series: Series[] | undefined,
 ): SeriesSortDirection | undefined => {
@@ -402,6 +428,18 @@ export const getStackSeriesSortDirection = (
     for (const serie of series) {
         if (isSeriesSortDirection(serie.stackSeriesSortByValue)) {
             return serie.stackSeriesSortByValue;
+        }
+    }
+    return undefined;
+};
+
+export const getSeriesSortDirection = (
+    series: Series[] | undefined,
+): SeriesSortDirection | undefined => {
+    if (!series) return undefined;
+    for (const serie of series) {
+        if (isSeriesSortDirection(serie.seriesSortByValue)) {
+            return serie.seriesSortByValue;
         }
     }
     return undefined;

@@ -2802,6 +2802,13 @@ const models: TsoaRoute.Models = {
                         readOnly: { dataType: 'boolean' },
                         maxAllowedDate: { dataType: 'string' },
                         minAllowedDate: { dataType: 'string' },
+                        allowedOperators: {
+                            dataType: 'array',
+                            array: {
+                                dataType: 'refEnum',
+                                ref: 'FilterOperator',
+                            },
+                        },
                         excludedValues: {
                             dataType: 'array',
                             array: { dataType: 'string' },
@@ -4400,6 +4407,20 @@ const models: TsoaRoute.Models = {
                         { dataType: 'undefined' },
                     ],
                 },
+                barMaxWidth: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'double' },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                barMaxWidthMobile: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'double' },
+                        { dataType: 'undefined' },
+                    ],
+                },
             },
             validators: {},
         },
@@ -4591,7 +4612,14 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
-                tooltipSortByValue: {
+                seriesSortByValue: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'enum', enums: ['asc'] },
+                        { dataType: 'enum', enums: ['desc'] },
+                    ],
+                },
+                stackSeriesSortByValue: {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'enum', enums: ['asc'] },
@@ -5274,11 +5302,42 @@ const models: TsoaRoute.Models = {
         },
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    PivotMetricHeaderPosition: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'union',
+            subSchemas: [
+                { dataType: 'enum', enums: ['bottom'] },
+                { dataType: 'enum', enums: ['top'] },
+            ],
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    TableCellAlignment: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'union',
+            subSchemas: [
+                { dataType: 'enum', enums: ['left'] },
+                { dataType: 'enum', enums: ['center'] },
+                { dataType: 'enum', enums: ['right'] },
+            ],
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     TableChart: {
         dataType: 'refAlias',
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
+                pivotRowDimensionAlignment: { ref: 'TableCellAlignment' },
+                cellAlignment: { ref: 'TableCellAlignment' },
+                pivotColumnMaxWidth: { dataType: 'double' },
+                pivotDimensionColumnMaxWidth: { dataType: 'double' },
+                pivotAutoFillWidth: { dataType: 'boolean' },
+                pivotMetricHeaderPosition: { ref: 'PivotMetricHeaderPosition' },
                 metricsAsRows: { dataType: 'boolean' },
                 conditionalFormattings: {
                     dataType: 'array',
@@ -7521,11 +7580,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7616,11 +7675,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7635,11 +7694,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7654,11 +7713,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7673,11 +7732,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7692,11 +7751,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -7711,11 +7770,11 @@ const models: TsoaRoute.Models = {
                                                     subSchemas: [
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['error'],
+                                                            enums: ['success'],
                                                         },
                                                         {
                                                             dataType: 'enum',
-                                                            enums: ['success'],
+                                                            enums: ['error'],
                                                         },
                                                     ],
                                                     required: true,
@@ -10984,6 +11043,8 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
+                barMaxWidthMobile: { dataType: 'double' },
+                barMaxWidth: { dataType: 'double' },
                 stack: {
                     dataType: 'union',
                     subSchemas: [{ dataType: 'boolean' }, { ref: 'StackType' }],
@@ -15357,6 +15418,13 @@ const models: TsoaRoute.Models = {
                         readOnly: { dataType: 'boolean' },
                         maxAllowedDate: { dataType: 'string' },
                         minAllowedDate: { dataType: 'string' },
+                        allowedOperators: {
+                            dataType: 'array',
+                            array: {
+                                dataType: 'refEnum',
+                                ref: 'FilterOperator',
+                            },
+                        },
                         excludedValues: {
                             dataType: 'array',
                             array: { dataType: 'string' },
@@ -15503,6 +15571,19 @@ const models: TsoaRoute.Models = {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'array', array: { dataType: 'string' } },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                allowedOperators: {
+                    dataType: 'union',
+                    subSchemas: [
+                        {
+                            dataType: 'array',
+                            array: {
+                                dataType: 'refEnum',
+                                ref: 'FilterOperator',
+                            },
+                        },
                         { dataType: 'undefined' },
                     ],
                 },

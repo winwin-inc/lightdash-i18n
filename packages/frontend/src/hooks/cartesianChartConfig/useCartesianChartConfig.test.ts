@@ -26,8 +26,8 @@ import {
     applyStackFromLayout,
     getExpectedSeriesMap,
     getSeriesGroupedByField,
+    getSeriesSortDirection,
     getStackSeriesSortDirection,
-    getTooltipSortDirection,
     isStackEnabled,
     mergeExistingAndExpectedSeries,
     migrateLegacySeriesSortConfig,
@@ -318,7 +318,17 @@ describe('useCartesianChartConfig', () => {
 });
 
 describe('series sort config', () => {
-    const legacySeries = {
+    const legacyStackedBarSeries = {
+        type: CartesianSeriesType.BAR,
+        stack: 'stack-1',
+        encode: {
+            xRef: { field: 'orders_customer_id' },
+            yRef: { field: 'orders_total_order_amount' },
+        },
+        tooltipSortByValue: 'desc' as const,
+    };
+
+    const legacyNonStackedBarSeries = {
         type: CartesianSeriesType.BAR,
         encode: {
             xRef: { field: 'orders_customer_id' },
@@ -327,23 +337,63 @@ describe('series sort config', () => {
         tooltipSortByValue: 'desc' as const,
     };
 
-    test('migrateLegacySeriesSortConfig should backfill stackSeriesSortByValue from legacy tooltipSortByValue', () => {
-        expect(migrateLegacySeriesSortConfig(legacySeries)).toEqual({
-            ...legacySeries,
-            tooltipSortByValue: 'desc',
+    const legacyLineSeries = {
+        type: CartesianSeriesType.LINE,
+        encode: {
+            xRef: { field: 'orders_customer_id' },
+            yRef: { field: 'orders_total_order_amount' },
+        },
+        tooltipSortByValue: 'desc' as const,
+    };
+
+    test('migrateLegacySeriesSortConfig should migrate stacked bar tooltipSortByValue to stackSeriesSortByValue', () => {
+        expect(migrateLegacySeriesSortConfig(legacyStackedBarSeries)).toEqual({
+            type: CartesianSeriesType.BAR,
+            stack: 'stack-1',
+            encode: {
+                xRef: { field: 'orders_customer_id' },
+                yRef: { field: 'orders_total_order_amount' },
+            },
             stackSeriesSortByValue: 'desc',
         });
     });
 
-    test('normalizeSeriesSortConfig should not backfill stackSeriesSortByValue from tooltipSortByValue', () => {
-        expect(normalizeSeriesSortConfig(legacySeries)).toEqual(legacySeries);
+    test('migrateLegacySeriesSortConfig should migrate line tooltipSortByValue to seriesSortByValue', () => {
+        expect(migrateLegacySeriesSortConfig(legacyLineSeries)).toEqual({
+            type: CartesianSeriesType.LINE,
+            encode: {
+                xRef: { field: 'orders_customer_id' },
+                yRef: { field: 'orders_total_order_amount' },
+            },
+            seriesSortByValue: 'desc',
+        });
+    });
+
+    test('migrateLegacySeriesSortConfig should discard tooltipSortByValue for non-stacked bar charts', () => {
+        expect(migrateLegacySeriesSortConfig(legacyNonStackedBarSeries)).toEqual({
+            type: CartesianSeriesType.BAR,
+            encode: {
+                xRef: { field: 'orders_customer_id' },
+                yRef: { field: 'orders_total_order_amount' },
+            },
+        });
+    });
+
+    test('normalizeSeriesSortConfig should not preserve legacy tooltipSortByValue', () => {
+        expect(normalizeSeriesSortConfig(legacyNonStackedBarSeries)).toEqual({
+            type: CartesianSeriesType.BAR,
+            encode: {
+                xRef: { field: 'orders_customer_id' },
+                yRef: { field: 'orders_total_order_amount' },
+            },
+        });
     });
 
     test('getStackSeriesSortDirection should read explicit stackSeriesSortByValue', () => {
         expect(
             getStackSeriesSortDirection([
                 {
-                    ...legacySeries,
+                    ...legacyStackedBarSeries,
                     stackSeriesSortByValue: 'asc',
                 },
             ]),
@@ -351,23 +401,43 @@ describe('series sort config', () => {
     });
 
     test('getStackSeriesSortDirection should not fall back to tooltipSortByValue at runtime', () => {
-        // Legacy fallback is handled by migrateLegacySeriesSortConfig on load,
-        // not by getStackSeriesSortDirection at runtime
-        expect(getStackSeriesSortDirection([legacySeries])).toBe(undefined);
+        expect(
+            getStackSeriesSortDirection([legacyStackedBarSeries]),
+        ).toBe(undefined);
     });
 
-    test('getTooltipSortDirection should only read tooltipSortByValue', () => {
+    test('getSeriesSortDirection should read explicit seriesSortByValue', () => {
         expect(
-            getTooltipSortDirection([
+            getSeriesSortDirection([
                 {
-                    ...legacySeries,
-                    stackSeriesSortByValue: 'asc',
+                    ...legacyLineSeries,
+                    seriesSortByValue: 'desc',
                 },
             ]),
         ).toBe('desc');
     });
 
-    test('useCartesianChartConfig should normalize legacy sort config on load', () => {
+    test('getSeriesSortDirection should not fall back to tooltipSortByValue', () => {
+        expect(getSeriesSortDirection([legacyLineSeries])).toBe(undefined);
+    });
+
+    test('normalizeSeriesSortConfig should preserve seriesSortByValue', () => {
+        expect(
+            normalizeSeriesSortConfig({
+                ...legacyLineSeries,
+                seriesSortByValue: 'asc',
+            }),
+        ).toEqual({
+            type: CartesianSeriesType.LINE,
+            encode: {
+                xRef: { field: 'orders_customer_id' },
+                yRef: { field: 'orders_total_order_amount' },
+            },
+            seriesSortByValue: 'asc',
+        });
+    });
+
+    test('useCartesianChartConfig should migrate legacy stacked bar sort config on load', () => {
         const { result } = renderHook(() =>
             // @ts-expect-error partially mock params for hook
             useCartesianChartConfig({
@@ -375,7 +445,7 @@ describe('series sort config', () => {
                 initialChartConfig: {
                     ...useCartesianChartConfigParamsMock.initialChartConfig,
                     eChartsConfig: {
-                        series: [legacySeries],
+                        series: [legacyStackedBarSeries],
                     },
                 },
             }),
@@ -383,7 +453,6 @@ describe('series sort config', () => {
 
         const series = result.current.validConfig!.eChartsConfig.series!;
 
-        expect(series[0].tooltipSortByValue).toBe('desc');
         expect(series[0].stackSeriesSortByValue).toBe('desc');
     });
 
@@ -517,7 +586,7 @@ describe('series sort config', () => {
                     eChartsConfig: {
                         series: [
                             {
-                                ...legacySeries,
+                                ...legacyStackedBarSeries,
                                 encode: {
                                     xRef: { field: 'my_dimension' },
                                     yRef: {
@@ -542,9 +611,7 @@ describe('series sort config', () => {
             expect(series.length).toBeGreaterThan(1);
             expect(
                 series.every(
-                    (serie) =>
-                        serie.tooltipSortByValue === 'desc' &&
-                        serie.stackSeriesSortByValue === 'desc',
+                    (serie) => serie.stackSeriesSortByValue === 'desc',
                 ),
             ).toBe(true);
         });

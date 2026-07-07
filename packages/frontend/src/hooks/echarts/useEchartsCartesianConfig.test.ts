@@ -6,6 +6,7 @@ import {
     getAxisDefaultMinValue,
     getMinAndMaxValues,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
+    sortLineSeriesByValue,
     type EChartSeries,
 } from './useEchartsCartesianConfig';
 
@@ -470,5 +471,115 @@ describe('sortFlipAxesWidePivotBarSeriesByBarTotals', () => {
         });
 
         expect(result).toBeUndefined();
+    });
+});
+
+describe('sortLineSeriesByValue', () => {
+    const makeLineSerie = (columnKey: string): EChartSeries => ({
+        type: CartesianSeriesType.LINE,
+        connectNulls: true,
+        name: columnKey,
+        encode: {
+            x: 'month',
+            y: columnKey,
+            tooltip: [columnKey],
+            seriesName: columnKey,
+        },
+    });
+
+    const unsortedSeries: EChartSeries[] = [
+        makeLineSerie('1111_any_其他'),
+        makeLineSerie('1111_any_奶冰'),
+        makeLineSerie('1111_any_巧冰'),
+        makeLineSerie('1111_any_水冰'),
+        makeLineSerie('1111_any_豆冰'),
+    ];
+
+    const rows: ResultRow[] = [
+        {
+            month: { value: { raw: '2025-07', formatted: '2025-07' } },
+            '1111_any_其他': { value: { raw: 0.24, formatted: '0.24' } },
+            '1111_any_奶冰': { value: { raw: 30.14, formatted: '30.14' } },
+            '1111_any_巧冰': { value: { raw: 31.92, formatted: '31.92' } },
+            '1111_any_水冰': { value: { raw: 9.23, formatted: '9.23' } },
+            '1111_any_豆冰': { value: { raw: 3.59, formatted: '3.59' } },
+        },
+        {
+            month: { value: { raw: '2025-08', formatted: '2025-08' } },
+            '1111_any_其他': { value: { raw: 0.17, formatted: '0.17' } },
+            '1111_any_奶冰': { value: { raw: 28.0, formatted: '28.0' } },
+            '1111_any_巧冰': { value: { raw: 26.57, formatted: '26.57' } },
+            '1111_any_水冰': { value: { raw: 8.0, formatted: '8.0' } },
+            '1111_any_豆冰': { value: { raw: 3.0, formatted: '3.0' } },
+        },
+    ];
+
+    test('should sort line series descending by total value', () => {
+        const result = sortLineSeriesByValue({
+            series: unsortedSeries,
+            rows,
+            sortDirection: 'desc',
+            flipAxes: false,
+        });
+
+        expect(result.map((serie) => serie.encode?.y)).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+    });
+
+    test('should sort line series ascending by total value', () => {
+        const result = sortLineSeriesByValue({
+            series: unsortedSeries,
+            rows,
+            sortDirection: 'asc',
+            flipAxes: false,
+        });
+
+        expect(result.map((serie) => serie.encode?.y)).toEqual([
+            '1111_any_其他',
+            '1111_any_豆冰',
+            '1111_any_水冰',
+            '1111_any_奶冰',
+            '1111_any_巧冰',
+        ]);
+    });
+
+    test('should preserve non-line series positions', () => {
+        const barSerie: EChartSeries = {
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            encode: {
+                x: 'month',
+                y: 'total',
+                tooltip: ['total'],
+                seriesName: 'total',
+            },
+        };
+        const mixedSeries = [
+            unsortedSeries[0],
+            barSerie,
+            ...unsortedSeries.slice(1),
+        ];
+
+        const result = sortLineSeriesByValue({
+            series: mixedSeries,
+            rows,
+            sortDirection: 'desc',
+            flipAxes: false,
+        });
+
+        expect(result[1].type).toBe(CartesianSeriesType.BAR);
+        expect(result.map((serie) => serie.encode?.y ?? 'total')).toEqual([
+            '1111_any_巧冰',
+            'total',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
     });
 });

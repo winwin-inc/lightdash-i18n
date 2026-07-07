@@ -22,15 +22,15 @@ vi.mock('react-i18next', () => ({
                     '值标签',
                 'components_visualization_configs_chart.series.total': '总计',
                 'components_visualization_configs_chart.series.mixed': '混合',
-                'components_visualization_configs_chart.series.tooltip_sort_by_value':
-                    '悬停值排序',
                 'components_visualization_configs_chart.series.stack_series_sort_by_value':
                     '堆叠系列排序',
-                'components_visualization_configs_chart.series.tooltip_sort_direction':
+                'components_visualization_configs_chart.series.series_sort':
+                    '系列排序',
+                'components_visualization_configs_chart.series.sort_direction':
                     '排序方向',
-                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.desc':
+                'components_visualization_configs_chart.series.sort_direction_options.desc':
                     '降序',
-                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.asc':
+                'components_visualization_configs_chart.series.sort_direction_options.asc':
                     '升序',
                 'components_visualization_configs_chart.series.axis_options.left':
                     '左',
@@ -91,8 +91,28 @@ const defaultProps = {
     updateSeries: vi.fn(),
 };
 
-describe('GroupedSeriesConfiguration tooltip value sort visibility', () => {
-    it('shows tooltip value sort for stacked bar charts with multiple series', () => {
+describe('GroupedSeriesConfiguration series sort visibility', () => {
+    it('shows series sort for grouped line charts with multiple series', () => {
+        renderWithProviders(
+            <GroupedSeriesConfiguration
+                {...defaultProps}
+                series={[
+                    createSeries('A', { type: CartesianSeriesType.LINE }),
+                    createSeries('B', { type: CartesianSeriesType.LINE }),
+                ]}
+                seriesGroup={[
+                    createSeries('A', { type: CartesianSeriesType.LINE }),
+                    createSeries('B', { type: CartesianSeriesType.LINE }),
+                ]}
+            />,
+        );
+
+        expect(
+            screen.getByRole('checkbox', { name: '系列排序' }),
+        ).toBeInTheDocument();
+    });
+
+    it('does not show series sort for stacked bar charts', () => {
         renderWithProviders(
             <GroupedSeriesConfiguration
                 {...defaultProps}
@@ -108,11 +128,14 @@ describe('GroupedSeriesConfiguration tooltip value sort visibility', () => {
         );
 
         expect(
-            screen.getByRole('checkbox', { name: '悬停值排序' }),
+            screen.queryByRole('checkbox', { name: '系列排序' }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.getByRole('checkbox', { name: '堆叠系列排序' }),
         ).toBeInTheDocument();
     });
 
-    it('shows tooltip value sort for non-stacked grouped bar charts with multiple series', () => {
+    it('does not show series sort for non-stacked bar charts', () => {
         renderWithProviders(
             <GroupedSeriesConfiguration
                 {...defaultProps}
@@ -122,21 +145,23 @@ describe('GroupedSeriesConfiguration tooltip value sort visibility', () => {
         );
 
         expect(
-            screen.getByRole('checkbox', { name: '悬停值排序' }),
-        ).toBeInTheDocument();
+            screen.queryByRole('checkbox', { name: '系列排序' }),
+        ).not.toBeInTheDocument();
     });
 
-    it('does not show tooltip value sort for single series', () => {
+    it('does not show series sort for single line series', () => {
         renderWithProviders(
             <GroupedSeriesConfiguration
                 {...defaultProps}
-                series={[createSeries('A')]}
-                seriesGroup={[createSeries('A')]}
+                series={[createSeries('A', { type: CartesianSeriesType.LINE })]}
+                seriesGroup={[
+                    createSeries('A', { type: CartesianSeriesType.LINE }),
+                ]}
             />,
         );
 
         expect(
-            screen.queryByRole('checkbox', { name: '悬停值排序' }),
+            screen.queryByRole('checkbox', { name: '系列排序' }),
         ).not.toBeInTheDocument();
     });
 });

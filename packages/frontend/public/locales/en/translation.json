@@ -4995,13 +4995,13 @@
             "show_symbol": "Show symbol",
             "filled_symbol": "Filled symbol",
             "smooth": "Smooth",
-            "tooltip_sort_by_value": "Sort tooltip by value",
-            "tooltip_sort_direction": "Sort direction",
-            "tooltip_sort_by_value_options": {
+            "sort_direction": "Sort direction",
+            "sort_direction_options": {
                 "desc": "Descending",
                 "asc": "Ascending"
             },
             "stack_series_sort_by_value": "Sort stacked series",
+            "series_sort": "Sort series",
             "tried": "Tried to reference field with unknown id:"
         }
     },

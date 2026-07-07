@@ -2875,6 +2875,13 @@
                                 "type": "string",
                                 "description": "Optional selectable range for date inputs (YYYY-MM-DD)"
                             },
+                            "allowedOperators": {
+                                "items": {
+                                    "$ref": "#/components/schemas/FilterOperator"
+                                },
+                                "type": "array",
+                                "description": "Operators available to viewers; undefined/empty means no restriction"
+                            },
                             "excludedValues": {
                                 "items": {
                                     "type": "string"
@@ -4687,6 +4694,14 @@
                                 "type": "boolean"
                             }
                         ]
+                    },
+                    "barMaxWidth": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "barMaxWidthMobile": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "type": "object",
@@ -4898,7 +4913,11 @@
             },
             "Series": {
                 "properties": {
-                    "tooltipSortByValue": {
+                    "seriesSortByValue": {
+                        "type": "string",
+                        "enum": ["asc", "desc"]
+                    },
+                    "stackSeriesSortByValue": {
                         "type": "string",
                         "enum": ["asc", "desc"]
                     },
@@ -5557,8 +5576,40 @@
                     }
                 ]
             },
+            "PivotMetricHeaderPosition": {
+                "type": "string",
+                "enum": ["bottom", "top"],
+                "description": "透视表列头中指标与维度值的上下层级，默认 dimension 在上"
+            },
+            "TableCellAlignment": {
+                "type": "string",
+                "enum": ["left", "center", "right"]
+            },
             "TableChart": {
                 "properties": {
+                    "pivotRowDimensionAlignment": {
+                        "$ref": "#/components/schemas/TableCellAlignment"
+                    },
+                    "cellAlignment": {
+                        "$ref": "#/components/schemas/TableCellAlignment"
+                    },
+                    "pivotColumnMaxWidth": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "透视表数据列拉伸上限（px），未设置表示不限制"
+                    },
+                    "pivotDimensionColumnMaxWidth": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "透视表行维度列拉伸上限（px），未设置表示不限制"
+                    },
+                    "pivotAutoFillWidth": {
+                        "type": "boolean",
+                        "description": "透视表列少时自动撑满容器宽度"
+                    },
+                    "pivotMetricHeaderPosition": {
+                        "$ref": "#/components/schemas/PivotMetricHeaderPosition"
+                    },
                     "metricsAsRows": {
                         "type": "boolean"
                     },
@@ -8167,6 +8218,19 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "success",
+                                                            "error"
+                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -11408,6 +11472,14 @@
             },
             "CartesianChartDisplay": {
                 "properties": {
+                    "barMaxWidthMobile": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "barMaxWidth": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "stack": {
                         "anyOf": [
                             {
@@ -16188,6 +16260,13 @@
                                 "type": "string",
                                 "description": "Optional selectable range for date inputs (YYYY-MM-DD)"
                             },
+                            "allowedOperators": {
+                                "items": {
+                                    "$ref": "#/components/schemas/FilterOperator"
+                                },
+                                "type": "array",
+                                "description": "Operators available to viewers; undefined/empty means no restriction"
+                            },
                             "excludedValues": {
                                 "items": {
                                     "type": "string"
@@ -16284,6 +16363,13 @@
                         },
                         "type": "array",
                         "description": "Values hidden from filter options list"
+                    },
+                    "allowedOperators": {
+                        "items": {
+                            "$ref": "#/components/schemas/FilterOperator"
+                        },
+                        "type": "array",
+                        "description": "Operators available to viewers; undefined/empty means no restriction"
                     },
                     "minAllowedDate": {
                         "type": "string",
@@ -21339,7 +21425,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2102.3",
+        "version": "0.2103.6",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"

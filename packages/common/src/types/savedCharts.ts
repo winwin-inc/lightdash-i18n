@@ -264,8 +264,8 @@ export type Series = {
     smooth?: boolean;
     markLine?: MarkLine;
     isFilteredOut?: boolean;
-    tooltipSortByValue?: 'asc' | 'desc';
     stackSeriesSortByValue?: 'asc' | 'desc';
+    seriesSortByValue?: 'asc' | 'desc';
 };
 
 export type EchartsLegend = {

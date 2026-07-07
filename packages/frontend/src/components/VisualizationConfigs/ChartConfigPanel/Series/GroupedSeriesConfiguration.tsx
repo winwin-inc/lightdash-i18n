@@ -159,10 +159,6 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     const isChartTypeTheSameForAllSeries: boolean =
         !isSeriesWithMixedChartTypes(seriesGroup);
 
-    const isTooltipSortByValueTheSameForAllSeries: boolean =
-        new Set(seriesGroup.map(({ tooltipSortByValue }) => tooltipSortByValue))
-            .size === 1;
-
     const isStackSeriesSortByValueTheSameForAllSeries: boolean =
         new Set(
             seriesGroup.map(
@@ -170,17 +166,21 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
             ),
         ).size === 1;
 
+    const isSeriesSortByValueTheSameForAllSeries: boolean =
+        new Set(seriesGroup.map(({ seriesSortByValue }) => seriesSortByValue))
+            .size === 1;
+
     const SORT_DIRECTION_OPTIONS = [
         {
             value: 'desc',
             label: t(
-                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.desc',
+                'components_visualization_configs_chart.series.sort_direction_options.desc',
             ),
         },
         {
             value: 'asc',
             label: t(
-                'components_visualization_configs_chart.series.tooltip_sort_by_value_options.asc',
+                'components_visualization_configs_chart.series.sort_direction_options.asc',
             ),
         },
     ];
@@ -193,10 +193,13 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
 
     const chartValue = isChartTypeTheSameForAllSeries ? chartType : 'mixed';
     const fieldKey = getItemId(item);
-    const canSortTooltipByValue = seriesGroup.length > 1;
     const canSortStackSeriesByValue =
         Boolean(seriesGroup[0].stack) &&
         chartValue === CartesianSeriesType.BAR &&
+        seriesGroup.length > 1;
+    const canSortSeriesByValue =
+        (chartValue === CartesianSeriesType.LINE ||
+            chartValue === CartesianSeriesType.AREA) &&
         seriesGroup.length > 1;
 
     const onDragEnd = useCallback(
@@ -392,46 +395,46 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             />
                         </Group>
                     )}
-                    {canSortTooltipByValue && (
+                    {canSortSeriesByValue && (
                         <Stack spacing="xs" mt="xs">
                             <Group spacing="xs">
                                 <Checkbox
                                     checked={
-                                        isTooltipSortByValueTheSameForAllSeries
+                                        isSeriesSortByValueTheSameForAllSeries
                                             ? Boolean(
                                                   seriesGroup[0]
-                                                      .tooltipSortByValue,
+                                                      .seriesSortByValue,
                                               )
                                             : false
                                     }
                                     indeterminate={
-                                        !isTooltipSortByValueTheSameForAllSeries
+                                        !isSeriesSortByValueTheSameForAllSeries
                                     }
                                     label={t(
-                                        'components_visualization_configs_chart.series.tooltip_sort_by_value',
+                                        'components_visualization_configs_chart.series.series_sort',
                                     )}
                                     onChange={() => {
                                         const currentValue =
-                                            seriesGroup[0].tooltipSortByValue;
+                                            seriesGroup[0].seriesSortByValue;
                                         updateAllGroupedSeries(fieldKey, {
-                                            tooltipSortByValue: currentValue
+                                            seriesSortByValue: currentValue
                                                 ? undefined
                                                 : 'desc',
                                         });
                                     }}
                                 />
                             </Group>
-                            {isTooltipSortByValueTheSameForAllSeries &&
-                                seriesGroup[0].tooltipSortByValue && (
+                            {isSeriesSortByValueTheSameForAllSeries &&
+                                seriesGroup[0].seriesSortByValue && (
                                     <Select
                                         label={t(
-                                            'components_visualization_configs_chart.series.tooltip_sort_direction',
+                                            'components_visualization_configs_chart.series.sort_direction',
                                         )}
-                                        value={seriesGroup[0].tooltipSortByValue}
+                                        value={seriesGroup[0].seriesSortByValue}
                                         data={SORT_DIRECTION_OPTIONS}
                                         onChange={(value) => {
                                             updateAllGroupedSeries(fieldKey, {
-                                                tooltipSortByValue: value as
+                                                seriesSortByValue: value as
                                                     | 'asc'
                                                     | 'desc',
                                             });
@@ -474,7 +477,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                 seriesGroup[0].stackSeriesSortByValue && (
                                     <Select
                                         label={t(
-                                            'components_visualization_configs_chart.series.tooltip_sort_direction',
+                                            'components_visualization_configs_chart.series.sort_direction',
                                         )}
                                         value={
                                             seriesGroup[0].stackSeriesSortByValue

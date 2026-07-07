@@ -67,8 +67,8 @@ import {
 } from '../../components/VisualizationConfigs/ChartConfigPanel/Grid/constants';
 import { EMPTY_X_AXIS } from '../cartesianChartConfig/useCartesianChartConfig';
 import {
+    getSeriesSortDirection,
     getStackSeriesSortDirection,
-    getTooltipSortDirection,
 } from '../cartesianChartConfig/utils';
 import {
     getPivotedDataFromPivotDetails,
@@ -913,13 +913,14 @@ const getEchartsSeriesFromPivotedData = (
     const hasStackSeriesSortByValue = Boolean(
         getStackSeriesSortDirection(allSeries),
     );
+    const hasSeriesSortByValue = Boolean(getSeriesSortDirection(allSeries));
 
     const resultSeries = allSeries
         .filter((s) => !s.hidden)
         .sort((a, b) => {
-            // If stack series sorting is enabled, preserve the original order.
+            // If value sorting is enabled, preserve the original order.
             // The sorting will be done later in stackedSeriesWithColorAssignments.
-            if (hasStackSeriesSortByValue) {
+            if (hasStackSeriesSortByValue || hasSeriesSortByValue) {
                 return 0;
             }
 
@@ -1309,6 +1310,86 @@ const getFlipAxesCategoryAxisDataFromWidePivot = ({
 const isWidePivotFlipAxesBarSerie = (serie: EChartSeries): boolean =>
     serie.type === CartesianSeriesType.BAR &&
     typeof serie.encode?.x === 'string';
+
+const getSerieTotalFromRows = (
+    serie: EChartSeries,
+    rows: ResultRow[],
+    flipAxes: boolean,
+): number => {
+    let total = 0;
+    const yFieldHash = flipAxes ? serie.encode?.x : serie.encode?.y;
+
+    if (!yFieldHash) return 0;
+
+    rows.forEach((row) => {
+        let value = row[yFieldHash]?.value?.raw;
+
+        if (value === undefined) {
+            const parts = yFieldHash.split('.');
+            if (parts.length >= 3) {
+                const metricField = parts[0];
+                const dimensionField = parts[1];
+                const categoryValue = parts.slice(2).join('.');
+                if (row[dimensionField]?.value?.raw === categoryValue) {
+                    value = row[metricField]?.value?.raw;
+                }
+            }
+        }
+
+        const numValue = toNumber(value);
+        if (!isNaN(numValue)) {
+            total += numValue;
+        }
+    });
+
+    return total;
+};
+
+/**
+ * Sorts line/area series by total value across all X-axis points.
+ * Legend and line z-order follow the resulting series array order.
+ */
+export const sortLineSeriesByValue = ({
+    series,
+    rows,
+    sortDirection,
+    flipAxes,
+}: {
+    series: EChartSeries[];
+    rows: ResultRow[];
+    sortDirection: 'asc' | 'desc';
+    flipAxes: boolean;
+}): EChartSeries[] => {
+    const lineSeries = series.filter(
+        (serie) => serie.type === CartesianSeriesType.LINE,
+    );
+    if (!lineSeries.length || !rows.length) return series;
+
+    const seriesWithTotals = lineSeries.map((serie, originalIndex) => ({
+        serie,
+        originalIndex,
+        total: getSerieTotalFromRows(serie, rows, flipAxes),
+    }));
+
+    seriesWithTotals.sort((a, b) => {
+        const diff =
+            sortDirection === 'desc' ? b.total - a.total : a.total - b.total;
+        if (diff !== 0) return diff;
+        return a.originalIndex - b.originalIndex;
+    });
+
+    const sortedLineSeries = seriesWithTotals.map((item) => item.serie);
+    let sortedIdx = 0;
+
+    return series.map((serie) => {
+        if (serie.type !== CartesianSeriesType.LINE) {
+            return serie;
+        }
+        const sortedSerie = sortedLineSeries[sortedIdx];
+        sortedIdx += 1;
+        return sortedSerie;
+    });
+};
 
 /**
  * BAR_TOTALS axis sort for flipAxes + SQL pivot wide table (dashboard).
@@ -3088,6 +3169,18 @@ const useEchartsCartesianConfig = (
             }
         }
 
+        const seriesSortDirection = getSeriesSortDirection(
+            validCartesianConfig?.eChartsConfig.series,
+        );
+        if (seriesSortDirection && rows.length > 0) {
+            sortedSeries = sortLineSeriesByValue({
+                series: sortedSeries,
+                rows,
+                sortDirection: seriesSortDirection,
+                flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
+            });
+        }
+
         const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
         const datasetRowsForSort = getResultValueArray(rows, true, true)
             .results as Record<string, unknown>[];
@@ -3488,105 +3581,21 @@ const useEchartsCartesianConfig = (
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
 
-                const sortDirection = getTooltipSortDirection(
-                    validCartesianConfig?.eChartsConfig.series,
-                );
-
-                // Sort params by value if tooltipSortByValue is enabled
-                let sortedParams = params;
-                if (sortDirection && Array.isArray(params)) {
-                    sortedParams = [...params].sort((a, b) => {
-                        const {
-                            dimensionNames: dimensionNamesA,
-                            encode: encodeA,
-                            value: valueA,
-                        } = a;
-                        const {
-                            dimensionNames: dimensionNamesB,
-                            encode: encodeB,
-                            value: valueB,
-                        } = b;
-
-                        if (
-                            !dimensionNamesA ||
-                            !dimensionNamesB ||
-                            !encodeA ||
-                            !encodeB
-                        ) {
-                            return 0;
-                        }
-
-                        // Get the dimension name (field hash) for y value
-                        let dimA = '';
-                        let dimB = '';
-                        if (flipAxes) {
-                            dimA = dimensionNamesA[1] || '';
-                            dimB = dimensionNamesB[1] || '';
-                        } else {
-                            const yIndexA = Array.isArray(encodeA.y)
-                                ? encodeA.y[0]
-                                : encodeA.y;
-                            const yIndexB = Array.isArray(encodeB.y)
-                                ? encodeB.y[0]
-                                : encodeB.y;
-                            dimA =
-                                typeof yIndexA === 'number'
-                                    ? dimensionNamesA[yIndexA] || ''
-                                    : '';
-                            dimB =
-                                typeof yIndexB === 'number'
-                                    ? dimensionNamesB[yIndexB] || ''
-                                    : '';
-                        }
-
-                        // Get the actual values
-                        const valA =
-                            valueA &&
-                            typeof valueA === 'object' &&
-                            !Array.isArray(valueA) &&
-                            dimA in valueA
-                                ? (valueA as Record<string, unknown>)[dimA]
-                                : null;
-                        const valB =
-                            valueB &&
-                            typeof valueB === 'object' &&
-                            !Array.isArray(valueB) &&
-                            dimB in valueB
-                                ? (valueB as Record<string, unknown>)[dimB]
-                                : null;
-
-                        // Convert to numbers for comparison
-                        const numA =
-                            valA !== null && valA !== undefined
-                                ? toNumber(valA)
-                                : -Infinity;
-                        const numB =
-                            valB !== null && valB !== undefined
-                                ? toNumber(valB)
-                                : -Infinity;
-
-                        // Sort based on direction: 'desc' (largest first) or 'asc' (smallest first)
-                        return sortDirection === 'desc'
-                            ? numB - numA
-                            : numA - numB;
-                    });
-                }
-
                 const getTooltipHeader = () => {
-                    if (flipAxes && !('axisDim' in sortedParams[0])) {
+                    if (flipAxes && !('axisDim' in params[0])) {
                         // When flipping axes, the axisValueLabel is the value, not the serie name
-                        return sortedParams[0].seriesName;
+                        return params[0].seriesName;
                     }
-                    return sortedParams[0].axisValueLabel;
+                    return params[0].axisValueLabel;
                 };
                 const getTooltipHeaderRawValue = () => {
-                    if (flipAxes && !('axisDim' in sortedParams[0])) {
-                        return sortedParams[0].seriesName;
+                    if (flipAxes && !('axisDim' in params[0])) {
+                        return params[0].seriesName;
                     }
-                    return sortedParams[0].axisValue;
+                    return params[0].axisValue;
                 };
                 // When flipping axes, we get all series in the chart
-                const tooltipRows = sortedParams
+                const tooltipRows = params
                     .map((param) => {
                         const {
                             marker,
@@ -3644,7 +3653,7 @@ const useEchartsCartesianConfig = (
                 if (tooltipHtml) {
                     // Sanitize HTML code to avoid XSS
                     tooltipHtml = DOMPurify.sanitize(tooltipHtml);
-                    const firstValue = sortedParams[0].value as Record<
+                    const firstValue = params[0].value as Record<
                         string,
                         unknown
                     >;
@@ -3670,7 +3679,7 @@ const useEchartsCartesianConfig = (
                     });
                 }
 
-                const dimensionId = sortedParams[0].dimensionNames?.[0];
+                const dimensionId = params[0].dimensionNames?.[0];
                 if (dimensionId !== undefined) {
                     const field = itemsMap[dimensionId];
                     if (isTableCalculation(field)) {
