@@ -6,7 +6,6 @@ export type { DecomposedCustomVisSpec } from './decomposeCustomVisSpec';
 export { extractLightdashConfig } from './extractLightdashConfig';
 export { isEffectiveMobileSpec } from './isEffectiveMobileSpec';
 export {
-    resetCompositeResponsiveWarnedForTests,
     resolveActiveSpec,
     type ResponsivePreviewOverride,
 } from './resolveActiveSpec';

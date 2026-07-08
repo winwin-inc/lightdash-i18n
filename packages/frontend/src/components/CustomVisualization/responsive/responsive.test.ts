@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { computeResponsiveLayout } from './computeResponsiveLayout';
 import { extractLightdashConfig } from './extractLightdashConfig';
-import {
-    resetCompositeResponsiveWarnedForTests,
-    resolveActiveSpec,
-} from './resolveActiveSpec';
+import { resolveActiveSpec } from './resolveActiveSpec';
 
 const desktopSpec = {
     layer: [{ mark: 'bar' }],
@@ -94,15 +91,32 @@ describe('resolveActiveSpec', () => {
         );
     });
 
-    it('ignores mobile for composite desktop spec', () => {
-        resetCompositeResponsiveWarnedForTests();
+    it('uses mobile spec when desktop is composite and viewport is narrow', () => {
         const compositeDesktop = {
             hconcat: [{ mark: 'bar' }, { mark: 'bar' }],
         };
         const config = { breakpoint: 768, mobile: mobileSpec };
         const result = resolveActiveSpec(compositeDesktop, config, 375);
-        expect(result.variant).toBe('desktop');
-        expect(result.spec).toEqual(compositeDesktop);
+        expect(result.variant).toBe('mobile');
+        expect(result.spec).toEqual(mobileSpec);
+    });
+
+    it('uses mobile spec for composite desktop when preview override is mobile', () => {
+        const compositeDesktop = {
+            vconcat: [{ mark: 'bar' }, { mark: 'line' }],
+        };
+        const compositeMobile = {
+            vconcat: [{ mark: 'bar' }, { mark: 'text' }],
+        };
+        const config = { breakpoint: 768, mobile: compositeMobile };
+        const result = resolveActiveSpec(
+            compositeDesktop,
+            config,
+            1200,
+            'mobile',
+        );
+        expect(result.variant).toBe('mobile');
+        expect(result.spec).toEqual(compositeMobile);
     });
 });
 
@@ -145,13 +159,9 @@ describe('computeResponsiveLayout', () => {
     });
 
     it('does not scroll when step height fits container', () => {
-        const layout = computeResponsiveLayout(
-            'mobile',
-            mobileSpec,
-            375,
-            400,
-            [{ brand: 'A', growth: 0.1 }],
-        );
+        const layout = computeResponsiveLayout('mobile', mobileSpec, 375, 400, [
+            { brand: 'A', growth: 0.1 },
+        ]);
         expect(layout.useAutosizeNone).toBe(false);
         expect(layout.vegaStyle.height).toBe(400);
         expect(layout.containerStyle).toEqual({ overflow: 'hidden' });

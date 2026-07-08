@@ -1,4 +1,3 @@
-import { isCompositeVegaSpec } from '../normalizeVegaSpecSizing';
 import { isEffectiveMobileSpec } from './isEffectiveMobileSpec';
 import {
     DEFAULT_RESPONSIVE_BREAKPOINT,
@@ -13,8 +12,6 @@ export type ActiveSpecResolution = {
     variant: 'desktop' | 'mobile';
 };
 
-let compositeResponsiveWarned = false;
-
 export function resolveActiveSpec(
     desktopSpec: VegaSpec,
     responsiveConfig: LightdashResponsiveConfig | null,
@@ -24,16 +21,6 @@ export function resolveActiveSpec(
     const mobile = responsiveConfig?.mobile ?? null;
 
     if (!isEffectiveMobileSpec(mobile)) {
-        return { spec: desktopSpec, variant: 'desktop' };
-    }
-
-    if (isCompositeVegaSpec(desktopSpec)) {
-        if (import.meta.env.DEV && !compositeResponsiveWarned) {
-            compositeResponsiveWarned = true;
-            console.warn(
-                '[CustomViz responsive] Composite spec ignores lightdash.responsive.mobile',
-            );
-        }
         return { spec: desktopSpec, variant: 'desktop' };
     }
 
@@ -53,9 +40,4 @@ export function resolveActiveSpec(
     }
 
     return { spec: desktopSpec, variant: 'desktop' };
-}
-
-/** 测试用：重置 composite 警告单次标记 */
-export function resetCompositeResponsiveWarnedForTests(): void {
-    compositeResponsiveWarned = false;
 }
