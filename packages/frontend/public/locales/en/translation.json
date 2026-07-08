@@ -2234,7 +2234,13 @@
             "part_2": "results.",
             "part_3": "Continue",
             "part_4": "Start",
-            "part_5": "typing..."
+            "part_5": "typing...",
+            "truncated_search": "Showing first {{count}} matching results for this search. Select all can choose up to {{maxSelectAllResults}} matches. Continue typing to narrow results."
+        },
+        "select_all_search_results": {
+            "label": "Select all search results ({{count}})",
+            "label_truncated": "Select all search results ({{count}}+)",
+            "loading": "Loading matching results..."
         },
         "autocomple_results": {
             "refresh": "Click here to refresh cache filter values",

@@ -18,6 +18,7 @@ import {
     useMemo,
     useState,
     type FC,
+    type MouseEvent as ReactMouseEvent,
     type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +28,7 @@ import MantineIcon from '../../../../components/common/MantineIcon';
 import useHealth from '../../../../hooks/health/useHealth';
 import {
     MAX_AUTOCOMPLETE_RESULTS,
+    MAX_SELECT_ALL_RESULTS,
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
 import { useAppSelector } from '../../../sqlRunner/store/hooks';
@@ -69,10 +71,15 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
         string | undefined
     >();
     const [forceRefresh, setForceRefresh] = useState<boolean>(false);
+    const [isSelectingAll, setIsSelectingAll] = useState(false);
 
     const {
         isInitialLoading,
         results: resultsSet,
+        resultCounts,
+        searchResultsByQuery,
+        fetchMatchingValues,
+        debouncedSearch,
         refreshedAt,
         refetch,
     } = useFieldValues(
@@ -153,7 +160,79 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
         }));
     }, [results, values]);
 
-    const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
+    const trimmedSearch = search.trim();
+    const activeSearchKey = debouncedSearch.trim() || trimmedSearch;
+    const currentSearchResultCount =
+        resultCounts.get(activeSearchKey) ??
+        (trimmedSearch ? 0 : resultsSet.size);
+    const isSearchTruncated =
+        trimmedSearch.length > 0 &&
+        currentSearchResultCount >= MAX_AUTOCOMPLETE_RESULTS;
+
+    const currentSearchResults = useMemo(() => {
+        if (!trimmedSearch) {
+            return [];
+        }
+        return searchResultsByQuery.get(activeSearchKey) ?? [];
+    }, [activeSearchKey, searchResultsByQuery, trimmedSearch]);
+
+    const visibleUnselectedCount = useMemo(() => {
+        if (!trimmedSearch) {
+            return 0;
+        }
+        return currentSearchResults.filter((value) => !values.includes(value))
+            .length;
+    }, [currentSearchResults, trimmedSearch, values]);
+
+    const showSelectAllSearchResults =
+        trimmedSearch.length > 0 &&
+        (visibleUnselectedCount > 0 || isSearchTruncated);
+
+    const handleSelectAllSearchResults = useCallback(async () => {
+        if (!trimmedSearch || isSelectingAll) {
+            return;
+        }
+
+        setIsSelectingAll(true);
+        try {
+            let matchingValues: string[];
+            if (isSearchTruncated) {
+                const response = await fetchMatchingValues(
+                    activeSearchKey,
+                    MAX_SELECT_ALL_RESULTS,
+                );
+                matchingValues = response.results.filter(
+                    (result): result is string => typeof result === 'string',
+                );
+            } else {
+                matchingValues = currentSearchResults;
+            }
+
+            const unselected = matchingValues.filter(
+                (value) => !values.includes(value),
+            );
+            if (unselected.length > 0) {
+                handleAddMultiple(unselected);
+            }
+        } catch (selectAllError) {
+            console.error(selectAllError);
+        } finally {
+            setIsSelectingAll(false);
+        }
+    }, [
+        activeSearchKey,
+        currentSearchResults,
+        fetchMatchingValues,
+        handleAddMultiple,
+        isSearchTruncated,
+        isSelectingAll,
+        trimmedSearch,
+        values,
+    ]);
+
+    const searchedMaxResults = trimmedSearch
+        ? isSearchTruncated
+        : resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
 
     const DropdownComponentOverride = useCallback(
         ({ children, ...props }: { children: ReactNode }) => (
@@ -168,23 +247,81 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
                             pb="xxs"
                             bg="white"
                         >
-                            {t(
-                                'features_metrics_catalog_visualzation.showing_first',
-                                {
-                                    MAX_AUTOCOMPLETE_RESULTS,
-                                },
-                            )}{' '}
-                            {search
+                            {trimmedSearch && isSearchTruncated
                                 ? t(
-                                      'features_metrics_catalog_visualzation.continue',
+                                      'components_common_filters_inputs.scroll_area.truncated_search',
+                                      {
+                                          count: MAX_AUTOCOMPLETE_RESULTS,
+                                          maxSelectAllResults:
+                                              MAX_SELECT_ALL_RESULTS,
+                                      },
                                   )
                                 : t(
-                                      'features_metrics_catalog_visualzation.start',
+                                      'features_metrics_catalog_visualzation.showing_first',
+                                      {
+                                          MAX_AUTOCOMPLETE_RESULTS,
+                                      },
                                   )}{' '}
-                            {t('features_metrics_catalog_visualzation.typing')}
-                            ...
+                            {!trimmedSearch || !isSearchTruncated ? (
+                                <>
+                                    {search
+                                        ? t(
+                                              'features_metrics_catalog_visualzation.continue',
+                                          )
+                                        : t(
+                                              'features_metrics_catalog_visualzation.start',
+                                          )}{' '}
+                                    {t(
+                                        'features_metrics_catalog_visualzation.typing',
+                                    )}
+                                    ...
+                                </>
+                            ) : null}
                         </Text>
                     ) : null}
+
+                    {showSelectAllSearchResults ? (
+                        <Text
+                            color="blue"
+                            size="xs"
+                            px="sm"
+                            pt="xs"
+                            pb="xxs"
+                            bg="white"
+                            sx={(theme) => ({
+                                cursor: isSelectingAll ? 'default' : 'pointer',
+                                '&:hover': {
+                                    backgroundColor: isSelectingAll
+                                        ? 'white'
+                                        : theme.colors.gray[0],
+                                },
+                            })}
+                            onClick={(event: ReactMouseEvent) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void handleSelectAllSearchResults();
+                            }}
+                        >
+                            {isSelectingAll
+                                ? t(
+                                      'components_common_filters_inputs.select_all_search_results.loading',
+                                  )
+                                : isSearchTruncated
+                                  ? t(
+                                        'components_common_filters_inputs.select_all_search_results.label_truncated',
+                                        {
+                                            count: currentSearchResultCount,
+                                        },
+                                    )
+                                  : t(
+                                        'components_common_filters_inputs.select_all_search_results.label',
+                                        {
+                                            count: currentSearchResultCount,
+                                        },
+                                    )}
+                        </Text>
+                    ) : null}
+
                     {children}
                 </ScrollArea>
                 {healthData?.hasCacheAutocompleResults ? (
@@ -221,6 +358,12 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
         [
             searchedMaxResults,
             search,
+            trimmedSearch,
+            isSearchTruncated,
+            showSelectAllSearchResults,
+            isSelectingAll,
+            currentSearchResultCount,
+            handleSelectAllSearchResults,
             refreshedAt,
             healthData?.hasCacheAutocompleResults,
             t,

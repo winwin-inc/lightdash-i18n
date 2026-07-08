@@ -2217,7 +2217,13 @@
             "part_2": "结果。",
             "part_3": "继续",
             "part_4": "开始",
-            "part_5": "输入..."
+            "part_5": "输入...",
+            "truncated_search": "当前搜索仅显示前 {{count}} 个匹配结果。全选最多可选中 {{maxSelectAllResults}} 个匹配项，请继续输入以缩小范围。"
+        },
+        "select_all_search_results": {
+            "label": "全选当前搜索结果 ({{count}})",
+            "label_truncated": "全选当前搜索结果 ({{count}}+)",
+            "loading": "正在加载匹配结果..."
         },
         "autocomple_results": {
             "refresh": "点击此处刷新缓存过滤值",

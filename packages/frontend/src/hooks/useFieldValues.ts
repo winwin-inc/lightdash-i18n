@@ -16,6 +16,7 @@ import { lightdashApi } from '../api';
 import useEmbed from '../ee/providers/Embed/useEmbed';
 
 export const MAX_AUTOCOMPLETE_RESULTS = 50;
+export const MAX_SELECT_ALL_RESULTS = 500;
 
 export const compareFieldValues = (a: string, b: string) =>
     a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' });
@@ -27,13 +28,14 @@ const getEmbedFilterValues = async (options: {
     search: string;
     forceRefresh: boolean;
     filters: AndFilterGroup | undefined;
+    limit?: number;
 }) => {
     return lightdashApi<FieldValueSearchResult>({
         url: `/embed/${options.projectId}/filter/${options.filterId}/search`,
         method: 'POST',
         body: JSON.stringify({
             search: options.search,
-            limit: MAX_AUTOCOMPLETE_RESULTS,
+            limit: options.limit ?? MAX_AUTOCOMPLETE_RESULTS,
             filters: options.filters,
             forceRefresh: options.forceRefresh,
         }),
@@ -99,6 +101,9 @@ export const useFieldValues = (
     const [resultCounts, setResultCounts] = useState<Map<string, number>>(
         new Map(),
     );
+    const [searchResultsByQuery, setSearchResultsByQuery] = useState<
+        Map<string, string[]>
+    >(new Map());
     const [refreshedAt, setRefreshedAt] = useState<Date>(new Date());
 
     const tableName = useMemo(
@@ -114,23 +119,70 @@ export const useFieldValues = (
                 setSearches(new Set<string>());
                 setResults(new Set(initialData));
                 setResultCounts(new Map());
+                setSearchResultsByQuery(new Map());
             }
             setRefreshedAt(new Date(data.refreshedAt));
             setSearches((s) => {
                 return s.add(data.search);
             });
 
+            const normalizedResults = data.results.filter(
+                (result): result is string => typeof result === 'string',
+            );
+
             setResultCounts((map) => {
-                return map.set(data.search, data.results.length);
+                return map.set(data.search, normalizedResults.length);
+            });
+
+            setSearchResultsByQuery((map) => {
+                return map.set(data.search, normalizedResults);
             });
 
             setResults((oldSet) => {
                 return new Set(
-                    [...oldSet, ...data.results].sort(compareFieldValues),
+                    [...oldSet, ...normalizedResults].sort(compareFieldValues),
                 );
             });
         },
         [filters, initialData],
+    );
+
+    const fetchMatchingValues = useCallback(
+        async (searchTerm: string, limit: number) => {
+            if (embedToken && filterId && projectId) {
+                return getEmbedFilterValues({
+                    embedToken,
+                    projectId,
+                    filterId,
+                    search: searchTerm,
+                    forceRefresh: false,
+                    filters,
+                    limit,
+                });
+            }
+
+            return getFieldValues(
+                projectId!,
+                tableName,
+                fieldId,
+                searchTerm,
+                false,
+                filters,
+                limit,
+                parameterValues,
+                dashboardContext,
+            );
+        },
+        [
+            dashboardContext,
+            embedToken,
+            fieldId,
+            filterId,
+            filters,
+            parameterValues,
+            projectId,
+            tableName,
+        ],
     );
     const cachekey = [
         'project',
@@ -207,6 +259,7 @@ export const useFieldValues = (
             setSearches(new Set<string>());
             setResults(new Set(initialData));
             setResultCounts(new Map());
+            setSearchResultsByQuery(new Map());
         }
     }, [initialData, fieldName, field.name, forceRefresh]);
 
@@ -216,6 +269,8 @@ export const useFieldValues = (
         searches,
         results,
         resultCounts,
+        searchResultsByQuery,
+        fetchMatchingValues,
         refreshedAt,
     };
 };
@@ -284,6 +339,8 @@ export const useFieldValuesSafely = (
             searches: undefined,
             results: undefined,
             resultCounts: undefined,
+            searchResultsByQuery: undefined,
+            fetchMatchingValues: undefined,
             refreshedAt: undefined,
         };
     }
