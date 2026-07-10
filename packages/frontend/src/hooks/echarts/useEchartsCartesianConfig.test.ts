@@ -5,8 +5,10 @@ import {
     getAxisDefaultMaxValue,
     getAxisDefaultMinValue,
     getMinAndMaxValues,
+    getStackedBarLegendOrder,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
+    sortStackedBarSeriesByValue,
     type EChartSeries,
 } from './useEchartsCartesianConfig';
 
@@ -581,5 +583,264 @@ describe('sortLineSeriesByValue', () => {
             '1111_any_豆冰',
             '1111_any_其他',
         ]);
+    });
+});
+
+describe('sortStackedBarSeriesByValue', () => {
+    const datasetRows = [
+        {
+            types: 0,
+            '1111_any_其他': 0.01,
+            '1111_any_豆冰': 2.49,
+            '1111_any_水冰': 6.19,
+            '1111_any_奶冰': 18.76,
+            '1111_any_巧冰': 24.75,
+        },
+    ];
+
+    const makeStackedBarSerie = (columnKey: string): EChartSeries => ({
+        type: CartesianSeriesType.BAR,
+        connectNulls: true,
+        stack: 'stack1',
+        encode: {
+            x: columnKey,
+            y: 'mengniu_type',
+            tooltip: [columnKey],
+            seriesName: columnKey,
+        },
+    });
+
+    const unsortedWidePivotSeries: EChartSeries[] = [
+        makeStackedBarSerie('1111_any_巧冰'),
+        makeStackedBarSerie('1111_any_豆冰'),
+        makeStackedBarSerie('1111_any_其他'),
+        makeStackedBarSerie('1111_any_水冰'),
+        makeStackedBarSerie('1111_any_奶冰'),
+    ];
+
+    test('should sort wide pivot stacked bar series descending by total value', () => {
+        const result = sortStackedBarSeriesByValue({
+            series: unsortedWidePivotSeries,
+            rows: [],
+            datasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+
+        expect(result.map((serie) => serie.encode?.x)).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+    });
+
+    test('should sort wide pivot stacked bar series ascending by total value', () => {
+        const result = sortStackedBarSeriesByValue({
+            series: unsortedWidePivotSeries,
+            rows: [],
+            datasetRows,
+            sortDirection: 'asc',
+            flipAxes: true,
+        });
+
+        expect(result.map((serie) => serie.encode?.x)).toEqual([
+            '1111_any_其他',
+            '1111_any_豆冰',
+            '1111_any_水冰',
+            '1111_any_奶冰',
+            '1111_any_巧冰',
+        ]);
+    });
+
+    test('should sort long-format stacked bar series descending by total value', () => {
+        const rows: ResultRow[] = [
+            {
+                month: { value: { raw: '2025-07', formatted: '2025-07' } },
+                '1111_any_其他': { value: { raw: 0.24, formatted: '0.24' } },
+                '1111_any_奶冰': { value: { raw: 30.14, formatted: '30.14' } },
+                '1111_any_巧冰': { value: { raw: 31.92, formatted: '31.92' } },
+                '1111_any_水冰': { value: { raw: 9.23, formatted: '9.23' } },
+                '1111_any_豆冰': { value: { raw: 3.59, formatted: '3.59' } },
+            },
+            {
+                month: { value: { raw: '2025-08', formatted: '2025-08' } },
+                '1111_any_其他': { value: { raw: 0.17, formatted: '0.17' } },
+                '1111_any_奶冰': { value: { raw: 28.0, formatted: '28.0' } },
+                '1111_any_巧冰': { value: { raw: 26.57, formatted: '26.57' } },
+                '1111_any_水冰': { value: { raw: 8.0, formatted: '8.0' } },
+                '1111_any_豆冰': { value: { raw: 3.0, formatted: '3.0' } },
+            },
+        ];
+
+        const makeLongFormatStackedBarSerie = (
+            columnKey: string,
+        ): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            stack: 'stack1',
+            encode: {
+                x: 'month',
+                y: columnKey,
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+        });
+
+        const unsortedSeries: EChartSeries[] = [
+            makeLongFormatStackedBarSerie('1111_any_其他'),
+            makeLongFormatStackedBarSerie('1111_any_奶冰'),
+            makeLongFormatStackedBarSerie('1111_any_巧冰'),
+            makeLongFormatStackedBarSerie('1111_any_水冰'),
+            makeLongFormatStackedBarSerie('1111_any_豆冰'),
+        ];
+
+        const result = sortStackedBarSeriesByValue({
+            series: unsortedSeries,
+            rows,
+            datasetRows: [],
+            sortDirection: 'desc',
+            flipAxes: false,
+        });
+
+        expect(result.map((serie) => serie.encode?.y)).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+    });
+
+    test('should sum pivot column values across multiple dashboard dataset rows', () => {
+        const multiRowDataset = [
+            {
+                mengniu_group: '伊利',
+                '1111_any_巧冰': 10,
+                '1111_any_奶冰': 20,
+            },
+            {
+                mengniu_group: '蒙牛',
+                '1111_any_巧冰': 14,
+                '1111_any_奶冰': 5,
+            },
+        ];
+
+        const makeDashboardStackedBarSerie = (
+            columnKey: string,
+        ): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            stack: 'stack1',
+            encode: {
+                x: columnKey,
+                y: 'mengniu_group',
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+        });
+
+        const result = sortStackedBarSeriesByValue({
+            series: [
+                makeDashboardStackedBarSerie('1111_any_奶冰'),
+                makeDashboardStackedBarSerie('1111_any_巧冰'),
+            ],
+            rows: [],
+            datasetRows: multiRowDataset,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+
+        expect(result.map((serie) => serie.encode?.x)).toEqual([
+            '1111_any_奶冰',
+            '1111_any_巧冰',
+        ]);
+    });
+
+    test('getStackedBarLegendOrder should sort legend names without implying series render order', () => {
+        const makeLegendStackedBarSerie = (
+            columnKey: string,
+            label: string,
+        ): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            stack: 'stack1',
+            encode: {
+                x: columnKey,
+                y: 'mengniu_type',
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+            dimensions: [
+                { name: 'mengniu_type', displayName: '类型' },
+                { name: columnKey, displayName: label },
+            ],
+        });
+
+        const unsortedSeries: EChartSeries[] = [
+            makeLegendStackedBarSerie('1111_any_其他', '其他'),
+            makeLegendStackedBarSerie('1111_any_巧冰', '巧冰'),
+            makeLegendStackedBarSerie('1111_any_奶冰', '奶冰'),
+        ];
+
+        const legendTestDatasetRows = [
+            {
+                types: 0,
+                '1111_any_其他': 0.01,
+                '1111_any_巧冰': 24.75,
+                '1111_any_奶冰': 18.76,
+            },
+        ];
+
+        const legendOrder = getStackedBarLegendOrder({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows: legendTestDatasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+
+        expect(legendOrder).toEqual(['巧冰', '奶冰', '其他']);
+        expect(unsortedSeries.map((s) => s.encode?.x)).toEqual([
+            '1111_any_其他',
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+        ]);
+    });
+
+    test('should preserve non-stacked series at the end', () => {
+        const lineSerie: EChartSeries = {
+            type: CartesianSeriesType.LINE,
+            connectNulls: true,
+            encode: {
+                x: 'month',
+                y: 'total',
+                tooltip: ['total'],
+                seriesName: 'total',
+            },
+        };
+        const mixedSeries = [
+            unsortedWidePivotSeries[0],
+            lineSerie,
+            ...unsortedWidePivotSeries.slice(1),
+        ];
+
+        const result = sortStackedBarSeriesByValue({
+            series: mixedSeries,
+            rows: [],
+            datasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+
+        expect(result.slice(0, 5).map((serie) => serie.encode?.x)).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+        expect(result[5]?.type).toBe(CartesianSeriesType.LINE);
     });
 });

@@ -406,6 +406,7 @@ const mergeLegendSettings = <T = Record<any, any>>(
     legendConfig: T | undefined,
     legendsSelected: LegendValues,
     series: EChartSeries[],
+    legendDataOrder?: string[],
 ) => {
     const normalizedConfig = removeEmptyProperties(legendConfig);
     const hasFilledLineSymbol = series.some(
@@ -417,6 +418,10 @@ const mergeLegendSettings = <T = Record<any, any>>(
     const filledLegendIcon = hasFilledLineSymbol
         ? { icon: 'circle' as const }
         : {};
+    const legendData =
+        legendDataOrder && legendDataOrder.length > 0
+            ? { data: legendDataOrder }
+            : {};
     if (!normalizedConfig) {
         return {
             show: series.length > 1,
@@ -424,6 +429,7 @@ const mergeLegendSettings = <T = Record<any, any>>(
             selected: legendsSelected,
             itemWidth: DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH,
             ...filledLegendIcon,
+            ...legendData,
         };
     }
     return {
@@ -431,6 +437,7 @@ const mergeLegendSettings = <T = Record<any, any>>(
         ...normalizedConfig,
         selected: legendsSelected,
         ...filledLegendIcon,
+        ...legendData,
     };
 };
 
@@ -1344,6 +1351,168 @@ const getSerieTotalFromRows = (
 
     return total;
 };
+
+const getStackedBarSerieTotal = ({
+    serie,
+    rows,
+    datasetRows,
+    flipAxes,
+}: {
+    serie: EChartSeries;
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    flipAxes: boolean;
+}): number => {
+    const valueField = flipAxes ? serie.encode?.x : serie.encode?.y;
+    if (!valueField || typeof valueField !== 'string') return 0;
+
+    if (
+        datasetRows.length > 0 &&
+        datasetRows.some((row) => row[valueField] !== undefined)
+    ) {
+        return datasetRows.reduce((sum, row) => {
+            const num = toNumber(row[valueField]);
+            return sum + (Number.isFinite(num) ? num : 0);
+        }, 0);
+    }
+
+    return getSerieTotalFromRows(serie, rows, flipAxes);
+};
+
+const sortTooltipParamsByLegendOrder = (
+    params: unknown[],
+    legendOrder: string[] | undefined,
+): unknown[] => {
+    if (!legendOrder?.length || !Array.isArray(params)) {
+        return params;
+    }
+
+    return [...params].sort((a, b) => {
+        const nameA =
+            typeof a === 'object' &&
+            a !== null &&
+            'seriesName' in a &&
+            typeof (a as { seriesName: unknown }).seriesName === 'string'
+                ? (a as { seriesName: string }).seriesName
+                : '';
+        const nameB =
+            typeof b === 'object' &&
+            b !== null &&
+            'seriesName' in b &&
+            typeof (b as { seriesName: unknown }).seriesName === 'string'
+                ? (b as { seriesName: string }).seriesName
+                : '';
+        const indexA = legendOrder.indexOf(nameA);
+        const indexB = legendOrder.indexOf(nameB);
+        const safeA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+        const safeB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+        return safeA - safeB;
+    });
+};
+
+const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
+    if (serie.name) return serie.name;
+
+    const displayName = serie.dimensions?.[1]?.displayName;
+    if (typeof displayName === 'string' && displayName.length > 0) {
+        return displayName;
+    }
+
+    if (typeof serie.encode?.seriesName === 'string') {
+        return serie.encode.seriesName;
+    }
+
+    return '';
+};
+
+const sortStackedBarSeriesByTotalValue = ({
+    series,
+    rows,
+    datasetRows,
+    sortDirection,
+    flipAxes,
+}: {
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    sortDirection: 'asc' | 'desc';
+    flipAxes: boolean;
+}): EChartSeries[] => {
+    const seriesByStack = new Map<string, EChartSeries[]>();
+    const seriesWithoutStack: EChartSeries[] = [];
+
+    series.forEach((serie) => {
+        if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+            if (!seriesByStack.has(serie.stack)) {
+                seriesByStack.set(serie.stack, []);
+            }
+            seriesByStack.get(serie.stack)!.push(serie);
+        } else {
+            seriesWithoutStack.push(serie);
+        }
+    });
+
+    const sortedStacks: EChartSeries[] = [];
+    seriesByStack.forEach((stackSeries) => {
+        const seriesWithTotals = stackSeries.map((serie, originalIndex) => ({
+            serie,
+            originalIndex,
+            total: getStackedBarSerieTotal({
+                serie,
+                rows,
+                datasetRows,
+                flipAxes,
+            }),
+        }));
+
+        seriesWithTotals.sort((a, b) => {
+            const diff =
+                sortDirection === 'desc'
+                    ? b.total - a.total
+                    : a.total - b.total;
+            if (diff !== 0) return diff;
+            return a.originalIndex - b.originalIndex;
+        });
+
+        sortedStacks.push(...seriesWithTotals.map((item) => item.serie));
+    });
+
+    return [...sortedStacks, ...seriesWithoutStack];
+};
+
+/**
+ * Legend/tooltip order for stacked bars sorted by total value.
+ * Does not reorder series — stack layer rendering stays unchanged.
+ */
+export const getStackedBarLegendOrder = ({
+    series,
+    rows,
+    datasetRows,
+    sortDirection,
+    flipAxes,
+}: {
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    sortDirection: 'asc' | 'desc';
+    flipAxes: boolean;
+}): string[] => {
+    return sortStackedBarSeriesByTotalValue({
+        series,
+        rows,
+        datasetRows,
+        sortDirection,
+        flipAxes,
+    })
+        .map(getEchartsSeriesLegendName)
+        .filter((name) => name.length > 0);
+};
+
+/**
+ * Sorts stacked bar series by total value (series array order).
+ * Prefer getStackedBarLegendOrder when only legend/tooltip order should change.
+ */
+export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
 
 /**
  * Sorts line/area series by total value across all X-axis points.
@@ -2964,6 +3133,7 @@ const useEchartsCartesianConfig = (
         if (!itemsMap) return undefined;
 
         let stackSortCategoryAxisData: unknown[] | undefined;
+        let stackSortLegendData: string[] | undefined;
 
         const seriesWithValidStack = series.map<EChartSeries>((serie) => {
             const baseConfig = {
@@ -2988,87 +3158,21 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.series,
         );
 
-        // If value sorting is enabled and we have stacked bar charts, sort series by total value
+        // Stack series sort: legend + tooltip order only — keep series render order.
         let sortedSeries = seriesWithValidStack;
-        if (sortDirection && rows.length > 0) {
-            // Group series by stack to only sort within the same stack
-            const seriesByStack = new Map<string, EChartSeries[]>();
-            const seriesWithoutStack: EChartSeries[] = [];
-
-            seriesWithValidStack.forEach((serie) => {
-                if (serie.stack && serie.type === CartesianSeriesType.BAR) {
-                    if (!seriesByStack.has(serie.stack)) {
-                        seriesByStack.set(serie.stack, []);
-                    }
-                    seriesByStack.get(serie.stack)!.push(serie);
-                } else {
-                    seriesWithoutStack.push(serie);
-                }
+        const datasetRowsForStackSort = getResultValueArray(rows, true, true)
+            .results as Record<string, unknown>[];
+        if (
+            sortDirection &&
+            (rows.length > 0 || datasetRowsForStackSort.length > 0)
+        ) {
+            stackSortLegendData = getStackedBarLegendOrder({
+                series: seriesWithValidStack,
+                rows,
+                datasetRows: datasetRowsForStackSort,
+                sortDirection,
+                flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
-
-            // Sort series within each stack by total value
-            const sortedStacks: EChartSeries[] = [];
-            seriesByStack.forEach((stackSeries) => {
-                // Calculate total value for each series in this stack
-                const seriesWithTotals = stackSeries.map((serie, idx) => {
-                    let total = 0;
-                    const yFieldHash = validCartesianConfig?.layout.flipAxes
-                        ? serie.encode?.x
-                        : serie.encode?.y;
-
-                    if (yFieldHash) {
-                        rows.forEach((row) => {
-                            // Direct access for pivoted data
-                            let value = row[yFieldHash]?.value?.raw;
-
-                            // Fallback: match by category value for non-pivoted data
-                            // yFieldHash format: "metricField.dimensionField.categoryValue"
-                            if (value === undefined) {
-                                const parts = yFieldHash.split('.');
-                                if (parts.length >= 3) {
-                                    const metricField = parts[0];
-                                    const dimensionField = parts[1];
-                                    const categoryValue = parts
-                                        .slice(2)
-                                        .join('.');
-                                    if (
-                                        row[dimensionField]?.value?.raw ===
-                                        categoryValue
-                                    ) {
-                                        value = row[metricField]?.value?.raw;
-                                    }
-                                }
-                            }
-
-                            const numValue = toNumber(value);
-                            if (!isNaN(numValue)) {
-                                total += numValue;
-                            }
-                        });
-                    }
-
-                    return { serie, total, originalIndex: idx };
-                });
-
-                // Stable sort: by total value, then by original index as tie-breaker.
-                // For stacked charts, later series render above earlier ones, so we invert
-                // the array order to match the visual asc/desc expectation in the chart.
-                seriesWithTotals.sort((a, b) => {
-                    const diff =
-                        sortDirection === 'desc'
-                            ? a.total - b.total
-                            : b.total - a.total;
-                    if (diff !== 0) return diff;
-                    return a.originalIndex - b.originalIndex;
-                });
-
-                sortedStacks.push(
-                    ...seriesWithTotals.map((item) => item.serie),
-                );
-            });
-
-            // Combine sorted stacks with non-stacked series
-            sortedSeries = [...sortedStacks, ...seriesWithoutStack];
 
             // 当 rows 没有 pivot 但 series 使用 pivot encode 时，直接注入数据到 series
             // 避免 ECharts 因 dataset 列名和 encode 不匹配导致渲染错误
@@ -3222,6 +3326,7 @@ const useEchartsCartesianConfig = (
             return {
                 series: allSeries,
                 stackSortCategoryAxisData,
+                stackSortLegendData,
             };
         }
 
@@ -3262,6 +3367,7 @@ const useEchartsCartesianConfig = (
                 };
             }),
             stackSortCategoryAxisData,
+            stackSortLegendData,
         };
     }, [
         series,
@@ -3281,6 +3387,7 @@ const useEchartsCartesianConfig = (
     const stackedSeriesWithColorAssignments = stackedSeriesResult?.series;
     const stackSortCategoryAxisData =
         stackedSeriesResult?.stackSortCategoryAxisData;
+    const stackSortLegendData = stackedSeriesResult?.stackSortLegendData;
 
     const sortedResults = useMemo(() => {
         const results =
@@ -3547,6 +3654,11 @@ const useEchartsCartesianConfig = (
             formatter: (params) => {
                 if (!Array.isArray(params) || !itemsMap) return '';
 
+                const orderedParams = sortTooltipParamsByLegendOrder(
+                    params,
+                    stackSortLegendData,
+                ) as typeof params;
+
                 // Check if 100% stacking is enabled and we have original values
                 const stackValue = validCartesianConfig?.layout?.stack;
                 const shouldStack100 = stackValue === StackType.PERCENT;
@@ -3575,27 +3687,27 @@ const useEchartsCartesianConfig = (
                                     : undefined;
                             }
                         },
-                    )(params as TooltipParam[]);
+                    )(orderedParams as TooltipParam[]);
                     return s;
                 }
 
                 const flipAxes = validCartesianConfig?.layout.flipAxes;
 
                 const getTooltipHeader = () => {
-                    if (flipAxes && !('axisDim' in params[0])) {
+                    if (flipAxes && !('axisDim' in orderedParams[0])) {
                         // When flipping axes, the axisValueLabel is the value, not the serie name
-                        return params[0].seriesName;
+                        return orderedParams[0].seriesName;
                     }
-                    return params[0].axisValueLabel;
+                    return orderedParams[0].axisValueLabel;
                 };
                 const getTooltipHeaderRawValue = () => {
-                    if (flipAxes && !('axisDim' in params[0])) {
-                        return params[0].seriesName;
+                    if (flipAxes && !('axisDim' in orderedParams[0])) {
+                        return orderedParams[0].seriesName;
                     }
-                    return params[0].axisValue;
+                    return orderedParams[0].axisValue;
                 };
                 // When flipping axes, we get all series in the chart
-                const tooltipRows = params
+                const tooltipRows = orderedParams
                     .map((param) => {
                         const {
                             marker,
@@ -3653,7 +3765,7 @@ const useEchartsCartesianConfig = (
                 if (tooltipHtml) {
                     // Sanitize HTML code to avoid XSS
                     tooltipHtml = DOMPurify.sanitize(tooltipHtml);
-                    const firstValue = params[0].value as Record<
+                    const firstValue = orderedParams[0].value as Record<
                         string,
                         unknown
                     >;
@@ -3679,7 +3791,7 @@ const useEchartsCartesianConfig = (
                     });
                 }
 
-                const dimensionId = params[0].dimensionNames?.[0];
+                const dimensionId = orderedParams[0].dimensionNames?.[0];
                 if (dimensionId !== undefined) {
                     const field = itemsMap[dimensionId];
                     if (isTableCalculation(field)) {
@@ -3723,10 +3835,10 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.layout.flipAxes,
             validCartesianConfig?.layout?.stack,
             validCartesianConfig?.layout?.xField,
-            validCartesianConfig?.eChartsConfig.series,
             tooltipConfig,
             pivotValuesColumnsMap,
             originalValues,
+            stackSortLegendData,
         ],
     );
 
@@ -3825,7 +3937,8 @@ const useEchartsCartesianConfig = (
         const mergedLegendConfig = mergeLegendSettings(
             validCartesianConfig?.eChartsConfig.legend,
             validCartesianConfigLegend,
-            series,
+            stackedSeriesWithColorAssignments ?? series,
+            stackSortLegendData,
         );
 
         return {
@@ -3837,6 +3950,8 @@ const useEchartsCartesianConfig = (
         validCartesianConfig?.eChartsConfig.legend,
         validCartesianConfigLegend,
         series,
+        stackedSeriesWithColorAssignments,
+        stackSortLegendData,
     ]);
 
     const seriesForRender = useMemo(() => {
