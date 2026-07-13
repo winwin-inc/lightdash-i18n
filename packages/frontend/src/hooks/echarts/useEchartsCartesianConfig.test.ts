@@ -4,6 +4,7 @@ import { type InfiniteQueryResults } from '../useQueryResults';
 import {
     getAxisDefaultMaxValue,
     getAxisDefaultMinValue,
+    getLineLegendOrder,
     getMinAndMaxValues,
     getStackedBarLegendOrder,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
@@ -581,6 +582,87 @@ describe('sortLineSeriesByValue', () => {
             '1111_any_奶冰',
             '1111_any_水冰',
             '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+    });
+
+    test('should sort line series descending using datasetRows when rows is empty', () => {
+        const datasetRows = [
+            {
+                month: '2025-07',
+                '1111_any_其他': 0.24,
+                '1111_any_奶冰': 30.14,
+                '1111_any_巧冰': 31.92,
+                '1111_any_水冰': 9.23,
+                '1111_any_豆冰': 3.59,
+            },
+            {
+                month: '2025-08',
+                '1111_any_其他': 0.17,
+                '1111_any_奶冰': 28.0,
+                '1111_any_巧冰': 26.57,
+                '1111_any_水冰': 8.0,
+                '1111_any_豆冰': 3.0,
+            },
+        ];
+
+        const result = sortLineSeriesByValue({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows,
+            sortDirection: 'desc',
+            flipAxes: false,
+        });
+
+        expect(result.map((serie) => serie.encode?.y)).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+    });
+});
+
+describe('getLineLegendOrder', () => {
+    const makeLineSerie = (columnKey: string): EChartSeries => ({
+        type: CartesianSeriesType.LINE,
+        connectNulls: true,
+        name: columnKey,
+        encode: {
+            x: 'month',
+            y: columnKey,
+            tooltip: [columnKey],
+            seriesName: columnKey,
+        },
+    });
+
+    test('should return legend names sorted by total from datasetRows', () => {
+        const series: EChartSeries[] = [
+            makeLineSerie('1111_any_其他'),
+            makeLineSerie('1111_any_奶冰'),
+            makeLineSerie('1111_any_巧冰'),
+        ];
+        const datasetRows = [
+            {
+                month: '2025-07',
+                '1111_any_其他': 1,
+                '1111_any_奶冰': 30,
+                '1111_any_巧冰': 50,
+            },
+        ];
+
+        const legendOrder = getLineLegendOrder({
+            series,
+            rows: [],
+            datasetRows,
+            sortDirection: 'desc',
+            flipAxes: false,
+        });
+
+        expect(legendOrder).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
             '1111_any_其他',
         ]);
     });

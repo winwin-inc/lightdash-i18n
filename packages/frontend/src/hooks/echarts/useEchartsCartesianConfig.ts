@@ -1352,7 +1352,7 @@ const getSerieTotalFromRows = (
     return total;
 };
 
-const getStackedBarSerieTotal = ({
+const getSerieTotalForSort = ({
     serie,
     rows,
     datasetRows,
@@ -1425,6 +1425,70 @@ const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
     return '';
 };
 
+const mergeValueSortLegendData = (
+    series: EChartSeries[],
+    stackOrder?: string[],
+    lineOrder?: string[],
+): string[] | undefined => {
+    if (!stackOrder?.length && !lineOrder?.length) {
+        return undefined;
+    }
+
+    const result: string[] = [];
+    const seen = new Set<string>();
+
+    const appendNames = (names: string[] | undefined) => {
+        if (!names?.length) return;
+        names.forEach((name) => {
+            if (name && !seen.has(name)) {
+                result.push(name);
+                seen.add(name);
+            }
+        });
+    };
+
+    const isStackedBar = (serie: EChartSeries) =>
+        serie.type === CartesianSeriesType.BAR && !!serie.stack;
+    const isLine = (serie: EChartSeries) =>
+        serie.type === CartesianSeriesType.LINE;
+
+    let index = 0;
+    while (index < series.length) {
+        const serie = series[index];
+        if (isStackedBar(serie) && stackOrder?.length) {
+            while (index < series.length && isStackedBar(series[index])) {
+                index += 1;
+            }
+            appendNames(stackOrder);
+        } else if (isLine(serie) && lineOrder?.length) {
+            while (index < series.length && isLine(series[index])) {
+                index += 1;
+            }
+            appendNames(lineOrder);
+        } else {
+            const name = getEchartsSeriesLegendName(serie);
+            if (name && !seen.has(name)) {
+                result.push(name);
+                seen.add(name);
+            }
+            index += 1;
+        }
+    }
+
+    appendNames(stackOrder);
+    appendNames(lineOrder);
+
+    series.forEach((serie) => {
+        const name = getEchartsSeriesLegendName(serie);
+        if (name && !seen.has(name)) {
+            result.push(name);
+            seen.add(name);
+        }
+    });
+
+    return result.length > 0 ? result : undefined;
+};
+
 const sortStackedBarSeriesByTotalValue = ({
     series,
     rows,
@@ -1457,7 +1521,7 @@ const sortStackedBarSeriesByTotalValue = ({
         const seriesWithTotals = stackSeries.map((serie, originalIndex) => ({
             serie,
             originalIndex,
-            total: getStackedBarSerieTotal({
+            total: getSerieTotalForSort({
                 serie,
                 rows,
                 datasetRows,
@@ -1521,23 +1585,32 @@ export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
 export const sortLineSeriesByValue = ({
     series,
     rows,
+    datasetRows = [],
     sortDirection,
     flipAxes,
 }: {
     series: EChartSeries[];
     rows: ResultRow[];
+    datasetRows?: Record<string, unknown>[];
     sortDirection: 'asc' | 'desc';
     flipAxes: boolean;
 }): EChartSeries[] => {
     const lineSeries = series.filter(
         (serie) => serie.type === CartesianSeriesType.LINE,
     );
-    if (!lineSeries.length || !rows.length) return series;
+    if (!lineSeries.length || (rows.length === 0 && datasetRows.length === 0)) {
+        return series;
+    }
 
     const seriesWithTotals = lineSeries.map((serie, originalIndex) => ({
         serie,
         originalIndex,
-        total: getSerieTotalFromRows(serie, rows, flipAxes),
+        total: getSerieTotalForSort({
+            serie,
+            rows,
+            datasetRows,
+            flipAxes,
+        }),
     }));
 
     seriesWithTotals.sort((a, b) => {
@@ -1558,6 +1631,35 @@ export const sortLineSeriesByValue = ({
         sortedIdx += 1;
         return sortedSerie;
     });
+};
+
+/**
+ * Legend/tooltip order for line series sorted by total value.
+ * Series array order is controlled separately via sortLineSeriesByValue.
+ */
+export const getLineLegendOrder = ({
+    series,
+    rows,
+    datasetRows,
+    sortDirection,
+    flipAxes,
+}: {
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    sortDirection: 'asc' | 'desc';
+    flipAxes: boolean;
+}): string[] => {
+    return sortLineSeriesByValue({
+        series,
+        rows,
+        datasetRows,
+        sortDirection,
+        flipAxes,
+    })
+        .filter((serie) => serie.type === CartesianSeriesType.LINE)
+        .map(getEchartsSeriesLegendName)
+        .filter((name) => name.length > 0);
 };
 
 /**
@@ -3134,6 +3236,10 @@ const useEchartsCartesianConfig = (
 
         let stackSortCategoryAxisData: unknown[] | undefined;
         let stackSortLegendData: string[] | undefined;
+        let seriesSortLegendData: string[] | undefined;
+
+        const datasetRowsForValueSort = getResultValueArray(rows, true, true)
+            .results as Record<string, unknown>[];
 
         const seriesWithValidStack = series.map<EChartSeries>((serie) => {
             const baseConfig = {
@@ -3160,16 +3266,14 @@ const useEchartsCartesianConfig = (
 
         // Stack series sort: legend + tooltip order only — keep series render order.
         let sortedSeries = seriesWithValidStack;
-        const datasetRowsForStackSort = getResultValueArray(rows, true, true)
-            .results as Record<string, unknown>[];
         if (
             sortDirection &&
-            (rows.length > 0 || datasetRowsForStackSort.length > 0)
+            (rows.length > 0 || datasetRowsForValueSort.length > 0)
         ) {
             stackSortLegendData = getStackedBarLegendOrder({
                 series: seriesWithValidStack,
                 rows,
-                datasetRows: datasetRowsForStackSort,
+                datasetRows: datasetRowsForValueSort,
                 sortDirection,
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
@@ -3276,29 +3380,40 @@ const useEchartsCartesianConfig = (
         const seriesSortDirection = getSeriesSortDirection(
             validCartesianConfig?.eChartsConfig.series,
         );
-        if (seriesSortDirection && rows.length > 0) {
+        const flipAxes = validCartesianConfig?.layout.flipAxes ?? false;
+        if (
+            seriesSortDirection &&
+            (rows.length > 0 || datasetRowsForValueSort.length > 0)
+        ) {
+            seriesSortLegendData = getLineLegendOrder({
+                series: sortedSeries,
+                rows,
+                datasetRows: datasetRowsForValueSort,
+                sortDirection: seriesSortDirection,
+                flipAxes,
+            });
+
             sortedSeries = sortLineSeriesByValue({
                 series: sortedSeries,
                 rows,
+                datasetRows: datasetRowsForValueSort,
                 sortDirection: seriesSortDirection,
-                flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
+                flipAxes,
             });
         }
 
         const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
-        const datasetRowsForSort = getResultValueArray(rows, true, true)
-            .results as Record<string, unknown>[];
 
         if (
             validCartesianConfig?.layout.flipAxes &&
             xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS &&
-            datasetRowsForSort.length > 0
+            datasetRowsForValueSort.length > 0
         ) {
             const widePivotSortResult =
                 sortFlipAxesWidePivotBarSeriesByBarTotals({
                     layout: validCartesianConfig.layout,
                     series: sortedSeries,
-                    datasetRows: datasetRowsForSort,
+                    datasetRows: datasetRowsForValueSort,
                     pivotDetails: resultsData?.pivotDetails,
                     itemsMap,
                     pivotValuesColumnsMap,
@@ -3327,6 +3442,7 @@ const useEchartsCartesianConfig = (
                 series: allSeries,
                 stackSortCategoryAxisData,
                 stackSortLegendData,
+                seriesSortLegendData,
             };
         }
 
@@ -3368,6 +3484,7 @@ const useEchartsCartesianConfig = (
             }),
             stackSortCategoryAxisData,
             stackSortLegendData,
+            seriesSortLegendData,
         };
     }, [
         series,
@@ -3388,6 +3505,22 @@ const useEchartsCartesianConfig = (
     const stackSortCategoryAxisData =
         stackedSeriesResult?.stackSortCategoryAxisData;
     const stackSortLegendData = stackedSeriesResult?.stackSortLegendData;
+    const seriesSortLegendData = stackedSeriesResult?.seriesSortLegendData;
+
+    const valueSortLegendData = useMemo(
+        () =>
+            mergeValueSortLegendData(
+                stackedSeriesWithColorAssignments ?? series,
+                stackSortLegendData,
+                seriesSortLegendData,
+            ),
+        [
+            stackedSeriesWithColorAssignments,
+            series,
+            stackSortLegendData,
+            seriesSortLegendData,
+        ],
+    );
 
     const sortedResults = useMemo(() => {
         const results =
@@ -3656,7 +3789,7 @@ const useEchartsCartesianConfig = (
 
                 const orderedParams = sortTooltipParamsByLegendOrder(
                     params,
-                    stackSortLegendData,
+                    valueSortLegendData,
                 ) as typeof params;
 
                 // Check if 100% stacking is enabled and we have original values
@@ -3838,7 +3971,7 @@ const useEchartsCartesianConfig = (
             tooltipConfig,
             pivotValuesColumnsMap,
             originalValues,
-            stackSortLegendData,
+            valueSortLegendData,
         ],
     );
 
@@ -3938,7 +4071,7 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.legend,
             validCartesianConfigLegend,
             stackedSeriesWithColorAssignments ?? series,
-            stackSortLegendData,
+            valueSortLegendData,
         );
 
         return {
@@ -3951,7 +4084,7 @@ const useEchartsCartesianConfig = (
         validCartesianConfigLegend,
         series,
         stackedSeriesWithColorAssignments,
-        stackSortLegendData,
+        valueSortLegendData,
     ]);
 
     const seriesForRender = useMemo(() => {
