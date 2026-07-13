@@ -224,7 +224,6 @@ const MinimalDashboard: FC = () => {
                         width: '100%',
                         maxWidth: '100%',
                         minWidth: 0,
-                        overflow: 'hidden',
                     }}
                 >
                     <Group
@@ -235,7 +234,6 @@ const MinimalDashboard: FC = () => {
                             width: '100%',
                             maxWidth: '100%',
                             minWidth: 0,
-                            overflow: 'hidden',
                         }}
                     >
                         <DashboardFilter
@@ -266,7 +264,6 @@ const MinimalDashboard: FC = () => {
                         width: '100%',
                         maxWidth: '100%',
                         minWidth: 0,
-                        overflow: 'hidden',
                     }}
                 >
                     <Group
@@ -277,7 +274,6 @@ const MinimalDashboard: FC = () => {
                             width: '100%',
                             maxWidth: '100%',
                             minWidth: 0,
-                            overflow: 'hidden',
                         }}
                     >
                         <DashboardFilter

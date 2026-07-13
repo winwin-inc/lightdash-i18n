@@ -1202,7 +1202,6 @@ const Dashboard: FC = () => {
                         wrap="nowrap"
                         grow
                         style={{
-                            overflow: 'hidden',
                             minWidth: 0,
                         }}
                     >
