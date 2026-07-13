@@ -8,6 +8,7 @@ import {
     Text,
     TextInput,
 } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconAlertCircle,
     IconAlertTriangle,
@@ -16,9 +17,9 @@ import {
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import {
     explorerActions,
@@ -29,6 +30,7 @@ import {
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplores } from '../../../hooks/useExplores';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
+import useSearchParams from '../../../hooks/useSearchParams';
 import { Can } from '../../../providers/Ability';
 import { useAbilityContext } from '../../../providers/Ability/useAbilityContext';
 import { defaultState } from '../../../providers/Explorer/defaultState';
@@ -58,12 +60,57 @@ const LoadingSkeleton = () => (
 
 const BasePanel = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const projectUuid = useProjectUuid();
-    const [search, setSearch] = useState<string>('');
+    const searchFromUrl = useSearchParams('search') ?? '';
+    const [search, setSearch] = useState(searchFromUrl);
+    const [debouncedSearch] = useDebouncedValue(search, 300);
     const exploresResult = useExplores(projectUuid, true);
     const { data: org } = useOrganization();
 
     const { t } = useTranslation();
+
+    // Restore from URL when returning to the list (or browser back)
+    useEffect(() => {
+        setSearch(searchFromUrl);
+    }, [searchFromUrl]);
+
+    // Persist to URL without interrupting IME (local state drives the input)
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (debouncedSearch) {
+            params.set('search', debouncedSearch);
+        } else {
+            params.delete('search');
+        }
+        const nextSearch = params.toString();
+        if (nextSearch === new URLSearchParams(location.search).toString()) {
+            return;
+        }
+        void navigate(
+            {
+                pathname: location.pathname,
+                search: nextSearch,
+            },
+            { replace: true },
+        );
+    }, [debouncedSearch, location.pathname, location.search, navigate]);
+
+    const navigateToTable = useCallback(
+        (tableName: string) => {
+            const params = new URLSearchParams(location.search);
+            if (search) {
+                params.set('search', search);
+            } else {
+                params.delete('search');
+            }
+            void navigate({
+                pathname: `/projects/${projectUuid}/tables/${tableName}`,
+                search: params.toString(),
+            });
+        },
+        [location.search, navigate, projectUuid, search],
+    );
 
     const [exploreGroupMap, defaultUngroupedExplores, customUngroupedExplores] =
         useMemo(() => {
@@ -191,8 +238,8 @@ const BasePanel = () => {
                                                     explore={explore}
                                                     query={search}
                                                     onClick={() => {
-                                                        void navigate(
-                                                            `/projects/${projectUuid}/tables/${explore.name}`,
+                                                        navigateToTable(
+                                                            explore.name,
                                                         );
                                                     }}
                                                 />
@@ -207,9 +254,7 @@ const BasePanel = () => {
                                         explore={explore}
                                         query={search}
                                         onClick={() => {
-                                            void navigate(
-                                                `/projects/${projectUuid}/tables/${explore.name}`,
-                                            );
+                                            navigateToTable(explore.name);
                                         }}
                                     />
                                 ))}
@@ -234,9 +279,7 @@ const BasePanel = () => {
                                         explore={explore}
                                         query={search}
                                         onClick={() => {
-                                            void navigate(
-                                                `/projects/${projectUuid}/tables/${explore.name}`,
-                                            );
+                                            navigateToTable(explore.name);
                                         }}
                                     />
                                 ))}
@@ -265,6 +308,7 @@ const ExploreSideBar = memo(() => {
     const queryClient = useQueryClient();
     const dispatch = useExplorerDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const clearExplore = useCallback(async () => {
         void queryClient.cancelQueries({
@@ -284,8 +328,11 @@ const ExploreSideBar = memo(() => {
     );
     const handleBack = useCallback(() => {
         void clearExplore();
-        void navigate(`/projects/${projectUuid}/tables`);
-    }, [clearExplore, navigate, projectUuid]);
+        void navigate({
+            pathname: `/projects/${projectUuid}/tables`,
+            search: location.search,
+        });
+    }, [clearExplore, location.search, navigate, projectUuid]);
 
     return (
         <TrackSection name={SectionName.SIDEBAR}>
