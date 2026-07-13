@@ -39,6 +39,7 @@ import FilterConfiguration from '../FilterConfiguration';
 import { FilterTabs } from '../FilterConfiguration/constants';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
 import { useFilterDropdownStyles } from '../filterDropdownStyles';
+import { useFilterPillStyles } from '../filterPillStyles';
 
 const useDashboardFilterStyles = createStyles((theme) => ({
     root: {
@@ -88,6 +89,7 @@ const Filter: FC<Props> = ({
     const { t } = useTranslation();
 
     const { classes } = useDashboardFilterStyles();
+    const { classes: pillClasses } = useFilterPillStyles();
     const dropdownClasses = useFilterDropdownStyles();
     const isMobileDevice = useIsMobileDevice();
     const popoverId = useId();
@@ -402,6 +404,12 @@ const Filter: FC<Props> = ({
                         position="top-end"
                         size={16}
                         disabled={!hasUnsetRequiredFilter}
+                        className={pillClasses.filterPill}
+                        styles={{
+                            root: {
+                                display: 'block',
+                            },
+                        }}
                         label={
                             <Tooltip
                                 fz="xs"
@@ -433,6 +441,8 @@ const Filter: FC<Props> = ({
                                         : 'default'
                                 }
                                 className={`${classes.root} ${
+                                    pillClasses.filterPill
+                                } ${
                                     hasUnsetRequiredFilter
                                         ? classes.unsetRequiredFilter
                                         : ''
@@ -462,16 +472,21 @@ const Filter: FC<Props> = ({
                                 styles={{
                                     inner: {
                                         color: 'black',
+                                        minWidth: 0,
+                                        maxWidth: '100%',
+                                        overflow: 'hidden',
                                     },
                                     label: {
-                                        maxWidth: '800px',
+                                        maxWidth: '100%',
+                                        minWidth: 0,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
                                     },
                                     root: {
-                                        maxWidth: '100%',
+                                        minWidth: 0,
                                         flexShrink: 1,
+                                        overflow: 'hidden',
                                     },
                                 }}
                                 onClick={() =>
@@ -483,6 +498,7 @@ const Filter: FC<Props> = ({
                                 <Box
                                     sx={{
                                         maxWidth: '100%',
+                                        minWidth: 0,
                                         overflow: 'hidden',
                                     }}
                                 >

@@ -849,10 +849,13 @@ const Dashboard: FC = () => {
 
         setTimeout(() => {
             setTabFilters(
-                dashboard.tabs.reduce((acc, tab) => {
-                    acc[tab.uuid] = tab.filters || emptyFilters;
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
+                dashboard.tabs.reduce(
+                    (acc, tab) => {
+                        acc[tab.uuid] = tab.filters || emptyFilters;
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                ),
             );
         }, 100);
     }, [
@@ -1199,7 +1202,8 @@ const Dashboard: FC = () => {
                         wrap="nowrap"
                         grow
                         style={{
-                            overflow: 'auto',
+                            overflow: 'hidden',
+                            minWidth: 0,
                         }}
                     >
                         {hasTilesThatSupportFilters && (

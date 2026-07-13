@@ -31,6 +31,7 @@ import { emptyFilters } from '../../../hooks/dashboard/useDashboardFilters';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../../common/MantineIcon';
 import InvalidFilter from '../InvalidFilter';
+import { useFilterPillStyles } from '../filterPillStyles';
 import Filter from './Filter';
 
 interface ActiveFiltersProps {
@@ -49,22 +50,31 @@ const DraggableItem: FC<{
     children: ReactNode;
     disabled?: boolean;
 }> = ({ id, children, disabled }) => {
+    const { classes } = useFilterPillStyles();
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
         id,
         disabled,
     });
 
-    const style = transform
-        ? ({
-              position: 'relative',
-              zIndex: 1,
-              transform: `translate(${transform.x}px, ${transform.y}px)`,
-              opacity: 0.8,
-          } as const)
-        : undefined;
+    const style = {
+        ...(transform
+            ? {
+                  position: 'relative' as const,
+                  zIndex: 1,
+                  transform: `translate(${transform.x}px, ${transform.y}px)`,
+                  opacity: 0.8,
+              }
+            : {}),
+    };
 
     return (
-        <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+        <div
+            ref={setNodeRef}
+            className={classes.filterPill}
+            style={style}
+            {...listeners}
+            {...attributes}
+        >
             {children}
         </div>
     );
@@ -76,6 +86,7 @@ const DroppableArea: FC<{
     filterScope: 'global' | 'tab';
     activeTabUuid: string | undefined;
 }> = ({ filterScope, activeTabUuid, id, children }) => {
+    const { classes } = useFilterPillStyles();
     const { active, isOver, over, setNodeRef } = useDroppable({ id });
     const { colors } = useMantineTheme();
 
@@ -104,7 +115,11 @@ const DroppableArea: FC<{
     }, [isOver, active, over, appliedFilters.dimensions, colors]);
 
     return (
-        <div ref={setNodeRef} style={placeholderStyle}>
+        <div
+            ref={setNodeRef}
+            className={classes.filterPill}
+            style={placeholderStyle}
+        >
             {children}
         </div>
     );
@@ -351,10 +366,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     // 查看模式下不展示隐藏的筛选器，编辑模式下展示以便配置（需在 early return 前调用，符合 hooks 规则）
     const visibleDimensions = useMemo(
-        () =>
-            appliedFilters.dimensions.filter(
-                (d) => isEditMode || !d.hidden,
-            ),
+        () => appliedFilters.dimensions.filter((d) => isEditMode || !d.hidden),
         [appliedFilters.dimensions, isEditMode],
     );
     const visibleTemporaryDimensions = useMemo(
@@ -437,10 +449,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                 {visibleDimensions?.map((item) => {
                     const field = allFilterableFieldsMap[item.target.fieldId];
                     const appliesToTabs = getTabsUsingFilter(item.id);
-                    const actualIndex =
-                        appliedFilters.dimensions.findIndex(
-                            (d) => d.id === item.id,
-                        );
+                    const actualIndex = appliedFilters.dimensions.findIndex(
+                        (d) => d.id === item.id,
+                    );
                     return (
                         <DroppableArea
                             key={item.id}

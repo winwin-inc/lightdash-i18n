@@ -34,5 +34,6 @@
         "./src",
         "./sdk/index.tsx",
         "./vite-env.d.ts",
+        "./vega-lite-schema.d.ts"
     ],
 }

@@ -1,4 +1,3 @@
-import { FeatureFlags } from '@lightdash/common';
 import {
     Button,
     Flex,
@@ -20,7 +19,6 @@ import React, {
 import { useTranslation } from 'react-i18next';
 import { useDeepCompareEffect } from 'react-use';
 
-import { useFeatureFlagEnabled } from '../../../../hooks/useFeatureFlagEnabled';
 import {
     composeCustomVisSpec,
     decomposeCustomVisSpec,
@@ -32,7 +30,6 @@ import DocumentationHelpButton from '../../../DocumentationHelpButton';
 import { isCustomVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../../common/Config';
-import { GenerateVizWithAi } from './components/CustomVisAi';
 import { SelectTemplate } from './components/CustomVisTemplate';
 import { type Schema } from './types/types';
 
@@ -54,9 +51,7 @@ const formatSpecJson = (spec: VegaSpec): string =>
     JSON.stringify(spec, null, 2);
 
 const initVegaLazySchema = async () => {
-    const vegaLiteSchema = await import(
-        'vega-lite/build/vega-lite-schema.json'
-    );
+    const vegaLiteSchema = await import('vega-lite/vega-lite-schema.json');
 
     return [
         {
@@ -274,7 +269,6 @@ export const ConfigTabs: React.FC = memo(() => {
         EditorProps['options'] | undefined
     >();
 
-    const isAiEnabled = useFeatureFlagEnabled(FeatureFlags.AiCustomViz);
     useDeepCompareEffect(() => {
         const containerId = 'monaco-overflow-container';
         let container = document.getElementById(containerId);
@@ -291,16 +285,6 @@ export const ConfigTabs: React.FC = memo(() => {
             overflowWidgetsDomNode: container,
         });
     }, [monacoOptions]);
-
-    const { itemsMap } = useVisualizationContext();
-
-    const setDesktopEditorConfig = useCallback(
-        (config: string) => {
-            setActiveTab('desktop');
-            setDesktopJson(config);
-        },
-        [setActiveTab],
-    );
 
     const editorValue = activeTab === 'desktop' ? desktopJson : mobileJson;
 
@@ -321,8 +305,6 @@ export const ConfigTabs: React.FC = memo(() => {
         return <Loader color="gray" size="xs" />;
     }
 
-    const { series } = visualizationConfig.chartConfig;
-
     const isEditorEmpty = (editorValue || '').length === 0;
 
     return (
@@ -341,31 +323,7 @@ export const ConfigTabs: React.FC = memo(() => {
                             </Flex>
                         </Config.Heading>
 
-                        <Flex
-                            align="center"
-                            justify="space-between"
-                            wrap="wrap"
-                            gap="md"
-                            mb="xs"
-                        >
-                            <Button.Group style={{ flexShrink: 0 }}>
-                                <SelectTemplate
-                                    itemsMap={itemsMap}
-                                    isCustomConfig={isCustomConfig}
-                                    isEditorEmpty={isEditorEmpty}
-                                    setEditorConfig={setDesktopEditorConfig}
-                                />
-
-                                {isAiEnabled && (
-                                    <GenerateVizWithAi
-                                        itemsMap={itemsMap}
-                                        sampleResults={series.slice(0, 3)}
-                                        setEditorConfig={setDesktopEditorConfig}
-                                        editorConfig={desktopJson}
-                                    />
-                                )}
-                            </Button.Group>
-
+                        <Flex align="center" wrap="wrap" gap="md" mb="xs">
                             <SegmentedControl
                                 size="xs"
                                 style={{ flexShrink: 0 }}
@@ -388,6 +346,12 @@ export const ConfigTabs: React.FC = memo(() => {
                                     },
                                 ]}
                             />
+
+                            <Button.Group style={{ flexShrink: 0 }}>
+                                <SelectTemplate
+                                    setEditorConfig={setEditorValue}
+                                />
+                            </Button.Group>
                         </Flex>
                     </Config.Group>
                 </Config.Section>
