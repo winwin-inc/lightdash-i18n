@@ -13,6 +13,31 @@ import {
 } from '../common/ChartDownload/chartDownloadUtils';
 import MantineIcon from '../common/MantineIcon';
 
+const svgElementToBase64 = (svg: SVGSVGElement): string => {
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    return `data:image/svg+xml;base64,${window.btoa(
+        unescape(encodeURIComponent(svgString)),
+    )}`;
+};
+
+const getSvgWidth = (svg: SVGSVGElement): number => {
+    if (svg.clientWidth > 0) {
+        return svg.clientWidth;
+    }
+    if (svg.width.baseVal.value > 0) {
+        return svg.width.baseVal.value;
+    }
+    const attrWidth = Number.parseFloat(svg.getAttribute('width') || '');
+    if (Number.isFinite(attrWidth) && attrWidth > 0) {
+        return attrWidth;
+    }
+    if (svg.viewBox.baseVal.width > 0) {
+        return svg.viewBox.baseVal.width;
+    }
+    return 0;
+};
+
 const downloadChartImage = async (
     chartType: ChartType,
     echartRef: RefObject<any | null> | undefined,
@@ -23,7 +48,7 @@ const downloadChartImage = async (
         let relativeWidth = 0;
 
         if (chartType === ChartType.CUSTOM) {
-            // vega lite
+            // vega lite (vega-embed 7 defaults to SVG renderer)
             const vegaEmbed = echartRef?.current?.vegaEmbed;
             if (!vegaEmbed) {
                 console.error('View is not available');
@@ -36,17 +61,25 @@ const downloadChartImage = async (
                 return;
             }
 
-            const canvas = containeRef?.current?.querySelector('canvas');
-            const canvasData = canvas?.toDataURL('image/png');
-            const width = canvas?.width;
+            const container = containeRef.current as HTMLElement | null;
+            const canvas = container?.querySelector('canvas');
+            if (canvas) {
+                base64Image = canvas.toDataURL('image/png');
+                relativeWidth = canvas.width;
+            } else {
+                const svg = container?.querySelector('svg');
+                if (!(svg instanceof SVGSVGElement)) {
+                    console.error('Canvas or SVG is not available');
+                    return;
+                }
+                base64Image = svgElementToBase64(svg);
+                relativeWidth = getSvgWidth(svg);
+            }
 
-            if (!canvasData || !width) {
+            if (!base64Image || !relativeWidth) {
                 console.error('Canvas data or width is not available');
                 return;
             }
-
-            base64Image = canvasData;
-            relativeWidth = width;
         } else {
             // echarts
             const chartInstance = echartRef?.current?.getEchartsInstance();
