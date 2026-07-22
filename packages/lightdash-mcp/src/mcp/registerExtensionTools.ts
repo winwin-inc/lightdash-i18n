@@ -7,6 +7,10 @@ import {
     enrichSavedChartResult,
 } from '../lib/contentWebUrls';
 import {
+    buildDashboardSelectionRequiredResult,
+    createDashboardContextResolver,
+} from '../lib/dashboardContextResolver';
+import {
     maybeSlimList,
     rowsToScalarFlat,
     slimSavedChart,
@@ -24,6 +28,7 @@ const metricQueryValueFormatSchema = z.enum(['raw', 'formatted']).optional();
 const runSavedChartParams = {
     projectUuid: z.string().optional(),
     chartUuid: z.string(),
+    dashboardUuid: z.string().optional(),
     versionUuid: z.string().optional(),
     parameters: z.any().optional(),
     limit: z.number().optional(),
@@ -70,6 +75,18 @@ const getDashboardCodeParams = {
     languageMap: z.boolean().optional(),
 } satisfies ZodRawShape;
 
+type ExtensionToolsDeps = {
+    getExploreMetadata: (
+        apiKey: string,
+        projectUuid: string,
+        exploreName: string,
+    ) => Promise<{
+        explore: unknown;
+        resolve: (field: string) => string;
+        requiresDashboardContext: boolean;
+    }>;
+};
+
 function resolveExtensionApiKey(
     config: LightdashMcpEnvConfig,
 ): string {
@@ -82,11 +99,36 @@ function resolveExtensionApiKey(
     return key;
 }
 
+function findExploreNameInSavedChart(value: unknown): string | undefined {
+    const visit = (node: unknown, depth: number): string | undefined => {
+        if (depth > 8 || !node || typeof node !== 'object') return undefined;
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                const found = visit(item, depth + 1);
+                if (found) return found;
+            }
+            return undefined;
+        }
+        const row = node as Record<string, unknown>;
+        if (typeof row.exploreName === 'string') return row.exploreName;
+        if (typeof row.tableName === 'string') return row.tableName;
+        if (typeof row.table === 'string') return row.table;
+        for (const item of Object.values(row)) {
+            const found = visit(item, depth + 1);
+            if (found) return found;
+        }
+        return undefined;
+    };
+    return visit(value, 0);
+}
+
 export function registerExtensionTools(
     server: McpServer,
     config: LightdashMcpEnvConfig,
     api: LightdashRestClient,
+    deps: ExtensionToolsDeps,
 ): void {
+    const dashboardContextResolver = createDashboardContextResolver(api);
     registerToolTyped(
         server,
         'tool-call',
@@ -176,7 +218,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'run_saved_chart',
-        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
+        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。可选 dashboardUuid：chart 关联多个看板时需显式传入；未传且存在可关联看板时会返回候选列表。',
         runSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);
@@ -191,20 +233,81 @@ export function registerExtensionTools(
             const pollIntervalMs =
                 (args.pollIntervalMs as number | undefined) ?? 500;
             const limit = (args.limit as number | undefined) ?? 500;
-
-            const result = await api.runSavedChart(
-                apiKey,
-                projectUuid,
-                {
-                    chartUuid: args.chartUuid as string,
-                    versionUuid: args.versionUuid as string | undefined,
-                    parameters: args.parameters as
-                        | Record<string, unknown>
-                        | undefined,
-                    limit,
-                },
-                { pageSize, maxPollAttempts, pollIntervalMs },
-            );
+            const chartUuid = args.chartUuid as string;
+            const chart = await api.getSavedChart(apiKey, chartUuid);
+            const exploreName = findExploreNameInSavedChart(chart);
+            const requiresDashboardContext = exploreName
+                ? (
+                      await deps.getExploreMetadata(
+                          apiKey,
+                          projectUuid,
+                          exploreName,
+                      )
+                  ).requiresDashboardContext
+                : false;
+            const resolveResult =
+                requiresDashboardContext || args.dashboardUuid
+                ? await dashboardContextResolver.resolve({
+                      apiKey,
+                      projectUuid,
+                      dashboardUuid: args.dashboardUuid as string | undefined,
+                      chartUuid,
+                  })
+                : null;
+            if (resolveResult?.status === 'needs_selection') {
+                return buildDashboardSelectionRequiredResult({
+                    source: resolveResult.source,
+                    candidates: resolveResult.candidates,
+                    chartUuid,
+                });
+            }
+            if (
+                requiresDashboardContext &&
+                resolveResult?.status === 'none'
+            ) {
+                return buildDashboardSelectionRequiredResult({
+                    source: 'chartUuid',
+                    candidates: [],
+                    chartUuid,
+                });
+            }
+            const resolvedDashboardContext =
+                resolveResult?.status === 'resolved'
+                    ? resolveResult.context
+                    : null;
+            const pollOptions = {
+                pageSize,
+                maxPollAttempts,
+                pollIntervalMs,
+            };
+            const result = resolvedDashboardContext
+                ? await api.runDashboardChart(
+                      apiKey,
+                      projectUuid,
+                      {
+                          chartUuid,
+                          dashboardUuid:
+                              resolvedDashboardContext.dashboardUuid,
+                          parameters: args.parameters as
+                              | Record<string, unknown>
+                              | undefined,
+                          limit,
+                      },
+                      pollOptions,
+                  )
+                : await api.runSavedChart(
+                      apiKey,
+                      projectUuid,
+                      {
+                          chartUuid,
+                          versionUuid: args.versionUuid as string | undefined,
+                          parameters: args.parameters as
+                              | Record<string, unknown>
+                              | undefined,
+                          limit,
+                      },
+                      pollOptions,
+                  );
             const full = (args.full as boolean | undefined) ?? false;
             const valueFormat =
                 (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
@@ -220,8 +323,24 @@ export function registerExtensionTools(
                 full,
                 valueFormat,
                 extraStructured: {
-                    mode: 'saved_chart',
-                    chartUuid: args.chartUuid as string,
+                    mode: resolvedDashboardContext
+                        ? 'dashboard_chart'
+                        : 'saved_chart',
+                    chartUuid,
+                    ...(resolvedDashboardContext
+                        ? { resolvedDashboardContext }
+                        : {
+                              resolvedDashboardContext: {
+                                  source: 'unresolved',
+                                  candidateCount: 0,
+                                  note:
+                                      resolveResult?.status === 'none'
+                                          ? resolveResult.hint
+                                          : requiresDashboardContext
+                                            ? '未找到 chart 关联 dashboard，已回退普通 saved chart 查询'
+                                            : '该 chart 所属 explore 的 sql_filter 不依赖 dashboardSlug，已按原 saved chart 查询执行',
+                              },
+                          }),
                 },
             });
         },
@@ -347,10 +466,14 @@ export function registerExtensionTools(
                         };
                     }
                     try {
-                        const queryResult = await api.runSavedChart(
+                        const queryResult = await api.runDashboardChart(
                             apiKey,
                             projectUuid,
-                            { chartUuid, limit },
+                            {
+                                chartUuid,
+                                dashboardUuid: args.dashboardUuid as string,
+                                limit,
+                            },
                             {
                                 pageSize: 500,
                                 maxPollAttempts: 120,
@@ -390,6 +513,11 @@ export function registerExtensionTools(
                             {
                                 dashboardUuid: args.dashboardUuid,
                                 projectUuid,
+                                resolvedDashboardContext: {
+                                    dashboardUuid: args.dashboardUuid,
+                                    source: 'explicitDashboardUuid',
+                                    candidateCount: 1,
+                                },
                                 results,
                             },
                             null,

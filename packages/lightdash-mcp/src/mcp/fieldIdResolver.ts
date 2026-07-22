@@ -4,6 +4,33 @@ export function normalizeAlias(input: string): string {
     return input.trim().toLowerCase();
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : undefined;
+}
+
+function hasDashboardSlugReference(value: unknown): boolean {
+    if (typeof value !== 'string') return false;
+    return (
+        value.includes('lightdash.user.dashboardSlug') ||
+        value.includes('dashboardSlug')
+    );
+}
+
+export function exploreRequiresDashboardContext(explore: unknown): boolean {
+    const root = asRecord(explore);
+    const baseTable = root?.baseTable;
+    const tables = asRecord(root?.tables);
+    if (typeof baseTable !== 'string' || !tables) return false;
+    const table = asRecord(tables[baseTable]);
+    if (!table) return false;
+    return (
+        hasDashboardSlugReference(table.sqlWhere) ||
+        hasDashboardSlugReference(table.uncompiledSqlWhere)
+    );
+}
+
 export function createFieldIdResolverFromExplore(
     explore: unknown,
     exploreName: string,

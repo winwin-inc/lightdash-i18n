@@ -224,6 +224,55 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function getDashboardContexts(
+        apiKey: string,
+        projectUuid: string,
+        options: {
+            exploreName?: string;
+            chartUuid?: string;
+            includePrivate?: boolean;
+        },
+    ): Promise<{
+        contexts: Array<{
+            dashboardUuid: string;
+            dashboardSlug: string;
+            dashboardName: string;
+            chartUuids: string[];
+        }>;
+    }> {
+        const params = new URLSearchParams();
+        if (options.exploreName) {
+            params.set('exploreName', options.exploreName);
+        }
+        if (options.chartUuid) {
+            params.set('chartUuid', options.chartUuid);
+        }
+        if (options.includePrivate === false) {
+            params.set('includePrivate', 'false');
+        }
+        const query = params.toString();
+        const json = await requestJson<{
+            results?: {
+                contexts: Array<{
+                    dashboardUuid: string;
+                    dashboardSlug: string;
+                    dashboardName: string;
+                    chartUuids: string[];
+                }>;
+            };
+        }>(
+            apiKey,
+            `/api/v1/projects/${encodeURIComponent(
+                projectUuid,
+            )}/dashboards/context${query ? `?${query}` : ''}`,
+        );
+        const results = json.results;
+        if (results && Array.isArray(results.contexts)) {
+            return results;
+        }
+        return { contexts: [] };
+    }
+
     return {
         listExplores,
         getExplore,
@@ -238,5 +287,6 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         searchFieldUniqueValues,
         listVerifiedContent,
         getDashboardsAsCode,
+        getDashboardContexts,
     };
 }

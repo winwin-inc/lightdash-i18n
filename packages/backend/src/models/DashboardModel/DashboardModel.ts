@@ -62,6 +62,7 @@ import {
 } from '../../database/entities/projects';
 import {
     SavedChartTable,
+    SavedChartVersionsTableName,
     SavedChartsTableName,
 } from '../../database/entities/savedCharts';
 import { SavedSqlTableName } from '../../database/entities/savedSql';
@@ -582,6 +583,141 @@ export class DashboardModel {
                 )
                 .groupBy(1, 2, 3, 4)
         );
+    }
+
+    /**
+     * Lightweight explore/chart → dashboard contexts for query RLS (dashboardSlug).
+     * Uses latest dashboard version tiles only.
+     */
+    async findDashboardContexts(
+        projectUuid: string,
+        filters: {
+            exploreName?: string;
+            chartUuid?: string;
+        },
+    ): Promise<
+        Array<{
+            dashboardUuid: string;
+            dashboardSlug: string;
+            dashboardName: string;
+            spaceUuid: string;
+            projectUuid: string;
+            organizationUuid: string;
+            chartUuids: string[];
+        }>
+    > {
+        const { exploreName, chartUuid } = filters;
+        if (!exploreName && !chartUuid) {
+            return [];
+        }
+
+        const cteName = 'dashboard_last_version_cte';
+        const query = this.database
+            .with(cteName, (qb) => {
+                void qb
+                    .select({
+                        dashboard_uuid: `${DashboardsTableName}.dashboard_uuid`,
+                        name: `${DashboardsTableName}.name`,
+                        slug: `${DashboardsTableName}.slug`,
+                        space_uuid: `${SpaceTableName}.space_uuid`,
+                        project_uuid: `${ProjectTableName}.project_uuid`,
+                        organization_uuid: `${OrganizationTableName}.organization_uuid`,
+                        dashboard_version_id: this.database.raw(
+                            `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+                        ),
+                    })
+                    .from(DashboardsTableName)
+                    .innerJoin(
+                        SpaceTableName,
+                        `${DashboardsTableName}.space_id`,
+                        `${SpaceTableName}.space_id`,
+                    )
+                    .innerJoin(
+                        ProjectTableName,
+                        `${SpaceTableName}.project_id`,
+                        `${ProjectTableName}.project_id`,
+                    )
+                    .innerJoin(
+                        OrganizationTableName,
+                        `${ProjectTableName}.organization_id`,
+                        `${OrganizationTableName}.organization_id`,
+                    )
+                    .innerJoin(
+                        DashboardVersionsTableName,
+                        `${DashboardsTableName}.dashboard_id`,
+                        `${DashboardVersionsTableName}.dashboard_id`,
+                    )
+                    .where(`${ProjectTableName}.project_uuid`, projectUuid)
+                    .groupBy(
+                        `${DashboardsTableName}.dashboard_uuid`,
+                        `${DashboardsTableName}.name`,
+                        `${DashboardsTableName}.slug`,
+                        `${SpaceTableName}.space_uuid`,
+                        `${ProjectTableName}.project_uuid`,
+                        `${OrganizationTableName}.organization_uuid`,
+                    );
+            })
+            .select({
+                dashboardUuid: `${cteName}.dashboard_uuid`,
+                dashboardSlug: `${cteName}.slug`,
+                dashboardName: `${cteName}.name`,
+                spaceUuid: `${cteName}.space_uuid`,
+                projectUuid: `${cteName}.project_uuid`,
+                organizationUuid: `${cteName}.organization_uuid`,
+                chartUuids: this.database.raw(
+                    `COALESCE(ARRAY_AGG(DISTINCT ${SavedChartsTableName}.saved_query_uuid) FILTER (WHERE ${SavedChartsTableName}.saved_query_uuid IS NOT NULL), '{}')`,
+                ),
+            })
+            .from(cteName)
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${cteName}.dashboard_version_id`,
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+            )
+            .innerJoin(
+                SavedChartsTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .groupBy(
+                `${cteName}.dashboard_uuid`,
+                `${cteName}.slug`,
+                `${cteName}.name`,
+                `${cteName}.space_uuid`,
+                `${cteName}.project_uuid`,
+                `${cteName}.organization_uuid`,
+            );
+
+        if (chartUuid) {
+            void query.andWhere(
+                `${SavedChartsTableName}.saved_query_uuid`,
+                chartUuid,
+            );
+        }
+
+        if (exploreName) {
+            void query
+                .innerJoin(
+                    SavedChartVersionsTableName,
+                    `${SavedChartVersionsTableName}.saved_query_id`,
+                    `${SavedChartsTableName}.saved_query_id`,
+                )
+                .andWhere(
+                    `${SavedChartVersionsTableName}.explore_name`,
+                    exploreName,
+                );
+        }
+
+        const rows = await query;
+        return rows.map((row) => ({
+            dashboardUuid: row.dashboardUuid,
+            dashboardSlug: row.dashboardSlug,
+            dashboardName: row.dashboardName,
+            spaceUuid: row.spaceUuid,
+            projectUuid: row.projectUuid,
+            organizationUuid: row.organizationUuid,
+            chartUuids: Array.isArray(row.chartUuids) ? row.chartUuids : [],
+        }));
     }
 
     async getSlugsForUuids(uuids: string[]): Promise<Record<string, string>> {

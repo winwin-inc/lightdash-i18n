@@ -35,6 +35,7 @@ import {
     type ApiCreateDashboardResponse,
     type ApiCreateDashboardWithChartsResponse,
     type ApiCreatePreviewResults,
+    type ApiGetDashboardContextsResponse,
     type ApiGetDashboardsResponse,
     type ApiGetTagsResponse,
     type ApiRefreshResults,
@@ -544,6 +545,40 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results,
+        };
+    }
+
+    /**
+     * Resolve lightweight dashboard contexts by exploreName and/or chartUuid.
+     * Used by MCP/query clients to attach dashboardSlug for row-level sql_filter.
+     * @param projectUuid The uuid of the project
+     * @param exploreName Explore/table name used by saved charts
+     * @param chartUuid Saved chart uuid
+     * @param includePrivate Whether to include private spaces
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/dashboards/context')
+    @OperationId('getDashboardContexts')
+    async getDashboardContexts(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Query() exploreName?: string,
+        @Query() chartUuid?: string,
+        @Query() includePrivate?: boolean,
+    ): Promise<ApiGetDashboardContextsResponse> {
+        this.setStatus(200);
+        const results = await this.services
+            .getDashboardService()
+            .getDashboardContexts(
+                req.user!,
+                projectUuid,
+                { exploreName, chartUuid },
+                includePrivate !== false,
+            );
+        return {
+            status: 'ok',
+            results: { contexts: results },
         };
     }
 

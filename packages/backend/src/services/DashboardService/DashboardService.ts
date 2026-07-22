@@ -37,6 +37,7 @@ import {
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
+    type DashboardQueryContext,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
@@ -442,6 +443,84 @@ export class DashboardService
                       hasDirectAccessToSpace(user, dashboardSpace))
             );
         });
+    }
+
+    async getDashboardContexts(
+        user: SessionUser,
+        projectUuid: string,
+        filters: {
+            exploreName?: string;
+            chartUuid?: string;
+        },
+        includePrivate: boolean = true,
+    ): Promise<DashboardQueryContext[]> {
+        if (!filters.exploreName && !filters.chartUuid) {
+            throw new ParameterError('exploreName or chartUuid is required');
+        }
+
+        const rows = await this.dashboardModel.findDashboardContexts(
+            projectUuid,
+            filters,
+        );
+        const spaceUuids = [...new Set(rows.map((row) => row.spaceUuid))];
+        const spaces = await Promise.all(
+            spaceUuids.map((spaceUuid) =>
+                this.spaceModel.getSpaceSummary(spaceUuid),
+            ),
+        );
+        const spacesAccess = await this.spaceModel.getUserSpacesAccess(
+            user.userUuid,
+            spaces.map((s) => s.uuid),
+        );
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+
+        const filtered = rows.filter((row) => {
+            const dashboardSpace = spaces.find(
+                (space) => space.uuid === row.spaceUuid,
+            );
+            const hasAbility = user.ability.can(
+                'view',
+                subject('Dashboard', {
+                    organizationUuid: dashboardSpace?.organizationUuid,
+                    projectUuid: dashboardSpace?.projectUuid,
+                    isPrivate: dashboardSpace?.isPrivate,
+                    access: spacesAccess[row.spaceUuid] ?? [],
+                }),
+            );
+
+            if (allowedDashboardUuids !== undefined && isUserWithOrg(user)) {
+                if (allowedDashboardUuids.size === 0) {
+                    return false;
+                }
+                if (!allowedDashboardUuids.has(row.dashboardUuid)) {
+                    return false;
+                }
+            }
+
+            return (
+                dashboardSpace &&
+                (includePrivate
+                    ? hasAbility
+                    : hasAbility &&
+                      hasDirectAccessToSpace(user, dashboardSpace))
+            );
+        });
+
+        return filtered
+            .map((row) => ({
+                dashboardUuid: row.dashboardUuid,
+                dashboardSlug: row.dashboardSlug,
+                dashboardName: row.dashboardName,
+                chartUuids: row.chartUuids,
+            }))
+            .sort((a, b) => {
+                const byName = a.dashboardName.localeCompare(b.dashboardName);
+                if (byName !== 0) return byName;
+                const bySlug = a.dashboardSlug.localeCompare(b.dashboardSlug);
+                if (bySlug !== 0) return bySlug;
+                return a.dashboardUuid.localeCompare(b.dashboardUuid);
+            });
     }
 
     async getByIdOrSlug(

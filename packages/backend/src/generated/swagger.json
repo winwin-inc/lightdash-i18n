@@ -15456,6 +15456,56 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
+            "DashboardQueryContext": {
+                "properties": {
+                    "chartUuids": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "dashboardName": {
+                        "type": "string"
+                    },
+                    "dashboardSlug": {
+                        "type": "string"
+                    },
+                    "dashboardUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "chartUuids",
+                    "dashboardName",
+                    "dashboardSlug",
+                    "dashboardUuid"
+                ],
+                "type": "object",
+                "description": "Lightweight dashboard context for MCP/query RLS (dashboardSlug)."
+            },
+            "ApiGetDashboardContextsResponse": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "contexts": {
+                                "items": {
+                                    "$ref": "#/components/schemas/DashboardQueryContext"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["contexts"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
             "ApiCreateDashboardResponse": {
                 "properties": {
                     "results": {
@@ -21425,7 +21475,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2103.6",
+        "version": "0.2104.8",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -27810,6 +27860,74 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/dashboards/context": {
+            "get": {
+                "operationId": "getDashboardContexts",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiGetDashboardContextsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Resolve lightweight dashboard contexts by exploreName and/or chartUuid.\nUsed by MCP/query clients to attach dashboardSlug for row-level sql_filter.",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "The uuid of the project",
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Explore/table name used by saved charts",
+                        "in": "query",
+                        "name": "exploreName",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Saved chart uuid",
+                        "in": "query",
+                        "name": "chartUuid",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Whether to include private spaces",
+                        "in": "query",
+                        "name": "includePrivate",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ]
             }
         },
         "/api/v1/projects/{projectUuid}/dashboards/with-charts": {

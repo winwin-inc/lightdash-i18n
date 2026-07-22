@@ -318,6 +318,21 @@ export type ApiGetDashboardsResponse = {
     results: DashboardBasicDetailsWithTileTypes[];
 };
 
+/** Lightweight dashboard context for MCP/query RLS (dashboardSlug). */
+export type DashboardQueryContext = {
+    dashboardUuid: string;
+    dashboardSlug: string;
+    dashboardName: string;
+    chartUuids: string[];
+};
+
+export type ApiGetDashboardContextsResponse = {
+    status: 'ok';
+    results: {
+        contexts: DashboardQueryContext[];
+    };
+};
+
 export type ApiCreateDashboardResponse = {
     status: 'ok';
     results: Dashboard;

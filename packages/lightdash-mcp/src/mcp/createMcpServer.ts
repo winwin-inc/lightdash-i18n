@@ -1,7 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { LightdashMcpEnvConfig } from '../config';
 import { getMcpPackageVersion } from '../lib/mcpPackageVersion';
-import { createFieldIdResolverFromExplore } from './fieldIdResolver';
+import {
+    createFieldIdResolverFromExplore,
+    exploreRequiresDashboardContext,
+} from './fieldIdResolver';
 import { createLightdashRestClient } from '../rest/lightdashRest';
 import { registerAnalystPrompt } from './registerAnalystPrompt';
 import { registerCoreMcpTools } from './registerCoreMcpTools';
@@ -11,36 +14,68 @@ export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
 ): McpServer {
     const api = createLightdashRestClient(config);
-    const resolverCache = new Map<
+    const exploreCache = new Map<
         string,
-        { expiresAtMs: number; resolve: (field: string) => string }
+        {
+            expiresAtMs: number;
+            explore: unknown;
+            resolve: (field: string) => string;
+            requiresDashboardContext: boolean;
+        }
     >();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
         version: getMcpPackageVersion(),
     });
 
+    const getExploreMetadata = async (
+        apiKey: string,
+        projectUuid: string,
+        exploreName: string,
+    ): Promise<{
+        explore: unknown;
+        resolve: (field: string) => string;
+        requiresDashboardContext: boolean;
+    }> => {
+        const cacheKey = `${projectUuid}:${exploreName}`;
+        const now = Date.now();
+        const cached = exploreCache.get(cacheKey);
+        if (cached && cached.expiresAtMs > now) {
+            return {
+                explore: cached.explore,
+                resolve: cached.resolve,
+                requiresDashboardContext: cached.requiresDashboardContext,
+            };
+        }
+        const explore = await api.getExplore(apiKey, projectUuid, exploreName);
+        const resolve = createFieldIdResolverFromExplore(explore, exploreName);
+        const requiresDashboardContext =
+            exploreRequiresDashboardContext(explore);
+        exploreCache.set(cacheKey, {
+            explore,
+            resolve,
+            requiresDashboardContext,
+            expiresAtMs: now + 5 * 60 * 1000,
+        });
+        return { explore, resolve, requiresDashboardContext };
+    };
+
     const getFieldResolver = async (
         apiKey: string,
         projectUuid: string,
         exploreName: string,
     ): Promise<((field: string) => string)> => {
-        const cacheKey = `${projectUuid}:${exploreName}`;
-        const now = Date.now();
-        const cached = resolverCache.get(cacheKey);
-        if (cached && cached.expiresAtMs > now) {
-            return cached.resolve;
-        }
-        const explore = await api.getExplore(apiKey, projectUuid, exploreName);
-        const resolve = createFieldIdResolverFromExplore(explore, exploreName);
-        resolverCache.set(cacheKey, {
-            resolve,
-            expiresAtMs: now + 5 * 60 * 1000,
-        });
-        return resolve;
+        const metadata = await getExploreMetadata(
+            apiKey,
+            projectUuid,
+            exploreName,
+        );
+        return metadata.resolve;
     };
 
-    registerExtensionTools(server, config, api);
+    registerExtensionTools(server, config, api, {
+        getExploreMetadata,
+    });
 
     const defaultPoll = {
         pageSize: 500,
@@ -50,6 +85,7 @@ export function createLightdashMcpServer(
 
     registerCoreMcpTools(server, config, api, {
         getFieldResolver,
+        getExploreMetadata,
         defaultPoll,
     });
 

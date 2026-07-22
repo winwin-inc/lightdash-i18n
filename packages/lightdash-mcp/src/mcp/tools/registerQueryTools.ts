@@ -2,6 +2,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { QueryExecutionContext, QueryHistoryStatus } from '@lightdash/common';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
+import {
+    buildDashboardSelectionRequiredResult,
+    createDashboardContextResolver,
+} from '../../lib/dashboardContextResolver';
 import { assertReadonlySql } from '../../lib/sqlSafety';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
@@ -139,6 +143,15 @@ export type CoreQueryToolsDeps = {
         projectUuid: string,
         exploreName: string,
     ) => Promise<(field: string) => string>;
+    getExploreMetadata: (
+        apiKey: string,
+        projectUuid: string,
+        exploreName: string,
+    ) => Promise<{
+        explore: unknown;
+        resolve: (field: string) => string;
+        requiresDashboardContext: boolean;
+    }>;
     defaultPoll: {
         pageSize: number;
         maxPollAttempts: number;
@@ -153,6 +166,7 @@ export function registerQueryTools(
     deps: CoreQueryToolsDeps,
 ): void {
     const poll = deps.defaultPoll;
+    const dashboardContextResolver = createDashboardContextResolver(api);
 
     registerToolTyped(
         server,
@@ -440,6 +454,7 @@ export function registerQueryTools(
         {
             projectUuid: z.string().optional(),
             metricQuery: metricQueryInputSchema,
+            dashboardUuid: z.string().optional(),
             limit: z.number().optional(),
             invalidateCache: z.boolean().optional(),
             full: z.boolean().optional(),
@@ -461,6 +476,51 @@ export function registerQueryTools(
                     args.metricQuery,
                     args.limit as number | undefined,
                 );
+                const exploreName =
+                    typeof queryBody.exploreName === 'string'
+                        ? queryBody.exploreName
+                        : undefined;
+                const requiresDashboardContext = exploreName
+                    ? (
+                          await deps.getExploreMetadata(
+                              apiKey,
+                              projectUuid,
+                              exploreName,
+                          )
+                      ).requiresDashboardContext
+                    : false;
+                const resolveResult =
+                    requiresDashboardContext || args.dashboardUuid
+                    ? await dashboardContextResolver.resolve({
+                          apiKey,
+                          projectUuid,
+                          dashboardUuid: args.dashboardUuid as
+                              | string
+                              | undefined,
+                          exploreName,
+                      })
+                    : null;
+                if (resolveResult?.status === 'needs_selection') {
+                    return buildDashboardSelectionRequiredResult({
+                        source: resolveResult.source,
+                        candidates: resolveResult.candidates,
+                        exploreName,
+                    });
+                }
+                if (
+                    requiresDashboardContext &&
+                    resolveResult?.status === 'none'
+                ) {
+                    return buildDashboardSelectionRequiredResult({
+                        source: 'exploreName',
+                        candidates: [],
+                        exploreName,
+                    });
+                }
+                const resolvedDashboardContext =
+                    resolveResult?.status === 'resolved'
+                        ? resolveResult.context
+                        : null;
                 const result = await api.runMetricQueryUntilReady(
                     apiKey,
                     projectUuid,
@@ -469,6 +529,7 @@ export function registerQueryTools(
                         invalidateCache: args.invalidateCache as
                             | boolean
                             | undefined,
+                        dashboardUuid: resolvedDashboardContext?.dashboardUuid,
                         query: queryBody,
                     },
                     poll,
@@ -480,7 +541,23 @@ export function registerQueryTools(
                     executeResult: result.executeResult,
                     full,
                     valueFormat,
-                    extraStructured: { mode: 'semantic_passthrough' },
+                    extraStructured: {
+                        mode: 'semantic_passthrough',
+                        ...(resolvedDashboardContext
+                            ? { resolvedDashboardContext }
+                            : {
+                                  resolvedDashboardContext: {
+                                      source: 'unresolved',
+                                      candidateCount: 0,
+                                      note:
+                                          resolveResult?.status === 'none'
+                                              ? resolveResult.hint
+                                              : requiresDashboardContext
+                                                ? '未找到 explore 关联 dashboard，已按原语义查询执行'
+                                                : '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                  },
+                              }),
+                    },
                 });
             } catch (error) {
                 throw new Error(formatSemanticMetricQueryError(error));
@@ -524,11 +601,12 @@ export function registerQueryTools(
                 (args.pollIntervalMs as number | undefined) ??
                 poll.pollIntervalMs;
             const exploreName = args.exploreName as string;
-            const resolveFieldId = await deps.getFieldResolver(
+            const exploreMetadata = await deps.getExploreMetadata(
                 apiKey,
                 projectUuid,
                 exploreName,
             );
+            const resolveFieldId = exploreMetadata.resolve;
             const mqDimensions = toStringArray(args.dimensions);
             const mqMetrics = toStringArray(args.metrics);
             const full = (args.full as boolean | undefined) ?? false;
@@ -559,6 +637,39 @@ export function registerQueryTools(
                         );
                     }
                 }
+                const resolveResult =
+                    exploreMetadata.requiresDashboardContext ||
+                    args.dashboardUuid
+                    ? await dashboardContextResolver.resolve({
+                          apiKey,
+                          projectUuid,
+                          dashboardUuid: args.dashboardUuid as
+                              | string
+                              | undefined,
+                          exploreName,
+                      })
+                    : null;
+                if (resolveResult?.status === 'needs_selection') {
+                    return buildDashboardSelectionRequiredResult({
+                        source: resolveResult.source,
+                        candidates: resolveResult.candidates,
+                        exploreName,
+                    });
+                }
+                if (
+                    exploreMetadata.requiresDashboardContext &&
+                    resolveResult?.status === 'none'
+                ) {
+                    return buildDashboardSelectionRequiredResult({
+                        source: 'exploreName',
+                        candidates: [],
+                        exploreName,
+                    });
+                }
+                const resolvedDashboardContext =
+                    resolveResult?.status === 'resolved'
+                        ? resolveResult.context
+                        : null;
                 const result = await api.runMetricQueryUntilReady(
                     apiKey,
                     projectUuid,
@@ -579,7 +690,7 @@ export function registerQueryTools(
                             args.pivotConfiguration,
                             'pivotConfiguration',
                         ) as never | undefined,
-                        dashboardUuid: args.dashboardUuid as string | undefined,
+                        dashboardUuid: resolvedDashboardContext?.dashboardUuid,
                         query: {
                             exploreName,
                             dimensions: mqDimensions.map(resolveFieldId),
@@ -612,7 +723,23 @@ export function registerQueryTools(
                     executeResult: result.executeResult,
                     full,
                     valueFormat,
-                    extraStructured: { mode: 'flat' },
+                    extraStructured: {
+                        mode: 'flat',
+                        ...(resolvedDashboardContext
+                            ? { resolvedDashboardContext }
+                            : {
+                                  resolvedDashboardContext: {
+                                      source: 'unresolved',
+                                      candidateCount: 0,
+                                      note:
+                                          resolveResult?.status === 'none'
+                                              ? resolveResult.hint
+                                              : exploreMetadata.requiresDashboardContext
+                                                ? '未找到 explore 关联 dashboard，已按原语义查询执行'
+                                                : '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                  },
+                              }),
+                    },
                 });
             } catch (error) {
                 throw new Error(formatFlatMetricQueryError(error));

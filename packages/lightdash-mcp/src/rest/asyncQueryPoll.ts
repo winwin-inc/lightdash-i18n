@@ -271,6 +271,112 @@ export function createAsyncQueryMethods(
         );
     }
 
+    async function runDashboardChart(
+        apiKey: string,
+        projectUuid: string,
+        body: {
+            chartUuid: string;
+            dashboardUuid: string;
+            parameters?: Record<string, unknown>;
+            limit?: number;
+            dashboardFilters?: {
+                dimensions?: unknown[];
+                metrics?: unknown[];
+                tableCalculations?: unknown[];
+            };
+            dashboardSorts?: unknown[];
+        },
+        options: {
+            pageSize: number;
+            maxPollAttempts: number;
+            pollIntervalMs: number;
+        },
+    ): Promise<{
+        queryUuid: string;
+        rows: unknown[];
+        columns: unknown;
+        fields: ApiExecuteAsyncMetricQueryResults['fields'];
+        warnings: ApiExecuteAsyncMetricQueryResults['warnings'];
+        parameterReferences: ApiExecuteAsyncMetricQueryResults['parameterReferences'];
+        usedParametersValues: ApiExecuteAsyncMetricQueryResults['usedParametersValues'];
+    }> {
+        const payload = {
+            chartUuid: body.chartUuid,
+            dashboardUuid: body.dashboardUuid,
+            dashboardFilters: body.dashboardFilters ?? {
+                dimensions: [],
+                metrics: [],
+                tableCalculations: [],
+            },
+            dashboardSorts: body.dashboardSorts ?? [],
+            parameters: body.parameters,
+            limit:
+                body.limit !== undefined
+                    ? clampLimit(body.limit, maxLimit)
+                    : body.limit,
+        };
+        const executeResult = await requestJson<{
+            results: ApiExecuteAsyncMetricQueryResults;
+        }>(
+            apiKey,
+            `/api/v2/projects/${encodeURIComponent(
+                projectUuid,
+            )}/query/dashboard-chart`,
+            {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            },
+        ).then((r) => r.results);
+
+        const { queryUuid } = executeResult;
+
+        for (let i = 0; i < options.maxPollAttempts; i += 1) {
+            const page = await getQueryResultsPage(
+                apiKey,
+                projectUuid,
+                queryUuid,
+                1,
+                options.pageSize,
+            );
+            if (page.status === QueryHistoryStatus.ERROR) {
+                throw new Error(page.error ?? 'Query failed');
+            }
+            if (page.status === QueryHistoryStatus.CANCELLED) {
+                return {
+                    queryUuid,
+                    rows: [],
+                    columns: {},
+                    fields: executeResult.fields,
+                    warnings: executeResult.warnings,
+                    parameterReferences: executeResult.parameterReferences,
+                    usedParametersValues: executeResult.usedParametersValues,
+                };
+            }
+            if (page.status === QueryHistoryStatus.READY) {
+                const mergedPage = await collectAllReadyRows(
+                    apiKey,
+                    projectUuid,
+                    queryUuid,
+                    page,
+                    options.pageSize,
+                );
+                return {
+                    queryUuid,
+                    rows: mergedPage.rows,
+                    columns: mergedPage.columns,
+                    fields: executeResult.fields,
+                    warnings: executeResult.warnings,
+                    parameterReferences: executeResult.parameterReferences,
+                    usedParametersValues: executeResult.usedParametersValues,
+                };
+            }
+            await new Promise((r) => setTimeout(r, options.pollIntervalMs));
+        }
+        throw new Error(
+            `Dashboard chart query ${queryUuid} timed out after ${options.maxPollAttempts} polls`,
+        );
+    }
+
     async function pollQueryPageUntilReady(
         apiKey: string,
         projectUuid: string,
@@ -485,6 +591,7 @@ export function createAsyncQueryMethods(
     return {
         runMetricQueryUntilReady,
         runSavedChart,
+        runDashboardChart,
         searchFieldValuesUntilReady,
         runSqlUntilReady,
     };
