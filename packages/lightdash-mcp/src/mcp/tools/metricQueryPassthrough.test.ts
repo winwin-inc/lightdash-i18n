@@ -104,7 +104,7 @@ describe('prepareSemanticMetricQueryBody', () => {
         assert.equal(body.limit, 200);
     });
 
-    it('parses Explorer JSON string like run_sql sql', () => {
+    it('parses Explorer JSON string', () => {
         const { query: body } = prepareSemanticMetricQueryBody(
             JSON.stringify({
                 exploreName: 'orders',
@@ -131,8 +131,42 @@ describe('prepareSemanticMetricQueryBody', () => {
             undefined,
         );
         assert.equal(prepared.dashboardUuid, 'dash-uuid-1');
+        assert.equal(prepared.projectUuid, undefined);
         assert.equal('dashboardUuid' in prepared.query, false);
         assert.equal(prepared.query.exploreName, 'orders');
+    });
+
+    it('extracts and strips projectUuid from Explorer JSON', () => {
+        const prepared = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: ['orders_status'],
+                metrics: [],
+                projectUuid: 'project-uuid-1',
+            }),
+            undefined,
+        );
+        assert.equal(prepared.projectUuid, 'project-uuid-1');
+        assert.equal(prepared.dashboardUuid, undefined);
+        assert.equal('projectUuid' in prepared.query, false);
+        assert.equal(prepared.query.exploreName, 'orders');
+    });
+
+    it('extracts and strips both projectUuid and dashboardUuid', () => {
+        const prepared = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                projectUuid: 'project-uuid-1',
+                dashboardUuid: 'dash-uuid-1',
+                exploreName: 'orders',
+                dimensions: [],
+                metrics: [],
+            }),
+            undefined,
+        );
+        assert.equal(prepared.projectUuid, 'project-uuid-1');
+        assert.equal(prepared.dashboardUuid, 'dash-uuid-1');
+        assert.equal('projectUuid' in prepared.query, false);
+        assert.equal('dashboardUuid' in prepared.query, false);
     });
 });
 
@@ -191,7 +225,8 @@ describe('tool descriptions', () => {
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /强制规则/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /metricQuery/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /JSON 字符串/);
-        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /run_sql/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /projectUuid/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /顶层参数优先/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /filter is not a function/);
         assert.match(
             RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION,
@@ -199,6 +234,7 @@ describe('tool descriptions', () => {
         );
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /candidates/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /不是报错/);
+        assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /run_sql/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /也可：object/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /docs\/mcp/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /详见/);

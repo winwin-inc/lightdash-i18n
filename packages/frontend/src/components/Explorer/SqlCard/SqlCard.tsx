@@ -81,8 +81,11 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
 
     const metricQueryJson = useMemo(() => {
         if (!tableName) return '';
-        return buildSemanticQueryJson(metricQuery, fromDashboard);
-    }, [metricQuery, tableName, fromDashboard]);
+        return buildSemanticQueryJson(metricQuery, {
+            projectUuid,
+            dashboardUuid: fromDashboard,
+        });
+    }, [metricQuery, tableName, projectUuid, fromDashboard]);
 
     const copyValue =
         queryView === 'sql' ? (data?.query ?? '') : metricQueryJson;

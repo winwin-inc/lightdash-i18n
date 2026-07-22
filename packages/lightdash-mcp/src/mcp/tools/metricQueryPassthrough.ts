@@ -7,15 +7,13 @@ function coerceMetricQueryToJsonString(value: unknown): unknown {
     return value;
 }
 
-/** MCP tool arg: Explorer JSON string — same ergonomics as run_sql.sql (Apifox shows one text field). */
+/** MCP tool arg: Explorer Metric Query JSON string (single text field). */
 export const metricQueryInputSchema = z.preprocess(
     coerceMetricQueryToJsonString,
     z
         .string()
         .min(1)
-        .describe(
-            'Explorer 复制的 Metric Query JSON 字符串（用法同 run_sql 的 sql）',
-        ),
+        .describe('Explorer 复制的 Metric Query JSON 字符串'),
 );
 
 const EMPTY_ARRAY_KEYS = [
@@ -23,6 +21,10 @@ const EMPTY_ARRAY_KEYS = [
     'customDimensions',
     'tableCalculations',
 ] as const;
+
+function nonEmptyString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
 
 export function parseMetricQueryInput(value: unknown): Record<string, unknown> {
     if (value === undefined || value === null) {
@@ -41,9 +43,7 @@ export function parseMetricQueryInput(value: unknown): Record<string, unknown> {
                 return parsed as Record<string, unknown>;
             }
         } catch {
-            throw new Error(
-                'metricQuery 须为合法 JSON 对象字符串（用法同 run_sql 的 sql）',
-            );
+            throw new Error('metricQuery 须为合法 JSON 对象字符串');
         }
         throw new Error('metricQuery JSON 须解析为 object（非数组）');
     }
@@ -81,27 +81,28 @@ export function prepareSemanticMetricQueryBody(
 ): {
     query: Record<string, unknown>;
     dashboardUuid: string | undefined;
+    projectUuid: string | undefined;
 } {
     const parsed = parseMetricQueryInput(metricQuery);
     const { exploreName } = parsed;
     if (typeof exploreName !== 'string' || exploreName.length === 0) {
-        throw new Error(
-            'metricQuery.exploreName 必须为非空字符串',
-        );
+        throw new Error('metricQuery.exploreName 必须为非空字符串');
     }
-    const embeddedDashboardUuid =
-        typeof parsed.dashboardUuid === 'string' &&
-        parsed.dashboardUuid.length > 0
-            ? parsed.dashboardUuid
-            : undefined;
-    const { dashboardUuid: _dashboardUuid, ...withoutDashboardUuid } = parsed;
-    let query = omitEmptyOptionalMetricQueryFields(withoutDashboardUuid);
+    const embeddedDashboardUuid = nonEmptyString(parsed.dashboardUuid);
+    const embeddedProjectUuid = nonEmptyString(parsed.projectUuid);
+    const {
+        dashboardUuid: _dashboardUuid,
+        projectUuid: _projectUuid,
+        ...withoutContext
+    } = parsed;
+    let query = omitEmptyOptionalMetricQueryFields(withoutContext);
     if (limitOverride !== undefined) {
         query = { ...query, limit: limitOverride };
     }
     return {
         query,
         dashboardUuid: embeddedDashboardUuid,
+        projectUuid: embeddedProjectUuid,
     };
 }
 
@@ -126,7 +127,7 @@ export function assertNoFlatMetricQueryArgs(args: Record<string, unknown>): void
         throw new Error(
             [
                 `run_semantic_metric_query 仅接受 metricQuery 字符串，请勿传扁平字段：${present.join(', ')}。`,
-                '请把 Explorer 整段 JSON 作为字符串放进 metricQuery（用法同 run_sql 的 sql），',
+                '请把 Explorer 整段 JSON 作为字符串放进 metricQuery，',
                 '或使用 run_metric_query 扁平参数。',
             ].join(''),
         );

@@ -6,7 +6,6 @@ import {
     buildDashboardSelectionRequiredResult,
     createDashboardContextResolver,
 } from '../../lib/dashboardContextResolver';
-import { assertReadonlySql } from '../../lib/sqlSafety';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { registerToolTyped } from '../registerToolTyped';
@@ -375,60 +374,6 @@ export function registerQueryTools(
         },
     );
 
-    registerToolTyped(
-        server,
-        'core-tool',
-        'run_sql',
-        '执行原始 SQL（POST …/query/sql + 轮询）。⚠️ 仅支持 SELECT/CTE 只读语句；limit 受 LIGHTDASH_MAX_LIMIT 约束。',
-        {
-            projectUuid: z.string().optional(),
-            sql: z.string(),
-            limit: z.number().optional(),
-            invalidateCache: z.boolean().optional(),
-            parameters: z.any().optional(),
-            full: z.boolean().optional(),
-        },
-        async (args) => {
-            const apiKey = resolveCoreToolsApiKey(config);
-            const projectUuid = resolveCoreToolsProjectUuid(
-                config,
-                apiKey,
-                args.projectUuid as string | undefined,
-            );
-            assertReadonlySql(args.sql as string);
-            const { queryUuid, page } = await api.runSqlUntilReady(
-                apiKey,
-                projectUuid,
-                {
-                    sql: args.sql as string,
-                    limit: args.limit as number | undefined,
-                    invalidateCache: args.invalidateCache as boolean | undefined,
-                    parameters: toObjectLike(args.parameters, 'parameters'),
-                },
-                poll,
-            );
-            const full = (args.full as boolean | undefined) ?? false;
-            const payload =
-                page.status === QueryHistoryStatus.READY
-                    ? full
-                        ? {
-                              queryUuid,
-                              rows: page.rows,
-                              columns: page.columns,
-                          }
-                        : {
-                              queryUuid,
-                              rows: rowsToScalarFlat(page.rows),
-                          }
-                    : { queryUuid, page };
-            return {
-                content: [
-                    { type: 'text', text: JSON.stringify(payload, null, 2) },
-                ],
-            };
-        },
-    );
-
     const metricQueryValueFormatSchema = z.enum(['raw', 'formatted']).optional();
 
     const sharedMetricQueryPollParams = {
@@ -462,11 +407,6 @@ export function registerQueryTools(
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
-            const projectUuid = resolveCoreToolsProjectUuid(
-                config,
-                apiKey,
-                args.projectUuid as string | undefined,
-            );
             assertNoFlatMetricQueryArgs(args as Record<string, unknown>);
             const full = (args.full as boolean | undefined) ?? false;
             const valueFormat =
@@ -475,9 +415,16 @@ export function registerQueryTools(
                 const {
                     query: queryBody,
                     dashboardUuid: embeddedDashboardUuid,
+                    projectUuid: embeddedProjectUuid,
                 } = prepareSemanticMetricQueryBody(
                     args.metricQuery,
                     args.limit as number | undefined,
+                );
+                const projectUuid = resolveCoreToolsProjectUuid(
+                    config,
+                    apiKey,
+                    (args.projectUuid as string | undefined) ??
+                        embeddedProjectUuid,
                 );
                 const explicitDashboardUuid =
                     (args.dashboardUuid as string | undefined) ??

@@ -5,6 +5,7 @@ import Editor, {
 } from '@monaco-editor/react';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 import {
     selectFromDashboard,
     selectMetricQuery,
@@ -24,14 +25,18 @@ const MONACO_READ_ONLY: EditorProps['options'] = {
 
 export const RenderedMetricQuery = () => {
     const { t } = useTranslation();
+    const { projectUuid } = useParams<{ projectUuid: string }>();
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const formattedJson = useMemo(() => {
         if (!tableName) return '';
-        return buildSemanticQueryJson(metricQuery, fromDashboard);
-    }, [metricQuery, tableName, fromDashboard]);
+        return buildSemanticQueryJson(metricQuery, {
+            projectUuid,
+            dashboardUuid: fromDashboard,
+        });
+    }, [metricQuery, tableName, projectUuid, fromDashboard]);
 
     const beforeMount: BeforeMount = useCallback((monaco) => {
         monaco.editor.defineTheme('lightdash', {

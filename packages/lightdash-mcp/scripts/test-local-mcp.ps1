@@ -145,7 +145,7 @@ $preview = if ($flatText.Length -gt 400) { $flatText.Substring(0, 400) + '...' }
 Write-Host $preview
 if ($flatText -match 'FieldReferenceError|API 4\d\d:|执行失败') { throw 'run_metric_query failed' }
 
-Write-Host "`n==> 7. run_semantic_metric_query (metricQuery JSON string, same as run_sql.sql)"
+Write-Host "`n==> 7. run_semantic_metric_query (metricQuery JSON string)"
 $metricQueryJson = (@{
     exploreName = 'brand_cls4_insight_list'
     dimensions  = @('brand_cls4_insight_list_brand_name')
