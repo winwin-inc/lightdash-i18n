@@ -139,6 +139,7 @@
         "clean-build-cache": "./scripts/clean-build-cache.sh",
         "clean": "pnpm clean-build-cache && pnpm clean-node-modules",
         "clean-and-build": "pnpm clean && pnpm build",
+        "set-version": "node scripts/set-workspace-version.mjs",
         "bump-mcp-skills": "node scripts/bump-versions.mjs all",
         "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs",
         "list-mcp-tools:write": "node scripts/list-mcp-tool-names.mjs --write",
