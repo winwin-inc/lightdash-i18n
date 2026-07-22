@@ -15,10 +15,12 @@ describe('buildSemanticQueryJson', () => {
     it('injects dashboardUuid when fromDashboard is present', () => {
         const dashboardUuid = '6cd77b2e-b5e2-4611-9a00-e0c08d3ed39d';
         const json = buildSemanticQueryJson(metricQuery, dashboardUuid);
-        expect(JSON.parse(json)).toEqual({
-            ...metricQuery,
+        const parsed = JSON.parse(json) as Record<string, unknown>;
+        expect(parsed).toEqual({
             dashboardUuid,
+            ...metricQuery,
         });
+        expect(Object.keys(parsed)[0]).toBe('dashboardUuid');
     });
 
     it('ignores empty dashboardUuid', () => {

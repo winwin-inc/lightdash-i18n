@@ -2039,13 +2039,16 @@ export class ProjectService extends BaseService {
         args: {
             account: Account;
             // ! TODO: we need to fix this type
-            body: MetricQuery & { parameters?: ParametersValuesMap };
+            body: MetricQuery & {
+                parameters?: ParametersValuesMap;
+                dashboardUuid?: string;
+            };
             projectUuid: string;
         } & ({ exploreName: string } | { explore: Explore }),
     ) {
         const {
             account,
-            body: { parameters, ...metricQuery },
+            body: { parameters, dashboardUuid, ...metricQuery },
             projectUuid,
         } = args;
 
@@ -2071,10 +2074,40 @@ export class ProjectService extends BaseService {
             throw new CustomSqlQueryForbiddenError();
         }
 
+        // Align with AsyncQuery: resolve dashboard context for sql_filter / user attrs
+        let dashboardContext:
+            | {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              }
+            | undefined;
+        if (dashboardUuid) {
+            try {
+                const dashboard = await this.dashboardModel.getByIdOrSlug(
+                    dashboardUuid,
+                );
+                dashboardContext = {
+                    dashboardSlug: dashboard.slug,
+                    dashboardName: dashboard.name,
+                };
+            } catch (error) {
+                this.logger.warn(
+                    `Dashboard ${dashboardUuid} not found while compiling query, continuing without dashboard context`,
+                );
+            }
+        }
+
         const explore =
             'explore' in args
                 ? args.explore
-                : await this.getExplore(account, projectUuid, args.exploreName);
+                : await this.getExplore(
+                      account,
+                      projectUuid,
+                      args.exploreName,
+                      organizationUuid,
+                      true,
+                      dashboardUuid,
+                  );
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -2090,7 +2123,10 @@ export class ProjectService extends BaseService {
         );
 
         const { userAttributes, intrinsicUserAttributes } =
-            await this.getUserAttributes({ account });
+            await this.getUserAttributes({
+                account,
+                context: dashboardContext,
+            });
 
         const availableParameterDefinitions = await this.getAvailableParameters(
             projectUuid,

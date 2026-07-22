@@ -39389,6 +39389,7 @@ export function RegisterRoutes(app: Router) {
                 {
                     dataType: 'nestedObjectLiteral',
                     nestedProperties: {
+                        dashboardUuid: { dataType: 'string' },
                         parameters: { ref: 'ParametersValuesMap' },
                     },
                 },

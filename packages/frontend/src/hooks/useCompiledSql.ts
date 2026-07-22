@@ -12,6 +12,7 @@ import {
     selectCustomDimensions,
     selectDimensions,
     selectFilters,
+    selectFromDashboard,
     selectMetrics,
     selectParameters,
     selectQueryLimit,
@@ -29,11 +30,13 @@ const getCompiledQuery = async (
     tableId: string,
     query: MetricQuery,
     queryParameters?: ParametersValuesMap,
+    dashboardUuid?: string,
 ) => {
     const timezoneFixQuery = {
         ...query,
         filters: convertDateFilters(query.filters),
         parameters: queryParameters,
+        ...(dashboardUuid ? { dashboardUuid } : {}),
     };
 
     return lightdashApi<ApiCompiledQueryResults>({
@@ -59,6 +62,7 @@ export const useCompiledSql = (
     const customDimensions = useExplorerSelector(selectCustomDimensions);
     const timezone = useExplorerSelector(selectTimezone);
     const queryParameters = useExplorerSelector(selectParameters);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const setErrorResponse = useQueryError();
     const metricQuery: MetricQuery = {
@@ -80,6 +84,7 @@ export const useCompiledSql = (
         projectUuid,
         timezone,
         queryParameters,
+        fromDashboard,
     ];
     return useQuery<ApiCompiledQueryResults, ApiError>({
         queryKey,
@@ -89,6 +94,7 @@ export const useCompiledSql = (
                 tableId || '',
                 metricQuery,
                 queryParameters,
+                fromDashboard,
             ),
         onError: (result) => setErrorResponse(result),
         keepPreviousData: true,

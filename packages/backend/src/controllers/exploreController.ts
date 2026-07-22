@@ -124,7 +124,12 @@ export class ExploreController extends BaseController {
         @Path() projectUuid: string,
         @Request() req: express.Request,
         // ! TODO: we need to fix this type
-        @Body() body: MetricQuery & { parameters?: ParametersValuesMap },
+        @Body()
+        body: MetricQuery & {
+            parameters?: ParametersValuesMap;
+            /** From dashboard → Explorer: keep sql_filter / user attrs consistent with run query */
+            dashboardUuid?: string;
+        },
     ): Promise<{ status: 'ok'; results: ApiCompiledQueryResults }> {
         this.setStatus(200);
 
