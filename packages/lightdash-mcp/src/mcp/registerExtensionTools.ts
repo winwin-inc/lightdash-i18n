@@ -218,7 +218,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'run_saved_chart',
-        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致：本次参数 > set_project 会话 > 环境 LIGHTDASH_PROJECT_UUID。可选 dashboardUuid：chart 关联多个看板时需显式传入；未传且存在可关联看板时会返回候选列表。',
+        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。可选 dashboardUuid；未传且需要看板上下文时，不是报错，会返回 status=dashboard_selection_required 和 candidates。收到 candidates 后，选一个 dashboardUuid 再重试。',
         runSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);

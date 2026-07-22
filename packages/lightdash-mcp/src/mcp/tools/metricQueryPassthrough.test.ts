@@ -193,6 +193,12 @@ describe('tool descriptions', () => {
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /JSON 字符串/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /run_sql/);
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /filter is not a function/);
+        assert.match(
+            RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION,
+            /dashboard_selection_required/,
+        );
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /candidates/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /不是报错/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /也可：object/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /docs\/mcp/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /详见/);
@@ -203,6 +209,12 @@ describe('tool descriptions', () => {
         assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /强制规则/);
         assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /禁止传 metricQuery/);
         assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /run_semantic_metric_query/);
+        assert.match(
+            RUN_METRIC_QUERY_FLAT_DESCRIPTION,
+            /dashboard_selection_required/,
+        );
+        assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /candidates/);
+        assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /不是报错/);
         assert.doesNotMatch(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /docs\/mcp/);
         assert.doesNotMatch(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /详见/);
     });
