@@ -1,6 +1,6 @@
 {
     "name": "lightdash-charts-viewer",
-    "version": "0.2105.2",
+    "version": "0.2105.3",
     "private": true,
     "scripts": {
         "dev": "next dev --turbopack --port 3999",
