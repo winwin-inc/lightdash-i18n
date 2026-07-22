@@ -472,10 +472,16 @@ export function registerQueryTools(
             const valueFormat =
                 (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
             try {
-                const queryBody = prepareSemanticMetricQueryBody(
+                const {
+                    query: queryBody,
+                    dashboardUuid: embeddedDashboardUuid,
+                } = prepareSemanticMetricQueryBody(
                     args.metricQuery,
                     args.limit as number | undefined,
                 );
+                const explicitDashboardUuid =
+                    (args.dashboardUuid as string | undefined) ??
+                    embeddedDashboardUuid;
                 const exploreName =
                     typeof queryBody.exploreName === 'string'
                         ? queryBody.exploreName
@@ -490,13 +496,11 @@ export function registerQueryTools(
                       ).requiresDashboardContext
                     : false;
                 const resolveResult =
-                    requiresDashboardContext || args.dashboardUuid
+                    requiresDashboardContext || explicitDashboardUuid
                     ? await dashboardContextResolver.resolve({
                           apiKey,
                           projectUuid,
-                          dashboardUuid: args.dashboardUuid as
-                              | string
-                              | undefined,
+                          dashboardUuid: explicitDashboardUuid,
                           exploreName,
                       })
                     : null;

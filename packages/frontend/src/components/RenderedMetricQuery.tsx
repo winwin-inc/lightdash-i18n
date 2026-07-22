@@ -6,6 +6,7 @@ import Editor, {
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+    selectFromDashboard,
     selectMetricQuery,
     selectTableName,
     useExplorerSelector,
@@ -14,6 +15,7 @@ import {
     LIGHTDASH_THEME,
     MONACO_DEFAULT_OPTIONS,
 } from '../features/sqlRunner/utils/monaco';
+import { buildSemanticQueryJson } from './Explorer/SqlCard/buildSemanticQueryJson';
 
 const MONACO_READ_ONLY: EditorProps['options'] = {
     ...MONACO_DEFAULT_OPTIONS,
@@ -24,11 +26,12 @@ export const RenderedMetricQuery = () => {
     const { t } = useTranslation();
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const formattedJson = useMemo(() => {
         if (!tableName) return '';
-        return JSON.stringify(metricQuery, null, 2);
-    }, [metricQuery, tableName]);
+        return buildSemanticQueryJson(metricQuery, fromDashboard);
+    }, [metricQuery, tableName, fromDashboard]);
 
     const beforeMount: BeforeMount = useCallback((monaco) => {
         monaco.editor.defineTheme('lightdash', {

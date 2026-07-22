@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
+    selectFromDashboard,
     selectIsSqlExpanded,
     selectMetricQuery,
     selectTableName,
@@ -34,6 +35,7 @@ import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
+import { buildSemanticQueryJson } from './buildSemanticQueryJson';
 import OpenInSqlRunnerButton from './OpenInSqlRunnerButton';
 
 interface SqlCardProps {
@@ -63,6 +65,7 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const dispatch = useExplorerDispatch();
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {
@@ -78,8 +81,8 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
 
     const metricQueryJson = useMemo(() => {
         if (!tableName) return '';
-        return JSON.stringify(metricQuery, null, 2);
-    }, [metricQuery, tableName]);
+        return buildSemanticQueryJson(metricQuery, fromDashboard);
+    }, [metricQuery, tableName, fromDashboard]);
 
     const copyValue =
         queryView === 'sql' ? (data?.query ?? '') : metricQueryJson;

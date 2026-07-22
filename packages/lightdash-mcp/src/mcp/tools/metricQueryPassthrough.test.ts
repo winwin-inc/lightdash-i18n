@@ -75,7 +75,7 @@ describe('omitEmptyOptionalMetricQueryFields', () => {
 
 describe('prepareSemanticMetricQueryBody', () => {
     it('preserves Explorer filters.and for brand_cls4 fixture', () => {
-        const body = prepareSemanticMetricQueryBody(
+        const { query: body } = prepareSemanticMetricQueryBody(
             JSON.stringify({ ...BRAND_CLS4_METRIC_QUERY_FIXTURE }),
             undefined,
         );
@@ -92,7 +92,7 @@ describe('prepareSemanticMetricQueryBody', () => {
     });
 
     it('applies limit override at top level', () => {
-        const body = prepareSemanticMetricQueryBody(
+        const { query: body } = prepareSemanticMetricQueryBody(
             JSON.stringify({
                 exploreName: 'orders',
                 dimensions: [],
@@ -105,7 +105,7 @@ describe('prepareSemanticMetricQueryBody', () => {
     });
 
     it('parses Explorer JSON string like run_sql sql', () => {
-        const body = prepareSemanticMetricQueryBody(
+        const { query: body } = prepareSemanticMetricQueryBody(
             JSON.stringify({
                 exploreName: 'orders',
                 dimensions: ['orders_status'],
@@ -118,6 +118,21 @@ describe('prepareSemanticMetricQueryBody', () => {
         assert.equal(body.exploreName, 'orders');
         assert.deepEqual(body.dimensions, ['orders_status']);
         assert.equal(body.limit, 50);
+    });
+
+    it('extracts and strips dashboardUuid from Explorer JSON', () => {
+        const prepared = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: ['orders_status'],
+                metrics: [],
+                dashboardUuid: 'dash-uuid-1',
+            }),
+            undefined,
+        );
+        assert.equal(prepared.dashboardUuid, 'dash-uuid-1');
+        assert.equal('dashboardUuid' in prepared.query, false);
+        assert.equal(prepared.query.exploreName, 'orders');
     });
 });
 

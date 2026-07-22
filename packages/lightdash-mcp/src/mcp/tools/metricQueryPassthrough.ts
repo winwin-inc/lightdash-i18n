@@ -78,7 +78,10 @@ export function omitEmptyOptionalMetricQueryFields(
 export function prepareSemanticMetricQueryBody(
     metricQuery: unknown,
     limitOverride: number | undefined,
-): Record<string, unknown> {
+): {
+    query: Record<string, unknown>;
+    dashboardUuid: string | undefined;
+} {
     const parsed = parseMetricQueryInput(metricQuery);
     const { exploreName } = parsed;
     if (typeof exploreName !== 'string' || exploreName.length === 0) {
@@ -86,11 +89,20 @@ export function prepareSemanticMetricQueryBody(
             'metricQuery.exploreName 必须为非空字符串',
         );
     }
-    let query = omitEmptyOptionalMetricQueryFields(parsed);
+    const embeddedDashboardUuid =
+        typeof parsed.dashboardUuid === 'string' &&
+        parsed.dashboardUuid.length > 0
+            ? parsed.dashboardUuid
+            : undefined;
+    const { dashboardUuid: _dashboardUuid, ...withoutDashboardUuid } = parsed;
+    let query = omitEmptyOptionalMetricQueryFields(withoutDashboardUuid);
     if (limitOverride !== undefined) {
         query = { ...query, limit: limitOverride };
     }
-    return query;
+    return {
+        query,
+        dashboardUuid: embeddedDashboardUuid,
+    };
 }
 
 const FLAT_ONLY_KEYS = [
