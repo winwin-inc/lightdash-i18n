@@ -86,6 +86,7 @@ const convertFilterOperatorToDbt = (filter: MetricFilterRule): string[] => {
         case FilterOperator.NOT_IN_THE_PAST:
         case FilterOperator.NOT_IN_THE_CURRENT:
         case FilterOperator.NOT_IN_BETWEEN:
+        case FilterOperator.FROM_START_TO_LATEST_MONTH:
             throw new NotImplementedError(
                 `No function implemented to convert custom metric filter to dbt: ${operator}`,
             );

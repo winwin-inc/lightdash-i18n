@@ -28,6 +28,8 @@ export enum FilterOperator {
     NOT_IN_THE_CURRENT = 'notInTheCurrent',
     IN_BETWEEN = 'inBetween',
     NOT_IN_BETWEEN = 'notInBetween',
+    /** Fixed start date through latest month that has data (MAX of field) */
+    FROM_START_TO_LATEST_MONTH = 'fromStartToLatestMonth',
 }
 
 export type BaseFilterRule<O = FilterOperator, V = unknown> = {

@@ -77,11 +77,24 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         case FilterOperator.GREATER_THAN_OR_EQUAL:
         case FilterOperator.LESS_THAN:
         case FilterOperator.LESS_THAN_OR_EQUAL:
+        case FilterOperator.FROM_START_TO_LATEST_MONTH:
             if (isDimension(field) && field.timeInterval) {
                 switch (field.timeInterval.toUpperCase()) {
                     case TimeFrames.WEEK:
                         return (
                             <Flex align="center" gap="xs" w="100%">
+                                {rule.operator ===
+                                    FilterOperator.FROM_START_TO_LATEST_MONTH && (
+                                    <Text
+                                        color="dimmed"
+                                        sx={{ whiteSpace: 'nowrap' }}
+                                        size="xs"
+                                    >
+                                        {t(
+                                            'components_common_filters_inputs.to_latest_month_hint',
+                                        )}
+                                    </Text>
+                                )}
                                 <Text
                                     color="dimmed"
                                     sx={{ whiteSpace: 'nowrap' }}
@@ -134,35 +147,48 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                         );
                     case TimeFrames.MONTH:
                         return (
-                            <FilterMonthAndYearPicker
-                                disabled={disabled}
-                                minDate={cfgMin}
-                                maxDate={cfgMax}
-                                // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
-                                // @ts-ignore
-                                placeholder={placeholder}
-                                autoFocus={true}
-                                popoverProps={popoverProps}
-                                value={
-                                    rule.values && rule.values[0]
-                                        ? parseDate(
-                                              formatDate(
-                                                  rule.values[0],
+                            <Flex direction="column" gap={4} w="100%">
+                                {rule.operator ===
+                                    FilterOperator.FROM_START_TO_LATEST_MONTH && (
+                                    <Text color="dimmed" size="xs">
+                                        {t(
+                                            'components_common_filters_inputs.to_latest_month_hint',
+                                        )}
+                                    </Text>
+                                )}
+                                <FilterMonthAndYearPicker
+                                    disabled={disabled}
+                                    minDate={cfgMin}
+                                    maxDate={cfgMax}
+                                    // FIXME: until mantine 7.4: https://github.com/mantinedev/mantine/issues/5401#issuecomment-1874906064
+                                    // @ts-ignore
+                                    placeholder={placeholder}
+                                    autoFocus={true}
+                                    popoverProps={popoverProps}
+                                    value={
+                                        rule.values && rule.values[0]
+                                            ? parseDate(
+                                                  formatDate(
+                                                      rule.values[0],
+                                                      TimeFrames.MONTH,
+                                                  ),
                                                   TimeFrames.MONTH,
-                                              ),
-                                              TimeFrames.MONTH,
-                                          )
-                                        : null
-                                }
-                                onChange={(value: Date) => {
-                                    onChange({
-                                        ...rule,
-                                        values: [
-                                            formatDate(value, TimeFrames.MONTH),
-                                        ],
-                                    });
-                                }}
-                            />
+                                              )
+                                            : null
+                                    }
+                                    onChange={(value: Date) => {
+                                        onChange({
+                                            ...rule,
+                                            values: [
+                                                formatDate(
+                                                    value,
+                                                    TimeFrames.MONTH,
+                                                ),
+                                            ],
+                                        });
+                                    }}
+                                />
+                            </Flex>
                         );
                     case TimeFrames.QUARTER:
                         const ruleValue = rule.values?.[0];
@@ -264,34 +290,47 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             }
 
             return (
-                <FilterDatePicker
-                    disabled={disabled}
-                    minDate={cfgMin}
-                    maxDate={cfgMax}
-                    placeholder={placeholder}
-                    // FIXME: mantine v7
-                    // mantine does not set the first day of the week based on the locale
-                    // so we need to do it manually and always pass it as a prop
-                    firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
-                    popoverProps={popoverProps}
-                    autoFocus={true}
-                    value={
-                        rule.values
-                            ? parseDate(
-                                  formatDate(rule.values[0], TimeFrames.DAY),
-                                  TimeFrames.DAY,
-                              )
-                            : null
-                    }
-                    onChange={(value: Date | null) => {
-                        onChange({
-                            ...rule,
-                            values: value
-                                ? [formatDate(value, TimeFrames.DAY)]
-                                : [],
-                        });
-                    }}
-                />
+                <Flex direction="column" gap={4} w="100%">
+                    {rule.operator ===
+                        FilterOperator.FROM_START_TO_LATEST_MONTH && (
+                        <Text color="dimmed" size="xs">
+                            {t(
+                                'components_common_filters_inputs.to_latest_month_hint',
+                            )}
+                        </Text>
+                    )}
+                    <FilterDatePicker
+                        disabled={disabled}
+                        minDate={cfgMin}
+                        maxDate={cfgMax}
+                        placeholder={placeholder}
+                        // FIXME: mantine v7
+                        // mantine does not set the first day of the week based on the locale
+                        // so we need to do it manually and always pass it as a prop
+                        firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
+                        popoverProps={popoverProps}
+                        autoFocus={true}
+                        value={
+                            rule.values
+                                ? parseDate(
+                                      formatDate(
+                                          rule.values[0],
+                                          TimeFrames.DAY,
+                                      ),
+                                      TimeFrames.DAY,
+                                  )
+                                : null
+                        }
+                        onChange={(value: Date | null) => {
+                            onChange({
+                                ...rule,
+                                values: value
+                                    ? [formatDate(value, TimeFrames.DAY)]
+                                    : [],
+                            });
+                        }}
+                    />
+                </Flex>
             );
         case FilterOperator.IN_THE_PAST:
         case FilterOperator.NOT_IN_THE_PAST:

@@ -2265,7 +2265,8 @@
             "in_the_current": "in the current",
             "not_in_the_current": "not in the current",
             "is_between": "is between",
-            "is_not_between": "is not between"
+            "is_not_between": "is not between",
+            "to_latest_month": "to latest month"
         },
         "filter_quarter_picker": {
             "select_quarter": "Select quarter"
@@ -2283,11 +2284,14 @@
             "is_on_or_before": "is on or before",
             "is_after": "is after",
             "is_on_or_after": "is on or after",
-            "is_between": "is between"
+            "is_between": "is between",
+            "to_latest_month": "to latest month"
         },
         "date_range": {
             "and": "and"
         },
+        "to_latest_month_hint": "End: latest month with data",
+        "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {
             "milliseconds": "millisecond",
             "seconds": "second",

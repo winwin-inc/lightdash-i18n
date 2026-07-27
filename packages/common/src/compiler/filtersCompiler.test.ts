@@ -17,6 +17,10 @@ import {
     ExpectedInTheNextFilterSQL,
     ExpectedInThePastCompleteWeekFilterSQLWithCustomStartOfWeek,
     ExpectedNumberFilterSQL,
+    FromStartToLatestMonthFilter,
+    FromStartToLatestMonthFilterSQLWithMaxSubquery,
+    FromStartToLatestMonthFilterSQLWithResolvedEnd,
+    FromStartToLatestMonthFilterWithResolvedEnd,
     InBetweenPastTwoYearsFilter,
     InBetweenPastTwoYearsFilterSQL,
     InBetweenPastTwoYearsTimestampFilterSQL,
@@ -601,6 +605,41 @@ describe('Filter SQL', () => {
                 'UTC',
             ),
         ).toStrictEqual(InBetweenPastTwoYearsFilterSQL);
+    });
+    test('should return fromStartToLatestMonth date filter sql with max subquery', () => {
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                FromStartToLatestMonthFilter,
+                adapterType.default,
+                'UTC',
+                undefined,
+                undefined,
+                'SELECT MAX(customers.created) FROM analytics.customers AS customers',
+            ),
+        ).toStrictEqual(FromStartToLatestMonthFilterSQLWithMaxSubquery);
+    });
+    test('should return fromStartToLatestMonth date filter sql with resolved end value', () => {
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                FromStartToLatestMonthFilterWithResolvedEnd,
+                adapterType.default,
+                'UTC',
+            ),
+        ).toStrictEqual(FromStartToLatestMonthFilterSQLWithResolvedEnd);
+    });
+    test('should throw when fromStartToLatestMonth has no upper bound', () => {
+        expect(() =>
+            renderDateFilterSql(
+                DimensionSqlMock,
+                FromStartToLatestMonthFilter,
+                adapterType.default,
+                'UTC',
+            ),
+        ).toThrow(
+            'Filter "fromStartToLatestMonth" requires a latest-data-month upper bound',
+        );
     });
     test('should return in between date filter sql for trino adapter', () => {
         expect(

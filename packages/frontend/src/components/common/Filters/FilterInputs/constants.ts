@@ -62,6 +62,9 @@ export const useFilterOperatorLabel = () => {
         [FilterOperator.NOT_IN_BETWEEN]: t(
             'components_common_filters_inputs.filter_operator_labels.is_not_between',
         ),
+        [FilterOperator.FROM_START_TO_LATEST_MONTH]: t(
+            'components_common_filters_inputs.filter_operator_labels.to_latest_month',
+        ),
     } as Record<FilterOperator, string>;
 
     const getFilterOptions = <T extends FilterOperator>(

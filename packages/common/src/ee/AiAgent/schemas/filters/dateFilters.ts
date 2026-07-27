@@ -86,6 +86,10 @@ const dateFilterSchema = z.union([
         operator: z.literal(FilterOperator.IN_BETWEEN),
         values: z.array(dateOrDateTimeSchema).length(2),
     }),
+    commonDateFilterRuleSchema.extend({
+        operator: z.literal(FilterOperator.FROM_START_TO_LATEST_MONTH),
+        values: z.array(dateOrDateTimeSchema).length(1),
+    }),
 ]);
 
 export default dateFilterSchema;

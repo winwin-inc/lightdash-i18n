@@ -63,6 +63,7 @@ export const usePlaceholderByFilterTypeAndOperator = () => {
                     case FilterOperator.IN_THE_NEXT:
                     case FilterOperator.IN_THE_CURRENT:
                     case FilterOperator.NOT_IN_THE_CURRENT:
+                    case FilterOperator.FROM_START_TO_LATEST_MONTH:
                         // This can happen if a filter was added using an old table calculation without type, as we default to number
                         console.warn(
                             `Unexpected operator ${type} for number filter type. If you are using a table calculation, please update its result type to string.`,
@@ -106,6 +107,7 @@ export const usePlaceholderByFilterTypeAndOperator = () => {
                     case FilterOperator.NOT_IN_THE_CURRENT:
                     case FilterOperator.IN_BETWEEN:
                     case FilterOperator.NOT_IN_BETWEEN:
+                    case FilterOperator.FROM_START_TO_LATEST_MONTH:
                         throw new NotImplementedError(
                             `Filter type ${type} with operator ${operator} is not implemented`,
                         );
@@ -131,6 +133,10 @@ export const usePlaceholderByFilterTypeAndOperator = () => {
                         // in between is a special case since it displays two separate date pickers
                         // by default it shows a correct placeholder which is "Start date" and "End date"
                         return '';
+                    case FilterOperator.FROM_START_TO_LATEST_MONTH:
+                        return t(
+                            'components_common_filters_inputs.filter_placeholder.select_date',
+                        );
                     case FilterOperator.IN_THE_CURRENT:
                     case FilterOperator.NOT_IN_THE_CURRENT:
                     case FilterOperator.NULL:
@@ -172,6 +178,7 @@ export const usePlaceholderByFilterTypeAndOperator = () => {
                     case FilterOperator.NOT_IN_THE_CURRENT:
                     case FilterOperator.IN_BETWEEN:
                     case FilterOperator.NOT_IN_BETWEEN:
+                    case FilterOperator.FROM_START_TO_LATEST_MONTH:
                         throw new NotImplementedError(
                             `Filter type ${type} with operator ${operator} is not implemented`,
                         );

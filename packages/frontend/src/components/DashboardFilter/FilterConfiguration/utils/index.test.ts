@@ -2,6 +2,7 @@ import { FilterOperator, type DashboardFilterRule } from '@lightdash/common';
 
 import {
     applyExcludedValuesToFilterRule,
+    hasFilterValueSet,
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     normalizeExcludedValues,
@@ -21,6 +22,41 @@ const createFilterRule = (
     values: ['伊利股份', '蒙牛'],
     disabled: false,
     ...overrides,
+});
+
+describe('hasFilterValueSet', () => {
+    it('requires only start date for fromStartToLatestMonth', () => {
+        expect(
+            hasFilterValueSet(
+                createFilterRule({
+                    operator: FilterOperator.FROM_START_TO_LATEST_MONTH,
+                    values: ['2026-01'],
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    it('is false for fromStartToLatestMonth without start date', () => {
+        expect(
+            hasFilterValueSet(
+                createFilterRule({
+                    operator: FilterOperator.FROM_START_TO_LATEST_MONTH,
+                    values: [],
+                }),
+            ),
+        ).toBe(false);
+    });
+
+    it('still requires two values for inBetween', () => {
+        expect(
+            hasFilterValueSet(
+                createFilterRule({
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['2026-01'],
+                }),
+            ),
+        ).toBe(false);
+    });
 });
 
 describe('normalizeExcludedValues', () => {

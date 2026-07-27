@@ -79,6 +79,12 @@ const useTimeFilterOptions = (): Array<{
                 'components_common_filters_inputs.time_filter_options.is_between',
             ),
         },
+        {
+            value: FilterOperator.FROM_START_TO_LATEST_MONTH,
+            label: t(
+                'components_common_filters_inputs.time_filter_options.to_latest_month',
+            ),
+        },
     ];
 };
 
@@ -164,8 +170,7 @@ const useValueAsString = () => {
                     case FilterOperator.IN_THE_NEXT:
                     case FilterOperator.IN_THE_CURRENT:
                     case FilterOperator.NOT_IN_THE_CURRENT: {
-                        const relativeDisplay =
-                            formatRelativeTimeDisplay(rule);
+                        const relativeDisplay = formatRelativeTimeDisplay(rule);
                         if (relativeDisplay) {
                             return relativeDisplay;
                         }
@@ -203,6 +208,26 @@ const useValueAsString = () => {
                                 secondValue as MomentInput,
                             )}`;
                         }
+                    case FilterOperator.FROM_START_TO_LATEST_MONTH: {
+                        const startDisplay =
+                            isDimension(field) &&
+                            isMomentInput(firstValue) &&
+                            field.type === DimensionType.DATE
+                                ? formatDate(
+                                      firstValue as MomentInput,
+                                      field.timeInterval,
+                                  )
+                                : isMomentInput(firstValue)
+                                  ? getLocalTimeDisplay(
+                                        firstValue as MomentInput,
+                                        false,
+                                    )
+                                  : String(firstValue ?? '');
+                        return t(
+                            'components_common_filters_inputs.to_latest_month_chip',
+                            { start: startDisplay },
+                        );
+                    }
                     case FilterOperator.NULL:
                     case FilterOperator.NOT_NULL:
                     case FilterOperator.EQUALS:
@@ -261,9 +286,7 @@ const buildConditionalRuleLabel = (
     rule: BaseFilterRule,
     filterType: FilterType,
     fieldLabel: string,
-    getFilterOperatorOptions: ReturnType<
-        typeof useFilterOperatorOptions
-    >,
+    getFilterOperatorOptions: ReturnType<typeof useFilterOperatorOptions>,
     filterOperatorLabel: ReturnType<
         typeof useFilterOperatorLabel
     >['filterOperatorLabel'],

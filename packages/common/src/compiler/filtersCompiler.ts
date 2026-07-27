@@ -201,6 +201,12 @@ export const renderDateFilterSql = (
     timezone: string,
     dateFormatter: (date: Date) => string = formatDate,
     startOfWeek: WeekDay | null | undefined = undefined,
+    /**
+     * Optional raw SQL for upper bound of FROM_START_TO_LATEST_MONTH
+     * (typically `SELECT MAX(...) FROM table AS alias`).
+     * When omitted, falls back to filter.values[1] if present.
+     */
+    latestDataMonthMaxSql: string | undefined = undefined,
 ): string => {
     const castValue = (value: string): string => {
         switch (adapterType) {
@@ -372,6 +378,25 @@ export const renderDateFilterSql = (
                 startDate,
             )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
         }
+        case FilterOperator.FROM_START_TO_LATEST_MONTH: {
+            const startDate = dateFormatter(filter.values?.[0]);
+            let endBound: string | undefined;
+            if (latestDataMonthMaxSql) {
+                endBound = `(${latestDataMonthMaxSql})`;
+            } else if (filter.values?.[1] != null) {
+                endBound = castValue(dateFormatter(filter.values[1]));
+            }
+
+            if (endBound === undefined) {
+                throw new CompileError(
+                    'Filter "fromStartToLatestMonth" requires a latest-data-month upper bound',
+                );
+            }
+
+            return `((${dimensionSql}) >= ${castValue(
+                startDate,
+            )} AND (${dimensionSql}) <= ${endBound})`;
+        }
         default:
             return raiseInvalidFilterError('date', filter);
     }
@@ -481,6 +506,7 @@ export const renderFilterRuleSql = (
     startOfWeek: WeekDay | null | undefined,
     adapterType: SupportedDbtAdapter,
     timezone: string = 'UTC',
+    latestDataMonthMaxSql: string | undefined = undefined,
 ): string => {
     if (filterRule.disabled) {
         return `1=1`; // When filter is disabled, we want to return all rows
@@ -523,6 +549,7 @@ export const renderFilterRuleSql = (
                 timezone,
                 undefined,
                 startOfWeek,
+                latestDataMonthMaxSql,
             );
         }
         case DimensionType.TIMESTAMP:
@@ -534,6 +561,7 @@ export const renderFilterRuleSql = (
                 timezone,
                 formatTimestampAsUTCWithNoTimezone,
                 startOfWeek,
+                latestDataMonthMaxSql,
             );
         }
         case DimensionType.BOOLEAN:
@@ -559,6 +587,7 @@ export const renderFilterRuleSqlFromField = (
     startOfWeek: WeekDay | null | undefined,
     adapterType: SupportedDbtAdapter,
     timezone: string = 'UTC',
+    latestDataMonthMaxSql: string | undefined = undefined,
 ): string => {
     const fieldType = isCompiledCustomSqlDimension(field)
         ? field.dimensionType
@@ -575,5 +604,6 @@ export const renderFilterRuleSqlFromField = (
         startOfWeek,
         adapterType,
         timezone,
+        latestDataMonthMaxSql,
     );
 };

@@ -119,6 +119,13 @@ export const hasFilterValueSet = (filterRule: DashboardFilterRule) => {
                 filterRule.values.length === 2 &&
                 filterRule.values.every((val) => val != null && val !== '')
             );
+        case FilterOperator.FROM_START_TO_LATEST_MONTH:
+            return (
+                filterRule.values != null &&
+                filterRule.values.length > 0 &&
+                filterRule.values[0] != null &&
+                filterRule.values[0] !== ''
+            );
         default:
             return assertUnreachable(filterRule.operator, 'unknown operator');
     }

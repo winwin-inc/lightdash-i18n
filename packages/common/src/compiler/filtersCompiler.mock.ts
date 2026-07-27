@@ -56,6 +56,7 @@ export const ExpectedNumberFilterSQL: Record<FilterOperator, string | null> = {
         '(customers.age) >= (1) AND (customers.age) <= (2)',
     [FilterOperator.NOT_IN_BETWEEN]:
         '(customers.age) < (1) OR (customers.age) > (2)',
+    [FilterOperator.FROM_START_TO_LATEST_MONTH]: null,
 };
 
 export const InTheCurrentFilterBase = {
@@ -379,6 +380,26 @@ export const InBetweenPastTwoYearsFilterSQL = `((customers.created) >= ('2021-04
 export const TrinoInBetweenPastTwoYearsFilterSQL = `((customers.created) >= CAST('2021-04-04' AS timestamp) AND (customers.created) <= CAST('2023-04-04' AS timestamp))`;
 export const InBetweenPastTwoYearsTimestampFilterSQL = `((customers.created) >= ('2021-04-04 00:00:00') AND (customers.created) <= ('2023-04-04 00:00:00'))`;
 export const TrinoInBetweenPastTwoYearsTimestampFilterSQL = `((customers.created) >= CAST('2021-04-04 00:00:00' AS timestamp) AND (customers.created) <= CAST('2023-04-04 00:00:00' AS timestamp))`;
+
+export const FromStartToLatestMonthFilter = {
+    id: 'id',
+    target: {
+        fieldId: 'fieldId',
+    },
+    operator: FilterOperator.FROM_START_TO_LATEST_MONTH,
+    values: [new Date('01 Jan 2026 00:00:00 GMT')],
+};
+
+export const FromStartToLatestMonthFilterWithResolvedEnd = {
+    ...FromStartToLatestMonthFilter,
+    values: [
+        new Date('01 Jan 2026 00:00:00 GMT'),
+        new Date('01 Jun 2026 00:00:00 GMT'),
+    ],
+};
+
+export const FromStartToLatestMonthFilterSQLWithMaxSubquery = `((customers.created) >= ('2026-01-01') AND (customers.created) <= (SELECT MAX(customers.created) FROM analytics.customers AS customers))`;
+export const FromStartToLatestMonthFilterSQLWithResolvedEnd = `((customers.created) >= ('2026-01-01') AND (customers.created) <= ('2026-06-01'))`;
 
 const stringSingleValueFilter = {
     id: '701b6520-1b19-4051-a553-7615aee0b03d',

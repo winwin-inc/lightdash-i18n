@@ -11,6 +11,7 @@ import {
     FieldReferenceError,
     FieldType,
     FilterGroup,
+    FilterOperator,
     FilterRule,
     getCustomMetricDimensionId,
     getDimensions,
@@ -653,6 +654,45 @@ export class MetricQueryBuilder {
             );
         }
 
+        let latestDataMonthMaxSql: string | undefined;
+        if (
+            filterRuleWithParamReplacedValues.operator ===
+            FilterOperator.FROM_START_TO_LATEST_MONTH
+        ) {
+            if (fieldType !== FieldType.DIMENSION) {
+                throw new CompileError(
+                    'Filter "fromStartToLatestMonth" is only supported on date dimensions',
+                );
+            }
+            if (isCompiledCustomSqlDimension(field)) {
+                throw new CompileError(
+                    'Filter "fromStartToLatestMonth" is not supported on custom SQL dimensions',
+                );
+            }
+
+            const tableName =
+                'table' in field && typeof field.table === 'string'
+                    ? field.table
+                    : undefined;
+            const compiledTable =
+                tableName !== undefined ? explore.tables[tableName] : undefined;
+            if (!tableName || !compiledTable?.sqlTable) {
+                throw new CompileError(
+                    `Cannot resolve latest data month for filter on field ${filterRuleWithParamReplacedValues.target.fieldId}`,
+                );
+            }
+
+            const { intrinsicUserAttributes, userAttributes = {} } = this.args;
+            const sqlTable = replaceUserAttributesRaw(
+                compiledTable.sqlTable,
+                intrinsicUserAttributes,
+                userAttributes,
+            );
+            const tableAlias = `${fieldQuoteChar}${tableName}${fieldQuoteChar}`;
+            // field.compiledSql already references this table alias
+            latestDataMonthMaxSql = `SELECT MAX(${field.compiledSql}) FROM ${sqlTable} AS ${tableAlias}`;
+        }
+
         return renderFilterRuleSqlFromField(
             filterRuleWithParamReplacedValues,
             field,
@@ -662,6 +702,7 @@ export class MetricQueryBuilder {
             startOfWeek,
             adapterType,
             timezone,
+            latestDataMonthMaxSql,
         );
     }
 

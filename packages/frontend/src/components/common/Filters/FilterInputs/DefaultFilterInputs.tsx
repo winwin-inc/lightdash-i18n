@@ -210,6 +210,10 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                     }}
                 />
             );
+        case FilterOperator.FROM_START_TO_LATEST_MONTH:
+            throw new Error(
+                `No form implemented for filter operator ${rule.operator}`,
+            );
         default:
             return assertUnreachable(
                 rule.operator,

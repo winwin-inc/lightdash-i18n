@@ -2248,7 +2248,8 @@
             "in_the_current": "当前",
             "not_in_the_current": "非当前",
             "is_between": "在之间",
-            "is_not_between": "不在之间"
+            "is_not_between": "不在之间",
+            "to_latest_month": "至最新月"
         },
         "filter_quarter_picker": {
             "select_quarter": "选择季度"
@@ -2266,11 +2267,14 @@
             "is_on_or_before": "在或之前",
             "is_after": "在之后",
             "is_on_or_after": "在或之后",
-            "is_between": "在之间"
+            "is_between": "在之间",
+            "to_latest_month": "至最新月"
         },
         "date_range": {
             "and": "至"
         },
+        "to_latest_month_hint": "结束：有数据最新月",
+        "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {
             "milliseconds": "毫秒",
             "seconds": "秒",
