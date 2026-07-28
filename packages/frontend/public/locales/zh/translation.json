@@ -2273,7 +2273,7 @@
         "date_range": {
             "and": "至"
         },
-        "to_latest_month_hint": "结束：有数据最新月",
+        "to_latest_month_hint": "开始月",
         "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {
             "milliseconds": "毫秒",
