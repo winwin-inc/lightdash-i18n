@@ -2,14 +2,21 @@ import { CartesianSeriesType, type ResultRow } from '@lightdash/common';
 import { describe, expect, test, vi } from 'vitest';
 import { type InfiniteQueryResults } from '../useQueryResults';
 import {
+    applyVerticalBarAxisSortSeriesData,
+    applyWidePivotBarSeriesData,
+    calculateStackTotal,
     getAxisDefaultMaxValue,
     getAxisDefaultMinValue,
     getLineLegendOrder,
     getMinAndMaxValues,
+    getSeriesValueFromRow,
     getStackedBarLegendOrder,
+    shouldInjectSeriesCategoryAxis,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
     sortStackedBarSeriesByValue,
+    sortVerticalBarSeriesByBarTotals,
+    sortWidePivotBarSeriesByBarTotals,
     type EChartSeries,
 } from './useEchartsCartesianConfig';
 
@@ -463,11 +470,81 @@ describe('sortFlipAxesWidePivotBarSeriesByBarTotals', () => {
         expect(result).toBeUndefined();
     });
 
-    test('should return undefined when flipAxes is disabled', () => {
-        const result = sortFlipAxesWidePivotBarSeriesByBarTotals({
-            layout: { ...layout, flipAxes: false },
-            series: unsortedSeries,
+    test('should sort vertical (non-flipAxes) wide pivot bar series ascending by value', () => {
+        const verticalLayout = {
+            flipAxes: false as const,
+            xField: 'mengniu_type',
+            yField: ['1111'],
+        };
+
+        const makeVerticalBarSerie = (columnKey: string): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            encode: {
+                x: 'mengniu_type',
+                y: columnKey,
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+        });
+
+        const verticalUnsortedSeries: EChartSeries[] = [
+            makeVerticalBarSerie('1111_any_巧冰'),
+            makeVerticalBarSerie('1111_any_豆冰'),
+            makeVerticalBarSerie('1111_any_其他'),
+            makeVerticalBarSerie('1111_any_水冰'),
+            makeVerticalBarSerie('1111_any_奶冰'),
+        ];
+
+        const result = sortWidePivotBarSeriesByBarTotals({
+            layout: verticalLayout,
+            series: verticalUnsortedSeries,
             datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.sortedCategoryLabels).toEqual([
+            '其他',
+            '豆冰',
+            '水冰',
+            '奶冰',
+            '巧冰',
+        ]);
+        expect(result!.sortedSeries.map((serie) => serie.encode?.y)).toEqual([
+            '1111_any_其他',
+            '1111_any_豆冰',
+            '1111_any_水冰',
+            '1111_any_奶冰',
+            '1111_any_巧冰',
+        ]);
+    });
+
+    test('should return undefined for vertical long-format dataset where category column exists in rows', () => {
+        const longFormatRows = [
+            { mengniu_type: '其他', '1111': 0.01 },
+            { mengniu_type: '豆冰', '1111': 2.49 },
+        ];
+
+        const longFormatSeries: EChartSeries[] = [
+            {
+                type: CartesianSeriesType.BAR,
+                connectNulls: true,
+                encode: {
+                    x: 'mengniu_type',
+                    y: '1111',
+                    tooltip: ['1111'],
+                    seriesName: '1111',
+                },
+            },
+        ];
+
+        const result = sortWidePivotBarSeriesByBarTotals({
+            layout: { ...layout, flipAxes: false },
+            series: longFormatSeries,
+            datasetRows: longFormatRows,
             pivotDetails,
             itemsMap: {},
             pivotValuesColumnsMap,
@@ -924,5 +1001,1091 @@ describe('sortStackedBarSeriesByValue', () => {
             '1111_any_其他',
         ]);
         expect(result[5]?.type).toBe(CartesianSeriesType.LINE);
+    });
+});
+
+describe('getSeriesValueFromRow and calculateStackTotal long-format fallback', () => {
+    const enterpriseField = '企业名称';
+    const metricField = '销售额占比';
+
+    const makeLongFormatRow = (
+        enterprise: string,
+        value: number,
+    ): ResultRow => ({
+        [enterpriseField]: {
+            value: { raw: enterprise, formatted: enterprise },
+        },
+        [metricField]: {
+            value: { raw: value, formatted: `${value}%` },
+        },
+    });
+
+    const makePivotHashSerie = (enterprise: string): EChartSeries => ({
+        type: CartesianSeriesType.BAR,
+        connectNulls: true,
+        name: enterprise,
+        encode: {
+            x: enterpriseField,
+            y: `${metricField}.${enterpriseField}.${enterprise}`,
+            tooltip: [`${metricField}.${enterpriseField}.${enterprise}`],
+            seriesName: `${metricField}.${enterpriseField}.${enterprise}`,
+        },
+    });
+
+    test('getSeriesValueFromRow falls back to metric.dim.category on long-format rows', () => {
+        const row = makeLongFormatRow('江西赣州宏昌', 0.3534);
+        const hash = `${metricField}.${enterpriseField}.江西赣州宏昌`;
+
+        expect(getSeriesValueFromRow(row, hash)).toBe(0.3534);
+        expect(
+            getSeriesValueFromRow(
+                row,
+                `${metricField}.${enterpriseField}.河南郑州建业`,
+            ),
+        ).toBe(0);
+    });
+
+    test('getSeriesValueFromRow prefers pivoted hash column when present', () => {
+        const hash = `${metricField}.${enterpriseField}.江西赣州宏昌`;
+        const row: ResultRow = {
+            ...makeLongFormatRow('江西赣州宏昌', 0.3534),
+            [hash]: { value: { raw: 0.99, formatted: '99%' } },
+        };
+
+        expect(getSeriesValueFromRow(row, hash)).toBe(0.99);
+    });
+
+    test('calculateStackTotal sorts dashboard long-format rows by bar value for BAR_TOTALS', () => {
+        const rows = [
+            makeLongFormatRow('河南商丘森义', 0.0699),
+            makeLongFormatRow('江西赣州宏昌', 0.3534),
+            makeLongFormatRow('河南郑州建业', 0.1259),
+            makeLongFormatRow('河南新乡万德隆', 0.0112),
+        ];
+
+        const series = rows.map((row) =>
+            makePivotHashSerie(String(row[enterpriseField]?.value.raw)),
+        );
+
+        const sorted = [...rows].sort((a, b) => {
+            const totalA = calculateStackTotal(a, series, false, undefined);
+            const totalB = calculateStackTotal(b, series, false, undefined);
+            return totalA - totalB;
+        });
+
+        expect(sorted.map((row) => row[enterpriseField]?.value.raw)).toEqual([
+            '河南新乡万德隆',
+            '河南商丘森义',
+            '河南郑州建业',
+            '江西赣州宏昌',
+        ]);
+        expect(
+            sorted.map((row) =>
+                calculateStackTotal(row, series, false, undefined),
+            ),
+        ).toEqual([0.0112, 0.0699, 0.1259, 0.3534]);
+    });
+
+    test('calculateStackTotal ignores hidden legend series', () => {
+        const row = makeLongFormatRow('江西赣州宏昌', 0.3534);
+        const series = [
+            makePivotHashSerie('江西赣州宏昌'),
+            makePivotHashSerie('河南郑州建业'),
+        ];
+
+        expect(
+            calculateStackTotal(row, series, false, {
+                江西赣州宏昌: false,
+            }),
+        ).toBe(0);
+    });
+});
+
+describe('sortVerticalBarSeriesByBarTotals', () => {
+    const enterpriseField = '企业名称';
+    const metricField = '销售额占比';
+
+    const makeLongFormatRow = (
+        enterprise: string,
+        value: number,
+    ): ResultRow => ({
+        [enterpriseField]: {
+            value: { raw: enterprise, formatted: enterprise },
+        },
+        [metricField]: {
+            value: { raw: value, formatted: `${value}%` },
+        },
+    });
+
+    const makePivotHashSerie = (enterprise: string): EChartSeries => ({
+        type: CartesianSeriesType.BAR,
+        connectNulls: true,
+        name: enterprise,
+        encode: {
+            x: enterpriseField,
+            y: `${metricField}.${enterpriseField}.${enterprise}`,
+            tooltip: [`${metricField}.${enterpriseField}.${enterprise}`],
+            seriesName: `${metricField}.${enterpriseField}.${enterprise}`,
+        },
+        pivotReference: {
+            field: metricField,
+            pivotValues: [{ field: enterpriseField, value: enterprise }],
+        },
+        dimensions: [
+            { name: enterpriseField, displayName: enterpriseField },
+            { name: metricField, displayName: enterprise },
+        ],
+    });
+
+    test('sorts without pivotDetails using long-format metric.dim.category fallback', () => {
+        const rows = [
+            makeLongFormatRow('河南商丘森义', 0.0699),
+            makeLongFormatRow('江西赣州宏昌', 0.3534),
+            makeLongFormatRow('河南郑州建业', 0.1259),
+            makeLongFormatRow('河南新乡万德隆', 0.0112),
+        ];
+        const series = [
+            makePivotHashSerie('河南商丘森义'),
+            makePivotHashSerie('江西赣州宏昌'),
+            makePivotHashSerie('河南郑州建业'),
+            makePivotHashSerie('河南新乡万德隆'),
+        ];
+
+        const result = sortVerticalBarSeriesByBarTotals({
+            series,
+            rows,
+            datasetRows: [],
+            itemsMap: {},
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.sortedCategoryLabels).toEqual([
+            '河南新乡万德隆',
+            '河南商丘森义',
+            '河南郑州建业',
+            '江西赣州宏昌',
+        ]);
+        expect(result!.sortedSeries.map((serie) => serie.name)).toEqual([
+            '河南新乡万德隆',
+            '河南商丘森义',
+            '河南郑州建业',
+            '江西赣州宏昌',
+        ]);
+    });
+
+    test('descending sorts high to low for LTR visual order', () => {
+        const rows = [
+            makeLongFormatRow('河南商丘森义', 0.0699),
+            makeLongFormatRow('江西赣州宏昌', 0.3534),
+            makeLongFormatRow('河南郑州建业', 0.1259),
+            makeLongFormatRow('河南新乡万德隆', 0.0112),
+        ];
+        const series = [
+            makePivotHashSerie('河南商丘森义'),
+            makePivotHashSerie('江西赣州宏昌'),
+            makePivotHashSerie('河南郑州建业'),
+            makePivotHashSerie('河南新乡万德隆'),
+        ];
+
+        const result = sortVerticalBarSeriesByBarTotals({
+            series,
+            rows,
+            datasetRows: [],
+            itemsMap: {},
+            descending: true,
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.sortedCategoryLabels).toEqual([
+            '江西赣州宏昌',
+            '河南郑州建业',
+            '河南商丘森义',
+            '河南新乡万德隆',
+        ]);
+        expect(result!.sortedSeries.map((serie) => serie.name)).toEqual([
+            '江西赣州宏昌',
+            '河南郑州建业',
+            '河南商丘森义',
+            '河南新乡万德隆',
+        ]);
+    });
+
+    test('applyVerticalBarAxisSortSeriesData keeps one point per series on long-format rows', () => {
+        const rows = [
+            makeLongFormatRow('河南商丘森义', 0.0699),
+            makeLongFormatRow('江西赣州宏昌', 0.3534),
+            makeLongFormatRow('河南郑州建业', 0.1259),
+        ];
+        // Long-format dataset: each hash column only present on some rows
+        const datasetRows = rows.map((row) => {
+            const enterprise = String(
+                (row[enterpriseField] as { value: { raw: string } }).value.raw,
+            );
+            const value = (row[metricField] as { value: { raw: number } }).value
+                .raw;
+            return {
+                [enterpriseField]: enterprise,
+                [`${metricField}.${enterpriseField}.${enterprise}`]: value,
+            };
+        });
+
+        const series = [
+            makePivotHashSerie('河南商丘森义'),
+            makePivotHashSerie('江西赣州宏昌'),
+            makePivotHashSerie('河南郑州建业'),
+        ];
+
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout: {
+                flipAxes: false,
+                xField: enterpriseField,
+                yField: [metricField],
+            },
+            series,
+            rows,
+            datasetRows,
+            itemsMap: {},
+        });
+
+        for (const serie of applied) {
+            expect(Array.isArray(serie.data)).toBe(true);
+            expect(serie.data).toHaveLength(1);
+            const point = serie.data![0] as [unknown, unknown];
+            expect(point[0]).toBe(serie.name);
+            expect(typeof point[1]).toBe('number');
+        }
+
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[1]),
+        ).toEqual([0.0699, 0.3534, 0.1259]);
+    });
+
+    test('returns undefined when all series totals are zero', () => {
+        const series = [makePivotHashSerie('江西赣州宏昌')];
+        const rows = [makeLongFormatRow('河南郑州建业', 0.1259)];
+
+        const result = sortVerticalBarSeriesByBarTotals({
+            series,
+            rows,
+            datasetRows: [],
+            itemsMap: {},
+        });
+
+        expect(result).toBeUndefined();
+    });
+
+    test('wide pivot vertical BAR_TOTALS still sorts by column values', () => {
+        const layout = {
+            flipAxes: false as const,
+            xField: 'mengniu_type',
+            yField: ['1111'],
+        };
+        const pivotDetails = {
+            totalColumnCount: 3,
+            indexColumn: { reference: 'types' },
+            valuesColumns: [
+                {
+                    pivotColumnName: '1111_any_其他',
+                    columnIndex: 0,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '其他',
+                            formatted: '其他',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+                {
+                    pivotColumnName: '1111_any_豆冰',
+                    columnIndex: 1,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '豆冰',
+                            formatted: '豆冰',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+                {
+                    pivotColumnName: '1111_any_巧冰',
+                    columnIndex: 2,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '巧冰',
+                            formatted: '巧冰',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+            ],
+            groupByColumns: undefined,
+            sortBy: undefined,
+            originalColumns: {},
+        } as unknown as InfiniteQueryResults['pivotDetails'];
+
+        const pivotValuesColumnsMap = Object.fromEntries(
+            (pivotDetails?.valuesColumns ?? []).map((column) => [
+                column.pivotColumnName,
+                column,
+            ]),
+        );
+
+        const datasetRows = [
+            {
+                types: 0,
+                '1111_any_其他': 0.01,
+                '1111_any_豆冰': 2.49,
+                '1111_any_巧冰': 24.75,
+            },
+        ];
+
+        const makeVerticalBarSerie = (columnKey: string): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            encode: {
+                x: 'mengniu_type',
+                y: columnKey,
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+        });
+
+        const unsortedSeries: EChartSeries[] = [
+            makeVerticalBarSerie('1111_any_巧冰'),
+            makeVerticalBarSerie('1111_any_其他'),
+            makeVerticalBarSerie('1111_any_豆冰'),
+        ];
+
+        const wideResult = sortWidePivotBarSeriesByBarTotals({
+            layout,
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(wideResult).toBeDefined();
+        expect(wideResult!.sortedCategoryLabels).toEqual([
+            '其他',
+            '豆冰',
+            '巧冰',
+        ]);
+
+        const wideDescending = sortWidePivotBarSeriesByBarTotals({
+            layout,
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+            descending: true,
+        });
+
+        expect(wideDescending!.sortedCategoryLabels).toEqual([
+            '巧冰',
+            '豆冰',
+            '其他',
+        ]);
+
+        // Vertical fallback also works when dataset columns are present
+        const verticalResult = sortVerticalBarSeriesByBarTotals({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(verticalResult).toBeDefined();
+        expect(verticalResult!.sortedSeries.map((s) => s.encode?.y)).toEqual([
+            '1111_any_其他',
+            '1111_any_豆冰',
+            '1111_any_巧冰',
+        ]);
+
+        // Single-row wide table: apply keeps one point using column value
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout,
+            series: unsortedSeries,
+            rows: [],
+            datasetRows,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(applied.map((s) => s.data)).toEqual([
+            [['巧冰', 24.75]],
+            [['其他', 0.01]],
+            [['豆冰', 2.49]],
+        ]);
+    });
+
+    test('dashboard path: overwrites wide multi-point data with one point per series', () => {
+        const layout = {
+            flipAxes: false as const,
+            xField: 'mengniu_type',
+            yField: ['1111'],
+        };
+        const pivotDetails = {
+            totalColumnCount: 3,
+            indexColumn: { reference: 'types' },
+            valuesColumns: [
+                {
+                    pivotColumnName: '1111_any_其他',
+                    columnIndex: 0,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '其他',
+                            formatted: '其他',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+                {
+                    pivotColumnName: '1111_any_豆冰',
+                    columnIndex: 1,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '豆冰',
+                            formatted: '豆冰',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+                {
+                    pivotColumnName: '1111_any_巧冰',
+                    columnIndex: 2,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '巧冰',
+                            formatted: '巧冰',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+            ],
+            groupByColumns: undefined,
+            sortBy: undefined,
+            originalColumns: {},
+        } as unknown as InfiniteQueryResults['pivotDetails'];
+
+        const pivotValuesColumnsMap = Object.fromEntries(
+            (pivotDetails?.valuesColumns ?? []).map((column) => [
+                column.pivotColumnName,
+                column,
+            ]),
+        );
+
+        // Multi-row wide dataset (dashboard scramble trigger for wide inject)
+        const datasetRows = [
+            {
+                types: 0,
+                '1111_any_其他': 0.01,
+                '1111_any_豆冰': 2.0,
+                '1111_any_巧冰': 10.0,
+            },
+            {
+                types: 1,
+                '1111_any_其他': 0.02,
+                '1111_any_豆冰': 0.49,
+                '1111_any_巧冰': 14.75,
+            },
+        ];
+
+        const makeVerticalBarSerie = (columnKey: string): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            encode: {
+                x: 'mengniu_type',
+                y: columnKey,
+                tooltip: [columnKey],
+                seriesName: columnKey,
+            },
+        });
+
+        const unsortedSeries: EChartSeries[] = [
+            makeVerticalBarSerie('1111_any_巧冰'),
+            makeVerticalBarSerie('1111_any_其他'),
+            makeVerticalBarSerie('1111_any_豆冰'),
+        ];
+
+        const wideInjected = applyWidePivotBarSeriesData({
+            layout,
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        // Wide path maps every dataset row → multi-point same category
+        expect(wideInjected[0].data).toHaveLength(2);
+
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout,
+            series: wideInjected,
+            rows: [],
+            datasetRows,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        for (const serie of applied) {
+            expect(serie.data).toHaveLength(1);
+        }
+
+        // Multi-row: values are column totals (0.03, 2.49, 24.75)
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[1]),
+        ).toEqual([24.75, 0.03, 2.49]);
+
+        // sortWide sums all rows (not first-row-only), matching bar heights
+        const descendingWide = sortWidePivotBarSeriesByBarTotals({
+            layout,
+            series: unsortedSeries,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+            descending: true,
+        });
+
+        expect(descendingWide!.sortedCategoryLabels).toEqual([
+            '巧冰',
+            '豆冰',
+            '其他',
+        ]);
+
+        // First-row descending would still be 巧冰>豆冰>其他; use a case where
+        // row0 order ≠ column totals (regression for multi-row wide BAR_TOTALS).
+        const multiRowDisagreeingFirstRow = [
+            {
+                types: 0,
+                '1111_any_其他': 100,
+                '1111_any_豆冰': 50,
+                '1111_any_巧冰': 10,
+            },
+            {
+                types: 1,
+                '1111_any_其他': 1,
+                '1111_any_豆冰': 200,
+                '1111_any_巧冰': 5,
+            },
+        ];
+        // Totals: 其他=101, 豆冰=250, 巧冰=15 → desc: 豆冰, 其他, 巧冰
+        // First-row-only desc would be: 其他, 豆冰, 巧冰
+
+        const descendingVertical = sortVerticalBarSeriesByBarTotals({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows: multiRowDisagreeingFirstRow,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+            descending: true,
+        });
+
+        expect(descendingVertical!.sortedCategoryLabels).toEqual([
+            '豆冰',
+            '其他',
+            '巧冰',
+        ]);
+        expect(
+            descendingVertical!.sortedSeries.map((s) => s.encode?.y),
+        ).toEqual(['1111_any_豆冰', '1111_any_其他', '1111_any_巧冰']);
+
+        const descendingWideDisagree = sortWidePivotBarSeriesByBarTotals({
+            layout,
+            series: unsortedSeries,
+            datasetRows: multiRowDisagreeingFirstRow,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+            descending: true,
+        });
+
+        expect(descendingWideDisagree!.sortedCategoryLabels).toEqual([
+            '豆冰',
+            '其他',
+            '巧冰',
+        ]);
+    });
+
+    test('sortWide returns undefined when column keys resolve to all zeros', () => {
+        const layout = {
+            flipAxes: false as const,
+            xField: 'mengniu_type',
+            yField: ['1111'],
+        };
+        const pivotDetails = {
+            totalColumnCount: 2,
+            indexColumn: { reference: 'types' },
+            valuesColumns: [
+                {
+                    pivotColumnName: '1111_any_其他',
+                    columnIndex: 0,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '其他',
+                            formatted: '其他',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+                {
+                    pivotColumnName: '1111_any_豆冰',
+                    columnIndex: 1,
+                    referenceField: '1111',
+                    aggregation: null,
+                    pivotValues: [
+                        {
+                            value: '豆冰',
+                            formatted: '豆冰',
+                            referenceField: 'mengniu_type',
+                        },
+                    ],
+                },
+            ],
+            groupByColumns: undefined,
+            sortBy: undefined,
+            originalColumns: {},
+        } as unknown as InfiniteQueryResults['pivotDetails'];
+
+        const pivotValuesColumnsMap = Object.fromEntries(
+            (pivotDetails?.valuesColumns ?? []).map((column) => [
+                column.pivotColumnName,
+                column,
+            ]),
+        );
+
+        // Wide shape but series encode keys do not match dataset columns
+        const datasetRows = [
+            {
+                types: 0,
+                '1111_any_其他': 10,
+                '1111_any_豆冰': 20,
+            },
+        ];
+
+        const series: EChartSeries[] = [
+            {
+                type: CartesianSeriesType.BAR,
+                connectNulls: true,
+                encode: {
+                    x: 'mengniu_type',
+                    y: 'missing_column_a',
+                    tooltip: ['missing_column_a'],
+                    seriesName: 'missing_column_a',
+                },
+            },
+            {
+                type: CartesianSeriesType.BAR,
+                connectNulls: true,
+                encode: {
+                    x: 'mengniu_type',
+                    y: 'missing_column_b',
+                    tooltip: ['missing_column_b'],
+                    seriesName: 'missing_column_b',
+                },
+            },
+        ];
+
+        const result = sortWidePivotBarSeriesByBarTotals({
+            layout,
+            series,
+            datasetRows,
+            pivotDetails,
+            itemsMap: {},
+            pivotValuesColumnsMap,
+        });
+
+        expect(result).toBeUndefined();
+    });
+
+    test('long-format + pivotReference + pivotColumnName encode sorts descending', () => {
+        const merchantField = 'btsl_zhengzhou_category_sales_merchant_name';
+        const rateField = 'btsl_zhengzhou_category_sales_total_rate';
+
+        const makeRow = (merchant: string, value: number): ResultRow => ({
+            [merchantField]: {
+                value: { raw: merchant, formatted: merchant },
+            },
+            [rateField]: {
+                value: { raw: value, formatted: `${value}%` },
+            },
+        });
+
+        const makeSerie = (
+            merchant: string,
+            pivotColumnName: string,
+        ): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            name: merchant,
+            encode: {
+                x: merchantField,
+                // Dashboard pivoted encode key — absent on long-format rows
+                y: pivotColumnName,
+                tooltip: [pivotColumnName],
+                seriesName: pivotColumnName,
+            },
+            pivotReference: {
+                field: rateField,
+                pivotValues: [{ field: merchantField, value: merchant }],
+            },
+        });
+
+        const rows = [
+            makeRow('河南新乡万德隆', 0.0112),
+            makeRow('江西赣州宏昌', 0.3534),
+            makeRow('河南郑州建业', 0.1259),
+            makeRow('江苏淮安商联超市', 0.0654),
+        ];
+
+        const series = [
+            makeSerie('河南新乡万德隆', `${rateField}_any_河南新乡万德隆`),
+            makeSerie('江苏淮安商联超市', `${rateField}_any_江苏淮安商联超市`),
+            makeSerie('河南郑州建业', `${rateField}_any_河南郑州建业`),
+            makeSerie('江西赣州宏昌', `${rateField}_any_江西赣州宏昌`),
+        ];
+
+        // Long-format dataset: category column present (not wide-pivot)
+        const datasetRows = rows.map((row) => ({
+            [merchantField]: (row[merchantField] as { value: { raw: string } })
+                .value.raw,
+            [rateField]: (row[rateField] as { value: { raw: number } }).value
+                .raw,
+        }));
+
+        const result = sortVerticalBarSeriesByBarTotals({
+            series,
+            rows,
+            datasetRows,
+            itemsMap: {},
+            descending: true,
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.sortedCategoryLabels).toEqual([
+            '江西赣州宏昌',
+            '河南郑州建业',
+            '江苏淮安商联超市',
+            '河南新乡万德隆',
+        ]);
+        expect(result!.sortedSeries.map((s) => s.name)).toEqual([
+            '江西赣州宏昌',
+            '河南郑州建业',
+            '江苏淮安商联超市',
+            '河南新乡万德隆',
+        ]);
+    });
+
+    test('orderedCategoryLabels align point labels with xAxis order when dataset stays unsorted', () => {
+        const merchantField = 'merchant_name';
+        const rateField = 'total_rate';
+
+        const makeSerie = (
+            merchant: string,
+            pivotColumnName: string,
+        ): EChartSeries => ({
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            name: merchant,
+            encode: {
+                x: merchantField,
+                y: pivotColumnName,
+                tooltip: [pivotColumnName],
+                seriesName: pivotColumnName,
+            },
+            pivotReference: {
+                field: rateField,
+                pivotValues: [{ field: merchantField, value: merchant }],
+            },
+        });
+
+        // Series already sorted descending (as BAR_TOTALS would leave them)
+        const sortedSeries = [
+            makeSerie('江西赣州宏昌', `${rateField}_any_江西赣州宏昌`),
+            makeSerie('河南郑州建业', `${rateField}_any_河南郑州建业`),
+            makeSerie('河南新乡万德隆', `${rateField}_any_河南新乡万德隆`),
+        ];
+        const orderedLabels = [
+            '江西赣州宏昌',
+            '河南郑州建业',
+            '河南新乡万德隆',
+        ];
+
+        // Dataset still in original unsorted row order
+        const rows: ResultRow[] = [
+            {
+                [merchantField]: {
+                    value: {
+                        raw: '河南新乡万德隆',
+                        formatted: '河南新乡万德隆',
+                    },
+                },
+                [rateField]: { value: { raw: 0.0112, formatted: '1.12%' } },
+            },
+            {
+                [merchantField]: {
+                    value: { raw: '江西赣州宏昌', formatted: '江西赣州宏昌' },
+                },
+                [rateField]: { value: { raw: 0.3534, formatted: '35.34%' } },
+            },
+            {
+                [merchantField]: {
+                    value: { raw: '河南郑州建业', formatted: '河南郑州建业' },
+                },
+                [rateField]: { value: { raw: 0.1259, formatted: '12.59%' } },
+            },
+        ];
+
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout: {
+                flipAxes: false,
+                xField: merchantField,
+                yField: [rateField],
+            },
+            series: sortedSeries,
+            rows,
+            datasetRows: [],
+            itemsMap: {},
+            orderedCategoryLabels: orderedLabels,
+        });
+
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[0]),
+        ).toEqual(orderedLabels);
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[1]),
+        ).toEqual([0.3534, 0.1259, 0.0112]);
+    });
+
+    test('applyVertical still injects single points when datasetRows empty but rows present', () => {
+        const merchantField = 'merchant_name';
+        const rateField = 'total_rate';
+        const merchant = '江西赣州宏昌';
+        const serie: EChartSeries = {
+            type: CartesianSeriesType.BAR,
+            connectNulls: true,
+            name: merchant,
+            encode: {
+                x: merchantField,
+                y: `${rateField}_any_${merchant}`,
+                tooltip: [`${rateField}_any_${merchant}`],
+                seriesName: `${rateField}_any_${merchant}`,
+            },
+            pivotReference: {
+                field: rateField,
+                pivotValues: [{ field: merchantField, value: merchant }],
+            },
+        };
+        const rows: ResultRow[] = [
+            {
+                [merchantField]: {
+                    value: { raw: merchant, formatted: merchant },
+                },
+                [rateField]: { value: { raw: 0.3534, formatted: '35.34%' } },
+            },
+        ];
+
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout: {
+                flipAxes: false,
+                xField: merchantField,
+                yField: [rateField],
+            },
+            series: [serie],
+            rows,
+            datasetRows: [],
+            itemsMap: {},
+            orderedCategoryLabels: [merchant],
+        });
+
+        expect(applied[0].data).toEqual([[merchant, 0.3534]]);
+    });
+});
+
+describe('shouldInjectSeriesCategoryAxis', () => {
+    const cls3Field = 'btsl_zhengzhou_category_sales_cls3';
+    const merchantField = 'btsl_zhengzhou_category_sales_merchant_name';
+    const metricField = 'btsl_zhengzhou_category_sales_total_rate';
+
+    const makeMerchantSerie = (merchant: string): EChartSeries => ({
+        type: CartesianSeriesType.BAR,
+        connectNulls: true,
+        name: merchant,
+        encode: {
+            x: merchantField,
+            y: `${metricField}.${merchantField}.${merchant}`,
+            tooltip: [`${metricField}.${merchantField}.${merchant}`],
+            seriesName: `${metricField}.${merchantField}.${merchant}`,
+        },
+        pivotReference: {
+            field: metricField,
+            pivotValues: [{ field: merchantField, value: merchant }],
+        },
+    });
+
+    test('Shape A: xField=cls3 and pivot=merchant → do not inject series labels', () => {
+        const series = [
+            {
+                ...makeMerchantSerie('江西赣州宏昌'),
+                encode: {
+                    ...makeMerchantSerie('江西赣州宏昌').encode!,
+                    x: cls3Field,
+                },
+            },
+            {
+                ...makeMerchantSerie('河南郑州建业'),
+                encode: {
+                    ...makeMerchantSerie('河南郑州建业').encode!,
+                    x: cls3Field,
+                },
+            },
+        ];
+
+        const datasetRows = [
+            {
+                [cls3Field]: '包装水',
+                [merchantField]: '江西赣州宏昌',
+                [metricField]: 0.35,
+            },
+            {
+                [cls3Field]: '包装水',
+                [merchantField]: '河南郑州建业',
+                [metricField]: 0.12,
+            },
+        ];
+
+        expect(
+            shouldInjectSeriesCategoryAxis({
+                layout: {
+                    flipAxes: false,
+                    xField: cls3Field,
+                    yField: [metricField],
+                },
+                series,
+                datasetRows,
+                pivotDimensions: [merchantField],
+            }),
+        ).toBe(false);
+    });
+
+    test('Shape B: xField=merchant and pivot=merchant → inject series category axis', () => {
+        const series = [
+            makeMerchantSerie('江西赣州宏昌'),
+            makeMerchantSerie('河南郑州建业'),
+        ];
+
+        expect(
+            shouldInjectSeriesCategoryAxis({
+                layout: {
+                    flipAxes: false,
+                    xField: merchantField,
+                    yField: [metricField],
+                },
+                series,
+                datasetRows: [
+                    {
+                        [merchantField]: '江西赣州宏昌',
+                        [metricField]: 0.35,
+                    },
+                ],
+                pivotDimensions: [merchantField],
+            }),
+        ).toBe(true);
+
+        // Shape B descending apply keeps axis labels = series category order
+        const sorted = sortVerticalBarSeriesByBarTotals({
+            series,
+            rows: [
+                {
+                    [merchantField]: {
+                        value: {
+                            raw: '河南郑州建业',
+                            formatted: '河南郑州建业',
+                        },
+                    },
+                    [metricField]: {
+                        value: { raw: 0.1259, formatted: '12.59%' },
+                    },
+                },
+                {
+                    [merchantField]: {
+                        value: {
+                            raw: '江西赣州宏昌',
+                            formatted: '江西赣州宏昌',
+                        },
+                    },
+                    [metricField]: {
+                        value: { raw: 0.3534, formatted: '35.34%' },
+                    },
+                },
+            ],
+            datasetRows: [],
+            itemsMap: {},
+            descending: true,
+        });
+
+        expect(sorted).toBeDefined();
+        const orderedLabels = sorted!.sortedCategoryLabels;
+        const applied = applyVerticalBarAxisSortSeriesData({
+            layout: {
+                flipAxes: false,
+                xField: merchantField,
+                yField: [metricField],
+            },
+            series: sorted!.sortedSeries,
+            rows: [
+                {
+                    [merchantField]: {
+                        value: {
+                            raw: '河南郑州建业',
+                            formatted: '河南郑州建业',
+                        },
+                    },
+                    [metricField]: {
+                        value: { raw: 0.1259, formatted: '12.59%' },
+                    },
+                },
+                {
+                    [merchantField]: {
+                        value: {
+                            raw: '江西赣州宏昌',
+                            formatted: '江西赣州宏昌',
+                        },
+                    },
+                    [metricField]: {
+                        value: { raw: 0.3534, formatted: '35.34%' },
+                    },
+                },
+            ],
+            datasetRows: [],
+            itemsMap: {},
+            orderedCategoryLabels: orderedLabels,
+        });
+
+        expect(orderedLabels[0]).toBe('江西赣州宏昌');
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[0]),
+        ).toEqual(orderedLabels);
+        expect(
+            applied.map((s) => (s.data![0] as [unknown, unknown])[1]),
+        ).toEqual([0.3534, 0.1259]);
     });
 });
