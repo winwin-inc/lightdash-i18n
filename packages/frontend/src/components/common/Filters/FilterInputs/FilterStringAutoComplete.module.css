@@ -1,0 +1,32 @@
+.actionBar {
+    border-bottom: 1px solid var(--mantine-color-gray-2);
+    background-color: var(--mantine-color-gray-0);
+}
+
+.actionButton {
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-xxs);
+    padding: var(--mantine-spacing-xxs) var(--mantine-spacing-xs);
+    border-radius: var(--mantine-radius-sm);
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.actionButton:hover:not(:disabled) {
+    background-color: var(--mantine-color-gray-1);
+}
+
+.actionButton:disabled {
+    cursor: default;
+}
+
+.refreshButton {
+    cursor: pointer;
+    border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.refreshButton:hover {
+    background-color: var(--mantine-color-gray-1);
+}

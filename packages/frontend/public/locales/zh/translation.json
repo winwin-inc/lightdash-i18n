@@ -2225,6 +2225,9 @@
             "already_selected": "已全部添加 ({{count}})",
             "hint_visible_only": "仅本次可见的 {{limit}} 条"
         },
+        "clear_selected": {
+            "button": "清空 ({{count}})"
+        },
         "autocomple_results": {
             "refresh": "点击此处刷新缓存过滤值",
             "loaded": "结果加载于"

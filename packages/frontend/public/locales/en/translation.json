@@ -2242,6 +2242,9 @@
             "already_selected": "All already added ({{count}})",
             "hint_visible_only": "Visible {{limit}} only"
         },
+        "clear_selected": {
+            "button": "Clear ({{count}})"
+        },
         "autocomple_results": {
             "refresh": "Click here to refresh cache filter values",
             "loaded": "Results loaded at"

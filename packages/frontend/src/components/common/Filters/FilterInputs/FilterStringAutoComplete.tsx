@@ -8,10 +8,11 @@ import {
     Stack,
     Text,
     Tooltip,
+    UnstyledButton,
     type MultiSelectProps,
     type MultiSelectValueProps,
 } from '@mantine/core';
-import { IconAlertCircle, IconPlus } from '@tabler/icons-react';
+import { IconAlertCircle, IconPlus, IconX } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import {
     useCallback,
@@ -32,6 +33,7 @@ import {
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import MantineIcon from '../../MantineIcon';
 import useFiltersContext from '../useFiltersContext';
+import styles from './FilterStringAutoComplete.module.css';
 import MultiValuePastePopover from './MultiValuePastePopover';
 import { formatDisplayValue } from './utils';
 
@@ -431,6 +433,57 @@ const FilterStringAutoComplete: FC<Props> = ({
         [handleChange, values, singleValue],
     );
 
+    // 「去重排除项后可见的候选」——与下方 data 的计算共享同一逻辑
+    const excludedValueSet = useMemo(
+        () =>
+            new Set(
+                (excludedValues ?? [])
+                    .map((value) => value.trim())
+                    .filter((value) => value.length > 0),
+            ),
+        [excludedValues],
+    );
+
+    const visibleResults = useMemo(
+        () => results.filter((value) => !excludedValueSet.has(value)),
+        [results, excludedValueSet],
+    );
+
+    // 是否应当禁用「添加所有匹配项」按钮：所有当前可见候选都已被选中
+    const allMatchedAlreadySelected = useMemo(() => {
+        if (singleValue) return true;
+        if (visibleResults.length === 0) return true;
+        return visibleResults.every((value) => values.includes(value));
+    }, [visibleResults, values, singleValue]);
+
+    // 「添加所有匹配项」：把当前所有可见候选一次性加入 values。
+    // 渲染位置：dropdownComponent 内的 ScrollArea 顶部，children 之前（详见下方
+    // DropdownComponentOverride）。这样 DOM 在 Mantine 的 listbox 内，
+    // 自然继承 hover/点击，不会被外部 closeDropdownOnMouseLeave 误关闭，
+    // 且不受 filterData 的 limit=50 截断影响。
+    const showSelectAllMatched = !singleValue && visibleResults.length > 0;
+    // 「清空」：仅当多选 + values 非空时显示。
+    const showClearSelected = !singleValue && values.length > 0;
+
+    const handleSelectAllMatched = useCallback(() => {
+        if (singleValue) return;
+        // 三重去重保护，确保 values 里不出现重复：
+        // 1) uniq(visibleResults) —— 防 resultsSet 内重复
+        // 2) 过滤掉已在 values 中的项
+        // 3) 传入 handleAddMultiple 后 handleChange 还会 uniq 一遍
+        const dedupedNewValues = uniq(
+            visibleResults.filter((value) => !values.includes(value)),
+        );
+        if (dedupedNewValues.length === 0) return;
+        handleAddMultiple(dedupedNewValues);
+    }, [singleValue, visibleResults, values, handleAddMultiple]);
+
+    const handleClearSelected = useCallback(() => {
+        if (singleValue) return;
+        // 清空所有 values，通过外层 onChange 走；让父组件的 filter rule 更新为 []。
+        handleChange([]);
+    }, [singleValue, handleChange]);
+
     const handlePaste = useCallback(
         (event: React.ClipboardEvent<HTMLInputElement>) => {
             const clipboardData = event.clipboardData.getData('Text');
@@ -459,14 +512,6 @@ const FilterStringAutoComplete: FC<Props> = ({
     }, [values, singleValue, handleChange]);
 
     const data = useMemo(() => {
-        const excludedValueSet = new Set(
-            (excludedValues ?? [])
-                .map((value) => value.trim())
-                .filter((value) => value.length > 0),
-        );
-        const visibleResults = results.filter(
-            (value) => !excludedValueSet.has(value),
-        );
         const visibleSelectedValues = values.filter(
             (value) => !excludedValueSet.has(value),
         );
@@ -478,7 +523,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 label: formatDisplayValue(value),
             }),
         );
-    }, [excludedValues, results, values]);
+    }, [excludedValueSet, visibleResults, values]);
 
     const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
     // memo override component so list doesn't scroll to the top on each click
@@ -515,8 +560,87 @@ const FilterStringAutoComplete: FC<Props> = ({
                         </Text>
                     ) : null}
 
+                    {showSelectAllMatched || showClearSelected ? (
+                        <Group
+                            spacing={0}
+                            px="xs"
+                            py="xxs"
+                            className={styles.actionBar}
+                        >
+                            {showSelectAllMatched ? (
+                                <UnstyledButton
+                                    onClick={handleSelectAllMatched}
+                                    disabled={allMatchedAlreadySelected}
+                                    className={styles.actionButton}
+                                >
+                                    <MantineIcon
+                                        icon={IconPlus}
+                                        color={
+                                            allMatchedAlreadySelected
+                                                ? 'gray'
+                                                : 'blue'
+                                        }
+                                        size="sm"
+                                    />
+                                    <Text
+                                        size="xs"
+                                        fw={500}
+                                        color={
+                                            allMatchedAlreadySelected
+                                                ? 'dimmed'
+                                                : 'blue'
+                                        }
+                                    >
+                                        {allMatchedAlreadySelected
+                                            ? t(
+                                                  'components_common_filters_inputs.select_all_matched.already_selected',
+                                                  {
+                                                      count: visibleResults.length,
+                                                  },
+                                              )
+                                            : t(
+                                                  `components_common_filters_inputs.select_all_matched.${
+                                                      search.trim().length > 0
+                                                          ? 'button_with_search'
+                                                          : 'button_no_search'
+                                                  }`,
+                                                  {
+                                                      search,
+                                                      count: visibleResults.length,
+                                                  },
+                                              )}
+                                    </Text>
+                                </UnstyledButton>
+                            ) : null}
+                            {showSelectAllMatched && showClearSelected ? (
+                                <Text size="xs" color="dimmed" px="xxs">
+                                    ·
+                                </Text>
+                            ) : null}
+                            {showClearSelected ? (
+                                <UnstyledButton
+                                    onClick={handleClearSelected}
+                                    className={styles.actionButton}
+                                >
+                                    <MantineIcon
+                                        icon={IconX}
+                                        color="red"
+                                        size="sm"
+                                    />
+                                    <Text size="xs" fw={500} color="red">
+                                        {t(
+                                            'components_common_filters_inputs.clear_selected.button',
+                                            { count: values.length },
+                                        )}
+                                    </Text>
+                                </UnstyledButton>
+                            ) : null}
+                        </Group>
+                    ) : null}
+
                     {children}
                 </ScrollArea>
+
                 {healthData?.hasCacheAutocompleResults ? (
                     <>
                         <Tooltip
@@ -531,13 +655,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                                 size="xs"
                                 px="sm"
                                 p="xxs"
-                                sx={(theme) => ({
-                                    cursor: 'pointer',
-                                    borderTop: `1px solid ${theme.colors.gray[2]}`,
-                                    '&:hover': {
-                                        backgroundColor: theme.colors.gray[1],
-                                    },
-                                })}
+                                className={styles.refreshButton}
                                 onClick={() => setForceRefresh(true)}
                             >
                                 {t(
@@ -555,6 +673,13 @@ const FilterStringAutoComplete: FC<Props> = ({
             search,
             refreshedAt,
             healthData?.hasCacheAutocompleResults,
+            showSelectAllMatched,
+            allMatchedAlreadySelected,
+            visibleResults.length,
+            handleSelectAllMatched,
+            showClearSelected,
+            values.length,
+            handleClearSelected,
             t,
         ],
     );
