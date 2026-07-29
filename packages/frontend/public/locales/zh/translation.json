@@ -2219,6 +2219,12 @@
             "part_4": "开始",
             "part_5": "输入..."
         },
+        "select_all_matched": {
+            "button_with_search": "添加所有 \"{{search}}\" ({{count}})",
+            "button_no_search": "添加所有 ({{count}})",
+            "already_selected": "已全部添加 ({{count}})",
+            "hint_visible_only": "仅本次可见的 {{limit}} 条"
+        },
         "autocomple_results": {
             "refresh": "点击此处刷新缓存过滤值",
             "loaded": "结果加载于"
@@ -2934,7 +2940,18 @@
         "not_have_permission": "您没有权限编辑此图表"
     },
     "components_dashboard_tiles_dashboard_export_image": {
-        "export_image": "导出图片"
+        "export_image": "导出图片",
+        "options": "选项",
+        "aspect_ratio": "比例",
+        "aspect_ratio.original": "原图",
+        "aspect_ratio.16x9": "16:9",
+        "aspect_ratio.9x16": "9:16",
+        "background": "背景",
+        "background.white": "白底",
+        "background.transparent": "透明",
+        "output_dimensions": "将输出 {{w}}×{{h}}",
+        "cancel": "取消",
+        "download": "下载"
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "编辑图表"
