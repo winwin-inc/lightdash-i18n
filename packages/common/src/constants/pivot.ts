@@ -3,4 +3,4 @@
  * This limit is enforced to prevent performance issues and memory overload
  * when a GROUP BY query results in too many pivot columns.
  */
-export const MAX_PIVOT_COLUMN_LIMIT = 120;
+export const MAX_PIVOT_COLUMN_LIMIT = 150;

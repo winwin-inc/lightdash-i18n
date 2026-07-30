@@ -226,7 +226,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
 
         // Calculate pivot table specific limits
         const csvCellsLimit = health.data?.query?.csvCellsLimit || 100000;
-        const maxColumnLimit = health.data?.pivotTable?.maxColumnLimit || 120;
+        const maxColumnLimit = health.data?.pivotTable?.maxColumnLimit || 150;
 
         // For pivot tables, calculate conservative row limits
         const isPivotTable = !!pivotConfig;
