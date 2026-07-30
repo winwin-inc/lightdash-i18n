@@ -316,6 +316,18 @@ const DashboardExportImageModalBody: FC<Omit<
                                     'components_dashboard_tiles_dashboard_export_image.aspect_ratio.9x16',
                                 ),
                             },
+                            {
+                                value: ExportAspectRatio.A4x3,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.4x3',
+                                ),
+                            },
+                            {
+                                value: ExportAspectRatio.A3x4,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.3x4',
+                                ),
+                            },
                         ]}
                     />
                 </Stack>

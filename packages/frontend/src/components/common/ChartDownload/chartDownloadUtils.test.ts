@@ -65,6 +65,26 @@ describe('computeExportDimensions', () => {
         expect(dims.offsetY).toBeGreaterThan(0);
     });
 
+    it('4:3 target outputs 1920×1440', () => {
+        const dims = computeExportDimensions(
+            1000,
+            1000,
+            ExportAspectRatio.A4x3,
+        );
+        expect(dims.targetW).toBe(1920);
+        expect(dims.targetH).toBe(1440);
+    });
+
+    it('3:4 target outputs 1440×1920', () => {
+        const dims = computeExportDimensions(
+            1000,
+            1000,
+            ExportAspectRatio.A3x4,
+        );
+        expect(dims.targetW).toBe(1440);
+        expect(dims.targetH).toBe(1920);
+    });
+
     it('ORIGINAL preserves source dimensions', () => {
         const dims = computeExportDimensions(
             1600,
@@ -115,6 +135,18 @@ describe('getExportFileBaseName', () => {
         expect(
             getExportFileBaseName(ExportAspectRatio.A9x16, '品类占比'),
         ).toBe('品类占比_9x16_白色');
+    });
+
+    it('appends _4x3 suffix for 4:3 ratio', () => {
+        expect(
+            getExportFileBaseName(ExportAspectRatio.A4x3, '品类占比'),
+        ).toBe('品类占比_4x3_白色');
+    });
+
+    it('appends _3x4 suffix for 3:4 ratio', () => {
+        expect(
+            getExportFileBaseName(ExportAspectRatio.A3x4, '品类占比'),
+        ).toBe('品类占比_3x4_白色');
     });
 
     it('uses _透明色 suffix when transparent background', () => {
