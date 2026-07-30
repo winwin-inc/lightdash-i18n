@@ -1,4 +1,11 @@
-import { Group, MultiSelect, Text, type MultiSelectProps } from '@mantine/core';
+﻿import {
+    Group,
+    MultiSelect,
+    ScrollArea,
+    Stack,
+    Text,
+    type MultiSelectProps,
+} from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import uniq from 'lodash/uniq';
 import {
@@ -8,18 +15,21 @@ import {
     useRef,
     useState,
     type FC,
+    type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import MantineIcon from '../../MantineIcon';
+import classes from './FilterMultiStringInput.module.css';
+import FilterMultiValueActions from './FilterMultiValueActions';
 import MultiValuePastePopover from './MultiValuePastePopover';
 import { formatDisplayValue } from './utils';
 
 type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     values: string[];
     onChange: (values: string[]) => void;
-    /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
+    /** 缂栬緫妯″紡涓?true 鏃跺惎鐢ㄣ€岄紶鏍囩Щ鍑轰笅鎷夊尯鍩熷垯鏀惰捣銆嶏紱鏌ョ湅妯″紡涓嶄紶鎴?false锛屼笉鏀惰捣 */
     closeDropdownOnMouseLeave?: boolean;
 };
 
@@ -50,35 +60,35 @@ const FilterMultiStringInput: FC<Props> = ({
         setTimeout(() => setSearch(() => ''), 0);
     }, [setSearch]);
 
-    // 跟踪下拉框是否打开
+    // 璺熻█涓嬫媺妗嗘槸鍚︽墦寮€
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    // 保存下拉框元素的引用
+    // 淇濆瓨涓嬫媺妗嗗厓绱犵殑寮曠敤
     const dropdownElementRef = useRef<HTMLElement | null>(null);
 
-    // 防抖关闭定时器引用
+    // 闃叉姈鍏抽棴瀹氭椂鍣ㄥ紩鐢?
     const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // 关闭下拉框的函数
+    // 鍏抽棴涓嬫媺妗嗙殑鍑芥暟
     const closeDropdown = useCallback(() => {
         if (isDropdownOpen) {
             multiSelectRef.current?.blur();
         }
     }, [isDropdownOpen]);
 
-    // 启动防抖关闭
+    // 鍚姩闃叉姈鍏抽棴
     const startDebouncedClose = useCallback(() => {
-        // 清除之前的定时器
+        // 娓呴櫎涔嬪墠鐨勫畾鏃跺櫒
         if (closeTimeoutRef.current) {
             clearTimeout(closeTimeoutRef.current);
         }
-        // 设置新的定时器
+        // 璁剧疆鏂扮殑瀹氭椂鍣?
         closeTimeoutRef.current = setTimeout(() => {
             closeTimeoutRef.current = null;
             closeDropdown();
         }, 500);
     }, [closeDropdown]);
 
-    // 取消防抖关闭
+    // 鍙栨秷闃叉姈鍏抽棴
     const cancelDebouncedClose = useCallback(() => {
         if (closeTimeoutRef.current) {
             clearTimeout(closeTimeoutRef.current);
@@ -86,51 +96,51 @@ const FilterMultiStringInput: FC<Props> = ({
         }
     }, []);
 
-    // 查找并保存下拉框元素引用
+    // 鏌ユ壘骞朵繚瀛樹笅鎷夋鍏冪礌寮曠敤
     const findDropdownElement = useCallback(() => {
         if (!multiSelectRef.current) {
             return null;
         }
 
-        // 方法1: 优先查找所有可见的 role="listbox" 元素（这是实际的下拉列表）
+        // 鏂规硶1: 浼樺厛鏌ユ壘鎵€鏈夊彲瑙佺殑 role="listbox" 鍏冪礌锛堣繖鏄疄闄呯殑涓嬫媺鍒楄〃锛?
         const allListboxes = document.querySelectorAll('[role="listbox"]');
         const inputRect = multiSelectRef.current.getBoundingClientRect();
 
-        // 优先通过位置匹配找到正确的 listbox
+        // 浼樺厛閫氳繃浣嶇疆鍖归厱鎵惧埌姝ｇ‘鐨?listbox
         for (const listbox of allListboxes) {
             const rect = listbox.getBoundingClientRect();
-            // 检查是否可见且与输入框位置相关
+            // 妫€鏌ユ槸鍚﹀彲瑙佷笖涓庤緭鍏ユ浣嶇疆鐩稿叧
             if (
                 rect.width > 0 &&
                 rect.height > 0 &&
-                rect.top > 0 // 确保下拉框在视口中
+                rect.top > 0 // 纭繚涓嬫媺妗嗗湪瑙嗗彛涓?
             ) {
                 const horizontalDiff = Math.abs(rect.left - inputRect.left);
                 const verticalDiff = rect.top - inputRect.bottom;
 
-                // 放宽匹配条件：水平位置相近，下拉框在输入框下方或稍微重叠
+                // 鏀惧鍖归厱鏉′欢锛氭按骞充綅缃浉杩戯紝涓嬫媺妗嗗湪杈撳叆妗嗕笅鏂规垨绋嶅井閲嶅彔
                 if (
-                    horizontalDiff < 100 && // 水平位置相近（放宽到100px）
-                    verticalDiff >= -20 // 下拉框在输入框下方或稍微重叠（放宽到20px）
+                    horizontalDiff < 100 && // 姘村钩浣嶇疆鐩歌繎锛堟斁瀹藉埌100px锛?
+                    verticalDiff >= -20 // 涓嬫媺妗嗗湪杈撳叆妗嗕笅鏂规垨绋嶅井閲嶅彔锛堟斁瀹藉埌20px锛?
                 ) {
                     return listbox as HTMLElement;
                 }
             }
         }
 
-        // 方法2: 通过 aria-owns 查找实际的 listbox（备用方法）
+        // 鏂规硶2: 閫氳繃 aria-owns 鏌ユ壘瀹為檯鐨?listbox锛堝鐢ㄦ柟娉曪級
         const inputId = multiSelectRef.current.id;
         if (inputId) {
-            // 先找到 combobox 包装器
+            // 鍏堟壘鍒?combobox 鍖呰鍣?
             const combobox = document.querySelector(
                 `[aria-controls="${inputId}"], [aria-labelledby="${inputId}"]`,
             ) as HTMLElement | null;
 
             if (combobox) {
-                // 从 combobox 的 aria-owns 获取 listbox 的 ID
+                // 浠?combobox 鐨?aria-owns 鑾峰彇 listbox 鐨?ID
                 const listboxId = combobox.getAttribute('aria-owns');
                 if (listboxId) {
-                    // 查找实际的 listbox 元素
+                    // 鏌ユ壘瀹為檯鐨?listbox 鍏冪礌
                     const listbox = document.querySelector(
                         `#${listboxId}, [id="${listboxId}"]`,
                     ) as HTMLElement | null;
@@ -144,7 +154,7 @@ const FilterMultiStringInput: FC<Props> = ({
             }
         }
 
-        // 方法3: 查找 data-combobox-dropdown
+        // 鏂规硶3: 鏌ユ壘 data-combobox-dropdown
         const comboboxDropdown = document.querySelector(
             '[data-combobox-dropdown]',
         ) as HTMLElement | null;
@@ -157,11 +167,10 @@ const FilterMultiStringInput: FC<Props> = ({
 
         return null;
     }, []);
-
-    // 检查鼠标是否在下拉框或输入框范围内
+    // 妫€娴嬫槸鍚﹀湪涓嬫媺妗嗘垨杈撳叆妗嗚寖鍥村唴
     const isMouseInSelectArea = useCallback(
         (x: number, y: number): boolean => {
-            // 检查输入框
+            // 妫€鏌ヨ緭鍏ユ
             if (multiSelectRef.current) {
                 const inputRect =
                     multiSelectRef.current.getBoundingClientRect();
@@ -176,10 +185,10 @@ const FilterMultiStringInput: FC<Props> = ({
                 }
             }
 
-            // 检查下拉框（每次都重新查找，确保获取最新的位置和大小）
+            // 妫€鏌ヤ笅鎷夋锛堟瘡娆￠兘閲嶆柊鏌ユ壘锛岀‘淇濊幏鍙栨渶鏂扮殑浣嶇疆鍜屽ぇ灏忥級
             const dropdown = findDropdownElement();
             if (dropdown) {
-                // 更新引用
+                // 鏇存柊寮曠敤
                 if (dropdownElementRef.current !== dropdown) {
                     dropdownElementRef.current = dropdown;
                 }
@@ -200,16 +209,16 @@ const FilterMultiStringInput: FC<Props> = ({
         [findDropdownElement],
     );
 
-    // 检测是否为移动设备
+    // 妫€娴嬫槸鍚︿负绉诲姩璁惧
     const isMobileDevice = useIsMobileDevice();
 
-    // 编辑模式下：鼠标离开下拉框范围时关闭（仅PC端）；查看模式不启用
+    // 缂栬緫妯″紡涓嬶細榧犳爣绂诲紑涓嬫媺妗嗚寖鍥存椂鍏抽棴锛堜粎PC绔級锛涙煡鐪嬫ā寮忎笉鍚敤
     useEffect(() => {
         if (!isDropdownOpen) return;
         if (!closeDropdownOnMouseLeave) return;
         if (isMobileDevice) return;
 
-        // 下拉框打开时，延迟查找下拉框元素（等待渲染）
+        // 涓嬫媺妗嗘墦寮€鏃讹紝寤惰繜鏌ユ壘涓嬫媺妗嗗厓绱狅紙绛夊緟娓叉煋锛?
         const timeoutId = setTimeout(() => {
             dropdownElementRef.current = findDropdownElement();
         }, 100);
@@ -218,24 +227,24 @@ const FilterMultiStringInput: FC<Props> = ({
             const isInside = isMouseInSelectArea(event.clientX, event.clientY);
 
             if (isInside) {
-                // 鼠标在下拉框内，取消防抖（保持打开）
+                // 榧犳爣鍦ㄤ笅鎷夋鍐咃紝鍙栨秷闃叉姈锛堜繚鎸佹墦寮€锛?
                 cancelDebouncedClose();
             } else {
-                // 鼠标离开下拉框，启动防抖关闭（只在第一次离开时启动，不会因为移动而重置）
+                // 榧犳爣绂诲紑涓嬫媺妗嗭紝鍚姩闃叉姈鍏抽棴锛堝彧鍦ㄧ涓€娆＄寮€鏃跺惎鍔紝涓嶄細鍥犱负绉诲姩鑰岄噸缃級
                 if (!closeTimeoutRef.current) {
                     startDebouncedClose();
                 }
             }
         };
 
-        // 监听鼠标移动（仅PC端）
+        // 鐩戝惉榧犳爣绉诲姩锛堜粎PC绔級
         document.addEventListener('mousemove', handleMouseMove);
 
         return () => {
             clearTimeout(timeoutId);
             document.removeEventListener('mousemove', handleMouseMove);
-            cancelDebouncedClose(); // 清理时取消防抖
-            dropdownElementRef.current = null; // 清理引用
+            cancelDebouncedClose(); // 娓呯悊鏃跺彇娑堥槻鎶?
+            dropdownElementRef.current = null; // 娓呯悊寮曠敤
         };
     }, [
         isDropdownOpen,
@@ -247,7 +256,7 @@ const FilterMultiStringInput: FC<Props> = ({
         isMobileDevice,
     ]);
 
-    // 组件卸载时清理定时器
+    // 缁勪欢鍗歌浇鏃舵竻鐞嗗畾鏃跺櫒
     useEffect(() => {
         return () => {
             cancelDebouncedClose();
@@ -257,7 +266,7 @@ const FilterMultiStringInput: FC<Props> = ({
     const handleChange = useCallback(
         (updatedValues: string[]) => {
             onChange(uniq(updatedValues));
-            // 移动端多选模式：选择后延迟关闭，提升移动端体验
+            // 绉诲姩绔閫夋ā寮忥細閫夋嫨鍚庡欢杩熷叧闂紝鎻愬崌绉诲姩绔綋楠?
             if (isMobileDevice) {
                 cancelDebouncedClose();
                 setTimeout(() => {
@@ -305,6 +314,73 @@ const FilterMultiStringInput: FC<Props> = ({
         }));
     }, [results, values]);
 
+    /*
+     * Foot of the dropdown action row.
+     *
+     * The visible candidates for this component are the data items
+     * themselves (results is always empty here); the bulk action is only
+     * useful when the data set expands beyond what is already selected.
+     * We still render the buttons for parity with the autocomplete variant
+     * \u2014 they end up disabled when nothing would be added.
+     */
+    const handleSelectAll = useCallback(() => {
+        const toAdd = data
+            .map((item) => item.value)
+            .filter((value) => !values.includes(value));
+        if (toAdd.length === 0) return;
+        handleChange([...values, ...toAdd]);
+    }, [data, values, handleChange]);
+
+    const handleClearAll = useCallback(() => {
+        if (values.length === 0) return;
+        handleChange([]);
+    }, [values, handleChange]);
+
+    // Stable reference to the latest state for the memoized dropdownComponent
+    // override. Keeps the wrapper identity constant so MultiSelect does not
+    // reset its internal scroll position on selection.
+    const dropdownStateRef = useRef({
+        data,
+        values,
+        search,
+        handleSelectAll,
+        handleClearAll,
+    });
+    dropdownStateRef.current = {
+        data,
+        values,
+        search,
+        handleSelectAll,
+        handleClearAll,
+    };
+
+    const DropdownComponentOverride = useCallback<
+        (props: { children: ReactNode; [k: string]: unknown }) => ReactNode
+    >(({ children, ...props }) => {
+        const {
+            data: latestData,
+            values: latestValues,
+            search: latestSearch,
+        } = dropdownStateRef.current;
+        // Wrap items in ScrollArea so the candidate list scrolls
+        // independently of the action row at the bottom. Without this
+        // inner ScrollArea both pieces share the outer Box's overflow
+        // scroll and the last candidate ends up glued to the action
+        // row, looking visually "locked" at the bottom.
+        return (
+            <Stack w="100%" spacing={0}>
+                <ScrollArea {...props}>{children}</ScrollArea>
+                <FilterMultiValueActions
+                    candidates={latestData.map((item) => item.value)}
+                    selected={latestValues}
+                    search={latestSearch}
+                    onSelectAll={dropdownStateRef.current.handleSelectAll}
+                    onClear={dropdownStateRef.current.handleClearAll}
+                />
+            </Stack>
+        );
+    }, []);
+
     return (
         <MultiValuePastePopover
             opened={pastePopUpOpened}
@@ -350,51 +426,13 @@ const FilterMultiStringInput: FC<Props> = ({
                         </Text>
                     </Group>
                 )}
-                styles={{
-                    item: {
-                        // makes add new item button sticky to bottom
-                        '&:last-child:not([value])': {
-                            position: 'sticky',
-                            bottom: 4,
-                            // casts shadow on the bottom of the list to avoid transparency
-                            boxShadow: '0 4px 0 0 white',
-                        },
-                        '&:last-child:not([value]):not(:hover)': {
-                            background: 'white',
-                        },
-                    },
-                    values: {
-                        maxWidth: '100%',
-                        flexWrap: 'wrap',
-                    },
-                    value: {
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                    },
-                    input: {
-                        maxWidth: '100%',
-                        flex: '1 1 auto',
-                        minWidth: 0,
-                        // 移动端：更严格限制输入框宽度，避免超出屏幕
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                        }),
-                    },
-                    wrapper: {
-                        maxWidth: '100%',
-                        // 移动端：限制包装器宽度
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                        }),
-                    },
-                    dropdown: {
-                        // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                            width: '80vw',
-                        }),
-                    },
+                classNames={{
+                    item: classes.item,
+                    values: classes.values,
+                    value: classes.value,
+                    input: classes.input,
+                    wrapper: classes.wrapper,
+                    dropdown: classes.dropdown,
                 }}
                 disableSelectedItemFiltering={false}
                 searchable
@@ -406,6 +444,7 @@ const FilterMultiStringInput: FC<Props> = ({
                 nothingFound={t(
                     'components_common_filters_inputs.add_filter_tip',
                 )}
+                dropdownComponent={DropdownComponentOverride}
                 data={data}
                 value={values}
                 onDropdownOpen={() => {
@@ -414,8 +453,8 @@ const FilterMultiStringInput: FC<Props> = ({
                 }}
                 onDropdownClose={() => {
                     setIsDropdownOpen(false);
-                    cancelDebouncedClose(); // 取消防抖，因为下拉框已经关闭
-                    dropdownElementRef.current = null; // 清理下拉框引用
+                    cancelDebouncedClose(); // 鍙栨秷闃叉姈锛屽洜涓轰笅鎷夋宸茬粡鍏抽棴
+                    dropdownElementRef.current = null; // 娓呯悊涓嬫媺妗嗗紩鐢?
                     handleResetSearch();
                     onDropdownCloseProp?.();
                 }}

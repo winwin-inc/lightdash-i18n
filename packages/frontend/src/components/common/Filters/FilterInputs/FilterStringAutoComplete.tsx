@@ -32,8 +32,12 @@ import {
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
 import MantineIcon from '../../MantineIcon';
 import useFiltersContext from '../useFiltersContext';
+import classes from './FilterMultiStringInput.module.css';
+import FilterMultiValueActions from './FilterMultiValueActions';
 import MultiValuePastePopover from './MultiValuePastePopover';
 import { formatDisplayValue } from './utils';
+
+import refreshClasses from './FilterStringAutoComplete.module.css';
 
 type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     filterId: string;
@@ -481,6 +485,44 @@ const FilterStringAutoComplete: FC<Props> = ({
     }, [excludedValues, results, values]);
 
     const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
+
+    /*
+     * Bulk selectors for the dropdown footer row. Sit at the bottom of the
+     * dropdown, always visible regardless of items scroll position.
+     */
+    const handleSelectAll = useCallback(() => {
+        const candidates = data
+            .map((item) => item.value)
+            .filter((value) => !values.includes(value));
+        if (candidates.length === 0) return;
+        handleChange([...values, ...candidates]);
+    }, [data, values, handleChange]);
+
+    const handleClearAll = useCallback(() => {
+        if (values.length === 0) return;
+        handleChange([]);
+    }, [values, handleChange]);
+
+    /*
+     * Stable reference to the latest state values for the memoized
+     * dropdownComponent override below. We read through a ref to avoid
+     * rebuilding the component on each selection, which would otherwise
+     * cause MultiSelect to reset its internal scroll position.
+     */
+    const dropdownStateRef = useRef({
+        data,
+        values,
+        search,
+        handleSelectAll,
+        handleClearAll,
+    });
+    dropdownStateRef.current = {
+        data,
+        values,
+        search,
+        handleSelectAll,
+        handleClearAll,
+    };
     // memo override component so list doesn't scroll to the top on each click
     const DropdownComponentOverride = useCallback(
         ({ children, ...props }: { children: ReactNode }) => (
@@ -531,13 +573,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                                 size="xs"
                                 px="sm"
                                 p="xxs"
-                                sx={(theme) => ({
-                                    cursor: 'pointer',
-                                    borderTop: `1px solid ${theme.colors.gray[2]}`,
-                                    '&:hover': {
-                                        backgroundColor: theme.colors.gray[1],
-                                    },
-                                })}
+                                className={refreshClasses.refreshRow}
                                 onClick={() => setForceRefresh(true)}
                             >
                                 {t(
@@ -548,6 +584,15 @@ const FilterStringAutoComplete: FC<Props> = ({
                         </Tooltip>
                     </>
                 ) : null}
+                <FilterMultiValueActions
+                    candidates={dropdownStateRef.current.data.map(
+                        (item) => item.value,
+                    )}
+                    selected={dropdownStateRef.current.values}
+                    search={dropdownStateRef.current.search}
+                    onSelectAll={dropdownStateRef.current.handleSelectAll}
+                    onClear={dropdownStateRef.current.handleClearAll}
+                />
             </Stack>
         ),
         [
@@ -612,51 +657,13 @@ const FilterStringAutoComplete: FC<Props> = ({
                         </Text>
                     </Group>
                 )}
-                styles={{
-                    item: {
-                        // makes add new item button sticky to bottom
-                        '&:last-child:not([value])': {
-                            position: 'sticky',
-                            bottom: 4,
-                            // casts shadow on the bottom of the list to avoid transparency
-                            boxShadow: '0 4px 0 0 white',
-                        },
-                        '&:last-child:not([value]):not(:hover)': {
-                            background: 'white',
-                        },
-                    },
-                    values: {
-                        maxWidth: '100%',
-                        flexWrap: 'wrap',
-                    },
-                    value: {
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                    },
-                    input: {
-                        maxWidth: '100%',
-                        flex: '1 1 auto',
-                        minWidth: 0,
-                        // 移动端：更严格限制输入框宽度，避免超出屏幕
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                        }),
-                    },
-                    wrapper: {
-                        maxWidth: '100%',
-                        // 移动端：限制包装器宽度
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                        }),
-                    },
-                    dropdown: {
-                        // 移动端：使用更严格的宽度限制，确保不会超出屏幕右边界
-                        ...(isMobileDevice && {
-                            maxWidth: '80vw',
-                            width: '80vw',
-                        }),
-                    },
+                classNames={{
+                    item: classes.item,
+                    values: classes.values,
+                    value: classes.value,
+                    input: classes.input,
+                    wrapper: classes.wrapper,
+                    dropdown: classes.dropdown,
                 }}
                 disableSelectedItemFiltering
                 searchable
