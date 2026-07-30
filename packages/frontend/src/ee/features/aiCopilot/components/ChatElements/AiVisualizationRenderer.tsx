@@ -150,7 +150,7 @@ export const AiVisualizationRenderer: FC<Props> = ({
                     ...metricQuery.tableCalculations.map((tc) => tc.name),
                 ]}
                 pivotTableMaxColumnLimit={
-                    health?.pivotTable.maxColumnLimit ?? 120
+                    health?.pivotTable.maxColumnLimit ?? 150
                 }
                 initialPivotDimensions={groupByDimensions}
                 colorPalette={
