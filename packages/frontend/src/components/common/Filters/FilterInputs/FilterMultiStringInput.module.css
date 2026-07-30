@@ -1,0 +1,62 @@
+/*
+ * Per-file styles for FilterMultiStringInput + FilterStringAutoComplete.
+ *
+ * MultiSelect slot selectors wired through `classNames`. Every class here is
+ * referenced from BOTH files, which satisfies the
+ * `css-modules/no-unused-class` lint rule.
+ */
+
+.item {
+    /*
+     * Mantine v6 Combobox.Option items are rendered as plain divs WITHOUT a
+     * ``data-value`` attribute, so the previous selector
+     * ``.item:last-child:not([data-value])`` matched every last child and
+     * pinned the final candidate to the bottom of the dropdown while the
+     * user scrolled - making it look "locked". The sticky-bottom trick
+     * was originally meant to keep the creatable "+ Add <query>" row in
+     * view, but the itemsWrapper is now nested inside our own ScrollArea
+     * (see DropdownComponentOverride) and the action row sits outside that
+     * ScrollArea, so the creatable row no longer needs to be sticky to
+     * avoid being glued to the action row. The rule has been removed.
+     */
+}
+
+.values {
+    max-width: 100%;
+    flex-wrap: wrap;
+    max-height: 6.4em;
+    overflow-y: auto;
+    align-content: center;
+}
+
+.value {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.input {
+    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wrapper {
+    max-width: 100%;
+}
+
+.dropdown {
+    overflow: hidden;
+}
+
+@media (max-width: 600px) {
+    .input,
+    .wrapper {
+        max-width: 80vw;
+    }
+
+    .dropdown {
+        max-width: 80vw;
+        width: 80vw;
+    }
+}

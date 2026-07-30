@@ -2240,7 +2240,8 @@
             "button_with_search": "Add all \"{{search}}\" ({{count}})",
             "button_no_search": "Add all ({{count}})",
             "already_selected": "All already added ({{count}})",
-            "hint_visible_only": "Visible {{limit}} only"
+            "hint_visible_only": "Visible {{limit}} only",
+            "clear": "Clear ({{count}})"
         },
         "autocomple_results": {
             "refresh": "Click here to refresh cache filter values",
