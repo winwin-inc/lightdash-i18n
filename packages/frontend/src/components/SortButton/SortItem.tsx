@@ -2,7 +2,10 @@ import {
     type DraggableProvidedDraggableProps,
     type DraggableProvidedDragHandleProps,
 } from '@hello-pangea/dnd';
-import { isField, type SortField } from '@lightdash/common';
+import {
+    getItemLabelWithoutTableName,
+    type SortField,
+} from '@lightdash/common';
 import { ActionIcon, Box, Group, SegmentedControl, Text } from '@mantine/core';
 import { IconGripVertical, IconX } from '@tabler/icons-react';
 import { forwardRef } from 'react';
@@ -101,8 +104,7 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                     </Text>
 
                     <Text fw={500}>
-                        {(isField(item) ? item.label : item.name) ||
-                            sort.fieldId}
+                        {getItemLabelWithoutTableName(item) || sort.fieldId}
                     </Text>
                 </Group>
 
@@ -143,8 +145,8 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                                 value === SortNullsFirst.FIRST
                                     ? true
                                     : value === SortNullsFirst.LAST
-                                    ? false
-                                    : undefined,
+                                      ? false
+                                      : undefined,
                             );
                         }}
                     />
