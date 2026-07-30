@@ -2236,6 +2236,12 @@
             "part_4": "Start",
             "part_5": "typing..."
         },
+        "select_all_matched": {
+            "button_with_search": "Add all \"{{search}}\" ({{count}})",
+            "button_no_search": "Add all ({{count}})",
+            "already_selected": "All already added ({{count}})",
+            "hint_visible_only": "Visible {{limit}} only"
+        },
         "autocomple_results": {
             "refresh": "Click here to refresh cache filter values",
             "loaded": "Results loaded at"
@@ -2937,7 +2943,18 @@
         "not_have_permission": "You do not have permission to edit this chart"
     },
     "components_dashboard_tiles_dashboard_export_image": {
-        "export_image": "Export image"
+        "export_image": "Export image",
+        "options": "Options",
+        "aspect_ratio": "Aspect ratio",
+        "aspect_ratio.original": "Original",
+        "aspect_ratio.16x9": "16:9",
+        "aspect_ratio.9x16": "9:16",
+        "background": "Background",
+        "background.white": "White",
+        "background.transparent": "Transparent",
+        "output_dimensions": "Output: {{w}}×{{h}}",
+        "cancel": "Cancel",
+        "download": "Download"
     },
     "components_dashboard_tiles_edit_chart_menu": {
         "edit_chart": "Edit chart"
