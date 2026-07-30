@@ -112,7 +112,7 @@ export const AiVisualizationRenderer: FC<Props> = ({
 
     const defaultChartType =
         chartConfig.type === AiResultType.QUERY_RESULT
-            ? chartConfig.chartConfig?.defaultVizType ?? 'table'
+            ? (chartConfig.chartConfig?.defaultVizType ?? 'table')
             : 'table';
 
     if (!chartConfigFromAiAgentVizConfig.echartsConfig) {
@@ -150,7 +150,7 @@ export const AiVisualizationRenderer: FC<Props> = ({
                     ...metricQuery.tableCalculations.map((tc) => tc.name),
                 ]}
                 pivotTableMaxColumnLimit={
-                    health?.pivotTable.maxColumnLimit ?? 60
+                    health?.pivotTable.maxColumnLimit ?? 120
                 }
                 initialPivotDimensions={groupByDimensions}
                 colorPalette={
