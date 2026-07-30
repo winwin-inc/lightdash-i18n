@@ -1,10 +1,5 @@
-import {
-    derivePivotConfigurationFromChart,
-    FeatureFlags,
-    getFieldsFromMetricQuery,
-} from '@lightdash/common';
 import { useLocalStorage } from '@mantine/hooks';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import {
     AUTO_FETCH_ENABLED_DEFAULT,
     AUTO_FETCH_ENABLED_KEY,
@@ -14,13 +9,11 @@ import {
     selectFromDashboard,
     selectIsEditMode,
     selectIsResultsExpanded,
-    selectMetricQuery,
     useExplorerDispatch,
     useExplorerSelector,
 } from '../features/explorer/store';
 import useExplorerContext from '../providers/Explorer/useExplorerContext';
 import { useExplorerQueryManager } from './useExplorerQueryManager';
-import { useFeatureFlag } from './useFeatureFlagEnabled';
 
 /**
  * Effects layer for Explorer query orchestration
@@ -45,22 +38,11 @@ export const useExplorerQueryEffects = ({
     }, [minimal, dispatch]);
 
     // Get all state and runQuery from manager (single source of truth)
-    const { runQuery, query, validQueryArgs, explore } =
-        useExplorerQueryManager();
+    const { runQuery, query, validQueryArgs } = useExplorerQueryManager();
 
     const isEditMode = useExplorerSelector(selectIsEditMode);
     const isResultsOpen = useExplorerSelector(selectIsResultsExpanded);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
-    const metricQuery = useExplorerSelector(selectMetricQuery);
-
-    const { data: useSqlPivotResults } = useFeatureFlag(
-        FeatureFlags.UseSqlPivotResults,
-    );
-
-    // Get merged version with chartConfig and pivotConfig from Context
-    const mergedUnsavedChartVersion = useExplorerContext(
-        (context) => context.state.mergedUnsavedChartVersion,
-    );
 
     // Auto-fetch configuration
     const [autoFetchEnabled] = useLocalStorage({
@@ -72,25 +54,6 @@ export const useExplorerQueryEffects = ({
     const isSavedChart = useExplorerContext(
         (context) => !!context.state.savedChart,
     );
-
-    // Check if we need unpivoted data for results table
-    const needsUnpivotedData = useMemo(() => {
-        if (!useSqlPivotResults?.enabled || !explore) return false;
-
-        const items = getFieldsFromMetricQuery(metricQuery, explore);
-        const pivotConfiguration = derivePivotConfigurationFromChart(
-            mergedUnsavedChartVersion,
-            metricQuery,
-            items,
-        );
-
-        return !!pivotConfiguration;
-    }, [
-        useSqlPivotResults?.enabled,
-        explore,
-        metricQuery,
-        mergedUnsavedChartVersion,
-    ]);
 
     // Effect 1: Auto-fetch logic
     // Handles both initial fetch and reactive auto-fetch
@@ -113,14 +76,16 @@ export const useExplorerQueryEffects = ({
         isEditMode,
     ]);
 
-    // Effect 2: Setup unpivoted query args when needed
+    // Effect 2: Setup unpivoted query args whenever the main query is pivoted.
+    // Aligns with main query pivotConfiguration (including when UseSqlPivotResults is off
+    // but getChartRequiresPivotResults forces pivot for stacked series sorting).
     useEffect(() => {
         if (!validQueryArgs) {
             dispatch(explorerActions.setUnpivotedQueryArgs(null));
             return;
         }
 
-        if (needsUnpivotedData && isResultsOpen) {
+        if (validQueryArgs.pivotConfiguration && isResultsOpen) {
             dispatch(
                 explorerActions.setUnpivotedQueryArgs({
                     ...validQueryArgs,
@@ -131,7 +96,7 @@ export const useExplorerQueryEffects = ({
         } else {
             dispatch(explorerActions.setUnpivotedQueryArgs(null));
         }
-    }, [validQueryArgs, needsUnpivotedData, isResultsOpen, dispatch]);
+    }, [validQueryArgs, isResultsOpen, dispatch]);
 
     // No return - this hook just orchestrates effects
 };
