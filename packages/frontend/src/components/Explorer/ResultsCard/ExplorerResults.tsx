@@ -1,4 +1,4 @@
-import { FeatureFlags, getItemMap } from '@lightdash/common';
+import { getItemMap } from '@lightdash/common';
 import { Box, Text } from '@mantine/core';
 import { memo, useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,6 @@ import {
 import { useColumns } from '../../../hooks/useColumns';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
-import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import type {
     useGetReadyQueryResults,
     useInfiniteQueryResults,
@@ -82,10 +81,6 @@ export const ExplorerResults = memo(() => {
         missingRequiredParameters,
     } = useExplorerQuery();
 
-    const { data: useSqlPivotResults } = useFeatureFlag(
-        FeatureFlags.UseSqlPivotResults,
-    );
-
     const dimensions = query.data?.metricQuery?.dimensions ?? [];
     const metrics = query.data?.metricQuery?.metrics ?? [];
     const explorerColumnOrder = useExplorerSelector(selectColumnOrder);
@@ -95,12 +90,12 @@ export const ExplorerResults = memo(() => {
     );
 
     const resultsData = useMemo(() => {
-        const isSqlPivotEnabled = !!useSqlPivotResults?.enabled;
         const hasUnpivotedQuery = !!unpivotedQuery?.data?.queryUuid;
 
-        // Only use unpivoted data when SQL pivot is enabled
-        const shouldUseUnpivotedData =
-            isSqlPivotEnabled && hasPivotConfig && hasUnpivotedQuery;
+        // Use unpivoted rows for the results table whenever a companion
+        // unpivoted query exists (main query may be pivoted for charts even
+        // when UseSqlPivotResults is off).
+        const shouldUseUnpivotedData = hasPivotConfig && hasUnpivotedQuery;
 
         if (shouldUseUnpivotedData) {
             return {
@@ -127,7 +122,6 @@ export const ExplorerResults = memo(() => {
 
         return result;
     }, [
-        useSqlPivotResults?.enabled,
         hasPivotConfig,
         query,
         queryResults,
