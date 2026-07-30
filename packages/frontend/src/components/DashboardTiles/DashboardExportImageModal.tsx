@@ -9,7 +9,7 @@ import {
 } from '@mantine/core';
 import { useLocalStorage } from '@mantine/hooks';
 import { IconPhoto } from '@tabler/icons-react';
-import { type FC, type RefObject, useCallback, useMemo } from 'react';
+import { type RefObject, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../common/MantineIcon';
@@ -184,35 +184,12 @@ type DashboardExportImageModalProps = {
     chartName: string;
 };
 
-const DashboardExportImageModal: FC<DashboardExportImageModalProps> = ({
-    isOpen,
+function DashboardExportImageModalBody({
     onClose,
     chartType,
     echartRef,
     chartName,
-}) => {
-    const { t } = useTranslation();
-
-    // Mirror the ExportDataModal pattern: only mount the Modal when open.
-    // Without this early return, the Modal is created on first render and
-    // its internal state can flash open/close when other modals in the same
-    // tree change.
-    if (!isOpen) return null;
-
-    return (
-        <DashboardExportImageModalBody
-            onClose={onClose}
-            chartType={chartType}
-            echartRef={echartRef}
-            chartName={chartName}
-        />
-    );
-};
-
-const DashboardExportImageModalBody: FC<Omit<
-    DashboardExportImageModalProps,
-    'isOpen'
->> = ({ onClose, chartType, echartRef, chartName }) => {
+}: Omit<DashboardExportImageModalProps, 'isOpen'>) {
     const { t } = useTranslation();
     const [options, setOptions] = useLocalStorage<ChartExportOptions>({
         key: PREFERENCES_KEY,
@@ -316,6 +293,18 @@ const DashboardExportImageModalBody: FC<Omit<
                                     'components_dashboard_tiles_dashboard_export_image.aspect_ratio.9x16',
                                 ),
                             },
+                            {
+                                value: ExportAspectRatio.A4x3,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.4x3',
+                                ),
+                            },
+                            {
+                                value: ExportAspectRatio.A3x4,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.3x4',
+                                ),
+                            },
                         ]}
                     />
                 </Stack>
@@ -371,6 +360,29 @@ const DashboardExportImageModalBody: FC<Omit<
             </Stack>
         </Modal>
     );
-};
+}
+
+function DashboardExportImageModal({
+    isOpen,
+    onClose,
+    chartType,
+    echartRef,
+    chartName,
+}: DashboardExportImageModalProps) {
+    // Mirror the ExportDataModal pattern: only mount the Modal when open.
+    // Without this early return, the Modal is created on first render and
+    // its internal state can flash open/close when other modals in the same
+    // tree change.
+    if (!isOpen) return null;
+
+    return (
+        <DashboardExportImageModalBody
+            onClose={onClose}
+            chartType={chartType}
+            echartRef={echartRef}
+            chartName={chartName}
+        />
+    );
+}
 
 export default DashboardExportImageModal;

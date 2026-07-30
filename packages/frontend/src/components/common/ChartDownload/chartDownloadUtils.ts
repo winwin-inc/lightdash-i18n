@@ -22,6 +22,8 @@ export enum ExportAspectRatio {
     ORIGINAL = 'original',
     A16x9 = '16x9',
     A9x16 = '9x16',
+    A4x3 = '4x3',
+    A3x4 = '3x4',
 }
 
 const LONG_EDGE_PX = 1920;
@@ -39,6 +41,22 @@ const safeRatio = (w: number, h: number): number => {
     if (!w || !h) return 1;
     return w / h;
 };
+
+function getAspectRatioValue(ratio: ExportAspectRatio): number {
+    switch (ratio) {
+        case ExportAspectRatio.A16x9:
+            return 16 / 9;
+        case ExportAspectRatio.A9x16:
+            return 9 / 16;
+        case ExportAspectRatio.A4x3:
+            return 4 / 3;
+        case ExportAspectRatio.A3x4:
+            return 3 / 4;
+        case ExportAspectRatio.ORIGINAL:
+        default:
+            return 1;
+    }
+}
 
 /**
  * Computes the target canvas dimensions and the letterboxed draw rectangle
@@ -60,8 +78,7 @@ export const computeExportDimensions = (
         targetW = Math.max(1, Math.round(srcWidth));
         targetH = Math.max(1, Math.round(targetW / srcRatio));
     } else {
-        const targetRatio =
-            ratio === ExportAspectRatio.A16x9 ? 16 / 9 : 9 / 16;
+        const targetRatio = getAspectRatioValue(ratio);
         if (targetRatio >= 1) {
             targetW = LONG_EDGE_PX;
             targetH = Math.round(LONG_EDGE_PX / targetRatio);
@@ -217,6 +234,8 @@ const aspectRatioSuffix: Record<ExportAspectRatio, string> = {
     [ExportAspectRatio.ORIGINAL]: '',
     [ExportAspectRatio.A16x9]: '_16x9',
     [ExportAspectRatio.A9x16]: '_9x16',
+    [ExportAspectRatio.A4x3]: '_4x3',
+    [ExportAspectRatio.A3x4]: '_3x4',
 };
 
 /**
