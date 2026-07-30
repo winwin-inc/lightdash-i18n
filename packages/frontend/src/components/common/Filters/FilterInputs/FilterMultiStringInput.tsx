@@ -436,7 +436,7 @@ const FilterMultiStringInput: FC<Props> = ({
                 }}
                 disableSelectedItemFiltering={false}
                 searchable
-                clearSearchOnChange
+                clearSearchOnChange={false}
                 {...rest}
                 searchValue={search}
                 onSearchChange={setSearch}

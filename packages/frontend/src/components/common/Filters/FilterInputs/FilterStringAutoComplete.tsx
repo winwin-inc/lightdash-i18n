@@ -668,7 +668,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 disableSelectedItemFiltering
                 searchable
                 clearable={singleValue}
-                clearSearchOnChange
+                clearSearchOnChange={false}
                 {...rest}
                 searchValue={search}
                 onSearchChange={handleSearchChange}
