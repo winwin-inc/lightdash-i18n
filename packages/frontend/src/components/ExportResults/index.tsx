@@ -42,7 +42,10 @@ type ExportCsvRenderProps = {
     isExporting: boolean;
 };
 
-enum Values
+enum Values {
+    FORMATTED = 'formatted',
+    RAW = 'raw',
+}
 
 export type ExportResultsProps = {
     projectUuid: string;
