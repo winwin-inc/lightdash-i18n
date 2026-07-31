@@ -8,17 +8,32 @@
 
 .item {
     /*
-     * Mantine v6 Combobox.Option items are rendered as plain divs WITHOUT a
-     * ``data-value`` attribute, so the previous selector
-     * ``.item:last-child:not([data-value])`` matched every last child and
-     * pinned the final candidate to the bottom of the dropdown while the
-     * user scrolled - making it look "locked". The sticky-bottom trick
-     * was originally meant to keep the creatable "+ Add <query>" row in
-     * view, but the itemsWrapper is now nested inside our own ScrollArea
-     * (see DropdownComponentOverride) and the action row sits outside that
-     * ScrollArea, so the creatable row no longer needs to be sticky to
-     * avoid being glued to the action row. The rule has been removed.
+     * Mantine v6 renders the creatable "+ Add <query>" row as the last
+     * sibling inside the items list (see SelectItems.js - the create
+     * option is appended to unGroupedItems at the end). It is rendered as
+     * a plain `<div class="...item...">` WITHOUT `role="option"`,
+     * `data-disabled`, or `data-selected`, while every regular candidate
+     * always carries `role="option"`. The previous sticky selector used
+     * `:not([data-value])` which silently matched every last child (no
+     * item carries that attribute) and pinned the final candidate to the
+     * bottom, looking "locked". Targeting by `:not([role="option"])`
+     * instead selects only the create row, so it sticks to the bottom of
+     * the inner ScrollArea viewport while the user scrolls candidates.
+     *
+     * Specificity is intentionally bumped (`.item:last-child:...`) to
+     * beat Mantine's `.m_xxx[data-hovered]` hover rule and keep the
+     * white background / shadow on top of scrolling content.
      */
+}
+
+.item:last-child:not([role='option']) {
+    position: sticky;
+    bottom: 4px;
+    box-shadow: 0 4px 0 0 var(--mantine-color-white);
+}
+
+.item:last-child:not([role='option']):not([data-hovered]) {
+    background-color: var(--mantine-color-white);
 }
 
 .values {
