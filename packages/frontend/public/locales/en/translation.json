@@ -223,7 +223,6 @@
         "success_deleted_gitlab_installation": "Success! GitLab integration was deleted.",
         "failed_to_delete_gitlab_installation": "Failed to delete GitLab integration"
     },
-
     "providers_active_job": {
         "view_log": "View log",
         "toast_refresh_error": "Failed to refresh server",
@@ -381,7 +380,6 @@
         "window_function": "Window Function",
         "partition_by": "Partition By"
     },
-
     "features_omnibar": {
         "search_project": {
             "part_1": "Search {{name}} ",
@@ -502,7 +500,6 @@
         "member": "member{{suffix}}",
         "remove_group_access": "Remove group access"
     },
-
     "features_catalog_meta_data": {
         "close": "Close",
         "tabs": {
@@ -849,21 +846,6 @@
     "features_comments_components_comment_dashboard_replies": {
         "reply": "reply",
         "replies": "replies"
-    },
-    "features_date_zoom": {
-        "add_date_zoom": "Add date zoom",
-        "date_zoom": "Date zoom",
-        "guanularity": "Granularity",
-        "default": "Default",
-        "delete_zoom": "Delete zoom",
-        "on": "On",
-        "options": {
-            "day": "Day",
-            "week": "Week",
-            "month": "Month",
-            "quarter": "Quarter",
-            "year": "Year"
-        }
     },
     "features_date_zoom": {
         "sync_chart_colors": "Sync chart colors"
@@ -1906,7 +1888,6 @@
         "clear_all_parameters": "Clear all parameters",
         "clear_all": "Clear all"
     },
-
     "features_custom_roles_delete_modal": {
         "delete_custom_role": "Delete custom role",
         "content": {
@@ -1972,7 +1953,6 @@
         "select_all": "Select all",
         "no_scopes_found": "No scopes found matching your search."
     },
-
     "features_changesets_project_changesets": {
         "create_new_item": "Create new item",
         "delete_item": "Delete item",
@@ -2011,7 +1991,6 @@
         "changesets_description": "Track changes to your project over time. Changesets are updates to your MSY X Semantic Layer.",
         "revert_all": "Revert All"
     },
-
     "components_common_paginate": {
         "page": "Page",
         "of": "of"
@@ -2539,7 +2518,6 @@
         "enable_filter": "Enable filter",
         "show_add_filter_button": "Show add filter"
     },
-
     "components_dashboard_tabs": {
         "add_tab_modal": {
             "title": "Add new tab",
@@ -2977,7 +2955,6 @@
     "components_dashboard_tiles_underlying_data_menu": {
         "view_underlying_data": "View underlying data"
     },
-
     "components_schedulers_view": {
         "toast": {
             "success": "Scheduled deliveries refreshed successfully"
@@ -3123,7 +3100,6 @@
         "completed": "Completed",
         "error": "Error"
     },
-
     "components_project_access": {
         "system_role": "System role",
         "custom_role": "Custom role",
@@ -3212,7 +3188,6 @@
         "remove_project_access": "Remove project access",
         "cannot_revoke_inherited_access_from_organization": "Cannot revoke inherited access from Organization"
     },
-
     "components_project_tables_configuration": {
         "table_selection": "Table Selection",
         "tip": {
@@ -4774,7 +4749,6 @@
             "add_new_credentials": "Add new credentials"
         }
     },
-
     "compponents_user_access_multi_select": {
         "no_users_found": "No users found",
         "user_access": "User Access",
@@ -4785,7 +4759,6 @@
         },
         "placeholder": "Search users"
     },
-
     "components_warehouse_credentials_panel_snowflake_credentials_form": {
         "week_options": {
             "monday": "Monday",
@@ -4864,7 +4837,6 @@
         },
         "advanced_configuration_options": "Advanced configuration options"
     },
-
     "components_version_auto_updater": {
         "title": "A new version of MSY X is ready for you!"
     },
@@ -7559,7 +7531,6 @@
         },
         "advanced_configuration_options": "Advanced configuration options"
     },
-
     "components_project_parameters": {
         "lightdash_config": "MSY X Config",
         "model": "Model",
@@ -7583,7 +7554,6 @@
             "no_parameters_configured": "No parameters configured for this project"
         }
     },
-
     "components_limit_button": {
         "schema_error": {
             "invalid_value": "Invalid value",
@@ -7746,7 +7716,6 @@
         "unable_to_load_visualization": "Unable to load visualization",
         "learn_how_to_resolve_this_in_our_documentation": "Learn how to resolve this in our documentation →"
     },
-
     "components_run_query_settings": {
         "auto_fetch_results": "Auto-fetch results",
         "automatically_rerun_query_on_change": "Automatically re-run query on change (e.g. add fields, change sort)"
@@ -7754,7 +7723,6 @@
     "components_run_query_settings_limit_input": {
         "row_limit": "Row limit:"
     },
-
     "pages_chart_history": {
         "title": "Charts version history",
         "bread_crumbs": {
@@ -8196,7 +8164,6 @@
     "pages_ai_agents_admin": {
         "title": "AI Agents Admin"
     },
-
     "pages_embed_explore": {
         "threads_created": "Threads created in slack are read only",
         "recent": "Recent",
@@ -8209,7 +8176,6 @@
         "new_agent": "New agent",
         "settings": "Settings"
     },
-
     "pages_custom_roles_create": {
         "title": "Create Custom Role"
     },
@@ -8221,7 +8187,6 @@
         "no_custom_roles": "No custom roles",
         "no_custom_roles_description": "You haven't created any custom roles yet. Custom roles allow you to define specific permissions for your organization."
     },
-
     "pages_unused_content": {
         "no_content_found": {
             "title": "No content found",
@@ -8239,7 +8204,6 @@
         "least_viewed_charts": "Least viewed charts",
         "least_viewed_dashboards": "Least viewed dashboards"
     },
-
     "mobile_navbar": {
         "home": "Home",
         "project": "Project",

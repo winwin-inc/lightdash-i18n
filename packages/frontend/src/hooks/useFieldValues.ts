@@ -17,8 +17,24 @@ import useEmbed from '../ee/providers/Embed/useEmbed';
 
 export const MAX_AUTOCOMPLETE_RESULTS = 50;
 
-export const compareFieldValues = (a: string, b: string) =>
-    a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' });
+/**
+ * Upper bound on how many candidates the "Add all" action will pull in
+ * one go. The dropdown itself only renders MAX_AUTOCOMPLETE_RESULTS at a
+ * time, but clicking "Add all" may fetch up to this many from the
+ * warehouse so the user can pick every value that matches their search.
+ */
+export const MAX_SELECT_ALL_LIMIT = 500;
+
+// 6-digit values are treated as YYYYMM cycles and sorted in descending order (newest first); other values keep the original localeCompare behavior.
+const isYearMonthValue = (value: string) => /^\d{6}$/.test(value);
+
+export const compareFieldValues = (a: string, b: string) => {
+    if (isYearMonthValue(a) && isYearMonthValue(b)) {
+        if (a === b) return 0;
+        return a < b ? 1 : -1;
+    }
+    return a.localeCompare(b, 'zh-CN', { numeric: true, sensitivity: 'base' });
+};
 
 const getEmbedFilterValues = async (options: {
     embedToken: string;
@@ -33,7 +49,7 @@ const getEmbedFilterValues = async (options: {
         method: 'POST',
         body: JSON.stringify({
             search: options.search,
-            limit: MAX_AUTOCOMPLETE_RESULTS,
+            limit: MAX_SELECT_ALL_LIMIT,
             filters: options.filters,
             forceRefresh: options.forceRefresh,
         }),
@@ -45,14 +61,14 @@ type DashboardFilterContext = {
     dashboardName?: string;
 };
 
-const getFieldValues = async (
+export const getFieldValues = async (
     projectId: string,
     table: string | undefined,
     fieldId: string,
     search: string,
     forceRefresh: boolean,
     filters: AndFilterGroup | undefined,
-    limit: number = MAX_AUTOCOMPLETE_RESULTS,
+    limit: number = MAX_SELECT_ALL_LIMIT,
     parameterValues?: ParametersValuesMap,
     dashboardContext?: DashboardFilterContext,
 ) => {

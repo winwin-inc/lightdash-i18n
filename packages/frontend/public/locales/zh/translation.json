@@ -223,7 +223,6 @@
         "success_deleted_gitlab_installation": "成功! GitLab 集成已删除。",
         "failed_to_delete_gitlab_installation": "删除 GitLab 集成失败"
     },
-
     "providers_active_job": {
         "view_log": "查看日志",
         "toast_refresh_error": "刷新服务器失败",
@@ -373,7 +372,6 @@
         "window_function": "窗口函数",
         "partition_by": "分区"
     },
-
     "features_omnibar": {
         "search_project": {
             "part_1": "搜索 {{name}} ",
@@ -494,7 +492,6 @@
         "member": "成员",
         "remove_group_access": "移除组访问权限"
     },
-
     "features_catalog_meta_data": {
         "close": "关闭",
         "tabs": {
@@ -896,7 +893,6 @@
         "this_embed_link_has_expired": "此嵌入链接已过期",
         "tables": "表格"
     },
-
     "features_mertic_flow": {
         "time_granularity": "时间粒度",
         "sql": "SQL",
@@ -1889,7 +1885,6 @@
         "clear_all_parameters": "清除所有参数",
         "clear_all": "清除所有"
     },
-
     "features_custom_roles_delete_modal": {
         "delete_custom_role": "删除自定义角色",
         "content": {
@@ -1955,7 +1950,6 @@
         "select_all": "选择所有",
         "no_scopes_found": "没有找到匹配的范围。"
     },
-
     "features_changesets_project_changesets": {
         "create_new_item": "创建新项目",
         "delete_item": "删除项目",
@@ -1994,7 +1988,6 @@
         "changesets_description": "跟踪项目的变化。变更集是您的 马上赢X 语义层的更新。",
         "revert_all": "撤销所有"
     },
-
     "components_common_paginate": {
         "page": "页",
         "of": "的"
@@ -2536,7 +2529,6 @@
         "enable_filter": "启用筛选器",
         "show_add_filter_button": "显示筛选器"
     },
-
     "components_dashboard_tabs": {
         "add_tab_modal": {
             "title": "添加新标签页",
@@ -2974,7 +2966,6 @@
     "components_dashboard_tiles_underlying_data_menu": {
         "view_underlying_data": "查看基础数据"
     },
-
     "components_schedulers_view": {
         "toast": {
             "success": "计划交付已成功刷新"
@@ -3120,7 +3111,6 @@
         "completed": "完成",
         "error": "错误"
     },
-
     "components_project_access": {
         "system_role": "系统角色",
         "custom_role": "自定义角色",
@@ -3209,7 +3199,6 @@
         "remove_project_access": "撤销项目访问权限",
         "cannot_revoke_inherited_access_from_organization": "无法撤销从组织继承的访问权限"
     },
-
     "components_project_tables_configuration": {
         "table_selection": "表格选择",
         "tip": {
@@ -4302,7 +4291,6 @@
         "save": "保存",
         "add_to_slack": "添加到Slack"
     },
-
     "components_user_settings_project_management_panel": {
         "current_project": "当前项目",
         "preview": "预览",
@@ -4769,7 +4757,6 @@
             "add_new_credentials": "添加新凭据"
         }
     },
-
     "compponents_user_access_multi_select": {
         "no_users_found": "无用户",
         "user_access": "用户访问",
@@ -4780,7 +4767,6 @@
         },
         "placeholder": "搜索用户"
     },
-
     "components_warehouse_credentials_panel_snowflake_credentials_form": {
         "week_options": {
             "monday": "周一",
@@ -4859,7 +4845,6 @@
         },
         "advanced_configuration_options": "高级配置选项"
     },
-
     "components_version_auto_updater": {
         "title": "马上赢X 的新版本已经准备好了!"
     },
@@ -7564,7 +7549,6 @@
         },
         "advanced_configuration_options": "高级配置选项"
     },
-
     "components_project_parameters": {
         "lightdash_config": "马上赢X 配置",
         "model": "模型",
@@ -7588,7 +7572,6 @@
             "no_parameters_configured": "没有为这个项目配置参数"
         }
     },
-
     "components_limit_button": {
         "schema_error": {
             "invalid_value": "无效值",
@@ -7751,7 +7734,6 @@
         "unable_to_load_visualization": "无法加载图表",
         "learn_how_to_resolve_this_in_our_documentation": "学习如何解决此问题 →"
     },
-
     "components_run_query_settings": {
         "auto_fetch_results": "自动获取结果",
         "automatically_rerun_query_on_change": "在更改时自动重新运行查询 (例如添加字段、更改排序)"
@@ -7759,7 +7741,6 @@
     "components_run_query_settings_limit_input": {
         "row_limit": "行数限制:"
     },
-
     "pages_chart_history": {
         "title": "图表版本历史记录",
         "bread_crumbs": {
@@ -8192,7 +8173,6 @@
     "pages_ai_agents_admin": {
         "title": "AI 代理管理"
     },
-
     "pages_embed_explore": {
         "threads_created": "Slack 中创建的线程是只读的",
         "recent": "最近",
@@ -8205,7 +8185,6 @@
         "new_agent": "新代理",
         "settings": "设置"
     },
-
     "pages_custom_roles_create": {
         "title": "创建自定义角色"
     },
@@ -8234,7 +8213,6 @@
         "least_viewed_charts": "查看次数最少的图表",
         "least_viewed_dashboards": "查看次数最少的看板"
     },
-
     "mobile_navbar": {
         "home": "首页",
         "project": "项目",

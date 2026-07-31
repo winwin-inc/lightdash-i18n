@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 
 import useHealth from '../../../../hooks/health/useHealth';
 import {
-    MAX_AUTOCOMPLETE_RESULTS,
+    MAX_SELECT_ALL_LIMIT,
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
@@ -484,7 +484,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         );
     }, [excludedValues, results, values]);
 
-    const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
+    const searchedMaxResults = resultsSet.size >= MAX_SELECT_ALL_LIMIT;
 
     /*
      * Bulk selectors for the dropdown footer row. Sit at the bottom of the
@@ -540,7 +540,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                             {t(
                                 'components_common_filters_inputs.scroll_area.part_1',
                             )}{' '}
-                            {MAX_AUTOCOMPLETE_RESULTS}{' '}
+                            {MAX_SELECT_ALL_LIMIT}{' '}
                             {t(
                                 'components_common_filters_inputs.scroll_area.part_2',
                             )}{' '}
@@ -672,7 +672,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 {...rest}
                 searchValue={search}
                 onSearchChange={handleSearchChange}
-                limit={MAX_AUTOCOMPLETE_RESULTS}
+                limit={MAX_SELECT_ALL_LIMIT}
                 onPaste={handlePaste}
                 nothingFound={
                     isInitialLoading

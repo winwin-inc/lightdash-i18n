@@ -26,7 +26,7 @@ import MultiValuePastePopover from '../../../../components/common/Filters/Filter
 import MantineIcon from '../../../../components/common/MantineIcon';
 import useHealth from '../../../../hooks/health/useHealth';
 import {
-    MAX_AUTOCOMPLETE_RESULTS,
+    MAX_SELECT_ALL_LIMIT,
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
 import { useAppSelector } from '../../../sqlRunner/store/hooks';
@@ -153,7 +153,7 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
         }));
     }, [results, values]);
 
-    const searchedMaxResults = resultsSet.size >= MAX_AUTOCOMPLETE_RESULTS;
+    const searchedMaxResults = resultsSet.size >= MAX_SELECT_ALL_LIMIT;
 
     const DropdownComponentOverride = useCallback(
         ({ children, ...props }: { children: ReactNode }) => (
@@ -171,7 +171,7 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
                             {t(
                                 'features_metrics_catalog_visualzation.showing_first',
                                 {
-                                    MAX_AUTOCOMPLETE_RESULTS,
+                                    MAX_SELECT_ALL_LIMIT,
                                 },
                             )}{' '}
                             {search
@@ -280,7 +280,7 @@ export const MetricExploreFilterAutoComplete: FC<Props> = ({
                 clearSearchOnChange
                 searchValue={search}
                 onSearchChange={setSearch}
-                limit={MAX_AUTOCOMPLETE_RESULTS}
+                limit={MAX_SELECT_ALL_LIMIT}
                 onPaste={handlePaste}
                 nothingFound={
                     isInitialLoading
