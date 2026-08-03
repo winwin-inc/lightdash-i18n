@@ -19,9 +19,7 @@ import { useVisualizationContext } from '../../LightdashVisualization/useVisuali
 import { Config } from '../common/Config';
 import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
-import { MAX_PIVOTS } from './constants';
-
-enum DroppableIds
+import { DroppableIds, MAX_PIVOTS } from './constants';
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
