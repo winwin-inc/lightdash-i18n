@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useConditionalRuleLabelFromItem } from '../Filters/FilterInputs/utils';
 import { type CellContextMenuProps } from '../Table/types';
 import {
+    DEFAULT_COLUMN_MAX_WIDTH,
     pivotDataToVTable,
     type VTableColumnDef,
     type VTableColumnGroup,
@@ -214,7 +215,6 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             columnProperties,
             getField,
             pivotMetricHeaderPosition,
-            pivotAutoFillWidth,
             pivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,
             cellAlignment,
@@ -239,9 +239,17 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         pivotColumnInfoRef.current = data.retrofitData.pivotColumnInfo;
         headerRowCountRef.current = headerRowCount;
 
+        const limitMaxAutoWidth =
+            pivotColumnMaxWidth !== undefined && pivotColumnMaxWidth > 0
+                ? pivotColumnMaxWidth
+                : DEFAULT_COLUMN_MAX_WIDTH;
+
         const fullOption: Record<string, unknown> = {
             columns: columnsWithStyle,
             records: allRecords,
+            // 按表头/单元格内容自适应列宽（与「撑满容器」解耦，默认开启）
+            widthMode: 'autoWidth',
+            limitMaxAutoWidth,
             ...(pivotAutoFillWidth ? { autoFillWidth: true } : {}),
             select: {
                 disableSelect: true,

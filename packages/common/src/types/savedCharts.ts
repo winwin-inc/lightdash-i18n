@@ -178,11 +178,11 @@ export type TableChart = {
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
-    /** 透视表列少时自动撑满容器宽度 */
+    /** 透视表列总宽小于容器时，均分剩余空间铺满 */
     pivotAutoFillWidth?: boolean;
-    /** 透视表行维度列拉伸上限（px），未设置表示不限制 */
+    /** 透视表行维度列最大宽度（px），未设置时使用默认上限 */
     pivotDimensionColumnMaxWidth?: number;
-    /** 透视表数据列拉伸上限（px），未设置表示不限制 */
+    /** 透视表数据列最大宽度（px），未设置时使用默认上限 */
     pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;

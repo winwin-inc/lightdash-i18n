@@ -8,7 +8,6 @@ import {
     SegmentedControl,
     Stack,
     Switch,
-    Text,
     Tooltip,
 } from '@mantine/core';
 import { useCallback, useMemo, useState, type FC } from 'react';
@@ -22,10 +21,7 @@ import ColumnConfiguration from './ColumnConfiguration';
 import DroppableItemsList from './DroppableItemsList';
 import { MAX_PIVOTS } from './constants';
 
-enum DroppableIds {
-    COLUMNS = 'COLUMNS',
-    ROWS = 'ROWS',
-}
+enum DroppableIds
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
@@ -304,20 +300,42 @@ const GeneralSettings: FC = () => {
                     </Tooltip>
                     {isPivotTableEnabled ? (
                         <>
-                            <Switch
+                            <Tooltip
                                 label={t(
-                                    'components_visualization_configs_table.settings.pivot_auto_fill_width',
+                                    'components_visualization_configs_table.settings.pivot_auto_fill_width_tooltip',
                                 )}
-                                labelPosition="right"
-                                checked={pivotAutoFillWidth}
-                                onChange={(event) =>
-                                    setPivotAutoFillWidth(
-                                        event.currentTarget.checked,
-                                    )
-                                }
-                            />
-                            {pivotAutoFillWidth ? (
-                                <Stack spacing={4}>
+                                w={320}
+                                multiline
+                                fz="xs"
+                                withinPortal
+                                position="top-start"
+                            >
+                                <Box>
+                                    <Switch
+                                        label={t(
+                                            'components_visualization_configs_table.settings.pivot_auto_fill_width',
+                                        )}
+                                        labelPosition="right"
+                                        checked={pivotAutoFillWidth}
+                                        onChange={(event) =>
+                                            setPivotAutoFillWidth(
+                                                event.currentTarget.checked,
+                                            )
+                                        }
+                                    />
+                                </Box>
+                            </Tooltip>
+                            <Tooltip
+                                label={t(
+                                    'components_visualization_configs_table.settings.pivot_dimension_column_max_width_tooltip',
+                                )}
+                                w={300}
+                                multiline
+                                fz="xs"
+                                withinPortal
+                                position="top-start"
+                            >
+                                <Box>
                                     <NumberInput
                                         label={t(
                                             'components_visualization_configs_table.settings.pivot_dimension_column_max_width',
@@ -346,6 +364,19 @@ const GeneralSettings: FC = () => {
                                             );
                                         }}
                                     />
+                                </Box>
+                            </Tooltip>
+                            <Tooltip
+                                label={t(
+                                    'components_visualization_configs_table.settings.pivot_data_column_max_width_tooltip',
+                                )}
+                                w={300}
+                                multiline
+                                fz="xs"
+                                withinPortal
+                                position="top-start"
+                            >
+                                <Box>
                                     <NumberInput
                                         label={t(
                                             'components_visualization_configs_table.settings.pivot_data_column_max_width',
@@ -372,13 +403,8 @@ const GeneralSettings: FC = () => {
                                             );
                                         }}
                                     />
-                                    <Text size="xs" color="dimmed">
-                                        {t(
-                                            'components_visualization_configs_table.settings.pivot_column_max_width_hint',
-                                        )}
-                                    </Text>
-                                </Stack>
-                            ) : null}
+                                </Box>
+                            </Tooltip>
                         </>
                     ) : null}
                 </Config.Section>

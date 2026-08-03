@@ -36,7 +36,6 @@ export type PivotDataToVTableOptions = {
     columnProperties?: Record<string, ColumnProperties>;
     getField?: (fieldId: string) => ItemsMap[string] | undefined;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
-    pivotAutoFillWidth?: boolean;
     pivotDimensionColumnMaxWidth?: number;
     pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
@@ -56,14 +55,19 @@ export type BarCustomRenderOptions = {
 const DATA_COLUMN_MIN_WIDTH = 88;
 /** 行维度列最小宽度，避免长维度值（如商品名称）被数据列挤压 */
 const DIMENSION_COLUMN_MIN_WIDTH = 160;
+/**
+ * 内容自适应时的默认列宽上限，防止超长列名无限撑开。
+ * 对齐 VTable `limitMaxAutoWidth` 默认值。
+ */
+export const DEFAULT_COLUMN_MAX_WIDTH = 450;
 
-const getColumnMaxWidth = (
-    pivotAutoFillWidth: boolean | undefined,
-    columnMaxWidth: number | undefined,
-): number | undefined => {
-    if (!pivotAutoFillWidth) return undefined;
+/**
+ * 解析列宽上限：显式配置优先；未设置或无效时用默认上限（非无限宽）。
+ * 与「列宽自动撑满」开关解耦，内容自适应时同样生效。
+ */
+const getColumnMaxWidth = (columnMaxWidth: number | undefined): number => {
     if (columnMaxWidth === undefined || columnMaxWidth <= 0) {
-        return undefined;
+        return DEFAULT_COLUMN_MAX_WIDTH;
     }
     return columnMaxWidth;
 };
@@ -325,13 +329,9 @@ function buildGroupedDataColumns(
         columnProperties = {},
         getField,
         cellAlignment = 'left',
-        pivotAutoFillWidth,
         pivotColumnMaxWidth,
     } = options;
-    const dataColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
-        pivotColumnMaxWidth,
-    );
+    const dataColumnMaxWidth = getColumnMaxWidth(pivotColumnMaxWidth);
     const headerValues = data.headerValues ?? [];
     const pivotColumnInfo = data.retrofitData.pivotColumnInfo;
     const nRows = headerValues.length;
@@ -365,9 +365,7 @@ function buildGroupedDataColumns(
             });
         } else {
             colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-            if (dataColumnMaxWidth !== undefined) {
-                colDef.maxWidth = dataColumnMaxWidth;
-            }
+            colDef.maxWidth = dataColumnMaxWidth;
         }
         return colDef;
     };
@@ -434,19 +432,14 @@ export function pivotDataToVTable(
         columnProperties = {},
         getField,
         pivotMetricHeaderPosition = 'bottom',
-        pivotAutoFillWidth,
         pivotDimensionColumnMaxWidth,
         pivotColumnMaxWidth,
         cellAlignment = 'left',
         pivotRowDimensionAlignment = 'left',
     } = options;
 
-    const dataColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
-        pivotColumnMaxWidth,
-    );
+    const dataColumnMaxWidth = getColumnMaxWidth(pivotColumnMaxWidth);
     const dimensionColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
         pivotDimensionColumnMaxWidth,
     );
 
@@ -510,17 +503,12 @@ export function pivotDataToVTable(
                 style: { textAlign: pivotRowDimensionAlignment },
             };
             if (shouldProtectDimensionColumnWidth) {
-                colDef.minWidth =
-                    dimensionColumnMaxWidth !== undefined
-                        ? Math.min(
-                              DIMENSION_COLUMN_MIN_WIDTH,
-                              dimensionColumnMaxWidth,
-                          )
-                        : DIMENSION_COLUMN_MIN_WIDTH;
+                colDef.minWidth = Math.min(
+                    DIMENSION_COLUMN_MIN_WIDTH,
+                    dimensionColumnMaxWidth,
+                );
             }
-            if (dimensionColumnMaxWidth !== undefined) {
-                colDef.maxWidth = dimensionColumnMaxWidth;
-            }
+            colDef.maxWidth = dimensionColumnMaxWidth;
             return colDef;
         },
     );
@@ -581,9 +569,7 @@ export function pivotDataToVTable(
                             });
                         } else {
                             colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                            if (dataColumnMaxWidth !== undefined) {
-                                colDef.maxWidth = dataColumnMaxWidth;
-                            }
+                            colDef.maxWidth = dataColumnMaxWidth;
                         }
                         return colDef;
                     })
@@ -598,11 +584,9 @@ export function pivotDataToVTable(
                           getFieldLabel(col.baseId ?? col.fieldId) ??
                           col.fieldId,
                       style: { textAlign: cellAlignment },
+                      minWidth: DATA_COLUMN_MIN_WIDTH,
+                      maxWidth: dataColumnMaxWidth,
                   };
-                  if (dataColumnMaxWidth !== undefined) {
-                      colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                      colDef.maxWidth = dataColumnMaxWidth;
-                  }
                   return colDef;
               })
             : [];
