@@ -5217,6 +5217,8 @@
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
+        "copy_config": "Copy",
+        "copied": "Copied",
         "templates": {
             "bar_chart": "Bar chart",
             "heatmap": "Heatmap",

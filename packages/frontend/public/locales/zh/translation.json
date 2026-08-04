@@ -5225,6 +5225,8 @@
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
+        "copy_config": "复制",
+        "copied": "已复制",
         "templates": {
             "bar_chart": "柱状图",
             "heatmap": "热图",
