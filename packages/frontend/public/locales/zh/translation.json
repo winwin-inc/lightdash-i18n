@@ -5223,6 +5223,10 @@
         "bar_chart_columns": "柱状图列",
         "display_numeric_values_as_bar_charts": "显示数字值为柱状图"
     },
+    "components_visualization_configs_common": {
+        "copy_config": "复制",
+        "copied": "已复制"
+    },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
         "copy_config": "复制",

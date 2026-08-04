@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
 import { ConfigTabs as BigNumberConfigTabs } from '../../VisualizationConfigs/BigNumberConfig/BigNumberConfigTabs';
+import { CopyEchartsConfigButton } from '../../VisualizationConfigs/ChartConfigPanel/common/CopyEchartsConfigButton';
 import { ConfigTabs as ChartConfigTabs } from '../../VisualizationConfigs/ChartConfigPanel/ConfigTabs';
 import { ConfigTabs as FunnelChartConfigTabs } from '../../VisualizationConfigs/FunnelChartConfig/FunnelChartConfigTabs';
 import { ConfigTabs as PieChartConfigTabs } from '../../VisualizationConfigs/PieChartConfig/PieChartConfigTabs';
@@ -95,6 +96,13 @@ const VisualizationConfig: FC<Props> = ({ chartType, onClose }) => {
                 </Text>
 
                 <VisualizationCardOptions />
+
+                {(chartType === ChartType.CARTESIAN ||
+                    chartType === ChartType.PIE ||
+                    chartType === ChartType.FUNNEL ||
+                    chartType === ChartType.TREEMAP) && (
+                    <CopyEchartsConfigButton />
+                )}
             </Group>
 
             <ScrollArea

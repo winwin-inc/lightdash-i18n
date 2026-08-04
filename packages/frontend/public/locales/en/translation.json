@@ -5215,6 +5215,10 @@
         "bar_chart_columns": "Bar chart columns",
         "display_numeric_values_as_bar_charts": "Display numeric values as bar charts"
     },
+    "components_visualization_configs_common": {
+        "copy_config": "Copy",
+        "copied": "Copied"
+    },
     "components_visualization_configs_custom_vis": {
         "placeholder": "Start by entering your Vega-Lite JSON code or choose from our pre-built templates to create your chart.",
         "copy_config": "Copy",
