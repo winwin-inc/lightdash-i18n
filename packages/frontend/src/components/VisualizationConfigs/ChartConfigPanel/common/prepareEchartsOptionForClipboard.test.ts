@@ -37,9 +37,10 @@ describe('prepareEchartsOptionForClipboard', () => {
         };
 
         const result = prepareEchartsOptionForClipboard(option);
+        const patchedSeries = result.series as Array<Record<string, unknown>>;
 
-        expect(result.series[0].datasetId).toBe('somethingElse');
-        expect(result.series[1].datasetId).toBe('lightdashResults');
+        expect(patchedSeries[0].datasetId).toBe('somethingElse');
+        expect(patchedSeries[1].datasetId).toBe('lightdashResults');
     });
 
     it('returns option unchanged when there is no dataset', () => {

@@ -4851,6 +4851,8 @@
     "components_visualization_configs_common": {
         "remove": "删除",
         "add": "添加",
+        "copy_config": "复制",
+        "copied": "已复制",
         "errors": {
             "custom_hex": "输入自定义 HEX 颜色",
             "invalid_hex": "无效的 HEX 颜色"
@@ -5222,10 +5224,6 @@
         "no_numeric_columns_available": "没有可用的数字列用于柱状图显示",
         "bar_chart_columns": "柱状图列",
         "display_numeric_values_as_bar_charts": "显示数字值为柱状图"
-    },
-    "components_visualization_configs_common": {
-        "copy_config": "复制",
-        "copied": "已复制"
     },
     "components_visualization_configs_custom_vis": {
         "placeholder": "开始输入您的 Vega-Lite JSON代码或从我们的预构建模板中选择以创建您的图表。",
