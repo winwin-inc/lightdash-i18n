@@ -184,16 +184,17 @@ export default class App {
         this.lightdashConfig = args.lightdashConfig;
         this.port = args.port;
         this.environment = args.environment || 'production';
+        // 自托管硬关官方 Rudder：无 writeKey/url 时 SDK 禁用，track/identify 亦会早退
+        const rudderEnabled = Boolean(
+            this.lightdashConfig.rudder.writeKey &&
+                this.lightdashConfig.rudder.dataPlaneUrl,
+        );
         this.analytics = new LightdashAnalytics({
             lightdashConfig: this.lightdashConfig,
             writeKey: this.lightdashConfig.rudder.writeKey || 'notrack',
-            dataPlaneUrl: this.lightdashConfig.rudder.dataPlaneUrl
-                ? this.lightdashConfig.rudder.dataPlaneUrl
-                : 'notrack',
+            dataPlaneUrl: this.lightdashConfig.rudder.dataPlaneUrl || 'notrack',
             options: {
-                enable:
-                    this.lightdashConfig.rudder.writeKey &&
-                    this.lightdashConfig.rudder.dataPlaneUrl,
+                enable: rudderEnabled,
             },
         });
         this.database = knex(
@@ -339,35 +340,35 @@ export default class App {
         let processedHtml = html;
         let conversionCount = 0;
 
-        const toCdn = (path: string) => {
-            conversionCount++;
-            return fullCdnUrl + path.replace(/^\//, '');
+        const toCdn = (assetPath: string) => {
+            conversionCount += 1;
+            return fullCdnUrl + assetPath.replace(/^\//, '');
         };
 
         // /assets/... -> full CDN URL
         processedHtml = processedHtml.replace(
             /([a-z]+)=["']\/(assets\/[^"']+)["']/gi,
-            (match, attr, path) => {
-                if (path.startsWith(fullCdnUrl)) return match;
-                return `${attr}="${toCdn(path)}"`;
+            (match, attr, assetPath) => {
+                if (assetPath.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(assetPath)}"`;
             },
         );
 
         // /locales/... -> full CDN URL
         processedHtml = processedHtml.replace(
             /([a-z]+)=["']\/(locales\/[^"']+)["']/gi,
-            (match, attr, path) => {
-                if (path.startsWith(fullCdnUrl)) return match;
-                return `${attr}="${toCdn(path)}"`;
+            (match, attr, assetPath) => {
+                if (assetPath.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(assetPath)}"`;
             },
         );
 
         // favicon, manifest, fonts, monacoeditorwork
         processedHtml = processedHtml.replace(
             /([a-z]+)=["']\/((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']/gi,
-            (match, attr, path) => {
-                if (path.startsWith(fullCdnUrl)) return match;
-                return `${attr}="${toCdn(path)}"`;
+            (match, attr, assetPath) => {
+                if (assetPath.startsWith(fullCdnUrl)) return match;
+                return `${attr}="${toCdn(assetPath)}"`;
             },
         );
 
@@ -383,9 +384,9 @@ export default class App {
                     `([a-z]+)=["']${prefixPattern}(assets/[^"']+)["']`,
                     'gi',
                 ),
-                (match, attr, path) => {
-                    conversionCount++;
-                    return `${attr}="${fullCdnUrl}${path}"`;
+                (match, attr, assetPath) => {
+                    conversionCount += 1;
+                    return `${attr}="${fullCdnUrl}${assetPath}"`;
                 },
             );
             processedHtml = processedHtml.replace(
@@ -393,9 +394,9 @@ export default class App {
                     `([a-z]+)=["']${prefixPattern}(locales/[^"']+)["']`,
                     'gi',
                 ),
-                (match, attr, path) => {
-                    conversionCount++;
-                    return `${attr}="${fullCdnUrl}${path}"`;
+                (match, attr, assetPath) => {
+                    conversionCount += 1;
+                    return `${attr}="${fullCdnUrl}${assetPath}"`;
                 },
             );
             processedHtml = processedHtml.replace(
@@ -403,9 +404,9 @@ export default class App {
                     `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']`,
                     'gi',
                 ),
-                (match, attr, path) => {
-                    conversionCount++;
-                    return `${attr}="${fullCdnUrl}${path}"`;
+                (match, attr, assetPath) => {
+                    conversionCount += 1;
+                    return `${attr}="${fullCdnUrl}${assetPath}"`;
                 },
             );
             // Monaco inline script
@@ -414,9 +415,9 @@ export default class App {
                     `(["']json["']\\s*:\\s*["'])${prefixPattern}(monacoeditorwork/[^"']+)["']`,
                     'gi',
                 ),
-                (_, prefix, path) => {
-                    conversionCount++;
-                    return `${prefix}${fullCdnUrl}${path}"`;
+                (_, prefix, assetPath) => {
+                    conversionCount += 1;
+                    return `${prefix}${fullCdnUrl}${assetPath}"`;
                 },
             );
         }
@@ -428,7 +429,9 @@ export default class App {
         }
 
         // 注入 CDN base URL，供前端运行时加载 locales 等（i18n loadPath 从 CDN 拉翻译文件）
-        const cdnScript = `    <script>window.__CDN_BASE_URL__=${JSON.stringify(fullCdnUrl)};</script>`;
+        const cdnScript = `    <script>window.__CDN_BASE_URL__=${JSON.stringify(
+            fullCdnUrl,
+        )};</script>`;
         if (processedHtml.includes('<head>')) {
             processedHtml = processedHtml.replace(
                 /(<head[^>]*>)/i,
@@ -519,20 +522,9 @@ export default class App {
             Logger.warn('Invalid security report URI', e);
         }
 
+        // 自托管：CSP 不放行官方遥测 / 客服域名（Rudder、PostHog、Intercom、Headway、Pylon）
         const contentSecurityPolicyAllowedDomains: string[] = [
             'https://*.sentry.io',
-            'https://analytics.lightdash.com',
-            'https://*.usepylon.com',
-            'https://*.pusher.com', // used by pylon
-            'wss://*.pusher.com', // used by pylon
-            'https://*.headwayapp.co',
-            'https://headway-widget.net',
-            'https://*.posthog.com',
-            'https://*.intercom.com',
-            'https://*.intercom.io',
-            'wss://*.intercom.io',
-            'https://*.intercomcdn.com',
-            'https://*.rudderlabs.com',
             'https://www.googleapis.com',
             'https://apis.google.com',
             'https://accounts.google.com',
@@ -765,13 +757,15 @@ export default class App {
         const cdnBaseUrl = this.lightdashConfig.cdn?.baseUrl
             ? this.lightdashConfig.cdn.baseUrl.replace(/\/+$/, '')
             : '';
-        const cdnPathPrefix =
-            this.lightdashConfig.cdn?.pathPrefix || 'msy-x';
+        const cdnPathPrefix = this.lightdashConfig.cdn?.pathPrefix || 'msy-x';
         const prefixPath = `/${cdnPathPrefix}/static/`;
 
         if (fullCdnUrl && cdnBaseUrl) {
             expressApp.use((req, res, next) => {
-                if (req.method !== 'GET') return next();
+                if (req.method !== 'GET') {
+                    next();
+                    return;
+                }
                 const p = req.path;
                 if (p.startsWith(prefixPath)) {
                     res.redirect(302, cdnBaseUrl + p);

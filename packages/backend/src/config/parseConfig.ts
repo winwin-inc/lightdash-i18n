@@ -1297,26 +1297,11 @@ export const parseConfig = (): LightdashConfig => {
                   },
               }
             : undefined,
-        posthog: process.env.POSTHOG_PROJECT_API_KEY
-            ? {
-                  projectApiKey: process.env.POSTHOG_PROJECT_API_KEY,
-                  feApiHost:
-                      process.env.POSTHOG_FE_API_HOST ||
-                      'https://us.i.posthog.com',
-                  beApiHost:
-                      process.env.POSTHOG_BE_API_HOST ||
-                      'https://us.i.posthog.com',
-              }
-            : undefined,
+        // 自托管：硬关闭官方 PostHog / RudderStack，忽略相关环境变量
+        posthog: undefined,
         rudder: {
-            writeKey:
-                process.env.RUDDERSTACK_ANALYTICS_DISABLED === 'true'
-                    ? undefined
-                    : process.env.RUDDERSTACK_WRITE_KEY || undefined,
-            dataPlaneUrl:
-                process.env.RUDDERSTACK_ANALYTICS_DISABLED === 'true'
-                    ? undefined
-                    : process.env.RUDDERSTACK_DATA_PLANE_URL || undefined,
+            writeKey: undefined,
+            dataPlaneUrl: undefined,
         },
         sentry: {
             backend: {
@@ -1469,18 +1454,14 @@ export const parseConfig = (): LightdashConfig => {
                     ) || 60 * 60 * 24 * 14, // 2 weeks
             },
         },
+        // 自托管：硬关闭官方 Intercom / Pylon 客服组件
         intercom: {
-            appId:
-                process.env.INTERCOM_APP_ID === undefined
-                    ? 'zppxyjpp'
-                    : process.env.INTERCOM_APP_ID,
-            apiBase:
-                process.env.INTERCOM_APP_BASE || 'https://api-iam.intercom.io',
+            appId: '',
+            apiBase: '',
         },
         pylon: {
-            appId: process.env.PYLON_APP_ID || '',
-            identityVerificationSecret:
-                process.env.PYLON_IDENTITY_VERIFICATION_SECRET,
+            appId: '',
+            identityVerificationSecret: undefined,
         },
         siteUrl,
         staticIp: process.env.STATIC_IP || '',

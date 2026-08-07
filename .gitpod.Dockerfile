@@ -43,7 +43,7 @@ ENV PGPORT=5432
 ENV SCHEDULER_ENABLED=true
 ENV SITE_URL=http://localhost:3000
 ENV LIGHTDASH_SECRET="not very secret"
-ENV RUDDERSTACK_ANALYTICS_DISABLED=true
+# 自托管已硬关官方 Rudder，无需再设 RUDDERSTACK_*
 ENV DBT_DEMO_DIR=/workspace/lightdash/examples/full-jaffle-shop-demo
 ENV NODE_ENV=development
 ENV LIGHTDASH_LOG_LEVEL=debug

@@ -53,13 +53,14 @@ services:
             - HEADLESS_BROWSER_HOST=headless-browser
             - HEADLESS_BROWSER_PORT=3000
             - USE_SECURE_BROWSER=${USE_SECURE_BROWSER}
-            - RUDDERSTACK_WRITE_KEY=${RUDDERSTACK_WRITE_KEY}
-            - RUDDERSTACK_DATA_PLANE_URL=${RUDDERSTACK_DATA_PLANE_URL}
+            # 自托管已硬关官方 Rudder/PostHog，以下变量无效，不再透传
+            # - RUDDERSTACK_WRITE_KEY=
+            # - RUDDERSTACK_DATA_PLANE_URL=
+            # - POSTHOG_PROJECT_API_KEY=
+            # - POSTHOG_FE_API_HOST=
+            # - POSTHOG_BE_API_HOST=
             - SCHEDULER_ENABLED=true
             - GROUPS_ENABLED=${GROUPS_ENABLED:-false}
-            - POSTHOG_PROJECT_API_KEY=${POSTHOG_PROJECT_API_KEY}
-            - POSTHOG_FE_API_HOST=${POSTHOG_FE_API_HOST}
-            - POSTHOG_BE_API_HOST=${POSTHOG_BE_API_HOST}
             - OPENAI_API_KEY=${OPENAI_API_KEY}
             - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
             - AI_COPILOT_ENABLED=${AI_COPILOT_ENABLED}

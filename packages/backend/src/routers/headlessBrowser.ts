@@ -158,10 +158,17 @@ if (
                 'rudderlabs.com',
                 'analytics.lightdash.com',
                 'intercom.io',
+                'intercom.com',
+                'intercomcdn.com',
+                'posthog.com',
+                'usepylon.com',
+                'headway-widget.net',
             ];
             page.on('request', (request: AnyType) => {
                 const requestUrl = request.url();
-                if (blockedUrls.includes(requestUrl)) {
+                if (
+                    blockedUrls.some((blocked) => requestUrl.includes(blocked))
+                ) {
                     request.abort();
                     return;
                 }

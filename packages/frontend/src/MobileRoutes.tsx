@@ -113,7 +113,11 @@ export const MobileNavBar: FC = () => {
         refetchOnMount: true,
     });
     const logout = () => {
-        posthog.reset();
+        try {
+            posthog.reset();
+        } catch {
+            // PostHog 未初始化时忽略
+        }
         window.location.href = '/api/v1/logout/federated';
     };
 

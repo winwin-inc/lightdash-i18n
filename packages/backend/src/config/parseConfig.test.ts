@@ -83,14 +83,13 @@ test('Should prioritize new results S3 config over deprecated config when both a
     });
 });
 
-test('Should parse rudder config from env', () => {
-    const expected = {
-        dataPlaneUrl: 'customurl',
-        writeKey: 'customkey',
-    };
+test('Should hard-disable rudder config regardless of env', () => {
     process.env.RUDDERSTACK_DATA_PLANE_URL = 'customurl';
     process.env.RUDDERSTACK_WRITE_KEY = 'customkey';
-    expect(parseConfig().rudder).toEqual(expected);
+    expect(parseConfig().rudder).toEqual({
+        dataPlaneUrl: undefined,
+        writeKey: undefined,
+    });
 });
 
 test('Should use default sentry configuration if no environment vars', () => {

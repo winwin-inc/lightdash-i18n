@@ -86,13 +86,12 @@ services:
             LIGHTDASH_LOG_LEVEL: debug
             LIGHTDASH_LOG_FORMAT: json
 
-            # These were set in the render UI but are secret
-            # these are set in the okteto admin UI - DO NOT SET THESE LOCALLY WHEN DEPLOYING or they will override the values in the okteto admin UI
-            RUDDERSTACK_WRITE_KEY: ${RUDDERSTACK_WRITE_KEY}
-            RUDDERSTACK_DATA_PLANE_URL: ${RUDDERSTACK_DATA_PLANE_URL}
-            POSTHOG_FE_API_HOST: ${POSTHOG_FE_API_HOST}
-            POSTHOG_BE_API_HOST: ${POSTHOG_BE_API_HOST}
-            POSTHOG_PROJECT_API_KEY: ${POSTHOG_PROJECT_API_KEY}
+            # 自托管已硬关官方 Rudder/PostHog，以下变量无效，不再透传
+            # RUDDERSTACK_WRITE_KEY:
+            # RUDDERSTACK_DATA_PLANE_URL:
+            # POSTHOG_FE_API_HOST:
+            # POSTHOG_BE_API_HOST:
+            # POSTHOG_PROJECT_API_KEY:
             LIGHTDASH_LICENSE_KEY: ${LIGHTDASH_LICENSE_KEY}
             GITHUB_APP_ID: ${GITHUB_APP_ID}
             GITHUB_APP_NAME: ${GITHUB_APP_NAME}

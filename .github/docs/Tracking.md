@@ -1,5 +1,7 @@
 # Tracking
 
+> **自托管说明**：本仓库已硬关闭官方 RudderStack / PostHog / Intercom 等外发。详见 [docs/self-hosted-disable-official-telemetry.md](../../docs/self-hosted-disable-official-telemetry.md)。下文保留上游 Tracking 设计说明，便于合入上游时对照。
+
 We are all data people, so you know we love charts ❤️📊 ...and to build charts we need data 😝
 
 ## Summary
