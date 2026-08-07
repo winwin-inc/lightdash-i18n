@@ -1,0 +1,4 @@
+# 与历史 lightdash-cli 镜像 requirements.txt 一致
+dbt-hologres
+dbt-odps-winwin
+tzdata

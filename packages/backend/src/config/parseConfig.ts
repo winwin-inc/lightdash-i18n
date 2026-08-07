@@ -1312,13 +1312,11 @@ export const parseConfig = (): LightdashConfig => {
             writeKey:
                 process.env.RUDDERSTACK_ANALYTICS_DISABLED === 'true'
                     ? undefined
-                    : process.env.RUDDERSTACK_WRITE_KEY ||
-                      '1vqkSlWMVtYOl70rk3QSE0v1fqY',
+                    : process.env.RUDDERSTACK_WRITE_KEY || undefined,
             dataPlaneUrl:
                 process.env.RUDDERSTACK_ANALYTICS_DISABLED === 'true'
                     ? undefined
-                    : process.env.RUDDERSTACK_DATA_PLANE_URL ||
-                      'https://analytics.lightdash.com',
+                    : process.env.RUDDERSTACK_DATA_PLANE_URL || undefined,
         },
         sentry: {
             backend: {

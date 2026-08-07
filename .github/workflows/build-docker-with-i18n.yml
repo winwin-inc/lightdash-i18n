@@ -6,8 +6,9 @@ on:
             - '*'
             - '!*-alpha*'
             - '!*-beta*'
-            # MCP 独立镜像由 build-docker-mcp.yml（mcp-v*）构建，勿重复打主站镜像
+            # MCP / CLI 工具镜像由独立 workflow 构建，勿重复打主站镜像
             - '!mcp-v*'
+            - '!cli-v*'
 
     workflow_dispatch:
 
