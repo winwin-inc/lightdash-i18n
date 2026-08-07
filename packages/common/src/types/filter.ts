@@ -1,5 +1,6 @@
 import { type AnyType } from './any';
 import { type DimensionType } from './field';
+import { type TimeFrames } from './timeFrames';
 
 export enum FilterType {
     STRING = 'string',
@@ -36,6 +37,13 @@ export type BaseFilterRule<O = FilterOperator, V = unknown> = {
     id: string;
     operator: O;
     values?: V[];
+    /**
+     * Granularity for the "in between" date-range picker. Overrides the
+     * dimension's `timeInterval` so users can pick e.g. a month-range filter
+     * even when the field is a day-typed dimension. Stored as the chosen
+     * period (DAY / MONTH / QUARTER / YEAR).
+     */
+    dateRangeGranularity?: TimeFrames;
 };
 
 export enum UnitOfTime {

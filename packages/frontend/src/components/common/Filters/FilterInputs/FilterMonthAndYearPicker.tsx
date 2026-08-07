@@ -8,7 +8,7 @@ import { mergeMaxDate, mergeMinDate } from '../utils/filterDateUtils';
 
 type Props = Omit<MonthPickerInputProps, 'value' | 'onChange'> & {
     value: Date | null;
-    onChange: (value: Date) => void;
+    onChange: (value: Date | null) => void;
 };
 
 const FilterMonthAndYearPicker: FC<Props> = ({
@@ -55,9 +55,9 @@ const FilterMonthAndYearPicker: FC<Props> = ({
             }}
             value={yearValue}
             onChange={(date) => {
-                if (!date || Array.isArray(date)) return;
-                onChange(date);
-                close();
+                if (Array.isArray(date)) return;
+                onChange((date as Date | null) ?? null);
+                if (date) close();
             }}
         />
     );

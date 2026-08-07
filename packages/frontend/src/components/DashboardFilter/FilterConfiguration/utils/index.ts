@@ -168,6 +168,7 @@ export const getFilterRuleRevertableObject = (
         allowedOperators: filterRule.allowedOperators,
         minAllowedDate: filterRule.minAllowedDate,
         maxAllowedDate: filterRule.maxAllowedDate,
+        dateRangeGranularity: filterRule.dateRangeGranularity,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
     };

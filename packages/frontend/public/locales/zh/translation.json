@@ -2252,7 +2252,8 @@
             "to_latest_month": "至最新月"
         },
         "filter_quarter_picker": {
-            "select_quarter": "选择季度"
+            "select_quarter": "选择季度",
+            "clear": "清空"
         },
         "filter_placeholder": {
             "any_value": "任何值",
@@ -2427,7 +2428,14 @@
                 "min_label": "可选最早日期",
                 "max_label": "可选最晚日期",
                 "placeholder": "YYYY-MM-DD",
-                "hint": "留空表示不限制；点击下方日期框在日历中选择（存储为 YYYY-MM-DD），用于限制上方日期筛选的可选范围"
+                "hint": "留空表示不限制；点击下方日期框在日历中选择（存储为 YYYY-MM-DD），用于限制上方日期筛选的可选范围",
+                "granularity_label": "日期选择器",
+                "granularity": {
+                    "day": "日",
+                    "month": "月",
+                    "quarter": "季",
+                    "year": "年"
+                }
             },
             "exclude_values": {
                 "label": "排除下拉选项",

@@ -1,8 +1,7 @@
 import {
-    isDimension,
+    FilterOperator,
     TimeFrames,
     type DashboardFilterRule,
-    type FilterableDimension,
 } from '@lightdash/common';
 import { Group, Stack, Text, type PopoverProps } from '@mantine/core';
 import dayjs from 'dayjs';
@@ -17,14 +16,12 @@ import useFiltersContext from '../../common/Filters/useFiltersContext';
 import { getFirstDayOfWeek } from '../../common/Filters/utils/filterDateUtils';
 
 type Props = {
-    field?: FilterableDimension;
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
 };
 
 const DateRangeConstraintEditor: FC<Props> = ({
-    field,
     filterRule,
     popoverProps,
     onChangeFilterRule,
@@ -32,25 +29,34 @@ const DateRangeConstraintEditor: FC<Props> = ({
     const { t } = useTranslation();
     const { startOfWeek } = useFiltersContext();
 
-    const dateTimeInterval =
-        isDimension(field) && field.timeInterval
-            ? field.timeInterval.toUpperCase()
-            : TimeFrames.DAY;
+    // Granularity used by the min/max pickers.
+    // - For IN_BETWEEN / NOT_IN_BETWEEN: the user-chosen dateRangeGranularity
+    //   (set via the date selector) drives the picker type so e.g. a month
+    //   range filter gets month pickers for min/max too.
+    // - For every other operator the min/max are always day pickers. The
+    //   date selector is hidden in those operators anyway, so the only sane
+    //   default is DAY.
+    const isRangeOperator =
+        filterRule.operator === FilterOperator.IN_BETWEEN ||
+        filterRule.operator === FilterOperator.NOT_IN_BETWEEN;
+    const granularity = isRangeOperator
+        ? filterRule.dateRangeGranularity ?? TimeFrames.DAY
+        : TimeFrames.DAY;
 
     const normalizeBoundaryValue = (d: Date | null, isMax: boolean) => {
         if (!d) return undefined;
         const date = dayjs(d);
-        if (dateTimeInterval === TimeFrames.MONTH) {
+        if (granularity === TimeFrames.MONTH) {
             return (isMax ? date.endOf('month') : date.startOf('month')).format(
                 'YYYY-MM-DD',
             );
         }
-        if (dateTimeInterval === TimeFrames.YEAR) {
+        if (granularity === TimeFrames.YEAR) {
             return (isMax ? date.endOf('year') : date.startOf('year')).format(
                 'YYYY-MM-DD',
             );
         }
-        if (dateTimeInterval === TimeFrames.QUARTER) {
+        if (granularity === TimeFrames.QUARTER) {
             return (
                 isMax ? date.endOf('quarter') : date.startOf('quarter')
             ).format('YYYY-MM-DD');
@@ -102,7 +108,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                 align="flex-start"
                 sx={{ '& > *': { minWidth: 0, flex: 1 } }}
             >
-                {dateTimeInterval === TimeFrames.MONTH ? (
+                {granularity === TimeFrames.MONTH ? (
                     <>
                         <FilterMonthAndYearPicker
                             clearable
@@ -131,7 +137,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             onChange={handleMaxChange}
                         />
                     </>
-                ) : dateTimeInterval === TimeFrames.YEAR ? (
+                ) : granularity === TimeFrames.YEAR ? (
                     <>
                         <FilterYearPicker
                             clearable
@@ -160,7 +166,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             onChange={handleMaxChange}
                         />
                     </>
-                ) : dateTimeInterval === TimeFrames.QUARTER ? (
+                ) : granularity === TimeFrames.QUARTER ? (
                     <>
                         <Stack spacing="xxs">
                             <Text size="xs" fw={500}>

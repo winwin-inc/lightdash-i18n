@@ -7,7 +7,7 @@ import { mergeMaxDate, mergeMinDate } from '../utils/filterDateUtils';
 
 type Props = Omit<YearPickerInputProps, 'value' | 'onChange'> & {
     value: Date | null;
-    onChange: (value: Date) => void;
+    onChange: (value: Date | null) => void;
 };
 const FilterYearPicker: FC<Props> = ({
     value,
@@ -48,8 +48,8 @@ const FilterYearPicker: FC<Props> = ({
             }}
             value={yearValue}
             onChange={(date) => {
-                if (!date || Array.isArray(date)) return;
-                onChange(date);
+                if (Array.isArray(date)) return;
+                onChange((date as Date | null) ?? null);
                 close();
             }}
         />

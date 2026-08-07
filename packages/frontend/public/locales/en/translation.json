@@ -2255,7 +2255,8 @@
             "to_latest_month": "to latest month"
         },
         "filter_quarter_picker": {
-            "select_quarter": "Select quarter"
+            "select_quarter": "Select quarter",
+            "clear": "Clear"
         },
         "filter_placeholder": {
             "any_value": "any value",
@@ -2430,7 +2431,14 @@
                 "min_label": "Earliest selectable date",
                 "max_label": "Latest selectable date",
                 "placeholder": "YYYY-MM-DD",
-                "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above."
+                "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above.",
+                "granularity_label": "Date selector",
+                "granularity": {
+                    "day": "Day",
+                    "month": "Month",
+                    "quarter": "Quarter",
+                    "year": "Year"
+                }
             },
             "exclude_values": {
                 "label": "Exclude dropdown options",

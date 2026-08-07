@@ -15,6 +15,7 @@ import {
     isFilterableItem,
     isFilterRule,
     isMomentInput,
+    TimeFrames,
     type BaseFilterRule,
     type ConditionalRuleLabel,
     type CustomSqlDimension,
@@ -138,6 +139,17 @@ export const useFilterOperatorOptions = () => {
     };
 };
 
+// Effective display granularity for a date filter chip.
+// The user-chosen `dateRangeGranularity` on the dashboard rule wins;
+// otherwise we always default to DAY. Field timeInterval is intentionally
+// not used as a fallback — the user opts in to month/quarter/year display
+// via the date selector, and exploring a day-typed field with no override
+// should always show day-level dates.
+const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
+    if (rule.dateRangeGranularity) return rule.dateRangeGranularity;
+    return TimeFrames.DAY;
+};
+
 const useValueAsString = () => {
     const { t } = useTranslation();
     const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
@@ -177,7 +189,9 @@ const useValueAsString = () => {
                         if (!isFilterRule(rule)) {
                             throw new Error('Invalid rule');
                         }
-                        return `${firstValue ?? ''} ${rule.settings?.unitOfTime ?? ''}`.trim();
+                        return `${firstValue ?? ''} ${
+                            rule.settings?.unitOfTime ?? ''
+                        }`.trim();
                     }
                     case FilterOperator.IN_BETWEEN:
                         if (
@@ -189,12 +203,13 @@ const useValueAsString = () => {
                             const rangeSeparator = t(
                                 'components_common_filters_inputs.date_range.and',
                             );
+                            const interval = getEffectiveDateInterval(rule);
                             return `${formatDate(
                                 firstValue as MomentInput,
-                                field.timeInterval,
+                                interval,
                             )} ${rangeSeparator} ${formatDate(
                                 secondValue as MomentInput,
-                                field.timeInterval,
+                                interval,
                             )}`;
                         }
                         {
@@ -215,14 +230,14 @@ const useValueAsString = () => {
                             field.type === DimensionType.DATE
                                 ? formatDate(
                                       firstValue as MomentInput,
-                                      field.timeInterval,
+                                      getEffectiveDateInterval(rule),
                                   )
                                 : isMomentInput(firstValue)
-                                  ? getLocalTimeDisplay(
-                                        firstValue as MomentInput,
-                                        false,
-                                    )
-                                  : String(firstValue ?? '');
+                                ? getLocalTimeDisplay(
+                                      firstValue as MomentInput,
+                                      false,
+                                  )
+                                : String(firstValue ?? '');
                         return t(
                             'components_common_filters_inputs.to_latest_month_chip',
                             { start: startDisplay },
@@ -260,7 +275,7 @@ const useValueAsString = () => {
                                 ) {
                                     return formatDate(
                                         value,
-                                        field.timeInterval,
+                                        getEffectiveDateInterval(rule),
                                     );
                                 } else {
                                     return value;

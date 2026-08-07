@@ -80,7 +80,7 @@ type ReferenceLineValueProps = {
     value: string | undefined;
     startOfWeek: WeekDay | undefined;
     disabled?: boolean;
-    onChange: (value: string) => void;
+    onChange: (value: string | undefined) => void;
 };
 
 const ReferenceLineValue: FC<ReferenceLineValueProps> = ({
@@ -127,14 +127,18 @@ const ReferenceLineValue: FC<ReferenceLineValueProps> = ({
                             disabled={disabled}
                             size="xs"
                             value={parsedDate}
-                            onChange={(dateValue: Date) => {
-                                onChange(
-                                    formatDate(
-                                        dateValue,
-                                        TimeFrames.MONTH,
-                                        false,
-                                    ),
-                                );
+                            onChange={(dateValue: Date | null) => {
+                                if (!dateValue) {
+                                    onChange(undefined);
+                                } else {
+                                    onChange(
+                                        formatDate(
+                                            dateValue,
+                                            TimeFrames.MONTH,
+                                            false,
+                                        ),
+                                    );
+                                }
                             }}
                         />
                     );
@@ -145,14 +149,18 @@ const ReferenceLineValue: FC<ReferenceLineValueProps> = ({
                             disabled={disabled}
                             size="xs"
                             value={parsedDate}
-                            onChange={(dateValue: Date) => {
-                                onChange(
-                                    formatDate(
-                                        dateValue,
-                                        TimeFrames.YEAR,
-                                        false,
-                                    ),
-                                );
+                            onChange={(dateValue: Date | null) => {
+                                if (!dateValue) {
+                                    onChange(undefined);
+                                } else {
+                                    onChange(
+                                        formatDate(
+                                            dateValue,
+                                            TimeFrames.YEAR,
+                                            false,
+                                        ),
+                                    );
+                                }
                             }}
                         />
                     );
@@ -390,7 +398,7 @@ export const ReferenceLine: FC<ReferenceLineProps> = ({
                                 startOfWeek={startOfWeek}
                                 value={value}
                                 disabled={useAverage && averageAvailable}
-                                onChange={(newValue: string) => {
+                                onChange={(newValue: string | undefined) => {
                                     setValue(newValue);
                                     if (selectedField !== undefined)
                                         updateReferenceLine({

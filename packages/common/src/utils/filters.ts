@@ -235,6 +235,15 @@ export const getFilterRuleWithDefaultValue = <T extends FilterRule>(
                         ? field.dimensionType
                         : field.type) === DimensionType.TIMESTAMP;
                 if (
+                    filterRule.operator === FilterOperator.IN_BETWEEN ||
+                    filterRule.operator === FilterOperator.NOT_IN_BETWEEN
+                ) {
+                    // IN_BETWEEN / NOT_IN_BETWEEN take two boundary values;
+                    // do not seed a single default date here or the picker
+                    // will pre-populate one side with today's date.
+                    break;
+                }
+                if (
                     filterRule.operator === FilterOperator.IN_THE_PAST ||
                     filterRule.operator === FilterOperator.NOT_IN_THE_PAST ||
                     filterRule.operator === FilterOperator.IN_THE_NEXT ||
