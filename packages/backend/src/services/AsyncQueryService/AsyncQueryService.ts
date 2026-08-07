@@ -56,6 +56,7 @@ import {
     isVizTableConfig,
     ItemsMap,
     MAX_SAFE_INTEGER,
+    type MetricOverrides,
     MetricQuery,
     normalizeIndexColumns,
     NotFoundError,
@@ -922,13 +923,21 @@ export class AsyncQueryService extends ProjectService {
                   )
                 : fields;
 
+        // Ensure chart metric format overrides (e.g. compact: millions) are
+        // present on fields used for download, matching dashboard display.
+        const fieldsForDownload =
+            AsyncQueryService.applyMetricOverrideFormatsToFields(
+                resultFields,
+                queryHistory.metricQuery.metricOverrides,
+            );
+
         switch (type) {
             case DownloadFileType.CSV:
                 // Check if this is a pivot table download
                 if (pivotConfig && queryHistory.metricQuery) {
                     return this.pivotTableService.downloadAsyncPivotTableCsv({
                         resultsFileName,
-                        fields,
+                        fields: fieldsForDownload,
                         metricQuery: queryHistory.metricQuery,
                         projectUuid,
                         storageClient: this.storageClient,
@@ -949,7 +958,7 @@ export class AsyncQueryService extends ProjectService {
                 }
                 return this.downloadAsyncQueryResultsAsFormattedFile(
                     resultsFileName,
-                    resultFields,
+                    fieldsForDownload,
                     {
                         generateFileId: CsvService.generateFileId,
                         streamJsonlRowsToFile: CsvService.streamJsonlRowsToFile,
@@ -969,7 +978,7 @@ export class AsyncQueryService extends ProjectService {
                 if (pivotConfig && queryHistory.metricQuery) {
                     return ExcelService.downloadAsyncPivotTableXlsx({
                         resultsFileName,
-                        fields,
+                        fields: fieldsForDownload,
                         metricQuery: queryHistory.metricQuery,
                         storageClient: this.storageClient,
                         lightdashConfig: this.lightdashConfig,
@@ -991,7 +1000,7 @@ export class AsyncQueryService extends ProjectService {
                 // Use direct Excel export to bypass PassThrough + Upload hanging issues
                 return ExcelService.downloadAsyncExcelDirectly(
                     resultsFileName,
-                    resultFields,
+                    fieldsForDownload,
                     this.storageClient,
                     {
                         onlyRaw,
@@ -1062,6 +1071,7 @@ export class AsyncQueryService extends ProjectService {
             customLabels,
             columnOrder,
             hiddenFields,
+            onlyRaw,
         });
 
         // Transform and upload the results
@@ -1666,6 +1676,41 @@ export class AsyncQueryService extends ProjectService {
             ),
             usedParameters: fullQuery.usedParameters,
         };
+    }
+
+    /**
+     * Merge chart metric format overrides onto fields for download/export.
+     * Keeps formatOptions (for applyCustomFormat / UI parity) and sets format
+     * expression (for Excel numFmt / formatValueWithExpression).
+     */
+    static applyMetricOverrideFormatsToFields(
+        fields: ItemsMap,
+        metricOverrides: MetricOverrides | undefined,
+    ): ItemsMap {
+        if (!metricOverrides) {
+            return fields;
+        }
+
+        return Object.fromEntries(
+            Object.entries(fields).map(([key, value]) => {
+                const formatOptions = metricOverrides[key]?.formatOptions;
+                if (!formatOptions) {
+                    return [key, value];
+                }
+
+                return [
+                    key,
+                    {
+                        ...value,
+                        formatOptions,
+                        format:
+                            convertCustomFormatToFormatExpression(
+                                formatOptions,
+                            ) ?? undefined,
+                    },
+                ];
+            }),
+        );
     }
 
     async executeAsyncQuery(

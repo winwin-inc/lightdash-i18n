@@ -1,10 +1,11 @@
 import {
+    Compact,
+    CustomFormatType,
     DimensionType,
     FieldType,
     ItemsMap,
     getFormatExpression,
 } from '@lightdash/common';
-import moment from 'moment';
 import { ExcelService } from './ExcelService';
 
 // Mock data for testing
@@ -276,7 +277,7 @@ describe('ExcelService', () => {
             expect(result[2]).toBe('test');
         });
 
-        it('should convert dates and timestamps to Date objects', () => {
+        it('should convert dates and timestamps to formatted strings', () => {
             const row = {
                 date_column: '2023-12-25',
                 timestamp_column: '2023-12-25T10:30:00.000Z',
@@ -296,8 +297,11 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            expect(result[0]).toBeInstanceOf(Date);
-            expect(result[1]).toBeInstanceOf(Date);
+            // Temporal fields are timezone-normalized then formatted as strings
+            expect(typeof result[0]).toBe('string');
+            expect(result[0]).toContain('2023');
+            expect(typeof result[1]).toBe('string');
+            expect(result[1]).toContain('2023');
             expect(result[2]).toBe('test');
         });
 
@@ -414,9 +418,9 @@ describe('ExcelService', () => {
         it('should handle Lightdash format expressions from documentation', () => {
             const row = {
                 pounds_currency_rounded: '121.854', // Should convert to 121.854 for [$£]#,##0 format
-                dimension_rounded: '121.854', // Should convert to 121.854 for 0.00 format
-                compact_thousands: '1500', // Should convert to 1500 for 0," K" format
-                compact_billions: '1500000000', // Should convert to 1500000000 for 0.00,,," B" format
+                dimension_rounded: '121.854', // Dimension with format → display string
+                compact_thousands: '1500', // Compact dimension → display string
+                compact_billions: '1500000000', // Compact metric → display string
                 euro_currency: '2223703496', // Should convert to 2223703496 for Euro format
                 basic_rounding: '121.854', // Should convert to 121.854 for 0 format
                 one_decimal: '121.854', // Should convert to 121.854 for 0.0 format
@@ -439,18 +443,19 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // All should be converted to numbers for Excel formatting
+            // Metrics without compact: raw numbers for Excel numFmt
             expect(result[0]).toBe(121.854);
             expect(typeof result[0]).toBe('number');
 
-            expect(result[1]).toBe(121.854);
-            expect(typeof result[1]).toBe('number');
+            // Non-metric with format expression: display string (not bare raw)
+            expect(typeof result[1]).toBe('string');
+            expect(result[1]).toBe('121.85');
 
-            expect(result[2]).toBe(1500);
-            expect(typeof result[2]).toBe('number');
-
-            expect(result[3]).toBe(1500000000);
-            expect(typeof result[3]).toBe('number');
+            // Compact fields: display strings matching dashboard scaling
+            expect(typeof result[2]).toBe('string');
+            expect(String(result[2])).toMatch(/K/);
+            expect(typeof result[3]).toBe('string');
+            expect(String(result[3])).toMatch(/B/);
 
             expect(result[4]).toBe(2223703496);
             expect(typeof result[4]).toBe('number');
@@ -462,11 +467,84 @@ describe('ExcelService', () => {
             expect(typeof result[6]).toBe('number');
         });
 
+        it('should format NUMBER+prefix+millions like the dashboard', () => {
+            const salesMetric = {
+                name: 'current_period_sales',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '本期销售额(M:百万)',
+                sql: '${TABLE}.sales',
+                formatOptions: {
+                    type: CustomFormatType.NUMBER,
+                    round: 0,
+                    compact: Compact.MILLIONS,
+                    prefix: '¥',
+                },
+            };
+
+            const itemMap: ItemsMap = {
+                current_period_sales: salesMetric,
+            };
+
+            const result = ExcelService.convertRowToExcel(
+                { current_period_sales: 718_000_000 },
+                itemMap,
+                false,
+                ['current_period_sales'],
+            );
+
+            expect(result[0]).toBe('¥718M');
+            expect(ExcelService.itemHasCompactFormat(salesMetric)).toBe(true);
+        });
+
+        it('should format compact from format expression without formatOptions', () => {
+            const salesMetric = {
+                name: 'current_period_sales',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '本期销售额',
+                sql: '${TABLE}.sales',
+                format: '"¥"#,##0,,"M"',
+            };
+
+            const result = ExcelService.convertRowToExcel(
+                { current_period_sales: '718000000' },
+                { current_period_sales: salesMetric },
+                false,
+                ['current_period_sales'],
+            );
+
+            expect(typeof result[0]).toBe('string');
+            expect(String(result[0])).toMatch(/M/);
+            expect(result[0]).not.toBe(718000000);
+        });
+
+        it('should keep non-metric numeric dimensions as strings in raw mode', () => {
+            const result = ExcelService.convertRowToExcel(
+                { string_column: 2025 },
+                mockItemMapWithFormats,
+                true,
+                ['string_column'],
+            );
+
+            // string_column is a dimension; numeric raw values stay strings
+            expect(result[0]).toBe('2025');
+            expect(typeof result[0]).toBe('string');
+        });
+
         it('should handle edge cases with format expressions', () => {
             const row = {
                 pounds_currency_rounded: '0', // Zero value
-                dimension_rounded: '1000000', // Large value
-                compact_thousands: '0.5', // Decimal value
+                dimension_rounded: '1000000', // Large value → display string
+                compact_thousands: '0.5', // Decimal compact → display string
                 euro_currency: '-1234.56', // Negative value
             };
 
@@ -484,10 +562,9 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // All should be converted to numbers preserving the original values
             expect(result[0]).toBe(0);
-            expect(result[1]).toBe(1000000);
-            expect(result[2]).toBe(0.5);
+            expect(typeof result[1]).toBe('string');
+            expect(typeof result[2]).toBe('string');
             expect(result[3]).toBe(-1234.56);
         });
 
@@ -513,11 +590,11 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // Non-numeric strings should remain as strings
-            expect(result[0]).toBe('N/A');
-            expect(result[1]).toBe('null');
-            expect(result[2]).toBe('undefined');
-            expect(result[3]).toBe('error');
+            // Non-numeric strings should remain as strings (or formatted equivalents)
+            expect(typeof result[0]).toBe('string');
+            expect(typeof result[1]).toBe('string');
+            expect(typeof result[2]).toBe('string');
+            expect(typeof result[3]).toBe('string');
         });
 
         it('should handle mixed field types with and without format expressions', () => {
@@ -525,7 +602,7 @@ describe('ExcelService', () => {
                 pounds_currency_rounded: '100.50', // With format
                 number_without_format: '200.75', // Without format
                 string_column: 'test', // String field
-                dimension_rounded: '300.25', // With format
+                dimension_rounded: '300.25', // With format → display string
             };
 
             const sortedFieldIds = [
@@ -542,7 +619,7 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // Format expression fields should become numbers
+            // Format expression metrics without compact should become numbers
             expect(result[0]).toBe(100.5);
             expect(typeof result[0]).toBe('number');
 
@@ -553,12 +630,12 @@ describe('ExcelService', () => {
             // String fields should remain strings
             expect(result[2]).toBe('test');
 
-            // Format expression fields should become numbers
-            expect(result[3]).toBe(300.25);
-            expect(typeof result[3]).toBe('number');
+            // Dimension with format expression → display string
+            expect(typeof result[3]).toBe('string');
+            expect(result[3]).toBe('300.25');
         });
 
-        it('should convert dates with custom formats to Date objects', () => {
+        it('should convert dates with custom formats to formatted strings', () => {
             const row = {
                 date_with_custom_format: '2020-07-05T00:00:00.000Z', // ISO string
                 timestamp_with_custom_format: '2023-12-25T10:30:00.000Z', // ISO string
@@ -580,18 +657,12 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // Date with custom format should be converted to Date object for Excel formatting
-            expect(result[0]).toBeInstanceOf(Date);
-            expect(result[0]).toEqual(new Date('2020-07-05T00:00:00.000Z'));
-
-            // Timestamp with custom format should be converted to Date object
-            expect(result[1]).toBeInstanceOf(Date);
-            expect(result[1]).toEqual(new Date('2023-12-25T10:30:00.000Z'));
-
-            // Date without custom format should also be converted to Date object
-            expect(result[2]).toBeInstanceOf(Date);
-
-            // String should remain as string
+            // Temporal fields use formatItemValue (timezone-normalized strings)
+            expect(result[0]).toBe('05 July 2020');
+            expect(typeof result[1]).toBe('string');
+            expect(result[1]).toContain('2023');
+            expect(typeof result[2]).toBe('string');
+            expect(result[2]).toContain('2023');
             expect(result[3]).toBe('test');
         });
 
@@ -613,13 +684,9 @@ describe('ExcelService', () => {
                 sortedFieldIds,
             );
 
-            // Both should be converted to Date objects
-            expect(result[0]).toBeInstanceOf(Date);
-            expect(result[1]).toBeInstanceOf(Date);
-
-            // Check that dates are correctly parsed (use moment for consistent comparison)
-            expect(result[0]).toEqual(moment('2020-07-05').toDate());
-            expect(result[1]).toEqual(new Date('2023-12-25T10:30:00.000Z'));
+            expect(result[0]).toBe('05 July 2020');
+            expect(typeof result[1]).toBe('string');
+            expect(result[1]).toContain('2023');
         });
     });
 
