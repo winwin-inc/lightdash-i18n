@@ -1,34 +1,3 @@
-import { LightdashUser } from '@lightdash/common';
-import fetch from 'node-fetch';
-import { Config, getConfig } from '../config';
-import { lightdashApi } from '../handlers/dbt/apiClient';
-
-const { version: VERSION } = require('../../package.json');
-
-const identifyUser = async (): Promise<Config['user']> => {
-    const config = await getConfig();
-    if (config.context?.serverUrl && config.context.apiKey) {
-        try {
-            const user = await lightdashApi<LightdashUser>({
-                method: 'GET',
-                url: '/api/v1/user',
-                body: undefined,
-            });
-            return {
-                anonymousUuid: config.user?.anonymousUuid,
-                userUuid: user.userUuid,
-            };
-        } catch {
-            // do nothing
-        }
-    }
-    return {
-        anonymousUuid: config.user?.anonymousUuid,
-        userUuid: config.user?.userUuid,
-        organizationUuid: config.user?.organizationUuid,
-    };
-};
-
 export interface AnalyticsTrack {
     event: string;
     properties?: Record<string, unknown>;
@@ -316,39 +285,9 @@ type Track =
     | CliLightdashConfigLoaded;
 
 export class LightdashAnalytics {
-    static async track(payload: Track): Promise<void> {
-        try {
-            const user = await identifyUser();
-            const lightdashContext = {
-                app: {
-                    namespace: 'lightdash',
-                    name: 'lightdash_cli',
-                    version: VERSION,
-                },
-            };
-
-            const body = {
-                anonymousId: user?.anonymousUuid,
-                userId: user?.userUuid,
-                ...payload,
-                event: `${lightdashContext.app.name}.${payload.event}`,
-                context: { ...lightdashContext },
-            };
-
-            const encodedWriteKey =
-                process.env.NODE_ENV === 'development'
-                    ? 'MXZpa2VHYWR0QjBZMG9SREZOTDJQcmRoa2JwOg=='
-                    : 'MXZxa1NsV01WdFlPbDcwcmszUVNFMHYxZnFZOg==';
-            await fetch('https://analytics.lightdash.com/v1/track', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Basic ${encodedWriteKey}`,
-                },
-                body: JSON.stringify(body),
-            });
-        } catch (e) {
-            // do nothing
-        }
+    static async track(_payload: Track): Promise<void> {
+        // 禁用官方遥测，避免内网环境 await 外网导致 CI 卡住
+        void _payload;
     }
 }
 
