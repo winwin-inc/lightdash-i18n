@@ -1,12 +1,15 @@
 import {
     AnyType,
+    applyCustomFormat,
     DimensionType,
     DownloadFileType,
     FieldType,
     formatItemValue,
     formatRows,
+    getCustomFormat,
     getErrorMessage,
     getFormatExpression,
+    hasFormatOptions,
     ItemsMap,
     MetricQuery,
     PivotConfig,
@@ -30,6 +33,54 @@ import {
 
 export class ExcelService {
     private static readonly EXCEL_ROW_LIMIT = 1_000_000;
+
+    /**
+     * Excel format expressions encode SI compact scaling as trailing commas
+     * before a quoted suffix, e.g. `#,##0,,"M"` or `0," K"`.
+     */
+    private static readonly COMPACT_FORMAT_EXPRESSION_REGEX =
+        /,{1,4}\s*"[^"]*"/;
+
+    static itemHasCompactFormat(item: ItemsMap[string] | undefined): boolean {
+        if (!item) {
+            return false;
+        }
+        if ('compact' in item && item.compact) {
+            return true;
+        }
+        const customFormat = getCustomFormat(
+            item as Parameters<typeof getCustomFormat>[0],
+        );
+        if (customFormat?.compact) {
+            return true;
+        }
+        const formatExpression = getFormatExpression(
+            item as Parameters<typeof getFormatExpression>[0],
+        );
+        return (
+            !!formatExpression &&
+            ExcelService.COMPACT_FORMAT_EXPRESSION_REGEX.test(formatExpression)
+        );
+    }
+
+    /**
+     * Format cell value the same way as the dashboard / CSV formatted export.
+     * Prefer formatOptions (chart metric overrides) over format expressions so
+     * compact/prefix match the UI's applyCustomFormat path.
+     */
+    private static formatValueForDisplay(
+        item: ItemsMap[string] | undefined,
+        rawValue: unknown,
+    ): string {
+        if (
+            item &&
+            hasFormatOptions(item) &&
+            item.formatOptions !== undefined
+        ) {
+            return applyCustomFormat(rawValue, item.formatOptions);
+        }
+        return formatItemValue(item, rawValue);
+    }
 
     private static formatMomentByTimezone(
         value: AnyType,
@@ -146,13 +197,17 @@ export class ExcelService {
             }
 
             const formatExpression = getFormatExpression(item);
-            if (formatExpression) {
-                // Convert string numbers to actual numbers for Excel formatting
-                if (!isMetricField) {
-                    return typeof rawValue === 'number'
-                        ? String(rawValue)
-                        : rawValue;
-                }
+            const hasCompact = ExcelService.itemHasCompactFormat(item);
+
+            // Compact metrics (and any non-metric with a format expression) write
+            // display strings so downloads match the dashboard (e.g. ¥718M).
+            // Non-metric strings also avoid Excel auto-detecting years as dates.
+            if (formatExpression && (!isMetricField || hasCompact)) {
+                return ExcelService.formatValueForDisplay(item, rawValue);
+            }
+
+            if (formatExpression && isMetricField) {
+                // Metric without compact: keep raw number + column numFmt
                 const stringValue = String(rawValue);
                 if (
                     stringValue.trim() !== '' &&
@@ -165,7 +220,7 @@ export class ExcelService {
 
             // Use standard Lightdash formatting if not onlyRaw and we have item metadata but no format expression
             if (item) {
-                return formatItemValue(item, rawValue);
+                return ExcelService.formatValueForDisplay(item, rawValue);
             }
 
             return rawValue;
@@ -404,8 +459,15 @@ export class ExcelService {
                 width: 15,
             };
 
-            // Apply number formatting at column level if available
-            if (formatExpression && isMetricField && !isTemporalField) {
+            // Apply number formatting at column level for metrics that still
+            // write raw numbers. Compact columns write display strings instead.
+            if (
+                !onlyRaw &&
+                formatExpression &&
+                isMetricField &&
+                !isTemporalField &&
+                !ExcelService.itemHasCompactFormat(item)
+            ) {
                 column.style = { numFmt: formatExpression };
             }
 
@@ -498,6 +560,7 @@ export class ExcelService {
             customLabels,
             columnOrder,
             hiddenFields,
+            onlyRaw,
         });
 
         // Create temporary file
