@@ -10,7 +10,6 @@ env:
     REGISTRY: registry.cn-hangzhou.aliyuncs.com
     # 与主站 winwin/lightdash、MCP 分离；推送到已有 winwin/tool
     REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/tool
-    BASE_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-0.2091.2
 
 jobs:
     build-and-push:
