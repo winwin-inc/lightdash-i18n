@@ -30,9 +30,9 @@ jobs:
                       echo "Invalid tag: expected cli-vX.Y.Z, got ${GITHUB_REF_NAME}"
                       exit 1
                     fi
+                    # 只推带版本 tag，不覆盖历史 lightdash-cli / lightdash-cli-0.2091.2
                     {
                       echo "tags<<EOF"
-                      echo "${REGISTRY_IMAGE}:lightdash-cli"
                       echo "${REGISTRY_IMAGE}:lightdash-cli-${VERSION}"
                       echo "EOF"
                     } >> "${GITHUB_OUTPUT}"
@@ -68,8 +68,6 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   provenance: false
-                  build-args: |
-                      BASE_IMAGE=${{ env.BASE_IMAGE }}
                   tags: ${{ steps.vars.outputs.tags }}
                   labels: |
                       org.opencontainers.image.title=lightdash-cli

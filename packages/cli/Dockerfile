@@ -1,7 +1,7 @@
 # Jenkins CLI 工具镜像（对齐历史 mise + uv + dbt 构建方式）
-# 正式发布：打 git tag cli-vX.Y.Z → .github/workflows/build-docker-cli.yml
-# Jenkins 建议固定：
-#   IMAGE=registry-vpc.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli
+# 正式发布：打 git tag cli-vX.Y.Z → 推送 winwin/tool:lightdash-cli-X.Y.Z（带版本，不覆盖旧 tag）
+# Jenkins 示例：
+#   IMAGE=registry-vpc.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-0.2107.7
 #
 # 与历史 Dockerfile 的差异：不再 npm install 官方 @lightdash/cli，
 # 改为安装本仓构建产物（已禁用官方遥测）。
