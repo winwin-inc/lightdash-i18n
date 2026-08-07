@@ -1,3 +1,4 @@
-# dbt hologres 适配依赖（配合 Dockerfile 中 uv tool install dbt-core==1.9.8）
-# 若与历史 requirements.txt 不一致，请按原镜像构建目录替换本文件
-dbt-alibaba-cloud-hologres>=1.1.0
+# 与历史 lightdash-cli 镜像 requirements.txt 一致
+dbt-hologres
+dbt-odps-winwin
+tzdata

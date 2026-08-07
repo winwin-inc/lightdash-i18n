@@ -68,6 +68,8 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   provenance: false
+                  build-args: |
+                      VERSION=${{ steps.vars.outputs.version }}
                   tags: ${{ steps.vars.outputs.tags }}
                   labels: |
                       org.opencontainers.image.title=lightdash-cli
