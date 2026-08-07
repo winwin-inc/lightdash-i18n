@@ -394,88 +394,86 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 )}
 
                 {(showValueInput || filterRule.required) && (
-                    <>
-                        {isEditMode &&
-                            filterType === FilterType.DATE &&
-                            (filterRule.operator ===
-                                FilterOperator.IN_BETWEEN ||
-                                filterRule.operator ===
-                                    FilterOperator.NOT_IN_BETWEEN) && (
-                                <Stack spacing={4}>
-                                    <Text size="xs" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.date_range.granularity_label',
-                                        )}
-                                    </Text>
-                                    <Select
-                                        size="xs"
-                                        withinPortal={
-                                            popoverProps?.withinPortal ?? true
-                                        }
-                                        onDropdownOpen={popoverProps?.onOpen}
-                                        onDropdownClose={popoverProps?.onClose}
-                                        value={
-                                            filterRule.dateRangeGranularity ??
-                                            TimeFrames.DAY
-                                        }
-                                        onChange={(value) => {
-                                            if (!value) return;
-                                            if (
-                                                value !== TimeFrames.DAY &&
-                                                value !== TimeFrames.MONTH &&
-                                                value !== TimeFrames.QUARTER &&
-                                                value !== TimeFrames.YEAR
-                                            ) {
-                                                return;
-                                            }
-                                            onChangeFilterRule({
-                                                ...filterRule,
-                                                dateRangeGranularity: value,
-                                            });
-                                        }}
-                                        data={[
-                                            {
-                                                value: TimeFrames.DAY,
-                                                label: t(
-                                                    'components_dashboard_filter.configuration.date_range.granularity.day',
-                                                ),
-                                            },
-                                            {
-                                                value: TimeFrames.MONTH,
-                                                label: t(
-                                                    'components_dashboard_filter.configuration.date_range.granularity.month',
-                                                ),
-                                            },
-                                            {
-                                                value: TimeFrames.QUARTER,
-                                                label: t(
-                                                    'components_dashboard_filter.configuration.date_range.granularity.quarter',
-                                                ),
-                                            },
-                                            {
-                                                value: TimeFrames.YEAR,
-                                                label: t(
-                                                    'components_dashboard_filter.configuration.date_range.granularity.year',
-                                                ),
-                                            },
-                                        ]}
-                                    />
-                                </Stack>
-                            )}
-                        <FilterInputComponent
-                            popoverProps={popoverProps}
-                            filterType={filterType}
-                            field={field}
-                            rule={ruleForValueInput}
-                            onChange={(newFilterRule) =>
-                                onChangeFilterRule(
-                                    newFilterRule as DashboardFilterRule,
-                                )
-                            }
-                            closeDropdownOnMouseLeave={isEditMode}
-                        />
-                    </>
+                    <FilterInputComponent
+                        popoverProps={popoverProps}
+                        filterType={filterType}
+                        field={field}
+                        rule={ruleForValueInput}
+                        onChange={(newFilterRule) =>
+                            onChangeFilterRule(
+                                newFilterRule as DashboardFilterRule,
+                            )
+                        }
+                        closeDropdownOnMouseLeave={isEditMode}
+                    />
                 )}
+
+                {isEditMode &&
+                    filterType === FilterType.DATE &&
+                    (filterRule.operator === FilterOperator.IN_BETWEEN ||
+                        filterRule.operator ===
+                            FilterOperator.NOT_IN_BETWEEN) && (
+                        <Stack spacing={4}>
+                            <Text size="xs" fw={500}>
+                                {t(
+                                    'components_dashboard_filter.configuration.date_range.granularity_label',
+                                )}
+                            </Text>
+                            <Select
+                                size="xs"
+                                withinPortal={
+                                    popoverProps?.withinPortal ?? true
+                                }
+                                onDropdownOpen={popoverProps?.onOpen}
+                                onDropdownClose={popoverProps?.onClose}
+                                value={
+                                    filterRule.dateRangeGranularity ??
+                                    TimeFrames.DAY
+                                }
+                                onChange={(value) => {
+                                    if (!value) return;
+                                    if (
+                                        value !== TimeFrames.DAY &&
+                                        value !== TimeFrames.MONTH &&
+                                        value !== TimeFrames.QUARTER &&
+                                        value !== TimeFrames.YEAR
+                                    ) {
+                                        return;
+                                    }
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        dateRangeGranularity: value,
+                                    });
+                                }}
+                                data={[
+                                    {
+                                        value: TimeFrames.DAY,
+                                        label: t(
+                                            'components_dashboard_filter.configuration.date_range.granularity.day',
+                                        ),
+                                    },
+                                    {
+                                        value: TimeFrames.MONTH,
+                                        label: t(
+                                            'components_dashboard_filter.configuration.date_range.granularity.month',
+                                        ),
+                                    },
+                                    {
+                                        value: TimeFrames.QUARTER,
+                                        label: t(
+                                            'components_dashboard_filter.configuration.date_range.granularity.quarter',
+                                        ),
+                                    },
+                                    {
+                                        value: TimeFrames.YEAR,
+                                        label: t(
+                                            'components_dashboard_filter.configuration.date_range.granularity.year',
+                                        ),
+                                    },
+                                ]}
+                            />
+                        </Stack>
+                    )}
 
                 {isEditMode && filterType === FilterType.DATE && (
                     <DateRangeConstraintEditor
