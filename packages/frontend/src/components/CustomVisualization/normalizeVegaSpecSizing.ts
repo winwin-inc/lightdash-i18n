@@ -400,10 +400,21 @@ export function normalizeVegaSpecSizing(
     return stripContainerSizing(withSpacing);
 }
 
+export type VegaAutosizeOptions = {
+    /**
+     * When false, dashboard charts still use fit but do not continuously
+     * resize on every container jitter (narrow/embed). Size updates come from
+     * React re-render with stabilized pixel dimensions instead.
+     * Defaults to true for dashboard (preserves tile drag / filter expand).
+     */
+    continuousResize?: boolean;
+};
+
 export function getVegaAutosizeConfig(
     spec: VegaSpec,
     isDashboard: boolean,
     layout?: ResponsiveLayout,
+    options?: VegaAutosizeOptions,
 ): {
     type: 'fit' | 'pad' | 'none';
     resize?: boolean;
@@ -416,8 +427,9 @@ export function getVegaAutosizeConfig(
         // contains: padding 使子视图 width/height 与边距一并纳入布局计算
         return { type: 'pad', contains: 'padding' };
     }
+    const continuousResize = options?.continuousResize ?? true;
     return {
         type: 'fit',
-        ...(isDashboard && { resize: true }),
+        ...(isDashboard && continuousResize && { resize: true }),
     };
 }

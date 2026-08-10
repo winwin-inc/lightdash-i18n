@@ -267,6 +267,16 @@ describe('getVegaAutosizeConfig', () => {
         });
     });
 
+    it('keeps dashboard fit without continuous resize when disabled', () => {
+        expect(
+            getVegaAutosizeConfig(singleViewSpec, true, undefined, {
+                continuousResize: false,
+            }),
+        ).toEqual({
+            type: 'fit',
+        });
+    });
+
     it('uses pad with contains padding for composite view', () => {
         expect(getVegaAutosizeConfig(hconcatSpec, true)).toEqual({
             type: 'pad',
@@ -284,8 +294,8 @@ describe('getVegaAutosizeConfig', () => {
             containerStyle: { overflowY: 'auto' },
             vegaStyle: { width: 375, height: 320 },
         };
-        expect(getVegaAutosizeConfig(singleViewSpec, true, mobileLayout)).toEqual(
-            { type: 'none' },
-        );
+        expect(
+            getVegaAutosizeConfig(singleViewSpec, true, mobileLayout),
+        ).toEqual({ type: 'none' });
     });
 });
