@@ -167,7 +167,7 @@ describe('computeResponsiveLayout', () => {
         expect(layout.containerStyle).toEqual({ overflow: 'hidden' });
     });
 
-    it('uses series length when y field is missing', () => {
+    it('does not use step height for height.step without discrete band y', () => {
         const layout = computeResponsiveLayout(
             'mobile',
             { height: { step: 20 } },
@@ -175,6 +175,178 @@ describe('computeResponsiveLayout', () => {
             100,
             series,
         );
-        expect(layout.vegaStyle.height).toBe(200);
+        expect(layout.useStepHeight).toBe(false);
+        expect(layout.vegaStyle.height).toBe(100);
+    });
+
+    it('does not use step height for quant-quant scatter with stray height.step', () => {
+        const bostonLike = {
+            layer: [
+                {
+                    mark: 'point',
+                    encoding: {
+                        x: { field: 'share', type: 'quantitative' },
+                        y: { field: 'yoy', type: 'quantitative' },
+                    },
+                },
+            ],
+            height: { step: 40 },
+            width: 'container',
+        };
+        const layout = computeResponsiveLayout(
+            'mobile',
+            bostonLike,
+            375,
+            320,
+            series,
+            { preferFitInTile: true },
+        );
+        expect(layout.useStepHeight).toBe(false);
+        expect(layout.chartSize.height).toBe(320);
+        expect(layout.containerStyle).toEqual({ overflow: 'hidden' });
+    });
+
+    it('still uses step height for nominal-y mobile tables', () => {
+        const layout = computeResponsiveLayout(
+            'mobile',
+            mobileSpec,
+            375,
+            200,
+            series,
+        );
+        expect(layout.useStepHeight).toBe(true);
+        expect(layout.vegaStyle.height).toBe(320);
+    });
+
+    it('uses natural width and horizontal scroll for x rangeStep on wide viewport', () => {
+        const priceBandSpec = {
+            layer: [
+                {
+                    mark: { type: 'bar' },
+                    encoding: {
+                        x: {
+                            type: 'ordinal',
+                            field: 'price_range_text',
+                            scale: { rangeStep: 75 },
+                        },
+                        y: { type: 'quantitative', field: 'sku_sum' },
+                    },
+                },
+            ],
+            height: 400,
+            transform: [
+                {
+                    bin: { maxbins: 25 },
+                    field: 'price',
+                    as: ['price_bin_start', 'price_bin_end'],
+                },
+            ],
+        };
+        const layout = computeResponsiveLayout(
+            'desktop',
+            priceBandSpec,
+            360,
+            280,
+        );
+        expect(layout.useStepWidth).toBe(true);
+        expect(layout.useStepHeight).toBe(false);
+        expect(layout.chartSize.width).toBe(25 * 75);
+        expect(layout.chartSize.height).toBe(400);
+        expect(layout.useAutosizeNone).toBe(true);
+        expect(layout.containerStyle).toEqual({
+            overflowX: 'auto',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+        });
+    });
+
+    it('skips rangeStep natural width when preferFitInTile is set', () => {
+        const priceBandSpec = {
+            layer: [
+                {
+                    mark: { type: 'bar' },
+                    encoding: {
+                        x: {
+                            type: 'ordinal',
+                            field: 'price_range_text',
+                            scale: { rangeStep: 75 },
+                        },
+                        y: { type: 'quantitative', field: 'sku_sum' },
+                    },
+                },
+            ],
+            height: 400,
+            transform: [
+                {
+                    bin: { maxbins: 25 },
+                    field: 'price',
+                    as: ['price_bin_start', 'price_bin_end'],
+                },
+            ],
+        };
+        const layout = computeResponsiveLayout(
+            'desktop',
+            priceBandSpec,
+            360,
+            280,
+            undefined,
+            { preferFitInTile: true },
+        );
+        expect(layout.useStepWidth).toBe(false);
+        expect(layout.chartSize).toEqual({ width: 360, height: 280 });
+        expect(layout.containerStyle).toEqual({ overflow: 'hidden' });
+        expect(layout.useAutosizeNone).toBe(false);
+    });
+
+    it('uses width.step for natural width without inventing scroll when it fits', () => {
+        const layout = computeResponsiveLayout(
+            'mobile',
+            {
+                mark: 'bar',
+                width: { step: 40 },
+                encoding: {
+                    x: { field: 'brand', type: 'nominal' },
+                    y: { field: 'growth', type: 'quantitative' },
+                },
+            },
+            500,
+            300,
+            [{ brand: 'A' }, { brand: 'B' }],
+        );
+        expect(layout.useStepWidth).toBe(true);
+        expect(layout.chartSize.width).toBe(500);
+        expect(layout.useAutosizeNone).toBe(false);
+        expect(layout.containerStyle).toEqual({ overflow: 'hidden' });
+    });
+
+    it('scrolls vertically when author numeric height exceeds container on wide', () => {
+        const layout = computeResponsiveLayout(
+            'desktop',
+            { ...desktopSpec, height: 400 },
+            360,
+            280,
+        );
+        expect(layout.useStepWidth).toBe(false);
+        expect(layout.chartSize.height).toBe(400);
+        expect(layout.useAutosizeNone).toBe(true);
+        expect(layout.containerStyle).toEqual({
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+        });
+    });
+
+    it('keeps container height when preferFitInTile despite author height', () => {
+        const layout = computeResponsiveLayout(
+            'desktop',
+            { ...desktopSpec, height: 400 },
+            360,
+            280,
+            undefined,
+            { preferFitInTile: true },
+        );
+        expect(layout.chartSize).toEqual({ width: 360, height: 280 });
+        expect(layout.useAutosizeNone).toBe(false);
+        expect(layout.containerStyle).toEqual({ overflow: 'hidden' });
     });
 });

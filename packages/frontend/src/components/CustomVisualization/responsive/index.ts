@@ -1,6 +1,9 @@
 export { composeCustomVisSpec } from './composeCustomVisSpec';
 export type { ComposeCustomVisSpecInput } from './composeCustomVisSpec';
-export { computeResponsiveLayout } from './computeResponsiveLayout';
+export {
+    computeResponsiveLayout,
+    type ComputeResponsiveLayoutOptions,
+} from './computeResponsiveLayout';
 export { decomposeCustomVisSpec } from './decomposeCustomVisSpec';
 export type { DecomposedCustomVisSpec } from './decomposeCustomVisSpec';
 export { extractLightdashConfig } from './extractLightdashConfig';
