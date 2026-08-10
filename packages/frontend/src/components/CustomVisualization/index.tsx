@@ -31,6 +31,7 @@ import {
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 import {
+    CHART_SIZE_CHANGE_EPSILON_PX,
     isAboveMinStableChartSize,
     useStableChartSize,
 } from './useStableChartSize';
@@ -72,10 +73,11 @@ const CustomVisualization: FC<Props> = (props) => {
     });
     const hasSize = width > 0 && height > 0;
 
-    // Narrow / mini-program: pin size via React + skip continuous Vega resize
-    // to avoid click-triggered fit collapse. Desktop dashboard keeps resize:true.
+    // Narrow / mini-program: pin size via React pixels + skip continuous Vega
+    // resize to avoid click-triggered fit collapse. Desktop keeps resize:true.
     const isNarrowViewport = viewportWidth < DEFAULT_RESPONSIVE_BREAKPOINT;
     const continuousResize = !isNarrowViewport;
+    const useExplicitPixelSize = isNarrowViewport;
 
     const measureRef = useCallback(
         (el: HTMLDivElement | null) => {
@@ -91,10 +93,9 @@ const CustomVisualization: FC<Props> = (props) => {
                 if (r.width <= 0 || r.height <= 0) {
                     return;
                 }
-                // Accept first paint even if small; later jitter filtered by useStableChartSize
+                // Only accept min-stable measures (matches useStableChartSize gate)
                 setEarlyRect((prev) => {
                     if (
-                        prev.width === 0 ||
                         isAboveMinStableChartSize({
                             width: r.width,
                             height: r.height,
@@ -124,7 +125,24 @@ const CustomVisualization: FC<Props> = (props) => {
     if (!isCustomVisualizationConfig(visualizationConfig)) return null;
     const spec = visualizationConfig.chartConfig.validConfig.spec;
 
-    if (isLoading) return <LoadingChart />;
+    // Keep measure shell during loading so size is warm when data arrives
+    // (avoids first-tile X collapse from mounting Vega on an unmeasured container).
+    if (isLoading) {
+        return (
+            <div
+                data-testid={props['data-testid']}
+                className={props.className}
+                style={{
+                    minHeight: 'inherit',
+                    height: '100%',
+                    width: '100%',
+                }}
+                ref={measureRef}
+            >
+                <LoadingChart />
+            </div>
+        );
+    }
 
     if (!spec) {
         return (
@@ -172,7 +190,20 @@ const CustomVisualization: FC<Props> = (props) => {
     const data = { values: visProps.series };
 
     if (needsRewrite && !canRewrite) {
-        return <LoadingChart />;
+        return (
+            <div
+                data-testid={props['data-testid']}
+                className={props.className}
+                style={{
+                    minHeight: 'inherit',
+                    height: '100%',
+                    width: '100%',
+                }}
+                ref={measureRef}
+            >
+                <LoadingChart />
+            </div>
+        );
     }
 
     const { desktopSpec, responsiveConfig } = extractLightdashConfig(rawSpec);
@@ -200,19 +231,32 @@ const CustomVisualization: FC<Props> = (props) => {
         width,
         height,
         visProps.series,
+        { preferFitInTile: useExplicitPixelSize },
     );
     const sizedSpec = normalizeVegaSpecSizing(
         specForVega as Record<string, unknown>,
         layout.chartSize,
         visProps.series,
         layout,
+        { useExplicitPixelSize },
     );
     const autosizeConfig = getVegaAutosizeConfig(
         specForVega as Record<string, unknown>,
         isDashboard,
         layout,
-        { continuousResize },
+        { continuousResize, useExplicitPixelSize },
     );
+
+    // Remount when stabilized size changes meaningfully (narrow path has no resize)
+    const sizeKeyWidth = layout.useStepWidth
+        ? 'step'
+        : Math.round(width / CHART_SIZE_CHANGE_EPSILON_PX);
+    const sizeKeyHeight = layout.useStepHeight
+        ? 'step'
+        : Math.round(
+              (layout.chartSize.height || height) /
+                  CHART_SIZE_CHANGE_EPSILON_PX,
+          );
 
     return (
         <div
@@ -233,7 +277,7 @@ const CustomVisualization: FC<Props> = (props) => {
                             visProps.editorResponsiveTab
                         }-${visProps.series?.length ?? 0}-${
                             resultsData?.hasFetchedAllRows ?? false
-                        }`}
+                        }-${sizeKeyWidth}-${sizeKeyHeight}`}
                         ref={chartRef}
                         style={layout.vegaStyle}
                         config={{
