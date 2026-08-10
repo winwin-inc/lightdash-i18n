@@ -11,6 +11,8 @@ import {
     getMinAndMaxValues,
     getSeriesValueFromRow,
     getStackedBarLegendOrder,
+    getTopXAxisVisualOverrides,
+    isUnusedTopXAxis,
     shouldInjectSeriesCategoryAxis,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
@@ -21,6 +23,62 @@ import {
 } from './useEchartsCartesianConfig';
 
 vi.mock('./../../providers/TrackingProvider');
+
+describe('isUnusedTopXAxis', () => {
+    test('非翻转且无顶轴字段时视为未使用', () => {
+        expect(isUnusedTopXAxis({ flipAxes: false })).toBe(true);
+        expect(isUnusedTopXAxis({})).toBe(true);
+    });
+
+    test('翻转轴时不视为未使用，避免误伤横向双轴', () => {
+        expect(isUnusedTopXAxis({ flipAxes: true })).toBe(false);
+        expect(
+            isUnusedTopXAxis({ flipAxes: true, topAxisXId: 'metric_a' }),
+        ).toBe(false);
+    });
+
+    test('非翻转但存在顶轴字段时不视为未使用', () => {
+        expect(
+            isUnusedTopXAxis({ flipAxes: false, topAxisXId: 'metric_a' }),
+        ).toBe(false);
+    });
+});
+
+describe('getTopXAxisVisualOverrides', () => {
+    test('普通折线隐藏占位顶轴轴线与刻度', () => {
+        expect(
+            getTopXAxisVisualOverrides({
+                flipAxes: false,
+                defaultSplitLineShow: true,
+            }),
+        ).toEqual({
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { show: false },
+            splitLine: { show: false },
+        });
+    });
+
+    test('翻转轴时保留默认 splitLine，不强制关闭轴线', () => {
+        expect(
+            getTopXAxisVisualOverrides({
+                flipAxes: true,
+                topAxisXId: 'metric_a',
+                defaultSplitLineShow: true,
+            }),
+        ).toEqual({
+            splitLine: { show: true },
+        });
+        expect(
+            getTopXAxisVisualOverrides({
+                flipAxes: true,
+                defaultSplitLineShow: false,
+            }),
+        ).toEqual({
+            splitLine: { show: false },
+        });
+    });
+});
 
 describe('getAxisDefaultMinValue', () => {
     test('should return undefined', () => {

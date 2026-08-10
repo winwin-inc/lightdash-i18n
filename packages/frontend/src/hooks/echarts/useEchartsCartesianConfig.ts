@@ -274,6 +274,47 @@ export const getAxisDefaultMinValue = ({
     return undefined;
 };
 
+/**
+ * Non-flipped charts always create a placeholder top xAxis that is never bound
+ * to series. Hide its chrome so ECharts does not draw a stray top border line.
+ * Flip-axes charts may use xAxis[1] as a real secondary axis — do not hide there.
+ */
+export const isUnusedTopXAxis = ({
+    flipAxes,
+    topAxisXId,
+}: {
+    flipAxes?: boolean;
+    topAxisXId?: string;
+}): boolean => !flipAxes && !topAxisXId;
+
+export const getTopXAxisVisualOverrides = ({
+    flipAxes,
+    topAxisXId,
+    defaultSplitLineShow,
+}: {
+    flipAxes?: boolean;
+    topAxisXId?: string;
+    defaultSplitLineShow: boolean;
+}): {
+    axisLine?: { show: false };
+    axisTick?: { show: false };
+    axisLabel?: { show: false };
+    splitLine: { show: boolean };
+} => {
+    if (isUnusedTopXAxis({ flipAxes, topAxisXId })) {
+        return {
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { show: false },
+            splitLine: { show: false },
+        };
+    }
+
+    return {
+        splitLine: { show: defaultSplitLineShow },
+    };
+};
+
 const maybeGetAxisDefaultMinValue = (allowFunction: boolean) =>
     allowFunction ? getAxisDefaultMinValue : undefined;
 
@@ -3246,10 +3287,12 @@ const getEchartAxes = ({
                     defaultNameGap: 30,
                     show: showXAxis,
                 }),
-                splitLine: {
-                    show: isAxisTheSameForAllSeries,
-                },
                 ...topAxisExtraConfig,
+                ...getTopXAxisVisualOverrides({
+                    flipAxes: validCartesianConfig.layout.flipAxes,
+                    topAxisXId,
+                    defaultSplitLineShow: isAxisTheSameForAllSeries,
+                }),
             },
         ],
         yAxis: [
