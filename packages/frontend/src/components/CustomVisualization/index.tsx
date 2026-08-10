@@ -22,6 +22,7 @@ import {
     normalizeVegaSpecSizing,
 } from './normalizeVegaSpecSizing';
 import {
+    DEFAULT_RESPONSIVE_BREAKPOINT,
     computeResponsiveLayout,
     extractLightdashConfig,
     resolveActiveSpec,
@@ -29,6 +30,10 @@ import {
     type ResponsivePreviewOverride,
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
+import {
+    isAboveMinStableChartSize,
+    useStableChartSize,
+} from './useStableChartSize';
 
 const VegaLite = lazy(() =>
     import('react-vega').then((module) => ({ default: module.VegaLite })),
@@ -55,6 +60,23 @@ const CustomVisualization: FC<Props> = (props) => {
     const [earlyRect, setEarlyRect] = useState({ width: 0, height: 0 });
     const rafIdRef = useRef<number | null>(null);
 
+    // Prefer ResizeObserver; fall back to first RAF measure before observer fires
+    const observedWidth =
+        (rect.width ?? 0) > 0 ? (rect.width ?? 0) : earlyRect.width;
+    const observedHeight =
+        (rect.height ?? 0) > 0 ? (rect.height ?? 0) : earlyRect.height;
+
+    const { width, height } = useStableChartSize({
+        width: observedWidth,
+        height: observedHeight,
+    });
+    const hasSize = width > 0 && height > 0;
+
+    // Narrow / mini-program: pin size via React + skip continuous Vega resize
+    // to avoid click-triggered fit collapse. Desktop dashboard keeps resize:true.
+    const isNarrowViewport = viewportWidth < DEFAULT_RESPONSIVE_BREAKPOINT;
+    const continuousResize = !isNarrowViewport;
+
     const measureRef = useCallback(
         (el: HTMLDivElement | null) => {
             (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -66,9 +88,22 @@ const CustomVisualization: FC<Props> = (props) => {
             rafIdRef.current = requestAnimationFrame(() => {
                 rafIdRef.current = null;
                 const r = el.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) {
-                    setEarlyRect({ width: r.width, height: r.height });
+                if (r.width <= 0 || r.height <= 0) {
+                    return;
                 }
+                // Accept first paint even if small; later jitter filtered by useStableChartSize
+                setEarlyRect((prev) => {
+                    if (
+                        prev.width === 0 ||
+                        isAboveMinStableChartSize({
+                            width: r.width,
+                            height: r.height,
+                        })
+                    ) {
+                        return { width: r.width, height: r.height };
+                    }
+                    return prev;
+                });
             });
         },
         [ref],
@@ -140,12 +175,6 @@ const CustomVisualization: FC<Props> = (props) => {
         return <LoadingChart />;
     }
 
-    const rw = rect.width ?? 0;
-    const rh = rect.height ?? 0;
-    const width = rw > 0 ? rw : earlyRect.width;
-    const height = rh > 0 ? rh : earlyRect.height;
-    const hasSize = width > 0 && height > 0;
-
     const { desktopSpec, responsiveConfig } = extractLightdashConfig(rawSpec);
 
     const previewOverride: ResponsivePreviewOverride | undefined = !isDashboard
@@ -182,6 +211,7 @@ const CustomVisualization: FC<Props> = (props) => {
         specForVega as Record<string, unknown>,
         isDashboard,
         layout,
+        { continuousResize },
     );
 
     return (
