@@ -584,15 +584,17 @@ const FilterStringAutoComplete: FC<Props> = ({
                         </Tooltip>
                     </>
                 ) : null}
-                <FilterMultiValueActions
-                    candidates={dropdownStateRef.current.data.map(
-                        (item) => item.value,
-                    )}
-                    selected={dropdownStateRef.current.values}
-                    search={dropdownStateRef.current.search}
-                    onSelectAll={dropdownStateRef.current.handleSelectAll}
-                    onClear={dropdownStateRef.current.handleClearAll}
-                />
+                {!singleValue && (
+                    <FilterMultiValueActions
+                        candidates={dropdownStateRef.current.data.map(
+                            (item) => item.value,
+                        )}
+                        selected={dropdownStateRef.current.values}
+                        search={dropdownStateRef.current.search}
+                        onSelectAll={dropdownStateRef.current.handleSelectAll}
+                        onClear={dropdownStateRef.current.handleClearAll}
+                    />
+                )}
             </Stack>
         ),
         [
@@ -600,6 +602,7 @@ const FilterStringAutoComplete: FC<Props> = ({
             search,
             refreshedAt,
             healthData?.hasCacheAutocompleResults,
+            singleValue,
             t,
         ],
     );
