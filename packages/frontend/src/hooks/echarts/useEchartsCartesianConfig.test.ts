@@ -10,6 +10,7 @@ import {
     getLineLegendOrder,
     getMinAndMaxValues,
     getSeriesValueFromRow,
+    getSinglePointTimeAxisConfig,
     getStackedBarLegendOrder,
     getTopXAxisVisualOverrides,
     isUnusedTopXAxis,
@@ -2145,5 +2146,72 @@ describe('shouldInjectSeriesCategoryAxis', () => {
         expect(
             applied.map((s) => (s.data![0] as [unknown, unknown])[1]),
         ).toEqual([0.3534, 0.1259]);
+    });
+});
+
+describe('getSinglePointTimeAxisConfig', () => {
+    const axisId = 'orders_order_date_month';
+
+    const rowsWithValues = (values: string[]): ResultRow[] =>
+        values.map((v) => ({
+            [axisId]: { value: { raw: v, formatted: v.slice(0, 7) } },
+        }));
+
+    test('单月唯一 X 值时改为 category 并对齐刻度', () => {
+        const config = getSinglePointTimeAxisConfig({
+            axisId,
+            rows: rowsWithValues(['2026-07-01']),
+            axisType: 'time',
+        });
+
+        expect(config.axisType).toBe('category');
+        expect(config.data).toEqual(['2026-07-01']);
+        expect(config.axisTick).toEqual({
+            alignWithLabel: true,
+            interval: 0,
+        });
+        expect(config).toHaveProperty('minInterval', undefined);
+    });
+
+    test('多个不同月份时保持 time，不返回覆盖配置', () => {
+        const config = getSinglePointTimeAxisConfig({
+            axisId,
+            rows: rowsWithValues(['2026-06-01', '2026-07-01']),
+            axisType: 'time',
+        });
+
+        expect(config).toEqual({});
+    });
+
+    test('多行同一月份仍视为单点', () => {
+        const config = getSinglePointTimeAxisConfig({
+            axisId,
+            rows: rowsWithValues(['2026-07-01', '2026-07-01', '2026-07-01']),
+            axisType: 'time',
+        });
+
+        expect(config.axisType).toBe('category');
+        expect(config.data).toEqual(['2026-07-01']);
+    });
+
+    test('有参考线时保持 time，避免参考线错位', () => {
+        const config = getSinglePointTimeAxisConfig({
+            axisId,
+            rows: rowsWithValues(['2026-07-01']),
+            axisType: 'time',
+            hasReferenceLine: true,
+        });
+
+        expect(config).toEqual({});
+    });
+
+    test('非 time 轴不处理', () => {
+        const config = getSinglePointTimeAxisConfig({
+            axisId,
+            rows: rowsWithValues(['2026-07-01']),
+            axisType: 'category',
+        });
+
+        expect(config).toEqual({});
     });
 });

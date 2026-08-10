@@ -2513,6 +2513,53 @@ const getWeekAxisConfig = (
     }
 };
 
+/**
+ * ECharts time axes auto-expand when there is only one timestamp (min === max),
+ * which creates extra ticks and misaligned points (e.g. single-month filters).
+ * Switch to a category axis so the sole value sits on its tick.
+ * Keep time when an axis reference line is present (same constraint as WEEK).
+ */
+export const getSinglePointTimeAxisConfig = ({
+    axisId,
+    rows,
+    axisType,
+    hasReferenceLine = false,
+}: {
+    axisId?: string;
+    rows?: ResultRow[];
+    axisType?: string;
+    hasReferenceLine?: boolean;
+}): {
+    axisType?: 'category';
+    data?: string[];
+    axisTick?: { alignWithLabel: true; interval: 0 };
+    minInterval?: undefined;
+} => {
+    if (!axisId || !rows || axisType !== 'time' || hasReferenceLine) {
+        return {};
+    }
+
+    const uniqueValues = new Set<string>();
+    for (const row of rows) {
+        const raw = row[axisId]?.value.raw;
+        if (raw !== undefined && raw !== null && raw !== '') {
+            uniqueValues.add(String(raw));
+        }
+    }
+
+    if (uniqueValues.size !== 1) {
+        return {};
+    }
+
+    return {
+        axisType: 'category',
+        data: Array.from(uniqueValues),
+        axisTick: { alignWithLabel: true, interval: 0 },
+        // Clear time-axis minInterval from getCartesianAxisFormatterConfig
+        minInterval: undefined,
+    };
+};
+
 const getEchartAxes = ({
     itemsMap,
     validCartesianConfig,
@@ -2649,7 +2696,7 @@ const getEchartAxes = ({
         ? itemsMap[bottomAxisXId]
         : undefined;
 
-    const { bottomAxisType, topAxisType, rightAxisType, leftAxisType } =
+    let { bottomAxisType, topAxisType, rightAxisType, leftAxisType } =
         getAxisType({
             validCartesianConfig,
             itemsMap,
@@ -2678,30 +2725,100 @@ const getEchartAxes = ({
         validCartesianConfig.eChartsConfig.series,
         itemsMap,
     );
-    const bottomAxisExtraConfig = getWeekAxisConfig(
-        bottomAxisXId,
-        bottomAxisXField,
-        axisRows,
-        bottomAxisType,
-    );
-    const topAxisExtraConfig = getWeekAxisConfig(
-        topAxisXId,
-        topAxisXField,
-        axisRows,
-        topAxisType,
-    );
-    const rightAxisExtraConfig = getWeekAxisConfig(
-        rightAxisYId,
-        rightAxisYField,
-        axisRows,
-        rightAxisType,
-    );
-    const leftAxisExtraConfig = getWeekAxisConfig(
-        leftAxisYId,
-        leftAxisYField,
-        axisRows,
-        leftAxisType,
-    );
+
+    const seriesHasXReferenceLine =
+        validCartesianConfig.eChartsConfig.series?.some((serie) =>
+            serie.markLine?.data?.some(
+                (markData) => markData.xAxis !== undefined,
+            ),
+        ) ?? false;
+    const seriesHasYReferenceLine =
+        validCartesianConfig.eChartsConfig.series?.some((serie) =>
+            serie.markLine?.data?.some(
+                (markData) => markData.yAxis !== undefined,
+            ),
+        ) ?? false;
+
+    const bottomSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: bottomAxisXId,
+        rows: axisRows,
+        axisType: bottomAxisType,
+        hasReferenceLine: seriesHasXReferenceLine,
+    });
+    const topSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: topAxisXId,
+        rows: axisRows,
+        axisType: topAxisType,
+        hasReferenceLine: seriesHasXReferenceLine,
+    });
+    const rightSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: rightAxisYId,
+        rows: axisRows,
+        axisType: rightAxisType,
+        hasReferenceLine: seriesHasYReferenceLine,
+    });
+    const leftSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: leftAxisYId,
+        rows: axisRows,
+        axisType: leftAxisType,
+        hasReferenceLine: seriesHasYReferenceLine,
+    });
+
+    if (bottomSinglePointConfig.axisType) {
+        bottomAxisType = bottomSinglePointConfig.axisType;
+    }
+    if (topSinglePointConfig.axisType) {
+        topAxisType = topSinglePointConfig.axisType;
+    }
+    if (rightSinglePointConfig.axisType) {
+        rightAxisType = rightSinglePointConfig.axisType;
+    }
+    if (leftSinglePointConfig.axisType) {
+        leftAxisType = leftSinglePointConfig.axisType;
+    }
+
+    const toSinglePointAxisExtraConfig = (
+        config: ReturnType<typeof getSinglePointTimeAxisConfig>,
+    ) =>
+        config.axisType
+            ? {
+                  data: config.data,
+                  axisTick: config.axisTick,
+                  minInterval: config.minInterval,
+              }
+            : {};
+
+    const bottomAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            bottomAxisXId,
+            bottomAxisXField,
+            axisRows,
+            bottomAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(bottomSinglePointConfig),
+    };
+    const topAxisExtraConfig = {
+        ...getWeekAxisConfig(topAxisXId, topAxisXField, axisRows, topAxisType),
+        ...toSinglePointAxisExtraConfig(topSinglePointConfig),
+    };
+    const rightAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            rightAxisYId,
+            rightAxisYField,
+            axisRows,
+            rightAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(rightSinglePointConfig),
+    };
+    const leftAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            leftAxisYId,
+            leftAxisYField,
+            axisRows,
+            leftAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(leftSinglePointConfig),
+    };
 
     const bottomAxisOffset = {
         enabled:
