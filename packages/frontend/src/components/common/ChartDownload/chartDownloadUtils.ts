@@ -24,7 +24,18 @@ export enum ExportAspectRatio {
     A9x16 = '9x16',
     A4x3 = '4x3',
     A3x4 = '3x4',
+    CUSTOM = 'custom',
 }
+
+export enum ExportPixelRatio {
+    X1 = '1x',
+    X2 = '2x',
+}
+
+export const EXPORT_PIXEL_RATIO_VALUES: Record<ExportPixelRatio, number> = {
+    [ExportPixelRatio.X1]: 1,
+    [ExportPixelRatio.X2]: 2,
+};
 
 const LONG_EDGE_PX = 1920;
 
@@ -53,21 +64,18 @@ function getAspectRatioValue(ratio: ExportAspectRatio): number {
         case ExportAspectRatio.A3x4:
             return 3 / 4;
         case ExportAspectRatio.ORIGINAL:
+        case ExportAspectRatio.CUSTOM:
         default:
             return 1;
     }
 }
 
-/**
- * Computes the target canvas dimensions and the letterboxed draw rectangle
- * for placing a source image into the target aspect ratio.
- *
- * Pure function (no DOM access) so it can be unit-tested directly.
- */
 export const computeExportDimensions = (
     srcWidth: number,
     srcHeight: number,
     ratio: ExportAspectRatio,
+    customWidth?: number,
+    customHeight?: number,
 ): ExportDimensions => {
     const srcRatio = safeRatio(srcWidth, srcHeight);
 
@@ -77,6 +85,9 @@ export const computeExportDimensions = (
     if (ratio === ExportAspectRatio.ORIGINAL) {
         targetW = Math.max(1, Math.round(srcWidth));
         targetH = Math.max(1, Math.round(targetW / srcRatio));
+    } else if (ratio === ExportAspectRatio.CUSTOM) {
+        targetW = Math.max(1, Math.round(customWidth ?? 1920));
+        targetH = Math.max(1, Math.round(customHeight ?? 1080));
     } else {
         const targetRatio = getAspectRatioValue(ratio);
         if (targetRatio >= 1) {
@@ -104,7 +115,8 @@ export const computeExportDimensions = (
 
 /**
  * Letterboxes an arbitrary image (SVG base64 or raster base64) into a target
- * canvas of the requested aspect ratio. Returns a base64 PNG/JPEG data URL.
+ * canvas of the requested aspect ratio, scaled by `pixelRatio`. Returns a
+ * base64 PNG/JPEG data URL.
  */
 export const letterboxImageToCanvas = (
     originalBase64: string,
@@ -113,31 +125,37 @@ export const letterboxImageToCanvas = (
     ratio: ExportAspectRatio,
     isBackgroundTransparent: boolean,
     type: 'jpeg' | 'png' = 'png',
+    pixelRatio: ExportPixelRatio = ExportPixelRatio.X1,
+    customWidth?: number,
+    customHeight?: number,
 ): Promise<string> =>
     new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
             const sourceW = img.naturalWidth || srcWidth || 1;
-            const sourceH =
-                img.naturalHeight || Math.round(sourceW * 0.75);
+            const sourceH = img.naturalHeight || Math.round(sourceW * 0.75);
 
             const dims = computeExportDimensions(
                 sourceW,
                 sourceH,
                 ratio,
+                customWidth,
+                customHeight,
             );
+            const scale = EXPORT_PIXEL_RATIO_VALUES[pixelRatio] ?? 1;
 
             const canvas = document.createElement('canvas');
-            canvas.width = dims.targetW;
-            canvas.height = dims.targetH;
+            canvas.width = dims.targetW * scale;
+            canvas.height = dims.targetH * scale;
             const ctx = canvas.getContext('2d');
             if (!ctx) {
                 reject();
                 return;
             }
 
-            const fillWhite =
-                type === 'jpeg' || !isBackgroundTransparent;
+            // Scale the letterboxed draw rectangle by pixelRatio so the
+            // image stays centered and fills the higher-resolution canvas.
+            const fillWhite = type === 'jpeg' || !isBackgroundTransparent;
             if (fillWhite) {
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -145,10 +163,10 @@ export const letterboxImageToCanvas = (
 
             ctx.drawImage(
                 img,
-                dims.offsetX,
-                dims.offsetY,
-                dims.drawW,
-                dims.drawH,
+                dims.offsetX * scale,
+                dims.offsetY * scale,
+                dims.drawW * scale,
+                dims.drawH * scale,
             );
 
             try {
@@ -236,6 +254,12 @@ const aspectRatioSuffix: Record<ExportAspectRatio, string> = {
     [ExportAspectRatio.A9x16]: '_9x16',
     [ExportAspectRatio.A4x3]: '_4x3',
     [ExportAspectRatio.A3x4]: '_3x4',
+    [ExportAspectRatio.CUSTOM]: '_custom',
+};
+
+const pixelRatioSuffix: Record<ExportPixelRatio, string> = {
+    [ExportPixelRatio.X1]: '',
+    [ExportPixelRatio.X2]: '_2x',
 };
 
 /**
@@ -246,11 +270,13 @@ export const getExportFileBaseName = (
     aspectRatio: ExportAspectRatio,
     chartName?: string,
     isBackgroundTransparent?: boolean,
+    pixelRatio: ExportPixelRatio = ExportPixelRatio.X1,
 ): string => {
     const prefix = chartName ? sanitizeFileName(chartName) : FILE_NAME;
     const ratioSuffix = aspectRatioSuffix[aspectRatio] ?? '';
+    const pxSuffix = pixelRatioSuffix[pixelRatio] ?? '';
     const bgSuffix = isBackgroundTransparent ? '_透明色' : '_白色';
-    return `${prefix}${ratioSuffix}${bgSuffix}`;
+    return `${prefix}${ratioSuffix}${pxSuffix}${bgSuffix}`;
 };
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     computeExportDimensions,
     ExportAspectRatio,
+    ExportPixelRatio,
     getExportFileBaseName,
     sanitizeFileName,
 } from './chartDownloadUtils';
@@ -85,6 +86,45 @@ describe('computeExportDimensions', () => {
         expect(dims.targetH).toBe(1920);
     });
 
+    it('CUSTOM target uses provided width/height', () => {
+        const dims = computeExportDimensions(
+            1000,
+            1000,
+            ExportAspectRatio.CUSTOM,
+            2400,
+            800,
+        );
+        expect(dims.targetW).toBe(2400);
+        expect(dims.targetH).toBe(800);
+    });
+
+    it('CUSTOM target letterboxes source when target ratio differs', () => {
+        // 1:1 source into 2400x800 (3:1 target) → letterbox left/right.
+        const dims = computeExportDimensions(
+            1000,
+            1000,
+            ExportAspectRatio.CUSTOM,
+            2400,
+            800,
+        );
+        expect(dims.targetW).toBe(2400);
+        expect(dims.targetH).toBe(800);
+        expect(dims.drawH).toBe(800);
+        expect(dims.drawW).toBe(800);
+        expect(dims.offsetY).toBe(0);
+        expect(dims.offsetX).toBeGreaterThan(0);
+    });
+
+    it('CUSTOM falls back to 1920×1080 when width/height missing', () => {
+        const dims = computeExportDimensions(
+            1000,
+            1000,
+            ExportAspectRatio.CUSTOM,
+        );
+        expect(dims.targetW).toBe(1920);
+        expect(dims.targetH).toBe(1080);
+    });
+
     it('ORIGINAL preserves source dimensions', () => {
         const dims = computeExportDimensions(
             1600,
@@ -126,46 +166,38 @@ describe('getExportFileBaseName', () => {
     });
 
     it('appends _16x9 suffix for 16:9 ratio', () => {
-        expect(
-            getExportFileBaseName(ExportAspectRatio.A16x9, '品类占比'),
-        ).toBe('品类占比_16x9_白色');
+        expect(getExportFileBaseName(ExportAspectRatio.A16x9, '品类占比')).toBe(
+            '品类占比_16x9_白色',
+        );
     });
 
     it('appends _9x16 suffix for 9:16 ratio', () => {
-        expect(
-            getExportFileBaseName(ExportAspectRatio.A9x16, '品类占比'),
-        ).toBe('品类占比_9x16_白色');
+        expect(getExportFileBaseName(ExportAspectRatio.A9x16, '品类占比')).toBe(
+            '品类占比_9x16_白色',
+        );
     });
 
     it('appends _4x3 suffix for 4:3 ratio', () => {
-        expect(
-            getExportFileBaseName(ExportAspectRatio.A4x3, '品类占比'),
-        ).toBe('品类占比_4x3_白色');
+        expect(getExportFileBaseName(ExportAspectRatio.A4x3, '品类占比')).toBe(
+            '品类占比_4x3_白色',
+        );
     });
 
     it('appends _3x4 suffix for 3:4 ratio', () => {
-        expect(
-            getExportFileBaseName(ExportAspectRatio.A3x4, '品类占比'),
-        ).toBe('品类占比_3x4_白色');
+        expect(getExportFileBaseName(ExportAspectRatio.A3x4, '品类占比')).toBe(
+            '品类占比_3x4_白色',
+        );
     });
 
     it('uses _透明色 suffix when transparent background', () => {
         expect(
-            getExportFileBaseName(
-                ExportAspectRatio.A16x9,
-                '品类占比',
-                true,
-            ),
+            getExportFileBaseName(ExportAspectRatio.A16x9, '品类占比', true),
         ).toBe('品类占比_16x9_透明色');
     });
 
     it('falls back to default name when no chartName provided', () => {
         expect(
-            getExportFileBaseName(
-                ExportAspectRatio.A16x9,
-                undefined,
-                false,
-            ),
+            getExportFileBaseName(ExportAspectRatio.A16x9, undefined, false),
         ).toBe('lightdash_chart_16x9_白色');
     });
 
@@ -176,6 +208,45 @@ describe('getExportFileBaseName', () => {
                 'name/with?bad:chars',
             ),
         ).toBe('name_with_bad_chars_白色');
+    });
+
+    it('appends _custom suffix for CUSTOM ratio', () => {
+        expect(
+            getExportFileBaseName(ExportAspectRatio.CUSTOM, '品类占比'),
+        ).toBe('品类占比_custom_白色');
+    });
+
+    it('omits pixelRatio suffix for 1x (default)', () => {
+        expect(
+            getExportFileBaseName(
+                ExportAspectRatio.A16x9,
+                '品类占比',
+                false,
+                ExportPixelRatio.X1,
+            ),
+        ).toBe('品类占比_16x9_白色');
+    });
+
+    it('appends _2x suffix when pixelRatio is 2x', () => {
+        expect(
+            getExportFileBaseName(
+                ExportAspectRatio.A16x9,
+                '品类占比',
+                false,
+                ExportPixelRatio.X2,
+            ),
+        ).toBe('品类占比_16x9_2x_白色');
+    });
+
+    it('combines CUSTOM + 2x + transparent suffixes', () => {
+        expect(
+            getExportFileBaseName(
+                ExportAspectRatio.CUSTOM,
+                '品类占比',
+                true,
+                ExportPixelRatio.X2,
+            ),
+        ).toBe('品类占比_custom_2x_透明色');
     });
 });
 
