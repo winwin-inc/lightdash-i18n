@@ -3404,7 +3404,12 @@ const getEchartAxes = ({
                     : {}),
                 ...bottomAxisFormatterConfig,
                 ...getXAxisLineConfig({
-                    axisLineOnZero: xAxisConfiguration?.[0]?.axisLineOnZero,
+                    // axisLineOnZero lives on XAxis only; when flipAxes the
+                    // visual bottom axis is yAxis (Axis) and the UI hides this option.
+                    axisLineOnZero: validCartesianConfig.layout.flipAxes
+                        ? undefined
+                        : validCartesianConfig.eChartsConfig?.xAxis?.[0]
+                              ?.axisLineOnZero,
                     existingAxisLine:
                         bottomAxisFormatterConfig.axisLine &&
                         typeof bottomAxisFormatterConfig.axisLine === 'object'
