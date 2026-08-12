@@ -6,6 +6,7 @@ import {
 } from '@lightdash/common';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../api';
 import { convertDateFilters } from '../../utils/dateFilter';
 import useHealth from '../health/useHealth';
@@ -71,6 +72,7 @@ export const useGoogleLoginPopup = (
     loginPath: 'gdrive' | 'bigquery',
     onLogin?: () => void,
 ) => {
+    const { t } = useTranslation();
     const { showToastError } = useToaster();
     const health = useHealth();
 
@@ -82,14 +84,15 @@ export const useGoogleLoginPopup = (
         },
         onError: (error: Error) => {
             showToastError({
-                title: 'Authentication failed',
-                subtitle: error.message || 'Please try again',
+                title: t('hooks_gdrive.auth_failed'),
+                subtitle: error.message || t('hooks_gdrive.try_again'),
             });
         },
     });
 };
 
 export const useGdriveAccessToken = () => {
+    const { t } = useTranslation();
     const { showToastError } = useToaster();
     const isAuthConcludedWithSuccess = useRef(false);
     const health = useHealth();
@@ -111,8 +114,9 @@ export const useGdriveAccessToken = () => {
             // show error if they concluded the auth flow without the necessary scopes
             if (isAuthConcludedWithSuccess.current && error) {
                 showToastError({
-                    title: 'Authentication failed',
-                    subtitle: error?.error?.message || 'Please try again',
+                    title: t('hooks_gdrive.auth_failed'),
+                    subtitle:
+                        error?.error?.message || t('hooks_gdrive.try_again'),
                 });
                 isAuthConcludedWithSuccess.current = false;
             } else {
@@ -122,7 +126,7 @@ export const useGdriveAccessToken = () => {
                 }
             }
         }
-    }, [error, health.data?.siteUrl, openLoginPopup, showToastError]);
+    }, [error, health.data?.siteUrl, openLoginPopup, showToastError, t]);
 
     return {
         mutate,

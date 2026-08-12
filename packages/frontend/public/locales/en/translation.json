@@ -120,6 +120,66 @@
         "success_delete": "Deleted! Dashboard was deleted.",
         "failed_to_delete": "Failed to delete dashboard"
     },
+    "hooks_password_reset": {
+        "recovery_email_sent": "Password recovery email sent successfully",
+        "recovery_email_failed": "Failed to send password recovery email",
+        "password_updated": "Password updated successfully",
+        "password_reset_failed": "Failed to reset password"
+    },
+    "hooks_query_error": {
+        "forbidden": "Forbidden",
+        "validation_error": "Validation error",
+        "validation_error_subtitle": "Invalid field {{keys}} with value {{values}}. The team has been already notified, we'll fix it soon",
+        "unknown_validation_error": "Unknown validation error",
+        "chart_error": "Chart '{{chartName}}': Error"
+    },
+    "hooks_explorer_route": {
+        "parse_url_error": "Error parsing url",
+        "parse_url_error_subtitle": "URL is invalid or incomplete.{{errorMessage}}"
+    },
+    "hooks_user_warehouse_credentials": {
+        "create_success": "Success! Warehouse connection was created.",
+        "update_success": "Success! Warehouse connection was updated.",
+        "delete_success": "Success! Warehouse connection was deleted.",
+        "create_error": "Failed to create warehouse connection",
+        "update_error": "Failed to update warehouse connection",
+        "delete_error": "Failed to delete warehouse connection",
+        "preference_save_success": "Credentials preference saved successfully",
+        "preference_save_error": "Failed to save credentials preference"
+    },
+    "hooks_open_identity": {
+        "delete_success": "Deleted! Social login was deleted.",
+        "delete_error": "Failed to delete social login"
+    },
+    "hooks_slack": {
+        "delete_success": "Deleted! Slack integration was deleted",
+        "delete_error": "Failed to delete Slack integration",
+        "update_success": "Success! Slack app settings updated",
+        "update_error": "Failed to update Slack app settings"
+    },
+    "hooks_gdrive": {
+        "auth_failed": "Authentication failed",
+        "try_again": "Please try again"
+    },
+    "hooks_snowflake": {
+        "auth_failed": "Authentication failed",
+        "try_again": "Please try again"
+    },
+    "hooks_validation": {
+        "completed": "Validation completed",
+        "unable_update": "Unable to update validation",
+        "update_error": "Failed to update validation",
+        "dismissed": "Validation dismissed",
+        "dismiss_error": "Failed to dismiss validation",
+        "unable_get": "Unable to get validation",
+        "get_error": "Failed to get validation"
+    },
+    "hooks_github_integration": {
+        "get_error": "Failed to get GitHub integration",
+        "delete_success": "GitHub integration deleted",
+        "delete_success_subtitle": "You have successfully deleted your GitHub integration.",
+        "delete_error": "Failed to delete GitHub integration"
+    },
     "hooks_dashboards": {
         "success": "Success! Dashboards were updated.",
         "error": "Failed to update dashboard"
@@ -169,6 +229,61 @@
         "update_error": "Failed to update group",
         "delete_success": "Success! Group '{{name}}' was deleted.",
         "delete_error": "Failed to delete group"
+    },
+    "hooks_invite_link": {
+        "create_error": "Failed to create invite link",
+        "create_success": "Created new invite link"
+    },
+    "hooks_organization_update": {
+        "success": "Success! Organization was updated",
+        "error": "Failed to update organization"
+    },
+    "hooks_allowed_domains": {
+        "update_success": "Success! Allowed email domains were updated",
+        "update_error": "Failed to update allowed email domains"
+    },
+    "hooks_org_warehouse_credentials": {
+        "create_success": "Warehouse credentials created",
+        "create_error": "Failed to create warehouse credentials",
+        "update_success": "Warehouse credentials updated",
+        "update_error": "Failed to update warehouse credentials",
+        "delete_success": "Warehouse credentials deleted",
+        "delete_error": "Failed to delete warehouse credentials"
+    },
+    "hooks_organization_delete": {
+        "error": "Failed to delete organization"
+    },
+    "hooks_organization_roles": {
+        "update_success": "Success! User role updated.",
+        "update_error": "Failed to update user's role"
+    },
+    "hooks_project_roles": {
+        "update_success": "Success! User project role updated.",
+        "update_error": "Failed to update user project role",
+        "delete_success": "Success! User project role deleted.",
+        "delete_error": "Failed to delete user project role"
+    },
+    "hooks_project_group_roles": {
+        "update_success": "Success! Group project role updated.",
+        "update_error": "Failed to update group project role",
+        "delete_success": "Success! Group project role deleted.",
+        "delete_error": "Failed to delete group project role"
+    },
+    "hooks_user_attributes": {
+        "create_success": "Success! User attribute created.",
+        "create_error": "Failed to create user attribute",
+        "update_success": "Success! User attribute updated.",
+        "update_error": "Failed to update user attribute",
+        "delete_success": "Success! User attribute deleted.",
+        "delete_error": "Failed to delete user attribute"
+    },
+    "hooks_projects": {
+        "delete_success": "Deleted! Project was deleted.",
+        "delete_error": "Failed to delete project"
+    },
+    "hooks_project_tables_configuration": {
+        "save_success": "Saved project configuration",
+        "save_error": "Failed to save tables configuration"
     },
     "hooks_project": {
         "update_error": "Failed to update project",
@@ -290,6 +405,10 @@
         "title": "Sign in",
         "user_no_auth_tip": "Failed to authenticate",
         "user_no_login_tip": "Failed to login",
+        "login_expired": {
+            "title": "Your login has expired",
+            "subtitle": "Please log in again to continue."
+        },
         "form": {
             "email": {
                 "label": "Email address",
@@ -3761,6 +3880,7 @@
         }
     },
     "components_common_modal_dashboard_export": {
+        "alert_title": "Date zoom is enabled",
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
         "tooltip": {
             "label": "Export results in table for all charts in a zip file",
@@ -4852,7 +4972,8 @@
         "advanced_configuration_options": "Advanced configuration options"
     },
     "components_version_auto_updater": {
-        "title": "A new version of MSY X is ready for you!"
+        "title": "A new version of MSY X is ready for you!",
+        "use_new_version": "Use new version"
     },
     "components_visualization_configs_common": {
         "remove": "Remove",
@@ -4919,6 +5040,7 @@
             "truncate_label": "Truncate x-axis",
             "sort": "Sort",
             "rotation": "Rotation",
+            "axis_line_at_bottom": "Axis at bottom",
             "bar_max_width_section": "Max bar width",
             "bar_max_width": "Desktop",
             "bar_max_width_hint": "Leave empty for no bar width limit",
@@ -8862,5 +8984,44 @@
         "lins": {
             "mobile": "Contact by phone"
         }
+    },
+    "features_virtual_view": {
+        "create_success": "Success! Virtual view created",
+        "create_error": "Error creating virtual view",
+        "query_action": "Query from new virtual view",
+        "update_success": "Success! Virtual view updated",
+        "update_error": "Error updating virtual view",
+        "delete_success": "Success! Virtual view deleted",
+        "delete_error": "Error deleting virtual view"
+    },
+    "features_sql_runner_github_write_back": {
+        "pr_error": "Failed to create a pull request"
+    },
+    "features_sql_runner_github_write_preview": {
+        "error": "Failed to get github preview",
+        "check_settings": "Please check your Github settings."
+    },
+    "features_metrics_catalog_category_form": {
+        "add_error": "Error adding category",
+        "add_error_subtitle": "Unable to add category to metric.",
+        "remove_error": "Error removing category",
+        "remove_error_subtitle": "Unable to remove category from metric."
+    },
+    "features_metrics_catalog_spotlight": {
+        "save_success": "Spotlight table config saved for everyone in this project",
+        "save_error": "Error saving spotlight table config"
+    },
+    "ee_custom_roles": {
+        "create_success": "Custom role created successfully",
+        "create_error": "Failed to create custom role",
+        "delete_success": "Custom role deleted successfully",
+        "delete_error": "Failed to delete custom role",
+        "duplicate_success": "Role duplicated successfully",
+        "duplicate_error": "Failed to duplicate role",
+        "update_success": "Custom role updated successfully",
+        "update_error": "Failed to update custom role"
+    },
+    "ee_embed": {
+        "code_copied": "Code snippet copied to clipboard!"
     }
 }

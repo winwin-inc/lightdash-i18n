@@ -4,6 +4,7 @@ import {
     type VizColumn,
 } from '@lightdash/common';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
@@ -31,6 +32,7 @@ const createPullRequest = async ({
  * This hook is used to get the preview (files and repo) of a pull request with the SQL query and columns from the SQL runner
  */
 export const useGithubDbtWritePreview = () => {
+    const { t } = useTranslation();
     const { showToastError } = useToaster();
 
     return useMutation<
@@ -42,8 +44,10 @@ export const useGithubDbtWritePreview = () => {
 
         onError: () => {
             showToastError({
-                title: 'Failed to get github preview',
-                subtitle: 'Please check your Github settings.',
+                title: t('features_sql_runner_github_write_preview.error'),
+                subtitle: t(
+                    'features_sql_runner_github_write_preview.check_settings',
+                ),
             });
         },
     });

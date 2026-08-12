@@ -58,7 +58,13 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     return (
         <Stack p="md">
             {!!dateZoomGranularity && (
-                <Alert title="Date zoom is enabled" color="blue" mb="md">
+                <Alert
+                    title={t(
+                        'components_common_modal_dashboard_export.alert_title',
+                    )}
+                    color="blue"
+                    mb="md"
+                >
                     {t('components_common_modal_dashboard_export.alert')}
                 </Alert>
             )}

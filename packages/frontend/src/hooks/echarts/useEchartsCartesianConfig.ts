@@ -315,6 +315,30 @@ export const getTopXAxisVisualOverrides = ({
     };
 };
 
+/**
+ * Resolve ECharts xAxis.axisLine.onZero from saved chart config.
+ * Unset defaults to true (ECharts / historical behavior: stick to y=0).
+ * false = "轴线置底" (axis line at bottom of the plot).
+ */
+export const resolveXAxisLineOnZero = (
+    axisLineOnZero: boolean | undefined,
+): boolean => axisLineOnZero ?? true;
+
+export const getXAxisLineConfig = ({
+    axisLineOnZero,
+    existingAxisLine,
+}: {
+    axisLineOnZero: boolean | undefined;
+    existingAxisLine?: { show?: boolean } | Record<string, unknown>;
+}): { axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown> } => ({
+    axisLine: {
+        ...(existingAxisLine && typeof existingAxisLine === 'object'
+            ? existingAxisLine
+            : {}),
+        onZero: resolveXAxisLineOnZero(axisLineOnZero),
+    },
+});
+
 const maybeGetAxisDefaultMinValue = (allowFunction: boolean) =>
     allowFunction ? getAxisDefaultMinValue : undefined;
 
@@ -1779,8 +1803,11 @@ const sortStackedBarSeriesByTotalValue = ({
 };
 
 /**
- * Legend/tooltip order for stacked bars sorted by total value.
- * Does not reorder series — stack layer rendering stays unchanged.
+ * Legend/tooltip name order for stacked bars sorted by total value.
+ * Returns names only; does not mutate the input series array.
+ * Config order O belongs on legend/tooltip. For ECharts paint, reverse stacked
+ * bars via `reverseStackedBarSeriesForPaint` so top-of-bar matches top-of-tooltip
+ * (ECharts places series[0] at the bottom of the stack).
  */
 export const getStackedBarLegendOrder = ({
     series,
@@ -1807,10 +1834,42 @@ export const getStackedBarLegendOrder = ({
 };
 
 /**
- * Sorts stacked bar series by total value (series array order).
- * Prefer getStackedBarLegendOrder when only legend/tooltip order should change.
+ * Sorts stacked bar series by total value (config / legend / tooltip order O).
+ * Do not pass this array directly to ECharts when aligning visual top with
+ * tooltip — use `reverseStackedBarSeriesForPaint` after setting legend from O.
  */
 export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
+
+/**
+ * Reverse stacked bar series within each stack for ECharts paint.
+ * ECharts draws series[0] at the stack bottom; legend/tooltip list series[0]
+ * at the top. Reversing paint order makes top-of-bar match top-of-tooltip
+ * while legend/tooltip keep config order O.
+ */
+export const reverseStackedBarSeriesForPaint = (
+    series: EChartSeries[],
+): EChartSeries[] => {
+    const seriesByStack = new Map<string, EChartSeries[]>();
+    const seriesWithoutStack: EChartSeries[] = [];
+
+    series.forEach((serie) => {
+        if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+            if (!seriesByStack.has(serie.stack)) {
+                seriesByStack.set(serie.stack, []);
+            }
+            seriesByStack.get(serie.stack)!.push(serie);
+        } else {
+            seriesWithoutStack.push(serie);
+        }
+    });
+
+    const reversedStacks: EChartSeries[] = [];
+    seriesByStack.forEach((stackSeries) => {
+        reversedStacks.push(...[...stackSeries].reverse());
+    });
+
+    return [...reversedStacks, ...seriesWithoutStack];
+};
 
 /**
  * Sorts line/area series by total value across all X-axis points.
@@ -3307,6 +3366,14 @@ const getEchartAxes = ({
         showYAxis,
     });
 
+    const bottomAxisFormatterConfig = getAxisFormatterConfig({
+        axisItem: bottomAxisXField,
+        longestLabelWidth: calculateWidthText(longestValueXAxisBottom),
+        rotate: xAxisConfiguration?.[0]?.rotate,
+        defaultNameGap: 30,
+        show: showXAxis,
+    });
+
     return {
         xAxis: [
             {
@@ -3335,14 +3402,16 @@ const getEchartAxes = ({
                           },
                       }
                     : {}),
-                ...getAxisFormatterConfig({
-                    axisItem: bottomAxisXField,
-                    longestLabelWidth: calculateWidthText(
-                        longestValueXAxisBottom,
-                    ),
-                    rotate: xAxisConfiguration?.[0]?.rotate,
-                    defaultNameGap: 30,
-                    show: showXAxis,
+                ...bottomAxisFormatterConfig,
+                ...getXAxisLineConfig({
+                    axisLineOnZero: xAxisConfiguration?.[0]?.axisLineOnZero,
+                    existingAxisLine:
+                        bottomAxisFormatterConfig.axisLine &&
+                        typeof bottomAxisFormatterConfig.axisLine === 'object'
+                            ? (bottomAxisFormatterConfig.axisLine as {
+                                  show?: boolean;
+                              })
+                            : undefined,
                 }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes
@@ -3902,19 +3971,23 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.series,
         );
 
-        // Stack series sort: legend + tooltip order only — keep series render order.
+        // Stack series sort: config order O for legend/tooltip; reverse paint so
+        // ECharts stack top matches tooltip top (series[0] is drawn at bottom).
         let sortedSeries = seriesWithValidStack;
         if (
             sortDirection &&
             (rows.length > 0 || datasetRowsForValueSort.length > 0)
         ) {
-            stackSortLegendData = getStackedBarLegendOrder({
+            sortedSeries = sortStackedBarSeriesByValue({
                 series: seriesWithValidStack,
                 rows,
                 datasetRows: datasetRowsForValueSort,
                 sortDirection,
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
+            stackSortLegendData = sortedSeries
+                .map(getEchartsSeriesLegendName)
+                .filter((name) => name.length > 0);
 
             // 当 rows 没有 pivot 但 series 使用 pivot encode 时，直接注入数据到 series
             // 避免 ECharts 因 dataset 列名和 encode 不匹配导致渲染错误
@@ -4013,6 +4086,8 @@ const useEchartsCartesianConfig = (
                     }
                 }
             }
+
+            sortedSeries = reverseStackedBarSeriesForPaint(sortedSeries);
         }
 
         const seriesSortDirection = getSeriesSortDirection(

@@ -7,6 +7,7 @@ import {
 import { Tabs } from '@mantine/core';
 import { Prism } from '@mantine/prism';
 import { useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import useToaster from '../../../../hooks/toaster/useToaster';
 
 // Not sure why lint-staged is removing the value of this enum.
@@ -331,11 +332,12 @@ const EmbedCodeSnippet: FC<{
     siteUrl: string;
     data: CreateEmbedJwt;
 }> = ({ projectUuid, siteUrl, data }) => {
+    const { t } = useTranslation();
     const { showToastSuccess } = useToaster();
 
     const handleCopySnippet = useCallback(() => {
-        showToastSuccess({ title: 'Code snippet copied to clipboard!' });
-    }, [showToastSuccess]);
+        showToastSuccess({ title: t('ee_embed.code_copied') });
+    }, [showToastSuccess, t]);
 
     return (
         <Tabs defaultValue="node">

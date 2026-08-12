@@ -456,6 +456,15 @@ const useCartesianChartConfig = ({
             };
         });
     }, []);
+    const setXAxisLineOnZero = useCallback((axisLineOnZero: boolean) => {
+        setDirtyEchartsConfig((prevState) => {
+            const [firstAxis, ...axes] = prevState?.xAxis || [];
+            return {
+                ...prevState,
+                xAxis: [{ ...firstAxis, axisLineOnZero }, ...axes],
+            };
+        });
+    }, []);
     const setBarMaxWidth = useCallback((barMaxWidth: number | undefined) => {
         setDirtyLayout((prev) => ({
             ...prev,
@@ -1154,6 +1163,7 @@ const useCartesianChartConfig = ({
         setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
+        setXAxisLineOnZero,
         setBarMaxWidth,
         setBarMaxWidthMobile,
         updateSeries,

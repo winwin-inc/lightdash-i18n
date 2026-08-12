@@ -4,6 +4,7 @@ import {
     type UpdateAllowedEmailDomains,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../api';
 import useToaster from '../toaster/useToaster';
 
@@ -32,6 +33,7 @@ export const useAllowedEmailDomains = () =>
 export const useUpdateAllowedEmailDomains = () => {
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
     return useMutation<
         AllowedEmailDomains,
         ApiError,
@@ -41,12 +43,12 @@ export const useUpdateAllowedEmailDomains = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries(['allowed_email_domains']);
             showToastSuccess({
-                title: 'Success! Allowed email domains were updated',
+                title: t('hooks_allowed_domains.update_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: 'Failed to update allowed email domains',
+                title: t('hooks_allowed_domains.update_error'),
                 apiError: error,
             });
         },

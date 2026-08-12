@@ -215,7 +215,9 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                                     s.data.installationId
                                 ) {
                                     showToastSuccess({
-                                        title: 'Successfully connected to GitHub',
+                                        title: t(
+                                            'components_project_connection_dbt_form.github.success_connected',
+                                        ),
                                     });
 
                                     clearInterval(interval);

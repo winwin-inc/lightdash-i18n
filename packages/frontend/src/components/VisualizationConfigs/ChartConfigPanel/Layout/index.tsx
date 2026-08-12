@@ -435,7 +435,11 @@ export const Layout: FC<Props> = ({ items }) => {
                             disabled={!isXAxisFieldNumeric}
                         >
                             <Group spacing="xs">
-                                <Config.Label>Stacking</Config.Label>
+                                <Config.Label>
+                                    {t(
+                                        'components_visualization_configs_chart.layout.stacking',
+                                    )}
+                                </Config.Label>
                                 <SegmentedControl
                                     disabled={isXAxisFieldNumeric}
                                     value={

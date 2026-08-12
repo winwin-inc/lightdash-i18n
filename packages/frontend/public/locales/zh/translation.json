@@ -120,6 +120,66 @@
         "success_delete": "成功！看板已删除。",
         "failed_to_delete": "删除看板失败"
     },
+    "hooks_password_reset": {
+        "recovery_email_sent": "密码恢复邮件已成功发送",
+        "recovery_email_failed": "发送密码恢复邮件失败",
+        "password_updated": "密码更新成功",
+        "password_reset_failed": "重置密码失败"
+    },
+    "hooks_query_error": {
+        "forbidden": "无权限",
+        "validation_error": "验证错误",
+        "validation_error_subtitle": "字段 {{keys}} 的值 {{values}} 无效。团队已收到通知，我们将尽快修复。",
+        "unknown_validation_error": "未知验证错误",
+        "chart_error": "图表「{{chartName}}」：出错了"
+    },
+    "hooks_explorer_route": {
+        "parse_url_error": "解析 URL 出错",
+        "parse_url_error_subtitle": "URL 无效或不完整。{{errorMessage}}"
+    },
+    "hooks_user_warehouse_credentials": {
+        "create_success": "成功！仓库连接已创建",
+        "update_success": "成功！仓库连接已更新",
+        "delete_success": "成功！仓库连接已删除",
+        "create_error": "创建仓库连接失败",
+        "update_error": "更新仓库连接失败",
+        "delete_error": "删除仓库连接失败",
+        "preference_save_success": "凭证偏好已保存",
+        "preference_save_error": "保存凭证偏好失败"
+    },
+    "hooks_open_identity": {
+        "delete_success": "已删除！社交登录已删除",
+        "delete_error": "删除社交登录失败"
+    },
+    "hooks_slack": {
+        "delete_success": "已删除！Slack 集成已删除",
+        "delete_error": "删除 Slack 集成失败",
+        "update_success": "成功！Slack 应用设置已更新",
+        "update_error": "更新 Slack 应用设置失败"
+    },
+    "hooks_gdrive": {
+        "auth_failed": "身份验证失败",
+        "try_again": "请重试"
+    },
+    "hooks_snowflake": {
+        "auth_failed": "身份验证失败",
+        "try_again": "请重试"
+    },
+    "hooks_validation": {
+        "completed": "验证已完成",
+        "unable_update": "无法更新验证",
+        "update_error": "更新验证失败",
+        "dismissed": "验证已忽略",
+        "dismiss_error": "忽略验证失败",
+        "unable_get": "无法获取验证",
+        "get_error": "获取验证失败"
+    },
+    "hooks_github_integration": {
+        "get_error": "获取 GitHub 集成失败",
+        "delete_success": "GitHub 集成已删除",
+        "delete_success_subtitle": "您已成功删除 GitHub 集成。",
+        "delete_error": "删除 GitHub 集成失败"
+    },
     "hooks_dashboards": {
         "success": "成功！看板已更新。",
         "error": "更新看板失败"
@@ -169,6 +229,61 @@
         "update_error": "更新组失败",
         "delete_success": "成功！组 '{{name}}' 已删除。",
         "delete_error": "删除组失败"
+    },
+    "hooks_invite_link": {
+        "create_error": "创建邀请链接失败",
+        "create_success": "已创建新邀请链接"
+    },
+    "hooks_organization_update": {
+        "success": "成功！组织已更新",
+        "error": "更新组织失败"
+    },
+    "hooks_allowed_domains": {
+        "update_success": "成功！允许的邮箱域名已更新",
+        "update_error": "更新允许的邮箱域名失败"
+    },
+    "hooks_org_warehouse_credentials": {
+        "create_success": "仓库凭证已创建",
+        "create_error": "创建仓库凭证失败",
+        "update_success": "仓库凭证已更新",
+        "update_error": "更新仓库凭证失败",
+        "delete_success": "仓库凭证已删除",
+        "delete_error": "删除仓库凭证失败"
+    },
+    "hooks_organization_delete": {
+        "error": "删除组织失败"
+    },
+    "hooks_organization_roles": {
+        "update_success": "成功！用户角色已更新",
+        "update_error": "更新用户角色失败"
+    },
+    "hooks_project_roles": {
+        "update_success": "成功！用户项目角色已更新",
+        "update_error": "更新用户项目角色失败",
+        "delete_success": "成功！用户项目角色已删除",
+        "delete_error": "删除用户项目角色失败"
+    },
+    "hooks_project_group_roles": {
+        "update_success": "成功！组项目角色已更新",
+        "update_error": "更新组项目角色失败",
+        "delete_success": "成功！组项目角色已删除",
+        "delete_error": "删除组项目角色失败"
+    },
+    "hooks_user_attributes": {
+        "create_success": "成功！用户属性已创建",
+        "create_error": "创建用户属性失败",
+        "update_success": "成功！用户属性已更新",
+        "update_error": "更新用户属性失败",
+        "delete_success": "成功！用户属性已删除",
+        "delete_error": "删除用户属性失败"
+    },
+    "hooks_projects": {
+        "delete_success": "已删除！项目已删除",
+        "delete_error": "删除项目失败"
+    },
+    "hooks_project_tables_configuration": {
+        "save_success": "项目配置已保存",
+        "save_error": "保存表配置失败"
     },
     "hooks_project": {
         "update_error": "更新项目失败",
@@ -291,6 +406,10 @@
         "title": "登录",
         "user_no_auth_tip": "身份验证失败",
         "user_no_login_tip": "登录失败",
+        "login_expired": {
+            "title": "登录已过期",
+            "subtitle": "请重新登录以继续。"
+        },
         "form": {
             "email": {
                 "label": "邮箱",
@@ -3771,6 +3890,7 @@
         }
     },
     "components_common_modal_dashboard_export": {
+        "alert_title": "已启用日期缩放",
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
@@ -4860,7 +4980,8 @@
         "advanced_configuration_options": "高级配置选项"
     },
     "components_version_auto_updater": {
-        "title": "马上赢X 的新版本已经准备好了!"
+        "title": "马上赢X 的新版本已经准备好了!",
+        "use_new_version": "使用新版本"
     },
     "components_visualization_configs_common": {
         "remove": "删除",
@@ -4927,6 +5048,7 @@
             "truncate_label": "截断x轴",
             "sort": "排序",
             "rotation": "旋转",
+            "axis_line_at_bottom": "轴线置底",
             "bar_max_width_section": "柱体最大宽度",
             "bar_max_width": "桌面端",
             "bar_max_width_hint": "留空则不限制柱宽",
@@ -8871,5 +8993,44 @@
         "lins": {
             "mobile": "电话联系"
         }
+    },
+    "features_virtual_view": {
+        "create_success": "成功！虚拟视图已创建",
+        "create_error": "创建虚拟视图失败",
+        "query_action": "从新虚拟视图查询",
+        "update_success": "成功！虚拟视图已更新",
+        "update_error": "更新虚拟视图失败",
+        "delete_success": "成功！虚拟视图已删除",
+        "delete_error": "删除虚拟视图失败"
+    },
+    "features_sql_runner_github_write_back": {
+        "pr_error": "创建 Pull Request 失败"
+    },
+    "features_sql_runner_github_write_preview": {
+        "error": "获取 GitHub 预览失败",
+        "check_settings": "请检查您的 GitHub 设置。"
+    },
+    "features_metrics_catalog_category_form": {
+        "add_error": "添加类目出错",
+        "add_error_subtitle": "无法将类目添加到指标。",
+        "remove_error": "移除类目出错",
+        "remove_error_subtitle": "无法从指标中移除类目。"
+    },
+    "features_metrics_catalog_spotlight": {
+        "save_success": "已为项目中所有人保存 Spotlight 表配置",
+        "save_error": "保存 Spotlight 表配置出错"
+    },
+    "ee_custom_roles": {
+        "create_success": "自定义角色已创建",
+        "create_error": "创建自定义角色失败",
+        "delete_success": "自定义角色已删除",
+        "delete_error": "删除自定义角色失败",
+        "duplicate_success": "自定义角色已复制",
+        "duplicate_error": "复制自定义角色失败",
+        "update_success": "自定义角色已更新",
+        "update_error": "更新自定义角色失败"
+    },
+    "ee_embed": {
+        "code_copied": "代码片段已复制到剪贴板！"
     }
 }
