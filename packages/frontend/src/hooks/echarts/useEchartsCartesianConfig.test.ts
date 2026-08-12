@@ -13,7 +13,9 @@ import {
     getSinglePointTimeAxisConfig,
     getStackedBarLegendOrder,
     getTopXAxisVisualOverrides,
+    getXAxisLineConfig,
     isUnusedTopXAxis,
+    resolveXAxisLineOnZero,
     shouldInjectSeriesCategoryAxis,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
@@ -77,6 +79,40 @@ describe('getTopXAxisVisualOverrides', () => {
             }),
         ).toEqual({
             splitLine: { show: false },
+        });
+    });
+});
+
+describe('resolveXAxisLineOnZero / getXAxisLineConfig', () => {
+    test('未设置时默认 onZero=true（贴 y=0）', () => {
+        expect(resolveXAxisLineOnZero(undefined)).toBe(true);
+        expect(getXAxisLineConfig({ axisLineOnZero: undefined })).toEqual({
+            axisLine: { onZero: true },
+        });
+    });
+
+    test('axisLineOnZero=true 时 onZero=true', () => {
+        expect(resolveXAxisLineOnZero(true)).toBe(true);
+        expect(getXAxisLineConfig({ axisLineOnZero: true })).toEqual({
+            axisLine: { onZero: true },
+        });
+    });
+
+    test('axisLineOnZero=false（轴线置底）时 onZero=false', () => {
+        expect(resolveXAxisLineOnZero(false)).toBe(false);
+        expect(getXAxisLineConfig({ axisLineOnZero: false })).toEqual({
+            axisLine: { onZero: false },
+        });
+    });
+
+    test('合并已有 axisLine.show，不覆盖隐藏轴配置', () => {
+        expect(
+            getXAxisLineConfig({
+                axisLineOnZero: false,
+                existingAxisLine: { show: false },
+            }),
+        ).toEqual({
+            axisLine: { show: false, onZero: false },
         });
     });
 });

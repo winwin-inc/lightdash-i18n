@@ -77,6 +77,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
+        setXAxisLineOnZero,
         setBarMaxWidth,
         setBarMaxWidthMobile,
         dirtyChartType,
@@ -278,6 +279,21 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                             </Group>
                         )}
                     </Group>
+                    {!dirtyLayout?.flipAxes && (
+                        <Switch
+                            label={t(
+                                'components_visualization_configs_chart.axes.axis_line_at_bottom',
+                            )}
+                            checked={
+                                dirtyEchartsConfig?.xAxis?.[0]
+                                    ?.axisLineOnZero === false
+                            }
+                            onChange={(e) => {
+                                // Checked = 轴线置底 = onZero false
+                                setXAxisLineOnZero(!e.currentTarget.checked);
+                            }}
+                        />
+                    )}
                     {dirtyChartType === CartesianSeriesType.BAR && (
                         <BarMaxWidthInputs
                             translationPrefix="components_visualization_configs_chart.axes"

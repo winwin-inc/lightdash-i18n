@@ -315,6 +315,30 @@ export const getTopXAxisVisualOverrides = ({
     };
 };
 
+/**
+ * Resolve ECharts xAxis.axisLine.onZero from saved chart config.
+ * Unset defaults to true (ECharts / historical behavior: stick to y=0).
+ * false = "轴线置底" (axis line at bottom of the plot).
+ */
+export const resolveXAxisLineOnZero = (
+    axisLineOnZero: boolean | undefined,
+): boolean => axisLineOnZero ?? true;
+
+export const getXAxisLineConfig = ({
+    axisLineOnZero,
+    existingAxisLine,
+}: {
+    axisLineOnZero: boolean | undefined;
+    existingAxisLine?: { show?: boolean } | Record<string, unknown>;
+}): { axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown> } => ({
+    axisLine: {
+        ...(existingAxisLine && typeof existingAxisLine === 'object'
+            ? existingAxisLine
+            : {}),
+        onZero: resolveXAxisLineOnZero(axisLineOnZero),
+    },
+});
+
 const maybeGetAxisDefaultMinValue = (allowFunction: boolean) =>
     allowFunction ? getAxisDefaultMinValue : undefined;
 
@@ -3307,6 +3331,14 @@ const getEchartAxes = ({
         showYAxis,
     });
 
+    const bottomAxisFormatterConfig = getAxisFormatterConfig({
+        axisItem: bottomAxisXField,
+        longestLabelWidth: calculateWidthText(longestValueXAxisBottom),
+        rotate: xAxisConfiguration?.[0]?.rotate,
+        defaultNameGap: 30,
+        show: showXAxis,
+    });
+
     return {
         xAxis: [
             {
@@ -3335,14 +3367,16 @@ const getEchartAxes = ({
                           },
                       }
                     : {}),
-                ...getAxisFormatterConfig({
-                    axisItem: bottomAxisXField,
-                    longestLabelWidth: calculateWidthText(
-                        longestValueXAxisBottom,
-                    ),
-                    rotate: xAxisConfiguration?.[0]?.rotate,
-                    defaultNameGap: 30,
-                    show: showXAxis,
+                ...bottomAxisFormatterConfig,
+                ...getXAxisLineConfig({
+                    axisLineOnZero: xAxisConfiguration?.[0]?.axisLineOnZero,
+                    existingAxisLine:
+                        bottomAxisFormatterConfig.axisLine &&
+                        typeof bottomAxisFormatterConfig.axisLine === 'object'
+                            ? (bottomAxisFormatterConfig.axisLine as {
+                                  show?: boolean;
+                              })
+                            : undefined,
                 }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes

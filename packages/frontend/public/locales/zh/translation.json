@@ -4921,6 +4921,7 @@
             "truncate_label": "截断x轴",
             "sort": "排序",
             "rotation": "旋转",
+            "axis_line_at_bottom": "轴线置底",
             "bar_max_width_section": "柱体最大宽度",
             "bar_max_width": "桌面端",
             "bar_max_width_hint": "留空则不限制柱宽",

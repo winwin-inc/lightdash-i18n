@@ -323,6 +323,12 @@ type Axis = {
 
 export type XAxis = Axis & {
     sortType?: XAxisSortType;
+    /**
+     * Maps to ECharts `xAxis.axisLine.onZero`.
+     * `true` (default): draw X axis line at y=0 when the Y scale crosses zero.
+     * `false`: keep X axis line at the bottom of the plot ("轴线置底").
+     */
+    axisLineOnZero?: boolean;
 };
 
 export enum XAxisSortType {

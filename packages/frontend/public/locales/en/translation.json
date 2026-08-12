@@ -4913,6 +4913,7 @@
             "truncate_label": "Truncate x-axis",
             "sort": "Sort",
             "rotation": "Rotation",
+            "axis_line_at_bottom": "Axis at bottom",
             "bar_max_width_section": "Max bar width",
             "bar_max_width": "Desktop",
             "bar_max_width_hint": "Leave empty for no bar width limit",
