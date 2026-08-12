@@ -1012,7 +1012,7 @@ describe('sortStackedBarSeriesByValue', () => {
         ]);
     });
 
-    test('getStackedBarLegendOrder should sort legend names without implying series render order', () => {
+    test('getStackedBarLegendOrder returns sorted names without mutating input series', () => {
         const makeLegendStackedBarSerie = (
             columnKey: string,
             label: string,
@@ -1061,6 +1061,19 @@ describe('sortStackedBarSeriesByValue', () => {
             '1111_any_巧冰',
             '1111_any_奶冰',
         ]);
+
+        const sortedSeries = sortStackedBarSeriesByValue({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows: legendTestDatasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+        expect(
+            sortedSeries
+                .map((serie) => serie.dimensions?.[1]?.displayName)
+                .filter(Boolean),
+        ).toEqual(legendOrder);
     });
 
     test('should preserve non-stacked series at the end', () => {

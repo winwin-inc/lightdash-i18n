@@ -1803,8 +1803,10 @@ const sortStackedBarSeriesByTotalValue = ({
 };
 
 /**
- * Legend/tooltip order for stacked bars sorted by total value.
- * Does not reorder series — stack layer rendering stays unchanged.
+ * Legend/tooltip name order for stacked bars sorted by total value.
+ * Returns names only; does not mutate the input series array.
+ * Callers that need matching stack layers should also apply
+ * `sortStackedBarSeriesByValue` to the series used for rendering.
  */
 export const getStackedBarLegendOrder = ({
     series,
@@ -1831,8 +1833,7 @@ export const getStackedBarLegendOrder = ({
 };
 
 /**
- * Sorts stacked bar series by total value (series array order).
- * Prefer getStackedBarLegendOrder when only legend/tooltip order should change.
+ * Sorts stacked bar series by total value (series array order / stack layers).
  */
 export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
 
@@ -3936,19 +3937,22 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.series,
         );
 
-        // Stack series sort: legend + tooltip order only — keep series render order.
+        // Stack series sort: reorder series so stack layers match legend/tooltip.
         let sortedSeries = seriesWithValidStack;
         if (
             sortDirection &&
             (rows.length > 0 || datasetRowsForValueSort.length > 0)
         ) {
-            stackSortLegendData = getStackedBarLegendOrder({
+            sortedSeries = sortStackedBarSeriesByValue({
                 series: seriesWithValidStack,
                 rows,
                 datasetRows: datasetRowsForValueSort,
                 sortDirection,
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
+            stackSortLegendData = sortedSeries
+                .map(getEchartsSeriesLegendName)
+                .filter((name) => name.length > 0);
 
             // 当 rows 没有 pivot 但 series 使用 pivot encode 时，直接注入数据到 series
             // 避免 ECharts 因 dataset 列名和 encode 不匹配导致渲染错误

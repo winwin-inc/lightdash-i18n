@@ -32,7 +32,7 @@ export const usePromoteDashboardMutation = () => {
                         'feature_promotion.toast_dashboard_success.promoted',
                     ),
                     action: {
-                        children: 'Open dashboard',
+                        children: t('hooks_dashboard.open_dashboard'),
                         icon: IconArrowRight,
                         onClick: () => {
                             window.open(

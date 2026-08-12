@@ -6,6 +6,7 @@ import {
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../api';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -19,6 +20,7 @@ const CACHE_KEY = 'custom-role';
  * @returns Query result and update mutation
  */
 export const useCustomRole = (roleUuid?: string) => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
     const { data: organization } = useOrganization();
@@ -68,12 +70,12 @@ export const useCustomRole = (roleUuid?: string) => {
                 queryKey: ['custom-roles', organization?.organizationUuid],
             });
             showToastSuccess({
-                title: `Custom role updated successfully`,
+                title: t('ee_custom_roles.update_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to update custom role`,
+                title: t('ee_custom_roles.update_error'),
                 apiError: error,
             });
         },

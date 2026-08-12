@@ -12,6 +12,7 @@ import {
     type MetricQuery,
 } from '@lightdash/common';
 import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     useLocation,
     useNavigate,
@@ -231,6 +232,7 @@ export const useExplorerRoute = () => {
 
 export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
     const { search } = useLocation();
     const pathParams = useParams<{
         projectUuid: string;
@@ -301,12 +303,17 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
             } catch (e: any) {
                 const errorMessage = e.message ? ` Error: "${e.message}"` : '';
                 showToastError({
-                    title: 'Error parsing url',
-                    subtitle: `URL is invalid or incomplete.${errorMessage}`,
+                    title: t('hooks_explorer_route.parse_url_error'),
+                    subtitle: t(
+                        'hooks_explorer_route.parse_url_error_subtitle',
+                        {
+                            errorMessage,
+                        },
+                    ),
                 });
             }
         }
-    }, [pathParams, search, showToastError, fromDashboard]);
+    }, [pathParams, search, showToastError, fromDashboard, t]);
 };
 
 export const createMetricPreviewUnsavedChartVersion = (

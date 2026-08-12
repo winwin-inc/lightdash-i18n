@@ -59,6 +59,7 @@ const updateSchedulerEnabled = async (uuid: string, enabled: boolean) =>
     });
 
 export const useSchedulersEnabledUpdateMutation = (schedulerUuid: string) => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastApiError } = useToaster();
     return useMutation<SchedulerAndTargets, ApiError, boolean>(
@@ -71,7 +72,9 @@ export const useSchedulersEnabledUpdateMutation = (schedulerUuid: string) => {
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update scheduled delivery`,
+                    title: t(
+                        'features_scheduler_hooks.schedules_update_mutation.error',
+                    ),
                     apiError: error,
                 });
             },
