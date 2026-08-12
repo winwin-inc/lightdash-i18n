@@ -1805,8 +1805,9 @@ const sortStackedBarSeriesByTotalValue = ({
 /**
  * Legend/tooltip name order for stacked bars sorted by total value.
  * Returns names only; does not mutate the input series array.
- * Callers that need matching stack layers should also apply
- * `sortStackedBarSeriesByValue` to the series used for rendering.
+ * Config order O belongs on legend/tooltip. For ECharts paint, reverse stacked
+ * bars via `reverseStackedBarSeriesForPaint` so top-of-bar matches top-of-tooltip
+ * (ECharts places series[0] at the bottom of the stack).
  */
 export const getStackedBarLegendOrder = ({
     series,
@@ -1833,9 +1834,42 @@ export const getStackedBarLegendOrder = ({
 };
 
 /**
- * Sorts stacked bar series by total value (series array order / stack layers).
+ * Sorts stacked bar series by total value (config / legend / tooltip order O).
+ * Do not pass this array directly to ECharts when aligning visual top with
+ * tooltip — use `reverseStackedBarSeriesForPaint` after setting legend from O.
  */
 export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
+
+/**
+ * Reverse stacked bar series within each stack for ECharts paint.
+ * ECharts draws series[0] at the stack bottom; legend/tooltip list series[0]
+ * at the top. Reversing paint order makes top-of-bar match top-of-tooltip
+ * while legend/tooltip keep config order O.
+ */
+export const reverseStackedBarSeriesForPaint = (
+    series: EChartSeries[],
+): EChartSeries[] => {
+    const seriesByStack = new Map<string, EChartSeries[]>();
+    const seriesWithoutStack: EChartSeries[] = [];
+
+    series.forEach((serie) => {
+        if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+            if (!seriesByStack.has(serie.stack)) {
+                seriesByStack.set(serie.stack, []);
+            }
+            seriesByStack.get(serie.stack)!.push(serie);
+        } else {
+            seriesWithoutStack.push(serie);
+        }
+    });
+
+    const reversedStacks: EChartSeries[] = [];
+    seriesByStack.forEach((stackSeries) => {
+        reversedStacks.push(...[...stackSeries].reverse());
+    });
+
+    return [...reversedStacks, ...seriesWithoutStack];
+};
 
 /**
  * Sorts line/area series by total value across all X-axis points.
@@ -3937,7 +3971,8 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.series,
         );
 
-        // Stack series sort: reorder series so stack layers match legend/tooltip.
+        // Stack series sort: config order O for legend/tooltip; reverse paint so
+        // ECharts stack top matches tooltip top (series[0] is drawn at bottom).
         let sortedSeries = seriesWithValidStack;
         if (
             sortDirection &&
@@ -4051,6 +4086,8 @@ const useEchartsCartesianConfig = (
                     }
                 }
             }
+
+            sortedSeries = reverseStackedBarSeriesForPaint(sortedSeries);
         }
 
         const seriesSortDirection = getSeriesSortDirection(
