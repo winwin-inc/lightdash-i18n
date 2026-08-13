@@ -1,6 +1,6 @@
 import { subject } from '@casl/ability';
 import { FeatureFlags } from '@lightdash/common';
-import { Anchor, Button, Group, Stack, Tabs, Text } from '@mantine/core';
+import { Button, Stack, Tabs } from '@mantine/core';
 import { IconPlus, IconUser, IconUsersGroup } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,20 +40,6 @@ const ProjectUserAccess: FC<ProjectUserAccessProps> = ({ projectUuid }) => {
 
     return (
         <Stack>
-            <Group position="apart">
-                <Text color="dimmed">
-                    {t('components_project_access_user.learn.part_1')}{' '}
-                    <Anchor
-                        role="button"
-                        href="https://docs.lightdash.com/references/roles"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        {t('components_project_access_user.learn.part_2')}
-                    </Anchor>
-                </Text>
-            </Group>
-
             <Tabs defaultValue="users">
                 <Stack>
                     {isGroupManagementEnabled && (

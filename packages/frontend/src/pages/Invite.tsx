@@ -6,7 +6,6 @@ import {
     type LightdashUser,
 } from '@lightdash/common';
 import {
-    Anchor,
     Button,
     Card,
     Divider,
@@ -232,34 +231,12 @@ const Invite: FC = () => {
                         }
                     />
                 ) : isLinkFromEmail ? (
-                    <>
-                        <Card p="xl" radius="xs" withBorder shadow="xs">
-                            <Title order={3} ta="center" mb="md">
-                                {t('pages_invite.is_link_email.title')}
-                            </Title>
-                            {logins}
-                        </Card>
-                        <Text color="gray.6" ta="center">
-                            {t('pages_invite.is_link_email.content.part_1')}
-                            <br />
-                            {t(
-                                'pages_invite.is_link_email.content.part_2',
-                            )}{' '}
-                            <Anchor
-                                href="https://www.lightdash.com/privacy-policy"
-                                target="_blank"
-                            >
-                                {t('pages_invite.is_link_email.content.part_3')}
-                            </Anchor>{' '}
-                            {t('pages_invite.is_link_email.content.part_4')}{' '}
-                            <Anchor
-                                href="https://www.lightdash.com/terms-of-service"
-                                target="_blank"
-                            >
-                                {t('pages_invite.is_link_email.content.part_5')}
-                            </Anchor>
-                        </Text>
-                    </>
+                    <Card p="xl" radius="xs" withBorder shadow="xs">
+                        <Title order={3} ta="center" mb="md">
+                            {t('pages_invite.is_link_email.title')}
+                        </Title>
+                        {logins}
+                    </Card>
                 ) : (
                     <WelcomeCard
                         email={inviteLinkQuery.data?.email}

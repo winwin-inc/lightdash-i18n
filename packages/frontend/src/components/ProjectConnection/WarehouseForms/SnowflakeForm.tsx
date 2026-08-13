@@ -512,7 +512,6 @@ const SnowflakeForm: FC<{
                             {...form.getInputProps('warehouse.override', {
                                 type: 'checkbox',
                             })}
-                            documentationUrl="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#warehouse"
                             label={t(
                                 'components_project_connection_warehouse_form.snowflake.warehouse_override.label',
                             )}

@@ -48,7 +48,6 @@ import { useCreatePreviewMutation } from '../../hooks/useProjectPreview';
 import { useProjects } from '../../hooks/useProjects';
 import useApp from '../../providers/App/useApp';
 import MantineIcon from '../common/MantineIcon';
-import DocumentationHelpButton from '../DocumentationHelpButton';
 import FormCollapseButton from '../ProjectConnection/FormCollapseButton';
 
 const getProjectGitBranches = async (projectUuid: string) =>
@@ -72,7 +71,6 @@ type EnvironmentVariablesInputProps = {
     onChange: (value: DbtProjectEnvironmentVariable[]) => void;
     label: string;
     disabled?: boolean;
-    documentationUrl?: string;
     labelHelp?: string | React.ReactNode;
 };
 
@@ -81,7 +79,6 @@ const EnvironmentVariablesInput: FC<EnvironmentVariablesInputProps> = ({
     onChange,
     label,
     disabled,
-    documentationUrl,
     labelHelp,
 }) => {
     const { t } = useTranslation();
@@ -122,9 +119,6 @@ const EnvironmentVariablesInput: FC<EnvironmentVariablesInputProps> = ({
                 <>
                     {label}
                     <div style={{ flex: 1 }}></div>
-                    {documentationUrl && !labelHelp && (
-                        <DocumentationHelpButton href={documentationUrl} />
-                    )}
                     {labelHelp && (
                         <ActionIcon
                             onClick={(
@@ -445,19 +439,6 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                                 ) : null}
                             </Text>
 
-                            <Anchor
-                                href="https://docs.lightdash.com/guides/cli/how-to-use-lightdash-preview/"
-                                target="_blank"
-                            >
-                                {t(
-                                    'components_navbar_create_preview_project_modal.will_create.part_3',
-                                )}{' '}
-                                <MantineIcon
-                                    size="sm"
-                                    icon={IconExternalLink}
-                                    display="inline-block"
-                                />
-                            </Anchor>
                         </div>
 
                         <Select

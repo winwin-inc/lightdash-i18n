@@ -344,22 +344,6 @@ export const AiAgentFormSetup = ({
                                     </Text>
                                 </Box>
                                 <InstructionsGuidelines />
-                                <Text c="dimmed" size="xs">
-                                    {t(
-                                        'ai_agent_form_setup.guidelines.content.part_2',
-                                    )}{' '}
-                                    <Anchor
-                                        href="https://docs.lightdash.com/guides/ai-agents#writing-effective-instructions"
-                                        target="_blank"
-                                    >
-                                        {t(
-                                            'ai_agent_form_setup.guidelines.content.part_3',
-                                        )}
-                                    </Anchor>{' '}
-                                    {t(
-                                        'ai_agent_form_setup.guidelines.content.part_4',
-                                    )}
-                                </Text>
                             </Stack>
                             <Switch
                                 variant="subtle"
@@ -386,22 +370,9 @@ export const AiAgentFormSetup = ({
                                         </Tooltip>
                                     </Group>
                                 }
-                                description={
-                                    <>
-                                        {t(
-                                            'ai_agent_form_setup.enable_data_access.description.part_1',
-                                        )}{' '}
-                                        <Anchor
-                                            href="https://docs.lightdash.com/guides/ai-agents#data-access-control"
-                                            target="_blank"
-                                            size="xs"
-                                        >
-                                            {t(
-                                                'ai_agent_form_setup.enable_data_access.description.part_2',
-                                            )}
-                                        </Anchor>
-                                    </>
-                                }
+                                description={t(
+                                    'ai_agent_form_setup.enable_data_access.description.part_1',
+                                )}
                                 {...form.getInputProps('enableDataAccess', {
                                     type: 'checkbox',
                                 })}
@@ -445,22 +416,9 @@ export const AiAgentFormSetup = ({
                                         </Badge>
                                     </Group>
                                 }
-                                description={
-                                    <>
-                                        {t(
-                                            'ai_agent_form_setup.enable_self_improvement.description.part_1',
-                                        )}{' '}
-                                        <Anchor
-                                            href="https://docs.lightdash.com/guides/ai-agents#self-improvement"
-                                            target="_blank"
-                                            size="xs"
-                                        >
-                                            {t(
-                                                'ai_agent_form_setup.enable_self_improvement.description.part_2',
-                                            )}
-                                        </Anchor>
-                                    </>
-                                }
+                                description={t(
+                                    'ai_agent_form_setup.enable_self_improvement.description.part_1',
+                                )}
                                 {...form.getInputProps(
                                     'enableSelfImprovement',
                                     {
@@ -583,18 +541,7 @@ export const AiAgentFormSetup = ({
                                                     <Text fz="xs">
                                                         {t(
                                                             'ai_agent_form_setup.tags.dropdown.part_1',
-                                                        )}{' '}
-                                                        <Anchor
-                                                            fz="xs"
-                                                            c="dimmed"
-                                                            underline="always"
-                                                            href="https://docs.lightdash.com/guides/ai-agents#limiting-access-to-specific-explores-and-fields"
-                                                            target="_blank"
-                                                        >
-                                                            {t(
-                                                                'ai_agent_form_setup.tags.dropdown.part_2',
-                                                            )}
-                                                        </Anchor>
+                                                        )}
                                                     </Text>
                                                 </HoverCard.Dropdown>
                                             </HoverCard>

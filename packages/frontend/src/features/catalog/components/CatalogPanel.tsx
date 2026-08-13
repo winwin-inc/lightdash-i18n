@@ -28,7 +28,6 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 import { useNavigate } from 'react-router';
 import RefreshDbtButton from '../../../components/RefreshDbtButton';
-import LinkButton from '../../../components/common/LinkButton';
 import MantineIcon from '../../../components/common/MantineIcon';
 import SuboptimalState from '../../../components/common/SuboptimalState/SuboptimalState';
 import { useCatalogContext } from '../context/useCatalogContext';
@@ -482,25 +481,6 @@ export const CatalogPanel: FC = () => {
                             description={t(
                                 'features_catalog_panel.search_input.no_results_tables.description',
                             )}
-                            action={
-                                <LinkButton
-                                    href="https://docs.lightdash.com/guides/adding-tables-to-lightdash"
-                                    mt="md"
-                                    target="_blank"
-                                    sx={(theme) => ({
-                                        color: theme.colors.gray[0],
-                                        backgroundColor: theme.colors.gray[8],
-                                        '&:hover': {
-                                            backgroundColor:
-                                                theme.colors.gray[9],
-                                        },
-                                    })}
-                                >
-                                    {t(
-                                        'features_catalog_panel.search_input.no_results_tables.learn_more',
-                                    )}
-                                </LinkButton>
-                            }
                         />
                     ) : (
                         <SuboptimalState

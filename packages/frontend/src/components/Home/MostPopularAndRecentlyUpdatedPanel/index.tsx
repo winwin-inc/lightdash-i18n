@@ -14,7 +14,6 @@ import { useNavigate } from 'react-router';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
-import MantineLinkButton from '../../common/MantineLinkButton';
 import ResourceView from '../../common/ResourceView';
 
 interface Props {
@@ -99,19 +98,6 @@ export const MostPopularAndRecentlyUpdatedPanel: FC<Props> = ({
                     ? {
                           title: t(
                               'components_most_popular_and_rencently_updated_panel.header.title',
-                          ),
-                          action: (
-                              <MantineLinkButton
-                                  color="gray.6"
-                                  compact
-                                  variant="subtle"
-                                  target="_blank"
-                                  href="https://docs.lightdash.com/get-started/exploring-data/intro"
-                              >
-                                  {t(
-                                      'components_most_popular_and_rencently_updated_panel.header.learn',
-                                  )}
-                              </MantineLinkButton>
                           ),
                       }
                     : undefined

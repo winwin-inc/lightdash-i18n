@@ -5,7 +5,6 @@ import {
     type CatalogItem,
 } from '@lightdash/common';
 import {
-    Anchor,
     Box,
     Button,
     Center,
@@ -561,21 +560,6 @@ export const MetricsTable: FC<MetricsTableProps> = ({ metricCatalogView }) => {
                     title={t(
                         'features_metrics.table.no_metics_available.no_metrics',
                     )}
-                    action={
-                        <Text>
-                            {t(
-                                'features_metrics.table.no_metics_available.content.part_1',
-                            )}{' '}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/references/metrics/"
-                            >
-                                {t(
-                                    'features_metrics.table.no_metics_available.content.part_2',
-                                )}
-                            </Anchor>
-                        </Text>
-                    }
                 />
             ) : (
                 <Center>

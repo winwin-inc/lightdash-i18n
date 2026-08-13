@@ -1,10 +1,8 @@
-import { ActionIcon, Group, Stack, Tabs, Title, Tooltip } from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { Group, Stack, Tabs, Title } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useApp from '../../../providers/App/useApp';
-import MantineIcon from '../../common/MantineIcon';
 import ForbiddenPanel from '../../ForbiddenPanel';
 
 import { FeatureFlags } from '@lightdash/common';
@@ -50,20 +48,6 @@ const UsersAndGroupsPanel: FC = () => {
                         )}
                     </Title>
                 )}
-                <Tooltip
-                    label={t(
-                        'components_user_settings_groups_panel.tooltip.label',
-                    )}
-                >
-                    <ActionIcon
-                        component="a"
-                        href="https://docs.lightdash.com/references/roles"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        <MantineIcon icon={IconInfoCircle} />
-                    </ActionIcon>
-                </Tooltip>
             </Group>
 
             <Tabs defaultValue={'users'}>

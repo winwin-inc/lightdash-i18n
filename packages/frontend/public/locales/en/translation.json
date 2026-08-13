@@ -428,12 +428,6 @@
             }
         }
     },
-    "features_table_calculation_sql_form": {
-        "alert": {
-            "part_1": "Need inspiration?",
-            "part_2": "Check out our templates!"
-        }
-    },
     "features_table_calculation_modal": {
         "type_labels": {
             "number": "number",
@@ -656,8 +650,7 @@
         },
         "no_results_tables": {
             "title": "No tables found in this project",
-            "description": "Tables are the starting point to any data exploration in MSY X. They come from dbt models that have been defined in your dbt project's .yml files.",
-            "learn_more": "Learn more"
+            "description": "Tables are the starting point to any data exploration in MSY X. They come from dbt models that have been defined in your dbt project's .yml files."
         },
         "no_results_search": {
             "title": "No search results",
@@ -1438,8 +1431,7 @@
                 "part_4": "and click to visualize them over time in the",
                 "part_5": "Explorer"
             },
-            "view_demo": "View demo",
-            "learn_more": "Learn more"
+            "view_demo": "View demo"
         },
         "catalog": {
             "title": "Metrics Catalog",
@@ -1481,8 +1473,6 @@
             "no_metics_available": {
                 "no_metrics": "No metrics defined in this project",
                 "content": {
-                    "part_1": "To learn how to define metrics, check out our",
-                    "part_2": "documentation",
                     "part_3": "No results found"
                 }
             },
@@ -1593,8 +1583,7 @@
             },
             "select": "Select a metric",
             "content": {
-                "part_1": "Only metrics with a time dimension defined in the .yml can be compared.",
-                "part_2": "Learn more"
+                "part_1": "Only metrics with a time dimension defined in the .yml can be compared."
             }
         },
         "metric_peek_date_picker": {
@@ -2129,10 +2118,7 @@
         "private": {
             "part_1": "Can't find a user? Spaces can only be shared with",
             "part_2": "existing project members",
-            "part_3": ".",
-            "part_4": "Learn more about permissions in our",
-            "part_5": " docs",
-            "part_6": "."
+            "part_3": "."
         },
         "nested_space": {
             "part_1": "inherits permissions from its parent space"
@@ -3571,31 +3557,6 @@
         "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors",
         "validation_errors": "Validation errors"
     },
-    "components_navbar_help_menu": {
-        "menus": {
-            "contact_support": {
-                "title": "Contact support",
-                "description": "rop us a message and we’ll get back to you asap!"
-            },
-            "view_docs": {
-                "title": "View Docs",
-                "description": "Learn how to deploy, use, contribute to MSY X."
-            },
-            "join": {
-                "title": "Join Slack community",
-                "description": "Get advice share best practices with other users."
-            },
-            "feedback": {
-                "title": "Feedback on MSY X",
-                "description": "Submit a feature request or bug report to improve MSY X."
-            },
-            "share_with_support": {
-                "title": "Share with MSY X Support",
-                "report_issue": "Report an issue to MSY X Support",
-                "description": "Share a detailed issue report with MSY X Support"
-            }
-        }
-    },
     "components_navbar_headway_menu": {
         "tooltip": {
             "label": "What's new?"
@@ -4764,9 +4725,7 @@
             "title": "No credentials",
             "description": "You haven't created any personal warehouse connections yet!",
             "add_new_credentials": "Add new credentials",
-            "personal_connections_callout": "These credentials are only used for projects that require user credentials -",
-            "learn_more": "learn more",
-            "dot": "."
+            "personal_connections_callout": "These credentials are only used for projects that require user credentials."
         },
         "warehouse_form": {
             "username": "Username/email",
@@ -5462,27 +5421,17 @@
             "add": "Add"
         },
         "tooltip_metrics": {
-            "title": "Metrics",
-            "label": {
-                "part_1": "No metrics defined in your dbt project.",
-                "part_2": "Click to",
-                "part_3": "view docs",
-                "part_4": " and learn how to add a metric to your project."
-            }
+            "title": "Metrics"
         },
         "tooltip_custom_metrics": {
             "title": "Custom metrics",
             "label": {
-                "part_1": "Add custom metrics by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
-                "part_2": "Click to view docs.",
                 "part_3": "Write back custom metrics"
             }
         },
         "tooltip_custom_dimensions": {
             "title": "Custom dimensions",
             "label": {
-                "part_1": "Add custom dimensions by hovering over the dimension of your choice & selecting the three-dot Action Menu.",
-                "part_2": "Click to view docs.",
                 "part_3": "Write back custom dimensions"
             }
         }
@@ -5858,8 +5807,7 @@
         },
         "explore_error_state": {
             "title": "Error loading results",
-            "description": "There was an error loading the results",
-            "detail": "Learn how to resolve this in our documentation →"
+            "description": "There was an error loading the results"
         },
         "missing_required_parameters": {
             "title": "Missing required parameters",
@@ -7146,12 +7094,8 @@
             "content": {
                 "part_1": "We only support warehouses that have",
                 "part_2": "verified dbt adapters",
-                "part_3": "for now",
-                "part_4": "You can vote on your warehouse in our",
-                "part_5": "GitHub issues",
-                "part_6": "or create a new issue if you can't see yours there."
-            },
-            "try_our_demo_project": "Try our demo project"
+                "part_3": "for now"
+            }
         }
     },
     "components_project_connection_warehouse_form": {
@@ -7703,11 +7647,6 @@
         "model": "Model",
         "view_configuration": "View configuration",
         "failed_to_load_parameters": "Failed to load parameters",
-        "tip": {
-            "part_1": "Learn more about parameters in our",
-            "part_2": "docs",
-            "part_3": "."
-        },
         "parameters": {
             "title": "Parameters",
             "content": {
@@ -7880,8 +7819,7 @@
         }
     },
     "components_lightdash_visualization": {
-        "unable_to_load_visualization": "Unable to load visualization",
-        "learn_how_to_resolve_this_in_our_documentation": "Learn how to resolve this in our documentation →"
+        "unable_to_load_visualization": "Unable to load visualization"
     },
     "components_run_query_settings": {
         "auto_fetch_results": "Auto-fetch results",
@@ -7972,14 +7910,7 @@
             "title": "This invite link has expired 🙈"
         },
         "is_link_email": {
-            "title": "sign up",
-            "content": {
-                "part_1": "By creating an account, you agree to",
-                "part_2": "our",
-                "part_3": "Privacy Policy",
-                "part_4": "and our",
-                "part_5": "Terms of Service."
-            }
+            "title": "sign up"
         }
     },
     "pages_join_organization": {
@@ -8103,14 +8034,7 @@
         "toast_authenticate_error": "Failed to authenticate",
         "toast_user_error": "Failed to create user",
         "or": "OR",
-        "sign_up": "Sign up",
-        "tip": {
-            "part_1": "By creating an account, you agree to",
-            "part_2": "our",
-            "part_3": "Privacy Policy",
-            "part_4": "and our",
-            "part_5": "Terms of Service."
-        }
+        "sign_up": "Sign up"
     },
     "pages_saved_dashboards": {
         "dashboards": "Dashboards",
@@ -8485,8 +8409,6 @@
         "no_embed_secret_description": "You haven't generated any secret yet!",
         "generate_embed_secret": "Generate embed secret",
         "embed_secret": "Embed secret",
-        "embed_secret_read_more": "Read more about using embed secret in our docs guide",
-        "embed_secret_docs_guide": "docs guide",
         "embed_secret_description": "The secret is used to generate embed tokens for embedding dashboards.",
         "secret": "Secret",
         "generate_new_secret": "Generate new secret",
@@ -8522,7 +8444,6 @@
         "generate_new_token": "Generate new token",
         "scim_url": "SCIM URL",
         "connect_your_identity_provider_to_lightdash_via_scim": "Connect your identity provider to MSY X via SCIM.",
-        "learn_more": "Learn more",
         "has_available_tokens": "You haven't generated any tokens yet."
     },
     "ai_scim_access_tokens_panel_tokens_table": {
@@ -8604,7 +8525,6 @@
             "part_3": "Ask questions in natural language and get insights from your data."
         },
         "new_agent": "New Agent",
-        "learn_more": "Learn more",
         "no_agents_found": " No agents found. Get started by adding an agent."
     },
     "ai_agents_thread_page": {
@@ -8643,18 +8563,14 @@
         "guidelines": {
             "title": "Guidelines",
             "content": {
-                "part_1": "When writing instructions, consider the following guidelines to help the agent perform its tasks effectively.",
-                "part_2": "Visit our",
-                "part_3": "docs",
-                "part_4": "to learn more about instructions and how they work."
+                "part_1": "When writing instructions, consider the following guidelines to help the agent perform its tasks effectively."
             }
         },
         "enable_data_access": {
             "label": "Enable Data Access",
             "tooltip": "When enabled, the AI agent can analyze chart data and provide insights. When disabled, the agent only creates visualizations without accessing the underlying data.",
             "description": {
-                "part_1": "Allows the agent to access and analyze the actual data behind charts to provide detailed insights and answer questions about the data.",
-                "part_2": "Learn more"
+                "part_1": "Allows the agent to access and analyze the actual data behind charts to provide detailed insights and answer questions about the data."
             }
         },
         "enable_self_improvement": {
@@ -8662,8 +8578,7 @@
             "tooltip": "When enabled, the AI agent can make improvements to your semantic layer by updating field descriptions, creating new metrics, and refining dimensions based on user interactions.",
             "beta": "Beta",
             "description": {
-                "part_1": "Allows the agent to improve the project's explores by updating descriptions, creating metrics and dimensions based on conversations. Changes are tracked in changesets for review.",
-                "part_2": "Learn more"
+                "part_1": "Allows the agent to improve the project's explores by updating descriptions, creating metrics and dimensions based on conversations. Changes are tracked in changesets for review."
             }
         },
         "access_control": {
@@ -8682,8 +8597,7 @@
         "tags": {
             "label": "Tags",
             "dropdown": {
-                "part_1": "Add tags to control which metrics and dimensions your AI agent can access. See more in our",
-                "part_2": "docs"
+                "part_1": "Add tags to control which metrics and dimensions your AI agent can access."
             },
             "placeholder": "Select tags",
             "description": {

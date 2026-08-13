@@ -1,7 +1,7 @@
 import { assertUnreachable, ChartType } from '@lightdash/common';
-import { Anchor, Text } from '@mantine/core';
+import { Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Fragment, memo, type FC } from 'react';
+import { memo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '../common/EmptyState';
@@ -57,27 +57,9 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
                         'components_lightdash_visualization.unable_to_load_visualization',
                     )}
                     description={
-                        <Fragment>
-                            <Text style={{ whiteSpace: 'pre-wrap' }}>
-                                {apiErrorDetail.message || ''}
-                            </Text>
-                            {apiErrorDetail.data.documentationUrl && (
-                                <Fragment>
-                                    <br />
-                                    <Anchor
-                                        href={
-                                            apiErrorDetail.data.documentationUrl
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        {t(
-                                            'components_lightdash_visualization.learn_how_to_resolve_this_in_our_documentation',
-                                        )}
-                                    </Anchor>
-                                </Fragment>
-                            )}
-                        </Fragment>
+                        <Text style={{ whiteSpace: 'pre-wrap' }}>
+                            {apiErrorDetail.message || ''}
+                        </Text>
                     }
                 ></EmptyState>
             );
