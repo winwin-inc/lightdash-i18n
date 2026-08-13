@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     CHART_SIZE_CHANGE_EPSILON_PX,
     CHART_SIZE_DEBOUNCE_MS,
-    MIN_STABLE_CHART_SIZE_PX,
+    MIN_STABLE_CHART_HEIGHT_PX,
+    MIN_STABLE_CHART_WIDTH_PX,
     shouldAcceptChartSize,
     useStableChartSize,
 } from './useStableChartSize';
@@ -18,40 +19,61 @@ describe('shouldAcceptChartSize', () => {
         );
     });
 
-    it('rejects candidates below min stable size', () => {
+    it('rejects candidates below min width or height', () => {
         expect(shouldAcceptChartSize({ width: 40, height: 40 }, null)).toBe(
             false,
         );
         expect(
             shouldAcceptChartSize(
-                { width: MIN_STABLE_CHART_SIZE_PX - 1, height: 200 },
+                { width: MIN_STABLE_CHART_WIDTH_PX - 1, height: 200 },
+                null,
+            ),
+        ).toBe(false);
+        expect(
+            shouldAcceptChartSize(
+                { width: 400, height: MIN_STABLE_CHART_HEIGHT_PX - 1 },
                 null,
             ),
         ).toBe(false);
     });
 
-    it('marks first candidate at or above min as acceptable (hook still debounces mount)', () => {
+    it('accepts short KPI strips when width is stable', () => {
         expect(
             shouldAcceptChartSize(
-                { width: MIN_STABLE_CHART_SIZE_PX, height: 200 },
+                { width: 400, height: MIN_STABLE_CHART_HEIGHT_PX },
+                null,
+            ),
+        ).toBe(true);
+        expect(shouldAcceptChartSize({ width: 800, height: 48 }, null)).toBe(
+            true,
+        );
+    });
+
+    it('marks first candidate at or above mins as acceptable (hook still debounces mount)', () => {
+        expect(
+            shouldAcceptChartSize(
+                { width: MIN_STABLE_CHART_WIDTH_PX, height: 200 },
                 null,
             ),
         ).toBe(true);
         expect(
             shouldAcceptChartSize(
-                { width: 360, height: MIN_STABLE_CHART_SIZE_PX },
+                {
+                    width: 360,
+                    height: MIN_STABLE_CHART_HEIGHT_PX,
+                },
                 null,
             ),
         ).toBe(true);
     });
 
-    it('rejects tiny jitter when a good size already exists', () => {
+    it('rejects sub-min width jitter when a good size already exists', () => {
         const lastGood = { width: 360, height: 280 };
         expect(
             shouldAcceptChartSize({ width: 20, height: 280 }, lastGood),
         ).toBe(false);
         expect(
-            shouldAcceptChartSize({ width: 360, height: 10 }, lastGood),
+            shouldAcceptChartSize({ width: 360, height: 0 }, lastGood),
         ).toBe(false);
     });
 
@@ -112,6 +134,17 @@ describe('useStableChartSize', () => {
         expect(result.current).toEqual({ width: 360, height: 280 });
     });
 
+    it('commits short dashboard tile heights after debounce', () => {
+        const { result } = renderHook(() =>
+            useStableChartSize({ width: 720, height: 48 }),
+        );
+
+        act(() => {
+            vi.advanceTimersByTime(CHART_SIZE_DEBOUNCE_MS);
+        });
+        expect(result.current).toEqual({ width: 720, height: 48 });
+    });
+
     it('resets settle timer when size changes before debounce fires', () => {
         const { result, rerender } = renderHook(
             ({ size }) => useStableChartSize(size),
@@ -143,7 +176,7 @@ describe('useStableChartSize', () => {
     it('ignores sub-min first candidates without committing', () => {
         const { result } = renderHook(() =>
             useStableChartSize({
-                width: MIN_STABLE_CHART_SIZE_PX - 1,
+                width: MIN_STABLE_CHART_WIDTH_PX - 1,
                 height: 200,
             }),
         );
