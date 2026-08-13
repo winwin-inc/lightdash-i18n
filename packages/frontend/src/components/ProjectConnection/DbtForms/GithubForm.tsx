@@ -215,7 +215,9 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                                     s.data.installationId
                                 ) {
                                     showToastSuccess({
-                                        title: 'Successfully connected to GitHub',
+                                        title: t(
+                                            'components_project_connection_dbt_form.github.success_connected',
+                                        ),
                                     });
 
                                     clearInterval(interval);
@@ -269,25 +271,9 @@ const GithubPersonalAccessTokenForm: FC<{ disabled: boolean }> = ({
                 label={t(
                     'components_project_connection_dbt_form.github.personal_access_token.label',
                 )}
-                description={
-                    <p>
-                        {t(
-                            'components_project_connection_dbt_form.github.personal_access_token.description.part_1',
-                        )}{' '}
-                        <Anchor
-                            target="_blank"
-                            href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#github"
-                            rel="noreferrer"
-                        >
-                            {t(
-                                'components_project_connection_dbt_form.github.personal_access_token.description.part_2',
-                            )}
-                        </Anchor>
-                        {t(
-                            'components_project_connection_dbt_form.github.personal_access_token.description.part_3',
-                        )}
-                    </p>
-                }
+                description={t(
+                    'components_project_connection_dbt_form.github.personal_access_token.description.part_1',
+                )}
                 required={requireSecrets}
                 {...form.getInputProps('dbt.personal_access_token')}
                 placeholder={

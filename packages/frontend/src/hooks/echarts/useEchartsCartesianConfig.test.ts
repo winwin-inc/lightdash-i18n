@@ -13,7 +13,10 @@ import {
     getSinglePointTimeAxisConfig,
     getStackedBarLegendOrder,
     getTopXAxisVisualOverrides,
+    getXAxisLineConfig,
     isUnusedTopXAxis,
+    resolveXAxisLineOnZero,
+    reverseStackedBarSeriesForPaint,
     shouldInjectSeriesCategoryAxis,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
@@ -77,6 +80,40 @@ describe('getTopXAxisVisualOverrides', () => {
             }),
         ).toEqual({
             splitLine: { show: false },
+        });
+    });
+});
+
+describe('resolveXAxisLineOnZero / getXAxisLineConfig', () => {
+    test('未设置时默认 onZero=true（贴 y=0）', () => {
+        expect(resolveXAxisLineOnZero(undefined)).toBe(true);
+        expect(getXAxisLineConfig({ axisLineOnZero: undefined })).toEqual({
+            axisLine: { onZero: true },
+        });
+    });
+
+    test('axisLineOnZero=true 时 onZero=true', () => {
+        expect(resolveXAxisLineOnZero(true)).toBe(true);
+        expect(getXAxisLineConfig({ axisLineOnZero: true })).toEqual({
+            axisLine: { onZero: true },
+        });
+    });
+
+    test('axisLineOnZero=false（轴线置底）时 onZero=false', () => {
+        expect(resolveXAxisLineOnZero(false)).toBe(false);
+        expect(getXAxisLineConfig({ axisLineOnZero: false })).toEqual({
+            axisLine: { onZero: false },
+        });
+    });
+
+    test('合并已有 axisLine.show，不覆盖隐藏轴配置', () => {
+        expect(
+            getXAxisLineConfig({
+                axisLineOnZero: false,
+                existingAxisLine: { show: false },
+            }),
+        ).toEqual({
+            axisLine: { show: false, onZero: false },
         });
     });
 });
@@ -976,7 +1013,7 @@ describe('sortStackedBarSeriesByValue', () => {
         ]);
     });
 
-    test('getStackedBarLegendOrder should sort legend names without implying series render order', () => {
+    test('getStackedBarLegendOrder returns sorted names without mutating input series', () => {
         const makeLegendStackedBarSerie = (
             columnKey: string,
             label: string,
@@ -1025,6 +1062,68 @@ describe('sortStackedBarSeriesByValue', () => {
             '1111_any_巧冰',
             '1111_any_奶冰',
         ]);
+
+        const sortedSeries = sortStackedBarSeriesByValue({
+            series: unsortedSeries,
+            rows: [],
+            datasetRows: legendTestDatasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+        // Config order O: legend/tooltip match sortStackedBarSeriesByValue
+        expect(
+            sortedSeries
+                .map((serie) => serie.dimensions?.[1]?.displayName)
+                .filter(Boolean),
+        ).toEqual(legendOrder);
+
+        // Paint order: reverse O so ECharts stack top matches tooltip top
+        const paintSeries = reverseStackedBarSeriesForPaint(sortedSeries);
+        expect(
+            paintSeries
+                .map((serie) => serie.dimensions?.[1]?.displayName)
+                .filter(Boolean),
+        ).toEqual([...legendOrder].reverse());
+    });
+
+    test('reverseStackedBarSeriesForPaint reverses each stack and keeps non-stacked last', () => {
+        const lineSerie: EChartSeries = {
+            type: CartesianSeriesType.LINE,
+            connectNulls: true,
+            encode: {
+                x: 'month',
+                y: 'total',
+                tooltip: ['total'],
+                seriesName: 'total',
+            },
+        };
+        const sortedDesc = sortStackedBarSeriesByValue({
+            series: [
+                unsortedWidePivotSeries[0],
+                lineSerie,
+                ...unsortedWidePivotSeries.slice(1),
+            ],
+            rows: [],
+            datasetRows,
+            sortDirection: 'desc',
+            flipAxes: true,
+        });
+        const configOrder = sortedDesc
+            .slice(0, 5)
+            .map((serie) => serie.encode?.x);
+        expect(configOrder).toEqual([
+            '1111_any_巧冰',
+            '1111_any_奶冰',
+            '1111_any_水冰',
+            '1111_any_豆冰',
+            '1111_any_其他',
+        ]);
+
+        const paintSeries = reverseStackedBarSeriesForPaint(sortedDesc);
+        expect(paintSeries.slice(0, 5).map((serie) => serie.encode?.x)).toEqual(
+            [...configOrder].reverse(),
+        );
+        expect(paintSeries[5]?.type).toBe(CartesianSeriesType.LINE);
     });
 
     test('should preserve non-stacked series at the end', () => {

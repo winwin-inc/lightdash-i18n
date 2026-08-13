@@ -217,14 +217,8 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
                     {t('features_scheduler_form.no_slack.part_1')}
                 </Text>
                 <Text>
-                    {t('features_scheduler_form.no_slack.part_2')}
-                    <Anchor
-                        target="_blank"
-                        href="https://docs.lightdash.com/self-host/customize-deployment/configure-a-slack-app-for-lightdash"
-                    >
-                        {' '}
-                        {t('features_scheduler_form.no_slack.part_3')}{' '}
-                    </Anchor>
+                    {t('features_scheduler_form.no_slack.part_2')}{' '}
+                    {t('features_scheduler_form.no_slack.part_3')}{' '}
                     {t('features_scheduler_form.no_slack.part_4')}
                 </Text>
             </>
@@ -934,13 +928,10 @@ const SchedulerForm: FC<Props> = ({
                                         >
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
-                                            )}
-                                            <Anchor href="https://docs.lightdash.com/self-host/customize-deployment/enable-headless-browser-for-lightdash">
-                                                {' '}
-                                                {t(
-                                                    'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
-                                                )}{' '}
-                                            </Anchor>
+                                            )}{' '}
+                                            {t(
+                                                'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
+                                            )}{' '}
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_3',
                                             )}
@@ -1285,16 +1276,10 @@ const SchedulerForm: FC<Props> = ({
                                                 <Text>
                                                     {t(
                                                         'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_2',
-                                                    )}
-                                                    <Anchor
-                                                        target="_blank"
-                                                        href="https://docs.lightdash.com/references/environmentVariables"
-                                                    >
-                                                        {' '}
-                                                        {t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
-                                                        )}{' '}
-                                                    </Anchor>
+                                                    )}{' '}
+                                                    {t(
+                                                        'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
+                                                    )}{' '}
                                                     {t(
                                                         'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_4',
                                                     )}

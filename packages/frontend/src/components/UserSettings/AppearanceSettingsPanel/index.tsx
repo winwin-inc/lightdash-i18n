@@ -1,14 +1,5 @@
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Skeleton,
-    Stack,
-    Text,
-    Title,
-    Tooltip,
-} from '@mantine/core';
-import { IconInfoCircle, IconPlus } from '@tabler/icons-react';
+import { Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { IconPlus } from '@tabler/icons-react';
 import { useCallback, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -139,22 +130,6 @@ const AppearanceSettingsPanel: FC = () => {
                         'components_user_settings_appearance_settings_panel.appearance_settings',
                     )}
                 </Title>
-                <Tooltip
-                    label={t(
-                        'components_user_settings_appearance_settings_panel.customizing',
-                    )}
-                    position="bottom"
-                >
-                    <ActionIcon
-                        component="a"
-                        href="https://docs.lightdash.com/guides/customizing-the-appearance-of-your-project"
-                        target="_blank"
-                        rel="noreferrer"
-                        size="xs"
-                    >
-                        <MantineIcon icon={IconInfoCircle} />
-                    </ActionIcon>
-                </Tooltip>
             </Group>
             <SettingsCard mb="lg">
                 <AppearanceColorSettings />

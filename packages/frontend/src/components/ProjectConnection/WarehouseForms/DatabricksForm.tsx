@@ -1,7 +1,6 @@
 import { WarehouseTypes } from '@lightdash/common';
 import {
     ActionIcon,
-    Anchor,
     Button,
     Group,
     PasswordInput,
@@ -42,15 +41,9 @@ export const DatabricksSchemaInput: FC<{
                     {t(
                         'components_project_connection_warehouse_form.databricks.schema.description.part_1',
                     )}
-                    <Anchor
-                        target="_blank"
-                        href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project/#database-1"
-                        rel="noreferrer"
-                    >
-                        {t(
-                            'components_project_connection_warehouse_form.databricks.schema.description.part_2',
-                        )}
-                    </Anchor>
+                    {t(
+                        'components_project_connection_warehouse_form.databricks.schema.description.part_2',
+                    )}
                     {t(
                         'components_project_connection_warehouse_form.databricks.schema.description.part_3',
                     )}
@@ -105,15 +98,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.server.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#server-hostname"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.server.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.server.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.server.description.part_3',
                             )}
@@ -137,15 +124,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.http_path.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#http-path"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.http_path.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.http_path.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.http_path.description.part_3',
                             )}
@@ -168,15 +149,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.access_token.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#personal-access-token"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.access_token.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.access_token.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.access_token.description.part_3',
                             )}

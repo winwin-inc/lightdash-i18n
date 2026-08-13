@@ -32,7 +32,8 @@ const ResourceViewGridChartItem: FC<ResourceViewGridChartItemProps> = ({
     onAction,
     dragIcon,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
     const { hovered, ref } = useHover();
     const [opened, handlers] = useDisclosure(false);
     const theme = useMantineTheme();
@@ -78,7 +79,11 @@ const ResourceViewGridChartItem: FC<ResourceViewGridChartItemProps> = ({
                 <Tooltip
                     position="bottom-start"
                     disabled={!item.data.views || !item.data.firstViewedAt}
-                    label={getResourceViewsSinceWhenDescription(item)}
+                    label={getResourceViewsSinceWhenDescription(
+                        item,
+                        t,
+                        isZh,
+                    )}
                 >
                     <Flex align="center" gap={4}>
                         <IconEye color={theme.colors.gray[6]} size={14} />

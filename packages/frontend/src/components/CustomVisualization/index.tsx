@@ -1,21 +1,11 @@
-import { Anchor, Text } from '@mantine/core';
-import { useResizeObserver } from '@mantine/hooks';
+import { Anchor, Center, Loader, Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import {
-    Suspense,
-    lazy,
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type FC,
-} from 'react';
+import { Suspense, lazy, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
 import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
-import { LoadingChart } from '../SimpleChart';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import {
     getVegaAutosizeConfig,
@@ -30,14 +20,24 @@ import {
     type ResponsivePreviewOverride,
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
+import { useObservedContainerSize } from './useObservedContainerSize';
 import {
     CHART_SIZE_CHANGE_EPSILON_PX,
-    isAboveMinStableChartSize,
     useStableChartSize,
 } from './useStableChartSize';
 
 const VegaLite = lazy(() =>
     import('react-vega').then((module) => ({ default: module.VegaLite })),
+);
+
+/**
+ * No vertical padding — LoadingChart's padding:50px is clipped to blank white
+ * inside short/medium dashboard ChartContainers (overflow:hidden).
+ */
+const CompactChartLoading: FC = () => (
+    <Center h="100%" w="100%" className="loading_chart">
+        <Loader color="gray.6" size="sm" />
+    </Center>
 );
 
 type Props = {
@@ -57,20 +57,10 @@ const CustomVisualization: FC<Props> = (props) => {
     const { t } = useTranslation();
     const viewportWidth = useViewportWidth();
 
-    const [ref, rect] = useResizeObserver();
-    const [earlyRect, setEarlyRect] = useState({ width: 0, height: 0 });
-    const rafIdRef = useRef<number | null>(null);
-
-    // Prefer ResizeObserver; fall back to first RAF measure before observer fires
-    const observedWidth =
-        (rect.width ?? 0) > 0 ? (rect.width ?? 0) : earlyRect.width;
-    const observedHeight =
-        (rect.height ?? 0) > 0 ? (rect.height ?? 0) : earlyRect.height;
-
-    const { width, height } = useStableChartSize({
-        width: observedWidth,
-        height: observedHeight,
-    });
+    // Own ResizeObserver in the callback ref so observe runs on mount
+    // (Mantine useResizeObserver + manual ref.current never re-ran its effect).
+    const { measureRef, size: observedSize } = useObservedContainerSize();
+    const { width, height } = useStableChartSize(observedSize);
     const hasSize = width > 0 && height > 0;
 
     // Narrow / mini-program: pin size via React pixels + skip continuous Vega
@@ -78,45 +68,6 @@ const CustomVisualization: FC<Props> = (props) => {
     const isNarrowViewport = viewportWidth < DEFAULT_RESPONSIVE_BREAKPOINT;
     const continuousResize = !isNarrowViewport;
     const useExplicitPixelSize = isNarrowViewport;
-
-    const measureRef = useCallback(
-        (el: HTMLDivElement | null) => {
-            (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
-            if (rafIdRef.current !== null) {
-                cancelAnimationFrame(rafIdRef.current);
-                rafIdRef.current = null;
-            }
-            if (!el) return;
-            rafIdRef.current = requestAnimationFrame(() => {
-                rafIdRef.current = null;
-                const r = el.getBoundingClientRect();
-                if (r.width <= 0 || r.height <= 0) {
-                    return;
-                }
-                // Only accept min-stable measures (matches useStableChartSize gate)
-                setEarlyRect((prev) => {
-                    if (
-                        isAboveMinStableChartSize({
-                            width: r.width,
-                            height: r.height,
-                        })
-                    ) {
-                        return { width: r.width, height: r.height };
-                    }
-                    return prev;
-                });
-            });
-        },
-        [ref],
-    );
-
-    useEffect(() => {
-        return () => {
-            if (rafIdRef.current !== null) {
-                cancelAnimationFrame(rafIdRef.current);
-            }
-        };
-    }, []);
 
     useEffect(() => {
         resultsData?.setFetchAll(true);
@@ -139,7 +90,7 @@ const CustomVisualization: FC<Props> = (props) => {
                 }}
                 ref={measureRef}
             >
-                <LoadingChart />
+                <CompactChartLoading />
             </div>
         );
     }
@@ -201,7 +152,7 @@ const CustomVisualization: FC<Props> = (props) => {
                 }}
                 ref={measureRef}
             >
-                <LoadingChart />
+                <CompactChartLoading />
             </div>
         );
     }
@@ -271,7 +222,7 @@ const CustomVisualization: FC<Props> = (props) => {
             ref={measureRef}
         >
             {hasSize ? (
-                <Suspense fallback={<LoadingChart />}>
+                <Suspense fallback={<CompactChartLoading />}>
                     <VegaLite
                         key={`vega-${layout.layoutId}-${
                             visProps.editorResponsiveTab
@@ -298,7 +249,7 @@ const CustomVisualization: FC<Props> = (props) => {
                     />
                 </Suspense>
             ) : (
-                <LoadingChart />
+                <CompactChartLoading />
             )}
         </div>
     );

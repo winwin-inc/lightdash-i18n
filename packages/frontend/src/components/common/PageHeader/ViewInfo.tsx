@@ -1,10 +1,10 @@
 import { Tooltip } from '@mantine/core';
 import { IconEye } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { formatViewsSinceDescription } from '../ResourceView/resourceUtils';
 import InfoContainer from './InfoContainer';
 
 interface ViewInfoProps {
@@ -13,13 +13,18 @@ interface ViewInfoProps {
 }
 
 const ViewInfo: FC<ViewInfoProps> = ({ views, firstViewedAt }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
 
-    const label = firstViewedAt
-        ? `${views} ${t('components_common_page_header.views_slice')} ${dayjs(
-              firstViewedAt,
-          ).format('MMM D, YYYY h:mm A')}`
-        : undefined;
+    const label =
+        firstViewedAt && views !== undefined
+            ? formatViewsSinceDescription({
+                  count: views,
+                  firstViewedAt,
+                  t,
+                  isZh,
+              })
+            : undefined;
 
     return (
         <Tooltip

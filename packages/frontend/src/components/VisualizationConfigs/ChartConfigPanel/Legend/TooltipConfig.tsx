@@ -177,12 +177,6 @@ export const TooltipConfig: FC<Props> = ({ fields }) => {
                         )}
                     >
                         <MantineIcon
-                            onClick={() => {
-                                window.open(
-                                    'https://docs.lightdash.com/references/custom-tooltip',
-                                    '_blank',
-                                );
-                            }}
                             icon={IconHelpCircle}
                             size="md"
                             display="inline"

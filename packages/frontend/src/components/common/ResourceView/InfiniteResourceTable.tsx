@@ -253,12 +253,16 @@ const InfiniteResourceTable = ({
                         <AttributeCount
                             Icon={IconLayoutDashboard}
                             count={dashboardCount}
-                            name="Dashboards"
+                            name={t(
+                                'components_common_resource_view_content_type.dashboards',
+                            )}
                         />
                         <AttributeCount
                             Icon={IconChartBar}
                             count={chartCount}
-                            name="Charts"
+                            name={t(
+                                'components_common_resource_view_content_type.charts',
+                            )}
                         />
                     </Group>
                 );

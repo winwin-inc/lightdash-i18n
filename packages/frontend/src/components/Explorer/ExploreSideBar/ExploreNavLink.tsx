@@ -1,7 +1,6 @@
 import { InlineErrorType, type SummaryExplore } from '@lightdash/common';
 import {
     ActionIcon,
-    Anchor,
     Box,
     CopyButton,
     Highlight,
@@ -74,18 +73,11 @@ const ExploreNavLink: React.FC<ExploreNavLinkProps> = ({
                             }
                             rightSection={
                                 showNoDimensionsIcon ? (
-                                    <Anchor
-                                        role="button"
-                                        href="https://docs.lightdash.com/guides/how-to-create-dimensions"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        <MantineIcon
-                                            icon={IconInfoCircle}
-                                            color="gray.7"
-                                            size="lg"
-                                        />
-                                    </Anchor>
+                                    <MantineIcon
+                                        icon={IconInfoCircle}
+                                        color="gray.7"
+                                        size="lg"
+                                    />
                                 ) : (
                                     <MantineIcon
                                         icon={IconAlertTriangle}

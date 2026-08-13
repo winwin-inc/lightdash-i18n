@@ -11,6 +11,7 @@ import {
     type UseQueryOptions,
 } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../api';
 import useToaster from '../toaster/useToaster';
 
@@ -37,18 +38,19 @@ const deleteSlack = async () =>
 
 export const useDeleteSlack = () => {
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
     const { showToastSuccess, showToastApiError } = useToaster();
     return useMutation<null, ApiError, undefined>(deleteSlack, {
         onSuccess: async () => {
             await queryClient.invalidateQueries(['slack']);
 
             showToastSuccess({
-                title: `Deleted! Slack integration was deleted`,
+                title: t('hooks_slack.delete_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete Slack integration`,
+                title: t('hooks_slack.delete_error'),
                 apiError: error,
             });
         },
@@ -150,6 +152,7 @@ const updateSlackCustomSettings = async (opts: SlackAppCustomSettings) =>
 
 export const useUpdateSlackAppCustomSettingsMutation = () => {
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
     const { showToastSuccess, showToastApiError } = useToaster();
     return useMutation<null, ApiError, SlackAppCustomSettings>(
         updateSlackCustomSettings,
@@ -158,12 +161,12 @@ export const useUpdateSlackAppCustomSettingsMutation = () => {
                 await queryClient.invalidateQueries(['slack']);
 
                 showToastSuccess({
-                    title: `Success! Slack app settings updated`,
+                    title: t('hooks_slack.update_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update Slack app settings`,
+                    title: t('hooks_slack.update_error'),
                     apiError: error,
                 });
             },

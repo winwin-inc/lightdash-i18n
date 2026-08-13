@@ -11,6 +11,7 @@ import {
     IconLayoutDashboard,
 } from '@tabler/icons-react';
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { ResourceIcon, ResourceIndicator } from '../ResourceIcon';
 import { ResourceInfoPopup } from '../ResourceInfoPopup/ResourceInfoPopup';
 import ResourceAccessInfo from './ResourceAccessInfo';
@@ -39,6 +40,8 @@ const ResourceValidationErrorIndicator = ({
     children,
     validationId,
 }: ResourceValidationErrorIndicatorProps) => {
+    const { t } = useTranslation();
+
     if (!validationId) {
         return children;
     }
@@ -59,8 +62,9 @@ const ResourceValidationErrorIndicator = ({
             tooltipLabel={
                 canUserManageValidation ? (
                     <>
-                        This content is broken. Learn more about the validation
-                        error(s){' '}
+                        {t(
+                            'components_common_resource_view_list.tooltip_can_validation.part_1',
+                        )}{' '}
                         <Anchor
                             component={Link}
                             fw={600}
@@ -70,14 +74,29 @@ const ResourceValidationErrorIndicator = ({
                             }}
                             color="blue.4"
                         >
-                            here
+                            {t(
+                                'components_common_resource_view_list.tooltip_can_validation.part_2',
+                            )}
                         </Anchor>
-                        .
+                        {t(
+                            'components_common_resource_view_list.tooltip_can_validation.part_3',
+                        )}
                     </>
                 ) : (
                     <>
-                        There's an error with this{' '}
-                        {isResourceViewItemChart(item) ? 'chart' : 'dashboard'}.
+                        {t(
+                            'components_common_resource_view_list.tooltip_can_validation.part_4',
+                        )}{' '}
+                        {isResourceViewItemChart(item)
+                            ? t(
+                                  'components_common_resource_view_list.tooltip_can_validation.part_5',
+                              )
+                            : t(
+                                  'components_common_resource_view_list.tooltip_can_validation.part_6',
+                              )}
+                        {t(
+                            'components_common_resource_view_list.tooltip_can_validation.part_7',
+                        )}
                     </>
                 )
             }
@@ -98,6 +117,8 @@ const InfiniteResourceTableColumnName = ({
     projectUuid,
     canUserManageValidation,
 }: InfiniteResourceTableColumnNameProps) => {
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
     const getResourceTypeName = useResourceTypeName();
 
     const isSpace = isResourceViewSpaceItem(item);
@@ -175,9 +196,16 @@ const InfiniteResourceTableColumnName = ({
                                 }
                                 label={getResourceViewsSinceWhenDescription(
                                     item,
+                                    t,
+                                    isZh,
                                 )}
                             >
-                                <span>{item.data.views || '0'} views</span>
+                                <span>
+                                    {item.data.views || '0'}{' '}
+                                    {t(
+                                        'components_common_resource_view_list.views',
+                                    )}
+                                </span>
                             </Tooltip>
                         </Text>
                     )}
@@ -195,12 +223,16 @@ const InfiniteResourceTableColumnName = ({
                                 <AttributeCount
                                     Icon={IconLayoutDashboard}
                                     count={item.data.dashboardCount}
-                                    name="Dashboards"
+                                    name={t(
+                                        'components_common_resource_view_content_type.dashboards',
+                                    )}
                                 />
                                 <AttributeCount
                                     Icon={IconChartBar}
                                     count={item.data.chartCount}
-                                    name="Charts"
+                                    name={t(
+                                        'components_common_resource_view_content_type.charts',
+                                    )}
                                 />
                             </Group>
                         </Group>

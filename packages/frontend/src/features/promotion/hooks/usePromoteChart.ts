@@ -30,7 +30,7 @@ export const usePromoteMutation = () => {
                 showToastSuccess({
                     title: t('feature_promotion.toast_chart_success.promoted'),
                     action: {
-                        children: 'Open chart',
+                        children: t('hooks_saved_query.open_chart'),
                         icon: IconArrowRight,
                         onClick: () => {
                             window.open(

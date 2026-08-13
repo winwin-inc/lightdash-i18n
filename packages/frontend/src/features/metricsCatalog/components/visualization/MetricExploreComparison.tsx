@@ -6,7 +6,6 @@ import {
     type MetricWithAssociatedTimeDimension,
 } from '@lightdash/common';
 import {
-    Anchor,
     Group,
     Loader,
     Paper,
@@ -235,17 +234,7 @@ export const MetricExploreComparison: FC<Props> = ({
                                         <Text span c="gray.7" fz={13}>
                                             {t(
                                                 'features_metrics_catalog_components.metric_peek_comparison.content.part_1',
-                                            )}{' '}
-                                            <Anchor
-                                                c="gray.9"
-                                                fw={500}
-                                                target="_blank"
-                                                href="https://docs.lightdash.com/guides/metrics-catalog/#configuring-default-time-settings-in-yml"
-                                            >
-                                                {t(
-                                                    'features_metrics_catalog_components.metric_peek_comparison.content.part_2',
-                                                )}
-                                            </Anchor>
+                                            )}
                                         </Text>
                                     ))}
                             </Stack>

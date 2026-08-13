@@ -2805,8 +2805,39 @@
                 ],
                 "type": "string"
             },
+            "TimeFrames": {
+                "enum": [
+                    "RAW",
+                    "YEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "DAY",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "DAY_OF_WEEK_INDEX",
+                    "DAY_OF_MONTH_NUM",
+                    "DAY_OF_YEAR_NUM",
+                    "WEEK_NUM",
+                    "MONTH_NUM",
+                    "QUARTER_NUM",
+                    "YEAR_NUM",
+                    "DAY_OF_WEEK_NAME",
+                    "MONTH_NAME",
+                    "QUARTER_NAME",
+                    "HOUR_OF_DAY_NUM",
+                    "MINUTE_OF_HOUR_NUM"
+                ],
+                "type": "string"
+            },
             "FilterRule_FilterOperator.DashboardFieldTarget.AnyType.AnyType_": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {
                             "$ref": "#/components/schemas/AnyType"
@@ -3371,33 +3402,6 @@
                 "type": "object",
                 "description": "Construct a type with a set of properties K of type T"
             },
-            "TimeFrames": {
-                "enum": [
-                    "RAW",
-                    "YEAR",
-                    "QUARTER",
-                    "MONTH",
-                    "WEEK",
-                    "DAY",
-                    "HOUR",
-                    "MINUTE",
-                    "SECOND",
-                    "MILLISECOND",
-                    "DAY_OF_WEEK_INDEX",
-                    "DAY_OF_MONTH_NUM",
-                    "DAY_OF_YEAR_NUM",
-                    "WEEK_NUM",
-                    "MONTH_NUM",
-                    "QUARTER_NUM",
-                    "YEAR_NUM",
-                    "DAY_OF_WEEK_NAME",
-                    "MONTH_NAME",
-                    "QUARTER_NAME",
-                    "HOUR_OF_DAY_NUM",
-                    "MINUTE_OF_HOUR_NUM"
-                ],
-                "type": "string"
-            },
             "FieldType": {
                 "enum": ["metric", "dimension"],
                 "type": "string"
@@ -3850,6 +3854,10 @@
             },
             "FilterRule": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {
                             "$ref": "#/components/schemas/AnyType"
@@ -4315,6 +4323,10 @@
             },
             "MetricFilterRule": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {
                             "$ref": "#/components/schemas/AnyType"
@@ -5045,6 +5057,10 @@
                     },
                     {
                         "properties": {
+                            "axisLineOnZero": {
+                                "type": "boolean",
+                                "description": "Maps to ECharts `xAxis.axisLine.onZero`.\n`true` (default): draw X axis line at y=0 when the Y scale crosses zero.\n`false`: keep X axis line at the bottom of the plot (\"轴线置底\")."
+                            },
                             "sortType": {
                                 "$ref": "#/components/schemas/XAxisSortType"
                             }
@@ -5373,6 +5389,10 @@
             },
             "BaseFilterRule_FilterOperator.number-or-string_": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {
                             "anyOf": [
@@ -5597,16 +5617,16 @@
                     "pivotColumnMaxWidth": {
                         "type": "number",
                         "format": "double",
-                        "description": "透视表数据列拉伸上限（px），未设置表示不限制"
+                        "description": "透视表数据列最大宽度（px），未设置时使用默认上限"
                     },
                     "pivotDimensionColumnMaxWidth": {
                         "type": "number",
                         "format": "double",
-                        "description": "透视表行维度列拉伸上限（px），未设置表示不限制"
+                        "description": "透视表行维度列最大宽度（px），未设置时使用默认上限"
                     },
                     "pivotAutoFillWidth": {
                         "type": "boolean",
-                        "description": "透视表列少时自动撑满容器宽度"
+                        "description": "透视表列总宽小于容器时，均分剩余空间铺满"
                     },
                     "pivotMetricHeaderPosition": {
                         "$ref": "#/components/schemas/PivotMetricHeaderPosition"
@@ -5959,6 +5979,10 @@
             },
             "JoinModelRequiredFilterRule": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {
                             "$ref": "#/components/schemas/AnyType"
@@ -8219,19 +8243,6 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
-                                                    }
-                                                },
-                                                "required": ["status"],
-                                                "type": "object"
-                                            },
-                                            {
-                                                "properties": {
-                                                    "status": {
-                                                        "type": "string",
-                                                        "enum": [
-                                                            "success",
-                                                            "error"
-                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -16265,6 +16276,10 @@
             },
             "FilterRule_FilterOperator.DashboardFieldTarget.any.any_": {
                 "properties": {
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                    },
                     "values": {
                         "items": {},
                         "type": "array"
@@ -16394,6 +16409,10 @@
                     "values": {
                         "items": {},
                         "type": "array"
+                    },
+                    "dateRangeGranularity": {
+                        "$ref": "#/components/schemas/TimeFrames",
+                        "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
                     },
                     "tileTargets": {
                         "$ref": "#/components/schemas/Record_string.DashboardTileTarget_"
@@ -21476,7 +21495,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2105.5",
+        "version": "0.2108.4",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"

@@ -18,7 +18,7 @@ import { useMemo, type FC } from 'react';
 import { Link, useParams } from 'react-router';
 import usePinnedItemsContext from '../../../../providers/PinnedItems/usePinnedItemsContext';
 import MantineIcon from '../../MantineIcon';
-import { getResourceName, getResourceUrl } from '../resourceUtils';
+import { getResourceUrl, useResourceGroupTitle } from '../resourceUtils';
 import {
     type ResourceViewCommonProps,
     type ResourceViewItemActionState,
@@ -143,6 +143,7 @@ const ResourceViewGrid: FC<ResourceViewGridProps> = ({
 }) => {
     const { reorderItems, allowDelete } = usePinnedItemsContext();
     const { projectUuid } = useParams<{ projectUuid: string }>();
+    const getResourceGroupTitle = useResourceGroupTitle();
 
     const groupedItems = useMemo(() => {
         return groups
@@ -156,16 +157,12 @@ const ResourceViewGrid: FC<ResourceViewGridProps> = ({
                     ['asc'],
                 );
                 return {
-                    name: group
-                        .map((g) => getResourceName(g) + 's')
-                        .join(', ')
-                        .replace(/, ([^,]*)$/, ' & $1'), // replaces last comma with '&'
-
+                    name: getResourceGroupTitle(group),
                     items: hasReorder ? orderedItems : filteredItems,
                 };
             })
             .filter((group) => group.items.length > 0);
-    }, [hasReorder, groups, items]);
+    }, [hasReorder, groups, items, getResourceGroupTitle]);
 
     // this method converts groupedItems to the format required by the API
     const pinnedItemsOrder = (data: typeof groupedItems) =>

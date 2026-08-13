@@ -72,7 +72,7 @@ export const HeaderCreate: FC = () => {
                 t(
                     'features_sql_runner_header_create.github_integration_not_enabled',
                 ),
-                'https://docs.lightdash.com/self-host/customize-deployment/environment-variables#github-integration',
+                undefined,
             ];
         }
         if (!hasGithubEnabled) {

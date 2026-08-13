@@ -1,5 +1,6 @@
 import { type ApiError, type RoleAssignment } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
@@ -34,6 +35,7 @@ export const useUpsertProjectGroupRoleAssignmentMutation = (
 ) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation(
         async ({ groupId, roleId }: { groupId: string; roleId: string }) => {
@@ -56,12 +58,12 @@ export const useUpsertProjectGroupRoleAssignmentMutation = (
                     'groupAccesses',
                 ]);
                 showToastSuccess({
-                    title: 'Success! Group project role assignment updated.',
+                    title: t('hooks_project_group_roles.update_success'),
                 });
             },
             onError: ({ error }: { error: any }) => {
                 showToastApiError({
-                    title: 'Failed to update group project role assignment',
+                    title: t('hooks_project_group_roles.update_error'),
                     apiError: error,
                 });
             },
@@ -74,6 +76,7 @@ export const useDeleteProjectGroupRoleAssignmentMutation = (
 ) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation(
         async (groupId: string) => {
@@ -96,12 +99,12 @@ export const useDeleteProjectGroupRoleAssignmentMutation = (
                     'groupAccesses',
                 ]);
                 showToastSuccess({
-                    title: 'Success! Group project role assignment deleted.',
+                    title: t('hooks_project_group_roles.delete_success'),
                 });
             },
             onError: ({ error }: { error: any }) => {
                 showToastApiError({
-                    title: 'Failed to delete group project role assignment',
+                    title: t('hooks_project_group_roles.delete_error'),
                     apiError: error,
                 });
             },

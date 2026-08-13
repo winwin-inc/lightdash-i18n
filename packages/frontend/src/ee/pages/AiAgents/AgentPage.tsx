@@ -17,7 +17,6 @@ import {
     IconBrandSlack,
     IconChevronDown,
     IconCirclePlus,
-    IconInfoCircle,
     IconSettings,
     IconSparkles,
 } from '@tabler/icons-react';
@@ -196,21 +195,7 @@ const AgentSidebar: FC<{
                             mode
                         </Text>
                     }
-                >
-                    <Button
-                        size="compact-xs"
-                        variant="light"
-                        color="indigo"
-                        leftSection={
-                            <MantineIcon icon={IconInfoCircle} size="sm" />
-                        }
-                        component={Link}
-                        to="https://docs.lightdash.com/guides/ai-agents"
-                        target="_blank"
-                    >
-                        Learn more
-                    </Button>
-                </Alert>
+                />
             )}
         </Stack>
     );

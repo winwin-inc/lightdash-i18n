@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 
-/** Ignore transient sub-threshold sizes once a good size exists (click/webview jitter). */
-export const MIN_STABLE_CHART_SIZE_PX = 80;
+/**
+ * Min width before mounting Vega. Keeps first-tile X-axis collapse protection
+ * (do not mount on an intermediate narrow measure).
+ */
+export const MIN_STABLE_CHART_WIDTH_PX = 80;
+
+/**
+ * Min height before mounting Vega. Allow short dashboard KPI strips; only
+ * reject near-zero flicker. Width gate (not height) protects X-axis collapse.
+ */
+export const MIN_STABLE_CHART_HEIGHT_PX = 1;
+
+/** @deprecated Prefer MIN_STABLE_CHART_WIDTH_PX; kept for older imports/tests. */
+export const MIN_STABLE_CHART_SIZE_PX = MIN_STABLE_CHART_WIDTH_PX;
 
 /** Skip updates smaller than this to reduce resize chatter. */
 export const CHART_SIZE_CHANGE_EPSILON_PX = 8;
@@ -19,8 +31,8 @@ export type ChartSize = {
 
 export function isAboveMinStableChartSize(size: ChartSize): boolean {
     return (
-        size.width >= MIN_STABLE_CHART_SIZE_PX &&
-        size.height >= MIN_STABLE_CHART_SIZE_PX
+        size.width >= MIN_STABLE_CHART_WIDTH_PX &&
+        size.height >= MIN_STABLE_CHART_HEIGHT_PX
     );
 }
 

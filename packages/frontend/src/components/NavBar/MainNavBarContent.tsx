@@ -11,7 +11,6 @@ import Logo from '../../svgs/logo-icon.svg?react';
 import { AiAgentsButton } from './AiAgentsButton';
 import BrowseMenu from './BrowseMenu';
 import ExploreMenu from './ExploreMenu';
-// import HelpMenu from './HelpMenu';
 import { MetricsLink } from './MetricsLink';
 import { NotificationsMenu } from './NotificationsMenu';
 import ProjectSwitcher from './ProjectSwitcher';
@@ -96,8 +95,6 @@ export const MainNavBarContent: FC<Props> = ({
                     {!isLoadingActiveProject && activeProjectUuid && (
                         <NotificationsMenu projectUuid={activeProjectUuid} />
                     )}
-
-                    {/* <HelpMenu /> */}
 
                     <ProjectSwitcher />
                 </Button.Group>

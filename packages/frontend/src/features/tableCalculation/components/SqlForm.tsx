@@ -1,17 +1,8 @@
-import {
-    Alert,
-    Anchor,
-    ScrollArea,
-    Text,
-    useMantineTheme,
-} from '@mantine/core';
-import { IconSparkles } from '@tabler/icons-react';
+import { ScrollArea, useMantineTheme } from '@mantine/core';
 import { type FC } from 'react';
 import AceEditor, { type IAceEditorProps } from 'react-ace';
-import { useTranslation } from 'react-i18next';
 import styled, { css } from 'styled-components';
 
-import MantineIcon from '../../../components/common/MantineIcon';
 import { useTableCalculationAceEditorCompleter } from '../../../hooks/useExplorerAceEditorCompleter';
 import { type TableCalculationForm } from '../types';
 
@@ -59,7 +50,6 @@ export const SqlForm: FC<Props> = ({
         key: SOFT_WRAP_LOCAL_STORAGE_KEY,
         defaultValue: true,
     });
-    const { t } = useTranslation();
 
     const { setAceEditor } = useTableCalculationAceEditorCompleter();
 
@@ -85,70 +75,32 @@ export const SqlForm: FC<Props> = ({
     };
 
     return (
-        <>
-            <ScrollArea h={isFullScreen ? '90%' : '150px'}>
-                <SqlEditor
-                    mode="sql"
-                    theme="github"
-                    width="100%"
-                    placeholder={SQL_PLACEHOLDER}
-                    maxLines={Infinity}
-                    minLines={isFullScreen ? 40 : 8}
-                    setOptions={{
-                        autoScrollEditorIntoView: true,
-                    }}
-                    style={{ zIndex: 0 }}
-                    onLoad={handleEditorLoad}
-                    enableLiveAutocompletion
-                    enableBasicAutocompletion
-                    showPrintMargin={false}
-                    isFullScreen={isFullScreen}
-                    wrapEnabled={isSoftWrapEnabled}
-                    gutterBackgroundColor={theme.colors.gray['1']}
-                    {...form.getInputProps('sql')}
-                />
-                <SqlEditorActions
-                    isSoftWrapEnabled={isSoftWrapEnabled}
-                    onToggleSoftWrap={() =>
-                        setSoftWrapEnabled(!isSoftWrapEnabled)
-                    }
-                    clipboardContent={form.values.sql}
-                />
-            </ScrollArea>
-
-            <Alert
-                radius={0}
-                icon={<MantineIcon icon={IconSparkles} />}
-                title={
-                    <Text fz="xs">
-                        {t('features_table_calculation_sql_form.alert.part_1')}{' '}
-                        <Anchor
-                            target="_blank"
-                            href="https://docs.lightdash.com/guides/table-calculations/sql-templates"
-                            rel="noreferrer"
-                        >
-                            {t(
-                                'features_table_calculation_sql_form.alert.part_2',
-                            )}
-                        </Anchor>
-                    </Text>
-                }
-                color="violet"
-                styles={{
-                    root: {
-                        paddingBottom: theme.spacing.sm,
-                        paddingTop: theme.spacing.sm,
-                    },
-                    wrapper: {
-                        alignItems: 'center',
-                    },
-                    title: {
-                        marginBottom: 0,
-                    },
+        <ScrollArea h={isFullScreen ? '90%' : '150px'}>
+            <SqlEditor
+                mode="sql"
+                theme="github"
+                width="100%"
+                placeholder={SQL_PLACEHOLDER}
+                maxLines={Infinity}
+                minLines={isFullScreen ? 40 : 8}
+                setOptions={{
+                    autoScrollEditorIntoView: true,
                 }}
-            >
-                <></>
-            </Alert>
-        </>
+                style={{ zIndex: 0 }}
+                onLoad={handleEditorLoad}
+                enableLiveAutocompletion
+                enableBasicAutocompletion
+                showPrintMargin={false}
+                isFullScreen={isFullScreen}
+                wrapEnabled={isSoftWrapEnabled}
+                gutterBackgroundColor={theme.colors.gray['1']}
+                {...form.getInputProps('sql')}
+            />
+            <SqlEditorActions
+                isSoftWrapEnabled={isSoftWrapEnabled}
+                onToggleSoftWrap={() => setSoftWrapEnabled(!isSoftWrapEnabled)}
+                clipboardContent={form.values.sql}
+            />
+        </ScrollArea>
     );
 };

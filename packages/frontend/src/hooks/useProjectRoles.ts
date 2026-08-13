@@ -1,5 +1,6 @@
 import { type ApiError, type RoleAssignment } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
@@ -29,6 +30,7 @@ export const useUpsertProjectUserRoleAssignmentMutation = (
 ) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation(
         async ({
@@ -58,12 +60,12 @@ export const useUpsertProjectUserRoleAssignmentMutation = (
                     projectId,
                 ]);
                 showToastSuccess({
-                    title: 'Success! User project role assignment updated.',
+                    title: t('hooks_project_roles.update_success'),
                 });
             },
             onError: ({ error }: { error: any }) => {
                 showToastApiError({
-                    title: 'Failed to update user project role assignment',
+                    title: t('hooks_project_roles.update_error'),
                     apiError: error,
                 });
             },
@@ -76,6 +78,7 @@ export const useDeleteProjectUserRoleAssignmentMutation = (
 ) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation(
         async (userId: string) => {
@@ -97,12 +100,12 @@ export const useDeleteProjectUserRoleAssignmentMutation = (
                     projectId,
                 ]);
                 showToastSuccess({
-                    title: 'Success! User project role assignment deleted.',
+                    title: t('hooks_project_roles.delete_success'),
                 });
             },
             onError: ({ error }: { error: any }) => {
                 showToastApiError({
-                    title: 'Failed to delete user project role assignment',
+                    title: t('hooks_project_roles.delete_error'),
                     apiError: error,
                 });
             },

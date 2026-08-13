@@ -51,9 +51,9 @@ export const getSortNullsFirstValue = (sort: SortField) => {
 };
 
 export const sortNullsFirstLabels = {
-    [SortNullsFirst.DEFAULT]: 'Default',
-    [SortNullsFirst.FIRST]: 'First',
-    [SortNullsFirst.LAST]: 'Last',
+    [SortNullsFirst.DEFAULT]: 'components_sort_button.nulls_options.default',
+    [SortNullsFirst.FIRST]: 'components_sort_button.nulls_options.first',
+    [SortNullsFirst.LAST]: 'components_sort_button.nulls_options.last',
 } as const;
 
 enum NumericSortLabels {
@@ -66,19 +66,12 @@ enum StringSortLabels {
     DESC = 'Z-A',
 }
 
-enum DateSortLabels {
-    ASC = 'Old-New',
-    DESC = 'New-Old',
-}
-
-enum BooleanSortLabels {
-    ASC = 'False-True',
-    DESC = 'True-False',
-}
+type TranslateFn = (key: string) => string;
 
 export const getSortLabel = (
     item: Field | TableCalculation | CustomDimension,
     direction: SortDirection,
+    t: TranslateFn,
 ) => {
     const type = getItemType(item);
     switch (type) {
@@ -112,14 +105,14 @@ export const getSortLabel = (
         case TableCalculationType.TIMESTAMP:
         case TableCalculationType.DATE:
             return direction === SortDirection.ASC
-                ? DateSortLabels.ASC
-                : DateSortLabels.DESC;
+                ? t('components_sort_button.sort_labels.old_new')
+                : t('components_sort_button.sort_labels.new_old');
         case DimensionType.BOOLEAN:
         case MetricType.BOOLEAN:
         case TableCalculationType.BOOLEAN:
             return direction === SortDirection.ASC
-                ? BooleanSortLabels.ASC
-                : BooleanSortLabels.DESC;
+                ? t('components_sort_button.sort_labels.false_true')
+                : t('components_sort_button.sort_labels.true_false');
         default:
             return assertUnreachable(
                 type,

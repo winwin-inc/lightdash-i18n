@@ -7,6 +7,7 @@ import {
 } from '@lightdash/common';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -37,6 +38,7 @@ export const useCreateVirtualView = ({
 }: {
     projectUuid: string;
 }) => {
+    const { t } = useTranslation();
     const { showToastSuccess, showToastApiError } = useToaster();
     return useMutation<
         ApiCreateVirtualView['results'],
@@ -48,9 +50,9 @@ export const useCreateVirtualView = ({
         mutationFn: createVirtualView,
         onSuccess: (data) => {
             showToastSuccess({
-                title: 'Success! Virtual view created',
+                title: t('features_virtual_view.create_success'),
                 action: {
-                    children: 'Query from new virtual view',
+                    children: t('features_virtual_view.query_action'),
                     icon: IconArrowRight,
                     onClick: () => {
                         window.open(
@@ -63,7 +65,7 @@ export const useCreateVirtualView = ({
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: 'Error creating virtual view',
+                title: t('features_virtual_view.create_error'),
                 apiError: error,
             });
         },
@@ -91,6 +93,7 @@ const updateVirtualView = async ({
     });
 
 export const useUpdateVirtualView = (projectUuid: string) => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastError } = useToaster();
     return useMutation<
@@ -107,12 +110,12 @@ export const useUpdateVirtualView = (projectUuid: string) => {
                 queryKey: ['tables', name, projectUuid],
             });
             showToastSuccess({
-                title: 'Success! Virtual view updated',
+                title: t('features_virtual_view.update_success'),
             });
         },
         onError: () => {
             showToastError({
-                title: 'Error updating virtual view',
+                title: t('features_virtual_view.update_error'),
             });
         },
     });
@@ -132,6 +135,7 @@ const deleteVirtualView = async ({
     });
 
 export const useDeleteVirtualView = (projectUuid: string) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastError } = useToaster();
@@ -147,14 +151,14 @@ export const useDeleteVirtualView = (projectUuid: string) => {
             });
 
             showToastSuccess({
-                title: 'Success! Virtual view deleted',
+                title: t('features_virtual_view.delete_success'),
             });
 
             void navigate(`/projects/${projectUuid}/tables`);
         },
         onError: () => {
             showToastError({
-                title: 'Error deleting virtual view',
+                title: t('features_virtual_view.delete_error'),
             });
         },
     });

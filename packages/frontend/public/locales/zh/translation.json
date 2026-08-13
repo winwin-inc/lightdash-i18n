@@ -120,6 +120,66 @@
         "success_delete": "成功！看板已删除。",
         "failed_to_delete": "删除看板失败"
     },
+    "hooks_password_reset": {
+        "recovery_email_sent": "密码恢复邮件已成功发送",
+        "recovery_email_failed": "发送密码恢复邮件失败",
+        "password_updated": "密码更新成功",
+        "password_reset_failed": "重置密码失败"
+    },
+    "hooks_query_error": {
+        "forbidden": "无权限",
+        "validation_error": "验证错误",
+        "validation_error_subtitle": "字段 {{keys}} 的值 {{values}} 无效。团队已收到通知，我们将尽快修复。",
+        "unknown_validation_error": "未知验证错误",
+        "chart_error": "图表「{{chartName}}」：出错了"
+    },
+    "hooks_explorer_route": {
+        "parse_url_error": "解析 URL 出错",
+        "parse_url_error_subtitle": "URL 无效或不完整。{{errorMessage}}"
+    },
+    "hooks_user_warehouse_credentials": {
+        "create_success": "成功！仓库连接已创建",
+        "update_success": "成功！仓库连接已更新",
+        "delete_success": "成功！仓库连接已删除",
+        "create_error": "创建仓库连接失败",
+        "update_error": "更新仓库连接失败",
+        "delete_error": "删除仓库连接失败",
+        "preference_save_success": "凭证偏好已保存",
+        "preference_save_error": "保存凭证偏好失败"
+    },
+    "hooks_open_identity": {
+        "delete_success": "已删除！社交登录已删除",
+        "delete_error": "删除社交登录失败"
+    },
+    "hooks_slack": {
+        "delete_success": "已删除！Slack 集成已删除",
+        "delete_error": "删除 Slack 集成失败",
+        "update_success": "成功！Slack 应用设置已更新",
+        "update_error": "更新 Slack 应用设置失败"
+    },
+    "hooks_gdrive": {
+        "auth_failed": "身份验证失败",
+        "try_again": "请重试"
+    },
+    "hooks_snowflake": {
+        "auth_failed": "身份验证失败",
+        "try_again": "请重试"
+    },
+    "hooks_validation": {
+        "completed": "验证已完成",
+        "unable_update": "无法更新验证",
+        "update_error": "更新验证失败",
+        "dismissed": "验证已忽略",
+        "dismiss_error": "忽略验证失败",
+        "unable_get": "无法获取验证",
+        "get_error": "获取验证失败"
+    },
+    "hooks_github_integration": {
+        "get_error": "获取 GitHub 集成失败",
+        "delete_success": "GitHub 集成已删除",
+        "delete_success_subtitle": "您已成功删除 GitHub 集成。",
+        "delete_error": "删除 GitHub 集成失败"
+    },
     "hooks_dashboards": {
         "success": "成功！看板已更新。",
         "error": "更新看板失败"
@@ -169,6 +229,61 @@
         "update_error": "更新组失败",
         "delete_success": "成功！组 '{{name}}' 已删除。",
         "delete_error": "删除组失败"
+    },
+    "hooks_invite_link": {
+        "create_error": "创建邀请链接失败",
+        "create_success": "已创建新邀请链接"
+    },
+    "hooks_organization_update": {
+        "success": "成功！组织已更新",
+        "error": "更新组织失败"
+    },
+    "hooks_allowed_domains": {
+        "update_success": "成功！允许的邮箱域名已更新",
+        "update_error": "更新允许的邮箱域名失败"
+    },
+    "hooks_org_warehouse_credentials": {
+        "create_success": "仓库凭证已创建",
+        "create_error": "创建仓库凭证失败",
+        "update_success": "仓库凭证已更新",
+        "update_error": "更新仓库凭证失败",
+        "delete_success": "仓库凭证已删除",
+        "delete_error": "删除仓库凭证失败"
+    },
+    "hooks_organization_delete": {
+        "error": "删除组织失败"
+    },
+    "hooks_organization_roles": {
+        "update_success": "成功！用户角色已更新",
+        "update_error": "更新用户角色失败"
+    },
+    "hooks_project_roles": {
+        "update_success": "成功！用户项目角色已更新",
+        "update_error": "更新用户项目角色失败",
+        "delete_success": "成功！用户项目角色已删除",
+        "delete_error": "删除用户项目角色失败"
+    },
+    "hooks_project_group_roles": {
+        "update_success": "成功！组项目角色已更新",
+        "update_error": "更新组项目角色失败",
+        "delete_success": "成功！组项目角色已删除",
+        "delete_error": "删除组项目角色失败"
+    },
+    "hooks_user_attributes": {
+        "create_success": "成功！用户属性已创建",
+        "create_error": "创建用户属性失败",
+        "update_success": "成功！用户属性已更新",
+        "update_error": "更新用户属性失败",
+        "delete_success": "成功！用户属性已删除",
+        "delete_error": "删除用户属性失败"
+    },
+    "hooks_projects": {
+        "delete_success": "已删除！项目已删除",
+        "delete_error": "删除项目失败"
+    },
+    "hooks_project_tables_configuration": {
+        "save_success": "项目配置已保存",
+        "save_error": "保存表配置失败"
     },
     "hooks_project": {
         "update_error": "更新项目失败",
@@ -291,6 +406,10 @@
         "title": "登录",
         "user_no_auth_tip": "身份验证失败",
         "user_no_login_tip": "登录失败",
+        "login_expired": {
+            "title": "登录已过期",
+            "subtitle": "请重新登录以继续。"
+        },
         "form": {
             "email": {
                 "label": "邮箱",
@@ -308,12 +427,6 @@
                 "or": "或者",
                 "no_account": "没有账户?"
             }
-        }
-    },
-    "features_table_calculation_sql_form": {
-        "alert": {
-            "part_1": "需要灵感?",
-            "part_2": "查看我们的模板！"
         }
     },
     "features_table_calculation_modal": {
@@ -529,8 +642,7 @@
         },
         "no_results_tables": {
             "title": "此项目中找不到任何表",
-            "description": "表是任何数据探索的起点。它们来自在 dbt 项目的 .yml 文件中定义的 dbt 模型。",
-            "learn_more": "了解更多"
+            "description": "表是任何数据探索的起点。它们来自在 dbt 项目的 .yml 文件中定义的 dbt 模型。"
         },
         "no_results_search": {
             "title": "没有搜索结果",
@@ -1324,8 +1436,7 @@
                 "part_4": "中探索和整理您的关键指标，并点击可视化它们的时间变化",
                 "part_5": "在探索器中"
             },
-            "view_demo": "查看演示",
-            "learn_more": "了解更多"
+            "view_demo": "查看演示"
         },
         "catalog": {
             "title": "指标目录",
@@ -1367,8 +1478,6 @@
             "no_metics_available": {
                 "no_metrics": "此项目中未定义任何指标",
                 "content": {
-                    "part_1": "要了解如何定义指标，请查看我们的",
-                    "part_2": "文档",
                     "part_3": "未找到结果"
                 }
             },
@@ -1479,8 +1588,7 @@
             },
             "select": "选择一个指标",
             "content": {
-                "part_1": "只有在 .yml 文件中定义了时间维度的指标才能进行比较。",
-                "part_2": "了解更多"
+                "part_1": "只有在 .yml 文件中定义了时间维度的指标才能进行比较。"
             }
         },
         "metric_peek_date_picker": {
@@ -2007,10 +2115,7 @@
         "private": {
             "part_1": "找不到用户? 只能与",
             "part_2": "现有的项目成员",
-            "part_3": "共享空间。",
-            "part_4": "在我们的",
-            "part_5": " 文档 ",
-            "part_6": "中了解更多关于权限的信息。"
+            "part_3": "共享空间。"
         },
         "nested_space": {
             "part_1": "继承自其父空间"
@@ -2172,7 +2277,16 @@
         "clear_all": "清除所有",
         "group_form": {
             "tip": "下列 {{conditionLabel}} 条件匹配:",
-            "add_group_rule": "添加分组规则"
+            "add_group_rule": "添加分组规则",
+            "operator_options": {
+                "all": "全部",
+                "any": "任一"
+            },
+            "condition_label": {
+                "dimension": "维度",
+                "metric": "指标",
+                "table_calculation": "表计算"
+            }
         },
         "rule_form": {
             "required_field": "此筛选器是必填筛选器。\n 它不能被删除,但可以更改值。",
@@ -3228,10 +3342,19 @@
         "organization": "组织",
         "organization_role": "组织角色",
         "project_role": "项目角色",
-        "user_inherits_this_role_from": "用户继承此角色来自",
+        "user_inherits_this_role_from": "用户从{{source}}继承此角色",
         "member": "成员",
         "remove_project_access": "撤销项目访问权限",
-        "cannot_revoke_inherited_access_from_organization": "无法撤销从组织继承的访问权限"
+        "cannot_revoke_inherited_access_from_organization": "无法撤销从组织继承的访问权限",
+        "access_warning": {
+            "inherit_from_group": "用户从组 <bold>{{groupName}}</bold> 继承角色 <bold>{{roleName}}</bold>。",
+            "inherit_higher_from_org": "用户从组织继承了更高角色 <bold>{{role}}</bold>。",
+            "custom_group_belongs": "该用户属于组 <bold>{{groupName}}</bold>",
+            "custom_group_has_role": "该组已分配自定义角色 <bold>{{roleName}}</bold>。",
+            "custom_group_override": "请确认组织或项目角色不会覆盖组角色权限。",
+            "custom_project_has_org": "该用户同时拥有自定义角色和组织角色 <bold>{{role}}</bold>。",
+            "custom_project_override": "请确认组织或组角色不会覆盖项目角色权限。"
+        }
     },
     "components_project_tables_configuration": {
         "table_selection": "表格选择",
@@ -3473,31 +3596,6 @@
         "no_notifications_tip": "没有通知",
         "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误",
         "validation_errors": "验证错误"
-    },
-    "components_navbar_help_menu": {
-        "menus": {
-            "contact_support": {
-                "title": "联系支持人员",
-                "description": "给我们留言，我们会尽快回复您！"
-            },
-            "view_docs": {
-                "title": "查看文档",
-                "description": "了解如何部署、使用和贡献 马上赢X。"
-            },
-            "join": {
-                "title": "加入 Slack 社区",
-                "description": "获取建议并与其他用户分享最佳实践。"
-            },
-            "feedback": {
-                "title": "马上赢X 的反馈",
-                "description": "提交功能请求或错误报告以改进 马上赢X。"
-            },
-            "share_with_support": {
-                "title": "与 马上赢X 支持团队分享",
-                "report_issue": "向 马上赢X 支持团队报告问题",
-                "description": "与 马上赢X 支持团队分享详细的问题报告"
-            }
-        }
     },
     "components_navbar_headway_menu": {
         "tooltip": {
@@ -3791,6 +3889,7 @@
         }
     },
     "components_common_modal_dashboard_export": {
+        "alert_title": "已启用日期缩放",
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
@@ -4665,9 +4764,7 @@
             "title": "无凭据",
             "description": "您还没有创建任何个人仓库连接!",
             "add_new_credentials": "添加新凭据",
-            "personal_connections_callout": "这些凭据仅用于需要用户凭据的项目 -",
-            "learn_more": "了解更多",
-            "dot": "。"
+            "personal_connections_callout": "这些凭据仅用于需要用户凭据的项目。"
         },
         "warehouse_form": {
             "username": "用户名/电子邮件",
@@ -4880,7 +4977,8 @@
         "advanced_configuration_options": "高级配置选项"
     },
     "components_version_auto_updater": {
-        "title": "马上赢X 的新版本已经准备好了!"
+        "title": "马上赢X 的新版本已经准备好了!",
+        "use_new_version": "使用新版本"
     },
     "components_visualization_configs_common": {
         "remove": "删除",
@@ -4947,6 +5045,7 @@
             "truncate_label": "截断x轴",
             "sort": "排序",
             "rotation": "旋转",
+            "axis_line_at_bottom": "轴线置底",
             "bar_max_width_section": "柱体最大宽度",
             "bar_max_width": "桌面端",
             "bar_max_width_hint": "留空则不限制柱宽",
@@ -5029,6 +5128,7 @@
                 "top": "顶部"
             },
             "grouped": "分组",
+            "grouped_suffix": "(分组)",
             "axis": "轴",
             "value_labels": "值标签",
             "total": "总计",
@@ -5358,27 +5458,17 @@
             "add": "添加"
         },
         "tooltip_metrics": {
-            "title": "指标",
-            "label": {
-                "part_1": "您的 dbt 项目中未定义指标。",
-                "part_2": "点击",
-                "part_3": "查看文档",
-                "part_4": " 了解如何向您的项目添加指标。"
-            }
+            "title": "指标"
         },
         "tooltip_custom_metrics": {
             "title": "自定义指标",
             "label": {
-                "part_1": "将鼠标悬停在您选择的维度上并选择三点操作菜单来添加自定义指标。",
-                "part_2": "点击查看文档。",
                 "part_3": "写回自定义指标"
             }
         },
         "tooltip_custom_dimensions": {
             "title": "自定义维度",
             "label": {
-                "part_1": "将鼠标悬停在您选择的尺寸上并选择三点操作菜单来添加自定义维度。",
-                "part_2": "点击查看文档。",
                 "part_3": "写回自定义维度"
             }
         }
@@ -5754,8 +5844,7 @@
         },
         "explore_error_state": {
             "title": "加载结果时出错",
-            "description": "加载结果时出错",
-            "detail": "了解如何解决此问题，请参阅我们的文档 →"
+            "description": "加载结果时出错"
         },
         "missing_required_parameters": {
             "title": "缺失必填参数",
@@ -5990,6 +6079,7 @@
             "part_7": "。"
         },
         "views": "次查看",
+        "views_since_description": "自 {{date}} 起共 {{count}} 次查看",
         "error_tips": {
             "no_column": "ID 对应的列不存在!",
             "no_sorting": "列没有排序功能!"
@@ -6124,12 +6214,18 @@
     "components_common_resource_view_content_type": {
         "all": "全部",
         "dashboards": "看板",
-        "charts": "图表"
+        "charts": "图表",
+        "spaces": "空间"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "只有你可见",
         "project_access": "此项目中的所有人都有访问权限",
-        "shared_with": "与 {{length}} 位用户共享"
+        "shared_with": "与 {{length}} 位用户共享",
+        "status": {
+            "private": "私有",
+            "public": "公开",
+            "shared": "已共享"
+        }
     },
     "component_saved_dashboards_files_add": {
         "title": "将图表添加到看板",
@@ -6282,7 +6378,19 @@
         "sort": "排序方式",
         "sort_by": "排序方式",
         "then_by": "然后通过",
-        "add_sort_field": "添加排序字段"
+        "add_sort_field": "添加排序字段",
+        "nulls": "空值",
+        "nulls_options": {
+            "default": "默认",
+            "first": "最前",
+            "last": "最后"
+        },
+        "sort_labels": {
+            "old_new": "旧-新",
+            "new_old": "新-旧",
+            "false_true": "假-真",
+            "true_false": "真-假"
+        }
     },
     "components_export_csv": {
         "toast_info": {
@@ -6630,9 +6738,7 @@
             "selector": "dbt 筛选器",
             "invalid": "dbt 筛选器无效",
             "content": {
-                "part_1": "添加 dbt 筛选器以过滤掉您的 dbt 项目中的模型。您可以在",
-                "part_2": "我们的文档",
-                "part_3": "中了解更多信息。"
+                "part_1": "添加 dbt 筛选器以过滤掉您的 dbt 项目中的模型。"
             }
         },
         "environment_variables": "环境变量",
@@ -6831,8 +6937,7 @@
             "switch": {
                 "label": "在应用程序中隐藏刷新 dbt 按钮",
                 "description": {
-                    "part_1": "这将隐藏浏览页面上的刷新 dbt 按钮。阅读更多关于",
-                    "part_2": "刷新 dbt 的选择"
+                    "part_1": "这将隐藏浏览页面上的刷新 dbt 按钮。"
                 }
             }
         },
@@ -7037,12 +7142,8 @@
             "content": {
                 "part_1": "我们目前只支持具有",
                 "part_2": "已验证的 dbt 适配器",
-                "part_3": "的仓库",
-                "part_4": "您可以在我们的",
-                "part_5": "GitHub 问题",
-                "part_6": "中投票您的仓库,或者如果您在那里找不到,可以创建一个新问题。"
-            },
-            "try_our_demo_project": "尝试我们的演示项目"
+                "part_3": "的仓库"
+            }
         }
     },
     "components_project_connection_warehouse_form": {
@@ -7596,11 +7697,6 @@
         "model": "模型",
         "view_configuration": "查看配置",
         "failed_to_load_parameters": "加载参数失败",
-        "tip": {
-            "part_1": "了解更多关于参数的信息",
-            "part_2": "文档",
-            "part_3": "."
-        },
         "parameters": {
             "title": "参数",
             "content": {
@@ -7773,8 +7869,7 @@
         }
     },
     "components_lightdash_visualization": {
-        "unable_to_load_visualization": "无法加载图表",
-        "learn_how_to_resolve_this_in_our_documentation": "学习如何解决此问题 →"
+        "unable_to_load_visualization": "无法加载图表"
     },
     "components_run_query_settings": {
         "auto_fetch_results": "自动获取结果",
@@ -7865,14 +7960,7 @@
             "title": "此邀请链接已过期 🙈"
         },
         "is_link_email": {
-            "title": "注册",
-            "content": {
-                "part_1": "通过创建账户,您同意",
-                "part_2": "我们的",
-                "part_3": "隐私政策",
-                "part_4": "和我们的",
-                "part_5": "服务条款。"
-            }
+            "title": "注册"
         }
     },
     "pages_join_organization": {
@@ -7987,14 +8075,7 @@
         "toast_authenticate_error": "认证失败",
         "toast_user_error": "创建用户失败",
         "or": "或",
-        "sign_up": "注册",
-        "tip": {
-            "part_1": "通过创建帐户, 您同意我们的",
-            "part_2": "",
-            "part_3": "隐私政策",
-            "part_4": "和我们的",
-            "part_5": "服务条款。"
-        }
+        "sign_up": "注册"
     },
     "pages_saved_dashboards": {
         "dashboards": "看板",
@@ -8350,6 +8431,8 @@
         "can_export_images": "可以导出图像",
         "can_export_page_pdf": "可以导出页面到 PDF",
         "can_date_zoom": "可以日期缩放",
+        "can_explore": "可以探索图表",
+        "can_view_underlying_data": "可以查看底层数据",
         "generate_and_copy_url": "生成并复制 URL",
         "code_snippet": "代码片段",
         "copy_to_clipboard_description": "将此代码片段复制到您的应用程序中以生成嵌入 URL。"
@@ -8371,8 +8454,6 @@
         "embed_secret": "嵌入密钥",
         "embed_secret_description": "密钥用于生成嵌入令牌以嵌入看板。",
         "secret": "密钥",
-        "embed_secret_read_more": "阅读更多关于使用嵌入密钥的文档指南",
-        "embed_secret_docs_guide": "文档指南",
         "generate_new_secret": "生成新密钥",
         "allowed_dashboards": "允许的看板",
         "allowed_dashboards_description": "只有这些看板会被允许嵌入。",
@@ -8406,7 +8487,6 @@
         "generate_new_token": "生成新令牌",
         "scim_url": "SCIM URL",
         "connect_your_identity_provider_to_lightdash_via_scim": "通过 SCIM 将您的身份提供商连接到 Lightdash。",
-        "learn_more": "了解更多",
         "has_available_tokens": "您还没有生成任何令牌。"
     },
     "ai_scim_access_tokens_panel_tokens_table": {
@@ -8488,7 +8568,6 @@
             "part_3": "用自然语言提问并从您的数据中获取见解。"
         },
         "new_agent": "新代理",
-        "learn_more": "了解更多",
         "no_agents_found": "没有找到代理。开始添加代理。"
     },
     "ai_agents_thread_page": {
@@ -8527,18 +8606,14 @@
         "guidelines": {
             "title": "指南",
             "content": {
-                "part_1": "在编写指令时，请考虑以下指南以帮助代理有效地执行其任务。",
-                "part_2": "访问我们的",
-                "part_3": "文档",
-                "part_4": "以了解更多关于指令和如何工作的信息。"
+                "part_1": "在编写指令时，请考虑以下指南以帮助代理有效地执行其任务。"
             }
         },
         "enable_data_access": {
             "label": "启用数据访问",
             "tooltip": "启用后，AI 代理可以分析图表数据并提供见解。禁用后，代理只能创建可视化，而不能访问底层数据。",
             "description": {
-                "part_1": "允许代理访问和分析图表背后的实际数据，以提供详细见解和回答关于数据的问题。",
-                "part_2": "了解更多"
+                "part_1": "允许代理访问和分析图表背后的实际数据，以提供详细见解和回答关于数据的问题。"
             }
         },
         "enable_self_improvement": {
@@ -8546,8 +8621,7 @@
             "tooltip": "启用后，AI 代理可以通过更新字段描述、创建新指标和基于用户交互细化维度来改进您的语义层。",
             "beta": "Beta",
             "description": {
-                "part_1": "允许代理通过更新描述、创建指标和维度基于对话来改进项目。更改在变更集中跟踪以供审查。",
-                "part_2": "了解更多"
+                "part_1": "允许代理通过更新描述、创建指标和维度基于对话来改进项目。更改在变更集中跟踪以供审查。"
             }
         },
         "access_control": {
@@ -8566,8 +8640,7 @@
         "tags": {
             "label": "标签",
             "dropdown": {
-                "part_1": "添加标签以控制 AI 代理可以访问的指标和维度。更多信息请参阅我们的",
-                "part_2": "docs文档"
+                "part_1": "添加标签以控制 AI 代理可以访问的指标和维度。"
             },
             "placeholder": "选择标签",
             "description": {
@@ -8891,5 +8964,44 @@
         "lins": {
             "mobile": "电话联系"
         }
+    },
+    "features_virtual_view": {
+        "create_success": "成功！虚拟视图已创建",
+        "create_error": "创建虚拟视图失败",
+        "query_action": "从新虚拟视图查询",
+        "update_success": "成功！虚拟视图已更新",
+        "update_error": "更新虚拟视图失败",
+        "delete_success": "成功！虚拟视图已删除",
+        "delete_error": "删除虚拟视图失败"
+    },
+    "features_sql_runner_github_write_back": {
+        "pr_error": "创建 Pull Request 失败"
+    },
+    "features_sql_runner_github_write_preview": {
+        "error": "获取 GitHub 预览失败",
+        "check_settings": "请检查您的 GitHub 设置。"
+    },
+    "features_metrics_catalog_category_form": {
+        "add_error": "添加类目出错",
+        "add_error_subtitle": "无法将类目添加到指标。",
+        "remove_error": "移除类目出错",
+        "remove_error_subtitle": "无法从指标中移除类目。"
+    },
+    "features_metrics_catalog_spotlight": {
+        "save_success": "已为项目中所有人保存 Spotlight 表配置",
+        "save_error": "保存 Spotlight 表配置出错"
+    },
+    "ee_custom_roles": {
+        "create_success": "自定义角色已创建",
+        "create_error": "创建自定义角色失败",
+        "delete_success": "自定义角色已删除",
+        "delete_error": "删除自定义角色失败",
+        "duplicate_success": "自定义角色已复制",
+        "duplicate_error": "复制自定义角色失败",
+        "update_success": "自定义角色已更新",
+        "update_error": "更新自定义角色失败"
+    },
+    "ee_embed": {
+        "code_copied": "代码片段已复制到剪贴板！"
     }
 }

@@ -9,6 +9,7 @@ import {
     useQuery,
     type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 import useQueryError from '../../../hooks/useQueryError';
@@ -33,6 +34,7 @@ export const useFetchLoginOptions = ({
 }) => {
     const setErrorResponse = useQueryError();
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
 
     return useQuery<LoginOptions, ApiError>({
         queryKey: ['loginOptions', email],
@@ -45,8 +47,8 @@ export const useFetchLoginOptions = ({
                 window.location.pathname === '/login'
             ) {
                 showToastError({
-                    title: 'Your login has expired',
-                    subtitle: 'Please log in again to continue.',
+                    title: t('features_users.login_expired.title'),
+                    subtitle: t('features_users.login_expired.subtitle'),
                 });
             }
         },

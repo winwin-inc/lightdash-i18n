@@ -203,12 +203,7 @@ const SlackSettingsPanel: FC = () => {
                     <Text color="dimmed" fz="xs">
                         {t(
                             'components_user_settings_slack_settings_panel.content.part_1',
-                        )}{' '}
-                        <Anchor href="https://docs.lightdash.com/references/slack-integration">
-                            {t(
-                                'components_user_settings_slack_settings_panel.content.part_2',
-                            )}
-                        </Anchor>
+                        )}
                     </Text>
                 </Stack>
 
