@@ -3311,10 +3311,19 @@
         "organization": "Organization",
         "organization_role": "Organization role",
         "project_role": "Project role",
-        "user_inherits_this_role_from": "User inherits this role from",
+        "user_inherits_this_role_from": "User inherits this role from {{source}}",
         "member": "member",
         "remove_project_access": "Remove project access",
-        "cannot_revoke_inherited_access_from_organization": "Cannot revoke inherited access from Organization"
+        "cannot_revoke_inherited_access_from_organization": "Cannot revoke inherited access from Organization",
+        "access_warning": {
+            "inherit_from_group": "User inherits role <bold>{{roleName}}</bold> from group <bold>{{groupName}}</bold>.",
+            "inherit_higher_from_org": "User inherits higher role <bold>{{role}}</bold> from organization.",
+            "custom_group_belongs": "This user belongs to a group <bold>{{groupName}}</bold>",
+            "custom_group_has_role": "which has a custom role <bold>{{roleName}}</bold> assigned.",
+            "custom_group_override": "Make sure the organization or project role doesn't override the group role permissions.",
+            "custom_project_has_org": "This user has a custom role and an organization role <bold>{{role}}</bold> assigned.",
+            "custom_project_override": "Make sure the organization or group role doesn't override the project role permissions."
+        }
     },
     "components_project_tables_configuration": {
         "table_selection": "Table Selection",
@@ -6179,12 +6188,18 @@
     "components_common_resource_view_content_type": {
         "all": "All",
         "dashboards": "Dashboards",
-        "charts": "Charts"
+        "charts": "Charts",
+        "spaces": "Spaces"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "Only visible to you",
         "project_access": "Everyone in this project has access",
-        "shared_with": "Shared with {{length}} user{{suffix}}"
+        "shared_with": "Shared with {{length}} user{{suffix}}",
+        "status": {
+            "private": "Private",
+            "public": "Public",
+            "shared": "Shared"
+        }
     },
     "component_saved_dashboards_files_add": {
         "title": "Add chart to dashboard",
@@ -8390,6 +8405,8 @@
         "can_export_images": "Can export Images",
         "can_export_page_pdf": "Can export page to PDF",
         "can_date_zoom": "Can date zoom",
+        "can_explore": "Can explore charts",
+        "can_view_underlying_data": "Can view underlying data",
         "generate_and_copy_url": "Generate & copy URL",
         "code_snippet": "Code snippet",
         "copy_to_clipboard_description": "Copy and paste this code snippet into your application to generate embed urls."

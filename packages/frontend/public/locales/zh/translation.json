@@ -3322,10 +3322,19 @@
         "organization": "组织",
         "organization_role": "组织角色",
         "project_role": "项目角色",
-        "user_inherits_this_role_from": "用户继承此角色来自",
+        "user_inherits_this_role_from": "用户从{{source}}继承此角色",
         "member": "成员",
         "remove_project_access": "撤销项目访问权限",
-        "cannot_revoke_inherited_access_from_organization": "无法撤销从组织继承的访问权限"
+        "cannot_revoke_inherited_access_from_organization": "无法撤销从组织继承的访问权限",
+        "access_warning": {
+            "inherit_from_group": "用户从组 <bold>{{groupName}}</bold> 继承角色 <bold>{{roleName}}</bold>。",
+            "inherit_higher_from_org": "用户从组织继承了更高角色 <bold>{{role}}</bold>。",
+            "custom_group_belongs": "该用户属于组 <bold>{{groupName}}</bold>",
+            "custom_group_has_role": "该组已分配自定义角色 <bold>{{roleName}}</bold>。",
+            "custom_group_override": "请确认组织或项目角色不会覆盖组角色权限。",
+            "custom_project_has_org": "该用户同时拥有自定义角色和组织角色 <bold>{{role}}</bold>。",
+            "custom_project_override": "请确认组织或组角色不会覆盖项目角色权限。"
+        }
     },
     "components_project_tables_configuration": {
         "table_selection": "表格选择",
@@ -6185,12 +6194,18 @@
     "components_common_resource_view_content_type": {
         "all": "全部",
         "dashboards": "看板",
-        "charts": "图表"
+        "charts": "图表",
+        "spaces": "空间"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "只有你可见",
         "project_access": "此项目中的所有人都有访问权限",
-        "shared_with": "与 {{length}} 位用户共享"
+        "shared_with": "与 {{length}} 位用户共享",
+        "status": {
+            "private": "私有",
+            "public": "公开",
+            "shared": "已共享"
+        }
     },
     "component_saved_dashboards_files_add": {
         "title": "将图表添加到看板",
@@ -8396,6 +8411,8 @@
         "can_export_images": "可以导出图像",
         "can_export_page_pdf": "可以导出页面到 PDF",
         "can_date_zoom": "可以日期缩放",
+        "can_explore": "可以探索图表",
+        "can_view_underlying_data": "可以查看底层数据",
         "generate_and_copy_url": "生成并复制 URL",
         "code_snippet": "代码片段",
         "copy_to_clipboard_description": "将此代码片段复制到您的应用程序中以生成嵌入 URL。"

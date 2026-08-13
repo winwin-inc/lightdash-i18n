@@ -7,6 +7,7 @@ import {
     type ResourceViewItem,
 } from '@lightdash/common';
 import dayjs from 'dayjs';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export const useResourceTypeName = () => {
@@ -133,6 +134,54 @@ export const getResourceName = (type: ResourceViewItemType) => {
         default:
             return assertUnreachable(type, 'Resource type not supported');
     }
+};
+
+export const useResourceGroupTitle = () => {
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
+
+    return useCallback(
+        (types: ResourceViewItemType[]) => {
+            const names = types.map((type) => {
+                switch (type) {
+                    case ResourceViewItemType.DASHBOARD:
+                        return t(
+                            'components_common_resource_view_content_type.dashboards',
+                        );
+                    case ResourceViewItemType.CHART:
+                        return t(
+                            'components_common_resource_view_content_type.charts',
+                        );
+                    case ResourceViewItemType.SPACE:
+                        return t(
+                            'components_common_resource_view_content_type.spaces',
+                        );
+                    default:
+                        return assertUnreachable(
+                            type,
+                            'Resource type not supported',
+                        );
+                }
+            });
+
+            if (names.length <= 1) {
+                return names[0] ?? '';
+            }
+
+            if (isZh) {
+                return names.join('、');
+            }
+
+            if (names.length === 2) {
+                return `${names[0]} & ${names[1]}`;
+            }
+
+            return `${names.slice(0, -1).join(', ')} & ${
+                names[names.length - 1]
+            }`;
+        },
+        [t, isZh],
+    );
 };
 
 export const formatLocalizedDateTime = (
