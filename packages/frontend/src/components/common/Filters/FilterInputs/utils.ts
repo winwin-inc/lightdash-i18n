@@ -10,16 +10,20 @@ import {
     getLocalTimeDisplay,
     isCustomSqlDimension,
     isDashboardFilterRule,
+    isDateRangeDynamic,
     isDimension,
     isField,
     isFilterableItem,
     isFilterRule,
     isMomentInput,
     TimeFrames,
+    UnitOfTime,
     type BaseFilterRule,
     type ConditionalRuleLabel,
     type CustomSqlDimension,
     type DashboardFilterableField,
+    type DateRangeBoundSetting,
+    type DateRangeDirection,
     type Field,
     type FilterableItem,
     type TableCalculation,
@@ -150,9 +154,54 @@ const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
     return TimeFrames.DAY;
 };
 
+// Units that can be referenced via `date_range.dynamic.unit.<key>` i18n keys.
+const DYNAMIC_UNIT_KEYS: Record<UnitOfTime, string> = {
+    [UnitOfTime.milliseconds]: 'milliseconds',
+    [UnitOfTime.seconds]: 'seconds',
+    [UnitOfTime.minutes]: 'minutes',
+    [UnitOfTime.hours]: 'hours',
+    [UnitOfTime.days]: 'days',
+    [UnitOfTime.weeks]: 'weeks',
+    [UnitOfTime.months]: 'months',
+    [UnitOfTime.quarters]: 'quarters',
+    [UnitOfTime.years]: 'years',
+};
+
+const formatDynamicBound = (
+    t: ReturnType<typeof useTranslation>['t'],
+    getUnitLabel: (
+        unit: UnitOfTime,
+        isPlural: boolean,
+        isCompleted: boolean,
+    ) => string,
+    bound: DateRangeBoundSetting | undefined,
+): string => {
+    if (!bound || bound.count == null || !bound.unit) return '';
+    const direction: DateRangeDirection = bound.direction ?? 'ago';
+    const count = bound.count;
+    const unit = bound.unit;
+    const unitKey = DYNAMIC_UNIT_KEYS[unit as UnitOfTime] ?? String(unit);
+    const directionLabel = t(
+        `components_common_filters_inputs.date_range.dynamic.direction.${direction}`,
+    );
+    const unitLabel = getUnitLabel(unit, count > 1, false);
+    return t(
+        'components_common_filters_inputs.date_range.dynamic.bound_summary',
+        {
+            direction: directionLabel,
+            count,
+            unit:
+                unitLabel ||
+                t(
+                    `components_common_filters_inputs.date_range.dynamic.unit.${unitKey}`,
+                ),
+        },
+    );
+};
+
 const useValueAsString = () => {
     const { t } = useTranslation();
-    const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
+    const { formatRelativeTimeDisplay, getUnitLabel } = useUnitOfTimeLabels();
 
     return (
         filterType: FilterType,
@@ -193,7 +242,35 @@ const useValueAsString = () => {
                             rule.settings?.unitOfTime ?? ''
                         }`.trim();
                     }
-                    case FilterOperator.IN_BETWEEN:
+                    case FilterOperator.IN_BETWEEN: {
+                        // Dynamic date range: show the configured offsets
+                        // (e.g. "前 12 个月 至 前 1 月") instead of literal dates.
+                        if (isFilterRule(rule) && isDateRangeDynamic(rule)) {
+                            const settings = rule.settings as
+                                | {
+                                      dateRange?: {
+                                          start?: DateRangeBoundSetting;
+                                          end?: DateRangeBoundSetting;
+                                      };
+                                  }
+                                | undefined;
+                            const startText = formatDynamicBound(
+                                t,
+                                getUnitLabel,
+                                settings?.dateRange?.start,
+                            );
+                            const endText = formatDynamicBound(
+                                t,
+                                getUnitLabel,
+                                settings?.dateRange?.end,
+                            );
+                            if (startText && endText) {
+                                return t(
+                                    'components_common_filters_inputs.date_range.dynamic.range_summary',
+                                    { start: startText, end: endText },
+                                );
+                            }
+                        }
                         if (
                             isDimension(field) &&
                             isMomentInput(firstValue) &&
@@ -223,6 +300,7 @@ const useValueAsString = () => {
                                 secondValue as MomentInput,
                             )}`;
                         }
+                    }
                     case FilterOperator.FROM_START_TO_LATEST_MONTH: {
                         const startDisplay =
                             isDimension(field) &&

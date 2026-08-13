@@ -1,6 +1,7 @@
 import {
     FilterOperator,
     assertUnreachable,
+    isDateRangeDynamic,
     type DashboardFilterRule,
 } from '@lightdash/common';
 import { produce } from 'immer';
@@ -114,6 +115,16 @@ export const hasFilterValueSet = (filterRule: DashboardFilterRule) => {
             return filterRule.settings && filterRule.settings.unitOfTime;
         case FilterOperator.IN_BETWEEN:
         case FilterOperator.NOT_IN_BETWEEN:
+            // Dynamic mode: the bounds are resolved at query time, so we
+            // only need to check that both start and end are configured.
+            if (isDateRangeDynamic(filterRule)) {
+                const dr = (
+                    filterRule.settings as {
+                        dateRange?: { start?: unknown; end?: unknown };
+                    }
+                )?.dateRange;
+                return !!dr?.start && !!dr?.end;
+            }
             return (
                 filterRule.values &&
                 filterRule.values.length === 2 &&
