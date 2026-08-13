@@ -36,10 +36,6 @@ TypeScript monorepo（pnpm workspaces）：
 -   生产上线：更新次要版本号（如 `v0.2109`）
 -   变更记录：[CHANGELOG.md](CHANGELOG.md)
 
-打 tag 后由 GitHub Actions 构建主站镜像并推送阿里云：
-
-`registry.cn-hangzhou.aliyuncs.com/winwin/lightdash`
-
 MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不会打主站镜像。
 
 ## 分支管理
@@ -52,6 +48,5 @@ MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不�
 
 ## 相关文档
 
--   [关闭官方遥测](docs/self-hosted-disable-official-telemetry.md)
 -   [Lightdash MCP](docs/lightdash-mcp.md)
 -   [本地前端调试线上环境](docs/local-frontend-debug-production.md)
