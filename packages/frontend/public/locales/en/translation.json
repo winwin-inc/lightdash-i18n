@@ -2275,7 +2275,27 @@
             "to_latest_month": "to latest month"
         },
         "date_range": {
-            "and": "and"
+            "and": "and",
+            "dynamic": {
+                "custom_label": "Dynamic Date",
+                "fixed_label": "Fixed Date",
+                "start_label": "Start time",
+                "end_label": "End time",
+                "mode_label": "Dynamic",
+                "direction": {
+                    "ago": "ago",
+                    "later": "later"
+                },
+                "unit": {
+                    "days": "days",
+                    "weeks": "weeks",
+                    "months": "months",
+                    "quarters": "quarters",
+                    "years": "years"
+                },
+                "bound_summary": "{{direction}} {{count}} {{unit}}",
+                "range_summary": "{{start}} to {{end}}"
+            }
         },
         "to_latest_month_hint": "Start month",
         "to_latest_month_chip": "≥ {{start}}",

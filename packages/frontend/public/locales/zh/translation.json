@@ -2272,7 +2272,27 @@
             "to_latest_month": "至最新月"
         },
         "date_range": {
-            "and": "至"
+            "and": "至",
+            "dynamic": {
+                "custom_label": "动态日期",
+                "fixed_label": "固定日期",
+                "start_label": "开始时间",
+                "end_label": "结束时间",
+                "mode_label": "动态",
+                "direction": {
+                    "ago": "前",
+                    "later": "后"
+                },
+                "unit": {
+                    "days": "天",
+                    "weeks": "周",
+                    "months": "月",
+                    "quarters": "季度",
+                    "years": "年"
+                },
+                "bound_summary": "{{direction}} {{count}} {{unit}}",
+                "range_summary": "{{start}} 至 {{end}}"
+            }
         },
         "to_latest_month_hint": "开始月",
         "to_latest_month_chip": "≥ {{start}}",

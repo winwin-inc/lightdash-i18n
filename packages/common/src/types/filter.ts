@@ -1,6 +1,10 @@
+import moment from 'moment';
+
+import assertUnreachable from '../utils/assertUnreachable';
+import { getDateFormat } from '../utils/formatting';
 import { type AnyType } from './any';
 import { type DimensionType } from './field';
-import { type TimeFrames } from './timeFrames';
+import { TimeFrames } from './timeFrames';
 
 export enum FilterType {
     STRING = 'string',
@@ -185,6 +189,47 @@ export type DashboardFilterRuleOverride = Omit<
 export type DateFilterSettings = {
     unitOfTime?: UnitOfTime;
     completed?: boolean;
+    /**
+     * Optional configuration for `IN_BETWEEN` / `NOT_IN_BETWEEN` rules that
+     * supports a dynamic (relative) start/end. When `dateRange.mode` is
+     * `'dynamic'`, the actual `values` are resolved at query time from
+     * `dateRange.start` and `dateRange.end` (direction + count + unit).
+     * When `mode` is `'fixed'` or undefined, the rule behaves as before and
+     * `values` holds the two literal dates.
+     */
+    dateRange?: DateRangeSetting;
+};
+
+/**
+ * Whether a date-range rule should be resolved from literal values
+ * (`fixed`) or computed relative to "now" (`dynamic`).
+ */
+export type DateRangeMode = 'fixed' | 'dynamic';
+
+/**
+ * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,
+ * `later` = `now + count unit`.
+ */
+export type DateRangeDirection = 'ago' | 'later';
+
+/**
+ * Settings for a single bound (start or end) of a dynamic date range.
+ */
+export type DateRangeBoundSetting = {
+    direction?: DateRangeDirection;
+    count?: number;
+    unit?: UnitOfTime;
+};
+
+/**
+ * Top-level setting attached to a date-range rule's `settings.dateRange`.
+ * `mode` controls whether `values` is used as-is or rewritten from
+ * `start` / `end`.
+ */
+export type DateRangeSetting = {
+    mode?: DateRangeMode;
+    start?: DateRangeBoundSetting;
+    end?: DateRangeBoundSetting;
 };
 
 export type DateFilterRule = FilterRule<
@@ -197,6 +242,112 @@ export type DateFilterRule = FilterRule<
 export const isDateFilterRule = (
     filter: FilterRule<FilterOperator, FieldTarget | unknown, AnyType, AnyType>,
 ): filter is DateFilterRule => 'unitOfTime' in (filter.settings || {});
+
+/**
+ * Whether a date-range rule should be rendered/resolved as dynamic. Treats
+ * rules without explicit settings as fixed (backwards compatible).
+ */
+export const isDateRangeDynamic = (
+    rule: Pick<FilterRule, 'settings'>,
+): boolean => {
+    const settings = rule.settings as
+        | { dateRange?: DateRangeSetting }
+        | undefined;
+    return settings?.dateRange?.mode === 'dynamic';
+};
+
+/**
+ * Resolve a single dynamic date-range bound to an absolute date relative to
+ * `now`. Returns `undefined` if the bound is missing or incomplete, which
+ * lets callers fall back to a fixed `values[i]` if they want.
+ *
+ * @param bound - The bound settings (direction/count/unit)
+ * @param now   - The reference "now" date (defaults to `new Date()`)
+ */
+export const resolveDateRangeBound = (
+    bound: DateRangeBoundSetting | undefined,
+    now: Date = new Date(),
+): Date | undefined => {
+    if (!bound || bound.count == null || !bound.unit) {
+        return undefined;
+    }
+    const count = Number(bound.count);
+    if (!Number.isFinite(count) || count === 0) {
+        return undefined;
+    }
+    const sign = bound.direction === 'later' ? 1 : -1;
+    const result = new Date(now.getTime());
+    switch (bound.unit) {
+        case UnitOfTime.milliseconds:
+            result.setMilliseconds(result.getMilliseconds() + sign * count);
+            break;
+        case UnitOfTime.seconds:
+            result.setSeconds(result.getSeconds() + sign * count);
+            break;
+        case UnitOfTime.minutes:
+            result.setMinutes(result.getMinutes() + sign * count);
+            break;
+        case UnitOfTime.hours:
+            result.setHours(result.getHours() + sign * count);
+            break;
+        case UnitOfTime.days:
+            result.setDate(result.getDate() + sign * count);
+            break;
+        case UnitOfTime.weeks:
+            result.setDate(result.getDate() + sign * count * 7);
+            break;
+        case UnitOfTime.months:
+            result.setMonth(result.getMonth() + sign * count);
+            break;
+        case UnitOfTime.quarters:
+            result.setMonth(result.getMonth() + sign * count * 3);
+            break;
+        case UnitOfTime.years:
+            result.setFullYear(result.getFullYear() + sign * count);
+            break;
+        default:
+            return assertUnreachable(
+                bound.unit,
+                `Unexpected UnitOfTime: ${bound.unit}`,
+            );
+    }
+    return result;
+};
+
+/**
+ * Resolve the literal `[start, end]` values for a date-range rule as
+ * `Date` objects. If the rule is configured as dynamic, the values are
+ * computed from `settings.dateRange.start` / `.end` at call time (so they
+ * are always "relative to now"). Otherwise, the original `values` are
+ * parsed as `YYYY-MM-DD` strings (the format the filter UI stores) and
+ * returned. Slots that cannot be resolved are returned as `null`.
+ */
+export const resolveDateRangeValuesAsDates = (
+    rule: Pick<FilterRule, 'values' | 'settings'>,
+    _timeInterval: TimeFrames = TimeFrames.DAY,
+    now: Date = new Date(),
+): [Date | null, Date | null] => {
+    const settings = rule.settings as
+        | { dateRange?: DateRangeSetting }
+        | undefined;
+    if (settings?.dateRange?.mode !== 'dynamic') {
+        const rawStart = rule.values?.[0] as string | undefined;
+        const rawEnd = rule.values?.[1] as string | undefined;
+        const parseSlot = (raw: string | undefined): Date | null => {
+            if (raw == null || raw === '') return null;
+            // Stored values are always `YYYY-MM-DD` regardless of the
+            // configured granularity (the UI rounds to the period boundary
+            // before storing).
+            const parsed = moment(raw, getDateFormat(TimeFrames.DAY), true);
+            return parsed.isValid() ? parsed.toDate() : null;
+        };
+        return [parseSlot(rawStart), parseSlot(rawEnd)];
+    }
+    return [
+        resolveDateRangeBound(settings.dateRange.start, now) ?? null,
+        resolveDateRangeBound(settings.dateRange.end, now) ?? null,
+    ];
+};
 
 export type FilterGroupItem = FilterGroup | FilterRule;
 

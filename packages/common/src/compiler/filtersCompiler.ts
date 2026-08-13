@@ -17,10 +17,12 @@ import {
     UnitOfTime,
     isFilterTarget,
     isMetricFilterTarget,
+    resolveDateRangeValuesAsDates,
     unitOfTimeFormat,
     type DateFilterRule,
     type FilterRule,
 } from '../types/filter';
+import { TimeFrames } from '../types/timeFrames';
 import assertUnreachable from '../utils/assertUnreachable';
 import { convertToBooleanValue } from '../utils/booleanConverter';
 import { formatDate } from '../utils/formatting';
@@ -371,15 +373,67 @@ export const renderDateFilterSql = (
             return `(NOT ((${dimensionSql}) >= ${castedFromDate} AND (${dimensionSql}) <= ${castedUntilDate}))`;
         }
         case FilterOperator.IN_BETWEEN: {
-            const startDate = dateFormatter(filter.values?.[0]);
-            const endDate = dateFormatter(filter.values?.[1]);
+            // For dynamic ranges, resolve the values at query time so the
+            // date defaults always reflect "now" rather than the values
+            // captured at save time. The effective granularity (taken from
+            // `dateRangeGranularity`) is used to align the resolved Date to
+            // the period boundary so a "12 months ago" rule with month
+            // granularity produces the start of the month.
+            const [resolvedStart, resolvedEnd] =
+                resolveDateRangeValuesAsDates(filter);
+            const granularity =
+                (filter as { dateRangeGranularity?: TimeFrames })
+                    .dateRangeGranularity ?? TimeFrames.DAY;
+            const alignStart = (d: Date): Date => {
+                if (granularity === TimeFrames.MONTH)
+                    return moment(d).startOf('month').toDate();
+                if (granularity === TimeFrames.QUARTER)
+                    return moment(d).startOf('quarter').toDate();
+                if (granularity === TimeFrames.YEAR)
+                    return moment(d).startOf('year').toDate();
+                return d;
+            };
+            const alignEnd = (d: Date): Date => {
+                if (granularity === TimeFrames.MONTH)
+                    return moment(d).endOf('month').toDate();
+                if (granularity === TimeFrames.QUARTER)
+                    return moment(d).endOf('quarter').toDate();
+                if (granularity === TimeFrames.YEAR)
+                    return moment(d).endOf('year').toDate();
+                return d;
+            };
+            const startDate =
+                resolvedStart != null
+                    ? dateFormatter(alignStart(resolvedStart))
+                    : 'NaT';
+            const endDate =
+                resolvedEnd != null
+                    ? dateFormatter(alignEnd(resolvedEnd))
+                    : 'NaT';
 
             return `((${dimensionSql}) >= ${castValue(
                 startDate,
             )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
         }
         case FilterOperator.FROM_START_TO_LATEST_MONTH: {
-            const startDate = dateFormatter(filter.values?.[0]);
+            // Dynamic mode for FROM_START_TO_LATEST_MONTH resolves only the
+            // start bound; the upper bound is provided separately via
+            // `latestDataMonthMaxSql` (typically a MAX(field) subquery).
+            const [resolvedStart] = resolveDateRangeValuesAsDates(filter);
+            const granularity =
+                (filter as { dateRangeGranularity?: TimeFrames })
+                    .dateRangeGranularity ?? TimeFrames.MONTH;
+            const alignStart = (d: Date): Date => {
+                if (granularity === TimeFrames.YEAR)
+                    return moment(d).startOf('year').toDate();
+                if (granularity === TimeFrames.QUARTER)
+                    return moment(d).startOf('quarter').toDate();
+                return moment(d).startOf('month').toDate();
+            };
+            const startDate =
+                resolvedStart != null
+                    ? dateFormatter(alignStart(resolvedStart))
+                    : dateFormatter(filter.values?.[0]);
             let endBound: string | undefined;
             if (latestDataMonthMaxSql) {
                 endBound = `(${latestDataMonthMaxSql})`;
