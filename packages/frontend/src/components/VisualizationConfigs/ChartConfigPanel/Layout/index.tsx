@@ -203,9 +203,15 @@ export const Layout: FC<Props> = ({ items }) => {
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>{`${
-                            validConfig?.layout.flipAxes ? 'Y' : 'X'
-                        }-axis`}</Config.Heading>
+                        <Config.Heading>
+                            {validConfig?.layout.flipAxes
+                                ? t(
+                                      'components_visualization_configs_chart.axes.y_axis',
+                                  )
+                                : t(
+                                      'components_visualization_configs_chart.axes.x_axis',
+                                  )}
+                        </Config.Heading>
                         <Group spacing="two">
                             <Tooltip
                                 variant="xs"
@@ -253,9 +259,15 @@ export const Layout: FC<Props> = ({ items }) => {
             <Config>
                 <Config.Section>
                     <Config.Group>
-                        <Config.Heading>{`${
-                            validConfig?.layout.flipAxes ? 'X' : 'Y'
-                        }-axis`}</Config.Heading>
+                        <Config.Heading>
+                            {validConfig?.layout.flipAxes
+                                ? t(
+                                      'components_visualization_configs_chart.axes.x_axis',
+                                  )
+                                : t(
+                                      'components_visualization_configs_chart.axes.y_axis',
+                                  )}
+                        </Config.Heading>
                         {availableYFields.length > 0 && (
                             <AddButton
                                 onClick={() =>

@@ -135,8 +135,37 @@ export const getResourceName = (type: ResourceViewItemType) => {
     }
 };
 
+export const formatLocalizedDateTime = (
+    value: Date | string,
+    isZh: boolean,
+) =>
+    dayjs(value).format(isZh ? 'YYYY年M月D日 H:mm' : 'MMM D, YYYY h:mm A');
+
+type TranslateFn = (
+    key: string,
+    options?: Record<string, string | number>,
+) => string;
+
+export const formatViewsSinceDescription = ({
+    count,
+    firstViewedAt,
+    t,
+    isZh,
+}: {
+    count: number;
+    firstViewedAt: Date | string;
+    t: TranslateFn;
+    isZh: boolean;
+}) =>
+    t('components_common_resource_view_list.views_since_description', {
+        count,
+        date: formatLocalizedDateTime(firstViewedAt, isZh),
+    });
+
 export const getResourceViewsSinceWhenDescription = (
     item: ResourceViewItem,
+    t: TranslateFn,
+    isZh: boolean,
 ) => {
     if (
         item.type !== ResourceViewItemType.CHART &&
@@ -146,8 +175,11 @@ export const getResourceViewsSinceWhenDescription = (
     }
 
     return item.data.firstViewedAt
-        ? `${item.data.views} views since ${dayjs(
-              item.data.firstViewedAt,
-          ).format('MMM D, YYYY h:mm A')}`
+        ? formatViewsSinceDescription({
+              count: item.data.views,
+              firstViewedAt: item.data.firstViewedAt,
+              t,
+              isZh,
+          })
         : undefined;
 };

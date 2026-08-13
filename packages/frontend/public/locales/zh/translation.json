@@ -2291,7 +2291,16 @@
         "clear_all": "清除所有",
         "group_form": {
             "tip": "下列 {{conditionLabel}} 条件匹配:",
-            "add_group_rule": "添加分组规则"
+            "add_group_rule": "添加分组规则",
+            "operator_options": {
+                "all": "全部",
+                "any": "任一"
+            },
+            "condition_label": {
+                "dimension": "维度",
+                "metric": "指标",
+                "table_calculation": "表计算"
+            }
         },
         "rule_form": {
             "required_field": "此筛选器是必填筛选器。\n 它不能被删除,但可以更改值。",
@@ -5131,6 +5140,7 @@
                 "top": "顶部"
             },
             "grouped": "分组",
+            "grouped_suffix": "(分组)",
             "axis": "轴",
             "value_labels": "值标签",
             "total": "总计",
@@ -6092,6 +6102,7 @@
             "part_7": "。"
         },
         "views": "次查看",
+        "views_since_description": "自 {{date}} 起共 {{count}} 次查看",
         "error_tips": {
             "no_column": "ID 对应的列不存在!",
             "no_sorting": "列没有排序功能!"
@@ -6384,7 +6395,19 @@
         "sort": "排序方式",
         "sort_by": "排序方式",
         "then_by": "然后通过",
-        "add_sort_field": "添加排序字段"
+        "add_sort_field": "添加排序字段",
+        "nulls": "空值",
+        "nulls_options": {
+            "default": "默认",
+            "first": "最前",
+            "last": "最后"
+        },
+        "sort_labels": {
+            "old_new": "旧-新",
+            "new_old": "新-旧",
+            "false_true": "假-真",
+            "true_false": "真-假"
+        }
     },
     "components_export_csv": {
         "toast_info": {

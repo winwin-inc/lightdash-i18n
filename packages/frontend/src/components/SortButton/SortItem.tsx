@@ -115,7 +115,7 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                         size="xs"
                         color="blue"
                         data={getSortDirectionOrder(item).map((direction) => ({
-                            label: getSortLabel(item, direction),
+                            label: getSortLabel(item, direction, t),
                             value: direction,
                         }))}
                         onChange={(value) => {
@@ -126,7 +126,7 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                     />
 
                     <Text ml="lg" fw={500}>
-                        Nulls
+                        {t('components_sort_button.nulls')}
                     </Text>
 
                     <SegmentedControl
@@ -135,8 +135,8 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                         size="xs"
                         color="blue"
                         data={Object.entries(sortNullsFirstLabels).map(
-                            ([value, label]) => ({
-                                label,
+                            ([value, labelKey]) => ({
+                                label: t(labelKey),
                                 value,
                             }),
                         )}

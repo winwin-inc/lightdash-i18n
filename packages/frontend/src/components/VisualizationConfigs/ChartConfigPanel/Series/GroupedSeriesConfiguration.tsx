@@ -238,7 +238,10 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                     <GrabIcon dragHandleProps={dragHandleProps} />
 
                     <Config.Heading>
-                        {getItemLabelWithoutTableName(item)} (grouped)
+                        {getItemLabelWithoutTableName(item)}{' '}
+                        {t(
+                            'components_visualization_configs_chart.series.grouped_suffix',
+                        )}
                     </Config.Heading>
                 </Group>
                 <Stack spacing="xs" ml="md">

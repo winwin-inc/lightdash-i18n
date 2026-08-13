@@ -11,6 +11,7 @@ import {
     IconLayoutDashboard,
 } from '@tabler/icons-react';
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { ResourceIcon, ResourceIndicator } from '../ResourceIcon';
 import { ResourceInfoPopup } from '../ResourceInfoPopup/ResourceInfoPopup';
 import ResourceAccessInfo from './ResourceAccessInfo';
@@ -98,6 +99,8 @@ const InfiniteResourceTableColumnName = ({
     projectUuid,
     canUserManageValidation,
 }: InfiniteResourceTableColumnNameProps) => {
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
     const getResourceTypeName = useResourceTypeName();
 
     const isSpace = isResourceViewSpaceItem(item);
@@ -175,9 +178,16 @@ const InfiniteResourceTableColumnName = ({
                                 }
                                 label={getResourceViewsSinceWhenDescription(
                                     item,
+                                    t,
+                                    isZh,
                                 )}
                             >
-                                <span>{item.data.views || '0'} views</span>
+                                <span>
+                                    {item.data.views || '0'}{' '}
+                                    {t(
+                                        'components_common_resource_view_list.views',
+                                    )}
+                                </span>
                             </Tooltip>
                         </Text>
                     )}

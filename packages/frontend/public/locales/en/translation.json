@@ -2294,7 +2294,16 @@
         "clear_all": "Clear all",
         "group_form": {
             "tip": "of the following {{conditionLabel}} conditions match:",
-            "add_group_rule": "Add group rule"
+            "add_group_rule": "Add group rule",
+            "operator_options": {
+                "all": "All",
+                "any": "Any"
+            },
+            "condition_label": {
+                "dimension": "dimension",
+                "metric": "metric",
+                "table_calculation": "table calculation"
+            }
         },
         "rule_form": {
             "required_field": "This filter is a required filter.\n It can't be deleted, but the value can be changed.",
@@ -5123,6 +5132,7 @@
                 "top": "Top"
             },
             "grouped": "Grouped",
+            "grouped_suffix": "(grouped)",
             "axis": "Axis",
             "value_labels": "Value labels",
             "total": "Total",
@@ -6086,6 +6096,7 @@
             "part_7": "."
         },
         "views": "views",
+        "views_since_description": "{{count}} views since {{date}}",
         "error_tips": {
             "no_column": "Column with id does not exist!",
             "no_sorting": "Column does not have sorting function!"
@@ -6378,7 +6389,19 @@
         "sort": "Sorted by",
         "sort_by": "Sort by",
         "then_by": "then by",
-        "add_sort_field": "Add sort field"
+        "add_sort_field": "Add sort field",
+        "nulls": "Nulls",
+        "nulls_options": {
+            "default": "Default",
+            "first": "First",
+            "last": "Last"
+        },
+        "sort_labels": {
+            "old_new": "Old-New",
+            "new_old": "New-Old",
+            "false_true": "False-True",
+            "true_false": "True-False"
+        }
     },
     "components_export_csv": {
         "toast_info": {
