@@ -15,6 +15,7 @@ import {
 import {
     FilterOperator,
     UnitOfTime,
+    isDateRangeDynamic,
     isFilterTarget,
     isMetricFilterTarget,
     resolveDateRangeValuesAsDates,
@@ -373,67 +374,82 @@ export const renderDateFilterSql = (
             return `(NOT ((${dimensionSql}) >= ${castedFromDate} AND (${dimensionSql}) <= ${castedUntilDate}))`;
         }
         case FilterOperator.IN_BETWEEN: {
-            // For dynamic ranges, resolve the values at query time so the
-            // date defaults always reflect "now" rather than the values
-            // captured at save time. The effective granularity (taken from
-            // `dateRangeGranularity`) is used to align the resolved Date to
-            // the period boundary so a "12 months ago" rule with month
-            // granularity produces the start of the month.
-            const [resolvedStart, resolvedEnd] =
-                resolveDateRangeValuesAsDates(filter);
-            const granularity =
-                (filter as { dateRangeGranularity?: TimeFrames })
-                    .dateRangeGranularity ?? TimeFrames.DAY;
-            const alignStart = (d: Date): Date => {
-                if (granularity === TimeFrames.MONTH)
-                    return moment(d).startOf('month').toDate();
-                if (granularity === TimeFrames.QUARTER)
-                    return moment(d).startOf('quarter').toDate();
-                if (granularity === TimeFrames.YEAR)
-                    return moment(d).startOf('year').toDate();
-                return d;
-            };
-            const alignEnd = (d: Date): Date => {
-                if (granularity === TimeFrames.MONTH)
-                    return moment(d).endOf('month').toDate();
-                if (granularity === TimeFrames.QUARTER)
-                    return moment(d).endOf('quarter').toDate();
-                if (granularity === TimeFrames.YEAR)
-                    return moment(d).endOf('year').toDate();
-                return d;
-            };
-            const startDate =
-                resolvedStart != null
-                    ? dateFormatter(alignStart(resolvedStart))
-                    : 'NaT';
-            const endDate =
-                resolvedEnd != null
-                    ? dateFormatter(alignEnd(resolvedEnd))
-                    : 'NaT';
-
+            if (isDateRangeDynamic(filter)) {
+                // Dynamic mode: resolve values at query time so dates always
+                // reflect "now". Align to the period boundary based on
+                // dateRangeGranularity (e.g. "12 months ago" with month
+                // granularity → start of that month).
+                const [resolvedStart, resolvedEnd] =
+                    resolveDateRangeValuesAsDates(filter);
+                const granularity =
+                    (filter as { dateRangeGranularity?: TimeFrames })
+                        .dateRangeGranularity ?? TimeFrames.DAY;
+                const alignStart = (d: Date): Date => {
+                    if (granularity === TimeFrames.MONTH)
+                        return moment(d).startOf('month').toDate();
+                    if (granularity === TimeFrames.QUARTER)
+                        return moment(d).startOf('quarter').toDate();
+                    if (granularity === TimeFrames.YEAR)
+                        return moment(d).startOf('year').toDate();
+                    return d;
+                };
+                const alignEnd = (d: Date): Date => {
+                    if (granularity === TimeFrames.MONTH)
+                        return moment(d).endOf('month').toDate();
+                    if (granularity === TimeFrames.QUARTER)
+                        return moment(d).endOf('quarter').toDate();
+                    if (granularity === TimeFrames.YEAR)
+                        return moment(d).endOf('year').toDate();
+                    return d;
+                };
+                const startDate =
+                    resolvedStart != null
+                        ? dateFormatter(alignStart(resolvedStart))
+                        : 'NaT';
+                const endDate =
+                    resolvedEnd != null
+                        ? dateFormatter(alignEnd(resolvedEnd))
+                        : 'NaT';
+                return `((${dimensionSql}) >= ${castValue(
+                    startDate,
+                )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
+            }
+            // Fixed mode: pass values directly to dateFormatter (same as
+            // before the dynamic feature). This preserves the original
+            // behaviour for all field types including TIMESTAMP, whose
+            // values may be ISO strings that strict YYYY-MM-DD parsing
+            // would reject.
             return `((${dimensionSql}) >= ${castValue(
-                startDate,
-            )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
+                dateFormatter(filter.values?.[0]),
+            )} AND (${dimensionSql}) <= ${castValue(
+                dateFormatter(filter.values?.[1]),
+            )})`;
         }
         case FilterOperator.FROM_START_TO_LATEST_MONTH: {
-            // Dynamic mode for FROM_START_TO_LATEST_MONTH resolves only the
-            // start bound; the upper bound is provided separately via
-            // `latestDataMonthMaxSql` (typically a MAX(field) subquery).
-            const [resolvedStart] = resolveDateRangeValuesAsDates(filter);
-            const granularity =
-                (filter as { dateRangeGranularity?: TimeFrames })
-                    .dateRangeGranularity ?? TimeFrames.MONTH;
-            const alignStart = (d: Date): Date => {
-                if (granularity === TimeFrames.YEAR)
-                    return moment(d).startOf('year').toDate();
-                if (granularity === TimeFrames.QUARTER)
-                    return moment(d).startOf('quarter').toDate();
-                return moment(d).startOf('month').toDate();
-            };
-            const startDate =
-                resolvedStart != null
-                    ? dateFormatter(alignStart(resolvedStart))
-                    : dateFormatter(filter.values?.[0]);
+            // Dynamic mode: resolve the start bound at query time. The
+            // upper bound is provided separately via `latestDataMonthMaxSql`.
+            let startDate: string;
+            if (isDateRangeDynamic(filter)) {
+                const [resolvedStart] = resolveDateRangeValuesAsDates(filter);
+                const granularity =
+                    (filter as { dateRangeGranularity?: TimeFrames })
+                        .dateRangeGranularity ?? TimeFrames.MONTH;
+                const alignStart = (d: Date): Date => {
+                    if (granularity === TimeFrames.YEAR)
+                        return moment(d).startOf('year').toDate();
+                    if (granularity === TimeFrames.QUARTER)
+                        return moment(d).startOf('quarter').toDate();
+                    return moment(d).startOf('month').toDate();
+                };
+                startDate =
+                    resolvedStart != null
+                        ? dateFormatter(alignStart(resolvedStart))
+                        : dateFormatter(filter.values?.[0]);
+            } else {
+                // Fixed mode: use values directly (preserves TIMESTAMP
+                // ISO strings etc.)
+                startDate = dateFormatter(filter.values?.[0]);
+            }
             let endBound: string | undefined;
             if (latestDataMonthMaxSql) {
                 endBound = `(${latestDataMonthMaxSql})`;

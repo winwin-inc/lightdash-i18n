@@ -40,6 +40,7 @@ const FilterMonthAndYearPicker: FC<Props> = ({
             )}
             popoverProps={{
                 shadow: 'md',
+                withinPortal: true,
                 // Month and year picker does not manage its own state properly.
                 // additional props are needed to make it work
                 ...props.popoverProps,

@@ -8,6 +8,7 @@ import {
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
+import { resolveDynamicDateRangeRule } from '../../components/common/Filters/FilterInputs/utils';
 import { useSavedDashboardFiltersOverrides } from '../useSavedDashboardFiltersOverrides';
 
 export const emptyFilters: DashboardFilters = {
@@ -43,8 +44,10 @@ export const useDashboardFilters = ({
 
         return {
             dimensions: [
-                ...dashboardFilters.dimensions,
-                ...dashboardTemporaryFilters?.dimensions,
+                ...dashboardFilters.dimensions.map(resolveDynamicDateRangeRule),
+                ...dashboardTemporaryFilters?.dimensions.map(
+                    resolveDynamicDateRangeRule,
+                ),
             ],
             metrics: [
                 ...dashboardFilters.metrics,

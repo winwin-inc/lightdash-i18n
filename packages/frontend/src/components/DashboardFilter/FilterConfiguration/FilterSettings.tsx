@@ -405,6 +405,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )
                         }
                         closeDropdownOnMouseLeave={isEditMode}
+                        isEditMode={isEditMode}
                     />
                 )}
 

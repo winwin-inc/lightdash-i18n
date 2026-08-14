@@ -37,7 +37,15 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
     const { t } = useTranslation();
-    const { field, rule, onChange, popoverProps, disabled, filterType } = props;
+    const {
+        field,
+        rule,
+        onChange,
+        popoverProps,
+        disabled,
+        filterType,
+        isEditMode,
+    } = props;
     const { startOfWeek } = useFiltersContext();
 
     const isTimestamp =
@@ -471,6 +479,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                     filterMaxDate={cfgMax}
                     firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
                     disabled={disabled}
+                    isEditMode={isEditMode}
+                    popoverProps={popoverProps}
                 />
             );
         default: {
