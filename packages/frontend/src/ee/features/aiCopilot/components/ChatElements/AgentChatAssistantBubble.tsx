@@ -517,7 +517,11 @@ export const AssistantBubble: FC<Props> = memo(
                     )}
 
                     {showAddToEvalsButton && onAddToEvals && (
-                        <Tooltip label="Add this response to evals">
+                        <Tooltip
+                            label={t(
+                                'features_ai_copilot_chat_elements.add_to_evaluation_set_tooltip',
+                            )}
+                        >
                             <ActionIcon
                                 variant="subtle"
                                 color="gray"

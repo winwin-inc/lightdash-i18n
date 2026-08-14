@@ -126,7 +126,7 @@ export const SelectGoogleSheetButton: FC = () => {
             withinPortal
             multiline
             w={300}
-            label="Please ensure you have a Google Sheet already created in your Drive to set as the destination for your results"
+            label={t('features_sync.google_sheet_destination_tooltip')}
         >
             <Button
                 size="xs"

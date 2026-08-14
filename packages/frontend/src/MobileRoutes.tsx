@@ -195,7 +195,7 @@ export const MobileNavBar: FC = () => {
                 {isAiAgentButtonVisible && (
                     <RouterNavLink
                         exact
-                        label="Ask AI"
+                        label={t('mobile_navbar.ask_ai')}
                         to={`/projects/${activeProjectUuid}/ai-agents`}
                         icon={<MantineIcon icon={IconRobot} />}
                         onClick={toggleMenu}

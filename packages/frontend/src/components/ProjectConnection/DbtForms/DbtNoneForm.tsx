@@ -40,8 +40,8 @@ const DbtNoneForm: FC<{ disabled: boolean }> = ({ disabled }) => {
             </Alert>
 
             <BooleanSwitch
-                onLabel="Yes"
-                offLabel="No"
+                onLabel={t('common.yes')}
+                offLabel={t('common.no')}
                 disabled={disabled}
                 {...form.getInputProps('dbt.hideRefreshButton')}
                 name="dbt.hideRefreshButton"

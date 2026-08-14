@@ -959,7 +959,9 @@ const SchedulerForm: FC<Props> = ({
                                         {form.values.format ===
                                             SchedulerFormat.CSV && (
                                             <Tooltip
-                                                label="You must have at least one email target to attach a file to emails"
+                                                label={t(
+                                                    'features_scheduler_form.attach_file_disabled',
+                                                )}
                                                 position="top"
                                                 withinPortal
                                                 disabled={
@@ -972,7 +974,9 @@ const SchedulerForm: FC<Props> = ({
                                                     w="fit-content"
                                                 >
                                                     <Checkbox
-                                                        label="Attach file to emails"
+                                                        label={t(
+                                                            'features_scheduler_form.attach_file',
+                                                        )}
                                                         labelPosition="left"
                                                         {...form.getInputProps(
                                                             'options.asAttachment',

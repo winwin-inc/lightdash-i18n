@@ -79,7 +79,9 @@ const AppearanceColorSettings: FC = () => {
                                         name:
                                             health.appearance
                                                 .overrideColorPaletteName ??
-                                            'Custom override',
+                                            t(
+                                                'components_user_settings_appearance_settings_panel.custom_override',
+                                            ),
                                         colors: health.appearance
                                             .overrideColorPalette,
                                         organizationUuid:

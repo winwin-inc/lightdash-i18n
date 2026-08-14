@@ -88,13 +88,13 @@ export const MultiKeyValuePairsInput = ({
                     <Flex key={value.id} gap="xs" align="center">
                         <TextInput
                             {...form.getInputProps(`${name}.${index}.key`)}
-                            placeholder="Key"
+                            placeholder={t('common.key')}
                             disabled={disabled}
                         />
 
                         <TextInput
                             {...form.getInputProps(`${name}.${index}.value`)}
-                            placeholder="Value"
+                            placeholder={t('common.value')}
                             disabled={disabled}
                         />
 
