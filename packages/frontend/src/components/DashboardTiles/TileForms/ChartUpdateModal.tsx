@@ -112,7 +112,13 @@ const ChartUpdateModal = ({
     return (
         <Modal
             onClose={() => onClose?.()}
-            title={<Title order={4}>Edit tile content</Title>}
+            title={
+                <Title order={4}>
+                    {t(
+                        'components_dashboard_tiles_forms_update_chart.edit_tile_content',
+                    )}
+                </Title>
+            }
             withCloseButton
             className="non-draggable"
             {...modalProps}

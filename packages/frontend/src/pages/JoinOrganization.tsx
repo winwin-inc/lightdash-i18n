@@ -88,7 +88,7 @@ const JoinOrganizationPage: FC = () => {
                 <Stack mt="4xl">
                     <SuboptimalState
                         icon={IconAlertCircle}
-                        title="Error"
+                        title={t('common.error')}
                         description={createOrgError.error.message}
                         action={
                             <Button onClick={() => deleteUser()}>

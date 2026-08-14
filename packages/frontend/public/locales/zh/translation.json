@@ -2,6 +2,29 @@
     "app": {
         "title": "马上赢X"
     },
+    "common": {
+        "yes": "是",
+        "no": "否",
+        "key": "键",
+        "value": "值",
+        "name": "名称",
+        "loading": "加载中...",
+        "error": "错误",
+        "branch": "分支",
+        "auto": "自动"
+    },
+    "components_common_timezone_picker": {
+        "placeholder": "选择时区",
+        "local": "本地"
+    },
+    "features_comments": {
+        "no_comments_yet": "暂无评论"
+    },
+    "features_sql_runner_download": {
+        "download_results": "下载结果",
+        "download_as": "下载为",
+        "results": "结果"
+    },
     "about_footer": {
         "about_msy_x": "关于 马上赢X"
     },
@@ -322,6 +345,9 @@
         "invalid_action_type": "无效的操作类型"
     },
     "hooks_toaster": {
+        "errors": "错误",
+        "show_count": "显示 {{count}}",
+        "hide_count": "隐藏 {{count}}",
         "snowflake": {
             "title": "Snowflake 认证错误",
             "message": "您可以尝试重新认证 Snowflake:"
@@ -366,6 +392,7 @@
         },
         "include_image": "包含此图片",
         "more_details": "您还有其他要分享的细节吗？",
+        "enter_more_details": "请输入更多细节",
         "allow_access": "允许 马上赢X 支持访问您的实例",
         "tips": {
             "part_1": "勾选此框，您同意给予 马上赢X 支持访问您的组织 12 小时以调查此问题。",
@@ -1100,6 +1127,10 @@
         "unsaved_changes": "未保存的更改"
     },
     "features_scheduler_form": {
+        "attach_file_disabled": "至少需要一个邮件目标才能将文件附加到邮件",
+        "attach_file": "将文件附加到邮件",
+        "attach_file_requires_email": "至少需要一个邮件目标才能将文件附加到邮件",
+        "attach_file_to_emails": "将文件附加到邮件",
         "threshold_operator_options": {
             "is_greater_than": "大于",
             "is_less_than": "小于",
@@ -1277,7 +1308,9 @@
     },
     "features_scheduler_parameters": {
         "no_value_set": "没有值",
-        "reset_parameter": "重置参数回看板默认"
+        "reset_parameter": "重置参数回看板默认",
+        "loading": "正在加载参数...",
+        "no_parameters": "此项目未定义参数。"
     },
     "features_semantic_content": {
         "chart": "图表",
@@ -1362,6 +1395,8 @@
             "toggle_on": "通知已暂停。切换开启以恢复"
         },
         "select_google_sheet": "通过 Google 驱动程序选择 Google 表格",
+        "google_sheet_destination_tooltip": "请确保您的云端硬盘中已有 Google 表格，作为结果的目标位置",
+        "sync_now": "立即同步",
         "modal": {
             "title": {
                 "sync_with_google_sheets": "与 Google 表格同步",
@@ -1486,7 +1521,14 @@
     },
     "features_metrics_catalog": {
         "title": "点击在指标探索器中查看",
-        "explore": "探索"
+        "explore": "探索",
+        "uncategorized": "未分类",
+        "filter_by": "筛选",
+        "condition": "条件",
+        "clear_all_categories": "清除所有类目",
+        "yaml_cannot_remove": "此类目在 .yml 文件中定义，无法从此指标中移除。",
+        "yaml_cannot_edit": "此类目在 .yml 配置中创建，无法编辑其属性",
+        "zoom_reset": "在图表上拖选两点可放大。使用此按钮重置视图。"
     },
     "features_metrics_catalog_form": {
         "edit_category": "编辑类目",
@@ -2275,6 +2317,12 @@
         "add_filter": "添加筛选器",
         "clear_all_filters": "清除所有过滤器",
         "clear_all": "清除所有",
+        "number_range": {
+            "min": "最小值",
+            "max": "最大值",
+            "both_required": "最小值和最大值都需要填写",
+            "min_less_than_max": "最小值应小于最大值"
+        },
         "group_form": {
             "tip": "下列 {{conditionLabel}} 条件匹配:",
             "add_group_rule": "添加分组规则",
@@ -2781,6 +2829,8 @@
         "last_validated_at": "上次验证时间: {{date}}"
     },
     "components_settings_validator_modal": {
+        "fix_title": "修复验证错误",
+        "fix_error": "修复 <bold>{{source}}</bold> 错误：",
         "rename_tip": "您可以通过重命名受影响的字段或模型来重命名缺失的维度，使用下拉菜单。",
         "field": "字段",
         "model": "模型",
@@ -2812,6 +2862,7 @@
             "name": "名称",
             "error": "错误"
         },
+        "table": "表格",
         "error": {
             "no_longer_exists": "不再存在",
             "is_broken": "已损坏",
@@ -4669,6 +4720,7 @@
         "cancel": "取消",
         "save": "保存更改",
         "appearance_settings": "外观设置",
+        "custom_override": "自定义覆盖",
         "customizing": "点击这里了解更多关于自定义项目外观的信息"
     },
     "components_user_settings_delete_organization_modal": {
@@ -6595,6 +6647,7 @@
         },
         "loading": "正在加载...",
         "title": "{{name}} 的用户活动",
+        "export_csv_tooltip": "以 CSV 格式导出图表和看板的原始用户查看数据",
         "items": {
             "usage_analytics": "使用分析",
             "user_activity": "{{name}} 的用户活动"
@@ -8342,7 +8395,8 @@
         "spaces": "空间",
         "dashboards": "看板",
         "charts": "图表",
-        "logout": "注销"
+        "logout": "注销",
+        "ask_ai": "询问 AI"
     },
     "ai_copilot_channel_project_mappings": {
         "select_project": "选择项目",
