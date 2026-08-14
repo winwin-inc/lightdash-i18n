@@ -248,7 +248,7 @@ export const isDateFilterRule = (
  * rules without explicit settings as fixed (backwards compatible).
  */
 export const isDateRangeDynamic = (
-    rule: Pick<FilterRule, 'settings'>,
+    rule: BaseFilterRule & { settings?: unknown },
 ): boolean => {
     const settings = rule.settings as
         | { dateRange?: DateRangeSetting }

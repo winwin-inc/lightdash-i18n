@@ -161,10 +161,10 @@ const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
  * Returns the original `values` for non-dynamic rules.
  */
 export const resolveDisplayValues = (
-    rule: BaseFilterRule,
+    rule: BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
 ): AnyType[] | undefined => {
     if (!isDateRangeDynamic(rule)) return rule.values;
-    const dr = (rule.settings as { dateRange?: DateRangeSetting })?.dateRange;
+    const dr = rule.settings?.dateRange;
     if (!dr) return rule.values;
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
     const startDate = resolveDateRangeBound(dr.start);
@@ -193,7 +193,9 @@ export const resolveDisplayValues = (
  * Use this to ensure filter rules sent to the backend have up-to-date
  * `values` that match what the user sees in the chip label.
  */
-export const resolveDynamicDateRangeRule = <T extends BaseFilterRule>(
+export const resolveDynamicDateRangeRule = <
+    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+>(
     rule: T,
 ): T => {
     if (!isDateRangeDynamic(rule)) return rule;
