@@ -2,6 +2,29 @@
     "app": {
         "title": "MSY X"
     },
+    "common": {
+        "yes": "Yes",
+        "no": "No",
+        "key": "Key",
+        "value": "Value",
+        "name": "Name",
+        "loading": "Loading...",
+        "error": "Error",
+        "branch": "Branch",
+        "auto": "Auto"
+    },
+    "components_common_timezone_picker": {
+        "placeholder": "Select timezone",
+        "local": "Local"
+    },
+    "features_comments": {
+        "no_comments_yet": "No comments yet"
+    },
+    "features_sql_runner_download": {
+        "download_results": "Download results",
+        "download_as": "Download as",
+        "results": "Results"
+    },
     "about_footer": {
         "about_msy_x": "About MSY X"
     },
@@ -322,6 +345,9 @@
         "invalid_action_type": "Invalid action type in useContentBulkAction"
     },
     "hooks_toaster": {
+        "errors": "Errors",
+        "show_count": "Show {{count}}",
+        "hide_count": "Hide {{count}}",
         "snowflake": {
             "title": "Snowflake Authentication Error",
             "message": "You can try to reauthenticate with Snowflake:"
@@ -366,6 +392,7 @@
         },
         "include_image": "Include this image",
         "more_details": "Do you have and other details you'd like to share?",
+        "enter_more_details": "Enter more details",
         "allow_access": "Allow MSY X support access to your instance",
         "tips": {
             "part_1": "By ticking this box, you agree to give MSY X Support access to your organization for 12 hours to investigate this issue.",
@@ -1095,6 +1122,10 @@
         "unsaved_changes": "Unsaved changes"
     },
     "features_scheduler_form": {
+        "attach_file_disabled": "You must have at least one email target to attach a file to emails",
+        "attach_file": "Attach file to emails",
+        "attach_file_requires_email": "You must have at least one email target to attach a file to emails",
+        "attach_file_to_emails": "Attach file to emails",
         "threshold_operator_options": {
             "is_greater_than": "is greater than",
             "is_less_than": "is less than",
@@ -1272,7 +1303,9 @@
     },
     "features_scheduler_parameters": {
         "no_value_set": "No value set",
-        "reset_parameter": "Reset parameter back to dashboard default"
+        "reset_parameter": "Reset parameter back to dashboard default",
+        "loading": "Loading parameters...",
+        "no_parameters": "No parameters defined for this project."
     },
     "features_semantic_content": {
         "chart": "Chart",
@@ -1357,6 +1390,8 @@
             "toggle_on": "Notifications paused. Toggle on to resume"
         },
         "select_google_sheet": "Select Google Sheet via Google drive",
+        "google_sheet_destination_tooltip": "Please ensure you have a Google Sheet already created in your Drive to set as the destination for your results",
+        "sync_now": "Sync now",
         "modal": {
             "title": {
                 "sync_with_google_sheets": "Sync with Google Sheets",
@@ -1481,7 +1516,14 @@
     },
     "features_metrics_catalog": {
         "title": "Click to view this in the Metrics Explorer",
-        "explore": "Explore"
+        "explore": "Explore",
+        "uncategorized": "Uncategorized",
+        "filter_by": "Filter by",
+        "condition": "Condition",
+        "clear_all_categories": "Clear all categories",
+        "yaml_cannot_remove": "This category cannot be removed from this metric because it was defined in the .yml file.",
+        "yaml_cannot_edit": "This category was created in the .yml config and its properties cannot be edited",
+        "zoom_reset": "Drag between two points on the chart to zoom in. Use this button to reset the view."
     },
     "features_metrics_catalog_form": {
         "edit_category": "Edit category",
@@ -2278,6 +2320,12 @@
         "add_filter": "Add filter",
         "clear_all_filters": "Clear all filters",
         "clear_all": "Clear all",
+        "number_range": {
+            "min": "Min value",
+            "max": "Max value",
+            "both_required": "Both values are required",
+            "min_less_than_max": "Minimum should be less than the maximum"
+        },
         "group_form": {
             "tip": "of the following {{conditionLabel}} conditions match:",
             "add_group_rule": "Add group rule",
@@ -2770,6 +2818,8 @@
         "last_validated_at": "Last validated at: {{date}}"
     },
     "components_settings_validator_modal": {
+        "fix_title": "Fix validation error",
+        "fix_error": "Fix <bold>{{source}}</bold> error:",
         "rename_tip": "You can rename the missing dimension by renaming the affected field or model using the drop down below.",
         "field": "Field",
         "model": "Model",
@@ -2801,6 +2851,7 @@
             "name": "Name",
             "error": "Error"
         },
+        "table": "Table",
         "error": {
             "no_longer_exists": "no longer exists",
             "is_broken": "is broken",
@@ -4659,6 +4710,7 @@
         "cancel": "Cancel",
         "save": "Save changes",
         "appearance_settings": "Appearance settings",
+        "custom_override": "Custom override",
         "customizing": "Click here to learn more about customizing the appearance of your project"
     },
     "components_user_settings_delete_organization_modal": {
@@ -6594,6 +6646,7 @@
         },
         "loading": "Loading...",
         "title": "User activity for {{name}}",
+        "export_csv_tooltip": "Export raw chart and dashboard user views in a CSV format",
         "items": {
             "usage_analytics": "Usage Analytics",
             "user_activity": "User activity for {{name}}"
@@ -8336,7 +8389,8 @@
         "spaces": "Spaces",
         "dashboards": "Dashboards",
         "charts": "Charts",
-        "logout": "Logout"
+        "logout": "Logout",
+        "ask_ai": "Ask AI"
     },
     "ai_copilot_channel_project_mappings": {
         "select_project": "Select project",

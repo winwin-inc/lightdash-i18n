@@ -253,7 +253,7 @@ export const MetricCatalogCategoryFormItem: FC<Props> = ({
                     maw={200}
                     position="top"
                     withinPortal
-                    label="This category was created in the .yml config and its properties cannot be edited"
+                    label={t('features_metrics_catalog.yaml_cannot_edit')}
                 >
                     <Box
                         p="xxs"

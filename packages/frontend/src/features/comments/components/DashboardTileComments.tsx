@@ -12,6 +12,7 @@ import {
 import { useScrollIntoView } from '@mantine/hooks';
 import { IconMessage } from '@tabler/icons-react';
 import { useCallback, useMemo, useRef, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import useApp from '../../../providers/App/useApp';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -34,6 +35,7 @@ export const DashboardTileComments: FC<
     Props & Pick<PopoverProps, 'opened' | 'onClose' | 'onOpen'>
 > = ({ dashboardTileUuid, opened, onClose, onOpen }) => {
     const { user } = useApp();
+    const { t } = useTranslation();
     const { track } = useTracking();
 
     const [openedComments, setOpenedComments] = useState(opened);
@@ -195,7 +197,7 @@ export const DashboardTileComments: FC<
                         />
                     ))}
                     {!canCreateDashboardComments && !hasComments && (
-                        <Text fz="xs">No comments yet</Text>
+                        <Text fz="xs">{t('features_comments.no_comments_yet')}</Text>
                     )}
                 </Stack>
                 {hasComments && <Divider />}

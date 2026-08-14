@@ -123,7 +123,10 @@ export const SyncModalView: FC<{ chartUuid: string }> = ({ chartUuid }) => {
                                         </Flex>
                                     </Stack>
                                     <Group mr="lg">
-                                        <Tooltip withinPortal label="Sync now">
+                                        <Tooltip
+                                            withinPortal
+                                            label={t('features_sync.sync_now')}
+                                        >
                                             <ActionIcon
                                                 color="gray.7"
                                                 p="xs"
