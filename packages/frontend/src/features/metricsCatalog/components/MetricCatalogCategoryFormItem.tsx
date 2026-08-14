@@ -199,6 +199,7 @@ export const MetricCatalogCategoryFormItem: FC<Props> = ({
     onSubPopoverChange,
     canEdit,
 }) => {
+    const { t } = useTranslation();
     const { ref: hoverRef, hovered } = useHover<HTMLDivElement>();
 
     const handleKeyDown = useCallback(
