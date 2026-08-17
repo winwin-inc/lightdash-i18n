@@ -79,6 +79,11 @@ export const useExplorerQueryEffects = ({
     // Effect 2: Setup unpivoted query args whenever the main query is pivoted.
     // Aligns with main query pivotConfiguration (including when UseSqlPivotResults is off
     // but getChartRequiresPivotResults forces pivot for stacked series sorting).
+    //
+    // TABLE downloads reuse unpivotedQueryResults.queryUuid (when set) so the results
+    // table export stays unpivoted. Limit.ALL re-runs must still clear pivotConfiguration
+    // in getDownloadQueryUuid — otherwise they leak main-query pivot config and metrics
+    // columns go blank (lightdash#19115). Keep these two paths consistent.
     useEffect(() => {
         if (!validQueryArgs) {
             dispatch(explorerActions.setUnpivotedQueryArgs(null));

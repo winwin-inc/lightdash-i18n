@@ -83,7 +83,10 @@ const ResultsCard: FC = memo(() => {
         }
     };
 
-    // ResultsCard always downloads raw unpivoted results
+    // ResultsCard always downloads raw unpivoted results (exportPivotedResults=false).
+    // That second argument is load-bearing: getDownloadQueryUuid must clear
+    // pivotConfiguration on Limit.ALL re-runs or metrics export empty. See #19115 notes
+    // on useExplorerQuery.getDownloadQueryUuid — do not change to `true` here.
     const getResultsCardDownloadQueryUuid = useCallback(
         (limit: number | null) => {
             return getDownloadQueryUuid(limit, false);
