@@ -137,12 +137,13 @@ describe('useExplorerQuery', () => {
     });
 
     it('should clear pivotConfiguration when downloading unpivoted all results', async () => {
+        // Regression: Limit.ALL must not leak validQueryArgs.pivotConfiguration
+        // when ResultsCard requests unpivoted export (second arg false). #19115
         const { result } = renderHook(() => useExplorerQuery(), {
             wrapper: createWrapper(),
         });
 
         await act(async () => {
-            // ResultsCard always requests unpivoted downloads (second arg false)
             await result.current.getDownloadQueryUuid(null, false);
         });
 
