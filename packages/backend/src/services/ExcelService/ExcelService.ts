@@ -82,6 +82,47 @@ export class ExcelService {
         return formatItemValue(item, rawValue);
     }
 
+    /**
+     * Parse a cell value as a finite number for Excel numFmt columns.
+     * Returns null for empty / NaN / Infinity so callers can fall back safely
+     * (exceljs otherwise persists NaN/Infinity as blank cells).
+     */
+    private static toFiniteNumber(rawValue: unknown): number | null {
+        if (typeof rawValue === 'number') {
+            return Number.isFinite(rawValue) ? rawValue : null;
+        }
+
+        const stringValue = String(rawValue).trim();
+        if (stringValue === '') {
+            return null;
+        }
+
+        const numericValue = Number(stringValue);
+        return Number.isFinite(numericValue) ? numericValue : null;
+    }
+
+    /**
+     * True when the value is NaN/Infinity (number or numeric token string).
+     * Non-numeric strings like "N/A" return false so we keep them as-is.
+     */
+    private static isNonFiniteNumericValue(rawValue: unknown): boolean {
+        if (typeof rawValue === 'number') {
+            return !Number.isFinite(rawValue);
+        }
+
+        if (typeof rawValue !== 'string') {
+            return false;
+        }
+
+        const trimmed = rawValue.trim().toLowerCase();
+        return (
+            trimmed === 'nan' ||
+            trimmed === 'infinity' ||
+            trimmed === '+infinity' ||
+            trimmed === '-infinity'
+        );
+    }
+
     private static formatMomentByTimezone(
         value: AnyType,
         pattern: string,
@@ -188,6 +229,10 @@ export class ExcelService {
                 if (!isMetricField && typeof rawValue === 'number') {
                     return String(rawValue);
                 }
+                // exceljs drops NaN/Infinity as empty cells; keep a visible raw token.
+                if (typeof rawValue === 'number' && !Number.isFinite(rawValue)) {
+                    return String(rawValue);
+                }
                 return rawValue;
             }
 
@@ -207,14 +252,18 @@ export class ExcelService {
             }
 
             if (formatExpression && isMetricField) {
-                // Metric without compact: keep raw number + column numFmt
-                const stringValue = String(rawValue);
-                if (
-                    stringValue.trim() !== '' &&
-                    !Number.isNaN(Number(stringValue))
-                ) {
-                    return Number(stringValue);
+                // Metric without compact: keep raw number + column numFmt.
+                // Only finite numbers are safe: exceljs writes NaN/Infinity as blank cells,
+                // which looked like "metrics exported empty" for ratio/percent SQL.
+                const numericValue = ExcelService.toFiniteNumber(rawValue);
+                if (numericValue !== null) {
+                    return numericValue;
                 }
+
+                if (ExcelService.isNonFiniteNumericValue(rawValue)) {
+                    return ExcelService.formatValueForDisplay(item, rawValue);
+                }
+
                 return rawValue;
             }
 

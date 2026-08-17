@@ -1682,6 +1682,10 @@ export class AsyncQueryService extends ProjectService {
      * Merge chart metric format overrides onto fields for download/export.
      * Keeps formatOptions (for applyCustomFormat / UI parity) and sets format
      * expression (for Excel numFmt / formatValueWithExpression).
+     *
+     * Only overwrite `format` when convertCustomFormatToFormatExpression
+     * returns a real expression; otherwise leave the original field format
+     * alone and rely on formatOptions via getCustomFormat.
      */
     static applyMetricOverrideFormatsToFields(
         fields: ItemsMap,
@@ -1698,15 +1702,17 @@ export class AsyncQueryService extends ProjectService {
                     return [key, value];
                 }
 
+                const formatExpression =
+                    convertCustomFormatToFormatExpression(formatOptions);
+
                 return [
                     key,
                     {
                         ...value,
                         formatOptions,
-                        format:
-                            convertCustomFormatToFormatExpression(
-                                formatOptions,
-                            ) ?? undefined,
+                        ...(formatExpression
+                            ? { format: formatExpression }
+                            : {}),
                     },
                 ];
             }),
