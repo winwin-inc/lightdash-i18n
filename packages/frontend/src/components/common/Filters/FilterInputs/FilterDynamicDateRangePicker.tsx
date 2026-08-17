@@ -7,7 +7,6 @@ import {
     resolveDateRangeValues,
     type BaseFilterRule,
     type DateRangeBoundSetting,
-    type DateRangeDirection,
     type DateRangeMode,
     type DateRangeSetting,
     type FilterRule,
@@ -55,7 +54,6 @@ type Props = {
     popoverProps?: Omit<PopoverProps, 'children'>;
 };
 
-const DEFAULT_DIRECTION: DateRangeDirection = 'ago';
 const DEFAULT_START: Required<DateRangeBoundSetting> = {
     direction: 'ago',
     count: 12,
@@ -69,9 +67,6 @@ const DEFAULT_END: Required<DateRangeBoundSetting> = {
 
 const isMode = (value: string | null): value is DateRangeMode =>
     value === 'fixed' || value === 'dynamic';
-
-const isDirection = (value: string | null): value is DateRangeDirection =>
-    value === 'ago' || value === 'later';
 
 const unitOfTimeOptions: Array<{ value: UnitOfTime; labelKey: string }> = [
     { value: UnitOfTime.months, labelKey: 'months' },
@@ -197,16 +192,12 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
     ): UnitOfTime => lockedUnit ?? raw ?? fallback;
 
     const startSetting: DateRangeBoundSetting = {
-        direction: isDirection(dateRangeSetting.start?.direction ?? null)
-            ? dateRangeSetting.start?.direction
-            : DEFAULT_DIRECTION,
+        direction: 'ago',
         count: parseCount(dateRangeSetting.start?.count),
         unit: coerceUnit(dateRangeSetting.start?.unit, DEFAULT_START.unit),
     };
     const endSetting: DateRangeBoundSetting = {
-        direction: isDirection(dateRangeSetting.end?.direction ?? null)
-            ? dateRangeSetting.end?.direction
-            : DEFAULT_DIRECTION,
+        direction: 'ago',
         count: parseCount(dateRangeSetting.end?.count),
         unit: coerceUnit(dateRangeSetting.end?.unit, DEFAULT_END.unit),
     };
@@ -222,12 +213,14 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                 start: next.start
                     ? {
                           ...next.start,
+                          direction: 'ago',
                           unit: coerceUnit(next.start.unit, DEFAULT_START.unit),
                       }
                     : next.start,
                 end: next.end
                     ? {
                           ...next.end,
+                          direction: 'ago',
                           unit: coerceUnit(next.end.unit, DEFAULT_END.unit),
                       }
                     : next.end,
@@ -280,6 +273,7 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
         // locked granularity unit.
         const safePatch: Partial<DateRangeBoundSetting> = {
             ...patch,
+            direction: 'ago',
             ...(lockedUnit ? { unit: lockedUnit } : {}),
         };
         // Build next from startSetting / endSetting (which already have
@@ -294,21 +288,6 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
             end: bound === 'end' ? { ...endSetting, ...safePatch } : endSetting,
         });
     };
-
-    const directionOptions = [
-        {
-            value: 'ago',
-            label: t(
-                'components_common_filters_inputs.date_range.dynamic.direction.ago',
-            ),
-        },
-        {
-            value: 'later',
-            label: t(
-                'components_common_filters_inputs.date_range.dynamic.direction.later',
-            ),
-        },
-    ];
 
     const unitOptions = unitOfTimeOptions.map((opt) => ({
         value: opt.value,
@@ -327,22 +306,6 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
             <Text size="xs" w={60} c="dimmed">
                 {t(labelKey)}
             </Text>
-            <Select
-                size="xs"
-                data={directionOptions}
-                value={
-                    isDirection(setting.direction ?? null)
-                        ? setting.direction
-                        : DEFAULT_DIRECTION
-                }
-                onChange={(value) => {
-                    if (!isDirection(value)) return;
-                    handleBoundChange(bound, { direction: value });
-                }}
-                disabled={disabled}
-                allowDeselect={false}
-                w={80}
-            />
             <NumberInput
                 size="xs"
                 value={setting.count ?? 1}
@@ -366,9 +329,6 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                 data={unitOptions}
                 value={setting.unit ?? DEFAULT_START.unit}
                 onChange={(value) => {
-                    // Safe guard: unitOfTimeOptions only contains months and
-                    // quarters, but handleBoundaryChange also enforces the
-                    // locked granularity unit on top.
                     if (
                         value === UnitOfTime.months ||
                         value === UnitOfTime.quarters
@@ -380,6 +340,11 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                 allowDeselect={false}
                 w={88}
             />
+            <Text size="xs" c="dimmed">
+                {t(
+                    'components_common_filters_inputs.date_range.dynamic.direction.ago',
+                )}
+            </Text>
         </Flex>
     );
 

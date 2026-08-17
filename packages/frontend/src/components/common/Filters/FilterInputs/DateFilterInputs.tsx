@@ -71,11 +71,17 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         isDimension(field) && field.timeInterval
             ? String(field.timeInterval)
             : undefined;
+    const isRangeOperator =
+        rule.operator === FilterOperator.IN_BETWEEN ||
+        rule.operator === FilterOperator.NOT_IN_BETWEEN;
+    const boundsGranularity = isRangeOperator
+        ? dashboardRule.dateRangeGranularity ?? TimeFrames.DAY
+        : timeIntervalStr;
     const { minDate: cfgMin, maxDate: cfgMax } =
         getDashboardFilterDatePickerBounds(
             dashboardRule.minAllowedDate,
             dashboardRule.maxAllowedDate,
-            timeIntervalStr,
+            boundsGranularity,
         );
 
     switch (rule.operator) {

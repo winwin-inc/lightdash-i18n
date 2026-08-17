@@ -44,6 +44,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -63,6 +64,7 @@ import {
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     removeValuesExcludedFromFilterRule,
+    validateDashboardFilterDynamicDateRange,
 } from './utils';
 
 interface Props {
@@ -112,6 +114,7 @@ const FilterConfiguration: FC<Props> = ({
     onSelectedTabChange,
 }) => {
     const { t } = useTranslation();
+    const { showToastError } = useToaster();
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: project } = useProject(projectUuid);
     const isCustomerUse = project?.isCustomerUse ?? false;
@@ -781,7 +784,6 @@ const FilterConfiguration: FC<Props> = ({
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
-                                    popoverProps?.onClose?.();
                                     if (draftFilterRule) {
                                         const ruleToSave =
                                             removeValuesExcludedFromFilterRule(
@@ -793,6 +795,25 @@ const FilterConfiguration: FC<Props> = ({
                                                     pendingExcludedValue,
                                                 ),
                                             );
+
+                                        if (isEditMode || isCreatingNew) {
+                                            const validationError =
+                                                validateDashboardFilterDynamicDateRange(
+                                                    ruleToSave,
+                                                );
+                                            if (validationError) {
+                                                showToastError({
+                                                    key: 'dashboard-filter-date-range-out-of-range',
+                                                    title: t(
+                                                        'components_dashboard_filter.configuration.date_range.default_out_of_range',
+                                                        '默认值日期超出了限制范围',
+                                                    ),
+                                                });
+                                                return;
+                                            }
+                                        }
+
+                                        popoverProps?.onClose?.();
                                         onSave(ruleToSave);
                                         setPendingExcludedValue('');
                                     }
