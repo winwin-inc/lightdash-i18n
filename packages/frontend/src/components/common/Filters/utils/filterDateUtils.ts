@@ -78,14 +78,43 @@ export const mergeMaxDate = (a?: Date, b?: Date): Date | undefined => {
     return dayjs(a).isBefore(dayjs(b)) ? a : b;
 };
 
+/** 底层数据每月 3 号更新；4 号起上月数据可用，4 号前只能选到上上月 */
+export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
+
+/**
+ * 未配置固定最晚日期时，按月/季粒度计算动态上限（对齐周期末）。
+ * - 月：4 号前 → 上上月末；4 号及以后 → 上月末
+ * - 季：最近一个完整季度末
+ */
+export const getDynamicMaxAllowedDate = (
+    timeInterval?: string,
+    referenceDate: dayjs.Dayjs = dayjs(),
+): Date | undefined => {
+    const upper = timeInterval?.toUpperCase();
+    if (upper === TimeFrames.MONTH) {
+        const monthsBack =
+            referenceDate.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+        return referenceDate
+            .subtract(monthsBack, 'month')
+            .endOf('month')
+            .toDate();
+    }
+    if (upper === TimeFrames.QUARTER) {
+        return referenceDate.subtract(1, 'quarter').endOf('quarter').toDate();
+    }
+    return undefined;
+};
+
 /**
  * Parse dashboard filter min/max date strings (YYYY-MM-DD) into Date bounds for Mantine pickers.
  * Aligns boundaries with the field time interval when applicable.
+ * maxAllowedDate 留空且为月/季粒度时，使用 getDynamicMaxAllowedDate。
  */
 export const getDashboardFilterDatePickerBounds = (
     minAllowedDate?: string,
     maxAllowedDate?: string,
     timeInterval?: string,
+    referenceDate: dayjs.Dayjs = dayjs(),
 ): { minDate?: Date; maxDate?: Date } => {
     const parseMin = (raw: string | undefined): Date | undefined => {
         const trimmed = raw?.trim();
@@ -123,8 +152,14 @@ export const getDashboardFilterDatePickerBounds = (
         return d.endOf('day').toDate();
     };
 
+    const fixedMax = parseMax(maxAllowedDate);
+    const dynamicMax =
+        fixedMax === undefined
+            ? getDynamicMaxAllowedDate(timeInterval, referenceDate)
+            : undefined;
+
     return {
         minDate: parseMin(minAllowedDate),
-        maxDate: parseMax(maxAllowedDate),
+        maxDate: fixedMax ?? dynamicMax,
     };
 };
