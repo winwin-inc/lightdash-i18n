@@ -18,7 +18,7 @@ import {
     isDateRangeDynamic,
     isFilterTarget,
     isMetricFilterTarget,
-    resolveDateRangeValuesAsDates,
+    resolveDateRangeValues,
     unitOfTimeFormat,
     type DateFilterRule,
     type FilterRule,
@@ -379,37 +379,17 @@ export const renderDateFilterSql = (
                 // reflect "now". Align to the period boundary based on
                 // dateRangeGranularity (e.g. "12 months ago" with month
                 // granularity → start of that month).
-                const [resolvedStart, resolvedEnd] =
-                    resolveDateRangeValuesAsDates(filter);
                 const granularity =
                     (filter as { dateRangeGranularity?: TimeFrames })
                         .dateRangeGranularity ?? TimeFrames.DAY;
-                const alignStart = (d: Date): Date => {
-                    if (granularity === TimeFrames.MONTH)
-                        return moment(d).startOf('month').toDate();
-                    if (granularity === TimeFrames.QUARTER)
-                        return moment(d).startOf('quarter').toDate();
-                    if (granularity === TimeFrames.YEAR)
-                        return moment(d).startOf('year').toDate();
-                    return d;
-                };
-                const alignEnd = (d: Date): Date => {
-                    if (granularity === TimeFrames.MONTH)
-                        return moment(d).endOf('month').toDate();
-                    if (granularity === TimeFrames.QUARTER)
-                        return moment(d).endOf('quarter').toDate();
-                    if (granularity === TimeFrames.YEAR)
-                        return moment(d).endOf('year').toDate();
-                    return d;
-                };
-                const startDate =
-                    resolvedStart != null
-                        ? dateFormatter(alignStart(resolvedStart))
-                        : 'NaT';
-                const endDate =
-                    resolvedEnd != null
-                        ? dateFormatter(alignEnd(resolvedEnd))
-                        : 'NaT';
+                const [resolvedStart, resolvedEnd] = resolveDateRangeValues(
+                    filter,
+                    granularity,
+                    new Date(),
+                    timezone,
+                );
+                const startDate = resolvedStart ?? 'NaT';
+                const endDate = resolvedEnd ?? 'NaT';
                 return `((${dimensionSql}) >= ${castValue(
                     startDate,
                 )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
@@ -430,21 +410,16 @@ export const renderDateFilterSql = (
             // upper bound is provided separately via `latestDataMonthMaxSql`.
             let startDate: string;
             if (isDateRangeDynamic(filter)) {
-                const [resolvedStart] = resolveDateRangeValuesAsDates(filter);
                 const granularity =
                     (filter as { dateRangeGranularity?: TimeFrames })
                         .dateRangeGranularity ?? TimeFrames.MONTH;
-                const alignStart = (d: Date): Date => {
-                    if (granularity === TimeFrames.YEAR)
-                        return moment(d).startOf('year').toDate();
-                    if (granularity === TimeFrames.QUARTER)
-                        return moment(d).startOf('quarter').toDate();
-                    return moment(d).startOf('month').toDate();
-                };
-                startDate =
-                    resolvedStart != null
-                        ? dateFormatter(alignStart(resolvedStart))
-                        : dateFormatter(filter.values?.[0]);
+                const [resolvedStart] = resolveDateRangeValues(
+                    filter,
+                    granularity,
+                    new Date(),
+                    timezone,
+                );
+                startDate = resolvedStart ?? dateFormatter(filter.values?.[0]);
             } else {
                 // Fixed mode: use values directly (preserves TIMESTAMP
                 // ISO strings etc.)

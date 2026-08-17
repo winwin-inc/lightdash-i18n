@@ -1,8 +1,13 @@
-import { FilterOperator, type DashboardFilterRule } from '@lightdash/common';
+import {
+    FilterOperator,
+    UnitOfTime,
+    type DashboardFilterRule,
+} from '@lightdash/common';
 
 import {
     applyExcludedValuesToFilterRule,
     hasFilterValueSet,
+    hasSavedFilterValueChanged,
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     normalizeExcludedValues,
@@ -56,6 +61,66 @@ describe('hasFilterValueSet', () => {
                 }),
             ),
         ).toBe(false);
+    });
+});
+
+describe('hasSavedFilterValueChanged', () => {
+    it('detects a viewer value override without removing the dynamic default', () => {
+        const original = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            values: ['2025-08-01', '2026-07-31'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            hasSavedFilterValueChanged(original, {
+                ...original,
+                values: ['2026-01-01', '2026-03-31'],
+            }),
+        ).toBe(true);
+    });
+
+    it('detects a fixed viewer override even when values equal the saved snapshot', () => {
+        const original = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            values: ['2025-08-01', '2026-07-31'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            hasSavedFilterValueChanged(original, {
+                ...original,
+                settings: undefined,
+            }),
+        ).toBe(true);
     });
 });
 

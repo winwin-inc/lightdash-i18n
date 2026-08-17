@@ -4,7 +4,7 @@ import {
     formatDate,
     isDateRangeDynamic,
     parseDate,
-    resolveDateRangeBound,
+    resolveDateRangeValues,
     type BaseFilterRule,
     type DateRangeBoundSetting,
     type DateRangeDirection,
@@ -31,6 +31,7 @@ import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterYearPicker from './FilterYearPicker';
+import { getDateRangeRuleWithFixedValues } from './utils';
 
 dayjs.extend(quarterOfYear);
 
@@ -156,18 +157,11 @@ const formatValueFromDate = (
 const resolveDynamicValues = (
     dateRange: DateRangeSetting,
     granularity: TimeFrames,
-): string[] => {
-    const start = resolveDateRangeBound(dateRange.start);
-    const end = resolveDateRangeBound(dateRange.end);
-    const values: string[] = [];
-    const startStr = start
-        ? formatValueFromDate(start, granularity, false)
-        : null;
-    const endStr = end ? formatValueFromDate(end, granularity, true) : null;
-    if (startStr) values.push(startStr);
-    if (endStr) values.push(endStr);
-    return values;
-};
+): string[] =>
+    resolveDateRangeValues(
+        { settings: { dateRange }, values: [] },
+        granularity,
+    ).filter((value): value is string => value !== null);
 
 const FilterDynamicDateRangePicker: FC<Props> = ({
     rule,
@@ -352,7 +346,7 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
             <NumberInput
                 size="xs"
                 value={setting.count ?? 1}
-                min={1}
+                min={0}
                 max={9999}
                 hideControls
                 w={64}
@@ -363,7 +357,7 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                             ? value
                             : Number.parseInt(String(value ?? ''), 10);
                     handleBoundChange(bound, {
-                        count: Number.isFinite(n) && n > 0 ? n : 1,
+                        count: Number.isFinite(n) && n >= 0 ? n : 0,
                     });
                 }}
             />
@@ -390,10 +384,6 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
     );
 
     // ---- Fixed-date mode UI ----
-    // In view mode with a dynamic date range, re-resolve the dates from
-    // settings.dateRange using the current date so the displayed values are
-    // always "fresh" (e.g. "last 12 months" shifts as months pass).
-    // In edit mode, or when not dynamic, use the stored values directly.
     const viewModeDynamicValues = useMemo(() => {
         if (isEditMode || !isDateRangeDynamic(rule)) return null;
         const dr = (rule.settings as { dateRange?: DateRangeSetting })
@@ -420,10 +410,15 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
     const writeFixed = (next: [Date | null, Date | null]) => {
         const startStr = formatValueFromDate(next[0], granularity, false);
         const endStr = formatValueFromDate(next[1], granularity, true);
-        const values: (string | null)[] = [];
-        if (startStr != null) values.push(startStr);
-        if (endStr != null) values.push(endStr);
-        onChange({ ...rule, values });
+        // Keep start/end as positional slots so clearing one bound does not
+        // shift the other into values[0].
+        const values = [startStr ?? '', endStr ?? ''];
+        const ruleWithValues = { ...rule, values };
+        onChange(
+            isEditMode
+                ? ruleWithValues
+                : getDateRangeRuleWithFixedValues(ruleWithValues),
+        );
     };
 
     const renderFixedPicker = () => {
@@ -550,10 +545,8 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
     };
 
     // Day / year granularity OR view mode: no dynamic option, just render
-    // the fixed pickers. In view mode the `values` array already contains
-    // the dynamically resolved dates (written at config time), so the user
-    // sees concrete dates they can adjust — identical to the pre-dynamic
-    // behaviour.
+    // the fixed pickers. Dynamic vs fixed is an edit-mode default only;
+    // view mode can change the current dates without rewriting that default.
     if (!dynamicAllowed || !isEditMode) {
         return (
             <Stack spacing="xs" w="100%">

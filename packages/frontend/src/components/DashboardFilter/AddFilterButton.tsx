@@ -244,7 +244,7 @@ const AddFilterButton: FC<Props> = ({
         <>
             <Popover
                 position="bottom-start"
-                trapFocus
+                trapFocus={!isSubPopoverOpen}
                 opened={isPopoverOpen}
                 closeOnEscape={isTilesConfigTab ? true : !isSubPopoverOpen}
                 closeOnClickOutside={
