@@ -84,8 +84,13 @@ export class ExcelService {
 
     /**
      * Parse a cell value as a finite number for Excel numFmt columns.
-     * Returns null for empty / NaN / Infinity so callers can fall back safely
-     * (exceljs otherwise persists NaN/Infinity as blank cells).
+     *
+     * HARDENING (not the root cause of "ALL results empty metrics"):
+     * exceljs stream writer persists NaN/Infinity as blank cells. Ratio SQL
+     * without nullif can produce those values; without this guard a single cell
+     * looks "missing" while CSV still shows a formatted string.
+     * The TABLE-vs-ALL empty-metrics bug is pivotConfiguration leak on download
+     * re-run (see useExplorerQuery.getDownloadQueryUuid / #19115) — keep both fixes.
      */
     private static toFiniteNumber(rawValue: unknown): number | null {
         if (typeof rawValue === 'number') {
@@ -104,6 +109,7 @@ export class ExcelService {
     /**
      * True when the value is NaN/Infinity (number or numeric token string).
      * Non-numeric strings like "N/A" return false so we keep them as-is.
+     * Used with formatValueForDisplay so exceljs does not write blank cells.
      */
     private static isNonFiniteNumericValue(rawValue: unknown): boolean {
         if (typeof rawValue === 'number') {
@@ -229,7 +235,7 @@ export class ExcelService {
                 if (!isMetricField && typeof rawValue === 'number') {
                     return String(rawValue);
                 }
-                // exceljs drops NaN/Infinity as empty cells; keep a visible raw token.
+                // Hardening: exceljs drops NaN/Infinity as empty cells — stringify instead.
                 if (typeof rawValue === 'number' && !Number.isFinite(rawValue)) {
                     return String(rawValue);
                 }
@@ -253,8 +259,9 @@ export class ExcelService {
 
             if (formatExpression && isMetricField) {
                 // Metric without compact: keep raw number + column numFmt.
-                // Only finite numbers are safe: exceljs writes NaN/Infinity as blank cells,
-                // which looked like "metrics exported empty" for ratio/percent SQL.
+                // Only Number.isFinite values are safe for exceljs (see toFiniteNumber).
+                // Non-finite → display string. This is cell-level hardening for ratio
+                // metrics; do not confuse with empty ALL-export columns (pivot leak).
                 const numericValue = ExcelService.toFiniteNumber(rawValue);
                 if (numericValue !== null) {
                     return numericValue;

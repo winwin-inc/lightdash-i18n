@@ -956,6 +956,8 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         projectUuid,
         dashboardUuid,
         dashboardChartReadyQuery.executeQueryResponse.queryUuid,
+        chart.chartConfig,
+        chart.pivotConfig,
     );
 
     const closeDataExportModal = useCallback(
