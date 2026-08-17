@@ -25,6 +25,7 @@ const FilterDatePicker: FC<Props> = ({
             popoverProps={{
                 shadow: 'sm',
                 withinPortal: true,
+                zIndex: 1100,
                 ...rest.popoverProps,
             }}
             firstDayOfWeek={firstDayOfWeek}

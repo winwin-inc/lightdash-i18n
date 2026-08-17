@@ -16,7 +16,7 @@ import {
     isFilterableItem,
     isFilterRule,
     isMomentInput,
-    resolveDateRangeBound,
+    resolveDateRangeValues,
     TimeFrames,
     type AnyType,
     type BaseFilterRule,
@@ -30,7 +30,7 @@ import {
 } from '@lightdash/common';
 import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
-import moment, { type MomentInput } from 'moment';
+import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
 import { useFilterOperatorLabel } from './constants';
 import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
@@ -155,6 +155,27 @@ const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
 };
 
 /**
+ * Keep a dynamic rule's current values while preventing downstream consumers
+ * from resolving its saved dynamic default again.
+ */
+export const getDateRangeRuleWithFixedValues = <
+    T extends BaseFilterRule & {
+        settings?: { dateRange?: DateRangeSetting };
+    },
+>(
+    rule: T,
+): T => {
+    if (!isDateRangeDynamic(rule) || !rule.settings) return rule;
+
+    const { dateRange: _drop, ...settings } = rule.settings;
+
+    return {
+        ...rule,
+        settings,
+    } as T;
+};
+
+/**
  * If the rule has a dynamic date range, re-resolve the `values` from
  * `settings.dateRange` using the current date so the displayed chip label
  * always reflects "now" rather than the stale values saved at config time.
@@ -167,24 +188,9 @@ export const resolveDisplayValues = (
     const dr = rule.settings?.dateRange;
     if (!dr) return rule.values;
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
-    const startDate = resolveDateRangeBound(dr.start);
-    const endDate = resolveDateRangeBound(dr.end);
-    const values: string[] = [];
-    if (startDate) {
-        const m = moment(startDate);
-        if (granularity === TimeFrames.MONTH) m.startOf('month');
-        else if (granularity === TimeFrames.QUARTER) m.startOf('quarter');
-        else if (granularity === TimeFrames.YEAR) m.startOf('year');
-        values.push(m.format('YYYY-MM-DD'));
-    }
-    if (endDate) {
-        const m = moment(endDate);
-        if (granularity === TimeFrames.MONTH) m.endOf('month');
-        else if (granularity === TimeFrames.QUARTER) m.endOf('quarter');
-        else if (granularity === TimeFrames.YEAR) m.endOf('year');
-        values.push(m.format('YYYY-MM-DD'));
-    }
-    return values;
+    return resolveDateRangeValues(rule, granularity).filter(
+        (value): value is string => value !== null,
+    );
 };
 
 /**

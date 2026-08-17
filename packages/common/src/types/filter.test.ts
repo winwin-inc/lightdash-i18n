@@ -8,7 +8,11 @@ import {
     FilterOperator,
     isFilterRuleDefinedForFieldId,
     removeFieldFromFilterGroup,
+    resolveDateRangeBound,
+    resolveDateRangeValues,
+    UnitOfTime,
 } from './filter';
+import { TimeFrames } from './timeFrames';
 
 describe('compress and uncompress dashboard filters', () => {
     describe('compressDashboardFiltersToParam', () => {
@@ -419,5 +423,66 @@ describe('isFilterRuleDefinedForFieldId', () => {
         expect(
             isFilterRuleDefinedForFieldId(filterGroup, fieldToBeFound3, false),
         ).toEqual(false);
+    });
+});
+
+describe('resolveDateRangeBound', () => {
+    it('supports the current period with a zero offset', () => {
+        const now = new Date(2024, 5, 15, 12, 30);
+
+        expect(
+            resolveDateRangeBound(
+                {
+                    direction: 'ago',
+                    count: 0,
+                    unit: UnitOfTime.months,
+                },
+                now,
+            ),
+        ).toEqual(now);
+    });
+
+    it('keeps month offsets inside the target month at month end', () => {
+        const result = resolveDateRangeBound(
+            {
+                direction: 'ago',
+                count: 1,
+                unit: UnitOfTime.months,
+            },
+            new Date(2024, 2, 31, 12),
+        );
+
+        expect([
+            result?.getFullYear(),
+            result?.getMonth(),
+            result?.getDate(),
+        ]).toEqual([2024, 1, 29]);
+    });
+
+    it('aligns dynamic ranges in the requested timezone', () => {
+        expect(
+            resolveDateRangeValues(
+                {
+                    settings: {
+                        dateRange: {
+                            mode: 'dynamic',
+                            start: {
+                                direction: 'ago',
+                                count: 0,
+                                unit: UnitOfTime.months,
+                            },
+                            end: {
+                                direction: 'ago',
+                                count: 0,
+                                unit: UnitOfTime.months,
+                            },
+                        },
+                    },
+                },
+                TimeFrames.MONTH,
+                new Date('2026-09-01T00:30:00Z'),
+                'America/Los_Angeles',
+            ),
+        ).toEqual(['2026-08-01', '2026-08-31']);
     });
 });

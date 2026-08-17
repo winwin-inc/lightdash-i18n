@@ -1,7 +1,7 @@
 import { MonthPickerInput, type MonthPickerInputProps } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import dayjs from 'dayjs';
-import { type FC } from 'react';
+import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { mergeMaxDate, mergeMinDate } from '../utils/filterDateUtils';
@@ -25,6 +25,20 @@ const FilterMonthAndYearPicker: FC<Props> = ({
         : 'MMMM YYYY';
 
     const yearValue = value ? dayjs(value).toDate() : null;
+    const parentOnOpen = props.popoverProps?.onOpen;
+    const parentOnClose = props.popoverProps?.onClose;
+
+    // Controlled `opened` does not always fire Popover onOpen/onClose.
+    // Tell the dashboard filter so it can disable trapFocus / click-outside.
+    useEffect(() => {
+        if (!isPopoverOpen) {
+            return undefined;
+        }
+        parentOnOpen?.();
+        return () => {
+            parentOnClose?.();
+        };
+    }, [isPopoverOpen, parentOnOpen, parentOnClose]);
 
     return (
         <MonthPickerInput
@@ -41,18 +55,13 @@ const FilterMonthAndYearPicker: FC<Props> = ({
             popoverProps={{
                 shadow: 'md',
                 withinPortal: true,
+                zIndex: 1100,
                 // Month and year picker does not manage its own state properly.
                 // additional props are needed to make it work
                 ...props.popoverProps,
                 opened: isPopoverOpen,
-                onOpen: () => {
-                    props.popoverProps?.onOpen?.();
-                    open();
-                },
-                onClose: () => {
-                    props.popoverProps?.onClose?.();
-                    close();
-                },
+                onOpen: open,
+                onClose: close,
             }}
             value={yearValue}
             onChange={(date) => {
