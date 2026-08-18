@@ -246,6 +246,35 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         ).toBe('end_after_max');
     });
 
+    it('allows 1 month ago before the 4th because config validation ignores data availability delay', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-03-03'),
+            ),
+        ).toBeNull();
+    });
+
     it('passes when dynamic end is within rolling max', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
