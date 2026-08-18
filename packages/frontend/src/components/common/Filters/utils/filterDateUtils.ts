@@ -81,7 +81,7 @@ export const mergeMaxDate = (a?: Date, b?: Date): Date | undefined => {
 /** 底层数据每月 3 号更新；4 号起上月数据可用，4 号前只能选到上上月 */
 export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
 
-const toDayjs = (value: Date | dayjs.Dayjs = dayjs()): dayjs.Dayjs =>
+const toDayjs = (value: Date | dayjs.Dayjs | string = dayjs()): dayjs.Dayjs =>
     dayjs.isDayjs(value) ? value : dayjs(value);
 
 const getCompareUnit = (
