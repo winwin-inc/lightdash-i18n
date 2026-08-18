@@ -4,12 +4,12 @@ import {
     TimeFrames,
     formatDate,
     isCustomSqlDimension,
+    isDashboardFilterRule,
     isDimension,
     isFilterRule,
     parseDate,
     timeframeToUnitOfTime,
     type BaseFilterRule,
-    type DashboardFilterRule,
     type DateFilterRule,
 } from '@lightdash/common';
 import { Flex, NumberInput, Text } from '@mantine/core';
@@ -66,7 +66,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         disabled: rule.disabled && !rule.values,
     });
 
-    const dashboardRule = rule as unknown as DashboardFilterRule;
+    const dashboardRule = isDashboardFilterRule(rule) ? rule : undefined;
     const timeIntervalStr =
         isDimension(field) && field.timeInterval
             ? String(field.timeInterval)
@@ -75,13 +75,16 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         rule.operator === FilterOperator.IN_BETWEEN ||
         rule.operator === FilterOperator.NOT_IN_BETWEEN;
     const boundsGranularity = isRangeOperator
-        ? dashboardRule.dateRangeGranularity ?? TimeFrames.DAY
+        ? dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY
         : timeIntervalStr;
     const { minDate: cfgMin, maxDate: cfgMax } =
         getDashboardFilterDatePickerBounds(
-            dashboardRule.minAllowedDate,
-            dashboardRule.maxAllowedDate,
+            dashboardRule?.minAllowedDate,
+            dashboardRule?.maxAllowedDate,
             boundsGranularity,
+            dayjs(),
+            true,
+            !!dashboardRule?.enableDynamicMaxAllowedDate,
         );
 
     switch (rule.operator) {
@@ -466,7 +469,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             // selector; in the explore page there is no date selector and
             // the value-range picker is always day-based.
             const rangeGranularity =
-                dashboardRule.dateRangeGranularity ?? TimeFrames.DAY;
+                dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY;
 
             return (
                 <FilterDynamicDateRangePicker

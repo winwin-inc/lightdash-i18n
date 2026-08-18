@@ -68,11 +68,24 @@ describe('getDashboardFilterDatePickerBounds', () => {
         expect(maxDate).toBeUndefined();
     });
 
-    it('applies dynamic max for month when maxAllowedDate is empty', () => {
+    it('does not apply dynamic max for month when the switch is off', () => {
         const { maxDate } = getDashboardFilterDatePickerBounds(
             undefined,
             undefined,
             TimeFrames.MONTH,
+        );
+
+        expect(maxDate).toBeUndefined();
+    });
+
+    it('applies dynamic max for month when the switch is on', () => {
+        const { maxDate } = getDashboardFilterDatePickerBounds(
+            undefined,
+            undefined,
+            TimeFrames.MONTH,
+            dayjs(),
+            true,
+            true,
         );
 
         expect(maxDate).toBeDefined();
