@@ -802,12 +802,23 @@ const FilterConfiguration: FC<Props> = ({
                                                     ruleToSave,
                                                 );
                                             if (validationError) {
+                                                const messageKey =
+                                                    validationError ===
+                                                    'start_after_end'
+                                                        ? 'components_dashboard_filter.configuration.date_range.start_after_end'
+                                                        : 'components_dashboard_filter.configuration.date_range.default_out_of_range';
+                                                const defaultMessage =
+                                                    validationError ===
+                                                    'start_after_end'
+                                                        ? '开始日期不能晚于结束日期'
+                                                        : '默认值日期超出了限制范围';
                                                 showToastError({
-                                                    key: 'dashboard-filter-date-range-out-of-range',
+                                                    key: 'dashboard-filter-date-range-validation',
                                                     title: t(
-                                                        'components_dashboard_filter.configuration.date_range.default_out_of_range',
-                                                        '默认值日期超出了限制范围',
+                                                        messageKey,
+                                                        defaultMessage,
                                                     ),
+                                                    autoClose: 3000,
                                                 });
                                                 return;
                                             }

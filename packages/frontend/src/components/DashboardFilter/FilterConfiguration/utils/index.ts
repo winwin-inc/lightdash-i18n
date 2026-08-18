@@ -16,6 +16,7 @@ import { getDashboardFilterDatePickerBounds } from '../../../common/Filters/util
 dayjs.extend(quarterOfYear);
 
 export type DashboardFilterDynamicDateRangeValidationError =
+    | 'start_after_end'
     | 'end_after_max'
     | 'start_before_min';
 
@@ -35,7 +36,9 @@ const getCompareUnit = (
 };
 
 /**
- * 编辑看板筛选器时，校验动态默认日期是否落在最早/最晚可选范围内。
+ * 编辑看板筛选器时，校验动态默认日期：
+ * - 开始不能晚于结束
+ * - 起止需落在最早/最晚可选范围内
  * 返回错误码供 UI 展示；通过则返回 null。
  */
 export const validateDashboardFilterDynamicDateRange = (
@@ -54,16 +57,6 @@ export const validateDashboardFilterDynamicDateRange = (
 
     const granularity = filterRule.dateRangeGranularity ?? TimeFrames.DAY;
     const ref = dayjs(referenceDate);
-    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
-        filterRule.minAllowedDate,
-        filterRule.maxAllowedDate,
-        granularity,
-        ref,
-    );
-
-    if (!minDate && !maxDate) {
-        return null;
-    }
 
     const [startStr, endStr] = resolveDateRangeValues(
         { settings: filterRule.settings, values: [] },
@@ -78,6 +71,17 @@ export const validateDashboardFilterDynamicDateRange = (
     }
 
     const unit = getCompareUnit(granularity);
+
+    if (start.isAfter(end, unit)) {
+        return 'start_after_end';
+    }
+
+    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
+        filterRule.minAllowedDate,
+        filterRule.maxAllowedDate,
+        granularity,
+        ref,
+    );
 
     if (maxDate && end.isAfter(dayjs(maxDate), unit)) {
         return 'end_after_max';
