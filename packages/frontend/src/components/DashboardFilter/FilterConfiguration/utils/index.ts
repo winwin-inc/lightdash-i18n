@@ -82,6 +82,7 @@ export const validateDashboardFilterDynamicDateRange = (
         granularity,
         ref,
         false,
+        !!filterRule.enableDynamicMaxAllowedDate,
     );
 
     if (maxDate && end.isAfter(dayjs(maxDate), unit)) {
@@ -266,6 +267,7 @@ export const getFilterRuleRevertableObject = (
         allowedOperators: filterRule.allowedOperators,
         minAllowedDate: filterRule.minAllowedDate,
         maxAllowedDate: filterRule.maxAllowedDate,
+        enableDynamicMaxAllowedDate: filterRule.enableDynamicMaxAllowedDate,
         dateRangeGranularity: filterRule.dateRangeGranularity,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,

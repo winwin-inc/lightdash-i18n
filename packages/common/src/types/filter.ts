@@ -170,6 +170,12 @@ export type DashboardFilterRule<
     /** Optional selectable range for date inputs (YYYY-MM-DD) */
     minAllowedDate?: string;
     maxAllowedDate?: string;
+    /**
+     * When true and maxAllowedDate is empty, month/quarter pickers use a
+     * rolling latest date (before the 4th: two months ago; from the 4th:
+     * last month; quarters: last complete quarter). Default is off.
+     */
+    enableDynamicMaxAllowedDate?: boolean;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;

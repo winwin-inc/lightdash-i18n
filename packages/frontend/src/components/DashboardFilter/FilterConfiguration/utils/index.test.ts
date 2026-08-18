@@ -221,6 +221,7 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
             settings: {
                 dateRange: {
                     mode: 'dynamic',
@@ -246,10 +247,40 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         ).toBe('end_after_max');
     });
 
+    it('skips rolling max validation when the switch is off', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 0,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-03-03'),
+            ),
+        ).toBeNull();
+    });
+
     it('allows 1 month ago before the 4th because config validation ignores data availability delay', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
             settings: {
                 dateRange: {
                     mode: 'dynamic',
@@ -279,6 +310,7 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
             settings: {
                 dateRange: {
                     mode: 'dynamic',
@@ -319,6 +351,7 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.QUARTER,
+            enableDynamicMaxAllowedDate: true,
             settings: {
                 dateRange: {
                     mode: 'dynamic',

@@ -191,6 +191,7 @@ export const resolveDisplayValues = (
         minAllowedDate?: string;
         maxAllowedDate?: string;
         dateRangeGranularity?: TimeFrames;
+        enableDynamicMaxAllowedDate?: boolean;
     },
     now: Date = new Date(),
 ): AnyType[] | undefined => {
@@ -206,6 +207,8 @@ export const resolveDisplayValues = (
         rule.maxAllowedDate,
         granularity,
         now,
+        true,
+        !!rule.enableDynamicMaxAllowedDate,
     );
     return clampDateRangeValuesToBounds(
         resolved,

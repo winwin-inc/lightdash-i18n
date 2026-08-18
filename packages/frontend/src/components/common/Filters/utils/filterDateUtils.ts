@@ -183,7 +183,7 @@ export const clampDateRangeValuesToBounds = (
 /**
  * Parse dashboard filter min/max date strings (YYYY-MM-DD) into Date bounds for Mantine pickers.
  * Aligns boundaries with the field time interval when applicable.
- * maxAllowedDate 留空且为月/季粒度时，使用 getDynamicMaxAllowedDate。
+ * maxAllowedDate 留空且开启 enableDynamicMax 时，月/季粒度使用 getDynamicMaxAllowedDate。
  */
 export const getDashboardFilterDatePickerBounds = (
     minAllowedDate?: string,
@@ -191,6 +191,7 @@ export const getDashboardFilterDatePickerBounds = (
     timeInterval?: string,
     referenceDate: Date | dayjs.Dayjs = dayjs(),
     applyDataAvailabilityDelay = true,
+    enableDynamicMax = false,
 ): { minDate?: Date; maxDate?: Date } => {
     const ref = toDayjs(referenceDate);
     const parseMin = (raw: string | undefined): Date | undefined => {
@@ -231,7 +232,7 @@ export const getDashboardFilterDatePickerBounds = (
 
     const fixedMax = parseMax(maxAllowedDate);
     const dynamicMax =
-        fixedMax === undefined
+        fixedMax === undefined && enableDynamicMax
             ? getDynamicMaxAllowedDate(
                   timeInterval,
                   ref,
