@@ -30,7 +30,7 @@ import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterYearPicker from './FilterYearPicker';
-import { getDateRangeRuleWithFixedValues } from './utils';
+import { getDateRangeRuleWithFixedValues, resolveDisplayValues } from './utils';
 
 dayjs.extend(quarterOfYear);
 
@@ -351,11 +351,8 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
     // ---- Fixed-date mode UI ----
     const viewModeDynamicValues = useMemo(() => {
         if (isEditMode || !isDateRangeDynamic(rule)) return null;
-        const dr = (rule.settings as { dateRange?: DateRangeSetting })
-            ?.dateRange;
-        if (!dr) return null;
-        return resolveDynamicValues(dr, granularity);
-    }, [isEditMode, rule, granularity]);
+        return resolveDisplayValues(rule);
+    }, [isEditMode, rule]);
 
     const fixedStart = parseValueAsDate(
         (viewModeDynamicValues?.[0] ?? rule.values?.[0]) as

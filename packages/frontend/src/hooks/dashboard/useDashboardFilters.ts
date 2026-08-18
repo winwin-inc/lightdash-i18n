@@ -9,10 +9,7 @@ import {
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
-import {
-    getDateRangeRuleWithFixedValues,
-    resolveDynamicDateRangeRule,
-} from '../../components/common/Filters/FilterInputs/utils';
+import { prepareDashboardFilterRuleForQuery } from '../../components/common/Filters/FilterInputs/utils';
 import { useSavedDashboardFiltersOverrides } from '../useSavedDashboardFiltersOverrides';
 
 export const emptyFilters: DashboardFilters = {
@@ -57,7 +54,7 @@ export const useDashboardFilters = ({
         if (!isFilterEnabled) return emptyFilters;
 
         const forQuery = (rule: DashboardFilterRule): DashboardFilterRule =>
-            getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule));
+            prepareDashboardFilterRuleForQuery(rule);
 
         return {
             dimensions: [

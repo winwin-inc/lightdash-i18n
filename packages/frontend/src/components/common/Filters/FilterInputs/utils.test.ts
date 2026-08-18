@@ -1,11 +1,16 @@
 import {
     FilterOperator,
+    TimeFrames,
     UnitOfTime,
     type DashboardFilterRule,
 } from '@lightdash/common';
 import { describe, expect, it } from 'vitest';
 
-import { getDateRangeRuleWithFixedValues } from './utils';
+import {
+    getDateRangeRuleWithFixedValues,
+    prepareDashboardFilterRuleForQuery,
+    resolveDisplayValues,
+} from './utils';
 
 describe('getDateRangeRuleWithFixedValues', () => {
     it('keeps viewer values and removes only the dynamic default', () => {
@@ -57,5 +62,83 @@ describe('getDateRangeRuleWithFixedValues', () => {
         };
 
         expect(getDateRangeRuleWithFixedValues(rule)).toBe(rule);
+    });
+});
+
+describe('resolveDisplayValues', () => {
+    it('clamps a 1-month-ago default to two months ago before the 4th', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_month',
+                tableName: 'orders',
+            },
+            dateRangeGranularity: TimeFrames.MONTH,
+            values: ['2025-07-01', '2026-06-30'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        };
+
+        expect(resolveDisplayValues(rule, new Date('2026-07-03'))).toEqual([
+            '2025-07-01',
+            '2026-05-31',
+        ]);
+    });
+});
+
+describe('prepareDashboardFilterRuleForQuery', () => {
+    it('sends clamped values and removes the dynamic dateRange', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_month',
+                tableName: 'orders',
+            },
+            dateRangeGranularity: TimeFrames.MONTH,
+            values: ['2025-07-01', '2026-06-30'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        };
+
+        const prepared = prepareDashboardFilterRuleForQuery(
+            rule,
+            new Date('2026-07-03'),
+        );
+
+        expect(prepared.values).toEqual(['2025-07-01', '2026-05-31']);
+        expect(
+            (prepared.settings as { dateRange?: unknown } | undefined)
+                ?.dateRange,
+        ).toBeUndefined();
     });
 });

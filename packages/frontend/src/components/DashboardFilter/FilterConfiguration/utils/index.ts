@@ -38,7 +38,7 @@ const getCompareUnit = (
 /**
  * 编辑看板筛选器时，校验动态默认日期：
  * - 开始不能晚于结束
- * - 起止需落在最早/最晚可选范围内
+ * - 起止需落在最早/最晚可选范围内（月份按上月，不套用 4 号数据可用规则）
  * 返回错误码供 UI 展示；通过则返回 null。
  */
 export const validateDashboardFilterDynamicDateRange = (
@@ -81,6 +81,7 @@ export const validateDashboardFilterDynamicDateRange = (
         filterRule.maxAllowedDate,
         granularity,
         ref,
+        false,
     );
 
     if (maxDate && end.isAfter(dayjs(maxDate), unit)) {

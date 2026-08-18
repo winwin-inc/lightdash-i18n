@@ -32,6 +32,10 @@ import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
+import {
+    clampDateRangeValuesToBounds,
+    getDashboardFilterDatePickerBounds,
+} from '../utils/filterDateUtils';
 import { useFilterOperatorLabel } from './constants';
 import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
 
@@ -182,14 +186,32 @@ export const getDateRangeRuleWithFixedValues = <
  * Returns the original `values` for non-dynamic rules.
  */
 export const resolveDisplayValues = (
-    rule: BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+    rule: BaseFilterRule & {
+        settings?: { dateRange?: DateRangeSetting };
+        minAllowedDate?: string;
+        maxAllowedDate?: string;
+        dateRangeGranularity?: TimeFrames;
+    },
+    now: Date = new Date(),
 ): AnyType[] | undefined => {
     if (!isDateRangeDynamic(rule)) return rule.values;
     const dr = rule.settings?.dateRange;
     if (!dr) return rule.values;
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
-    return resolveDateRangeValues(rule, granularity).filter(
+    const resolved = resolveDateRangeValues(rule, granularity, now).filter(
         (value): value is string => value !== null,
+    );
+    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
+        rule.minAllowedDate,
+        rule.maxAllowedDate,
+        granularity,
+        now,
+    );
+    return clampDateRangeValuesToBounds(
+        resolved,
+        minDate,
+        maxDate,
+        granularity,
     );
 };
 
@@ -203,12 +225,21 @@ export const resolveDynamicDateRangeRule = <
     T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
 >(
     rule: T,
+    now: Date = new Date(),
 ): T => {
     if (!isDateRangeDynamic(rule)) return rule;
-    const resolved = resolveDisplayValues(rule);
+    const resolved = resolveDisplayValues(rule, now);
     if (resolved === rule.values) return rule;
     return { ...rule, values: resolved };
 };
+
+/** 查询前解析动态日期并去掉 dateRange，保证接口参数与筛选器展示一致 */
+export const prepareDashboardFilterRuleForQuery = <
+    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+>(
+    rule: T,
+    now: Date = new Date(),
+): T => getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now));
 
 const useValueAsString = () => {
     const { t } = useTranslation();
