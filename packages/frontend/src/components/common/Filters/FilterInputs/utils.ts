@@ -16,14 +16,14 @@ import {
     isFilterableItem,
     isFilterRule,
     isMomentInput,
+    resolveDateRangeValues,
     TimeFrames,
-    UnitOfTime,
+    type AnyType,
     type BaseFilterRule,
     type ConditionalRuleLabel,
     type CustomSqlDimension,
     type DashboardFilterableField,
-    type DateRangeBoundSetting,
-    type DateRangeDirection,
+    type DateRangeSetting,
     type Field,
     type FilterableItem,
     type TableCalculation,
@@ -32,6 +32,10 @@ import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
+import {
+    clampDateRangeValuesToBounds,
+    getDashboardFilterDatePickerBounds,
+} from '../utils/filterDateUtils';
 import { useFilterOperatorLabel } from './constants';
 import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
 
@@ -154,61 +158,100 @@ const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
     return TimeFrames.DAY;
 };
 
-// Units that can be referenced via `date_range.dynamic.unit.<key>` i18n keys.
-const DYNAMIC_UNIT_KEYS: Record<UnitOfTime, string> = {
-    [UnitOfTime.milliseconds]: 'milliseconds',
-    [UnitOfTime.seconds]: 'seconds',
-    [UnitOfTime.minutes]: 'minutes',
-    [UnitOfTime.hours]: 'hours',
-    [UnitOfTime.days]: 'days',
-    [UnitOfTime.weeks]: 'weeks',
-    [UnitOfTime.months]: 'months',
-    [UnitOfTime.quarters]: 'quarters',
-    [UnitOfTime.years]: 'years',
+/**
+ * Keep a dynamic rule's current values while preventing downstream consumers
+ * from resolving its saved dynamic default again.
+ */
+export const getDateRangeRuleWithFixedValues = <
+    T extends BaseFilterRule & {
+        settings?: { dateRange?: DateRangeSetting };
+    },
+>(
+    rule: T,
+): T => {
+    if (!isDateRangeDynamic(rule) || !rule.settings) return rule;
+
+    const { dateRange: _drop, ...settings } = rule.settings;
+
+    return {
+        ...rule,
+        settings,
+    } as T;
 };
 
-const formatDynamicBound = (
-    t: ReturnType<typeof useTranslation>['t'],
-    getUnitLabel: (
-        unit: UnitOfTime,
-        isPlural: boolean,
-        isCompleted: boolean,
-    ) => string,
-    bound: DateRangeBoundSetting | undefined,
-): string => {
-    if (!bound || bound.count == null || !bound.unit) return '';
-    const direction: DateRangeDirection = bound.direction ?? 'ago';
-    const count = bound.count;
-    const unit = bound.unit;
-    const unitKey = DYNAMIC_UNIT_KEYS[unit as UnitOfTime] ?? String(unit);
-    const directionLabel = t(
-        `components_common_filters_inputs.date_range.dynamic.direction.${direction}`,
+/**
+ * If the rule has a dynamic date range, re-resolve the `values` from
+ * `settings.dateRange` using the current date so the displayed chip label
+ * always reflects "now" rather than the stale values saved at config time.
+ * Returns the original `values` for non-dynamic rules.
+ */
+export const resolveDisplayValues = (
+    rule: BaseFilterRule & {
+        settings?: { dateRange?: DateRangeSetting };
+        minAllowedDate?: string;
+        maxAllowedDate?: string;
+        dateRangeGranularity?: TimeFrames;
+    },
+    now: Date = new Date(),
+): AnyType[] | undefined => {
+    if (!isDateRangeDynamic(rule)) return rule.values;
+    const dr = rule.settings?.dateRange;
+    if (!dr) return rule.values;
+    const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
+    const resolved = resolveDateRangeValues(rule, granularity, now).filter(
+        (value): value is string => value !== null,
     );
-    const unitLabel = getUnitLabel(unit, count > 1, false);
-    return t(
-        'components_common_filters_inputs.date_range.dynamic.bound_summary',
-        {
-            direction: directionLabel,
-            count,
-            unit:
-                unitLabel ||
-                t(
-                    `components_common_filters_inputs.date_range.dynamic.unit.${unitKey}`,
-                ),
-        },
+    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
+        rule.minAllowedDate,
+        rule.maxAllowedDate,
+        granularity,
+        now,
+    );
+    return clampDateRangeValuesToBounds(
+        resolved,
+        minDate,
+        maxDate,
+        granularity,
     );
 };
+
+/**
+ * Returns a new rule with `values` re-resolved from `settings.dateRange`
+ * if the rule is a dynamic date range. Non-dynamic rules are returned as-is.
+ * Use this to ensure filter rules sent to the backend have up-to-date
+ * `values` that match what the user sees in the chip label.
+ */
+export const resolveDynamicDateRangeRule = <
+    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+>(
+    rule: T,
+    now: Date = new Date(),
+): T => {
+    if (!isDateRangeDynamic(rule)) return rule;
+    const resolved = resolveDisplayValues(rule, now);
+    if (resolved === rule.values) return rule;
+    return { ...rule, values: resolved };
+};
+
+/** 查询前解析动态日期并去掉 dateRange，保证接口参数与筛选器展示一致 */
+export const prepareDashboardFilterRuleForQuery = <
+    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+>(
+    rule: T,
+    now: Date = new Date(),
+): T => getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now));
 
 const useValueAsString = () => {
     const { t } = useTranslation();
-    const { formatRelativeTimeDisplay, getUnitLabel } = useUnitOfTimeLabels();
+    const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
 
     return (
         filterType: FilterType,
         rule: BaseFilterRule,
         field?: Field | TableCalculation | CustomSqlDimension,
     ) => {
-        const { operator, values } = rule;
+        const { operator } = rule;
+        const values = resolveDisplayValues(rule);
         const firstValue = values?.[0];
         const secondValue = values?.[1];
 
@@ -243,34 +286,6 @@ const useValueAsString = () => {
                         }`.trim();
                     }
                     case FilterOperator.IN_BETWEEN: {
-                        // Dynamic date range: show the configured offsets
-                        // (e.g. "前 12 个月 至 前 1 月") instead of literal dates.
-                        if (isFilterRule(rule) && isDateRangeDynamic(rule)) {
-                            const settings = rule.settings as
-                                | {
-                                      dateRange?: {
-                                          start?: DateRangeBoundSetting;
-                                          end?: DateRangeBoundSetting;
-                                      };
-                                  }
-                                | undefined;
-                            const startText = formatDynamicBound(
-                                t,
-                                getUnitLabel,
-                                settings?.dateRange?.start,
-                            );
-                            const endText = formatDynamicBound(
-                                t,
-                                getUnitLabel,
-                                settings?.dateRange?.end,
-                            );
-                            if (startText && endText) {
-                                return t(
-                                    'components_common_filters_inputs.date_range.dynamic.range_summary',
-                                    { start: startText, end: endText },
-                                );
-                            }
-                        }
                         if (
                             isDimension(field) &&
                             isMomentInput(firstValue) &&

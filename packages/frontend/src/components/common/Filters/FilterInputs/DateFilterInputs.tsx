@@ -37,7 +37,15 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
     const { t } = useTranslation();
-    const { field, rule, onChange, popoverProps, disabled, filterType } = props;
+    const {
+        field,
+        rule,
+        onChange,
+        popoverProps,
+        disabled,
+        filterType,
+        isEditMode,
+    } = props;
     const { startOfWeek } = useFiltersContext();
 
     const isTimestamp =
@@ -63,11 +71,17 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         isDimension(field) && field.timeInterval
             ? String(field.timeInterval)
             : undefined;
+    const isRangeOperator =
+        rule.operator === FilterOperator.IN_BETWEEN ||
+        rule.operator === FilterOperator.NOT_IN_BETWEEN;
+    const boundsGranularity = isRangeOperator
+        ? dashboardRule.dateRangeGranularity ?? TimeFrames.DAY
+        : timeIntervalStr;
     const { minDate: cfgMin, maxDate: cfgMax } =
         getDashboardFilterDatePickerBounds(
             dashboardRule.minAllowedDate,
             dashboardRule.maxAllowedDate,
-            timeIntervalStr,
+            boundsGranularity,
         );
 
     switch (rule.operator) {
@@ -471,6 +485,8 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                     filterMaxDate={cfgMax}
                     firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
                     disabled={disabled}
+                    isEditMode={isEditMode}
+                    popoverProps={popoverProps}
                 />
             );
         default: {

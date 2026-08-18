@@ -1,11 +1,98 @@
 import {
     FilterOperator,
+    TimeFrames,
     assertUnreachable,
     isDateRangeDynamic,
+    resolveDateRangeValues,
     type DashboardFilterRule,
 } from '@lightdash/common';
+import dayjs from 'dayjs';
+import quarterOfYear from 'dayjs/plugin/quarterOfYear';
 import { produce } from 'immer';
 import isEqual from 'lodash/isEqual';
+
+import { getDashboardFilterDatePickerBounds } from '../../../common/Filters/utils/filterDateUtils';
+
+dayjs.extend(quarterOfYear);
+
+export type DashboardFilterDynamicDateRangeValidationError =
+    | 'start_after_end'
+    | 'end_after_max'
+    | 'start_before_min';
+
+const getCompareUnit = (
+    granularity: TimeFrames,
+): 'day' | 'month' | 'quarter' | 'year' => {
+    switch (granularity) {
+        case TimeFrames.MONTH:
+            return 'month';
+        case TimeFrames.QUARTER:
+            return 'quarter';
+        case TimeFrames.YEAR:
+            return 'year';
+        default:
+            return 'day';
+    }
+};
+
+/**
+ * 编辑看板筛选器时，校验动态默认日期：
+ * - 开始不能晚于结束
+ * - 起止需落在最早/最晚可选范围内（月份按上月，不套用 4 号数据可用规则）
+ * 返回错误码供 UI 展示；通过则返回 null。
+ */
+export const validateDashboardFilterDynamicDateRange = (
+    filterRule: DashboardFilterRule,
+    referenceDate: Date = new Date(),
+): DashboardFilterDynamicDateRangeValidationError | null => {
+    if (
+        filterRule.operator !== FilterOperator.IN_BETWEEN &&
+        filterRule.operator !== FilterOperator.NOT_IN_BETWEEN
+    ) {
+        return null;
+    }
+    if (!isDateRangeDynamic(filterRule)) {
+        return null;
+    }
+
+    const granularity = filterRule.dateRangeGranularity ?? TimeFrames.DAY;
+    const ref = dayjs(referenceDate);
+
+    const [startStr, endStr] = resolveDateRangeValues(
+        { settings: filterRule.settings, values: [] },
+        granularity,
+        referenceDate,
+    );
+    const start = startStr ? dayjs(startStr) : null;
+    const end = endStr ? dayjs(endStr) : null;
+
+    if (!start?.isValid() || !end?.isValid()) {
+        return null;
+    }
+
+    const unit = getCompareUnit(granularity);
+
+    if (start.isAfter(end, unit)) {
+        return 'start_after_end';
+    }
+
+    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
+        filterRule.minAllowedDate,
+        filterRule.maxAllowedDate,
+        granularity,
+        ref,
+        false,
+    );
+
+    if (maxDate && end.isAfter(dayjs(maxDate), unit)) {
+        return 'end_after_max';
+    }
+    if (minDate && start.isBefore(dayjs(minDate), unit)) {
+        return 'start_before_min';
+    }
+
+    return null;
+};
 
 export const normalizeExcludedValues = (
     values: string[] | undefined,

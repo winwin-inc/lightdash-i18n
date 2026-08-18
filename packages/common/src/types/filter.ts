@@ -1,4 +1,4 @@
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 import assertUnreachable from '../utils/assertUnreachable';
 import { getDateFormat } from '../utils/formatting';
@@ -248,7 +248,7 @@ export const isDateFilterRule = (
  * rules without explicit settings as fixed (backwards compatible).
  */
 export const isDateRangeDynamic = (
-    rule: Pick<FilterRule, 'settings'>,
+    rule: BaseFilterRule & { settings?: unknown },
 ): boolean => {
     const settings = rule.settings as
         | { dateRange?: DateRangeSetting }
@@ -267,51 +267,34 @@ export const isDateRangeDynamic = (
 export const resolveDateRangeBound = (
     bound: DateRangeBoundSetting | undefined,
     now: Date = new Date(),
+    timezone?: string,
 ): Date | undefined => {
     if (!bound || bound.count == null || !bound.unit) {
         return undefined;
     }
     const count = Number(bound.count);
-    if (!Number.isFinite(count) || count === 0) {
+    if (!Number.isFinite(count) || count < 0) {
         return undefined;
     }
     const sign = bound.direction === 'later' ? 1 : -1;
-    const result = new Date(now.getTime());
+    const referenceDate = timezone ? moment(now).tz(timezone) : moment(now);
     switch (bound.unit) {
         case UnitOfTime.milliseconds:
-            result.setMilliseconds(result.getMilliseconds() + sign * count);
-            break;
         case UnitOfTime.seconds:
-            result.setSeconds(result.getSeconds() + sign * count);
-            break;
         case UnitOfTime.minutes:
-            result.setMinutes(result.getMinutes() + sign * count);
-            break;
         case UnitOfTime.hours:
-            result.setHours(result.getHours() + sign * count);
-            break;
         case UnitOfTime.days:
-            result.setDate(result.getDate() + sign * count);
-            break;
         case UnitOfTime.weeks:
-            result.setDate(result.getDate() + sign * count * 7);
-            break;
         case UnitOfTime.months:
-            result.setMonth(result.getMonth() + sign * count);
-            break;
         case UnitOfTime.quarters:
-            result.setMonth(result.getMonth() + sign * count * 3);
-            break;
         case UnitOfTime.years:
-            result.setFullYear(result.getFullYear() + sign * count);
-            break;
+            return referenceDate.add(sign * count, bound.unit).toDate();
         default:
             return assertUnreachable(
                 bound.unit,
                 `Unexpected UnitOfTime: ${bound.unit}`,
             );
     }
-    return result;
 };
 
 /**
@@ -326,6 +309,7 @@ export const resolveDateRangeValuesAsDates = (
     rule: Pick<FilterRule, 'values' | 'settings'>,
     _timeInterval: TimeFrames = TimeFrames.DAY,
     now: Date = new Date(),
+    timezone?: string,
 ): [Date | null, Date | null] => {
     const settings = rule.settings as
         | { dateRange?: DateRangeSetting }
@@ -344,9 +328,38 @@ export const resolveDateRangeValuesAsDates = (
         return [parseSlot(rawStart), parseSlot(rawEnd)];
     }
     return [
-        resolveDateRangeBound(settings.dateRange.start, now) ?? null,
-        resolveDateRangeBound(settings.dateRange.end, now) ?? null,
+        resolveDateRangeBound(settings.dateRange.start, now, timezone) ?? null,
+        resolveDateRangeBound(settings.dateRange.end, now, timezone) ?? null,
     ];
+};
+
+export const resolveDateRangeValues = (
+    rule: Pick<FilterRule, 'values' | 'settings'>,
+    granularity: TimeFrames = TimeFrames.DAY,
+    now: Date = new Date(),
+    timezone?: string,
+): [string | null, string | null] => {
+    const [start, end] = resolveDateRangeValuesAsDates(
+        rule,
+        granularity,
+        now,
+        timezone,
+    );
+    const formatBound = (date: Date | null, isEnd: boolean): string | null => {
+        if (!date) return null;
+
+        const value = timezone ? moment(date).tz(timezone) : moment(date);
+        if (granularity === TimeFrames.MONTH) {
+            value[isEnd ? 'endOf' : 'startOf']('month');
+        } else if (granularity === TimeFrames.QUARTER) {
+            value[isEnd ? 'endOf' : 'startOf']('quarter');
+        } else if (granularity === TimeFrames.YEAR) {
+            value[isEnd ? 'endOf' : 'startOf']('year');
+        }
+        return value.format(getDateFormat(TimeFrames.DAY));
+    };
+
+    return [formatBound(start, false), formatBound(end, true)];
 };
 
 export type FilterGroupItem = FilterGroup | FilterRule;

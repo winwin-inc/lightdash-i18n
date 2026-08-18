@@ -3,6 +3,7 @@ import {
     type DashboardFilters,
 } from '@lightdash/common';
 import { useMemo } from 'react';
+import { prepareDashboardFilterRuleForQuery } from '../../components/common/Filters/FilterInputs/utils';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 
 const useDashboardTabFiltersForTile = (
@@ -16,12 +17,15 @@ const useDashboardTabFiltersForTile = (
         c.getActiveTabTemporaryFilters(tabUuid),
     );
 
-    return useMemo(
-        () => ({
+    return useMemo(() => {
+        const forQuery = (rule: typeof tabFilters.dimensions[number]) =>
+            prepareDashboardFilterRuleForQuery(rule);
+
+        return {
             dimensions: getDashboardFilterRulesForTile(tileUuid, [
                 ...tabFilters.dimensions,
                 ...(tabTemporaryFilters?.dimensions ?? []),
-            ]),
+            ]).map(forQuery),
             metrics: getDashboardFilterRulesForTile(tileUuid, [
                 ...tabFilters.metrics,
                 ...(tabTemporaryFilters?.metrics ?? []),
@@ -30,9 +34,8 @@ const useDashboardTabFiltersForTile = (
                 ...tabFilters.tableCalculations,
                 ...(tabTemporaryFilters?.tableCalculations ?? []),
             ]),
-        }),
-        [tileUuid, tabFilters, tabTemporaryFilters],
-    );
+        };
+    }, [tileUuid, tabFilters, tabTemporaryFilters]);
 };
 
 export default useDashboardTabFiltersForTile;

@@ -2613,7 +2613,9 @@
                 "min_label": "Earliest selectable date",
                 "max_label": "Latest selectable date",
                 "placeholder": "YYYY-MM-DD",
-                "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above.",
+                "hint": "Leave earliest date empty for no lower limit. When latest date is empty, month/quarter filters use a rolling limit (before the 4th: two months ago; from the 4th: last month; quarters: last complete quarter). You can also set a fixed latest date.",
+                "default_out_of_range": "The default date is outside the allowed range",
+                "start_after_end": "Start date cannot be later than end date",
                 "granularity_label": "Date selector",
                 "granularity": {
                     "day": "Day",
