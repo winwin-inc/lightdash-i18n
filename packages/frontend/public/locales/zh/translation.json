@@ -2612,6 +2612,7 @@
                 "placeholder": "YYYY-MM-DD",
                 "hint": "最早日期留空表示不限制。最晚日期留空时，月/季粒度会按数据更新时间自动限制（每月 4 号前只能选到上上月，4 号及以后可选到上月；季度为最近一个完整季度）；也可手动选择固定日期。",
                 "default_out_of_range": "默认值日期超出了限制范围",
+                "start_after_end": "开始日期不能晚于结束日期",
                 "granularity_label": "日期选择器",
                 "granularity": {
                     "day": "日",

@@ -188,6 +188,35 @@ describe('applyExcludedValuesToFilterRule', () => {
 });
 
 describe('validateDashboardFilterDynamicDateRange', () => {
+    it('returns start_after_end when start is more recent than end', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-07-10'),
+            ),
+        ).toBe('start_after_end');
+    });
+
     it('returns end_after_max when dynamic end exceeds rolling max', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
