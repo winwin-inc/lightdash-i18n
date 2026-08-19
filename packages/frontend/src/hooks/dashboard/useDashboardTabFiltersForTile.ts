@@ -10,32 +10,31 @@ const useDashboardTabFiltersForTile = (
     tabUuid: string,
     tileUuid: string,
 ): DashboardFilters => {
+    // getMergedFiltersForTab already includes tab temporary filters
+    // and honors global/tab enable flags.
     const tabFilters = useDashboardContext((c) =>
         c.getMergedFiltersForTab(tabUuid),
     );
-    const tabTemporaryFilters = useDashboardContext((c) =>
-        c.getActiveTabTemporaryFilters(tabUuid),
-    );
 
     return useMemo(() => {
-        const forQuery = (rule: typeof tabFilters.dimensions[number]) =>
+        const forQuery = (rule: (typeof tabFilters.dimensions)[number]) =>
             prepareDashboardFilterRuleForQuery(rule);
 
         return {
-            dimensions: getDashboardFilterRulesForTile(tileUuid, [
-                ...tabFilters.dimensions,
-                ...(tabTemporaryFilters?.dimensions ?? []),
-            ]).map(forQuery),
-            metrics: getDashboardFilterRulesForTile(tileUuid, [
-                ...tabFilters.metrics,
-                ...(tabTemporaryFilters?.metrics ?? []),
-            ]),
-            tableCalculations: getDashboardFilterRulesForTile(tileUuid, [
-                ...tabFilters.tableCalculations,
-                ...(tabTemporaryFilters?.tableCalculations ?? []),
-            ]),
+            dimensions: getDashboardFilterRulesForTile(
+                tileUuid,
+                tabFilters.dimensions,
+            ).map(forQuery),
+            metrics: getDashboardFilterRulesForTile(
+                tileUuid,
+                tabFilters.metrics,
+            ),
+            tableCalculations: getDashboardFilterRulesForTile(
+                tileUuid,
+                tabFilters.tableCalculations,
+            ),
         };
-    }, [tileUuid, tabFilters, tabTemporaryFilters]);
+    }, [tileUuid, tabFilters]);
 };
 
 export default useDashboardTabFiltersForTile;
