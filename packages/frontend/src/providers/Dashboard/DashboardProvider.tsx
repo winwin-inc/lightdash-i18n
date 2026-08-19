@@ -382,6 +382,7 @@ const DashboardProvider: React.FC<
         dashboard,
         dashboardFilters,
         dashboardTemporaryFilters,
+        isGlobalFilterEnabled,
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
 
