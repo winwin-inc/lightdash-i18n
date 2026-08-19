@@ -157,9 +157,11 @@ export const Table = styled.table<{ $showFooter?: boolean }>`
 export const TableFooter = styled.div`
     display: flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
     margin-top: 10px;
+    gap: 8px;
 `;
 
 const FontSyles = `

@@ -68,8 +68,8 @@ export type ProviderProps = {
         pageIndex?: number;
         pageSize?: number;
         onPageChange?: (pageIndex: number) => void;
-        maxBrowsableRows?: number;
-        truncatedTotal?: boolean;
+        onPageSizeChange?: (pageSize: number) => void;
+        hideScrollToggle?: boolean;
     };
     showSubtotals?: boolean;
     hideRowNumbers?: boolean;

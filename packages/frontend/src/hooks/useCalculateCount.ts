@@ -90,15 +90,17 @@ export const useCalculateCount = ({
     const queryKey = savedChartUuid
         ? {
               savedChartUuid,
-              dashboardFilters,
+              dashboardFilters: JSON.stringify(dashboardFilters ?? null),
               invalidateCache,
               parameters,
           }
         : {
-              filters: metricQuery?.filters,
+              filters: JSON.stringify(metricQuery?.filters ?? null),
               dimensions: metricQuery?.dimensions,
               metrics: metricQuery?.metrics,
               additionalMetrics: metricQuery?.additionalMetrics,
+              tableCalculations: metricQuery?.tableCalculations,
+              customDimensions: metricQuery?.customDimensions,
               parameters,
           };
 

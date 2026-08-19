@@ -174,6 +174,10 @@ export type TableChart = {
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
+    /** Warehouse OFFSET pagination for TABLE charts. Default off. */
+    enablePagination?: boolean;
+    /** Rows per page when enablePagination is true. Default 10. */
+    pageSize?: number;
     columns?: Record<string, ColumnProperties>;
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;

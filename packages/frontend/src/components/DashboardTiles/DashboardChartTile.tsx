@@ -229,7 +229,7 @@ const ValidDashboardChartTile: FC<{
     setEchartsRef?: (ref: RefObject<EChartsReact | null> | undefined) => void;
     tablePagination?: Omit<
         TablePaginationState,
-        'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+        'totalRowCount' | 'isCountLoading'
     >;
 }> = ({
     tileUuid,
@@ -292,10 +292,11 @@ const ValidDashboardChartTile: FC<{
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
-    const shouldFetchCount =
-        !!tablePagination?.enabled &&
-        (tablePagination.pageIndex > 0 ||
-            resultsData.rows.length >= tablePagination.pageSize);
+    const shouldFetchCount = Boolean(
+        tablePagination?.enabled &&
+            (tablePagination.pageIndex > 0 ||
+                resultsData.rows.length >= tablePagination.pageSize),
+    );
     const { data: countData, isFetching: isCountLoading } = useCalculateCount({
         savedChartUuid: chart.uuid,
         dashboardFilters,
@@ -308,21 +309,29 @@ const ValidDashboardChartTile: FC<{
         },
         enabled: shouldFetchCount,
     });
-    const maxBrowsableRows = health.data?.query.maxLimit ?? 5000;
-    const resolvedTablePagination: TablePaginationState | undefined =
-        tablePagination?.enabled
-            ? {
-                  ...tablePagination,
-                  totalRowCount:
-                      countData?.rowCount ??
-                      (tablePagination.pageIndex === 0 &&
-                      resultsData.rows.length < tablePagination.pageSize
-                          ? resultsData.rows.length
-                          : resultsData.totalResults),
-                  isCountLoading,
-                  maxBrowsableRows,
-              }
-            : undefined;
+    const resolvedTablePagination = useMemo(():
+        | TablePaginationState
+        | undefined => {
+        if (!tablePagination?.enabled) {
+            return undefined;
+        }
+        return {
+            ...tablePagination,
+            totalRowCount:
+                countData?.rowCount ??
+                (tablePagination.pageIndex === 0 &&
+                resultsData.rows.length < tablePagination.pageSize
+                    ? resultsData.rows.length
+                    : resultsData.totalResults),
+            isCountLoading,
+        };
+    }, [
+        tablePagination,
+        countData?.rowCount,
+        resultsData.rows.length,
+        resultsData.totalResults,
+        isCountLoading,
+    ]);
 
     const { data: organization } = useOrganization();
 
@@ -530,7 +539,7 @@ interface DashboardChartTileMainProps
     resultsData: InfiniteQueryResults;
     tablePagination?: Omit<
         TablePaginationState,
-        'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+        'totalRowCount' | 'isCountLoading'
     >;
     onAddTiles?: (tiles: Dashboard['tiles'][number][]) => void;
     canExportCsv?: boolean;
@@ -1891,7 +1900,7 @@ export const GenericDashboardChartTile: FC<
         error: ApiError | null;
         tablePagination?: Omit<
             TablePaginationState,
-            'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+            'totalRowCount' | 'isCountLoading'
         >;
     }
 > = ({

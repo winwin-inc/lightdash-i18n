@@ -22,7 +22,7 @@ export type TablePaginationState = {
     totalRowCount: number | undefined;
     isCountLoading: boolean;
     onPageChange: (pageIndex: number) => void;
-    maxBrowsableRows: number;
+    onPageSizeChange: (pageSize: number) => void;
 };
 
 type VisualizationContext = {

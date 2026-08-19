@@ -25,6 +25,7 @@ import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';
 import {
     explorerActions,
     selectColumnOrder,
+    selectFromDashboard,
     selectIsEditMode,
     selectIsVisualizationConfigOpen,
     selectIsVisualizationExpanded,
@@ -37,7 +38,12 @@ import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianCon
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplore } from '../../../hooks/useExplore';
+import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
+import {
+    getTableConfigPageSize,
+    isWarehousePaginatedTableConfig,
+} from '../../../utils/isWarehousePaginatedTableChart';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
@@ -73,18 +79,16 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         (context) => context.state.savedChart,
     );
 
-    const { query, queryResults, isLoading, getDownloadQueryUuid } =
-        useExplorerQuery();
-    const isLoadingQueryResults = isLoading || queryResults.isFetchingRows;
-
-    const resultsData = useMemo(
-        () => ({
-            ...queryResults,
-            metricQuery: query.data?.metricQuery,
-            fields: query.data?.fields,
-        }),
-        [query.data, queryResults],
-    );
+    const {
+        query,
+        queryResults,
+        isLoading,
+        getDownloadQueryUuid,
+        missingRequiredParameters,
+        computedMetricQuery,
+        parameters,
+    } = useExplorerQuery();
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const setPivotFields = useExplorerContext(
         (context) => context.actions.setPivotFields,
@@ -121,6 +125,60 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const pivotConfig = useExplorerContext(
         (context) => context.state.unsavedChartVersion.pivotConfig,
     );
+    const projectUuid = useExplorerContext(
+        (context) => context.state.savedChart?.projectUuid || fallBackUUid,
+    );
+
+    const isWarehousePaginatedTable = useMemo(
+        () => isWarehousePaginatedTableConfig(chartConfig, pivotConfig),
+        [chartConfig, pivotConfig],
+    );
+
+    const configuredPageSize = useMemo(
+        () =>
+            getTableConfigPageSize(
+                chartConfig,
+                health.data?.query.maxLimit ?? 5000,
+            ),
+        [chartConfig, health.data?.query.maxLimit],
+    );
+
+    const chartPagedQuery = useExplorerChartPagedQuery({
+        enabled: isWarehousePaginatedTable && Boolean(tableName),
+        projectUuid,
+        tableName,
+        metricQuery: computedMetricQuery,
+        configuredPageSize,
+        parameters,
+        missingRequiredParameters,
+        fromDashboard,
+    });
+
+    const sharedResultsData = useMemo(
+        () => ({
+            ...queryResults,
+            metricQuery: query.data?.metricQuery,
+            fields: query.data?.fields,
+        }),
+        [query.data, queryResults],
+    );
+
+    const chartResultsData = useMemo(
+        () => ({
+            ...chartPagedQuery.queryResults,
+            metricQuery: chartPagedQuery.query.data?.metricQuery,
+            fields: chartPagedQuery.query.data?.fields,
+        }),
+        [chartPagedQuery.query.data, chartPagedQuery.queryResults],
+    );
+
+    const resultsData = isWarehousePaginatedTable
+        ? chartResultsData
+        : sharedResultsData;
+
+    const isLoadingQueryResults = isWarehousePaginatedTable
+        ? chartPagedQuery.isLoading
+        : isLoading || queryResults.isFetchingRows;
 
     const unsavedChartVersion = useMemo(
         () => ({
@@ -140,9 +198,6 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const toggleSection = useCallback(
         () => toggleExpandedSection(ExplorerSection.VISUALIZATION),
         [toggleExpandedSection],
-    );
-    const projectUuid = useExplorerContext(
-        (context) => context.state.savedChart?.projectUuid || fallBackUUid,
     );
 
     const { data: explore } = useExplore(unsavedChartVersion.tableName);
@@ -193,10 +248,11 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         [unsavedChartVersion],
     );
 
-    const { missingRequiredParameters } = useExplorerQuery();
-
     const apiErrorDetail = useMemo(() => {
-        const queryError = query.error?.error ?? queryResults.error?.error;
+        const queryError = isWarehousePaginatedTable
+            ? (chartPagedQuery.query.error?.error ??
+              chartPagedQuery.queryResults.error?.error)
+            : (query.error?.error ?? queryResults.error?.error);
 
         return !missingRequiredParameters?.length
             ? queryError
@@ -208,6 +264,9 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                   data: {},
               } satisfies ApiErrorDetail);
     }, [
+        isWarehousePaginatedTable,
+        chartPagedQuery.query.error?.error,
+        chartPagedQuery.queryResults.error?.error,
         query.error?.error,
         queryResults.error?.error,
         missingRequiredParameters,
@@ -269,7 +328,12 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                 onPivotDimensionsChange={setPivotFields}
                 colorPalette={org?.chartColors ?? ECHARTS_DEFAULT_COLORS}
                 tableCalculationsMetadata={tableCalculationsMetadata}
-                parameters={query.data?.usedParametersValues}
+                parameters={
+                    isWarehousePaginatedTable
+                        ? chartPagedQuery.query.data?.usedParametersValues
+                        : query.data?.usedParametersValues
+                }
+                tablePagination={chartPagedQuery.tablePagination}
             >
                 <CollapsableCard
                     title={t('components_explorer_visualization_card.chart')}

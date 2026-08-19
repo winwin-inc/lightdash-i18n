@@ -2098,7 +2098,10 @@
     },
     "components_common_paginate": {
         "page": "页",
-        "of": "的"
+        "of": "共",
+        "jump_to_page": "跳转到页",
+        "first": "首页",
+        "last": "末页"
     },
     "components_common_page_header": {
         "last_edited": "最近编辑",
@@ -2451,7 +2454,7 @@
             "page": "页",
             "of": "共",
             "showing_of_total": "显示 {{shown}} / 共 {{total}}",
-            "browse_limit_hint": "（当前可浏览前 {{limit}} 条）",
+            "page_size": "每页",
             "one_result": "1 条结果",
             "n_results": "{{count}} 条结果"
         },
@@ -5288,6 +5291,9 @@
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",
             "show_number_of_results": "显示结果数量",
+            "enable_pagination": "启用分页",
+            "pagination_not_supported": "透视表或小计不支持分页",
+            "page_size": "每页条数",
             "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
             "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
             "can_use_subtotals": "小计只能用于未透视的表",

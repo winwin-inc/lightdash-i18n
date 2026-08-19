@@ -106,20 +106,31 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 pageIndex: tablePagination.pageIndex,
                 pageSize: tablePagination.pageSize,
                 onPageChange: tablePagination.onPageChange,
-                maxBrowsableRows: tablePagination.maxBrowsableRows,
-                truncatedTotal:
-                    tablePagination.totalRowCount !== undefined &&
-                    tablePagination.totalRowCount >
-                        tablePagination.maxBrowsableRows,
+                onPageSizeChange: tablePagination.onPageSizeChange,
+                hideScrollToggle: true,
+            };
+        }
+        const enablePaginationFromConfig =
+            isTableVisualizationConfig(visualizationConfig) &&
+            visualizationConfig.chartConfig.enablePagination &&
+            !visualizationConfig.chartConfig.showSubtotals &&
+            !visualizationConfig.chartConfig.pivotTableData?.data;
+        if (enablePaginationFromConfig) {
+            return {
+                show: true,
+                showResultsTotal: true,
+                defaultScroll: false,
+                mode: 'client' as const,
+                pageSize: visualizationConfig.chartConfig.pageSize,
+                hideScrollToggle: true,
             };
         }
         return {
-            show: true,
+            show: false,
             showResultsTotal,
-            defaultScroll: false,
             mode: 'client' as const,
         };
-    }, [showResultsTotal, tablePagination]);
+    }, [showResultsTotal, tablePagination, visualizationConfig]);
 
     const headerContextMenu = useCallback<
         FC<React.PropsWithChildren<HeaderProps>>

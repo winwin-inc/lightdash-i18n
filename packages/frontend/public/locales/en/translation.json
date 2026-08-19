@@ -2101,7 +2101,10 @@
     },
     "components_common_paginate": {
         "page": "Page",
-        "of": "of"
+        "of": "of",
+        "jump_to_page": "Jump to page",
+        "first": "First page",
+        "last": "Last page"
     },
     "components_common_page_header": {
         "last_edited": "Last edited",
@@ -2454,7 +2457,7 @@
             "page": "Page",
             "of": "of",
             "showing_of_total": "Showing {{shown}} of {{total}}",
-            "browse_limit_hint": " (browsable first {{limit}} rows)",
+            "page_size": "Rows per page",
             "one_result": "1 result",
             "n_results": "{{count}} results"
         },
@@ -5280,6 +5283,9 @@
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",
             "show_number_of_results": "Show number of results",
+            "enable_pagination": "Enable pagination",
+            "pagination_not_supported": "Pagination is not available with pivot tables or subtotals",
+            "page_size": "Rows per page",
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",

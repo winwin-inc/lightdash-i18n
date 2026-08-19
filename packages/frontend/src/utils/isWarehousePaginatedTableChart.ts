@@ -1,19 +1,48 @@
 import {
     ChartType,
     isTableChartConfig,
+    type ChartConfig,
     type SavedChart,
 } from '@lightdash/common';
+import { DEFAULT_PAGE_SIZE } from '../components/common/Table/constants';
 
-export const isWarehousePaginatedTableChart = (chart: SavedChart): boolean => {
-    if (chart.chartConfig.type !== ChartType.TABLE) {
+type ChartPivotConfig = SavedChart['pivotConfig'];
+
+export const isWarehousePaginatedTableConfig = (
+    chartConfig: ChartConfig,
+    pivotConfig: ChartPivotConfig,
+): boolean => {
+    if (chartConfig.type !== ChartType.TABLE) {
         return false;
     }
-    if (chart.pivotConfig?.columns && chart.pivotConfig.columns.length > 0) {
+    if (pivotConfig?.columns && pivotConfig.columns.length > 0) {
         return false;
     }
-    const config = chart.chartConfig.config;
-    if (isTableChartConfig(config) && config.showSubtotals) {
+    const config = chartConfig.config;
+    if (!isTableChartConfig(config) || !config.enablePagination) {
+        return false;
+    }
+    if (config.showSubtotals) {
         return false;
     }
     return true;
 };
+
+export const isWarehousePaginatedTableChart = (chart: SavedChart): boolean =>
+    isWarehousePaginatedTableConfig(chart.chartConfig, chart.pivotConfig);
+
+export const getTableConfigPageSize = (
+    chartConfig: ChartConfig,
+    maxLimit: number,
+): number => {
+    const config = isTableChartConfig(chartConfig.config)
+        ? chartConfig.config
+        : undefined;
+    const requested = config?.pageSize ?? DEFAULT_PAGE_SIZE;
+    return Math.min(Math.max(1, requested), Math.max(1, maxLimit));
+};
+
+export const getTableChartPageSize = (
+    chart: SavedChart,
+    maxLimit: number,
+): number => getTableConfigPageSize(chart.chartConfig, maxLimit);

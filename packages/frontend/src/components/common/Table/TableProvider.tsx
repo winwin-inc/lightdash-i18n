@@ -58,8 +58,11 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
     const [grouping, setGrouping] = useState<GroupingState>([]);
     const [columnVisibility, setColumnVisibility] = useState({});
     const isServerPagination = pagination?.mode === 'server';
+    const hideScrollToggle = Boolean(
+        isServerPagination || pagination?.hideScrollToggle,
+    );
     const [isInfiniteScrollEnabled, setIsInfiniteScrollEnabled] = useState(
-        isServerPagination
+        hideScrollToggle
             ? false
             : !pagination?.show || !!pagination?.defaultScroll,
     );
@@ -137,21 +140,28 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
     });
 
     useEffect(() => {
-        if (!isServerPagination) {
-            return;
-        }
-        setPagination((prev) => ({
-            ...prev,
-            pageIndex: pagination?.pageIndex ?? 0,
-            pageSize: pagination?.pageSize ?? prev.pageSize,
-        }));
+        const nextPageIndex = isServerPagination
+            ? pagination?.pageIndex ?? 0
+            : undefined;
+        const nextPageSize = pagination?.pageSize;
+        setPagination((prev) => {
+            const pageIndex =
+                nextPageIndex !== undefined ? nextPageIndex : prev.pageIndex;
+            const pageSize = nextPageSize ?? prev.pageSize;
+            if (pageIndex === prev.pageIndex && pageSize === prev.pageSize) {
+                return prev;
+            }
+            return { pageIndex, pageSize };
+        });
     }, [isServerPagination, pagination?.pageIndex, pagination?.pageSize]);
 
     useEffect(() => {
-        if (isServerPagination) {
+        if (hideScrollToggle) {
             setIsInfiniteScrollEnabled(false);
         }
-    }, [isServerPagination]);
+    }, [hideScrollToggle]);
+
+    const { pageIndex, pageSize } = paginationState;
 
     useEffect(() => {
         if (isServerPagination) {
@@ -159,14 +169,19 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
         }
         // Fetch rows for next pages
         const pageThreshold = 2;
-        const { pageIndex, pageSize } = paginationState;
         const currentPageRowCount = pageIndex * pageSize;
         const nextPagesRowCount =
             currentPageRowCount + pageSize * pageThreshold;
         if (data.length < nextPagesRowCount) {
             fetchMoreRows();
         }
-    }, [data.length, fetchMoreRows, paginationState, isServerPagination]);
+    }, [
+        data.length,
+        fetchMoreRows,
+        pageIndex,
+        pageSize,
+        isServerPagination,
+    ]);
 
     const pageRows = useMemo(() => {
         if (isServerPagination) {
@@ -178,9 +193,7 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
         return data.slice(start, end);
     }, [data, paginationState, isServerPagination]);
 
-    const browsableRowCount = pagination?.maxBrowsableRows
-        ? Math.min(totalRowsCount, pagination.maxBrowsableRows)
-        : totalRowsCount;
+    const browsableRowCount = totalRowsCount;
 
     const table = useReactTable({
         data: isInfiniteScrollEnabled ? data : pageRows,
