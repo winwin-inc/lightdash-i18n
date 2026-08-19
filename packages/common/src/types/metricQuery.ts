@@ -65,6 +65,7 @@ export type MetricQuery = {
     filters: Filters;
     sorts: SortField[]; // Sorts for the data
     limit: number; // Max number of rows to return from query
+    offset?: number; // Rows to skip for warehouse pagination
     tableCalculations: TableCalculation[]; // calculations to append to results
     additionalMetrics?: AdditionalMetric[]; // existing metric type
     customDimensions?: CustomDimension[];
@@ -110,6 +111,7 @@ export type MetricQueryResponse = {
     filters: FiltersResponse;
     sorts: SortField[]; // Sorts for the data
     limit: number; // Max number of rows to return from query
+    offset?: number;
     tableCalculations: TableCalculation[]; // calculations to append to results
     additionalMetrics?: AdditionalMetric[]; // existing metric type
     customDimensions?: CustomDimension[];
@@ -163,6 +165,7 @@ export type MetricQueryRequest = {
     };
     sorts: SortField[]; // Sorts for the data
     limit: number; // Max number of rows to return from query
+    offset?: number;
     tableCalculations: TableCalculation[]; // calculations to append to results
     additionalMetrics?: AdditionalMetric[]; // existing metric type
     csvLimit?: number;

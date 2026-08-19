@@ -2133,6 +2133,7 @@ export class AsyncQueryService extends ProjectService {
         context,
         invalidateCache,
         limit,
+        offset,
         parameters,
         pivotResults,
     }: ExecuteAsyncSavedChartQueryArgs): Promise<ApiExecuteAsyncMetricQueryResults> {
@@ -2200,15 +2201,15 @@ export class AsyncQueryService extends ProjectService {
             limit,
         };
 
-        // Apply limit override if provided in the request
+        // Apply limit/offset override if provided in the request
         // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit =
-            limit !== undefined
-                ? {
-                      ...metricQuery,
-                      limit: limit ?? MAX_SAFE_INTEGER,
-                  }
-                : metricQuery;
+        const metricQueryWithLimit = {
+            ...metricQuery,
+            ...(limit !== undefined
+                ? { limit: limit ?? MAX_SAFE_INTEGER }
+                : {}),
+            ...(offset !== undefined ? { offset } : {}),
+        };
 
         const queryTags: RunQueryTags = {
             ...this.getUserQueryTags(account),
@@ -2361,6 +2362,7 @@ export class AsyncQueryService extends ProjectService {
         context,
         invalidateCache,
         limit,
+        offset,
         parameters,
         pivotResults,
     }: ExecuteAsyncDashboardChartQueryArgs): Promise<ApiExecuteAsyncDashboardChartQueryResults> {
@@ -2424,15 +2426,15 @@ export class AsyncQueryService extends ProjectService {
                     : savedChart.metricQuery.sorts,
         };
 
-        // Apply limit override if provided in the request
+        // Apply limit/offset override if provided in the request
         // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit =
-            limit !== undefined
-                ? {
-                      ...metricQueryWithDashboardOverrides,
-                      limit: limit ?? MAX_SAFE_INTEGER,
-                  }
-                : metricQueryWithDashboardOverrides;
+        const metricQueryWithLimit = {
+            ...metricQueryWithDashboardOverrides,
+            ...(limit !== undefined
+                ? { limit: limit ?? MAX_SAFE_INTEGER }
+                : {}),
+            ...(offset !== undefined ? { offset } : {}),
+        };
 
         const exploreDimensions = getDimensions(explore);
 

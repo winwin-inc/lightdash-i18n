@@ -713,13 +713,19 @@ export class MetricQueryBuilder {
 
     private getSortSQL(excludePostCalculationMetrics: boolean = false) {
         const { explore, compiledMetricQuery, warehouseSqlBuilder } = this.args;
-        const { sorts, metrics, compiledCustomDimensions } =
+        const { sorts, metrics, compiledCustomDimensions, offset, dimensions } =
             compiledMetricQuery;
+        const effectiveSorts =
+            sorts.length > 0
+                ? sorts
+                : offset !== undefined && dimensions.length > 0
+                  ? [{ fieldId: dimensions[0], descending: false }]
+                  : sorts;
         const fieldQuoteChar = warehouseSqlBuilder.getFieldQuoteChar();
         const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
         const compiledDimensions = getDimensions(explore);
         let requiresQueryInCTE = false;
-        const fieldOrders = sorts.reduce<string[]>((acc, sort) => {
+        const fieldOrders = effectiveSorts.reduce<string[]>((acc, sort) => {
             // Default sort
             let fieldSort: string = `${fieldQuoteChar}${
                 sort.fieldId
@@ -801,8 +807,13 @@ export class MetricQueryBuilder {
     }
 
     private getLimitSQL() {
-        const { limit } = this.args.compiledMetricQuery;
-        return limit !== undefined ? `LIMIT ${limit}` : undefined;
+        const { limit, offset } = this.args.compiledMetricQuery;
+        if (limit === undefined) {
+            return undefined;
+        }
+        return offset !== undefined && offset > 0
+            ? `LIMIT ${limit} OFFSET ${offset}`
+            : `LIMIT ${limit}`;
     }
 
     private getBaseTableFromSQL() {

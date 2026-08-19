@@ -811,6 +811,21 @@ export type ApiCalculateTotalResponse = {
     results: Record<string, number>;
 };
 
+export type CalculateCountFromQuery = {
+    metricQuery: MetricQueryRequest;
+    explore: string;
+    parameters?: ParametersValuesMap;
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
+export type ApiCalculateCountResponse = {
+    status: 'ok';
+    results: {
+        rowCount: number;
+    };
+};
+
 export type CalculateSubtotalsFromQuery = CalculateTotalFromQuery & {
     columnOrder: string[];
     pivotDimensions?: string[];

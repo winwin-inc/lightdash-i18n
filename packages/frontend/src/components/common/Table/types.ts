@@ -64,6 +64,12 @@ export type ProviderProps = {
         show?: boolean;
         defaultScroll?: boolean;
         showResultsTotal?: boolean;
+        mode?: 'client' | 'server';
+        pageIndex?: number;
+        pageSize?: number;
+        onPageChange?: (pageIndex: number) => void;
+        maxBrowsableRows?: number;
+        truncatedTotal?: boolean;
     };
     showSubtotals?: boolean;
     hideRowNumbers?: boolean;

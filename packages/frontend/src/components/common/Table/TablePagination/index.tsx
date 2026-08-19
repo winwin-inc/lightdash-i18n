@@ -1,4 +1,4 @@
-import { SegmentedControl, Text } from '@mantine/core';
+import { Group, SegmentedControl, Text } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import PaginateControl from '../../PaginateControl';
@@ -8,13 +8,47 @@ import { useTableContext } from '../useTableContext';
 
 interface ResultCountProps {
     count: number;
+    shown?: number;
+    truncated?: boolean;
+    maxBrowsableRows?: number;
 }
 
-export const ResultCount: FC<ResultCountProps> = ({ count }) => (
-    <Text style={{ marginLeft: 'auto' }} fz="xs">
-        {count === 0 ? null : count === 1 ? '1 result' : `${count} results`}
-    </Text>
-);
+export const ResultCount: FC<ResultCountProps> = ({
+    count,
+    shown,
+    truncated,
+    maxBrowsableRows,
+}) => {
+    const { t } = useTranslation();
+    if (count === 0) {
+        return null;
+    }
+
+    if (shown !== undefined && shown !== count) {
+        return (
+            <Text style={{ marginLeft: 'auto' }} fz="xs">
+                {t('components_common_table.pagination.showing_of_total', {
+                    shown,
+                    total: count,
+                })}
+                {truncated && maxBrowsableRows
+                    ? t(
+                          'components_common_table.pagination.browse_limit_hint',
+                          { limit: maxBrowsableRows },
+                      )
+                    : null}
+            </Text>
+        );
+    }
+
+    return (
+        <Text style={{ marginLeft: 'auto' }} fz="xs">
+            {count === 1
+                ? t('components_common_table.pagination.one_result')
+                : t('components_common_table.pagination.n_results', { count })}
+        </Text>
+    );
+};
 
 const TablePagination: FC = () => {
     const { t } = useTranslation();
@@ -27,43 +61,70 @@ const TablePagination: FC = () => {
         setIsInfiniteScrollEnabled,
     } = useTableContext();
 
+    const isServerPagination = pagination?.mode === 'server';
+    const pageCount = table.getPageCount();
+    const showPageControls =
+        !isInfiniteScrollEnabled && (isServerPagination || pageCount > 1);
+    const shownCount = isServerPagination
+        ? data.length
+        : Math.min(
+              data.length,
+              table.getState().pagination.pageSize,
+          );
+
     return (
         <TableFooter>
-            {pagination?.show && data.length > DEFAULT_PAGE_SIZE && (
-                <SegmentedControl
-                    data={[
-                        {
-                            label: t(
-                                'components_common_table.pagination.pages',
-                            ),
-                            value: 'pages',
-                        },
-                        {
-                            label: t(
-                                'components_common_table.pagination.scroll',
-                            ),
-                            value: 'scroll',
-                        },
-                    ]}
-                    value={isInfiniteScrollEnabled ? 'scroll' : 'pages'}
-                    onChange={(value) => {
-                        setIsInfiniteScrollEnabled(value === 'scroll');
-                    }}
-                />
-            )}
+            {pagination?.show &&
+                !isServerPagination &&
+                data.length > DEFAULT_PAGE_SIZE && (
+                    <SegmentedControl
+                        data={[
+                            {
+                                label: t(
+                                    'components_common_table.pagination.pages',
+                                ),
+                                value: 'pages',
+                            },
+                            {
+                                label: t(
+                                    'components_common_table.pagination.scroll',
+                                ),
+                                value: 'scroll',
+                            },
+                        ]}
+                        value={isInfiniteScrollEnabled ? 'scroll' : 'pages'}
+                        onChange={(value) => {
+                            setIsInfiniteScrollEnabled(value === 'scroll');
+                        }}
+                    />
+                )}
 
-            {!isInfiniteScrollEnabled && table.getPageCount() > 1 ? (
-                <PaginateControl
-                    currentPage={table.getState().pagination.pageIndex + 1}
-                    totalPages={table.getPageCount()}
-                    onPreviousPage={table.previousPage}
-                    onNextPage={table.nextPage}
-                    hasPreviousPage={table.getCanPreviousPage()}
-                    hasNextPage={table.getCanNextPage()}
-                />
-            ) : pagination?.showResultsTotal ? (
-                <ResultCount count={totalRowsCount} />
-            ) : null}
+            <Group spacing="sm" style={{ marginLeft: 'auto' }}>
+                {showPageControls ? (
+                    <PaginateControl
+                        currentPage={
+                            table.getState().pagination.pageIndex + 1
+                        }
+                        totalPages={Math.max(pageCount, 1)}
+                        onPreviousPage={table.previousPage}
+                        onNextPage={table.nextPage}
+                        hasPreviousPage={table.getCanPreviousPage()}
+                        hasNextPage={table.getCanNextPage()}
+                    />
+                ) : null}
+                {pagination?.showResultsTotal ? (
+                    <ResultCount
+                        count={totalRowsCount}
+                        shown={
+                            isServerPagination || showPageControls
+                                ? shownCount
+                                : undefined
+                        }
+                        truncated={pagination.truncatedTotal}
+                        maxBrowsableRows={pagination.maxBrowsableRows}
+                    />
+                ) : null}
+            </Group>
         </TableFooter>
     );
 };

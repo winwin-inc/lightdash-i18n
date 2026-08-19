@@ -53,6 +53,7 @@ import {
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
 import {
+    type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
     type ChartHistory,
@@ -934,6 +935,7 @@ type ApiResults =
     | ApiSshKeyPairResponse['results']
     | MostPopularAndRecentlyUpdated
     | ApiCalculateTotalResponse['results']
+    | ApiCalculateCountResponse['results']
     | Record<string, DbtExposure>
     | ApiCreateComment['results']
     | ApiGetComments['results']

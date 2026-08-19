@@ -2452,7 +2452,11 @@
             "pages": "Pages",
             "scroll": "Scroll",
             "page": "Page",
-            "of": "of"
+            "of": "of",
+            "showing_of_total": "Showing {{shown}} of {{total}}",
+            "browse_limit_hint": " (browsable first {{limit}} rows)",
+            "one_result": "1 result",
+            "n_results": "{{count}} results"
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"
@@ -6433,6 +6437,8 @@
             "part_3": "Custom..."
         },
         "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
+        "table_results_limit_hint": "Table results export at most the current query rows ({{count}}).",
+        "csv_cells_limit_hint": "CSV exports are limited to {{csvCellsLimit}} cells. Excel has a separate 1,000,000 row limit.",
         "limit": "Excel exports are limited to 1,000,000 rows.",
         "download": "Download"
     },

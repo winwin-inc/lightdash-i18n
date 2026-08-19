@@ -207,6 +207,7 @@ export class QueryController extends BaseController {
                 versionUuid: body.versionUuid,
                 context: context ?? QueryExecutionContext.API,
                 limit: body.limit,
+                offset: body.offset,
                 parameters: body.parameters,
                 pivotResults: body.pivotResults,
             });
@@ -252,6 +253,7 @@ export class QueryController extends BaseController {
                 dashboardSorts: body.dashboardSorts,
                 dateZoom: body.dateZoom,
                 limit: body.limit,
+                offset: body.offset,
                 context: context ?? QueryExecutionContext.API,
                 parameters: body.parameters,
                 pivotResults: body.pivotResults,

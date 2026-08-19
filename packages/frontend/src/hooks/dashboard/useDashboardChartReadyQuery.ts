@@ -13,7 +13,9 @@ import {
     type SavedChart,
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
+import { isWarehousePaginatedTableChart } from '../../utils/isWarehousePaginatedTableChart';
 import { lightdashApi } from '../../api';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
@@ -105,6 +107,10 @@ export const useDashboardChartReadyQuery = (
     const chartQuery = useSavedQuery({
         id: chartUuid ?? undefined,
     });
+    const [tablePageIndex, setTablePageIndex] = useState(0);
+    const isWarehousePaginatedTable = chartQuery.data
+        ? isWarehousePaginatedTableChart(chartQuery.data)
+        : false;
 
     const error = chartQuery.error;
 
@@ -190,6 +196,17 @@ export const useDashboardChartReadyQuery = (
             chartQuery.data?.pivotConfig,
         );
 
+    useEffect(() => {
+        setTablePageIndex(0);
+    }, [
+        timezoneFixFilters,
+        dashboardSorts,
+        sortKey,
+        granularity,
+        chartParameterValues,
+        invalidateCache,
+    ]);
+
     const queryKey = useMemo(
         () => [
             'dashboard_chart_ready_query',
@@ -206,6 +223,7 @@ export const useDashboardChartReadyQuery = (
             invalidateCache,
             chartParameterValues,
             shouldUsePivotResults,
+            isWarehousePaginatedTable ? tablePageIndex : 0,
         ],
         [
             chartQuery.data?.projectUuid,
@@ -223,6 +241,8 @@ export const useDashboardChartReadyQuery = (
             invalidateCache,
             chartParameterValues,
             shouldUsePivotResults,
+            isWarehousePaginatedTable,
+            tablePageIndex,
         ],
     );
 
@@ -270,6 +290,13 @@ export const useDashboardChartReadyQuery = (
                           invalidateCache,
                           parameters: parameterValues,
                           pivotResults: shouldUsePivotResults,
+                          ...(isWarehousePaginatedTable
+                              ? {
+                                    limit: DEFAULT_PAGE_SIZE,
+                                    offset:
+                                        tablePageIndex * DEFAULT_PAGE_SIZE,
+                                }
+                              : {}),
                       },
                   );
 
@@ -303,5 +330,16 @@ export const useDashboardChartReadyQuery = (
         queryResult.error,
     ]);
 
-    return { ...queryResult, error: error || queryResult.error };
+    return {
+        ...queryResult,
+        error: error || queryResult.error,
+        tablePagination: isWarehousePaginatedTable
+            ? {
+                  enabled: true,
+                  pageIndex: tablePageIndex,
+                  pageSize: DEFAULT_PAGE_SIZE,
+                  onPageChange: setTablePageIndex,
+              }
+            : undefined,
+    };
 };

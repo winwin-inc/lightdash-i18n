@@ -2449,7 +2449,11 @@
             "pages": "页",
             "scroll": "滚动",
             "page": "页",
-            "of": "共"
+            "of": "共",
+            "showing_of_total": "显示 {{shown}} / 共 {{total}}",
+            "browse_limit_hint": "（当前可浏览前 {{limit}} 条）",
+            "one_result": "1 条结果",
+            "n_results": "{{count}} 条结果"
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"
@@ -6441,6 +6445,8 @@
             "part_3": "自定义..."
         },
         "prvot_tables_warning": "Pivot 导出限制为 {{csvCellsLimit}} 个单元格和 {{maxColumnLimit}} 列。",
+        "table_results_limit_hint": "「表格结果」最多导出当前查询行数（{{count}}）。",
+        "csv_cells_limit_hint": "CSV 导出受 {{csvCellsLimit}} 个单元格上限约束。Excel 另有 1,000,000 行限制。",
         "limit": "Excel 导出限制为 1,000,000 行。",
         "download": "下载"
     },

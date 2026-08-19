@@ -107,6 +107,8 @@ import { EventName } from '../../types/Events';
 import { FilterDashboardTo } from '../DashboardFilter/FilterDashboardTo';
 import LightdashVisualization from '../LightdashVisualization';
 import VisualizationProvider from '../LightdashVisualization/VisualizationProvider';
+import { type TablePaginationState } from '../LightdashVisualization/context';
+import { useCalculateCount } from '../../hooks/useCalculateCount';
 import DrillDownMenuItem from '../MetricQueryData/DrillDownMenuItem';
 import { DrillDownModal } from '../MetricQueryData/DrillDownModal';
 import MetricQueryDataProvider from '../MetricQueryData/MetricQueryDataProvider';
@@ -225,6 +227,10 @@ const ValidDashboardChartTile: FC<{
         series: EChartSeries[],
     ) => void;
     setEchartsRef?: (ref: RefObject<EChartsReact | null> | undefined) => void;
+    tablePagination?: Omit<
+        TablePaginationState,
+        'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+    >;
 }> = ({
     tileUuid,
     isTitleHidden = false,
@@ -232,6 +238,7 @@ const ValidDashboardChartTile: FC<{
     resultsData,
     onSeriesContextMenu,
     setEchartsRef,
+    tablePagination,
 }) => {
     const addResultsCacheTime = useDashboardContext(
         (c) => c.addResultsCacheTime,
@@ -285,6 +292,37 @@ const ValidDashboardChartTile: FC<{
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
+    const shouldFetchCount =
+        !!tablePagination?.enabled &&
+        (tablePagination.pageIndex > 0 ||
+            resultsData.rows.length >= tablePagination.pageSize);
+    const { data: countData, isFetching: isCountLoading } = useCalculateCount({
+        savedChartUuid: chart.uuid,
+        dashboardFilters,
+        invalidateCache,
+        parameters:
+            dashboardChartReadyQuery.executeQueryResponse.usedParametersValues,
+        dashboardContext: {
+            dashboardSlug,
+            dashboardName,
+        },
+        enabled: shouldFetchCount,
+    });
+    const maxBrowsableRows = health.data?.query.maxLimit ?? 5000;
+    const resolvedTablePagination: TablePaginationState | undefined =
+        tablePagination?.enabled
+            ? {
+                  ...tablePagination,
+                  totalRowCount:
+                      countData?.rowCount ??
+                      (tablePagination.pageIndex === 0 &&
+                      resultsData.rows.length < tablePagination.pageSize
+                          ? resultsData.rows.length
+                          : resultsData.totalResults),
+                  isCountLoading,
+                  maxBrowsableRows,
+              }
+            : undefined;
 
     const { data: organization } = useOrganization();
 
@@ -339,6 +377,7 @@ const ValidDashboardChartTile: FC<{
             dashboardName={dashboardName}
             useHashBased={shouldSyncColors}
             dashboardUuid={dashboardUuid}
+            tablePagination={resolvedTablePagination}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
                 <LightdashVisualization
@@ -489,6 +528,10 @@ interface DashboardChartTileMainProps
     tile: IDashboardChartTile;
     dashboardChartReadyQuery: DashboardChartReadyQuery;
     resultsData: InfiniteQueryResults;
+    tablePagination?: Omit<
+        TablePaginationState,
+        'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+    >;
     onAddTiles?: (tiles: Dashboard['tiles'][number][]) => void;
     canExportCsv?: boolean;
     canExportImages?: boolean;
@@ -525,6 +568,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         dashboardChartReadyQuery,
         resultsData,
         isEditMode,
+        tablePagination,
     } = props;
 
     const {
@@ -1467,6 +1511,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                         isTitleHidden={hideTitle}
                         onSeriesContextMenu={onSeriesContextMenu}
                         setEchartsRef={setEchartRef}
+                        tablePagination={tablePagination}
                     />
                 </>
             </TileBase>
@@ -1844,6 +1889,10 @@ export const GenericDashboardChartTile: FC<
     DashboardChartTileProps & {
         isLoading: boolean;
         error: ApiError | null;
+        tablePagination?: Omit<
+            TablePaginationState,
+            'totalRowCount' | 'isCountLoading' | 'maxBrowsableRows'
+        >;
     }
 > = ({
     minimal = false,
@@ -1856,6 +1905,7 @@ export const GenericDashboardChartTile: FC<
     canExportCsv = false,
     canExportImages = false,
     onExplore,
+    tablePagination,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -1966,6 +2016,7 @@ export const GenericDashboardChartTile: FC<
                     resultsData={resultsData}
                     dashboardChartReadyQuery={dashboardChartReadyQuery}
                     onExplore={onExplore}
+                    tablePagination={tablePagination}
                 />
             )}
             <UnderlyingDataModal />
@@ -2011,6 +2062,7 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
             resultsData={resultsData}
             dashboardChartReadyQuery={readyQuery.data}
             error={readyQuery.error ?? resultsData.error}
+            tablePagination={readyQuery.tablePagination}
         />
     );
 };
