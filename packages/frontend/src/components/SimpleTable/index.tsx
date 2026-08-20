@@ -286,10 +286,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 data={resultsData?.rows || []}
                 totalRowsCount={
                     tablePagination?.enabled
-                        ? tablePagination.totalRowCount ??
-                          (tablePagination.isCountLoading
-                              ? 0
-                              : resultsData?.rows.length ?? 0)
+                        ? tablePagination.totalRowCount ?? 0
                         : resultsData?.totalResults || 0
                 }
                 isFetchingRows={!!resultsData?.isFetchingRows}

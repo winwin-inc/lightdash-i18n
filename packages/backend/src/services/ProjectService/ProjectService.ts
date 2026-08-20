@@ -5960,10 +5960,13 @@ export class ProjectService extends BaseService {
         availableParameterDefinitions: ParameterDefinitions,
         parameters?: ParametersValuesMap,
     ) {
+        // COUNT must cover the full result set — do not inherit metricQuery.limit
+        // (MetricQueryBuilder omits LIMIT when limit is undefined).
         const countMetricQuery: MetricQuery = {
             ...metricQuery,
             sorts: [],
             offset: undefined,
+            limit: undefined as unknown as number,
         };
 
         const { query } = await ProjectService._compileQuery({

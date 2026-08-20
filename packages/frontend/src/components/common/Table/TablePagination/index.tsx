@@ -105,10 +105,7 @@ const TablePagination: FC = () => {
                         <ResultCount
                             count={totalRowsCount}
                             variant="warehouse"
-                            isLoading={
-                                Boolean(pagination?.isCountLoading) ||
-                                (totalRowsCount === 0 && data.length > 0)
-                            }
+                            isLoading={Boolean(pagination?.isCountLoading)}
                         />
                     ) : (
                         <div />

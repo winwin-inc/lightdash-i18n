@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import useHealth from '../../../hooks/health/useHealth';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { DEFAULT_PAGE_SIZE } from '../../common/Table/constants';
+import { compactNumberInputStyles } from '../../common/Table/paginationCompactStyles';
 import { isTableVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
@@ -599,6 +600,7 @@ const GeneralSettings: FC = () => {
                                     min={1}
                                     max={maxPageSize}
                                     hideControls
+                                    styles={compactNumberInputStyles}
                                     placeholder={String(DEFAULT_PAGE_SIZE)}
                                     value={pageSize}
                                     onChange={(value) => {
