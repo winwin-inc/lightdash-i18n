@@ -340,6 +340,7 @@ export * from './utils/github';
 export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
+export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
 export * from './utils/oauth';
 export * from './utils/organization';

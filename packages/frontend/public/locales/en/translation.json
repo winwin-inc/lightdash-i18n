@@ -2535,7 +2535,12 @@
             "total_data_prefix": "Total ",
             "total_data_suffix": " rows",
             "loading_count": "Loading…",
-            "count_error": "Unable to load total"
+            "count_error": "Unable to load total",
+            "pagination_empty_page": {
+                "title": "No data on this page",
+                "description": "The total count shows data exists, but this page returned no rows. Go back to page 1 or narrow your filters.",
+                "back_to_first_page": "Back to page 1"
+            }
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"

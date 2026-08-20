@@ -2,13 +2,13 @@ import { type ApiErrorDetail } from '@lightdash/common';
 import { useMantineTheme } from '@mantine/core';
 import { type ComponentProps, type FC } from 'react';
 import {
-    ExploreEmptyQueryState,
     ExploreErrorState,
     ExploreIdleState,
     ExploreLoadingState,
 } from '../../Explorer/ResultsCard/ExplorerResultsNonIdealStates';
 import ScrollableTable from './ScrollableTable';
 import { TableContainer } from './Table.styles';
+import TableEmptyState from './TableEmptyState';
 import TablePagination from './TablePagination';
 import { TableProvider } from './TableProvider';
 
@@ -43,7 +43,7 @@ const Table: FC<React.PropsWithChildren<Props>> = ({
     const theme = useMantineTheme();
     const LoadingState = loadingState || ExploreLoadingState;
     const IdleState = idleState || ExploreIdleState;
-    const EmptyState = emptyState || ExploreEmptyQueryState;
+    const EmptyState = emptyState || TableEmptyState;
 
     if (status === 'loading') {
         return <LoadingState />;

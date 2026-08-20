@@ -7,6 +7,7 @@ import {
     ApiGetAsyncQueryResults,
     ApiSuccess,
     ApiSuccessEmpty,
+    applyMetricQueryLimitOffset,
     DownloadAsyncQueryResultsRequestParams,
     ExecuteAsyncSqlQueryRequestParams,
     ForbiddenError,
@@ -140,20 +141,23 @@ export class QueryController extends BaseController {
         this.setStatus(200);
         const context = body.context ?? getContextFromHeader(req);
 
-        const metricQuery: MetricQuery = {
-            exploreName: body.query.exploreName,
-            dimensions: body.query.dimensions ?? [],
-            metrics: body.query.metrics ?? [],
-            filters: body.query.filters ?? {},
-            sorts: body.query.sorts ?? [],
-            limit: body.query.limit ?? 500,
-            offset: body.query.offset,
-            tableCalculations: body.query.tableCalculations ?? [],
-            additionalMetrics: body.query.additionalMetrics,
-            customDimensions: body.query.customDimensions,
-            timezone: body.query.timezone,
-            metricOverrides: body.query.metricOverrides,
-        };
+        const metricQuery: MetricQuery = applyMetricQueryLimitOffset(
+            {
+                exploreName: body.query.exploreName,
+                dimensions: body.query.dimensions ?? [],
+                metrics: body.query.metrics ?? [],
+                filters: body.query.filters ?? {},
+                sorts: body.query.sorts ?? [],
+                limit: body.query.limit ?? 500,
+                tableCalculations: body.query.tableCalculations ?? [],
+                additionalMetrics: body.query.additionalMetrics,
+                customDimensions: body.query.customDimensions,
+                timezone: body.query.timezone,
+                metricOverrides: body.query.metricOverrides,
+            },
+            body.query.limit,
+            body.query.offset,
+        );
 
         const results = await this.services
             .getAsyncQueryService()

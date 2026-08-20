@@ -57,7 +57,9 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
     } = rest;
     const [grouping, setGrouping] = useState<GroupingState>([]);
     const [columnVisibility, setColumnVisibility] = useState({});
-    const isServerPagination = pagination?.mode === 'server';
+    const isServerPagination =
+        pagination?.mode === 'server' ||
+        Boolean(pagination?.show && pagination?.hideScrollToggle);
     const hideScrollToggle = Boolean(
         isServerPagination || pagination?.hideScrollToggle,
     );

@@ -2532,7 +2532,12 @@
             "total_data_prefix": "共 ",
             "total_data_suffix": " 条",
             "loading_count": "加载中…",
-            "count_error": "无法获取总数"
+            "count_error": "无法获取总数",
+            "pagination_empty_page": {
+                "title": "当前页没有数据",
+                "description": "总数显示有数据，但这一页没有返回结果。请返回第 1 页重试，或缩小筛选范围。",
+                "back_to_first_page": "返回第 1 页"
+            }
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"

@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
     Account,
     addDashboardFiltersToMetricQuery,
+    applyMetricQueryLimitOffset,
     type ApiDownloadAsyncQueryResults,
     type ApiDownloadAsyncQueryResultsAsCsv,
     type ApiDownloadAsyncQueryResultsAsXlsx,
@@ -2199,17 +2200,15 @@ export class AsyncQueryService extends ProjectService {
             chartUuid,
             versionUuid,
             limit,
+            offset,
         };
 
-        // Apply limit/offset override if provided in the request
-        // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit = {
-            ...metricQuery,
-            ...(limit !== undefined
-                ? { limit: limit ?? MAX_SAFE_INTEGER }
-                : {}),
-            ...(offset !== undefined ? { offset } : {}),
-        };
+        // Warehouse pagination: when offset is set, never keep chart metricQuery.limit
+        const metricQueryWithLimit = applyMetricQueryLimitOffset(
+            metricQuery,
+            limit,
+            offset,
+        );
 
         const queryTags: RunQueryTags = {
             ...this.getUserQueryTags(account),
@@ -2426,15 +2425,12 @@ export class AsyncQueryService extends ProjectService {
                     : savedChart.metricQuery.sorts,
         };
 
-        // Apply limit/offset override if provided in the request
-        // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit = {
-            ...metricQueryWithDashboardOverrides,
-            ...(limit !== undefined
-                ? { limit: limit ?? MAX_SAFE_INTEGER }
-                : {}),
-            ...(offset !== undefined ? { offset } : {}),
-        };
+        // Warehouse pagination: when offset is set, never keep chart metricQuery.limit
+        const metricQueryWithLimit = applyMetricQueryLimitOffset(
+            metricQueryWithDashboardOverrides,
+            limit,
+            offset,
+        );
 
         const exploreDimensions = getDimensions(explore);
 
@@ -2475,6 +2471,7 @@ export class AsyncQueryService extends ProjectService {
             dashboardSorts,
             dateZoom,
             limit,
+            offset,
         };
 
         const queryTags: RunQueryTags = {

@@ -99,7 +99,9 @@ const TablePagination: FC = () => {
         setIsInfiniteScrollEnabled,
     } = useTableContext();
 
-    const isServerPagination = pagination?.mode === 'server';
+    const isServerPagination =
+        pagination?.mode === 'server' ||
+        Boolean(pagination?.show && pagination?.hideScrollToggle);
     const isChartPagination = Boolean(
         pagination?.show &&
             (isServerPagination || pagination?.hideScrollToggle),

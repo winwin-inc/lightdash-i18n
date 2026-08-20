@@ -62,6 +62,7 @@ export const useExplorerChartPagedQuery = ({
     const pagedMetricQuery = useMemo(
         (): MetricQuery => ({
             ...metricQuery,
+            // Warehouse pagination: page size replaces chart/explore row limit
             limit: pageSize,
             offset: pageIndex * pageSize,
         }),
