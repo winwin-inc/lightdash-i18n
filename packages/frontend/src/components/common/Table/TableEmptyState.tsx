@@ -3,7 +3,7 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExploreEmptyQueryState } from '../../Explorer/ResultsCard/ExplorerResultsNonIdealStates';
 import { EmptyState } from '../EmptyState';
-import useTableContext from './useTableContext';
+import { useTableContext } from './useTableContext';
 
 /**
  * Empty body for warehouse-paginated tables: when COUNT says there are rows
