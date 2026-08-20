@@ -2104,7 +2104,9 @@
         "of": "of",
         "jump_to_page": "Jump to page",
         "first": "First page",
-        "last": "Last page"
+        "last": "Last page",
+        "go_to_page": "Go to",
+        "of_pages": "/ {{totalPages}} pages"
     },
     "components_common_page_header": {
         "last_edited": "Last edited",
@@ -2459,7 +2461,10 @@
             "showing_of_total": "Showing {{shown}} of {{total}}",
             "page_size": "Rows per page",
             "one_result": "1 result",
-            "n_results": "{{count}} results"
+            "n_results": "{{count}} results",
+            "total_data_prefix": "Total ",
+            "total_data_suffix": " rows",
+            "loading_count": "Loading…"
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"

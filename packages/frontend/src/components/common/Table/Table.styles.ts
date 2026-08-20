@@ -154,14 +154,15 @@ export const Table = styled.table<{ $showFooter?: boolean }>`
     }
 `;
 
-export const TableFooter = styled.div`
+export const TableFooter = styled.div<{ $compact?: boolean }>`
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    margin-top: 10px;
+    margin-top: ${({ $compact }) => ($compact ? '6px' : '10px')};
     gap: 8px;
+    ${({ $compact }) => ($compact ? `min-height: 28px;` : '')}
 `;
 
 const FontSyles = `

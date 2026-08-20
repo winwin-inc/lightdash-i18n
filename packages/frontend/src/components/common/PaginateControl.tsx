@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { compactNumberInputStyles } from './Table/paginationCompactStyles';
 
 type PaginateControlProps = GroupProps & {
     currentPage: number;
@@ -23,6 +24,7 @@ type PaginateControlProps = GroupProps & {
     hasNextPage: boolean;
     /** 1-based page index */
     onPageChange?: (page: number) => void;
+    compact?: boolean;
 };
 
 const PaginateControl: FC<PaginateControlProps> = ({
@@ -33,6 +35,7 @@ const PaginateControl: FC<PaginateControlProps> = ({
     onNextPage,
     hasNextPage,
     onPageChange,
+    compact = false,
     ...rest
 }) => {
     const { t } = useTranslation();
@@ -62,74 +65,98 @@ const PaginateControl: FC<PaginateControlProps> = ({
         goToPage(draftPage);
     };
 
+    const pageInput = onPageChange ? (
+        <NumberInput
+            size="xs"
+            w={compact ? 56 : 72}
+            min={1}
+            max={safeTotalPages}
+            hideControls
+            styles={compact ? compactNumberInputStyles : undefined}
+            value={draftPage}
+            onChange={(value) => {
+                setDraftPage(typeof value === 'number' ? value : '');
+            }}
+            onBlur={commitDraft}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    commitDraft();
+                }
+            }}
+            aria-label={t('components_common_paginate.jump_to_page')}
+        />
+    ) : (
+        <Text span fw={600} color="black" size="xs">
+            {currentPage}
+        </Text>
+    );
+
+    const paginationControls = (
+        <Pagination.Root
+            size={compact ? 'xs' : undefined}
+            total={safeTotalPages}
+            onNextPage={onNextPage}
+            onPreviousPage={onPreviousPage}
+        >
+            <Group spacing={4} noWrap position="center">
+                {onPageChange ? (
+                    <Pagination.First
+                        icon={IconChevronsLeft}
+                        disabled={!hasPreviousPage}
+                        onClick={() => goToPage(1)}
+                        aria-label={t('components_common_paginate.first')}
+                    />
+                ) : null}
+                <Pagination.Previous
+                    icon={IconChevronLeft}
+                    disabled={!hasPreviousPage}
+                />
+                <Pagination.Next
+                    icon={IconChevronRight}
+                    disabled={!hasNextPage}
+                />
+                {onPageChange ? (
+                    <Pagination.Last
+                        icon={IconChevronsRight}
+                        disabled={!hasNextPage}
+                        onClick={() => goToPage(safeTotalPages)}
+                        aria-label={t('components_common_paginate.last')}
+                    />
+                ) : null}
+            </Group>
+        </Pagination.Root>
+    );
+
+    if (compact && onPageChange) {
+        return (
+            <Group noWrap spacing={4} align="center" {...rest}>
+                {paginationControls}
+                <Text color="gray.7" size="xs" m={0} lh={1} sx={{ whiteSpace: 'nowrap' }}>
+                    {t('components_common_paginate.go_to_page')}
+                </Text>
+                {pageInput}
+                <Text color="gray.7" size="xs" m={0} lh={1} sx={{ whiteSpace: 'nowrap' }}>
+                    {t('components_common_paginate.of_pages', {
+                        totalPages: safeTotalPages,
+                    })}
+                </Text>
+            </Group>
+        );
+    }
+
     return (
         <Group noWrap spacing="xs" align="center" {...rest}>
             <Text color="gray.7" size="xs" sx={{ whiteSpace: 'nowrap' }}>
                 {t('components_common_paginate.page')}
             </Text>
-            {onPageChange ? (
-                <NumberInput
-                    size="xs"
-                    w={72}
-                    min={1}
-                    max={safeTotalPages}
-                    hideControls
-                    value={draftPage}
-                    onChange={(value) => {
-                        setDraftPage(typeof value === 'number' ? value : '');
-                    }}
-                    onBlur={commitDraft}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                            commitDraft();
-                        }
-                    }}
-                    aria-label={t('components_common_paginate.jump_to_page')}
-                />
-            ) : (
-                <Text span fw={600} color="black" size="xs">
-                    {currentPage}
-                </Text>
-            )}
+            {pageInput}
             <Text color="gray.7" size="xs" sx={{ whiteSpace: 'nowrap' }}>
                 {t('components_common_paginate.of')}{' '}
                 <Text span fw={600} color="black">
                     {safeTotalPages}
                 </Text>
             </Text>
-
-            <Pagination.Root
-                total={safeTotalPages}
-                onNextPage={onNextPage}
-                onPreviousPage={onPreviousPage}
-            >
-                <Group spacing={4} noWrap position="center">
-                    {onPageChange ? (
-                        <Pagination.First
-                            icon={IconChevronsLeft}
-                            disabled={!hasPreviousPage}
-                            onClick={() => goToPage(1)}
-                            aria-label={t('components_common_paginate.first')}
-                        />
-                    ) : null}
-                    <Pagination.Previous
-                        icon={IconChevronLeft}
-                        disabled={!hasPreviousPage}
-                    />
-                    <Pagination.Next
-                        icon={IconChevronRight}
-                        disabled={!hasNextPage}
-                    />
-                    {onPageChange ? (
-                        <Pagination.Last
-                            icon={IconChevronsRight}
-                            disabled={!hasNextPage}
-                            onClick={() => goToPage(safeTotalPages)}
-                            aria-label={t('components_common_paginate.last')}
-                        />
-                    ) : null}
-                </Group>
-            </Pagination.Root>
+            {paginationControls}
         </Group>
     );
 };

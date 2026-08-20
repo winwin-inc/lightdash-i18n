@@ -2101,7 +2101,9 @@
         "of": "共",
         "jump_to_page": "跳转到页",
         "first": "首页",
-        "last": "末页"
+        "last": "末页",
+        "go_to_page": "前往",
+        "of_pages": "/{{totalPages}} 页"
     },
     "components_common_page_header": {
         "last_edited": "最近编辑",
@@ -2456,7 +2458,10 @@
             "showing_of_total": "显示 {{shown}} / 共 {{total}}",
             "page_size": "每页",
             "one_result": "1 条结果",
-            "n_results": "{{count}} 条结果"
+            "n_results": "{{count}} 条结果",
+            "total_data_prefix": "共 ",
+            "total_data_suffix": " 条数据",
+            "loading_count": "加载中…"
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"

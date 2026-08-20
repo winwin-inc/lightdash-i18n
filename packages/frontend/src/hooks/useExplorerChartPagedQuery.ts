@@ -15,6 +15,10 @@ type Args = {
     parameters: ParametersValuesMap | undefined;
     missingRequiredParameters: string[] | null;
     fromDashboard: string | undefined;
+    dashboardContext?: {
+        dashboardSlug?: string;
+        dashboardName?: string;
+    };
 };
 
 /**
@@ -30,6 +34,7 @@ export const useExplorerChartPagedQuery = ({
     parameters,
     missingRequiredParameters,
     fromDashboard,
+    dashboardContext,
 }: Args) => {
     const dateZoomGranularity = useDateZoomGranularitySearch();
     const [pageIndex, setPageIndex] = useState(0);
@@ -92,16 +97,13 @@ export const useExplorerChartPagedQuery = ({
         enabled,
     );
 
-    const shouldFetchCount = Boolean(
-        enabled &&
-            (pageIndex > 0 || queryResults.rows.length >= pageSize),
-    );
-
     const count = useCalculateCount({
         metricQuery,
         explore: tableName,
         parameters,
-        enabled: shouldFetchCount,
+        enabled,
+        projectUuid,
+        dashboardContext,
     });
 
     const onPageSizeChange = useCallback((nextPageSize: number) => {
@@ -117,12 +119,11 @@ export const useExplorerChartPagedQuery = ({
             enabled: true,
             pageIndex,
             pageSize,
-            totalRowCount:
-                count.data?.rowCount ??
-                (pageIndex === 0 && queryResults.rows.length < pageSize
-                    ? queryResults.rows.length
-                    : queryResults.totalResults),
-            isCountLoading: count.isFetching,
+            totalRowCount: count.data?.rowCount,
+            isCountLoading:
+                enabled &&
+                count.data === undefined &&
+                !count.isError,
             onPageChange: setPageIndex,
             onPageSizeChange,
         };
@@ -130,10 +131,8 @@ export const useExplorerChartPagedQuery = ({
         enabled,
         pageIndex,
         pageSize,
-        count.data?.rowCount,
-        count.isFetching,
-        queryResults.rows.length,
-        queryResults.totalResults,
+        count.data,
+        count.isError,
         onPageSizeChange,
     ]);
 

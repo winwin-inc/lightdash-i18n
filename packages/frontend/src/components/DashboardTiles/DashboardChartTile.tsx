@@ -292,12 +292,7 @@ const ValidDashboardChartTile: FC<{
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
-    const shouldFetchCount = Boolean(
-        tablePagination?.enabled &&
-            (tablePagination.pageIndex > 0 ||
-                resultsData.rows.length >= tablePagination.pageSize),
-    );
-    const { data: countData, isFetching: isCountLoading } = useCalculateCount({
+    const { data: countData, isError: isCountError } = useCalculateCount({
         savedChartUuid: chart.uuid,
         dashboardFilters,
         invalidateCache,
@@ -307,7 +302,7 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug,
             dashboardName,
         },
-        enabled: shouldFetchCount,
+        enabled: Boolean(tablePagination?.enabled),
     });
     const resolvedTablePagination = useMemo(():
         | TablePaginationState
@@ -317,21 +312,11 @@ const ValidDashboardChartTile: FC<{
         }
         return {
             ...tablePagination,
-            totalRowCount:
-                countData?.rowCount ??
-                (tablePagination.pageIndex === 0 &&
-                resultsData.rows.length < tablePagination.pageSize
-                    ? resultsData.rows.length
-                    : resultsData.totalResults),
-            isCountLoading,
+            totalRowCount: countData?.rowCount,
+            isCountLoading:
+                countData === undefined && !isCountError,
         };
-    }, [
-        tablePagination,
-        countData?.rowCount,
-        resultsData.rows.length,
-        resultsData.totalResults,
-        isCountLoading,
-    ]);
+    }, [tablePagination, countData, isCountError]);
 
     const { data: organization } = useOrganization();
 

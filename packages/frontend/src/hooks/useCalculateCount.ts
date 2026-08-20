@@ -75,6 +75,7 @@ export const useCalculateCount = ({
     parameters,
     dashboardContext,
     enabled = true,
+    projectUuid: projectUuidOverride,
 }: {
     metricQuery?: MetricQuery;
     explore?: string;
@@ -84,8 +85,12 @@ export const useCalculateCount = ({
     parameters?: ParametersValuesMap;
     dashboardContext?: DashboardContextInput;
     enabled?: boolean;
+    projectUuid?: string;
 }) => {
-    const { projectUuid } = useParams<{ projectUuid: string }>();
+    const { projectUuid: projectUuidFromRoute } = useParams<{
+        projectUuid: string;
+    }>();
+    const projectUuid = projectUuidOverride ?? projectUuidFromRoute;
 
     const queryKey = savedChartUuid
         ? {
@@ -93,6 +98,7 @@ export const useCalculateCount = ({
               dashboardFilters: JSON.stringify(dashboardFilters ?? null),
               invalidateCache,
               parameters,
+              dashboardContext,
           }
         : {
               filters: JSON.stringify(metricQuery?.filters ?? null),
@@ -102,6 +108,7 @@ export const useCalculateCount = ({
               tableCalculations: metricQuery?.tableCalculations,
               customDimensions: metricQuery?.customDimensions,
               parameters,
+              dashboardContext,
           };
 
     return useQuery<ApiCalculateCountResponse['results'], ApiError>({
@@ -131,7 +138,9 @@ export const useCalculateCount = ({
         enabled:
             enabled &&
             (savedChartUuid !== undefined ||
-                (metricQuery !== undefined && explore !== undefined)),
+                (!!projectUuid &&
+                    metricQuery !== undefined &&
+                    !!explore)),
         onError: (result) =>
             console.error(
                 `Unable to calculate count from query: ${

@@ -6,7 +6,6 @@ import {
     Group,
     NumberInput,
     SegmentedControl,
-    Select,
     Stack,
     Switch,
     Tooltip,
@@ -16,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import useHealth from '../../../hooks/health/useHealth';
 import useToaster from '../../../hooks/toaster/useToaster';
-import { TABLE_PAGINATION_PAGE_SIZES } from '../../common/Table/constants';
+import { DEFAULT_PAGE_SIZE } from '../../common/Table/constants';
 import { isTableVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
@@ -36,6 +35,7 @@ const GeneralSettings: FC = () => {
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const { showToastError } = useToaster();
     const health = useHealth();
+    const maxPageSize = health.data?.query.maxLimit ?? 5000;
     const { dimensions } = resultsData?.metricQuery || {
         dimensions: [] as string[],
     };
@@ -573,48 +573,53 @@ const GeneralSettings: FC = () => {
                     position="top-start"
                 >
                     <Box>
-                        <Checkbox
-                            label={t(
-                                'components_visualization_configs_table.settings.enable_pagination',
-                            )}
-                            checked={
-                                enablePagination &&
-                                !isPivotTableEnabled &&
-                                !showSubtotals
-                            }
-                            onChange={() => {
-                                setEnablePagination(!enablePagination);
-                            }}
-                            disabled={
-                                !!isPivotTableEnabled || showSubtotals
-                            }
-                        />
+                        <Group spacing={8} noWrap align="center">
+                            <Checkbox
+                                label={t(
+                                    'components_visualization_configs_table.settings.enable_pagination',
+                                )}
+                                checked={
+                                    enablePagination &&
+                                    !isPivotTableEnabled &&
+                                    !showSubtotals
+                                }
+                                onChange={() => {
+                                    setEnablePagination(!enablePagination);
+                                }}
+                                disabled={
+                                    !!isPivotTableEnabled || showSubtotals
+                                }
+                            />
+                            {enablePagination &&
+                            !isPivotTableEnabled &&
+                            !showSubtotals ? (
+                                <NumberInput
+                                    size="xs"
+                                    w={56}
+                                    min={1}
+                                    max={maxPageSize}
+                                    hideControls
+                                    placeholder={String(DEFAULT_PAGE_SIZE)}
+                                    value={pageSize}
+                                    onChange={(value) => {
+                                        if (typeof value !== 'number') {
+                                            return;
+                                        }
+                                        setPageSize(
+                                            Math.min(
+                                                Math.max(1, value),
+                                                maxPageSize,
+                                            ),
+                                        );
+                                    }}
+                                    aria-label={t(
+                                        'components_visualization_configs_table.settings.page_size',
+                                    )}
+                                />
+                            ) : null}
+                        </Group>
                     </Box>
                 </Tooltip>
-                {enablePagination &&
-                !isPivotTableEnabled &&
-                !showSubtotals ? (
-                    <Select
-                        label={t(
-                            'components_visualization_configs_table.settings.page_size',
-                        )}
-                        size="xs"
-                        value={String(pageSize)}
-                        data={TABLE_PAGINATION_PAGE_SIZES.filter(
-                            (size) =>
-                                size <=
-                                (health.data?.query.maxLimit ?? 5000),
-                        ).map((size) => ({
-                            value: String(size),
-                            label: String(size),
-                        }))}
-                        onChange={(value) => {
-                            if (value) {
-                                setPageSize(Number(value));
-                            }
-                        }}
-                    />
-                ) : null}
                 <Tooltip
                     disabled={canUseSubtotals}
                     label={

@@ -5915,6 +5915,27 @@ export class ProjectService extends BaseService {
         return results.row;
     }
 
+    private static unwrapCountValue(raw: AnyType): unknown {
+        if (raw == null || typeof raw !== 'object') {
+            return raw;
+        }
+        if ('value' in raw && raw.value != null) {
+            const inner = (raw as { value: AnyType }).value;
+            if (
+                inner != null &&
+                typeof inner === 'object' &&
+                'raw' in (inner as Record<string, unknown>)
+            ) {
+                return (inner as { raw: unknown }).raw;
+            }
+            return inner;
+        }
+        if ('raw' in raw) {
+            return (raw as { raw: unknown }).raw;
+        }
+        return raw;
+    }
+
     private static parseCountRow(
         row: Record<string, AnyType> | undefined,
     ): number {
@@ -5922,8 +5943,11 @@ export class ProjectService extends BaseService {
             return 0;
         }
         const raw =
-            row.row_count ?? row.ROW_COUNT ?? row.rowCount ?? Object.values(row)[0];
-        const parsed = Number(raw);
+            row.row_count ??
+            row.ROW_COUNT ??
+            row.rowCount ??
+            Object.values(row)[0];
+        const parsed = Number(ProjectService.unwrapCountValue(raw));
         return Number.isFinite(parsed) ? parsed : 0;
     }
 

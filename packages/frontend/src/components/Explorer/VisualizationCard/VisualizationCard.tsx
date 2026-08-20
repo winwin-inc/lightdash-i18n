@@ -37,6 +37,7 @@ import {
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
+import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
@@ -143,6 +144,10 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         [chartConfig, health.data?.query.maxLimit],
     );
 
+    const { data: fromDashboardData } = useDashboardQuery(
+        fromDashboard ?? undefined,
+    );
+
     const chartPagedQuery = useExplorerChartPagedQuery({
         enabled: isWarehousePaginatedTable && Boolean(tableName),
         projectUuid,
@@ -152,6 +157,12 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         parameters,
         missingRequiredParameters,
         fromDashboard,
+        dashboardContext: fromDashboardData
+            ? {
+                  dashboardSlug: fromDashboardData.slug,
+                  dashboardName: fromDashboardData.name,
+              }
+            : undefined,
     });
 
     const sharedResultsData = useMemo(

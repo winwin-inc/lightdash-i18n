@@ -1,4 +1,4 @@
-import { Group, Select, SegmentedControl, Text } from '@mantine/core';
+import { Group, Loader, Select, SegmentedControl, Text } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import PaginateControl from '../../PaginateControl';
@@ -7,20 +7,51 @@ import {
     DEFAULT_PAGE_SIZE,
     TABLE_PAGINATION_PAGE_SIZES,
 } from '../constants';
+import {
+    compactSelectStyles,
+} from '../paginationCompactStyles';
 import { useTableContext } from '../useTableContext';
 
 interface ResultCountProps {
     count: number;
     shown?: number;
     alignEnd?: boolean;
+    variant?: 'default' | 'warehouse';
+    isLoading?: boolean;
 }
 
 export const ResultCount: FC<ResultCountProps> = ({
     count,
     shown,
     alignEnd = false,
+    variant = 'default',
+    isLoading = false,
 }) => {
     const { t } = useTranslation();
+
+    if (variant === 'warehouse') {
+        if (isLoading) {
+            return (
+                <Group spacing={6} align="center" noWrap>
+                    <Loader size="xs" />
+                    <Text fz="xs" c="dimmed" m={0} lh={1}>
+                        {t('components_common_table.pagination.loading_count')}
+                    </Text>
+                </Group>
+            );
+        }
+
+        return (
+            <Text fz="xs" c="dimmed" m={0} lh={1}>
+                {t('components_common_table.pagination.total_data_prefix')}
+                <Text span fw={600} c="blue.6">
+                    {count.toLocaleString()}
+                </Text>
+                {t('components_common_table.pagination.total_data_suffix')}
+            </Text>
+        );
+    }
+
     if (count === 0) {
         return null;
     }
@@ -60,35 +91,47 @@ const TablePagination: FC = () => {
 
     const isServerPagination = pagination?.mode === 'server';
     const isChartPagination = Boolean(
-        isServerPagination || pagination?.hideScrollToggle,
+        pagination?.show &&
+            (isServerPagination || pagination?.hideScrollToggle),
     );
     const pageCount = table.getPageCount();
     const pageSize = table.getState().pagination.pageSize;
-    const shownCount = isServerPagination
-        ? data.length
-        : Math.min(data.length, pageSize);
 
     if (isChartPagination) {
         return (
-            <TableFooter>
-                {pagination?.showResultsTotal ? (
-                    <ResultCount
-                        count={totalRowsCount}
-                        shown={shownCount}
-                    />
-                ) : (
-                    <div />
-                )}
-                <Group spacing="sm" noWrap>
+            <TableFooter $compact>
+                <Group align="center" noWrap>
+                    {pagination?.showResultsTotal ? (
+                        <ResultCount
+                            count={totalRowsCount}
+                            variant="warehouse"
+                            isLoading={
+                                Boolean(pagination?.isCountLoading) ||
+                                (totalRowsCount === 0 && data.length > 0)
+                            }
+                        />
+                    ) : (
+                        <div />
+                    )}
+                </Group>
+                <Group spacing={4} noWrap align="center">
                     {pagination?.onPageSizeChange ? (
                         <Select
                             size="xs"
-                            w={90}
+                            w={68}
+                            styles={compactSelectStyles}
                             value={String(pageSize)}
-                            data={TABLE_PAGINATION_PAGE_SIZES.map((size) => ({
-                                value: String(size),
-                                label: String(size),
-                            }))}
+                            data={Array.from(
+                                new Set([
+                                    ...TABLE_PAGINATION_PAGE_SIZES,
+                                    pageSize,
+                                ]),
+                            )
+                                .sort((a, b) => a - b)
+                                .map((size) => ({
+                                    value: String(size),
+                                    label: String(size),
+                                }))}
                             onChange={(value) => {
                                 if (value) {
                                     pagination.onPageSizeChange?.(
@@ -102,6 +145,7 @@ const TablePagination: FC = () => {
                         />
                     ) : null}
                     <PaginateControl
+                        compact
                         currentPage={
                             table.getState().pagination.pageIndex + 1
                         }
@@ -119,9 +163,20 @@ const TablePagination: FC = () => {
         );
     }
 
+    const showScrollToggle =
+        Boolean(pagination?.show) && data.length > DEFAULT_PAGE_SIZE;
+    const showClientPager =
+        !isInfiniteScrollEnabled && Boolean(pagination?.show) && pageCount > 1;
+    const showResultCountOnly =
+        !showClientPager && Boolean(pagination?.showResultsTotal);
+
+    if (!showScrollToggle && !showClientPager && !showResultCountOnly) {
+        return null;
+    }
+
     return (
         <TableFooter>
-            {pagination?.show && data.length > DEFAULT_PAGE_SIZE ? (
+            {showScrollToggle ? (
                 <SegmentedControl
                     data={[
                         {
@@ -144,7 +199,7 @@ const TablePagination: FC = () => {
                 />
             ) : null}
 
-            {!isInfiniteScrollEnabled && pageCount > 1 ? (
+            {showClientPager ? (
                 <PaginateControl
                     currentPage={table.getState().pagination.pageIndex + 1}
                     totalPages={pageCount}
@@ -153,7 +208,7 @@ const TablePagination: FC = () => {
                     hasPreviousPage={table.getCanPreviousPage()}
                     hasNextPage={table.getCanNextPage()}
                 />
-            ) : pagination?.showResultsTotal ? (
+            ) : showResultCountOnly ? (
                 <ResultCount count={totalRowsCount} alignEnd />
             ) : null}
         </TableFooter>

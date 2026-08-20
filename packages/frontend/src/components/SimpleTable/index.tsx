@@ -108,21 +108,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 onPageChange: tablePagination.onPageChange,
                 onPageSizeChange: tablePagination.onPageSizeChange,
                 hideScrollToggle: true,
-            };
-        }
-        const enablePaginationFromConfig =
-            isTableVisualizationConfig(visualizationConfig) &&
-            visualizationConfig.chartConfig.enablePagination &&
-            !visualizationConfig.chartConfig.showSubtotals &&
-            !visualizationConfig.chartConfig.pivotTableData?.data;
-        if (enablePaginationFromConfig) {
-            return {
-                show: true,
-                showResultsTotal: true,
-                defaultScroll: false,
-                mode: 'client' as const,
-                pageSize: visualizationConfig.chartConfig.pageSize,
-                hideScrollToggle: true,
+                isCountLoading: tablePagination.isCountLoading,
             };
         }
         return {
@@ -301,8 +287,9 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 totalRowsCount={
                     tablePagination?.enabled
                         ? tablePagination.totalRowCount ??
-                          resultsData?.totalResults ??
-                          0
+                          (tablePagination.isCountLoading
+                              ? 0
+                              : resultsData?.rows.length ?? 0)
                         : resultsData?.totalResults || 0
                 }
                 isFetchingRows={!!resultsData?.isFetchingRows}
