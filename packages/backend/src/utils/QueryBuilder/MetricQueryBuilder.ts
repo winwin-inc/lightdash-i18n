@@ -811,7 +811,8 @@ export class MetricQueryBuilder {
         if (limit === undefined) {
             return undefined;
         }
-        return offset !== undefined && offset > 0
+        // Include OFFSET 0 when offset is set so View SQL shows pagination clearly
+        return offset !== undefined
             ? `LIMIT ${limit} OFFSET ${offset}`
             : `LIMIT ${limit}`;
     }

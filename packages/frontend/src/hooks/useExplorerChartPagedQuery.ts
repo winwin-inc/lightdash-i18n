@@ -1,6 +1,10 @@
 import { type MetricQuery, type ParametersValuesMap } from '@lightdash/common';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type TablePaginationState } from '../components/LightdashVisualization/context';
+import {
+    explorerActions,
+    useExplorerDispatch,
+} from '../features/explorer/store';
 import { useQueryExecutor } from '../providers/Explorer/useQueryExecutor';
 import { useCalculateCount } from './useCalculateCount';
 import { useDateZoomGranularitySearch } from './useExplorerRoute';
@@ -36,6 +40,7 @@ export const useExplorerChartPagedQuery = ({
     fromDashboard,
     dashboardContext,
 }: Args) => {
+    const dispatch = useExplorerDispatch();
     const dateZoomGranularity = useDateZoomGranularitySearch();
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(configuredPageSize);
@@ -58,6 +63,23 @@ export const useExplorerChartPagedQuery = ({
         setPageIndex(0);
         setPageSize(configuredPageSize);
     }, [metricQueryPagingKey, configuredPageSize]);
+
+    // Sync pagination into explorer store so View SQL / 语义查询 match chart execute
+    useEffect(() => {
+        if (enabled) {
+            dispatch(
+                explorerActions.setChartTablePagination({
+                    pageIndex,
+                    pageSize,
+                }),
+            );
+        } else {
+            dispatch(explorerActions.setChartTablePagination(null));
+        }
+        return () => {
+            dispatch(explorerActions.setChartTablePagination(null));
+        };
+    }, [dispatch, enabled, pageIndex, pageSize]);
 
     const pagedMetricQuery = useMemo(
         (): MetricQuery => ({

@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
+    selectChartTablePagination,
     selectFromDashboard,
     selectIsSqlExpanded,
     selectMetricQuery,
@@ -33,6 +34,7 @@ import { useCompiledSql } from '../../../hooks/useCompiledSql';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
+import { applyChartTablePaginationToMetricQuery } from '../../../utils/applyChartTablePaginationToMetricQuery';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
 import { buildSemanticQueryJson } from './buildSemanticQueryJson';
@@ -66,6 +68,9 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
+    const chartTablePagination = useExplorerSelector(
+        selectChartTablePagination,
+    );
 
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {
@@ -81,11 +86,21 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
 
     const metricQueryJson = useMemo(() => {
         if (!tableName) return '';
-        return buildSemanticQueryJson(metricQuery, {
+        const queryForDisplay = applyChartTablePaginationToMetricQuery(
+            metricQuery,
+            chartTablePagination,
+        );
+        return buildSemanticQueryJson(queryForDisplay, {
             projectUuid,
             dashboardUuid: fromDashboard,
         });
-    }, [metricQuery, tableName, projectUuid, fromDashboard]);
+    }, [
+        metricQuery,
+        chartTablePagination,
+        tableName,
+        projectUuid,
+        fromDashboard,
+    ]);
 
     const copyValue =
         queryView === 'sql' ? (data?.query ?? '') : metricQueryJson;

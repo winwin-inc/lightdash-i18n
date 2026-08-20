@@ -63,6 +63,7 @@ const Table: FC<React.PropsWithChildren<Props>> = ({
                 <ScrollableTable
                     minimal={minimal}
                     showSubtotals={showSubtotals}
+                    $shouldExpand={$shouldExpand}
                 />
 
                 {status === 'error' && (

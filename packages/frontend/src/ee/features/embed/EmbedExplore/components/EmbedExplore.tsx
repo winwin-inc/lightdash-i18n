@@ -84,6 +84,7 @@ const getInitialState = (exploreId: string, savedChart: SavedChart) => ({
         },
     },
     queryExecution: defaultQueryExecution,
+    chartTablePagination: null,
 });
 
 type Props = {

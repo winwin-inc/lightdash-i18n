@@ -6100,10 +6100,12 @@ export class ProjectService extends BaseService {
               }
             : undefined;
 
+        // Pass explore so time-based overrides match dashboard-chart execute path
         const metricQuery: MetricQuery = appliedDashboardFilters
             ? addDashboardFiltersToMetricQuery(
                   savedChart.metricQuery,
                   appliedDashboardFilters,
+                  explore,
               )
             : savedChart.metricQuery;
 

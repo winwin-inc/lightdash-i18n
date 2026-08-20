@@ -278,7 +278,21 @@ const SimpleTable: FC<SimpleTableProps> = ({
     }
 
     return (
-        <Box p="xs" pb="md" miw="100%" h="100%">
+        <Box
+            p="xs"
+            pb={tablePagination?.enabled ? 'xs' : 'md'}
+            miw="100%"
+            h="100%"
+            sx={
+                tablePagination?.enabled
+                    ? {
+                          display: 'flex',
+                          flexDirection: 'column',
+                          minHeight: 0,
+                      }
+                    : undefined
+            }
+        >
             <Table
                 minimal={minimal}
                 $shouldExpand={$shouldExpand}

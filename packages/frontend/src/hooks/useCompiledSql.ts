@@ -5,10 +5,12 @@ import {
     type ParametersValuesMap,
 } from '@lightdash/common';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useParams } from 'react-router';
 import { lightdashApi } from '../api';
 import {
     selectAdditionalMetrics,
+    selectChartTablePagination,
     selectCustomDimensions,
     selectDimensions,
     selectFilters,
@@ -22,6 +24,7 @@ import {
     selectTimezone,
     useExplorerSelector,
 } from '../features/explorer/store';
+import { applyChartTablePaginationToMetricQuery } from '../utils/applyChartTablePaginationToMetricQuery';
 import { convertDateFilters } from '../utils/dateFilter';
 import useQueryError from './useQueryError';
 
@@ -63,20 +66,41 @@ export const useCompiledSql = (
     const timezone = useExplorerSelector(selectTimezone);
     const queryParameters = useExplorerSelector(selectParameters);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
+    const chartTablePagination = useExplorerSelector(
+        selectChartTablePagination,
+    );
 
     const setErrorResponse = useQueryError();
-    const metricQuery: MetricQuery = {
-        exploreName: tableId,
-        dimensions: Array.from(dimensions),
-        metrics: Array.from(metrics),
+    const metricQuery = useMemo((): MetricQuery => {
+        const base: MetricQuery = {
+            exploreName: tableId,
+            dimensions: Array.from(dimensions),
+            metrics: Array.from(metrics),
+            sorts,
+            filters,
+            limit: limit || 500,
+            tableCalculations,
+            additionalMetrics,
+            customDimensions,
+            timezone: timezone ?? undefined,
+        };
+        return applyChartTablePaginationToMetricQuery(
+            base,
+            chartTablePagination,
+        );
+    }, [
+        tableId,
+        dimensions,
+        metrics,
         sorts,
         filters,
-        limit: limit || 500,
+        limit,
         tableCalculations,
         additionalMetrics,
         customDimensions,
-        timezone: timezone ?? undefined,
-    };
+        timezone,
+        chartTablePagination,
+    ]);
     const queryKey = [
         'compiledQuery',
         tableId,
@@ -85,6 +109,7 @@ export const useCompiledSql = (
         timezone,
         queryParameters,
         fromDashboard,
+        chartTablePagination,
     ];
     return useQuery<ApiCompiledQueryResults, ApiError>({
         queryKey,

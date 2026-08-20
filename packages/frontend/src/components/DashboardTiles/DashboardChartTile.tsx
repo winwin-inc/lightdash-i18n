@@ -83,6 +83,7 @@ import {
     type DashboardChartReadyQuery,
 } from '../../hooks/dashboard/useDashboardChartReadyQuery';
 import useDashboardFiltersForTile from '../../hooks/dashboard/useDashboardFiltersForTile';
+import useDashboardTabFiltersForTile from '../../hooks/dashboard/useDashboardTabFiltersForTile';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../hooks/organization/useOrganization';
@@ -218,6 +219,7 @@ const computeDashboardChartSeries = (
 
 const ValidDashboardChartTile: FC<{
     tileUuid: string;
+    tabUuid?: string;
     dashboardChartReadyQuery: DashboardChartReadyQuery;
     resultsData: InfiniteQueryResults;
     isTitleHidden?: boolean;
@@ -233,6 +235,7 @@ const ValidDashboardChartTile: FC<{
     >;
 }> = ({
     tileUuid,
+    tabUuid,
     isTitleHidden = false,
     dashboardChartReadyQuery,
     resultsData,
@@ -244,7 +247,15 @@ const ValidDashboardChartTile: FC<{
         (c) => c.addResultsCacheTime,
     );
 
+    // Must match useDashboardChartReadyQuery: tab merges global + tab + temporary
     const dashboardFilters = useDashboardFiltersForTile(tileUuid);
+    const dashboardTabFilters = useDashboardTabFiltersForTile(
+        tabUuid ?? '',
+        tileUuid,
+    );
+    const countDashboardFilters = tabUuid
+        ? dashboardTabFilters
+        : dashboardFilters;
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
 
     const { health } = useApp();
@@ -294,7 +305,7 @@ const ValidDashboardChartTile: FC<{
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
     const { data: countData, isError: isCountError } = useCalculateCount({
         savedChartUuid: chart.uuid,
-        dashboardFilters,
+        dashboardFilters: countDashboardFilters,
         invalidateCache,
         parameters:
             dashboardChartReadyQuery.executeQueryResponse.usedParametersValues,
@@ -1500,6 +1511,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
                     <ValidDashboardChartTile
                         tileUuid={tileUuid}
+                        tabUuid={tabUuid}
                         dashboardChartReadyQuery={dashboardChartReadyQuery}
                         resultsData={resultsData}
                         project={chart.projectUuid}

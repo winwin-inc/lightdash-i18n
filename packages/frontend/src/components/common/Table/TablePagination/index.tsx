@@ -54,7 +54,7 @@ export const ResultCount: FC<ResultCountProps> = ({
         return (
             <Text fz="xs" c="dimmed" m={0} lh={1}>
                 {t('components_common_table.pagination.total_data_prefix')}
-                <Text span fw={600} c="blue.6">
+                <Text span fw={600}>
                     {count.toLocaleString()}
                 </Text>
                 {t('components_common_table.pagination.total_data_suffix')}
@@ -140,7 +140,7 @@ const TablePagination: FC = () => {
                             </Text>
                             <Select
                                 size="xs"
-                                w={68}
+                                w={52}
                                 styles={compactSelectStyles}
                                 value={String(pageSize)}
                                 data={Array.from(
@@ -212,6 +212,7 @@ const TablePagination: FC = () => {
         <TableFooter>
             {showScrollToggle ? (
                 <SegmentedControl
+                    size="xs"
                     data={[
                         {
                             label: t(
@@ -235,6 +236,7 @@ const TablePagination: FC = () => {
 
             {showClientPager ? (
                 <PaginateControl
+                    compact
                     currentPage={table.getState().pagination.pageIndex + 1}
                     totalPages={pageCount}
                     onPreviousPage={table.previousPage}

@@ -56,4 +56,5 @@ export const defaultState: ExplorerReduceState = {
         },
     },
     queryExecution: defaultQueryExecution,
+    chartTablePagination: null,
 };

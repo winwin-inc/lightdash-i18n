@@ -6,6 +6,7 @@ import {
     Group,
     NumberInput,
     SegmentedControl,
+    Select,
     Stack,
     Switch,
     Tooltip,
@@ -15,8 +16,8 @@ import { useTranslation } from 'react-i18next';
 
 import useHealth from '../../../hooks/health/useHealth';
 import useToaster from '../../../hooks/toaster/useToaster';
-import { DEFAULT_PAGE_SIZE } from '../../common/Table/constants';
-import { compactNumberInputStyles } from '../../common/Table/paginationCompactStyles';
+import { TABLE_PAGINATION_PAGE_SIZES } from '../../common/Table/constants';
+import { compactSelectStyles } from '../../common/Table/paginationCompactStyles';
 import { isTableVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
@@ -594,25 +595,30 @@ const GeneralSettings: FC = () => {
                             {enablePagination &&
                             !isPivotTableEnabled &&
                             !showSubtotals ? (
-                                <NumberInput
+                                <Select
                                     size="xs"
-                                    w={56}
-                                    min={1}
-                                    max={maxPageSize}
-                                    hideControls
-                                    styles={compactNumberInputStyles}
-                                    placeholder={String(DEFAULT_PAGE_SIZE)}
-                                    value={pageSize}
-                                    onChange={(value) => {
-                                        if (typeof value !== 'number') {
-                                            return;
-                                        }
-                                        setPageSize(
-                                            Math.min(
-                                                Math.max(1, value),
-                                                maxPageSize,
+                                    w={52}
+                                    styles={compactSelectStyles}
+                                    value={String(pageSize)}
+                                    data={Array.from(
+                                        new Set([
+                                            ...TABLE_PAGINATION_PAGE_SIZES.filter(
+                                                (size) => size <= maxPageSize,
                                             ),
-                                        );
+                                            ...(pageSize <= maxPageSize
+                                                ? [pageSize]
+                                                : []),
+                                        ]),
+                                    )
+                                        .sort((a, b) => a - b)
+                                        .map((size) => ({
+                                            value: String(size),
+                                            label: String(size),
+                                        }))}
+                                    onChange={(value) => {
+                                        if (value) {
+                                            setPageSize(Number(value));
+                                        }
                                     }}
                                     aria-label={t(
                                         'components_visualization_configs_table.settings.page_size',

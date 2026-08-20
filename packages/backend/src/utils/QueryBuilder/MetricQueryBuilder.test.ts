@@ -114,6 +114,55 @@ describe('Query builder', () => {
         ).toStrictEqual(replaceWhitespace(METRIC_QUERY_SQL));
     });
 
+    test('Should append OFFSET when warehouse pagination offset is set', () => {
+        const query = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY,
+                limit: 500,
+                offset: 2000,
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+        }).query;
+
+        expect(replaceWhitespace(query)).toMatch(/LIMIT 500 OFFSET 2000$/);
+    });
+
+    test('Should include OFFSET 0 when offset is zero', () => {
+        const query = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY,
+                limit: 500,
+                offset: 0,
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+        }).query;
+
+        expect(replaceWhitespace(query)).toMatch(/LIMIT 500 OFFSET 0$/);
+    });
+
+    test('Should omit OFFSET when offset is undefined', () => {
+        const query = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY,
+                limit: 500,
+                offset: undefined,
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+        }).query;
+
+        expect(replaceWhitespace(query)).toMatch(/LIMIT 500$/);
+        expect(query).not.toMatch(/OFFSET/i);
+    });
+
     test('Should build simple metric query in BigQuery', () => {
         expect(
             replaceWhitespace(

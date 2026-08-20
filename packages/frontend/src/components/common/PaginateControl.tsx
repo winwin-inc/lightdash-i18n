@@ -68,7 +68,7 @@ const PaginateControl: FC<PaginateControlProps> = ({
     const pageInput = onPageChange ? (
         <NumberInput
             size="xs"
-            w={compact ? 40 : 56}
+            w={compact ? 36 : 56}
             min={1}
             max={safeTotalPages}
             hideControls

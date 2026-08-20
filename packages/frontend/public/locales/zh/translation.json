@@ -2519,7 +2519,7 @@
     "components_common_table": {
         "copied_to_clipboard": "已复制到剪贴板!",
         "pagination": {
-            "pages": "页",
+            "pages": "分页",
             "scroll": "滚动",
             "page": "页",
             "of": "共",
@@ -2534,8 +2534,6 @@
             "loading_count": "加载中…",
             "count_error": "无法获取总数",
             "pagination_empty_page": {
-                "title": "当前页没有数据",
-                "description": "总数显示有数据，但这一页没有返回结果。请返回第 1 页重试，或缩小筛选范围。",
                 "back_to_first_page": "返回第 1 页"
             }
         },

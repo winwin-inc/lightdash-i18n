@@ -1,4 +1,4 @@
-import { Button, Stack, Text } from '@mantine/core';
+import { Button, Stack } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExploreEmptyQueryState } from '../../Explorer/ResultsCard/ExplorerResultsNonIdealStates';
@@ -7,8 +7,8 @@ import { useTableContext } from './useTableContext';
 
 /**
  * Empty body for warehouse-paginated tables: when COUNT says there are rows
- * beyond this page's offset but the page query returned none, do not show the
- * generic "query returned no results" copy.
+ * beyond this page's offset but the page query returned none, show the same
+ * empty copy as a normal empty query, plus a short link back to page 1.
  */
 const TableEmptyState: FC = () => {
     const { t } = useTranslation();
@@ -30,15 +30,13 @@ const TableEmptyState: FC = () => {
         return (
             <EmptyState
                 title={t(
-                    'components_common_table.pagination.pagination_empty_page.title',
+                    'components_explorer_results_card_non_ideal_state.explore_empty_query_state.title',
                 )}
                 description={
                     <Stack spacing="sm" align="center">
-                        <Text size="sm" color="dimmed" maw={360} align="center">
-                            {t(
-                                'components_common_table.pagination.pagination_empty_page.description',
-                            )}
-                        </Text>
+                        {t(
+                            'components_explorer_results_card_non_ideal_state.explore_empty_query_state.description',
+                        )}
                         {pagination?.onPageChange ? (
                             <Button
                                 size="xs"
