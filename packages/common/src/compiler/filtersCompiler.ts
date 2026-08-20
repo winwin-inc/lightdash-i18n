@@ -15,12 +15,15 @@ import {
 import {
     FilterOperator,
     UnitOfTime,
+    isDateRangeDynamic,
     isFilterTarget,
     isMetricFilterTarget,
+    resolveDateRangeValues,
     unitOfTimeFormat,
     type DateFilterRule,
     type FilterRule,
 } from '../types/filter';
+import { TimeFrames } from '../types/timeFrames';
 import assertUnreachable from '../utils/assertUnreachable';
 import { convertToBooleanValue } from '../utils/booleanConverter';
 import { formatDate } from '../utils/formatting';
@@ -371,15 +374,57 @@ export const renderDateFilterSql = (
             return `(NOT ((${dimensionSql}) >= ${castedFromDate} AND (${dimensionSql}) <= ${castedUntilDate}))`;
         }
         case FilterOperator.IN_BETWEEN: {
-            const startDate = dateFormatter(filter.values?.[0]);
-            const endDate = dateFormatter(filter.values?.[1]);
-
+            if (isDateRangeDynamic(filter)) {
+                // Dynamic mode: resolve values at query time so dates always
+                // reflect "now". Align to the period boundary based on
+                // dateRangeGranularity (e.g. "12 months ago" with month
+                // granularity → start of that month).
+                const granularity =
+                    (filter as { dateRangeGranularity?: TimeFrames })
+                        .dateRangeGranularity ?? TimeFrames.DAY;
+                const [resolvedStart, resolvedEnd] = resolveDateRangeValues(
+                    filter,
+                    granularity,
+                    new Date(),
+                    timezone,
+                );
+                const startDate = resolvedStart ?? 'NaT';
+                const endDate = resolvedEnd ?? 'NaT';
+                return `((${dimensionSql}) >= ${castValue(
+                    startDate,
+                )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
+            }
+            // Fixed mode: pass values directly to dateFormatter (same as
+            // before the dynamic feature). This preserves the original
+            // behaviour for all field types including TIMESTAMP, whose
+            // values may be ISO strings that strict YYYY-MM-DD parsing
+            // would reject.
             return `((${dimensionSql}) >= ${castValue(
-                startDate,
-            )} AND (${dimensionSql}) <= ${castValue(endDate)})`;
+                dateFormatter(filter.values?.[0]),
+            )} AND (${dimensionSql}) <= ${castValue(
+                dateFormatter(filter.values?.[1]),
+            )})`;
         }
         case FilterOperator.FROM_START_TO_LATEST_MONTH: {
-            const startDate = dateFormatter(filter.values?.[0]);
+            // Dynamic mode: resolve the start bound at query time. The
+            // upper bound is provided separately via `latestDataMonthMaxSql`.
+            let startDate: string;
+            if (isDateRangeDynamic(filter)) {
+                const granularity =
+                    (filter as { dateRangeGranularity?: TimeFrames })
+                        .dateRangeGranularity ?? TimeFrames.MONTH;
+                const [resolvedStart] = resolveDateRangeValues(
+                    filter,
+                    granularity,
+                    new Date(),
+                    timezone,
+                );
+                startDate = resolvedStart ?? dateFormatter(filter.values?.[0]);
+            } else {
+                // Fixed mode: use values directly (preserves TIMESTAMP
+                // ISO strings etc.)
+                startDate = dateFormatter(filter.values?.[0]);
+            }
             let endBound: string | undefined;
             if (latestDataMonthMaxSql) {
                 endBound = `(${latestDataMonthMaxSql})`;

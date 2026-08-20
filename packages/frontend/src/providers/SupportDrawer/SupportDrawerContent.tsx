@@ -126,7 +126,7 @@ const SupportDrawerContent: FC<SupportDrawerContentProps> = () => {
             )}
             <Text mt="sm">{t('providers_support_drawer.more_details')}</Text>
             <Textarea
-                placeholder="Enter more details"
+                placeholder={t('providers_support_drawer.enter_more_details')}
                 value={moreDetails}
                 onChange={(event) => setMoreDetails(event.target.value)}
                 minRows={4}

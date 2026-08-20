@@ -213,7 +213,7 @@ const Invite: FC = () => {
     );
 
     return (
-        <Page title="Register" withCenteredContent withNavbar={false}>
+        <Page title={t('pages_register.sign_up')} withCenteredContent withNavbar={false}>
             <Stack w={400} mt="4xl">
                 <Image
                     src={LightdashLogo}

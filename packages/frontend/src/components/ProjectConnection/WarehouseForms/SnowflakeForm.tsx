@@ -515,12 +515,8 @@ const SnowflakeForm: FC<{
                             label={t(
                                 'components_project_connection_warehouse_form.snowflake.warehouse_override.label',
                             )}
-                            onLabel={t(
-                                'components_project_connection_warehouse_form.snowflake.warehouse_override.yes',
-                            )}
-                            offLabel={t(
-                                'components_project_connection_warehouse_form.snowflake.warehouse_override.no',
-                            )}
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                             disabled={disabled}
                         />
 
@@ -565,12 +561,8 @@ const SnowflakeForm: FC<{
                                             )}
                                         </p>
                                     }
-                                    onLabel={t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.yes',
-                                    )}
-                                    offLabel={t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.no',
-                                    )}
+                                    onLabel={t('common.yes')}
+                                    offLabel={t('common.no')}
                                     disabled={disabled}
                                     {...form.getInputProps(
                                         'warehouse.clientSessionKeepAlive',

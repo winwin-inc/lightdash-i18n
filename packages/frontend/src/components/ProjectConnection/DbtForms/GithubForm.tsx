@@ -233,7 +233,9 @@ const GithubLoginForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 )}
             </Button>
             <TextInput
-                label="Repository"
+                label={t(
+                    'components_project_connection_dbt_form.github.repository.label',
+                )}
                 readOnly
                 description={t(
                     'components_project_connection_dbt_form.github.repository.login_first',
@@ -374,7 +376,9 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                             ) : undefined
                         }
                         w={isInstallationValid ? '90%' : '100%'}
-                        label="Authorization method"
+                        label={t(
+                            'components_project_connection_dbt_form.github.authorization_method.label',
+                        )}
                         data={[
                             {
                                 value: 'installation_id',
@@ -414,7 +418,7 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 <TextInput
                     name="dbt.branch"
                     {...form.getInputProps('dbt.branch')}
-                    label="Branch"
+                    label={t('common.branch')}
                     description={
                         <>
                             <p>
@@ -466,7 +470,9 @@ const GithubForm: FC<{ disabled: boolean }> = ({ disabled }) => {
                 <TextInput
                     name="dbt.project_sub_path"
                     {...form.getInputProps('dbt.project_sub_path')}
-                    label="Project directory path"
+                    label={t(
+                        'components_project_connection_dbt_form.github.project_directory_path.label',
+                    )}
                     description={
                         <>
                             <p>

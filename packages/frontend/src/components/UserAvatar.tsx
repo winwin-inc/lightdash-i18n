@@ -3,12 +3,32 @@ import { forwardRef } from 'react';
 
 import useApp from '../providers/App/useApp';
 
+const getUserAvatarInitials = (
+    firstName: string | undefined,
+    lastName: string | undefined,
+    email: string | undefined,
+): string => {
+    const first = firstName?.trim() ?? '';
+    const last = lastName?.trim() ?? '';
+
+    if (first && last) {
+        return `${first[0]}${last[0]}`.toLocaleUpperCase();
+    }
+
+    const single = first || last || email?.trim() || '';
+    return single[0]?.toLocaleUpperCase() ?? '';
+};
+
 export const UserAvatar = forwardRef<HTMLDivElement, AvatarProps>(
     (props, ref) => {
         const { user } = useApp();
         const theme = useMantineTheme();
         const initials = user.data
-            ? `${user.data.firstName[0]}${user.data.lastName[0]}`.trim()
+            ? getUserAvatarInitials(
+                  user.data.firstName,
+                  user.data.lastName,
+                  user.data.email,
+              )
             : '';
 
         return (

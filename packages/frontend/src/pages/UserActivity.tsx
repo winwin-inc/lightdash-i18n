@@ -254,7 +254,9 @@ const UserActivity: FC = () => {
                         },
                     ]}
                 />
-                <Tooltip label="Export raw chart and dashboard user views in a CSV format">
+                <Tooltip
+                    label={t('pages_user_activity.export_csv_tooltip')}
+                >
                     <Button
                         variant="outline"
                         disabled={isDownloadingCsv}

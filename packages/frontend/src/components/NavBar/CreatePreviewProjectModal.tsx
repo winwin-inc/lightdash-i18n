@@ -147,7 +147,7 @@ const EnvironmentVariablesInput: FC<EnvironmentVariablesInputProps> = ({
                                     e.target.value,
                                 )
                             }
-                            placeholder="Key"
+                            placeholder={t('common.key')}
                             disabled={disabled}
                         />
 
@@ -160,7 +160,7 @@ const EnvironmentVariablesInput: FC<EnvironmentVariablesInputProps> = ({
                                     e.target.value,
                                 )
                             }
-                            placeholder="Value"
+                            placeholder={t('common.value')}
                             disabled={disabled}
                         />
 
@@ -495,7 +495,7 @@ const CreatePreviewModal: FC<Props> = ({ isOpened, onClose }) => {
                             <>
                                 <Select
                                     withinPortal
-                                    label="Branch"
+                                    label={t('common.branch')}
                                     placeholder={
                                         branches.isLoading
                                             ? t(

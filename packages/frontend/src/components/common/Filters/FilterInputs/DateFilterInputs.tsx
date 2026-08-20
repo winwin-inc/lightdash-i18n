@@ -4,12 +4,12 @@ import {
     TimeFrames,
     formatDate,
     isCustomSqlDimension,
+    isDashboardFilterRule,
     isDimension,
     isFilterRule,
     parseDate,
     timeframeToUnitOfTime,
     type BaseFilterRule,
-    type DashboardFilterRule,
     type DateFilterRule,
 } from '@lightdash/common';
 import { Flex, NumberInput, Text } from '@mantine/core';
@@ -24,9 +24,9 @@ import {
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 import FilterDatePicker from './FilterDatePicker';
-import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterDateTimePicker from './FilterDateTimePicker';
 import FilterDateTimeRangePicker from './FilterDateTimeRangePicker';
+import FilterDynamicDateRangePicker from './FilterDynamicDateRangePicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterUnitOfTimeAutoComplete from './FilterUnitOfTimeAutoComplete';
@@ -37,7 +37,15 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
     const { t } = useTranslation();
-    const { field, rule, onChange, popoverProps, disabled, filterType } = props;
+    const {
+        field,
+        rule,
+        onChange,
+        popoverProps,
+        disabled,
+        filterType,
+        isEditMode,
+    } = props;
     const { startOfWeek } = useFiltersContext();
 
     const isTimestamp =
@@ -58,16 +66,25 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         disabled: rule.disabled && !rule.values,
     });
 
-    const dashboardRule = rule as unknown as DashboardFilterRule;
+    const dashboardRule = isDashboardFilterRule(rule) ? rule : undefined;
     const timeIntervalStr =
         isDimension(field) && field.timeInterval
             ? String(field.timeInterval)
             : undefined;
+    const isRangeOperator =
+        rule.operator === FilterOperator.IN_BETWEEN ||
+        rule.operator === FilterOperator.NOT_IN_BETWEEN;
+    const boundsGranularity = isRangeOperator
+        ? dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY
+        : timeIntervalStr;
     const { minDate: cfgMin, maxDate: cfgMax } =
         getDashboardFilterDatePickerBounds(
-            dashboardRule.minAllowedDate,
-            dashboardRule.maxAllowedDate,
-            timeIntervalStr,
+            dashboardRule?.minAllowedDate,
+            dashboardRule?.maxAllowedDate,
+            boundsGranularity,
+            dayjs(),
+            true,
+            !!dashboardRule?.enableDynamicMaxAllowedDate,
         );
 
     switch (rule.operator) {
@@ -452,225 +469,28 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             // selector; in the explore page there is no date selector and
             // the value-range picker is always day-based.
             const rangeGranularity =
-                dashboardRule.dateRangeGranularity ?? TimeFrames.DAY;
+                dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY;
 
-            if (rangeGranularity === TimeFrames.DAY) {
-                return (
-                    <FilterDateRangePicker
-                        disabled={disabled}
-                        filterMinDate={cfgMin}
-                        filterMaxDate={cfgMax}
-                        autoFocus={true}
-                        firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
-                        value={
-                            rule.values && rule.values[0] && rule.values[1]
-                                ? [
-                                      parseDate(
-                                          formatDate(
-                                              rule.values[0],
-                                              TimeFrames.DAY,
-                                          ),
-                                          TimeFrames.DAY,
-                                      ),
-                                      parseDate(
-                                          formatDate(
-                                              rule.values[1],
-                                              TimeFrames.DAY,
-                                          ),
-                                          TimeFrames.DAY,
-                                      ),
-                                  ]
-                                : null
-                        }
-                        popoverProps={popoverProps}
-                        onChange={(value: [Date, Date] | null) => {
-                            onChange({
-                                ...rule,
-                                values: value
-                                    ? [
-                                          formatDate(value[0], TimeFrames.DAY),
-                                          formatDate(value[1], TimeFrames.DAY),
-                                      ]
-                                    : [],
-                            });
-                        }}
-                    />
-                );
-            }
-
-            // Non-day granularity: two separate pickers (min/max) inside a
-            // flex row. We render the appropriate picker per granularity and
-            // round each picked value to the start/end of the period so the
-            // stored YYYY-MM-DD string is always at a period boundary.
-            const minValue =
-                rule.values && rule.values[0]
-                    ? parseDate(
-                          formatDate(
-                              rule.values[0],
-                              rangeGranularity as TimeFrames,
-                          ),
-                          rangeGranularity as TimeFrames,
-                      )
-                    : null;
-            const maxValue =
-                rule.values && rule.values[1]
-                    ? parseDate(
-                          formatDate(
-                              rule.values[1],
-                              rangeGranularity as TimeFrames,
-                          ),
-                          rangeGranularity as TimeFrames,
-                      )
-                    : null;
-
-            const formatPicked = (v: Date, isMax: boolean) => {
-                const d = dayjs(v);
-                if (rangeGranularity === TimeFrames.MONTH) {
-                    return (
-                        isMax ? d.endOf('month') : d.startOf('month')
-                    ).format('YYYY-MM-DD');
-                }
-                if (rangeGranularity === TimeFrames.QUARTER) {
-                    return (
-                        isMax ? d.endOf('quarter') : d.startOf('quarter')
-                    ).format('YYYY-MM-DD');
-                }
-                if (rangeGranularity === TimeFrames.YEAR) {
-                    return (isMax ? d.endOf('year') : d.startOf('year')).format(
-                        'YYYY-MM-DD',
-                    );
-                }
-                return d.format('YYYY-MM-DD');
-            };
-
-            const updateBound = (
-                idx: 0 | 1,
-                d: Date | null,
-                isMax: boolean,
-            ) => {
-                const next = [
-                    rule.values?.[0] ?? null,
-                    rule.values?.[1] ?? null,
-                ] as [string | null, string | null];
-                next[idx] = d ? formatPicked(d, isMax) : null;
-                onChange({
-                    ...rule,
-                    values: next.map((v) => v ?? '') as string[],
-                });
-            };
-
-            if (rangeGranularity === TimeFrames.MONTH) {
-                return (
-                    <Flex gap="xs" w="100%">
-                        <FilterMonthAndYearPicker
-                            disabled={disabled}
-                            minDate={cfgMin}
-                            maxDate={
-                                maxValue
-                                    ? dayjs(maxValue).endOf('month').toDate()
-                                    : cfgMax
-                            }
-                            // @ts-ignore
-                            placeholder={t(
-                                'components_common_filters_inputs.date_picker.start_date',
-                            )}
-                            popoverProps={popoverProps}
-                            value={minValue}
-                            onChange={(v: Date | null) =>
-                                updateBound(0, v, false)
-                            }
-                        />
-                        <FilterMonthAndYearPicker
-                            disabled={disabled}
-                            minDate={
-                                minValue
-                                    ? dayjs(minValue).startOf('month').toDate()
-                                    : cfgMin
-                            }
-                            maxDate={cfgMax}
-                            // @ts-ignore - Mantine MonthPickerInput doesn't expose `placeholder`
-                            placeholder={t(
-                                'components_common_filters_inputs.date_picker.end_date',
-                            )}
-                            popoverProps={popoverProps}
-                            value={maxValue}
-                            onChange={(v: Date | null) =>
-                                updateBound(1, v, true)
-                            }
-                        />
-                    </Flex>
-                );
-            }
-
-            if (rangeGranularity === TimeFrames.QUARTER) {
-                return (
-                    <Flex gap="xs" w="100%">
-                        <FilterQuarterPicker
-                            disabled={disabled}
-                            minDate={cfgMin}
-                            maxDate={maxValue ?? cfgMax}
-                            placeholder={t(
-                                'components_common_filters_inputs.date_picker.start_date',
-                            )}
-                            popoverProps={popoverProps}
-                            value={minValue}
-                            onChange={(v: Date | null) =>
-                                updateBound(0, v, false)
-                            }
-                        />
-                        <FilterQuarterPicker
-                            disabled={disabled}
-                            minDate={minValue ?? cfgMin}
-                            maxDate={cfgMax}
-                            placeholder={t(
-                                'components_common_filters_inputs.date_picker.end_date',
-                            )}
-                            popoverProps={popoverProps}
-                            value={maxValue}
-                            onChange={(v: Date | null) =>
-                                updateBound(1, v, true)
-                            }
-                        />
-                    </Flex>
-                );
-            }
-
-            // YEAR (and any future non-day granularity defaults here)
             return (
-                <Flex gap="xs" w="100%">
-                    <FilterYearPicker
-                        disabled={disabled}
-                        minDate={cfgMin}
-                        maxDate={
-                            maxValue
-                                ? dayjs(maxValue).endOf('year').toDate()
-                                : cfgMax
-                        }
-                        // @ts-ignore
-                        placeholder={t(
-                            'components_common_filters_inputs.date_picker.start_date',
-                        )}
-                        popoverProps={popoverProps}
-                        value={minValue}
-                        onChange={(v: Date | null) => updateBound(0, v, false)}
-                    />
-                    <FilterYearPicker
-                        disabled={disabled}
-                        minDate={
-                            minValue
-                                ? dayjs(minValue).startOf('year').toDate()
-                                : cfgMin
-                        }
-                        maxDate={cfgMax}
-                        // @ts-ignore - Mantine YearPickerInput doesn't expose `placeholder`
-                        placeholder={t(
-                            'components_common_filters_inputs.date_picker.end_date',
-                        )}
-                        popoverProps={popoverProps}
-                        value={maxValue}
-                        onChange={(v: Date | null) => updateBound(1, v, true)}
-                    />
-                </Flex>
+                <FilterDynamicDateRangePicker
+                    rule={
+                        rule as unknown as Parameters<
+                            typeof FilterDynamicDateRangePicker
+                        >[0]['rule']
+                    }
+                    onChange={
+                        onChange as unknown as Parameters<
+                            typeof FilterDynamicDateRangePicker
+                        >[0]['onChange']
+                    }
+                    granularity={rangeGranularity}
+                    filterMinDate={cfgMin}
+                    filterMaxDate={cfgMax}
+                    firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                    popoverProps={popoverProps}
+                />
             );
         default: {
             return <DefaultFilterInputs {...props} />;

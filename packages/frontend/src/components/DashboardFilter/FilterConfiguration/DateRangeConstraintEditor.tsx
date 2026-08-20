@@ -3,7 +3,7 @@ import {
     TimeFrames,
     type DashboardFilterRule,
 } from '@lightdash/common';
-import { Group, Stack, Text, type PopoverProps } from '@mantine/core';
+import { Group, Stack, Switch, Text, type PopoverProps } from '@mantine/core';
 import dayjs from 'dayjs';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -97,8 +97,39 @@ const DateRangeConstraintEditor: FC<Props> = ({
         ? dayjs(filterRule.maxAllowedDate).toDate()
         : null;
 
+    const showDynamicMaxSwitch =
+        filterRule.operator === FilterOperator.IN_BETWEEN &&
+        (granularity === TimeFrames.MONTH ||
+            granularity === TimeFrames.QUARTER);
+
     return (
         <Stack spacing="xs" mt="xs">
+            {showDynamicMaxSwitch && (
+                <Switch
+                    size="xs"
+                    label={
+                        <Text size="xs" fw={500}>
+                            {t(
+                                'components_dashboard_filter.configuration.date_range.dynamic_max_label',
+                            )}
+                        </Text>
+                    }
+                    description={t(
+                        'components_dashboard_filter.configuration.date_range.dynamic_max_description',
+                    )}
+                    checked={!!filterRule.enableDynamicMaxAllowedDate}
+                    onChange={(e) => {
+                        const enabled = e.currentTarget.checked;
+                        onChangeFilterRule({
+                            ...filterRule,
+                            enableDynamicMaxAllowedDate: enabled || undefined,
+                            maxAllowedDate: enabled
+                                ? undefined
+                                : filterRule.maxAllowedDate,
+                        });
+                    }}
+                />
+            )}
             <Text size="xs" color="dimmed">
                 {t('components_dashboard_filter.configuration.date_range.hint')}
             </Text>
@@ -125,6 +156,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterMonthAndYearPicker
                             clearable
+                            disabled={!!filterRule.enableDynamicMaxAllowedDate}
                             label={t(
                                 'components_dashboard_filter.configuration.date_range.max_label',
                             )}
@@ -191,6 +223,9 @@ const DateRangeConstraintEditor: FC<Props> = ({
                                 )}
                             </Text>
                             <FilterQuarterPicker
+                                disabled={
+                                    !!filterRule.enableDynamicMaxAllowedDate
+                                }
                                 value={maxDateValue}
                                 minDate={minDateValue ?? undefined}
                                 popoverProps={{

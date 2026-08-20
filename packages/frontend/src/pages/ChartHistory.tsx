@@ -92,7 +92,7 @@ const ChartHistory = () => {
     if (historyQuery.isInitialLoading || chartQuery.isInitialLoading) {
         return (
             <div style={{ marginTop: '20px' }}>
-                <SuboptimalState title="Loading..." loading />
+                <SuboptimalState title={t('common.loading')} loading />
             </div>
         );
     }
