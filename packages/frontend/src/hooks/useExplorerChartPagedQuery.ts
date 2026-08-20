@@ -64,7 +64,9 @@ export const useExplorerChartPagedQuery = ({
         setPageSize(configuredPageSize);
     }, [metricQueryPagingKey, configuredPageSize]);
 
-    // Sync pagination into explorer store so View SQL / 语义查询 match chart execute
+    // Sync pagination into explorer store so View SQL / 语义查询 match chart execute.
+    // Do not clear in cleanup — that races Strict Mode remounts / dep changes and
+    // leaves compileQuery without offset (LIMIT only).
     useEffect(() => {
         if (enabled) {
             dispatch(
@@ -76,9 +78,6 @@ export const useExplorerChartPagedQuery = ({
         } else {
             dispatch(explorerActions.setChartTablePagination(null));
         }
-        return () => {
-            dispatch(explorerActions.setChartTablePagination(null));
-        };
     }, [dispatch, enabled, pageIndex, pageSize]);
 
     const pagedMetricQuery = useMemo(

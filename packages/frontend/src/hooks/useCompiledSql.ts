@@ -10,7 +10,6 @@ import { useParams } from 'react-router';
 import { lightdashApi } from '../api';
 import {
     selectAdditionalMetrics,
-    selectChartTablePagination,
     selectCustomDimensions,
     selectDimensions,
     selectFilters,
@@ -26,6 +25,7 @@ import {
 } from '../features/explorer/store';
 import { applyChartTablePaginationToMetricQuery } from '../utils/applyChartTablePaginationToMetricQuery';
 import { convertDateFilters } from '../utils/dateFilter';
+import { useEffectiveChartTablePagination } from './useEffectiveChartTablePagination';
 import useQueryError from './useQueryError';
 
 const getCompiledQuery = async (
@@ -66,9 +66,7 @@ export const useCompiledSql = (
     const timezone = useExplorerSelector(selectTimezone);
     const queryParameters = useExplorerSelector(selectParameters);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
-    const chartTablePagination = useExplorerSelector(
-        selectChartTablePagination,
-    );
+    const chartTablePagination = useEffectiveChartTablePagination();
 
     const setErrorResponse = useQueryError();
     const metricQuery = useMemo((): MetricQuery => {
@@ -122,7 +120,9 @@ export const useCompiledSql = (
                 fromDashboard,
             ),
         onError: (result) => setErrorResponse(result),
-        keepPreviousData: true,
+        // Do not keep previous SQL — enablePagination / page changes must not
+        // leave the Query panel showing a stale LIMIT without OFFSET.
+        keepPreviousData: false,
         ...queryOptions,
         enabled: (queryOptions?.enabled ?? true) && !!tableId && !!projectUuid,
     });

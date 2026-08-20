@@ -22,7 +22,6 @@ import { useTranslation } from 'react-i18next';
 
 import {
     explorerActions,
-    selectChartTablePagination,
     selectFromDashboard,
     selectIsSqlExpanded,
     selectMetricQuery,
@@ -31,6 +30,7 @@ import {
     useExplorerSelector,
 } from '../../../features/explorer/store';
 import { useCompiledSql } from '../../../hooks/useCompiledSql';
+import { useEffectiveChartTablePagination } from '../../../hooks/useEffectiveChartTablePagination';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
@@ -68,9 +68,7 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
-    const chartTablePagination = useExplorerSelector(
-        selectChartTablePagination,
-    );
+    const chartTablePagination = useEffectiveChartTablePagination();
 
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {

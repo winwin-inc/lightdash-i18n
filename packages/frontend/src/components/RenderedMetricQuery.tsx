@@ -7,7 +7,6 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import {
-    selectChartTablePagination,
     selectFromDashboard,
     selectMetricQuery,
     selectTableName,
@@ -17,6 +16,7 @@ import {
     LIGHTDASH_THEME,
     MONACO_DEFAULT_OPTIONS,
 } from '../features/sqlRunner/utils/monaco';
+import { useEffectiveChartTablePagination } from '../hooks/useEffectiveChartTablePagination';
 import { applyChartTablePaginationToMetricQuery } from '../utils/applyChartTablePaginationToMetricQuery';
 import { buildSemanticQueryJson } from './Explorer/SqlCard/buildSemanticQueryJson';
 
@@ -31,9 +31,7 @@ export const RenderedMetricQuery = () => {
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
-    const chartTablePagination = useExplorerSelector(
-        selectChartTablePagination,
-    );
+    const chartTablePagination = useEffectiveChartTablePagination();
 
     const formattedJson = useMemo(() => {
         if (!tableName) return '';
