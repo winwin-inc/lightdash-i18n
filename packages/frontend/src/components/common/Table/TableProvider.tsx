@@ -247,17 +247,17 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
         rowCount: browsableRowCount,
         pageCount: resolvedPageCount,
         onPaginationChange: (updater) => {
-            const next =
-                typeof updater === 'function'
-                    ? updater(paginationState)
-                    : updater;
-            setPagination(next);
-            if (
-                isServerPagination &&
-                next.pageIndex !== paginationState.pageIndex
-            ) {
-                pagination?.onPageChange?.(next.pageIndex);
-            }
+            setPagination((prev) => {
+                const next =
+                    typeof updater === 'function' ? updater(prev) : updater;
+                if (
+                    isServerPagination &&
+                    next.pageIndex !== prev.pageIndex
+                ) {
+                    pagination?.onPageChange?.(next.pageIndex);
+                }
+                return next;
+            });
         },
         onGroupingChange: setGrouping,
         groupedColumnMode: false,

@@ -201,10 +201,18 @@ const TablePagination: FC = () => {
         Boolean(pagination?.show) && data.length > DEFAULT_PAGE_SIZE;
     const showClientPager =
         !isInfiniteScrollEnabled && Boolean(pagination?.show) && pageCount > 1;
+    // Keep page-size select visible in pages mode even when pageCount is 1
+    // (e.g. user picked 500 with fewer rows), so they can switch back.
+    const showClientPageSize =
+        !isInfiniteScrollEnabled &&
+        Boolean(pagination?.show) &&
+        data.length > DEFAULT_PAGE_SIZE;
     const showResultCountOnly =
-        !showClientPager && Boolean(pagination?.showResultsTotal);
+        !showClientPager &&
+        !showClientPageSize &&
+        Boolean(pagination?.showResultsTotal);
 
-    if (!showScrollToggle && !showClientPager && !showResultCountOnly) {
+    if (!showScrollToggle && !showClientPager && !showClientPageSize && !showResultCountOnly) {
         return null;
     }
 
@@ -234,17 +242,80 @@ const TablePagination: FC = () => {
                 />
             ) : null}
 
-            {showClientPager ? (
-                <PaginateControl
-                    compact
-                    currentPage={table.getState().pagination.pageIndex + 1}
-                    totalPages={pageCount}
-                    onPreviousPage={table.previousPage}
-                    onNextPage={table.nextPage}
-                    hasPreviousPage={table.getCanPreviousPage()}
-                    hasNextPage={table.getCanNextPage()}
-                    onPageChange={(page) => table.setPageIndex(page - 1)}
-                />
+            {showClientPageSize || showClientPager ? (
+                <Group spacing={4} noWrap align="center">
+                    {showClientPageSize ? (
+                        <Group spacing={4} noWrap align="center">
+                            <Text
+                                fz="xs"
+                                c="dimmed"
+                                m={0}
+                                lh={1}
+                                sx={{ whiteSpace: 'nowrap' }}
+                            >
+                                {t(
+                                    'components_common_table.pagination.page_size_prefix',
+                                )}
+                            </Text>
+                            <Select
+                                size="xs"
+                                w={52}
+                                styles={compactSelectStyles}
+                                value={String(pageSize)}
+                                data={Array.from(
+                                    new Set([
+                                        ...TABLE_PAGINATION_PAGE_SIZES,
+                                        pageSize,
+                                    ]),
+                                )
+                                    .sort((a, b) => a - b)
+                                    .map((size) => ({
+                                        value: String(size),
+                                        label: String(size),
+                                    }))}
+                                onChange={(value) => {
+                                    if (!value) {
+                                        return;
+                                    }
+                                    table.setPagination({
+                                        pageIndex: 0,
+                                        pageSize: Number(value),
+                                    });
+                                }}
+                                aria-label={t(
+                                    'components_common_table.pagination.page_size',
+                                )}
+                            />
+                            <Text
+                                fz="xs"
+                                c="dimmed"
+                                m={0}
+                                lh={1}
+                                sx={{ whiteSpace: 'nowrap' }}
+                            >
+                                {t(
+                                    'components_common_table.pagination.page_size_suffix',
+                                )}
+                            </Text>
+                        </Group>
+                    ) : null}
+                    {showClientPager ? (
+                        <PaginateControl
+                            compact
+                            currentPage={
+                                table.getState().pagination.pageIndex + 1
+                            }
+                            totalPages={pageCount}
+                            onPreviousPage={table.previousPage}
+                            onNextPage={table.nextPage}
+                            hasPreviousPage={table.getCanPreviousPage()}
+                            hasNextPage={table.getCanNextPage()}
+                            onPageChange={(page) =>
+                                table.setPageIndex(page - 1)
+                            }
+                        />
+                    ) : null}
+                </Group>
             ) : showResultCountOnly ? (
                 <ResultCount count={totalRowsCount} alignEnd />
             ) : null}
