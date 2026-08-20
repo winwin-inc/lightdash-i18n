@@ -2534,7 +2534,8 @@
             "n_results": "{{count}} results",
             "total_data_prefix": "Total ",
             "total_data_suffix": " rows",
-            "loading_count": "Loading…"
+            "loading_count": "Loading…",
+            "count_error": "Unable to load total"
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"

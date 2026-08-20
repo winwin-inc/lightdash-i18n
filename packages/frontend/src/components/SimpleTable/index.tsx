@@ -109,6 +109,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 onPageSizeChange: tablePagination.onPageSizeChange,
                 hideScrollToggle: true,
                 isCountLoading: tablePagination.isCountLoading,
+                isCountError: tablePagination.isCountError,
             };
         }
         return {

@@ -18,6 +18,7 @@ interface ResultCountProps {
     alignEnd?: boolean;
     variant?: 'default' | 'warehouse';
     isLoading?: boolean;
+    isError?: boolean;
 }
 
 export const ResultCount: FC<ResultCountProps> = ({
@@ -26,6 +27,7 @@ export const ResultCount: FC<ResultCountProps> = ({
     alignEnd = false,
     variant = 'default',
     isLoading = false,
+    isError = false,
 }) => {
     const { t } = useTranslation();
 
@@ -38,6 +40,14 @@ export const ResultCount: FC<ResultCountProps> = ({
                         {t('components_common_table.pagination.loading_count')}
                     </Text>
                 </Group>
+            );
+        }
+
+        if (isError) {
+            return (
+                <Text fz="xs" c="dimmed" m={0} lh={1}>
+                    {t('components_common_table.pagination.count_error')}
+                </Text>
             );
         }
 
@@ -106,6 +116,7 @@ const TablePagination: FC = () => {
                             count={totalRowsCount}
                             variant="warehouse"
                             isLoading={Boolean(pagination?.isCountLoading)}
+                            isError={Boolean(pagination?.isCountError)}
                         />
                     ) : (
                         <div />

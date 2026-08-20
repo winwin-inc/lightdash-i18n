@@ -2531,7 +2531,8 @@
             "n_results": "{{count}} 条结果",
             "total_data_prefix": "共 ",
             "total_data_suffix": " 条",
-            "loading_count": "加载中…"
+            "loading_count": "加载中…",
+            "count_error": "无法获取总数"
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"

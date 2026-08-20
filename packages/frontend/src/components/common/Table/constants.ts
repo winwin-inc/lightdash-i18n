@@ -1,6 +1,6 @@
 export const DEFAULT_PAGE_SIZE = 10;
 
-export const TABLE_PAGINATION_PAGE_SIZES = [10, 25, 50, 100, 500] as const;
+export const TABLE_PAGINATION_PAGE_SIZES = [10, 20, 40, 100, 500] as const;
 
 export const ROW_NUMBER_COLUMN_ID = 'row_number_column';
 

@@ -71,6 +71,7 @@ export type ProviderProps = {
         onPageSizeChange?: (pageSize: number) => void;
         hideScrollToggle?: boolean;
         isCountLoading?: boolean;
+        isCountError?: boolean;
     };
     showSubtotals?: boolean;
     hideRowNumbers?: boolean;

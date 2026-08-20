@@ -229,7 +229,7 @@ const ValidDashboardChartTile: FC<{
     setEchartsRef?: (ref: RefObject<EChartsReact | null> | undefined) => void;
     tablePagination?: Omit<
         TablePaginationState,
-        'totalRowCount' | 'isCountLoading'
+        'totalRowCount' | 'isCountLoading' | 'isCountError'
     >;
 }> = ({
     tileUuid,
@@ -315,6 +315,7 @@ const ValidDashboardChartTile: FC<{
             totalRowCount: countData?.rowCount,
             isCountLoading:
                 countData === undefined && !isCountError,
+            isCountError: Boolean(isCountError),
         };
     }, [tablePagination, countData, isCountError]);
 
@@ -524,7 +525,7 @@ interface DashboardChartTileMainProps
     resultsData: InfiniteQueryResults;
     tablePagination?: Omit<
         TablePaginationState,
-        'totalRowCount' | 'isCountLoading'
+        'totalRowCount' | 'isCountLoading' | 'isCountError'
     >;
     onAddTiles?: (tiles: Dashboard['tiles'][number][]) => void;
     canExportCsv?: boolean;
@@ -1885,7 +1886,7 @@ export const GenericDashboardChartTile: FC<
         error: ApiError | null;
         tablePagination?: Omit<
             TablePaginationState,
-            'totalRowCount' | 'isCountLoading'
+            'totalRowCount' | 'isCountLoading' | 'isCountError'
         >;
     }
 > = ({

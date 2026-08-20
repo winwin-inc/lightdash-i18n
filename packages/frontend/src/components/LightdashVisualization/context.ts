@@ -21,6 +21,7 @@ export type TablePaginationState = {
     pageSize: number;
     totalRowCount: number | undefined;
     isCountLoading: boolean;
+    isCountError: boolean;
     onPageChange: (pageIndex: number) => void;
     onPageSizeChange: (pageSize: number) => void;
 };

@@ -124,6 +124,7 @@ export const useExplorerChartPagedQuery = ({
                 enabled &&
                 count.data === undefined &&
                 !count.isError,
+            isCountError: Boolean(count.isError),
             onPageChange: setPageIndex,
             onPageSizeChange,
         };
