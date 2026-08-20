@@ -113,33 +113,57 @@ const TablePagination: FC = () => {
                 </Group>
                 <Group spacing={4} noWrap align="center">
                     {pagination?.onPageSizeChange ? (
-                        <Select
-                            size="xs"
-                            w={68}
-                            styles={compactSelectStyles}
-                            value={String(pageSize)}
-                            data={Array.from(
-                                new Set([
-                                    ...TABLE_PAGINATION_PAGE_SIZES,
-                                    pageSize,
-                                ]),
-                            )
-                                .sort((a, b) => a - b)
-                                .map((size) => ({
-                                    value: String(size),
-                                    label: String(size),
-                                }))}
-                            onChange={(value) => {
-                                if (value) {
-                                    pagination.onPageSizeChange?.(
-                                        Number(value),
-                                    );
-                                }
-                            }}
-                            aria-label={t(
-                                'components_common_table.pagination.page_size',
-                            )}
-                        />
+                        <Group spacing={4} noWrap align="center">
+                            <Text
+                                fz="xs"
+                                c="dimmed"
+                                m={0}
+                                lh={1}
+                                sx={{ whiteSpace: 'nowrap' }}
+                            >
+                                {t(
+                                    'components_common_table.pagination.page_size_prefix',
+                                )}
+                            </Text>
+                            <Select
+                                size="xs"
+                                w={68}
+                                styles={compactSelectStyles}
+                                value={String(pageSize)}
+                                data={Array.from(
+                                    new Set([
+                                        ...TABLE_PAGINATION_PAGE_SIZES,
+                                        pageSize,
+                                    ]),
+                                )
+                                    .sort((a, b) => a - b)
+                                    .map((size) => ({
+                                        value: String(size),
+                                        label: String(size),
+                                    }))}
+                                onChange={(value) => {
+                                    if (value) {
+                                        pagination.onPageSizeChange?.(
+                                            Number(value),
+                                        );
+                                    }
+                                }}
+                                aria-label={t(
+                                    'components_common_table.pagination.page_size',
+                                )}
+                            />
+                            <Text
+                                fz="xs"
+                                c="dimmed"
+                                m={0}
+                                lh={1}
+                                sx={{ whiteSpace: 'nowrap' }}
+                            >
+                                {t(
+                                    'components_common_table.pagination.page_size_suffix',
+                                )}
+                            </Text>
+                        </Group>
                     ) : null}
                     <PaginateControl
                         compact
@@ -204,6 +228,7 @@ const TablePagination: FC = () => {
                     onNextPage={table.nextPage}
                     hasPreviousPage={table.getCanPreviousPage()}
                     hasNextPage={table.getCanNextPage()}
+                    onPageChange={(page) => table.setPageIndex(page - 1)}
                 />
             ) : showResultCountOnly ? (
                 <ResultCount count={totalRowsCount} alignEnd />

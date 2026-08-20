@@ -160,7 +160,7 @@ export const TableFooter = styled.div<{ $compact?: boolean }>`
     flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    margin-top: ${({ $compact }) => ($compact ? '6px' : '10px')};
+    margin-top: ${({ $compact }) => ($compact ? '12px' : '10px')};
     gap: 8px;
     ${({ $compact }) => ($compact ? `min-height: 28px;` : '')}
 `;

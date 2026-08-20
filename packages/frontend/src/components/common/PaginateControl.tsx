@@ -95,6 +95,10 @@ const PaginateControl: FC<PaginateControlProps> = ({
         <Pagination.Root
             size={compact ? 'xs' : undefined}
             total={safeTotalPages}
+            value={currentPage}
+            siblings={1}
+            boundaries={1}
+            onChange={onPageChange ? goToPage : undefined}
             onNextPage={onNextPage}
             onPreviousPage={onPreviousPage}
         >
@@ -111,6 +115,7 @@ const PaginateControl: FC<PaginateControlProps> = ({
                     icon={IconChevronLeft}
                     disabled={!hasPreviousPage}
                 />
+                <Pagination.Items />
                 <Pagination.Next
                     icon={IconChevronRight}
                     disabled={!hasNextPage}

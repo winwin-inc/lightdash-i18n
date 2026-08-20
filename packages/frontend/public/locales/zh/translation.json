@@ -2525,10 +2525,12 @@
             "of": "共",
             "showing_of_total": "显示 {{shown}} / 共 {{total}}",
             "page_size": "每页",
+            "page_size_prefix": "每页",
+            "page_size_suffix": "条",
             "one_result": "1 条结果",
             "n_results": "{{count}} 条结果",
             "total_data_prefix": "共 ",
-            "total_data_suffix": " 条数据",
+            "total_data_suffix": " 条",
             "loading_count": "加载中…"
         },
         "provider": {
@@ -6485,7 +6487,7 @@
             "label": "限制",
             "radio_01": "表格结果",
             "radio_02": "所有结果",
-            "radio_03": "自定义..."
+            "radio_03": "自定义"
         },
         "limit_alert_tip": {
             "part_1": "结果被限制在",
@@ -6529,12 +6531,12 @@
         "radio_groups_limit": {
             "part_1": "表格结果",
             "part_2": "所有结果",
-            "part_3": "自定义..."
+            "part_3": "自定义"
         },
         "prvot_tables_warning": "Pivot 导出限制为 {{csvCellsLimit}} 个单元格和 {{maxColumnLimit}} 列。",
-        "table_results_limit_hint": "「表格结果」最多导出当前查询行数（{{count}}）。",
-        "csv_cells_limit_hint": "CSV 导出受 {{csvCellsLimit}} 个单元格上限约束。Excel 另有 1,000,000 行限制。",
-        "limit": "Excel 导出限制为 1,000,000 行。",
+        "table_results_limit_hint": "最多导出当前查询行数（{{count}}）。",
+        "csv_cells_limit_hint": "最多导出 {{csvCellsLimit}} 格（按行×列累计）",
+        "limit": "最多导出 1,000,000 行",
         "download": "下载"
     },
     "components_funnel_chart": {

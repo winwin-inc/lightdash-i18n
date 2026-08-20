@@ -2528,6 +2528,8 @@
             "of": "of",
             "showing_of_total": "Showing {{shown}} of {{total}}",
             "page_size": "Rows per page",
+            "page_size_prefix": "Rows",
+            "page_size_suffix": "per page",
             "one_result": "1 result",
             "n_results": "{{count}} results",
             "total_data_prefix": "Total ",
@@ -6477,7 +6479,7 @@
         "radio_groups_limit": {
             "radio_01": "Results in Table",
             "radio_02": "All Results",
-            "radio_03": "Custom..."
+            "radio_03": "Custom"
         },
         "limit_alert_tip": {
             "part_1": "Results are limited to",
@@ -6521,12 +6523,12 @@
         "radio_groups_limit": {
             "part_1": "Results in Table",
             "part_2": "All Results",
-            "part_3": "Custom..."
+            "part_3": "Custom"
         },
         "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
-        "table_results_limit_hint": "Table results export at most the current query rows ({{count}}).",
-        "csv_cells_limit_hint": "CSV exports are limited to {{csvCellsLimit}} cells. Excel has a separate 1,000,000 row limit.",
-        "limit": "Excel exports are limited to 1,000,000 rows.",
+        "table_results_limit_hint": "Export at most the current query rows ({{count}}).",
+        "csv_cells_limit_hint": "Up to {{csvCellsLimit}} cells (rows × columns)",
+        "limit": "Up to 1,000,000 rows",
         "download": "Download"
     },
     "components_funnel_chart": {
