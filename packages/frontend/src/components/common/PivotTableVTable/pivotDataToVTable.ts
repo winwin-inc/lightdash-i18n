@@ -125,12 +125,14 @@ export type VTableColumnDef = {
     style?:
         | VTableCellStyle
         | ((args: { row: number; col: number }) => VTableCellStyle);
+    headerStyle?: VTableCellStyle;
 };
 
 /** 分组表头：多级 columns */
 export type VTableColumnGroup = {
     title: string;
     columns: (VTableColumnDef | VTableColumnGroup)[];
+    headerStyle?: VTableCellStyle;
 };
 
 export type VTableListOption = {
@@ -180,8 +182,8 @@ function makeBarCustomRender(
             record?.[fieldId] != null
                 ? String(record[fieldId])
                 : args.value != null
-                  ? String(args.value)
-                  : '-'
+                ? String(args.value)
+                : '-'
         ) as string;
         const barNum = record?.[barValueFieldId];
         const num = typeof barNum === 'number' ? barNum : Number(barNum);
@@ -208,8 +210,8 @@ function makeBarCustomRender(
         const textX = showTextOnBar
             ? BAR_TEXT_PADDING
             : showBar
-              ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
-              : BAR_TEXT_PADDING;
+            ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
+            : BAR_TEXT_PADDING;
         const offsetY = Math.max(0, (cellH - BAR_RENDER_HEIGHT) / 2);
         const elements: ReturnType<
             NonNullable<VTableColumnDef['customRender']>
@@ -351,11 +353,12 @@ function buildGroupedDataColumns(
             field: col.fieldId,
             title,
             style: { textAlign: cellAlignment },
+            headerStyle: { textAlign: cellAlignment },
         };
         if (isBarColumn) {
             const isPercentageField = hasPercentageFormat(item);
-            const minVal = isPercentageField ? 0 : (minMax?.min ?? 0);
-            const maxVal = isPercentageField ? 100 : (minMax?.max ?? 100);
+            const minVal = isPercentageField ? 0 : minMax?.min ?? 0;
+            const maxVal = isPercentageField ? 100 : minMax?.max ?? 100;
             colDef.width = BAR_RENDER_WIDTH;
             colDef.customRender = makeBarCustomRender({
                 fieldId: col.fieldId,
@@ -412,7 +415,11 @@ function buildGroupedDataColumns(
                 valueColumnStart,
                 metricHeaderFirst,
             );
-            result.push({ title: g.display, columns: children });
+            result.push({
+                title: g.display,
+                columns: children,
+                headerStyle: { textAlign: cellAlignment },
+            });
         }
     }
     return result;
@@ -501,6 +508,7 @@ export function pivotDataToVTable(
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
                 style: { textAlign: pivotRowDimensionAlignment },
+                headerStyle: { textAlign: pivotRowDimensionAlignment },
             };
             if (shouldProtectDimensionColumnWidth) {
                 colDef.minWidth = Math.min(
@@ -533,47 +541,48 @@ export function pivotDataToVTable(
                   metricHeaderFirst,
               )
             : valueColumnStart >= 0
-              ? pivotColumnInfo
-                    .slice(valueColumnStart, valueColumnEnd)
-                    .map((col) => {
-                        const baseId =
-                            col.underlyingId || col.baseId || col.fieldId;
-                        const title = getFieldLabel(baseId) ?? col.fieldId;
-                        const item = getField?.(baseId);
-                        const minMax =
-                            minMaxMap[baseId] ?? minMaxMap[col.fieldId];
-                        const isBarColumn =
-                            minMax &&
-                            columnProperties[baseId]?.displayStyle === 'bar' &&
-                            item;
-                        const colDef: VTableColumnDef = {
-                            field: col.fieldId,
-                            title,
-                            style: { textAlign: cellAlignment },
-                        };
-                        if (isBarColumn) {
-                            const isPercentageField = hasPercentageFormat(item);
-                            const minVal = isPercentageField
-                                ? 0
-                                : (minMax?.min ?? 0);
-                            const maxVal = isPercentageField
-                                ? 100
-                                : (minMax?.max ?? 100);
-                            colDef.width = BAR_RENDER_WIDTH;
-                            colDef.customRender = makeBarCustomRender({
-                                fieldId: col.fieldId,
-                                barValueFieldId:
-                                    col.fieldId + BAR_VALUE_FIELD_SUFFIX,
-                                min: minVal,
-                                max: maxVal,
-                            });
-                        } else {
-                            colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                            colDef.maxWidth = dataColumnMaxWidth;
-                        }
-                        return colDef;
-                    })
-              : [];
+            ? pivotColumnInfo
+                  .slice(valueColumnStart, valueColumnEnd)
+                  .map((col) => {
+                      const baseId =
+                          col.underlyingId || col.baseId || col.fieldId;
+                      const title = getFieldLabel(baseId) ?? col.fieldId;
+                      const item = getField?.(baseId);
+                      const minMax =
+                          minMaxMap[baseId] ?? minMaxMap[col.fieldId];
+                      const isBarColumn =
+                          minMax &&
+                          columnProperties[baseId]?.displayStyle === 'bar' &&
+                          item;
+                      const colDef: VTableColumnDef = {
+                          field: col.fieldId,
+                          title,
+                          style: { textAlign: cellAlignment },
+                          headerStyle: { textAlign: cellAlignment },
+                      };
+                      if (isBarColumn) {
+                          const isPercentageField = hasPercentageFormat(item);
+                          const minVal = isPercentageField
+                              ? 0
+                              : minMax?.min ?? 0;
+                          const maxVal = isPercentageField
+                              ? 100
+                              : minMax?.max ?? 100;
+                          colDef.width = BAR_RENDER_WIDTH;
+                          colDef.customRender = makeBarCustomRender({
+                              fieldId: col.fieldId,
+                              barValueFieldId:
+                                  col.fieldId + BAR_VALUE_FIELD_SUFFIX,
+                              min: minVal,
+                              max: maxVal,
+                          });
+                      } else {
+                          colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+                          colDef.maxWidth = dataColumnMaxWidth;
+                      }
+                      return colDef;
+                  })
+            : [];
 
     const rowTotalColumns: VTableColumnDef[] =
         hasRowTotal && valueColumnEnd < pivotColumnInfo.length
@@ -584,6 +593,7 @@ export function pivotDataToVTable(
                           getFieldLabel(col.baseId ?? col.fieldId) ??
                           col.fieldId,
                       style: { textAlign: cellAlignment },
+                      headerStyle: { textAlign: cellAlignment },
                       minWidth: DATA_COLUMN_MIN_WIDTH,
                       maxWidth: dataColumnMaxWidth,
                   };
@@ -631,16 +641,16 @@ export function pivotDataToVTable(
                         record[col.fieldId + BAR_VALUE_FIELD_SUFFIX] = barNum;
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : (value.formatted ?? String(raw ?? ''));
+                            : value.formatted ?? String(raw ?? '');
                     } else {
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : (value.formatted ?? value.raw ?? '');
+                            : value.formatted ?? value.raw ?? '';
                     }
                 } else {
                     record[col.fieldId] = item
                         ? formatItemValue(item, value?.raw)
-                        : (value?.formatted ?? value?.raw ?? null ?? '');
+                        : value?.formatted ?? value?.raw ?? null ?? '';
                 }
             });
 
@@ -678,8 +688,8 @@ export function pivotDataToVTable(
                     record[col.fieldId] = item
                         ? formatItemValue(item, total)
                         : typeof total === 'number'
-                          ? String(total)
-                          : (total as string);
+                        ? String(total)
+                        : (total as string);
                 });
 
                 return record;

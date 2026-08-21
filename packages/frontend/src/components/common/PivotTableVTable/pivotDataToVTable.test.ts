@@ -201,7 +201,13 @@ describe('pivotDataToVTable', () => {
             { textAlign: 'left' },
         ]);
         expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'left' }]);
+        expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.headerStyle),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
     });
 
@@ -216,6 +222,9 @@ describe('pivotDataToVTable', () => {
             { textAlign: 'center' },
         ]);
         expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'center' }]);
+        expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
     });
@@ -229,6 +238,9 @@ describe('pivotDataToVTable', () => {
         expect(getDimensionColumns(columns).map((col) => col.style)).toEqual([
             { textAlign: 'left' },
         ]);
+        expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'left' }]);
     });
 
     it('数据列默认左对齐', () => {
@@ -236,6 +248,9 @@ describe('pivotDataToVTable', () => {
 
         expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'left' })));
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.headerStyle),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'left' })));
     });
 
