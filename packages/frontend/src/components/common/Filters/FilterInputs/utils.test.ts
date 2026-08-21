@@ -76,6 +76,7 @@ describe('resolveDisplayValues', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
             values: ['2025-07-01', '2026-06-30'],
             settings: {
                 dateRange: {
@@ -99,6 +100,40 @@ describe('resolveDisplayValues', () => {
             '2026-05-31',
         ]);
     });
+
+    it('does not clamp when the dynamic max switch is off', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_month',
+                tableName: 'orders',
+            },
+            dateRangeGranularity: TimeFrames.MONTH,
+            values: ['2025-07-01', '2026-06-30'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        };
+
+        expect(resolveDisplayValues(rule, new Date('2026-07-03'))).toEqual([
+            '2025-07-01',
+            '2026-06-30',
+        ]);
+    });
 });
 
 describe('prepareDashboardFilterRuleForQuery', () => {
@@ -112,6 +147,7 @@ describe('prepareDashboardFilterRuleForQuery', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
             values: ['2025-07-01', '2026-06-30'],
             settings: {
                 dateRange: {

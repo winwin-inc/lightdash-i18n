@@ -688,6 +688,199 @@ describe('ExcelService', () => {
             expect(typeof result[1]).toBe('string');
             expect(result[1]).toContain('2023');
         });
+
+        it('should keep finite percent metrics as numbers for Excel numFmt', () => {
+            const percentMetric = {
+                name: 'market_share',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '市场份额',
+                sql: '${TABLE}.market_share',
+                formatOptions: {
+                    type: CustomFormatType.PERCENT,
+                    round: 2,
+                },
+            };
+
+            const result = ExcelService.convertRowToExcel(
+                { market_share: 0.1234 },
+                { market_share: percentMetric },
+                false,
+                ['market_share'],
+            );
+
+            expect(result[0]).toBe(0.1234);
+            expect(typeof result[0]).toBe('number');
+        });
+
+        it('should fall back to display strings for NaN and Infinity metrics', () => {
+            const percentMetric = {
+                name: 'market_share',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '市场份额',
+                sql: '${TABLE}.market_share',
+                format: '0.00%',
+            };
+
+            const itemMap: ItemsMap = {
+                market_share: percentMetric,
+            };
+
+            const nanResult = ExcelService.convertRowToExcel(
+                { market_share: NaN },
+                itemMap,
+                false,
+                ['market_share'],
+            );
+            const infinityResult = ExcelService.convertRowToExcel(
+                { market_share: Infinity },
+                itemMap,
+                false,
+                ['market_share'],
+            );
+            const negInfinityResult = ExcelService.convertRowToExcel(
+                { market_share: -Infinity },
+                itemMap,
+                false,
+                ['market_share'],
+            );
+            const stringInfinityResult = ExcelService.convertRowToExcel(
+                { market_share: 'Infinity' },
+                itemMap,
+                false,
+                ['market_share'],
+            );
+
+            // Must not return NaN/Infinity numbers — exceljs persists those as blank cells
+            expect(typeof nanResult[0]).toBe('string');
+            expect(nanResult[0]).not.toBeNaN();
+            expect(infinityResult[0]).not.toBe(Infinity);
+            expect(typeof infinityResult[0]).toBe('string');
+            expect(negInfinityResult[0]).not.toBe(-Infinity);
+            expect(typeof negInfinityResult[0]).toBe('string');
+            expect(stringInfinityResult[0]).not.toBe(Infinity);
+            expect(typeof stringInfinityResult[0]).toBe('string');
+        });
+
+        it('should keep metricOverrides compact formatting as display strings', () => {
+            const salesMetric = {
+                name: 'amount',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '销售额',
+                sql: '${TABLE}.amount',
+                formatOptions: {
+                    type: CustomFormatType.NUMBER,
+                    round: 0,
+                    compact: Compact.MILLIONS,
+                    prefix: '¥',
+                },
+            };
+
+            const result = ExcelService.convertRowToExcel(
+                { amount: 1_500_000 },
+                { amount: salesMetric },
+                false,
+                ['amount'],
+            );
+
+            expect(result[0]).toBe('¥2M');
+        });
+
+        it('should stringify non-finite numbers in raw mode so Excel cells are not blank', () => {
+            const result = ExcelService.convertRowToExcel(
+                {
+                    number_with_custom_format: Infinity,
+                    number_with_usd_format: NaN,
+                },
+                mockItemMapWithFormats,
+                true,
+                ['number_with_custom_format', 'number_with_usd_format'],
+            );
+
+            expect(result[0]).toBe('Infinity');
+            expect(result[1]).toBe('NaN');
+        });
+
+        it('should persist finite percent and non-finite fallbacks visibly in xlsx', async () => {
+            // Regression: exceljs drops raw NaN/Infinity as empty cells.
+            // convertRowToExcel must emit values that survive a write/read round-trip.
+            // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+            const ExcelJS = require('exceljs') as typeof import('exceljs');
+            const fs = await import('fs/promises');
+            const os = await import('os');
+            const path = await import('path');
+
+            const percentMetric = {
+                name: 'market_share',
+                description: undefined,
+                table: 'table',
+                hidden: false,
+                fieldType: FieldType.METRIC,
+                type: DimensionType.NUMBER,
+                tableLabel: 'table',
+                label: '市场份额',
+                sql: '${TABLE}.market_share',
+                format: '0.00%',
+            };
+            const itemMap: ItemsMap = { market_share: percentMetric };
+            const fieldIds = ['market_share'];
+
+            const finiteCell = ExcelService.convertRowToExcel(
+                { market_share: 0.25 },
+                itemMap,
+                false,
+                fieldIds,
+            )[0];
+            const infinityCell = ExcelService.convertRowToExcel(
+                { market_share: Infinity },
+                itemMap,
+                false,
+                fieldIds,
+            )[0];
+
+            expect(finiteCell).toBe(0.25);
+            expect(typeof infinityCell).toBe('string');
+
+            const tempFile = path.join(
+                os.tmpdir(),
+                `excel-nonfinite-roundtrip-${Date.now()}.xlsx`,
+            );
+            try {
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Sheet1');
+                worksheet.columns = [
+                    { header: '市场份额', key: 'col_0', width: 15 },
+                ];
+                worksheet.addRow({ col_0: finiteCell });
+                worksheet.addRow({ col_0: infinityCell });
+                await workbook.xlsx.writeFile(tempFile);
+
+                const readWorkbook = new ExcelJS.Workbook();
+                await readWorkbook.xlsx.readFile(tempFile);
+                const sheet = readWorkbook.worksheets[0];
+                expect(sheet.getRow(2).getCell(1).value).toBe(0.25);
+                expect(sheet.getRow(3).getCell(1).value).not.toBeNull();
+                expect(String(sheet.getRow(3).getCell(1).value).length).toBeGreaterThan(
+                    0,
+                );
+            } finally {
+                await fs.unlink(tempFile).catch(() => undefined);
+            }
+        });
     });
 
     describe('generateFileId', () => {

@@ -60,7 +60,21 @@ export const useExplorerQuery = () => {
         runQuery();
     }, [resetQueryResults, runQuery]);
 
-    // Action: Get download query UUID
+    // Action: Get download query UUID for CSV/XLSX export.
+    //
+    // IMPORTANT — pivotConfiguration must not leak into unpivoted downloads:
+    // - ResultsCard always calls getDownloadQueryUuid(limit, false) (raw / unpivoted).
+    // - ChartDownloadMenu calls getDownloadQueryUuid(limit, true) when pivoted export is wanted.
+    // - validQueryArgs often already contains pivotConfiguration (e.g. after stacked-series
+    //   sorting forced pivot via getChartRequiresPivotResults, even if UseSqlPivotResults is off).
+    // - Spreading ...validQueryArgs on Limit.ALL / custom-limit re-runs used to keep that
+    //   pivotConfiguration while pivotResults was false. Backend then wrote pivoted row keys
+    //   (e.g. metric_sum_pivotValue) but CsvService/ExcelService still read original fieldIds
+    //   → dimensions present, all metrics blank. TABLE downloads reused the unpivoted
+    //   queryUuid so they looked fine. Upstream fix: lightdash/lightdash#19115 (c961c56b33).
+    // - Regression window locally: after 61e321ac5f (force pivot for stacked sort) without #19115.
+    // Do NOT remove the explicit pivotConfiguration: shouldPivot ? ... : undefined override
+    // when changing this function — that is what prevents the empty-metrics export bug.
     const getDownloadQueryUuid = useCallback(
         async (limit: number | null, exportPivotedResults: boolean = false) => {
             // When unpivotedResultsEnabled it means that queryResults are pivoted results
@@ -71,15 +85,19 @@ export const useExplorerQuery = () => {
                     : queryResults.queryUuid;
 
             if (limit === null || limit !== queryResults.totalResults) {
+                const shouldPivot =
+                    exportPivotedResults && !!useSqlPivotResults?.enabled;
                 const queryArgsWithLimit: QueryResultsProps | null =
                     validQueryArgs
                         ? {
                               ...validQueryArgs,
                               csvLimit: limit,
                               invalidateCache: minimal,
-                              pivotResults:
-                                  exportPivotedResults &&
-                                  useSqlPivotResults?.enabled,
+                              pivotResults: shouldPivot,
+                              // Must override spread of validQueryArgs — see block comment above.
+                              pivotConfiguration: shouldPivot
+                                  ? validQueryArgs.pivotConfiguration
+                                  : undefined,
                           }
                         : null;
                 const downloadQuery = await executeQueryAndWaitForResults(

@@ -82,6 +82,53 @@ export class ExcelService {
         return formatItemValue(item, rawValue);
     }
 
+    /**
+     * Parse a cell value as a finite number for Excel numFmt columns.
+     *
+     * HARDENING (not the root cause of "ALL results empty metrics"):
+     * exceljs stream writer persists NaN/Infinity as blank cells. Ratio SQL
+     * without nullif can produce those values; without this guard a single cell
+     * looks "missing" while CSV still shows a formatted string.
+     * The TABLE-vs-ALL empty-metrics bug is pivotConfiguration leak on download
+     * re-run (see useExplorerQuery.getDownloadQueryUuid / #19115) — keep both fixes.
+     */
+    private static toFiniteNumber(rawValue: unknown): number | null {
+        if (typeof rawValue === 'number') {
+            return Number.isFinite(rawValue) ? rawValue : null;
+        }
+
+        const stringValue = String(rawValue).trim();
+        if (stringValue === '') {
+            return null;
+        }
+
+        const numericValue = Number(stringValue);
+        return Number.isFinite(numericValue) ? numericValue : null;
+    }
+
+    /**
+     * True when the value is NaN/Infinity (number or numeric token string).
+     * Non-numeric strings like "N/A" return false so we keep them as-is.
+     * Used with formatValueForDisplay so exceljs does not write blank cells.
+     */
+    private static isNonFiniteNumericValue(rawValue: unknown): boolean {
+        if (typeof rawValue === 'number') {
+            return !Number.isFinite(rawValue);
+        }
+
+        if (typeof rawValue !== 'string') {
+            return false;
+        }
+
+        const trimmed = rawValue.trim().toLowerCase();
+        return (
+            trimmed === 'nan' ||
+            trimmed === 'infinity' ||
+            trimmed === '+infinity' ||
+            trimmed === '-infinity'
+        );
+    }
+
     private static formatMomentByTimezone(
         value: AnyType,
         pattern: string,
@@ -188,6 +235,10 @@ export class ExcelService {
                 if (!isMetricField && typeof rawValue === 'number') {
                     return String(rawValue);
                 }
+                // Hardening: exceljs drops NaN/Infinity as empty cells — stringify instead.
+                if (typeof rawValue === 'number' && !Number.isFinite(rawValue)) {
+                    return String(rawValue);
+                }
                 return rawValue;
             }
 
@@ -207,14 +258,19 @@ export class ExcelService {
             }
 
             if (formatExpression && isMetricField) {
-                // Metric without compact: keep raw number + column numFmt
-                const stringValue = String(rawValue);
-                if (
-                    stringValue.trim() !== '' &&
-                    !Number.isNaN(Number(stringValue))
-                ) {
-                    return Number(stringValue);
+                // Metric without compact: keep raw number + column numFmt.
+                // Only Number.isFinite values are safe for exceljs (see toFiniteNumber).
+                // Non-finite → display string. This is cell-level hardening for ratio
+                // metrics; do not confuse with empty ALL-export columns (pivot leak).
+                const numericValue = ExcelService.toFiniteNumber(rawValue);
+                if (numericValue !== null) {
+                    return numericValue;
                 }
+
+                if (ExcelService.isNonFiniteNumericValue(rawValue)) {
+                    return ExcelService.formatValueForDisplay(item, rawValue);
+                }
+
                 return rawValue;
             }
 

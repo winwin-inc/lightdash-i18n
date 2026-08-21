@@ -87,6 +87,10 @@ const TableHeader: FC<TableHeaderProps> = ({
                             const shouldApplyWidth =
                                 isLastHeaderGroup(headerGroupIndex) ||
                                 header.colSpan === 1;
+                            const textAlign =
+                                typeof meta?.cellStyle?.textAlign === 'string'
+                                    ? meta.cellStyle.textAlign
+                                    : undefined;
 
                             return (
                                 <Th
@@ -119,6 +123,7 @@ const TableHeader: FC<TableHeaderProps> = ({
                                                   | undefined)
                                             : undefined
                                     }
+                                    $textAlign={textAlign}
                                     className={meta?.className}
                                 >
                                     <Draggable
@@ -129,7 +134,7 @@ const TableHeader: FC<TableHeaderProps> = ({
                                         }
                                     >
                                         {(provided, snapshot) => (
-                                            <ThContainer>
+                                            <ThContainer $textAlign={textAlign}>
                                                 <ThLabelContainer
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
@@ -176,7 +181,9 @@ const TableHeader: FC<TableHeaderProps> = ({
                                                 </ThLabelContainer>
 
                                                 {HeaderContextMenu && (
-                                                    <ThActionsContainer>
+                                                    <ThActionsContainer
+                                                        $textAlign={textAlign}
+                                                    >
                                                         <HeaderContextMenu
                                                             header={header}
                                                         />
