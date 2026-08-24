@@ -3,10 +3,9 @@
  * 客户端 .mcp.json 使用 type + url + headers，无需本地 node args。
  */
 import express from 'express';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { loadConfigFromEnv } from './config';
 import { getMcpPackageVersion } from './lib/mcpPackageVersion';
-import { createLightdashMcpServer } from './mcp/createMcpServer';
+import { getSharedExploreCache } from './lib/sharedExploreCache';
 import {
     createAuthCache,
     createOauthCache,
@@ -18,6 +17,13 @@ import {
     validateApiKeyAndGetEmail,
     validateOauthToken,
 } from './http/authAndCache';
+import {
+    createMcpSessionRegistry,
+    isInitializeRequest,
+    McpSessionCapacityError,
+    parseMcpSessionIdHeader,
+    type McpSessionEntry,
+} from './http/mcpSessionRegistry';
 import {
     httpRequestApiKeyStore,
 } from './lib/requestContext';
@@ -39,25 +45,67 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
             `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}\n` +
             `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}\n` +
             `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}\n` +
-            `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n`,
+            `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n` +
+            `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SESSION_TTL_MS=${config.sessionTtlMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}\n`,
     );
+}
+
+function resolveSessionEntry(
+    registry: ReturnType<typeof createMcpSessionRegistry>,
+    req: express.Request,
+): McpSessionEntry | 'missing' | 'initialize' {
+    const sessionId = parseMcpSessionIdHeader(req.headers['mcp-session-id']);
+    if (sessionId) {
+        const entry = registry.get(sessionId);
+        return entry ?? 'missing';
+    }
+    if (req.method === 'POST' && isInitializeRequest(req.body)) {
+        return 'initialize';
+    }
+    return 'missing';
 }
 
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
     logStartupConfig(config);
-    const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
+
+    const exploreCache = getSharedExploreCache();
+    const sessionRegistry = createMcpSessionRegistry(config, {
+        maxSessions: config.maxSessions,
+        sessionTtlMs: config.sessionTtlMs,
+        exploreCache,
     });
-    const mcp = createLightdashMcpServer(config);
-    await mcp.connect(transport);
+
+    const pruneTimer = setInterval(() => {
+        void sessionRegistry.pruneIdleSessions().then((pruned) => {
+            exploreCache.pruneExpired();
+            if (pruned > 0) {
+                process.stderr.write(
+                    `[McpSession] scheduled prune complete | active=${sessionRegistry.getActiveCount()}\n`,
+                );
+            }
+        });
+    }, config.pruneIntervalMs);
+    pruneTimer.unref();
+
+    const shutdown = (): void => {
+        clearInterval(pruneTimer);
+        void sessionRegistry.closeAll().finally(() => {
+            process.exit(0);
+        });
+    };
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 
     const app = express();
     app.disable('x-powered-by');
     app.use(express.json({ limit: '4mb' }));
 
     app.get('/health', (_req: express.Request, res: express.Response) => {
-        res.status(200).json({ ok: true as const });
+        res.status(200).json({
+            ok: true as const,
+            activeSessions: sessionRegistry.getActiveCount(),
+        });
     });
 
     app.all('/mcp', async (req: express.Request, res: express.Response) => {
@@ -72,6 +120,9 @@ async function main(): Promise<void> {
         let authType: 'apikey' | 'oauth' | undefined;
         let oauthScopes: string[] = [];
         let authSubject: string | undefined;
+        const sessionHeader = parseMcpSessionIdHeader(
+            req.headers['mcp-session-id'],
+        );
 
         try {
             if (bearerToken && config.oauthEnabled) {
@@ -104,24 +155,60 @@ async function main(): Promise<void> {
                 });
                 return;
             }
-            await httpRequestApiKeyStore.run(
-                {
-                    apiKey: effectiveKey,
-                    authType,
-                    oauthAccessToken: authType === 'oauth' ? bearerToken : undefined,
-                    oauthScopes,
-                    authSubject,
-                    userEmail,
-                    maskedKey,
-                    userAttributesHeader: parseUserAttributesHeader(req),
-                },
-                () =>
-                    transport.handleRequest(
-                        req,
-                        res,
-                        req.method === 'POST' ? req.body : undefined,
-                    ),
-            );
+
+            const resolved = resolveSessionEntry(sessionRegistry, req);
+            let sessionEntry: McpSessionEntry | undefined;
+            if (resolved === 'initialize') {
+                try {
+                    sessionEntry = await sessionRegistry.createPendingSession();
+                } catch (error) {
+                    if (error instanceof McpSessionCapacityError) {
+                        res.status(503).json({
+                            error: 'Too many active MCP sessions, retry later',
+                            maxSessions: config.maxSessions,
+                        });
+                        return;
+                    }
+                    throw error;
+                }
+            } else if (resolved === 'missing') {
+                res.status(404).json({
+                    error: 'Session not found',
+                    hint: 'Send POST initialize without Mcp-Session-Id to start a new session',
+                });
+                return;
+            } else {
+                sessionEntry = resolved;
+            }
+
+            try {
+                await httpRequestApiKeyStore.run(
+                    {
+                        apiKey: effectiveKey,
+                        authType,
+                        oauthAccessToken: authType === 'oauth' ? bearerToken : undefined,
+                        oauthScopes,
+                        authSubject,
+                        userEmail,
+                        maskedKey,
+                        userAttributesHeader: parseUserAttributesHeader(req),
+                    },
+                    () =>
+                        sessionEntry!.transport.handleRequest(
+                            req,
+                            res,
+                            req.method === 'POST' ? req.body : undefined,
+                        ),
+                );
+            } finally {
+                if (
+                    sessionEntry &&
+                    sessionEntry.sessionId === null &&
+                    resolved === 'initialize'
+                ) {
+                    await sessionRegistry.abortPendingSession(sessionEntry);
+                }
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (message.includes('OAuth introspect failed with')) {
@@ -162,8 +249,16 @@ async function main(): Promise<void> {
             const elapsed = Date.now() - start;
             const status = res.statusCode || 0;
             const statusTag = status >= 400 ? ` | error(${status})` : '';
+            const sessionTag = sessionHeader
+                ? ` | session=${sessionHeader.slice(0, 8)}...`
+                : '';
+            if (status === 409) {
+                process.stderr.write(
+                    `[McpSse] 409 conflict${sessionTag} | activeSessions=${sessionRegistry.getActiveCount()} | ${userEmail}\n`,
+                );
+            }
             process.stderr.write(
-                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag} | ${userEmail}\n`,
+                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag}${sessionTag} | ${userEmail}\n`,
             );
         }
     });

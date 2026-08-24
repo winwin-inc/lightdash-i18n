@@ -5,24 +5,27 @@ import {
     createFieldIdResolverFromExplore,
     exploreRequiresDashboardContext,
 } from './fieldIdResolver';
+import {
+    createSharedExploreCache,
+    type SharedExploreCache,
+} from '../lib/sharedExploreCache';
 import { createLightdashRestClient } from '../rest/lightdashRest';
 import { registerAnalystPrompt } from './registerAnalystPrompt';
 import { registerCoreMcpTools } from './registerCoreMcpTools';
 import { registerExtensionTools } from './registerExtensionTools';
 
+const EXPLORE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export type CreateLightdashMcpServerDeps = {
+    exploreCache?: SharedExploreCache;
+};
+
 export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
+    deps?: CreateLightdashMcpServerDeps,
 ): McpServer {
     const api = createLightdashRestClient(config);
-    const exploreCache = new Map<
-        string,
-        {
-            expiresAtMs: number;
-            explore: unknown;
-            resolve: (field: string) => string;
-            requiresDashboardContext: boolean;
-        }
-    >();
+    const exploreCache = deps?.exploreCache ?? createSharedExploreCache();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
         version: getMcpPackageVersion(),
@@ -55,7 +58,7 @@ export function createLightdashMcpServer(
             explore,
             resolve,
             requiresDashboardContext,
-            expiresAtMs: now + 5 * 60 * 1000,
+            expiresAtMs: now + EXPLORE_CACHE_TTL_MS,
         });
         return { explore, resolve, requiresDashboardContext };
     };

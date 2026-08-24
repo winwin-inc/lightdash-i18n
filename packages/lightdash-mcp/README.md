@@ -75,6 +75,32 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `OAUTH_INTROSPECT_URL`           | 否   | introspect 地址（默认 `<LIGHTDASH_SITE_URL>/api/v1/oauth/introspect`） |
 | `OAUTH_REQUIRED_SCOPES`          | 否   | 逗号分隔 scope，默认 `mcp:read`                               |
 | `OAUTH_RESOURCE_METADATA_URL`    | 否   | 401 挑战头中的 `resource_metadata` URL                        |
+| `LIGHTDASH_MCP_MAX_SESSIONS`     | 否   | 最大并发 MCP session 数，默认 `100`（硬上限，防止 OOM）              |
+| `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 空闲 session 回收 TTL，默认 `1800000`（30 分钟）                  |
+| `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
+
+### 多用户并发与内存防护
+
+本服务支持**多用户同时连接**：每个 MCP 客户端在 `initialize` 后获得独立 `Mcp-Session-Id`，GET/POST 按 session 隔离，不再出现「仅一人可用 GET SSE、他人 409」的问题。
+
+内存防护（进程内，无 Redis）：
+
+1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
+2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune。
+3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，避免每用户重复缓存完整 explore JSON。
+
+运维调参建议：
+
+| 容器 memory | 建议 `MAX_SESSIONS` |
+| ----------- | ------------------- |
+| 2GB         | 50–100              |
+| 4GB         | 150–200             |
+
+- 若频繁 **503** → 增大 `MAX_SESSIONS` 或缩短 `SESSION_TTL_MS`
+- 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
+- `/health` 返回 `activeSessions` 便于监控
+
+**限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 
 ### 项目 `projectUuid` 解析顺序
 

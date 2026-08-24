@@ -14,7 +14,27 @@ export type LightdashMcpEnvConfig = {
     oauthIntrospectUrl: string;
     oauthRequiredScopes: string[];
     oauthResourceMetadataUrl: string;
+    /** 最大并发 MCP session 数（硬上限，防止 OOM） */
+    maxSessions: number;
+    /** 空闲 session 回收 TTL（毫秒） */
+    sessionTtlMs: number;
+    /** 后台 prune 间隔（毫秒） */
+    pruneIntervalMs: number;
 };
+
+function parsePositiveIntEnv(
+    raw: string | undefined,
+    fallback: number,
+): number {
+    if (raw === undefined) {
+        return fallback;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) {
+        return fallback;
+    }
+    return n;
+}
 
 export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const raw = process.env.LIGHTDASH_SITE_URL;
@@ -48,6 +68,18 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const oauthResourceMetadataUrl =
         process.env.OAUTH_RESOURCE_METADATA_URL?.trim() ||
         `${baseUrl}/api/v1/oauth/.well-known/oauth-protected-resource`;
+    const maxSessions = parsePositiveIntEnv(
+        process.env.LIGHTDASH_MCP_MAX_SESSIONS,
+        100,
+    );
+    const sessionTtlMs = parsePositiveIntEnv(
+        process.env.LIGHTDASH_MCP_SESSION_TTL_MS,
+        1_800_000,
+    );
+    const pruneIntervalMs = parsePositiveIntEnv(
+        process.env.LIGHTDASH_MCP_PRUNE_INTERVAL_MS,
+        300_000,
+    );
     return {
         baseUrl,
         apiKey,
@@ -57,5 +89,8 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         oauthIntrospectUrl,
         oauthRequiredScopes,
         oauthResourceMetadataUrl,
+        maxSessions,
+        sessionTtlMs,
+        pruneIntervalMs,
     };
 }
