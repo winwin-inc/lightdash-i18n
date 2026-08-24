@@ -83,11 +83,15 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 本服务支持**多用户同时连接**：每个 MCP 客户端在 `initialize` 后获得独立 `Mcp-Session-Id`，GET/POST 按 session 隔离，不再出现「仅一人可用 GET SSE、他人 409」的问题。
 
+**Session 归属**：`Mcp-Session-Id` 与认证身份（PAT 哈希或 OAuth subject）绑定。携带他人 session id 的请求会返回 **404**，无法干扰或关闭他人 session。
+
 内存防护（进程内，无 Redis）：
 
-1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
-2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune。
-3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，避免每用户重复缓存完整 explore JSON。
+1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session（活跃 SSE 连接豁免）；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
+2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune；未完成 initialize 的 pending session 也会按同一 TTL 回收。
+3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
+4. **同 PAT 重连替换**：同一 PAT（或 OAuth subject）再次 `initialize` 时，会先关闭该用户旧 session（含 pending）再建新 session。GET SSE 断开后**不会销毁 session**，客户端可用同一 `Mcp-Session-Id` 重连 SSE；session 由 TTL、DELETE、同 PAT 重连或 LRU 回收。
+5. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner，后连会替换先连 session。
 
 运维调参建议：
 
@@ -98,7 +102,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 - 若频繁 **503** → 增大 `MAX_SESSIONS` 或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions` 便于监控
+- `/health` 返回 `activeSessions` 与 `pendingSessions` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 

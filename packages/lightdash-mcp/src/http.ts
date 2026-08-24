@@ -19,9 +19,10 @@ import {
 } from './http/authAndCache';
 import {
     createMcpSessionRegistry,
-    isInitializeRequest,
+    hashMcpSessionOwnerKey,
     McpSessionCapacityError,
     parseMcpSessionIdHeader,
+    resolveSessionEntry,
     type McpSessionEntry,
 } from './http/mcpSessionRegistry';
 import {
@@ -48,21 +49,6 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
             `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n` +
             `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SESSION_TTL_MS=${config.sessionTtlMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}\n`,
     );
-}
-
-function resolveSessionEntry(
-    registry: ReturnType<typeof createMcpSessionRegistry>,
-    req: express.Request,
-): McpSessionEntry | 'missing' | 'initialize' {
-    const sessionId = parseMcpSessionIdHeader(req.headers['mcp-session-id']);
-    if (sessionId) {
-        const entry = registry.get(sessionId);
-        return entry ?? 'missing';
-    }
-    if (req.method === 'POST' && isInitializeRequest(req.body)) {
-        return 'initialize';
-    }
-    return 'missing';
 }
 
 async function main(): Promise<void> {
@@ -105,6 +91,7 @@ async function main(): Promise<void> {
         res.status(200).json({
             ok: true as const,
             activeSessions: sessionRegistry.getActiveCount(),
+            pendingSessions: sessionRegistry.getPendingCount(),
         });
     });
 
@@ -156,11 +143,20 @@ async function main(): Promise<void> {
                 return;
             }
 
-            const resolved = resolveSessionEntry(sessionRegistry, req);
+            const ownerKey = hashMcpSessionOwnerKey(effectiveKey, authSubject);
+
+            const resolved = resolveSessionEntry(
+                sessionRegistry,
+                req.method,
+                req.body,
+                sessionHeader,
+                ownerKey,
+            );
             let sessionEntry: McpSessionEntry | undefined;
             if (resolved === 'initialize') {
                 try {
-                    sessionEntry = await sessionRegistry.createPendingSession();
+                    sessionEntry =
+                        await sessionRegistry.createPendingSession(ownerKey);
                 } catch (error) {
                     if (error instanceof McpSessionCapacityError) {
                         res.status(503).json({
@@ -179,6 +175,18 @@ async function main(): Promise<void> {
                 return;
             } else {
                 sessionEntry = resolved;
+            }
+
+            if (
+                req.method === 'GET' &&
+                sessionEntry.sessionId !== null &&
+                sessionEntry.sessionId !== undefined
+            ) {
+                const sessionIdForLease = sessionEntry.sessionId;
+                sessionRegistry.acquireSseLease(sessionIdForLease);
+                res.once('close', () => {
+                    sessionRegistry.releaseSseLease(sessionIdForLease);
+                });
             }
 
             try {

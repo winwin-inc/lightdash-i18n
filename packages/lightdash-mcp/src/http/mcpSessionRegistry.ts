@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { LightdashMcpEnvConfig } from '../config';
@@ -14,31 +14,86 @@ export class McpSessionCapacityError extends Error {
 
 export type McpSessionEntry = {
     sessionId: string | null;
+    ownerKey: string;
     transport: StreamableHTTPServerTransport;
     mcpServer: McpServer;
     createdAtMs: number;
     lastActivityAtMs: number;
+    activeSseLeases: number;
+    state: 'pending' | 'active' | 'closed';
+    closePromise: Promise<void> | null;
 };
 
 export type McpSessionRegistryOptions = {
     maxSessions: number;
     sessionTtlMs: number;
     exploreCache: SharedExploreCache;
+    createMcpServer?: typeof createLightdashMcpServer;
+    createTransport?: (
+        options: ConstructorParameters<
+            typeof StreamableHTTPServerTransport
+        >[0],
+    ) => StreamableHTTPServerTransport;
 };
 
 export type McpSessionRegistry = {
-    createPendingSession: () => Promise<McpSessionEntry>;
+    createPendingSession: (ownerKey: string) => Promise<McpSessionEntry>;
     abortPendingSession: (entry: McpSessionEntry) => Promise<void>;
-    get: (sessionId: string) => McpSessionEntry | undefined;
+    closeSession: (sessionId: string) => Promise<void>;
+    closeSessionsForOwner: (ownerKey: string) => Promise<number>;
+    getForOwner: (
+        sessionId: string,
+        ownerKey: string,
+    ) => McpSessionEntry | undefined;
     touch: (sessionId: string) => void;
+    acquireSseLease: (sessionId: string) => void;
+    releaseSseLease: (sessionId: string) => void;
     pruneIdleSessions: () => Promise<number>;
     evictOldestSession: () => Promise<boolean>;
     getActiveCount: () => number;
+    getPendingCount: () => number;
     closeAll: () => Promise<void>;
 };
 
 function truncateSessionId(sessionId: string): string {
     return sessionId.length <= 8 ? sessionId : `${sessionId.slice(0, 8)}...`;
+}
+
+function truncateOwnerKey(ownerKey: string): string {
+    return ownerKey.length <= 8 ? ownerKey : `${ownerKey.slice(0, 8)}...`;
+}
+
+function createAsyncMutex() {
+    let chain: Promise<void> = Promise.resolve();
+    return {
+        async run<T>(fn: () => Promise<T>): Promise<T> {
+            let release: () => void = () => {};
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const previous = chain;
+            chain = previous.then(() => gate);
+            await previous;
+            try {
+                return await fn();
+            } finally {
+                release();
+            }
+        },
+    };
+}
+
+export function hashMcpSessionOwnerKey(
+    apiKey: string | undefined,
+    authSubject: string | undefined,
+): string {
+    if (authSubject && authSubject.length > 0) {
+        return `oauth:${authSubject}`;
+    }
+    if (apiKey && apiKey.length > 0) {
+        return createHash('sha256').update(apiKey, 'utf8').digest('hex');
+    }
+    return 'anonymous';
 }
 
 export function isInitializeRequest(body: unknown): boolean {
@@ -69,12 +124,42 @@ export function parseMcpSessionIdHeader(
     return undefined;
 }
 
+export function resolveSessionEntry(
+    registry: Pick<McpSessionRegistry, 'getForOwner'>,
+    method: string,
+    body: unknown,
+    sessionIdHeader: string | undefined,
+    ownerKey: string,
+): McpSessionEntry | 'missing' | 'initialize' {
+    if (sessionIdHeader) {
+        const entry = registry.getForOwner(sessionIdHeader, ownerKey);
+        if (entry) {
+            return entry;
+        }
+        if (method === 'POST' && isInitializeRequest(body)) {
+            return 'initialize';
+        }
+        return 'missing';
+    }
+    if (method === 'POST' && isInitializeRequest(body)) {
+        return 'initialize';
+    }
+    return 'missing';
+}
+
 export function createMcpSessionRegistry(
     config: LightdashMcpEnvConfig,
     options: McpSessionRegistryOptions,
 ): McpSessionRegistry {
     const sessions = new Map<string, McpSessionEntry>();
     const pendingEntries = new Set<McpSessionEntry>();
+    const lifecycleMutex = createAsyncMutex();
+    const createServer =
+        options.createMcpServer ?? createLightdashMcpServer;
+    const createTransport =
+        options.createTransport ??
+        ((transportOptions) =>
+            new StreamableHTTPServerTransport(transportOptions));
 
     const logSessionEvent = (
         message: string,
@@ -90,15 +175,42 @@ export function createMcpSessionRegistry(
     };
 
     const closeEntry = async (entry: McpSessionEntry): Promise<void> => {
-        try {
-            await entry.mcpServer.close();
-        } catch {
-            // ignore close errors during eviction
+        const target = entry;
+        if (target.closePromise) {
+            await target.closePromise;
+            return;
         }
-        try {
-            await entry.transport.close();
-        } catch {
-            // ignore close errors during eviction
+
+        target.state = 'closed';
+        target.closePromise = (async () => {
+            if (target.mcpServer) {
+                try {
+                    await target.mcpServer.close();
+                } catch {
+                    // ignore close errors during eviction
+                }
+                return;
+            }
+            if (target.transport) {
+                try {
+                    await target.transport.close();
+                } catch {
+                    // ignore close errors during eviction
+                }
+            }
+        })();
+        await target.closePromise;
+    };
+
+    const unregisterSession = (
+        sessionId: string,
+        entry: McpSessionEntry,
+    ): void => {
+        if (sessions.get(sessionId) === entry) {
+            sessions.delete(sessionId);
+            const target = entry;
+            target.state = 'closed';
+            logSessionEvent('closed', sessionId);
         }
     };
 
@@ -108,14 +220,57 @@ export function createMcpSessionRegistry(
             return;
         }
         sessions.delete(sessionId);
+        entry.state = 'closed';
         await closeEntry(entry);
     };
 
-    const evictOldestSession = async (): Promise<boolean> => {
+    const abortPendingSessionUnlocked = async (
+        entry: McpSessionEntry,
+    ): Promise<void> => {
+        const target = entry;
+        if (target.state !== 'pending') {
+            return;
+        }
+        pendingEntries.delete(target);
+        target.state = 'closed';
+        await closeEntry(target);
+    };
+
+    const closeSessionsForOwnerUnlocked = async (
+        ownerKey: string,
+    ): Promise<number> => {
+        const pendingToAbort = [...pendingEntries].filter(
+            (entry) => entry.ownerKey === ownerKey,
+        );
+        await Promise.all(
+            pendingToAbort.map((entry) =>
+                abortPendingSessionUnlocked(entry),
+            ),
+        );
+
+        const toClose: string[] = [];
+        for (const [sessionId, entry] of sessions) {
+            if (entry.ownerKey === ownerKey) {
+                toClose.push(sessionId);
+            }
+        }
+        await Promise.all(toClose.map((sessionId) => removeSession(sessionId)));
+        if (toClose.length > 0 || pendingToAbort.length > 0) {
+            process.stderr.write(
+                `[McpSession] replaced owner=${truncateOwnerKey(ownerKey)} closed=${toClose.length} abortedPending=${pendingToAbort.length} | active=${sessions.size} pending=${pendingEntries.size}\n`,
+            );
+        }
+        return toClose.length + pendingToAbort.length;
+    };
+
+    const evictOldestSessionUnlocked = async (): Promise<boolean> => {
         let oldestId: string | null = null;
         let oldestActivity = Number.POSITIVE_INFINITY;
         for (const [sessionId, entry] of sessions) {
-            if (entry.lastActivityAtMs < oldestActivity) {
+            if (
+                entry.activeSseLeases === 0 &&
+                entry.lastActivityAtMs < oldestActivity
+            ) {
                 oldestActivity = entry.lastActivityAtMs;
                 oldestId = sessionId;
             }
@@ -128,35 +283,62 @@ export function createMcpSessionRegistry(
         return true;
     };
 
-    const pruneIdleSessions = async (): Promise<number> => {
+    const prunePendingSessions = async (): Promise<number> => {
+        const now = Date.now();
+        const staleEntries = [...pendingEntries].filter(
+            (entry) => now - entry.createdAtMs >= options.sessionTtlMs,
+        );
+        await Promise.all(
+            staleEntries.map((entry) =>
+                abortPendingSessionUnlocked(entry),
+            ),
+        );
+        if (staleEntries.length > 0) {
+            logSessionEvent(`prunedPending=${staleEntries.length}`);
+        }
+        return staleEntries.length;
+    };
+
+    const pruneIdleSessionsUnlocked = async (): Promise<number> => {
+        const prunedPending = await prunePendingSessions();
         const now = Date.now();
         const expiredIds: string[] = [];
         for (const [sessionId, entry] of sessions) {
-            if (now - entry.lastActivityAtMs >= options.sessionTtlMs) {
+            if (
+                entry.activeSseLeases === 0 &&
+                now - entry.lastActivityAtMs >= options.sessionTtlMs
+            ) {
                 expiredIds.push(sessionId);
             }
         }
-        for (const sessionId of expiredIds) {
-            await removeSession(sessionId);
-        }
+        await Promise.all(
+            expiredIds.map((sessionId) => removeSession(sessionId)),
+        );
         if (expiredIds.length > 0) {
             logSessionEvent(`pruned=${expiredIds.length} evicted=0`);
         }
-        return expiredIds.length;
+        return prunedPending + expiredIds.length;
     };
 
-    const ensureCapacity = async (): Promise<void> => {
-        await pruneIdleSessions();
+    const ensureCapacityAfterReservation = async (): Promise<void> => {
+        await pruneIdleSessionsUnlocked();
         options.exploreCache.pruneExpired();
 
-        while (sessions.size + pendingEntries.size >= options.maxSessions) {
-            const evicted = await evictOldestSession();
-            if (!evicted) {
-                break;
+        const evictUntilWithinCapacity = async (): Promise<void> => {
+            if (
+                sessions.size + pendingEntries.size <=
+                options.maxSessions
+            ) {
+                return;
             }
-        }
+            const evicted = await evictOldestSessionUnlocked();
+            if (evicted) {
+                await evictUntilWithinCapacity();
+            }
+        };
+        await evictUntilWithinCapacity();
 
-        if (sessions.size + pendingEntries.size >= options.maxSessions) {
+        if (sessions.size + pendingEntries.size > options.maxSessions) {
             logSessionEvent(
                 `rejected: at capacity (max=${options.maxSessions})`,
             );
@@ -164,62 +346,101 @@ export function createMcpSessionRegistry(
         }
     };
 
-    const createPendingSession = async (): Promise<McpSessionEntry> => {
-        await ensureCapacity();
+    const createPendingSession = async (
+        ownerKey: string,
+    ): Promise<McpSessionEntry> =>
+        lifecycleMutex.run(async () => {
+            await closeSessionsForOwnerUnlocked(ownerKey);
 
-        const entry: McpSessionEntry = {
-            sessionId: null,
-            transport: undefined as unknown as StreamableHTTPServerTransport,
-            mcpServer: undefined as unknown as McpServer,
-            createdAtMs: Date.now(),
-            lastActivityAtMs: Date.now(),
-        };
-        pendingEntries.add(entry);
+            const entry: McpSessionEntry = {
+                sessionId: null,
+                ownerKey,
+                transport:
+                    undefined as unknown as StreamableHTTPServerTransport,
+                mcpServer: undefined as unknown as McpServer,
+                createdAtMs: Date.now(),
+                lastActivityAtMs: Date.now(),
+                activeSseLeases: 0,
+                state: 'pending',
+                closePromise: null,
+            };
+            pendingEntries.add(entry);
+            try {
+                await ensureCapacityAfterReservation();
+            } catch (error) {
+                pendingEntries.delete(entry);
+                entry.state = 'closed';
+                await closeEntry(entry);
+                throw error;
+            }
 
-        try {
-            const transport = new StreamableHTTPServerTransport({
-                sessionIdGenerator: () => randomUUID(),
-                onsessioninitialized: (sessionId: string) => {
-                    entry.sessionId = sessionId;
-                    pendingEntries.delete(entry);
-                    sessions.set(sessionId, entry);
-                    logSessionEvent('created', sessionId);
-                },
-                onsessionclosed: async (sessionId: string) => {
-                    await removeSession(sessionId);
-                    logSessionEvent('closed', sessionId);
-                },
-            });
+            try {
+                const transport = createTransport({
+                    sessionIdGenerator: () => randomUUID(),
+                    onsessioninitialized: (sessionId: string) => {
+                        if (
+                            entry.state !== 'pending' ||
+                            !pendingEntries.has(entry)
+                        ) {
+                            throw new Error(
+                                'MCP session initialization was superseded',
+                            );
+                        }
+                        entry.sessionId = sessionId;
+                        entry.state = 'active';
+                        pendingEntries.delete(entry);
+                        sessions.set(sessionId, entry);
+                        logSessionEvent('created', sessionId);
+                    },
+                    onsessionclosed: async (sessionId: string) => {
+                        unregisterSession(sessionId, entry);
+                    },
+                });
 
-            const mcpServer = createLightdashMcpServer(config, {
-                exploreCache: options.exploreCache,
-            });
-            await mcpServer.connect(transport);
+                const mcpServer = createServer(config, {
+                    exploreCache: options.exploreCache,
+                });
+                entry.transport = transport;
+                entry.mcpServer = mcpServer;
+                await mcpServer.connect(transport);
 
-            entry.transport = transport;
-            entry.mcpServer = mcpServer;
-            return entry;
-        } catch (error) {
-            pendingEntries.delete(entry);
-            throw error;
-        }
-    };
+                return entry;
+            } catch (error) {
+                pendingEntries.delete(entry);
+                entry.state = 'closed';
+                await closeEntry(entry);
+                throw error;
+            }
+        });
+
+    const closeSessionsForOwner = async (
+        ownerKey: string,
+    ): Promise<number> =>
+        lifecycleMutex.run(() => closeSessionsForOwnerUnlocked(ownerKey));
 
     const abortPendingSession = async (
         entry: McpSessionEntry,
-    ): Promise<void> => {
-        if (entry.sessionId !== null) {
-            return;
-        }
-        pendingEntries.delete(entry);
-        await closeEntry(entry);
-    };
+    ): Promise<void> =>
+        lifecycleMutex.run(() => abortPendingSessionUnlocked(entry));
 
-    const get = (sessionId: string): McpSessionEntry | undefined => {
+    const closeSession = async (sessionId: string): Promise<void> =>
+        lifecycleMutex.run(() => removeSession(sessionId));
+
+    const evictOldestSession = async (): Promise<boolean> =>
+        lifecycleMutex.run(evictOldestSessionUnlocked);
+
+    const pruneIdleSessions = async (): Promise<number> =>
+        lifecycleMutex.run(pruneIdleSessionsUnlocked);
+
+    const getForOwner = (
+        sessionId: string,
+        ownerKey: string,
+    ): McpSessionEntry | undefined => {
         const entry = sessions.get(sessionId);
-        if (entry) {
-            entry.lastActivityAtMs = Date.now();
+        if (!entry || entry.ownerKey !== ownerKey) {
+            return undefined;
         }
+        entry.lastActivityAtMs = Date.now();
         return entry;
     };
 
@@ -230,22 +451,53 @@ export function createMcpSessionRegistry(
         }
     };
 
-    const closeAll = async (): Promise<void> => {
-        const ids = [...sessions.keys()];
-        for (const sessionId of ids) {
-            await removeSession(sessionId);
+    const acquireSseLease = (sessionId: string): void => {
+        const entry = sessions.get(sessionId);
+        if (!entry) {
+            return;
         }
-        pendingEntries.clear();
+        entry.activeSseLeases += 1;
+        entry.lastActivityAtMs = Date.now();
     };
+
+    const releaseSseLease = (sessionId: string): void => {
+        const entry = sessions.get(sessionId);
+        if (!entry) {
+            return;
+        }
+        entry.activeSseLeases = Math.max(0, entry.activeSseLeases - 1);
+        entry.lastActivityAtMs = Date.now();
+    };
+
+    const closeAllUnlocked = async (): Promise<void> => {
+        const pending = [...pendingEntries];
+        pendingEntries.clear();
+        pending.forEach((entry) => {
+            const target = entry;
+            target.state = 'closed';
+        });
+        await Promise.all(pending.map((entry) => closeEntry(entry)));
+
+        const ids = [...sessions.keys()];
+        await Promise.all(ids.map((sessionId) => removeSession(sessionId)));
+    };
+
+    const closeAll = async (): Promise<void> =>
+        lifecycleMutex.run(closeAllUnlocked);
 
     return {
         createPendingSession,
         abortPendingSession,
-        get,
+        closeSession,
+        closeSessionsForOwner,
+        getForOwner,
         touch,
+        acquireSseLease,
+        releaseSseLease,
         pruneIdleSessions,
         evictOldestSession,
         getActiveCount: () => sessions.size,
+        getPendingCount: () => pendingEntries.size,
         closeAll,
     };
 }
