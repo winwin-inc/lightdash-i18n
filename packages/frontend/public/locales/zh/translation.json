@@ -5115,6 +5115,8 @@
             "y_axis_label": "Y 轴标签",
             "y_axis_label_left": "Y 轴标签（左侧）",
             "y_axis_label_right": "Y 轴标签（右侧）",
+            "y_axis_label_gap": "Y 轴标签距离",
+            "y_axis_label_gap_placeholder": "自动",
             "x_axis_label_bottom": "X 轴标签（底部）",
             "x_axis_label_top": "X 轴标签（顶部）",
             "auto_x_axis_range": "自动 X 轴范围",

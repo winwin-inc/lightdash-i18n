@@ -3581,6 +3581,13 @@ const getEchartAxes = ({
                         };
                     }
 
+                    if (yAxisConfiguration?.[0]?.nameGap !== undefined) {
+                        config = {
+                            ...config,
+                            nameGap: yAxisConfiguration[0].nameGap,
+                        };
+                    }
+
                     return config;
                 })(),
                 ...(flipAxesCategoryAxisData?.length
@@ -3651,6 +3658,9 @@ const getEchartAxes = ({
                     defaultNameGap: rightYaxisGap + defaultAxisLabelGap,
                     show: showYAxis && hasRightAxisSeries,
                 }),
+                ...(yAxisConfiguration?.[1]?.nameGap !== undefined
+                    ? { nameGap: yAxisConfiguration[1].nameGap }
+                    : {}),
                 splitLine: {
                     show: isAxisTheSameForAllSeries && hasRightAxisSeries,
                 },
