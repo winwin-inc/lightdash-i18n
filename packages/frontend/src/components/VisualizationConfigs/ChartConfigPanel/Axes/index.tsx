@@ -65,6 +65,7 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
         dirtyEchartsConfig,
         setXAxisName,
         setYAxisName,
+        setYAxisNameGap,
         setYMinValue,
         setYMaxValue,
         setXMinValue,
@@ -327,6 +328,35 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                         }
                         onBlur={(e) => setYAxisName(0, e.currentTarget.value)}
                     />
+                    {!dirtyLayout?.flipAxes && (
+                        <Group noWrap spacing="xs" align="baseline">
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_chart.axes.y_axis_label_gap',
+                                )}
+                            </Config.Label>
+                            <NumberInput
+                                placeholder={t(
+                                    'components_visualization_configs_chart.axes.y_axis_label_gap_placeholder',
+                                )}
+                                value={
+                                    dirtyEchartsConfig?.yAxis?.[0]?.nameGap ??
+                                    ''
+                                }
+                                min={0}
+                                step={5}
+                                maw={80}
+                                onChange={(value) => {
+                                    setYAxisNameGap(
+                                        0,
+                                        value === '' || value === undefined
+                                            ? undefined
+                                            : Number(value),
+                                    );
+                                }}
+                            />
+                        </Group>
+                    )}
                     {showFirstAxisRange && (
                         <AxisMinMax
                             label={t(secondaryAutoRangeKey)}
@@ -360,6 +390,35 @@ export const Axes: FC<Props> = ({ itemsMap }) => {
                         }
                         onBlur={(e) => setYAxisName(1, e.currentTarget.value)}
                     />
+                    {!dirtyLayout?.flipAxes && (
+                        <Group noWrap spacing="xs" align="baseline">
+                            <Config.Label>
+                                {t(
+                                    'components_visualization_configs_chart.axes.y_axis_label_gap',
+                                )}
+                            </Config.Label>
+                            <NumberInput
+                                placeholder={t(
+                                    'components_visualization_configs_chart.axes.y_axis_label_gap_placeholder',
+                                )}
+                                value={
+                                    dirtyEchartsConfig?.yAxis?.[1]?.nameGap ??
+                                    ''
+                                }
+                                min={0}
+                                step={5}
+                                maw={80}
+                                onChange={(value) => {
+                                    setYAxisNameGap(
+                                        1,
+                                        value === '' || value === undefined
+                                            ? undefined
+                                            : Number(value),
+                                    );
+                                }}
+                            />
+                        </Group>
+                    )}
 
                     {showSecondAxisRange && (
                         <AxisMinMax
