@@ -21,10 +21,13 @@ import {
     createMcpSessionRegistry,
     hashMcpSessionOwnerKey,
     McpSessionCapacityError,
-    parseMcpSessionIdHeader,
-    resolveSessionEntry,
     type McpSessionEntry,
 } from './http/mcpSessionRegistry';
+import {
+    formatSessionMissingReason,
+    parseMcpSessionIdHeader,
+    resolveSessionRoute,
+} from './http/sessionRouting';
 import {
     httpRequestApiKeyStore,
 } from './lib/requestContext';
@@ -145,7 +148,7 @@ async function main(): Promise<void> {
 
             const ownerKey = hashMcpSessionOwnerKey(effectiveKey, authSubject);
 
-            const resolved = resolveSessionEntry(
+            const route = resolveSessionRoute(
                 sessionRegistry,
                 req.method,
                 req.body,
@@ -153,7 +156,7 @@ async function main(): Promise<void> {
                 ownerKey,
             );
             let sessionEntry: McpSessionEntry | undefined;
-            if (resolved === 'initialize') {
+            if (route.kind === 'initialize') {
                 try {
                     sessionEntry =
                         await sessionRegistry.createPendingSession(ownerKey);
@@ -167,14 +170,17 @@ async function main(): Promise<void> {
                     }
                     throw error;
                 }
-            } else if (resolved === 'missing') {
+            } else if (route.kind === 'missing') {
+                process.stderr.write(
+                    `[McpSession] 404 ${formatSessionMissingReason(route.reason)}${sessionHeader ? ` | session=${sessionHeader.slice(0, 8)}...` : ''} | ${userEmail}\n`,
+                );
                 res.status(404).json({
                     error: 'Session not found',
                     hint: 'Send POST initialize without Mcp-Session-Id to start a new session',
                 });
                 return;
             } else {
-                sessionEntry = resolved;
+                sessionEntry = route.entry;
             }
 
             if (
@@ -212,7 +218,7 @@ async function main(): Promise<void> {
                 if (
                     sessionEntry &&
                     sessionEntry.sessionId === null &&
-                    resolved === 'initialize'
+                    route.kind === 'initialize'
                 ) {
                     await sessionRegistry.abortPendingSession(sessionEntry);
                 }

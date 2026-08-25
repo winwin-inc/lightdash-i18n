@@ -10,12 +10,9 @@ import {
 import {
     createMcpSessionRegistry,
     hashMcpSessionOwnerKey,
-    isInitializeRequest,
     McpSessionCapacityError,
     type McpSessionEntry,
     type McpSessionRegistryOptions,
-    parseMcpSessionIdHeader,
-    resolveSessionEntry,
 } from './mcpSessionRegistry';
 
 const testConfig: LightdashMcpEnvConfig = {
@@ -117,27 +114,6 @@ async function initializeSession(
 }
 
 describe('mcpSessionRegistry helpers', () => {
-    it('isInitializeRequest detects initialize method', () => {
-        assert.equal(
-            isInitializeRequest({
-                jsonrpc: '2.0',
-                method: 'initialize',
-                id: 1,
-            }),
-            true,
-        );
-        assert.equal(
-            isInitializeRequest({ jsonrpc: '2.0', method: 'tools/list', id: 1 }),
-            false,
-        );
-    });
-
-    it('parseMcpSessionIdHeader reads string or array header', () => {
-        assert.equal(parseMcpSessionIdHeader('abc'), 'abc');
-        assert.equal(parseMcpSessionIdHeader(['a', 'b']), 'b');
-        assert.equal(parseMcpSessionIdHeader(undefined), undefined);
-    });
-
     it('hashMcpSessionOwnerKey prefers oauth subject over api key', () => {
         assert.equal(
             hashMcpSessionOwnerKey('pat-a', 'subject-a'),
@@ -146,38 +122,6 @@ describe('mcpSessionRegistry helpers', () => {
         assert.notEqual(
             hashMcpSessionOwnerKey('pat-a', undefined),
             hashMcpSessionOwnerKey('pat-b', undefined),
-        );
-    });
-
-    it('resolveSessionEntry ignores stale session id on initialize', () => {
-        const registry = {
-            getForOwner: () => undefined,
-        };
-        assert.equal(
-            resolveSessionEntry(
-                registry,
-                'POST',
-                { jsonrpc: '2.0', method: 'initialize', id: 1 },
-                'stale-session',
-                'owner-a',
-            ),
-            'initialize',
-        );
-    });
-
-    it('resolveSessionEntry returns missing for foreign owner session', () => {
-        const registry = {
-            getForOwner: () => undefined,
-        };
-        assert.equal(
-            resolveSessionEntry(
-                registry,
-                'POST',
-                { jsonrpc: '2.0', method: 'tools/list', id: 1 },
-                'foreign-session',
-                'owner-a',
-            ),
-            'missing',
         );
     });
 });
@@ -285,7 +229,7 @@ describe('createMcpSessionRegistry', () => {
         assert.equal(registry.getPendingCount(), 0);
     });
 
-    it('replaces previous sessions for the same owner on re-initialize', async () => {
+    it('keeps multiple sessions for the same owner on re-initialize', async () => {
         const exploreCache = createSharedExploreCache();
         const registry = createMcpSessionRegistry(testConfig, {
             maxSessions: 10,
@@ -297,6 +241,25 @@ describe('createMcpSessionRegistry', () => {
         assert.equal(registry.getActiveCount(), 1);
 
         const secondSessionId = await initializeSession(registry, 'owner-a');
+        assert.equal(registry.getActiveCount(), 2);
+        assert.ok(registry.getForOwner(firstSessionId, 'owner-a'));
+        assert.ok(registry.getForOwner(secondSessionId, 'owner-a'));
+        await registry.closeAll();
+    });
+
+    it('closing one session does not affect another session for same owner', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(testConfig, {
+            maxSessions: 10,
+            sessionTtlMs: 600_000,
+            exploreCache,
+        });
+
+        const firstSessionId = await initializeSession(registry, 'owner-a');
+        const secondSessionId = await initializeSession(registry, 'owner-a');
+        assert.equal(registry.getActiveCount(), 2);
+
+        await registry.closeSession(firstSessionId);
         assert.equal(registry.getActiveCount(), 1);
         assert.equal(registry.getForOwner(firstSessionId, 'owner-a'), undefined);
         assert.ok(registry.getForOwner(secondSessionId, 'owner-a'));
@@ -336,7 +299,7 @@ describe('createMcpSessionRegistry', () => {
         await registry.closeAll();
     });
 
-    it('concurrent initialize for same owner keeps only one active session', async () => {
+    it('concurrent initialize for same owner keeps all active sessions', async () => {
         const exploreCache = createSharedExploreCache();
         const registry = createMcpSessionRegistry(testConfig, {
             maxSessions: 10,
@@ -349,19 +312,15 @@ describe('createMcpSessionRegistry', () => {
             initializeSession(registry, 'owner-a'),
         ]);
 
-        assert.equal(registry.getActiveCount(), 1);
+        assert.equal(registry.getActiveCount(), 2);
         assert.equal(
             results.filter((result) => result.status === 'fulfilled').length,
-            1,
-        );
-        assert.equal(
-            results.filter((result) => result.status === 'rejected').length,
-            1,
+            2,
         );
         await registry.closeAll();
     });
 
-    it('does not register a superseded pending session initialized late', async () => {
+    it('allows multiple pending sessions for same owner to initialize', async () => {
         const exploreCache = createSharedExploreCache();
         const registry = createMcpSessionRegistry(testConfig, {
             maxSessions: 10,
@@ -369,18 +328,18 @@ describe('createMcpSessionRegistry', () => {
             exploreCache,
         });
 
-        const superseded = await registry.createPendingSession('owner-a');
-        const current = await registry.createPendingSession('owner-a');
+        const firstPending = await registry.createPendingSession('owner-a');
+        const secondPending = await registry.createPendingSession('owner-a');
 
-        await initializeEntry(superseded);
-        await initializeEntry(current);
+        await initializeEntry(firstPending);
+        await initializeEntry(secondPending);
 
-        assert.equal(registry.getActiveCount(), 1);
-        assert.equal(superseded.state, 'closed');
-        assert.equal(superseded.sessionId, null);
-        assert.equal(current.state, 'active');
-        assert.ok(current.sessionId);
-        assert.ok(registry.getForOwner(current.sessionId, 'owner-a'));
+        assert.equal(registry.getActiveCount(), 2);
+        assert.equal(firstPending.state, 'active');
+        assert.equal(secondPending.state, 'active');
+        assert.ok(firstPending.sessionId);
+        assert.ok(secondPending.sessionId);
+        assert.notEqual(firstPending.sessionId, secondPending.sessionId);
         await registry.closeAll();
     });
 
@@ -412,7 +371,7 @@ describe('createMcpSessionRegistry', () => {
         assert.equal(registry.getActiveCount(), 0);
     });
 
-    it('concurrent initialize for different owners respects maxSessions', async () => {
+    it('same owner multiple sessions still respect global capacity', async () => {
         const exploreCache = createSharedExploreCache();
         const registry = createMcpSessionRegistry(testConfig, {
             maxSessions: 2,
@@ -420,14 +379,11 @@ describe('createMcpSessionRegistry', () => {
             exploreCache,
         });
 
-        await Promise.all([
-            initializeSession(registry, 'owner-a'),
-            initializeSession(registry, 'owner-b'),
-            initializeSession(registry, 'owner-c'),
-        ]);
+        await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-b');
 
         assert.ok(registry.getActiveCount() <= 2);
-        assert.ok(registry.getPendingCount() <= 1);
         await registry.closeAll();
     });
 

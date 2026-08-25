@@ -40,11 +40,11 @@ export type McpSessionRegistry = {
     createPendingSession: (ownerKey: string) => Promise<McpSessionEntry>;
     abortPendingSession: (entry: McpSessionEntry) => Promise<void>;
     closeSession: (sessionId: string) => Promise<void>;
-    closeSessionsForOwner: (ownerKey: string) => Promise<number>;
     getForOwner: (
         sessionId: string,
         ownerKey: string,
     ) => McpSessionEntry | undefined;
+    getOwnerKeyForSession: (sessionId: string) => string | undefined;
     touch: (sessionId: string) => void;
     acquireSseLease: (sessionId: string) => void;
     releaseSseLease: (sessionId: string) => void;
@@ -57,10 +57,6 @@ export type McpSessionRegistry = {
 
 function truncateSessionId(sessionId: string): string {
     return sessionId.length <= 8 ? sessionId : `${sessionId.slice(0, 8)}...`;
-}
-
-function truncateOwnerKey(ownerKey: string): string {
-    return ownerKey.length <= 8 ? ownerKey : `${ownerKey.slice(0, 8)}...`;
 }
 
 function createAsyncMutex() {
@@ -94,57 +90,6 @@ export function hashMcpSessionOwnerKey(
         return createHash('sha256').update(apiKey, 'utf8').digest('hex');
     }
     return 'anonymous';
-}
-
-export function isInitializeRequest(body: unknown): boolean {
-    if (body === null || body === undefined) {
-        return false;
-    }
-    if (Array.isArray(body)) {
-        return body.some((item) => isInitializeRequest(item));
-    }
-    if (typeof body !== 'object') {
-        return false;
-    }
-    return (body as { method?: string }).method === 'initialize';
-}
-
-export function parseMcpSessionIdHeader(
-    header: string | string[] | undefined,
-): string | undefined {
-    if (typeof header === 'string' && header.length > 0) {
-        return header;
-    }
-    if (Array.isArray(header)) {
-        const last = header[header.length - 1];
-        if (typeof last === 'string' && last.length > 0) {
-            return last;
-        }
-    }
-    return undefined;
-}
-
-export function resolveSessionEntry(
-    registry: Pick<McpSessionRegistry, 'getForOwner'>,
-    method: string,
-    body: unknown,
-    sessionIdHeader: string | undefined,
-    ownerKey: string,
-): McpSessionEntry | 'missing' | 'initialize' {
-    if (sessionIdHeader) {
-        const entry = registry.getForOwner(sessionIdHeader, ownerKey);
-        if (entry) {
-            return entry;
-        }
-        if (method === 'POST' && isInitializeRequest(body)) {
-            return 'initialize';
-        }
-        return 'missing';
-    }
-    if (method === 'POST' && isInitializeRequest(body)) {
-        return 'initialize';
-    }
-    return 'missing';
 }
 
 export function createMcpSessionRegistry(
@@ -236,33 +181,6 @@ export function createMcpSessionRegistry(
         await closeEntry(target);
     };
 
-    const closeSessionsForOwnerUnlocked = async (
-        ownerKey: string,
-    ): Promise<number> => {
-        const pendingToAbort = [...pendingEntries].filter(
-            (entry) => entry.ownerKey === ownerKey,
-        );
-        await Promise.all(
-            pendingToAbort.map((entry) =>
-                abortPendingSessionUnlocked(entry),
-            ),
-        );
-
-        const toClose: string[] = [];
-        for (const [sessionId, entry] of sessions) {
-            if (entry.ownerKey === ownerKey) {
-                toClose.push(sessionId);
-            }
-        }
-        await Promise.all(toClose.map((sessionId) => removeSession(sessionId)));
-        if (toClose.length > 0 || pendingToAbort.length > 0) {
-            process.stderr.write(
-                `[McpSession] replaced owner=${truncateOwnerKey(ownerKey)} closed=${toClose.length} abortedPending=${pendingToAbort.length} | active=${sessions.size} pending=${pendingEntries.size}\n`,
-            );
-        }
-        return toClose.length + pendingToAbort.length;
-    };
-
     const evictOldestSessionUnlocked = async (): Promise<boolean> => {
         let oldestId: string | null = null;
         let oldestActivity = Number.POSITIVE_INFINITY;
@@ -350,8 +268,6 @@ export function createMcpSessionRegistry(
         ownerKey: string,
     ): Promise<McpSessionEntry> =>
         lifecycleMutex.run(async () => {
-            await closeSessionsForOwnerUnlocked(ownerKey);
-
             const entry: McpSessionEntry = {
                 sessionId: null,
                 ownerKey,
@@ -413,11 +329,6 @@ export function createMcpSessionRegistry(
             }
         });
 
-    const closeSessionsForOwner = async (
-        ownerKey: string,
-    ): Promise<number> =>
-        lifecycleMutex.run(() => closeSessionsForOwnerUnlocked(ownerKey));
-
     const abortPendingSession = async (
         entry: McpSessionEntry,
     ): Promise<void> =>
@@ -443,6 +354,10 @@ export function createMcpSessionRegistry(
         entry.lastActivityAtMs = Date.now();
         return entry;
     };
+
+    const getOwnerKeyForSession = (
+        sessionId: string,
+    ): string | undefined => sessions.get(sessionId)?.ownerKey;
 
     const touch = (sessionId: string): void => {
         const entry = sessions.get(sessionId);
@@ -489,8 +404,8 @@ export function createMcpSessionRegistry(
         createPendingSession,
         abortPendingSession,
         closeSession,
-        closeSessionsForOwner,
         getForOwner,
+        getOwnerKeyForSession,
         touch,
         acquireSseLease,
         releaseSseLease,

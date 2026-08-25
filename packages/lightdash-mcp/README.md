@@ -90,8 +90,8 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session（活跃 SSE 连接豁免）；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
 2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune；未完成 initialize 的 pending session 也会按同一 TTL 回收。
 3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
-4. **同 PAT 重连替换**：同一 PAT（或 OAuth subject）再次 `initialize` 时，会先关闭该用户旧 session（含 pending）再建新 session。GET SSE 断开后**不会销毁 session**，客户端可用同一 `Mcp-Session-Id` 重连 SSE；session 由 TTL、DELETE、同 PAT 重连或 LRU 回收。
-5. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner，后连会替换先连 session。
+4. **同 PAT 多客户端并发**：同一 PAT（或 OAuth subject）可同时持有多个独立 session（例如 `config_ui` 与 CLI 并行）。每个客户端必须保存 `initialize` 响应头中的 `Mcp-Session-Id`，并在后续 POST/GET `/mcp` 请求中回传。GET SSE 断开后**不会销毁 session**，客户端可用同一 `Mcp-Session-Id` 重连 SSE；session 由 TTL、DELETE 或 LRU 回收。
+5. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner；多个客户端仍会各自创建独立 session，但共享同一认证身份。
 
 运维调参建议：
 
@@ -105,6 +105,33 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 - `/health` 返回 `activeSessions` 与 `pendingSessions` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
+
+### MCP 健康检查与调用约定
+
+Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tools/list`、`tools/call` 是 **JSON-RPC method**，写在 POST `/mcp` 的 body 里，**不是** `/mcp/tools/list` 这类 URL 子路径。
+
+正确冒烟流程：
+
+```bash
+# 1. 健康检查
+curl -s http://localhost:3333/health
+
+# 2. initialize（从响应头取 Mcp-Session-Id）
+curl -i -X POST 'http://localhost:3333/mcp' \
+  -H 'x-api-key: YOUR_PAT' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}},"id":1}'
+
+# 3. tools/list（仍是 POST /mcp，带上一步的 Mcp-Session-Id）
+curl -X POST 'http://localhost:3333/mcp' \
+  -H 'x-api-key: YOUR_PAT' \
+  -H 'Content-Type: application/json' \
+  -H 'Mcp-Session-Id: <session-id-from-step-2>' \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
+```
+
+服务端 404 日志会区分内部原因（`missing Mcp-Session-Id header` / `unknown or expired session id` / `owner mismatch`），但客户端统一收到 `Session not found`。
 
 ### 项目 `projectUuid` 解析顺序
 
