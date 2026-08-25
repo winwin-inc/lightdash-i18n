@@ -87,6 +87,17 @@ function formatSessionLogTags(options: {
     return parts.length > 0 ? ` | ${parts.join(' | ')}` : '';
 }
 
+/** body-parser / express.json 解析失败时抛出的错误（非法或空 JSON body）。 */
+function isJsonBodyParseError(err: unknown): boolean {
+    if (!(err instanceof SyntaxError)) {
+        return false;
+    }
+    const parseErr = err as SyntaxError & { type?: string; status?: number };
+    return (
+        parseErr.type === 'entity.parse.failed' || parseErr.status === 400
+    );
+}
+
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
     logStartupConfig(config);
@@ -331,6 +342,54 @@ async function main(): Promise<void> {
             );
         }
     });
+
+    // express.json 在进入 /mcp 之前失败时，默认会打出 SyntaxError 堆栈并返回 HTML 400。
+    // 这里改成一行 RequestLog + 结构化 JSON，避免把客户端坏请求误当成服务端异常。
+    app.use(
+        (
+            err: unknown,
+            req: express.Request,
+            res: express.Response,
+            next: express.NextFunction,
+        ) => {
+            if (isJsonBodyParseError(err)) {
+                const ip = resolveClientIp(req);
+                const message =
+                    err instanceof Error ? err.message : 'Invalid JSON';
+                process.stderr.write(
+                    `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 400 | 0ms | error(400) | invalid_json_body | ${message}\n`,
+                );
+                if (!res.headersSent) {
+                    res.status(400).json({
+                        error: 'Invalid JSON body',
+                        hint: 'POST /mcp requires a valid JSON-RPC object with Content-Type: application/json',
+                    });
+                }
+                return;
+            }
+            next(err);
+        },
+    );
+
+    app.use(
+        (
+            err: unknown,
+            req: express.Request,
+            res: express.Response,
+            _next: express.NextFunction,
+        ) => {
+            const ip = resolveClientIp(req);
+            const message = err instanceof Error ? err.message : String(err);
+            process.stderr.write(
+                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 500 | 0ms | error(500) | unhandled | ${message}\n`,
+            );
+            if (!res.headersSent) {
+                res.status(500).json({
+                    error: 'Internal server error',
+                });
+            }
+        },
+    );
 
     const port = Number(process.env.LIGHTDASH_MCP_HTTP_PORT ?? 3333);
     if (!Number.isFinite(port) || port <= 0) {
