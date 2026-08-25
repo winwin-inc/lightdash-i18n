@@ -133,6 +133,8 @@ curl -X POST 'http://localhost:3333/mcp' \
 
 服务端 404 日志会区分内部原因（`missing Mcp-Session-Id header` / `unknown or expired session id` / `owner mismatch`），但客户端统一收到 `Session not found`。
 
+**客户端接入规范（标准 Session / 存量兼容 / projectUuid）** 见仓库文档：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)。
+
 ### 项目 `projectUuid` 解析顺序
 
 对需要项目的工具（含 **`list_spaces`**、**`run_saved_chart`** 与核心工具），有效项目 UUID 按：
