@@ -26,9 +26,26 @@ const testConfig: LightdashMcpEnvConfig = {
     oauthResourceMetadataUrl:
         'https://example.com/api/v1/oauth/.well-known/oauth-protected-resource',
     maxSessions: 100,
+    softSessionsPerOwner: 10,
+    maxSessionsPerOwner: 20,
+    lruMinIdleMs: 300_000,
     sessionTtlMs: 1_800_000,
     pruneIntervalMs: 300_000,
 };
+
+function registryOptions(
+    overrides: Partial<McpSessionRegistryOptions> &
+        Pick<McpSessionRegistryOptions, 'exploreCache'>,
+): McpSessionRegistryOptions {
+    return {
+        maxSessions: 10,
+        softSessionsPerOwner: 10,
+        maxSessionsPerOwner: 20,
+        lruMinIdleMs: 0,
+        sessionTtlMs: 600_000,
+        ...overrides,
+    };
+}
 
 function createMockReqRes(
     method: string,
@@ -156,11 +173,7 @@ describe('sharedExploreCache', () => {
 describe('createMcpSessionRegistry', () => {
     it('registers session after initialize', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 60_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 60_000, exploreCache }));
 
         const sessionId = await initializeSession(registry);
         assert.ok(registry.getForOwner(sessionId, 'owner-a'));
@@ -170,11 +183,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('prunes idle sessions after TTL', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 20,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 20, exploreCache }));
 
         const sessionId = await initializeSession(registry);
         assert.equal(registry.getActiveCount(), 1);
@@ -190,11 +199,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('LRU evicts oldest session when at capacity', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 1,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 1, sessionTtlMs: 600_000, exploreCache }));
 
         const firstSessionId = await initializeSession(registry, 'owner-a');
         assert.equal(registry.getActiveCount(), 1);
@@ -213,11 +218,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('throws McpSessionCapacityError when pending and active fill capacity', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 1,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 1, sessionTtlMs: 600_000, exploreCache }));
 
         const pending = await registry.createPendingSession('owner-a');
         await assert.rejects(
@@ -231,11 +232,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('keeps multiple sessions for the same owner on re-initialize', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         const firstSessionId = await initializeSession(registry, 'owner-a');
         assert.equal(registry.getActiveCount(), 1);
@@ -249,11 +246,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('closing one session does not affect another session for same owner', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         const firstSessionId = await initializeSession(registry, 'owner-a');
         const secondSessionId = await initializeSession(registry, 'owner-a');
@@ -268,11 +261,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('keeps sessions for different owners', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         await initializeSession(registry, 'owner-a');
         await initializeSession(registry, 'owner-b');
@@ -282,11 +271,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('getForOwner rejects cross-owner access without touching activity', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 20,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 20, exploreCache }));
 
         const sessionId = await initializeSession(registry, 'owner-a');
         assert.equal(registry.getForOwner(sessionId, 'owner-b'), undefined);
@@ -301,11 +286,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('concurrent initialize for same owner keeps all active sessions', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         const results = await Promise.allSettled([
             initializeSession(registry, 'owner-a'),
@@ -322,11 +303,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('allows multiple pending sessions for same owner to initialize', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         const firstPending = await registry.createPendingSession('owner-a');
         const secondPending = await registry.createPendingSession('owner-a');
@@ -355,12 +332,15 @@ describe('createMcpSessionRegistry', () => {
         } as unknown as ReturnType<
             NonNullable<McpSessionRegistryOptions['createMcpServer']>
         >;
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache: createSharedExploreCache(),
-            createMcpServer: () => mockServer,
-        });
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 10,
+                sessionTtlMs: 600_000,
+                exploreCache: createSharedExploreCache(),
+                createMcpServer: () => mockServer,
+            }),
+        );
 
         await assert.rejects(
             () => registry.createPendingSession('owner-a'),
@@ -373,11 +353,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('same owner multiple sessions still respect global capacity', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 2,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 2, sessionTtlMs: 600_000, exploreCache }));
 
         await initializeSession(registry, 'owner-a');
         await initializeSession(registry, 'owner-a');
@@ -387,40 +363,27 @@ describe('createMcpSessionRegistry', () => {
         await registry.closeAll();
     });
 
-    it('keeps session alive while SSE lease is active', async () => {
+    it('allows TTL prune of SSE-only sessions', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 20,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 20, exploreCache }));
 
         const sessionId = await initializeSession(registry, 'owner-a');
         registry.acquireSseLease(sessionId);
+        assert.equal(registry.getHealthStats().activeSseConnections, 1);
 
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 30);
         });
         const pruned = await registry.pruneIdleSessions();
-        assert.equal(pruned, 0);
-        assert.ok(registry.getForOwner(sessionId, 'owner-a'));
-
-        registry.releaseSseLease(sessionId);
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 30);
-        });
-        const prunedAfterRelease = await registry.pruneIdleSessions();
-        assert.equal(prunedAfterRelease, 1);
+        assert.equal(pruned, 1);
+        assert.equal(registry.getForOwner(sessionId, 'owner-a'), undefined);
+        assert.equal(registry.getHealthStats().activeSseConnections, 0);
         await registry.closeAll();
     });
 
     it('allows GET SSE reconnect after disconnect without destroying session', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 600_000, exploreCache }));
 
         const sessionId = await initializeSession(registry, 'owner-a');
         const firstGetReq = createMockReqRes('GET', undefined, sessionId);
@@ -448,11 +411,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('DELETE removes session from registry while transport handles close', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 600_000, exploreCache }));
 
         const sessionId = await initializeSession(registry, 'owner-a');
         const { req, res } = createMockReqRes('DELETE', undefined, sessionId);
@@ -469,11 +428,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('prunes stale pending sessions', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 20,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 20, exploreCache }));
 
         const pending = await registry.createPendingSession('owner-a');
         assert.equal(registry.getPendingCount(), 1);
@@ -490,11 +445,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('closeAll closes pending sessions', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 600_000, exploreCache }));
 
         await registry.createPendingSession('owner-a');
         assert.equal(registry.getPendingCount(), 1);
@@ -506,11 +457,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('reuses one compat session per owner', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 10,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 10, sessionTtlMs: 600_000, exploreCache }));
 
         const first = await registry.getOrCreateCompatSession('owner-a');
         const second = await registry.getOrCreateCompatSession('owner-a');
@@ -527,11 +474,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('compat session handles tools/list without session id', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 600_000, exploreCache }));
 
         const entry = await registry.getOrCreateCompatSession('owner-a');
         assert.equal(entry.kind, 'compat');
@@ -570,11 +513,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('request lease prevents TTL prune of compat session', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 5,
-            sessionTtlMs: 20,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 5, sessionTtlMs: 20, exploreCache }));
 
         const entry = await registry.getOrCreateCompatSession('owner-a');
         const release = registry.acquireRequestLease(entry);
@@ -598,11 +537,7 @@ describe('createMcpSessionRegistry', () => {
 
     it('capacity accounts for compat and stateful sessions together', async () => {
         const exploreCache = createSharedExploreCache();
-        const registry = createMcpSessionRegistry(testConfig, {
-            maxSessions: 1,
-            sessionTtlMs: 600_000,
-            exploreCache,
-        });
+        const registry = createMcpSessionRegistry(testConfig, registryOptions({ maxSessions: 1, sessionTtlMs: 600_000, exploreCache }));
 
         await registry.getOrCreateCompatSession('owner-a');
         assert.equal(registry.getCompatCount(), 1);
@@ -611,6 +546,234 @@ describe('createMcpSessionRegistry', () => {
         assert.equal(registry.getActiveCount(), 1);
         assert.equal(registry.getCompatCount(), 0);
         assert.ok(registry.getForOwner(sessionId, 'owner-b'));
+        await registry.closeAll();
+    });
+
+    it('owner soft cap LRU reclaims idle session on 11th initialize', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 50,
+                softSessionsPerOwner: 10,
+                maxSessionsPerOwner: 20,
+                lruMinIdleMs: 0,
+                sessionTtlMs: 600_000,
+                exploreCache,
+            }),
+        );
+
+        const sessionIds: string[] = [];
+        for (let i = 0; i < 10; i += 1) {
+            sessionIds.push(await initializeSession(registry, 'owner-a'));
+        }
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 10);
+
+        const eleventh = await initializeSession(registry, 'owner-a');
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 10);
+        assert.ok(registry.getForOwner(eleventh, 'owner-a'));
+        assert.equal(
+            sessionIds.filter((id) => registry.getForOwner(id, 'owner-a'))
+                .length,
+            9,
+        );
+        await registry.closeAll();
+    });
+
+    it('owner soft burst allows growth when no idle candidate', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 50,
+                softSessionsPerOwner: 2,
+                maxSessionsPerOwner: 4,
+                lruMinIdleMs: 60_000,
+                sessionTtlMs: 600_000,
+                exploreCache,
+            }),
+        );
+
+        await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-a');
+        // 刚创建，未达 lruMinIdleMs，无法 owner LRU，允许软突发
+        const third = await initializeSession(registry, 'owner-a');
+        assert.ok(registry.getForOwner(third, 'owner-a'));
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 3);
+        await registry.closeAll();
+    });
+
+    it('owner hard cap rejects when all sessions are busy or freshly active', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 50,
+                softSessionsPerOwner: 2,
+                maxSessionsPerOwner: 2,
+                lruMinIdleMs: 60_000,
+                sessionTtlMs: 600_000,
+                exploreCache,
+            }),
+        );
+
+        const first = await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-a');
+        const release = registry.acquireRequestLease(
+            registry.getForOwner(first, 'owner-a')!,
+        );
+
+        await assert.rejects(
+            () => initializeSession(registry, 'owner-a'),
+            McpSessionCapacityError,
+        );
+        release();
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 2);
+        await registry.closeAll();
+    });
+
+    it('owner hard cap reclaims idle session when available', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 50,
+                softSessionsPerOwner: 2,
+                maxSessionsPerOwner: 2,
+                lruMinIdleMs: 0,
+                sessionTtlMs: 600_000,
+                exploreCache,
+            }),
+        );
+
+        const first = await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-a');
+        const third = await initializeSession(registry, 'owner-a');
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 2);
+        assert.equal(registry.getForOwner(first, 'owner-a'), undefined);
+        assert.ok(registry.getForOwner(third, 'owner-a'));
+        await registry.closeAll();
+    });
+
+    it('request lease blocks TTL and LRU; SSE lease does not', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 1,
+                softSessionsPerOwner: 10,
+                maxSessionsPerOwner: 20,
+                lruMinIdleMs: 0,
+                sessionTtlMs: 20,
+                exploreCache,
+            }),
+        );
+
+        const busyId = await initializeSession(registry, 'owner-a');
+        const entry = registry.getForOwner(busyId, 'owner-a')!;
+        registry.acquireSseLease(busyId);
+        const release = registry.acquireRequestLease(entry);
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 0);
+
+        await assert.rejects(
+            () => initializeSession(registry, 'owner-b'),
+            McpSessionCapacityError,
+        );
+
+        release();
+        const nextId = await initializeSession(registry, 'owner-b');
+        assert.equal(registry.getForOwner(busyId, 'owner-a'), undefined);
+        assert.ok(registry.getForOwner(nextId, 'owner-b'));
+        await registry.closeAll();
+    });
+
+    it('GET-style request lease does not refresh business activity', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 5,
+                sessionTtlMs: 40,
+                exploreCache,
+            }),
+        );
+
+        const sessionId = await initializeSession(registry, 'owner-a');
+        const entry = registry.getForOwner(sessionId, 'owner-a')!;
+        const activityBefore = entry.lastActivityAtMs;
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 20);
+        });
+        // 模拟 http.ts GET：SSE lease + request lease 不刷新业务活动
+        registry.acquireSseLease(sessionId);
+        const release = registry.acquireRequestLease(entry, {
+            refreshBusinessActivity: false,
+        });
+        release();
+        registry.releaseSseLease(sessionId);
+
+        assert.equal(entry.lastActivityAtMs, activityBefore);
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 1);
+        await registry.closeAll();
+    });
+
+    it('health stats report sse and in-flight request counts', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({ maxSessions: 5, exploreCache }),
+        );
+
+        const sessionId = await initializeSession(registry, 'owner-a');
+        const entry = registry.getForOwner(sessionId, 'owner-a')!;
+        registry.acquireSseLease(sessionId);
+        const release = registry.acquireRequestLease(entry);
+
+        const health = registry.getHealthStats();
+        assert.equal(health.activeSessions, 1);
+        assert.equal(health.activeSseConnections, 1);
+        assert.equal(health.inFlightRequests, 1);
+
+        release();
+        registry.releaseSseLease(sessionId);
+        assert.equal(registry.getHealthStats().inFlightRequests, 0);
+        assert.equal(registry.getHealthStats().activeSseConnections, 0);
+        await registry.closeAll();
+    });
+
+    it('compat does not consume owner soft/hard quota', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 20,
+                softSessionsPerOwner: 2,
+                maxSessionsPerOwner: 2,
+                lruMinIdleMs: 60_000,
+                exploreCache,
+            }),
+        );
+
+        await registry.getOrCreateCompatSession('owner-a');
+        await initializeSession(registry, 'owner-a');
+        await initializeSession(registry, 'owner-a');
+        assert.equal(registry.getCompatCount(), 1);
+        assert.equal(registry.getOwnerActiveCount('owner-a'), 2);
+
+        await assert.rejects(
+            () => initializeSession(registry, 'owner-a'),
+            McpSessionCapacityError,
+        );
+        assert.equal(registry.getCompatCount(), 1);
         await registry.closeAll();
     });
 });

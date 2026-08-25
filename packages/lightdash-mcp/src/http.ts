@@ -51,7 +51,8 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
             `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}\n` +
             `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}\n` +
             `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n` +
-            `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SESSION_TTL_MS=${config.sessionTtlMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}\n`,
+            `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SOFT_PER_OWNER=${config.softSessionsPerOwner} | HARD_PER_OWNER=${config.maxSessionsPerOwner}\n` +
+            `[Config] SESSION_TTL_MS=${config.sessionTtlMs} | LRU_MIN_IDLE_MS=${config.lruMinIdleMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}\n`,
     );
 }
 
@@ -105,6 +106,9 @@ async function main(): Promise<void> {
     const exploreCache = getSharedExploreCache();
     const sessionRegistry = createMcpSessionRegistry(config, {
         maxSessions: config.maxSessions,
+        softSessionsPerOwner: config.softSessionsPerOwner,
+        maxSessionsPerOwner: config.maxSessionsPerOwner,
+        lruMinIdleMs: config.lruMinIdleMs,
         sessionTtlMs: config.sessionTtlMs,
         exploreCache,
     });
@@ -113,8 +117,9 @@ async function main(): Promise<void> {
         void sessionRegistry.pruneIdleSessions().then((pruned) => {
             exploreCache.pruneExpired();
             if (pruned > 0) {
+                const health = sessionRegistry.getHealthStats();
                 process.stderr.write(
-                    `[McpSession] scheduled prune complete | active=${sessionRegistry.getActiveCount()} compat=${sessionRegistry.getCompatCount()}\n`,
+                    `[McpSession] scheduled prune complete | active=${health.activeSessions} compat=${health.compatSessions} sse=${health.activeSseConnections} inFlight=${health.inFlightRequests}\n`,
                 );
             }
         });
@@ -135,11 +140,14 @@ async function main(): Promise<void> {
     app.use(express.json({ limit: '4mb' }));
 
     app.get('/health', (_req: express.Request, res: express.Response) => {
+        const health = sessionRegistry.getHealthStats();
         res.status(200).json({
             ok: true as const,
-            activeSessions: sessionRegistry.getActiveCount(),
-            pendingSessions: sessionRegistry.getPendingCount(),
-            compatSessions: sessionRegistry.getCompatCount(),
+            activeSessions: health.activeSessions,
+            pendingSessions: health.pendingSessions,
+            compatSessions: health.compatSessions,
+            activeSseConnections: health.activeSseConnections,
+            inFlightRequests: health.inFlightRequests,
         });
     });
 
@@ -256,8 +264,12 @@ async function main(): Promise<void> {
                 });
             }
 
-            const releaseRequestLease =
-                sessionRegistry.acquireRequestLease(sessionEntry);
+            const isBusinessMethod =
+                req.method === 'POST' || req.method === 'DELETE';
+            const releaseRequestLease = sessionRegistry.acquireRequestLease(
+                sessionEntry,
+                { refreshBusinessActivity: isBusinessMethod },
+            );
             try {
                 await httpRequestApiKeyStore.run(
                     {

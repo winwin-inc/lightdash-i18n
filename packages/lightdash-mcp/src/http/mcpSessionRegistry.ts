@@ -20,14 +20,19 @@ export type McpSessionEntry = {
     mcpServer: McpServer;
     createdAtMs: number;
     lastActivityAtMs: number;
-    /** Combined SSE + in-flight POST request leases; blocks TTL/LRU eviction. */
-    activeLeases: number;
+    /** 进行中的业务请求（POST/DELETE）；>0 时禁止 TTL/LRU 淘汰 */
+    activeRequestLeases: number;
+    /** 进行中的 SSE 连接；不阻止 TTL/LRU，也不刷新业务活动时间 */
+    activeSseLeases: number;
     state: 'pending' | 'active' | 'closed';
     closePromise: Promise<void> | null;
 };
 
 export type McpSessionRegistryOptions = {
     maxSessions: number;
+    softSessionsPerOwner: number;
+    maxSessionsPerOwner: number;
+    lruMinIdleMs: number;
     sessionTtlMs: number;
     exploreCache: SharedExploreCache;
     createMcpServer?: typeof createLightdashMcpServer;
@@ -36,6 +41,14 @@ export type McpSessionRegistryOptions = {
             typeof StreamableHTTPServerTransport
         >[0],
     ) => StreamableHTTPServerTransport;
+};
+
+export type McpSessionHealthStats = {
+    activeSessions: number;
+    pendingSessions: number;
+    compatSessions: number;
+    activeSseConnections: number;
+    inFlightRequests: number;
 };
 
 export type McpSessionRegistry = {
@@ -51,12 +64,17 @@ export type McpSessionRegistry = {
     touch: (sessionId: string) => void;
     acquireSseLease: (sessionId: string) => void;
     releaseSseLease: (sessionId: string) => void;
-    acquireRequestLease: (entry: McpSessionEntry) => () => void;
+    acquireRequestLease: (
+        entry: McpSessionEntry,
+        options?: { refreshBusinessActivity?: boolean },
+    ) => () => void;
     pruneIdleSessions: () => Promise<number>;
     evictOldestSession: () => Promise<boolean>;
     getActiveCount: () => number;
     getPendingCount: () => number;
     getCompatCount: () => number;
+    getOwnerActiveCount: (ownerKey: string) => number;
+    getHealthStats: () => McpSessionHealthStats;
     closeAll: () => Promise<void>;
 };
 
@@ -102,18 +120,6 @@ function touchEntry(entry: McpSessionEntry): void {
     target.lastActivityAtMs = Date.now();
 }
 
-function acquireLease(entry: McpSessionEntry): void {
-    const target = entry;
-    target.activeLeases += 1;
-    touchEntry(target);
-}
-
-function releaseLease(entry: McpSessionEntry): void {
-    const target = entry;
-    target.activeLeases = Math.max(0, target.activeLeases - 1);
-    touchEntry(target);
-}
-
 export function createMcpSessionRegistry(
     config: LightdashMcpEnvConfig,
     options: McpSessionRegistryOptions,
@@ -128,20 +134,56 @@ export function createMcpSessionRegistry(
         options.createTransport ??
         ((transportOptions) =>
             new StreamableHTTPServerTransport(transportOptions));
+    const softSessionsPerOwner = Math.min(
+        options.softSessionsPerOwner,
+        options.maxSessionsPerOwner,
+    );
+    const maxSessionsPerOwner = Math.max(
+        options.softSessionsPerOwner,
+        options.maxSessionsPerOwner,
+    );
+    const lruMinIdleMs = options.lruMinIdleMs;
 
     const occupiedSlots = (): number =>
         sessions.size + compatByOwner.size + pendingEntries.size;
 
+    const countOwnerStateful = (ownerKey: string): number => {
+        let count = 0;
+        for (const entry of sessions.values()) {
+            if (entry.ownerKey === ownerKey) {
+                count += 1;
+            }
+        }
+        for (const entry of pendingEntries) {
+            if (entry.kind === 'stateful' && entry.ownerKey === ownerKey) {
+                count += 1;
+            }
+        }
+        return count;
+    };
+
+    const isRequestBusy = (entry: McpSessionEntry): boolean =>
+        entry.activeRequestLeases > 0;
+
+    const isLruCandidate = (entry: McpSessionEntry, nowMs: number): boolean => {
+        if (isRequestBusy(entry)) {
+            return false;
+        }
+        return nowMs - entry.lastActivityAtMs >= lruMinIdleMs;
+    };
+
     const logSessionEvent = (
         message: string,
         sessionId?: string | null,
+        extra?: string,
     ): void => {
         const idPart =
             sessionId !== undefined && sessionId !== null
                 ? ` id=${truncateSessionId(sessionId)}`
                 : '';
+        const extraPart = extra ? ` | ${extra}` : '';
         process.stderr.write(
-            `[McpSession] ${message}${idPart} | active=${sessions.size} compat=${compatByOwner.size} pending=${pendingEntries.size}\n`,
+            `[McpSession] ${message}${idPart}${extraPart} | active=${sessions.size} compat=${compatByOwner.size} pending=${pendingEntries.size}\n`,
         );
     };
 
@@ -181,21 +223,34 @@ export function createMcpSessionRegistry(
             sessions.delete(sessionId);
             const target = entry;
             target.state = 'closed';
-            logSessionEvent('closed', sessionId);
+            logSessionEvent('closed', sessionId, 'reason=client_delete');
         }
     };
 
-    const removeSession = async (sessionId: string): Promise<void> => {
+    const removeSession = async (
+        sessionId: string,
+        reason: string,
+    ): Promise<void> => {
         const entry = sessions.get(sessionId);
         if (!entry) {
             return;
         }
+        const ownerKey = entry.ownerKey;
         sessions.delete(sessionId);
-        entry.state = 'closed';
-        await closeEntry(entry);
+        const target = entry;
+        target.state = 'closed';
+        await closeEntry(target);
+        logSessionEvent(
+            `closed reason=${reason}`,
+            sessionId,
+            `ownerSessions=${countOwnerStateful(ownerKey)}`,
+        );
     };
 
-    const removeCompatSession = async (ownerKey: string): Promise<void> => {
+    const removeCompatSession = async (
+        ownerKey: string,
+        reason: string,
+    ): Promise<void> => {
         const entry = compatByOwner.get(ownerKey);
         if (!entry) {
             return;
@@ -203,7 +258,9 @@ export function createMcpSessionRegistry(
         compatByOwner.delete(ownerKey);
         entry.state = 'closed';
         await closeEntry(entry);
-        logSessionEvent(`compat closed owner=${ownerKey.slice(0, 8)}...`);
+        logSessionEvent(
+            `compat closed owner=${ownerKey.slice(0, 8)}... reason=${reason}`,
+        );
     };
 
     const abortPendingSessionUnlocked = async (
@@ -216,34 +273,46 @@ export function createMcpSessionRegistry(
         pendingEntries.delete(target);
         target.state = 'closed';
         await closeEntry(target);
+        logSessionEvent('abort_pending', target.sessionId);
     };
 
-    const findOldestEvictable = ():
+    const findOldestEvictable = (args?: {
+        ownerKey?: string;
+        includeCompat?: boolean;
+    }):
         | { type: 'stateful'; id: string }
         | { type: 'compat'; ownerKey: string }
         | null => {
+        const nowMs = Date.now();
         let oldestActivity = Number.POSITIVE_INFINITY;
         let oldestStateful: string | null = null;
         let oldestCompatOwner: string | null = null;
+        const ownerFilter = args?.ownerKey;
+        const includeCompat = args?.includeCompat !== false;
 
         for (const [sessionId, entry] of sessions) {
-            if (
-                entry.activeLeases === 0 &&
-                entry.lastActivityAtMs < oldestActivity
-            ) {
+            if (ownerFilter && entry.ownerKey !== ownerFilter) {
+                continue;
+            }
+            if (!isLruCandidate(entry, nowMs)) {
+                continue;
+            }
+            if (entry.lastActivityAtMs < oldestActivity) {
                 oldestActivity = entry.lastActivityAtMs;
                 oldestStateful = sessionId;
                 oldestCompatOwner = null;
             }
         }
-        for (const [ownerKey, entry] of compatByOwner) {
-            if (
-                entry.activeLeases === 0 &&
-                entry.lastActivityAtMs < oldestActivity
-            ) {
-                oldestActivity = entry.lastActivityAtMs;
-                oldestStateful = null;
-                oldestCompatOwner = ownerKey;
+        if (includeCompat && !ownerFilter) {
+            for (const [ownerKey, entry] of compatByOwner) {
+                if (!isLruCandidate(entry, nowMs)) {
+                    continue;
+                }
+                if (entry.lastActivityAtMs < oldestActivity) {
+                    oldestActivity = entry.lastActivityAtMs;
+                    oldestStateful = null;
+                    oldestCompatOwner = ownerKey;
+                }
             }
         }
 
@@ -256,18 +325,24 @@ export function createMcpSessionRegistry(
         return null;
     };
 
-    const evictOldestSessionUnlocked = async (): Promise<boolean> => {
-        const oldest = findOldestEvictable();
+    const evictOldestSessionUnlocked = async (args?: {
+        ownerKey?: string;
+        includeCompat?: boolean;
+        reason?: string;
+    }): Promise<boolean> => {
+        const oldest = findOldestEvictable({
+            ownerKey: args?.ownerKey,
+            includeCompat: args?.includeCompat,
+        });
         if (!oldest) {
             return false;
         }
+        const reason = args?.reason ?? 'lru';
         if (oldest.type === 'stateful') {
-            await removeSession(oldest.id);
-            logSessionEvent('evicted LRU session', oldest.id);
+            await removeSession(oldest.id, reason);
             return true;
         }
-        await removeCompatSession(oldest.ownerKey);
-        logSessionEvent('evicted LRU compat session');
+        await removeCompatSession(oldest.ownerKey, reason);
         return true;
     };
 
@@ -277,12 +352,10 @@ export function createMcpSessionRegistry(
             (entry) => now - entry.createdAtMs >= options.sessionTtlMs,
         );
         await Promise.all(
-            staleEntries.map((entry) =>
-                abortPendingSessionUnlocked(entry),
-            ),
+            staleEntries.map((entry) => abortPendingSessionUnlocked(entry)),
         );
         if (staleEntries.length > 0) {
-            logSessionEvent(`prunedPending=${staleEntries.length}`);
+            logSessionEvent(`prunedPending=${staleEntries.length} reason=ttl`);
         }
         return staleEntries.length;
     };
@@ -293,20 +366,20 @@ export function createMcpSessionRegistry(
         const expiredIds: string[] = [];
         for (const [sessionId, entry] of sessions) {
             if (
-                entry.activeLeases === 0 &&
+                !isRequestBusy(entry) &&
                 now - entry.lastActivityAtMs >= options.sessionTtlMs
             ) {
                 expiredIds.push(sessionId);
             }
         }
         await Promise.all(
-            expiredIds.map((sessionId) => removeSession(sessionId)),
+            expiredIds.map((sessionId) => removeSession(sessionId, 'ttl')),
         );
 
         const expiredCompatOwners: string[] = [];
         for (const [ownerKey, entry] of compatByOwner) {
             if (
-                entry.activeLeases === 0 &&
+                !isRequestBusy(entry) &&
                 now - entry.lastActivityAtMs >= options.sessionTtlMs
             ) {
                 expiredCompatOwners.push(ownerKey);
@@ -314,7 +387,7 @@ export function createMcpSessionRegistry(
         }
         await Promise.all(
             expiredCompatOwners.map((ownerKey) =>
-                removeCompatSession(ownerKey),
+                removeCompatSession(ownerKey, 'ttl'),
             ),
         );
 
@@ -322,10 +395,35 @@ export function createMcpSessionRegistry(
             prunedPending + expiredIds.length + expiredCompatOwners.length;
         if (expiredIds.length > 0 || expiredCompatOwners.length > 0) {
             logSessionEvent(
-                `pruned=${expiredIds.length} prunedCompat=${expiredCompatOwners.length}`,
+                `pruned=${expiredIds.length} prunedCompat=${expiredCompatOwners.length} reason=ttl`,
             );
         }
         return pruned;
+    };
+
+    /**
+     * 新 pending 已计入后：超过软上限尝试 owner-local LRU；
+     * 超过硬上限且无候选则拒绝。
+     */
+    const ensureOwnerCapacity = async (ownerKey: string): Promise<void> => {
+        if (countOwnerStateful(ownerKey) <= softSessionsPerOwner) {
+            return;
+        }
+
+        await evictOldestSessionUnlocked({
+            ownerKey,
+            includeCompat: false,
+            reason: 'owner_lru',
+        });
+
+        if (countOwnerStateful(ownerKey) > maxSessionsPerOwner) {
+            logSessionEvent(
+                `rejected: owner at hard cap (soft=${softSessionsPerOwner} hard=${maxSessionsPerOwner})`,
+                null,
+                `ownerSessions=${countOwnerStateful(ownerKey)}`,
+            );
+            throw new McpSessionCapacityError(maxSessionsPerOwner);
+        }
     };
 
     const ensureCapacityAfterReservation = async (): Promise<void> => {
@@ -333,7 +431,10 @@ export function createMcpSessionRegistry(
         options.exploreCache.pruneExpired();
 
         while (occupiedSlots() > options.maxSessions) {
-            const evicted = await evictOldestSessionUnlocked();
+            const evicted = await evictOldestSessionUnlocked({
+                includeCompat: true,
+                reason: 'lru',
+            });
             if (!evicted) {
                 break;
             }
@@ -360,12 +461,14 @@ export function createMcpSessionRegistry(
                 mcpServer: undefined as unknown as McpServer,
                 createdAtMs: Date.now(),
                 lastActivityAtMs: Date.now(),
-                activeLeases: 0,
+                activeRequestLeases: 0,
+                activeSseLeases: 0,
                 state: 'pending',
                 closePromise: null,
             };
             pendingEntries.add(entry);
             try {
+                await ensureOwnerCapacity(ownerKey);
                 await ensureCapacityAfterReservation();
             } catch (error) {
                 pendingEntries.delete(entry);
@@ -390,7 +493,12 @@ export function createMcpSessionRegistry(
                         entry.state = 'active';
                         pendingEntries.delete(entry);
                         sessions.set(sessionId, entry);
-                        logSessionEvent('created', sessionId);
+                        touchEntry(entry);
+                        logSessionEvent(
+                            'created',
+                            sessionId,
+                            `ownerSessions=${countOwnerStateful(ownerKey)}`,
+                        );
                     },
                     onsessionclosed: async (sessionId: string) => {
                         unregisterSession(sessionId, entry);
@@ -432,12 +540,14 @@ export function createMcpSessionRegistry(
                 mcpServer: undefined as unknown as McpServer,
                 createdAtMs: Date.now(),
                 lastActivityAtMs: Date.now(),
-                activeLeases: 0,
+                activeRequestLeases: 0,
+                activeSseLeases: 0,
                 state: 'pending',
                 closePromise: null,
             };
             pendingEntries.add(entry);
             try {
+                // compat 不占 soft/hard owner 额度，但仍计入全局容量
                 await ensureCapacityAfterReservation();
             } catch (error) {
                 pendingEntries.delete(entry);
@@ -479,10 +589,12 @@ export function createMcpSessionRegistry(
         lifecycleMutex.run(() => abortPendingSessionUnlocked(entry));
 
     const closeSession = async (sessionId: string): Promise<void> =>
-        lifecycleMutex.run(() => removeSession(sessionId));
+        lifecycleMutex.run(() => removeSession(sessionId, 'client_delete'));
 
     const evictOldestSession = async (): Promise<boolean> =>
-        lifecycleMutex.run(evictOldestSessionUnlocked);
+        lifecycleMutex.run(() =>
+            evictOldestSessionUnlocked({ includeCompat: true, reason: 'lru' }),
+        );
 
     const pruneIdleSessions = async (): Promise<number> =>
         lifecycleMutex.run(pruneIdleSessionsUnlocked);
@@ -495,7 +607,7 @@ export function createMcpSessionRegistry(
         if (!entry || entry.ownerKey !== ownerKey) {
             return undefined;
         }
-        touchEntry(entry);
+        // 不在此处刷新业务活动时间：GET/SSE 查找不得续命
         return entry;
     };
 
@@ -515,7 +627,8 @@ export function createMcpSessionRegistry(
         if (!entry) {
             return;
         }
-        acquireLease(entry);
+        const target = entry;
+        target.activeSseLeases += 1;
     };
 
     const releaseSseLease = (sessionId: string): void => {
@@ -523,21 +636,33 @@ export function createMcpSessionRegistry(
         if (!entry) {
             return;
         }
-        releaseLease(entry);
+        const target = entry;
+        target.activeSseLeases = Math.max(0, target.activeSseLeases - 1);
     };
 
-    const acquireRequestLease = (entry: McpSessionEntry): (() => void) => {
+    const acquireRequestLease = (
+        entry: McpSessionEntry,
+        leaseOptions?: { refreshBusinessActivity?: boolean },
+    ): (() => void) => {
         if (entry.state === 'closed') {
             return () => undefined;
         }
-        acquireLease(entry);
+        const target = entry;
+        target.activeRequestLeases += 1;
+        if (leaseOptions?.refreshBusinessActivity !== false) {
+            touchEntry(target);
+        }
         let released = false;
         return () => {
             if (released) {
                 return;
             }
             released = true;
-            releaseLease(entry);
+            target.activeRequestLeases = Math.max(
+                0,
+                target.activeRequestLeases - 1,
+            );
+            // 释放时不刷新业务活动时间，避免短请求反复续命
         };
     };
 
@@ -551,16 +676,43 @@ export function createMcpSessionRegistry(
         await Promise.all(pending.map((entry) => closeEntry(entry)));
 
         const ids = [...sessions.keys()];
-        await Promise.all(ids.map((sessionId) => removeSession(sessionId)));
+        await Promise.all(
+            ids.map((sessionId) => removeSession(sessionId, 'shutdown')),
+        );
 
         const owners = [...compatByOwner.keys()];
         await Promise.all(
-            owners.map((ownerKey) => removeCompatSession(ownerKey)),
+            owners.map((ownerKey) =>
+                removeCompatSession(ownerKey, 'shutdown'),
+            ),
         );
     };
 
     const closeAll = async (): Promise<void> =>
         lifecycleMutex.run(closeAllUnlocked);
+
+    const getHealthStats = (): McpSessionHealthStats => {
+        let activeSseConnections = 0;
+        let inFlightRequests = 0;
+        for (const entry of sessions.values()) {
+            activeSseConnections += entry.activeSseLeases;
+            inFlightRequests += entry.activeRequestLeases;
+        }
+        for (const entry of compatByOwner.values()) {
+            activeSseConnections += entry.activeSseLeases;
+            inFlightRequests += entry.activeRequestLeases;
+        }
+        for (const entry of pendingEntries) {
+            inFlightRequests += entry.activeRequestLeases;
+        }
+        return {
+            activeSessions: sessions.size,
+            pendingSessions: pendingEntries.size,
+            compatSessions: compatByOwner.size,
+            activeSseConnections,
+            inFlightRequests,
+        };
+    };
 
     return {
         createPendingSession,
@@ -578,6 +730,9 @@ export function createMcpSessionRegistry(
         getActiveCount: () => sessions.size,
         getPendingCount: () => pendingEntries.size,
         getCompatCount: () => compatByOwner.size,
+        getOwnerActiveCount: (ownerKey: string) =>
+            countOwnerStateful(ownerKey),
+        getHealthStats,
         closeAll,
     };
 }

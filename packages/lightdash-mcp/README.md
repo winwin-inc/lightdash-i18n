@@ -75,8 +75,11 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `OAUTH_INTROSPECT_URL`           | 否   | introspect 地址（默认 `<LIGHTDASH_SITE_URL>/api/v1/oauth/introspect`） |
 | `OAUTH_REQUIRED_SCOPES`          | 否   | 逗号分隔 scope，默认 `mcp:read`                               |
 | `OAUTH_RESOURCE_METADATA_URL`    | 否   | 401 挑战头中的 `resource_metadata` URL                        |
-| `LIGHTDASH_MCP_MAX_SESSIONS`     | 否   | 最大并发 MCP session 数，默认 `100`（硬上限，防止 OOM）              |
-| `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 空闲 session 回收 TTL，默认 `1800000`（30 分钟）                  |
+| `LIGHTDASH_MCP_MAX_SESSIONS`     | 否   | 最大并发 MCP session 数，默认 `100`（全局硬上限，含 stateful + compat + pending） |
+| `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` | 否 | 单 owner 标准 Session 软上限，默认 `10`（超出优先回收空闲） |
+| `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` | 否 | 单 owner 标准 Session 硬上限，默认 `20`（无可回收候选时拒绝新建） |
+| `LIGHTDASH_MCP_LRU_MIN_IDLE_MS`  | 否   | LRU 候选最小空闲时间，默认 `300000`（5 分钟） |
+| `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 无业务活动（POST/DELETE）后的回收 TTL，默认 `900000`（15 分钟） |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
 
 ### 多用户并发与内存防护
@@ -87,11 +90,13 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 内存防护（进程内，无 Redis）：
 
-1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session（活跃 SSE 连接豁免）；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
-2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune；未完成 initialize 的 pending session 也会按同一 TTL 回收。
-3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
-4. **同 PAT 多客户端并发**：同一 PAT（或 OAuth subject）可同时持有多个独立 session（例如 `config_ui` 与 CLI 并行）。每个客户端必须保存 `initialize` 响应头中的 `Mcp-Session-Id`，并在后续 POST/GET `/mcp` 请求中回传。GET SSE 断开后**不会销毁 session**，客户端可用同一 `Mcp-Session-Id` 重连 SSE；session 由 TTL、DELETE 或 LRU 回收。
-5. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner；多个客户端仍会各自创建独立 session，但共享同一认证身份。
+1. **全局硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰**至少空闲 5 分钟且无进行中业务请求**的最旧 session；仍满则返回 **503**。
+2. **单 owner 软/硬上限**：默认软上限 `10`、硬上限 `20`。超过软上限时优先关闭该 owner 空闲 ≥5 分钟且无进行中请求的最旧标准 Session；无可回收候选时允许增长到硬上限；达到硬上限仍无候选则 **503**，不中断刚活跃或正在查询的 Session。compat 通道不占 soft/hard 额度，但仍计入全局上限。
+3. **业务空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS`（默认 15 分钟）无 POST/DELETE 业务活动即可回收，**即使 SSE 仍连接**。GET/SSE 重连不刷新业务活动时间。未完成 initialize 的 pending session 也会按同一 TTL 回收。
+4. **进行中请求保护**：仅 `activeRequestLeases > 0`（进行中的 POST/DELETE）阻止 TTL/LRU；SSE 单独连接不再永久豁免。
+5. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
+6. **同 PAT 多客户端并发**：同一 PAT（或 OAuth subject）可同时持有多个独立 session（例如 `config_ui` 与 CLI 并行），受 soft/hard 上限约束。每个客户端必须保存 `initialize` 响应头中的 `Mcp-Session-Id`，并在后续 POST/GET `/mcp` 请求中回传。GET SSE 断开后**不会立即销毁 session**；session 由 TTL、DELETE 或 LRU 回收。
+7. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner；多个客户端仍会各自创建独立 session，但共享同一认证身份。
 
 运维调参建议：
 
@@ -100,9 +105,9 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 2GB         | 50–100              |
 | 4GB         | 150–200             |
 
-- 若频繁 **503** → 增大 `MAX_SESSIONS` 或缩短 `SESSION_TTL_MS`
+- 若频繁 **503** → 增大 `MAX_SESSIONS` / 单 owner 硬上限，或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions` 便于监控
+- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 
@@ -115,7 +120,7 @@ Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tool
 正确冒烟流程：
 
 ```bash
-# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions）
+# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests）
 curl -s http://localhost:3333/health
 
 # 2. initialize（从响应头取 Mcp-Session-Id）
