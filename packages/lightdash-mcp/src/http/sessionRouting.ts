@@ -8,6 +8,7 @@ export type SessionMissingReason =
 export type SessionRouteResult =
     | { kind: 'found'; entry: McpSessionEntry }
     | { kind: 'initialize' }
+    | { kind: 'compat' }
     | { kind: 'missing'; reason: SessionMissingReason };
 
 export type SessionRoutingRegistry = {
@@ -17,6 +18,26 @@ export type SessionRoutingRegistry = {
     ) => McpSessionEntry | undefined;
     getOwnerKeyForSession: (sessionId: string) => string | undefined;
 };
+
+export function getJsonRpcMethod(body: unknown): string | undefined {
+    if (body === null || body === undefined) {
+        return undefined;
+    }
+    if (Array.isArray(body)) {
+        for (const item of body) {
+            const method = getJsonRpcMethod(item);
+            if (method) {
+                return method;
+            }
+        }
+        return undefined;
+    }
+    if (typeof body !== 'object') {
+        return undefined;
+    }
+    const method = (body as { method?: unknown }).method;
+    return typeof method === 'string' ? method : undefined;
+}
 
 export function isInitializeRequest(body: unknown): boolean {
     if (body === null || body === undefined) {
@@ -69,6 +90,11 @@ export function resolveSessionRoute(
     }
     if (method === 'POST' && isInitializeRequest(body)) {
         return { kind: 'initialize' };
+    }
+    // Compat path: legacy clients POST tools/call|list without Session-Id.
+    // Do not open GET/SSE or DELETE without a session.
+    if (method === 'POST') {
+        return { kind: 'compat' };
     }
     return { kind: 'missing', reason: 'missing-header' };
 }

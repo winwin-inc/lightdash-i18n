@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     formatSessionMissingReason,
+    getJsonRpcMethod,
     isInitializeRequest,
     parseMcpSessionIdHeader,
     resolveSessionRoute,
@@ -23,13 +24,27 @@ describe('sessionRouting', () => {
         );
     });
 
+    it('getJsonRpcMethod reads method from object or batch', () => {
+        assert.equal(
+            getJsonRpcMethod({ jsonrpc: '2.0', method: 'tools/call', id: 1 }),
+            'tools/call',
+        );
+        assert.equal(
+            getJsonRpcMethod([
+                { jsonrpc: '2.0', method: 'tools/list', id: 1 },
+            ]),
+            'tools/list',
+        );
+        assert.equal(getJsonRpcMethod(undefined), undefined);
+    });
+
     it('parseMcpSessionIdHeader reads string or array header', () => {
         assert.equal(parseMcpSessionIdHeader('abc'), 'abc');
         assert.equal(parseMcpSessionIdHeader(['a', 'b']), 'b');
         assert.equal(parseMcpSessionIdHeader(undefined), undefined);
     });
 
-    it('resolveSessionRoute returns missing-header without session id', () => {
+    it('resolveSessionRoute returns compat for POST without session id', () => {
         const registry = {
             getForOwner: () => undefined,
             getOwnerKeyForSession: () => undefined,
@@ -39,6 +54,33 @@ describe('sessionRouting', () => {
                 registry,
                 'POST',
                 { jsonrpc: '2.0', method: 'tools/list', id: 1 },
+                undefined,
+                'owner-a',
+            ),
+            { kind: 'compat' },
+        );
+        assert.deepEqual(
+            resolveSessionRoute(
+                registry,
+                'POST',
+                { jsonrpc: '2.0', method: 'tools/call', id: 2 },
+                undefined,
+                'owner-a',
+            ),
+            { kind: 'compat' },
+        );
+    });
+
+    it('resolveSessionRoute returns missing-header for GET without session id', () => {
+        const registry = {
+            getForOwner: () => undefined,
+            getOwnerKeyForSession: () => undefined,
+        };
+        assert.deepEqual(
+            resolveSessionRoute(
+                registry,
+                'GET',
+                undefined,
                 undefined,
                 'owner-a',
             ),

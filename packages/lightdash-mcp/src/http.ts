@@ -27,6 +27,7 @@ import {
     formatSessionMissingReason,
     parseMcpSessionIdHeader,
     resolveSessionRoute,
+    type SessionMissingReason,
 } from './http/sessionRouting';
 import {
     httpRequestApiKeyStore,
@@ -54,6 +55,38 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     );
 }
 
+function handleSessionNotFound(
+    res: express.Response,
+    reason: SessionMissingReason,
+    sessionHeader: string | undefined,
+    userEmail: string,
+): void {
+    const sessionTag = sessionHeader
+        ? ` | session=${sessionHeader.slice(0, 8)}...`
+        : '';
+    process.stderr.write(
+        `[McpSession] 404 ${formatSessionMissingReason(reason)}${sessionTag} | ${userEmail}\n`,
+    );
+    res.status(404).json({
+        error: 'Session not found',
+        hint: 'Send POST initialize without Mcp-Session-Id to start a new session, or POST tools/call without Session-Id for legacy compat mode',
+    });
+}
+
+function formatSessionLogTags(options: {
+    sessionHeader: string | undefined;
+    compat: boolean;
+}): string {
+    const parts: string[] = [];
+    if (options.compat) {
+        parts.push('compat=1');
+    }
+    if (options.sessionHeader) {
+        parts.push(`session=${options.sessionHeader.slice(0, 8)}...`);
+    }
+    return parts.length > 0 ? ` | ${parts.join(' | ')}` : '';
+}
+
 async function main(): Promise<void> {
     const config = loadConfigFromEnv();
     logStartupConfig(config);
@@ -70,7 +103,7 @@ async function main(): Promise<void> {
             exploreCache.pruneExpired();
             if (pruned > 0) {
                 process.stderr.write(
-                    `[McpSession] scheduled prune complete | active=${sessionRegistry.getActiveCount()}\n`,
+                    `[McpSession] scheduled prune complete | active=${sessionRegistry.getActiveCount()} compat=${sessionRegistry.getCompatCount()}\n`,
                 );
             }
         });
@@ -95,6 +128,7 @@ async function main(): Promise<void> {
             ok: true as const,
             activeSessions: sessionRegistry.getActiveCount(),
             pendingSessions: sessionRegistry.getPendingCount(),
+            compatSessions: sessionRegistry.getCompatCount(),
         });
     });
 
@@ -113,6 +147,7 @@ async function main(): Promise<void> {
         const sessionHeader = parseMcpSessionIdHeader(
             req.headers['mcp-session-id'],
         );
+        let usedCompat = false;
 
         try {
             if (bearerToken && config.oauthEnabled) {
@@ -170,14 +205,28 @@ async function main(): Promise<void> {
                     }
                     throw error;
                 }
+            } else if (route.kind === 'compat') {
+                usedCompat = true;
+                try {
+                    sessionEntry =
+                        await sessionRegistry.getOrCreateCompatSession(ownerKey);
+                } catch (error) {
+                    if (error instanceof McpSessionCapacityError) {
+                        res.status(503).json({
+                            error: 'Too many active MCP sessions, retry later',
+                            maxSessions: config.maxSessions,
+                        });
+                        return;
+                    }
+                    throw error;
+                }
             } else if (route.kind === 'missing') {
-                process.stderr.write(
-                    `[McpSession] 404 ${formatSessionMissingReason(route.reason)}${sessionHeader ? ` | session=${sessionHeader.slice(0, 8)}...` : ''} | ${userEmail}\n`,
+                handleSessionNotFound(
+                    res,
+                    route.reason,
+                    sessionHeader,
+                    userEmail,
                 );
-                res.status(404).json({
-                    error: 'Session not found',
-                    hint: 'Send POST initialize without Mcp-Session-Id to start a new session',
-                });
                 return;
             } else {
                 sessionEntry = route.entry;
@@ -185,6 +234,7 @@ async function main(): Promise<void> {
 
             if (
                 req.method === 'GET' &&
+                sessionEntry.kind === 'stateful' &&
                 sessionEntry.sessionId !== null &&
                 sessionEntry.sessionId !== undefined
             ) {
@@ -195,6 +245,8 @@ async function main(): Promise<void> {
                 });
             }
 
+            const releaseRequestLease =
+                sessionRegistry.acquireRequestLease(sessionEntry);
             try {
                 await httpRequestApiKeyStore.run(
                     {
@@ -215,8 +267,10 @@ async function main(): Promise<void> {
                         ),
                 );
             } finally {
+                releaseRequestLease();
                 if (
                     sessionEntry &&
+                    sessionEntry.kind === 'stateful' &&
                     sessionEntry.sessionId === null &&
                     route.kind === 'initialize'
                 ) {
@@ -263,9 +317,10 @@ async function main(): Promise<void> {
             const elapsed = Date.now() - start;
             const status = res.statusCode || 0;
             const statusTag = status >= 400 ? ` | error(${status})` : '';
-            const sessionTag = sessionHeader
-                ? ` | session=${sessionHeader.slice(0, 8)}...`
-                : '';
+            const sessionTag = formatSessionLogTags({
+                sessionHeader,
+                compat: usedCompat,
+            });
             if (status === 409) {
                 process.stderr.write(
                     `[McpSse] 409 conflict${sessionTag} | activeSessions=${sessionRegistry.getActiveCount()} | ${userEmail}\n`,

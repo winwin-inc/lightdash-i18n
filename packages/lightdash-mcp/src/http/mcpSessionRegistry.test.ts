@@ -503,4 +503,114 @@ describe('createMcpSessionRegistry', () => {
         assert.equal(registry.getPendingCount(), 0);
         assert.equal(registry.getActiveCount(), 0);
     });
+
+    it('reuses one compat session per owner', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(testConfig, {
+            maxSessions: 10,
+            sessionTtlMs: 600_000,
+            exploreCache,
+        });
+
+        const first = await registry.getOrCreateCompatSession('owner-a');
+        const second = await registry.getOrCreateCompatSession('owner-a');
+        assert.equal(first, second);
+        assert.equal(first.kind, 'compat');
+        assert.equal(registry.getCompatCount(), 1);
+
+        const other = await registry.getOrCreateCompatSession('owner-b');
+        assert.notEqual(other, first);
+        assert.equal(registry.getCompatCount(), 2);
+        await registry.closeAll();
+        assert.equal(registry.getCompatCount(), 0);
+    });
+
+    it('compat session handles tools/list without session id', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(testConfig, {
+            maxSessions: 5,
+            sessionTtlMs: 600_000,
+            exploreCache,
+        });
+
+        const entry = await registry.getOrCreateCompatSession('owner-a');
+        assert.equal(entry.kind, 'compat');
+        assert.equal(entry.state, 'active');
+        assert.ok(entry.transport);
+
+        const release = registry.acquireRequestLease(entry);
+        try {
+            const init = createMockReqRes('POST', {
+                jsonrpc: '2.0',
+                method: 'initialize',
+                params: {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {},
+                    clientInfo: { name: 'compat-test', version: '1.0.0' },
+                },
+                id: 1,
+            });
+            await entry.transport.handleRequest(init.req, init.res, init.body);
+            assert.equal(init.res.statusCode, 200);
+
+            const list = createMockReqRes('POST', {
+                jsonrpc: '2.0',
+                method: 'tools/list',
+                id: 2,
+            });
+            await entry.transport.handleRequest(list.req, list.res, list.body);
+            assert.equal(list.res.statusCode, 200);
+        } finally {
+            release();
+        }
+
+        assert.equal(registry.getCompatCount(), 1);
+        await registry.closeAll();
+    });
+
+    it('request lease prevents TTL prune of compat session', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(testConfig, {
+            maxSessions: 5,
+            sessionTtlMs: 20,
+            exploreCache,
+        });
+
+        const entry = await registry.getOrCreateCompatSession('owner-a');
+        const release = registry.acquireRequestLease(entry);
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        const prunedWhileBusy = await registry.pruneIdleSessions();
+        assert.equal(prunedWhileBusy, 0);
+        assert.equal(registry.getCompatCount(), 1);
+
+        release();
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        const prunedAfter = await registry.pruneIdleSessions();
+        assert.equal(prunedAfter, 1);
+        assert.equal(registry.getCompatCount(), 0);
+        await registry.closeAll();
+    });
+
+    it('capacity accounts for compat and stateful sessions together', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(testConfig, {
+            maxSessions: 1,
+            sessionTtlMs: 600_000,
+            exploreCache,
+        });
+
+        await registry.getOrCreateCompatSession('owner-a');
+        assert.equal(registry.getCompatCount(), 1);
+
+        const sessionId = await initializeSession(registry, 'owner-b');
+        assert.equal(registry.getActiveCount(), 1);
+        assert.equal(registry.getCompatCount(), 0);
+        assert.ok(registry.getForOwner(sessionId, 'owner-b'));
+        await registry.closeAll();
+    });
 });
