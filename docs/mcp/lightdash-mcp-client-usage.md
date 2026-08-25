@@ -1,10 +1,11 @@
 # Lightdash MCP 标准客户端使用规范
 
 面向：**接入 MCP 的应用开发者、平台运维、自研 HTTP 客户端维护者**。  
-描述 **0.4.x** 起推荐的标准调用方式，以及存量无 Session 客户端的兼容行为。
+说明推荐的标准调用方式，以及存量无 Session 客户端的兼容行为。
 
 分析师怎么提问请看 [用户使用说明](./lightdash-mcp-user-guide.md)。  
-文档总入口：[README](./README.md)。
+文档总入口：[README](./README.md)。  
+**对外单独转发**请用：[外部接入指南](./lightdash-mcp-external-guide.md)（自包含，不依赖本文）。
 
 ---
 
@@ -24,6 +25,8 @@
 3. **`initialize` 是传输层握手，不是业务工具**；业务 / AI 不要手工调 `initialize`。
 4. **多副本不要依赖 `set_project` 的跨请求状态**；查询参数里带 `projectUuid`。
 
+### 请求怎么分流
+
 ```mermaid
 flowchart LR
   subgraph clients [Clients]
@@ -41,6 +44,21 @@ flowchart LR
   Auth --> Route
   Route -->|initialize_or_header| Stateful
   Route -->|POST_no_header| Compat
+```
+
+```mermaid
+flowchart TD
+  Start[POST_or_GET_/mcp] --> Auth{鉴权通过?}
+  Auth -->|否| E401[401 Unauthorized]
+  Auth -->|是| HasSid{带 Mcp-Session-Id?}
+  HasSid -->|是| Lookup{Session 存在且归属正确?}
+  Lookup -->|否| E404[404 Session not found]
+  Lookup -->|是| Stateful[走标准 Session]
+  HasSid -->|否| IsInit{method=initialize?}
+  IsInit -->|是| NewSid[创建标准 Session 返回 Session-Id]
+  IsInit -->|否| IsPost{POST?}
+  IsPost -->|是| Compat[走 compat 按用户隔离]
+  IsPost -->|否| E404b[404 需 Session-Id]
 ```
 
 ---
@@ -77,6 +95,23 @@ POST /mcp/tools/call
 
 ### 3.1 流程
 
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant S as MCP_/mcp
+  C->>S: POST initialize
+  S-->>C: 200 + Header Mcp-Session-Id
+  opt 可选 SSE
+    C->>S: GET + Mcp-Session-Id
+    S-->>C: SSE 通道
+  end
+  C->>S: POST tools/call + Mcp-Session-Id
+  S-->>C: 工具结果
+  opt 结束
+    C->>S: DELETE + Mcp-Session-Id
+  end
+```
+
 ```text
 1. POST /mcp  method=initialize
    ← 响应头 Mcp-Session-Id: <uuid>
@@ -91,6 +126,8 @@ POST /mcp/tools/call
 ```
 
 同 PAT（或同一 OAuth subject）可同时持有**多个**标准 Session（多客户端并行）。Session 与认证身份绑定；带他人 Session-Id 会 **404**。
+
+> 说明：同一邮箱多次 `initialize`（重连 / 重载 MCP）会让 `activeSessions` 上涨，这是预期行为，不等于在线人数。空闲约 30 分钟后回收；满额时 LRU 淘汰最久未用的。
 
 ### 3.2 Cursor / Claude `.mcp.json`
 
@@ -166,6 +203,13 @@ curl -X POST 'http://localhost:3333/mcp' \
 
 ### 4.1 行为
 
+```mermaid
+flowchart LR
+  A[POST_/mcp 无 Session-Id] --> B[按 PAT/OAuth 归属]
+  B --> C[复用该用户 compat 通道]
+  C --> D[tools/call / tools/list]
+```
+
 ```text
 POST /mcp
 Header: x-api-key
@@ -202,6 +246,17 @@ curl -X POST 'http://localhost:3333/mcp' \
 ## 5. 项目选择（AI 与业务都要遵守）
 
 需要项目的工具解析顺序：
+
+```mermaid
+flowchart TD
+  A[需要 projectUuid 的工具] --> B{参数里有 projectUuid?}
+  B -->|是| UseParam[用参数]
+  B -->|否| C{本 Session 做过 set_project?}
+  C -->|是| UseSet[用会话项目]
+  C -->|否| D{环境 LIGHTDASH_PROJECT_UUID?}
+  D -->|是| UseEnv[用环境默认]
+  D -->|否| Err[报错：缺少 projectUuid]
+```
 
 1. **本次工具参数** `projectUuid`（最高优先）
 2. 当前连接内的 `set_project`（单实例 / 同一标准 Session 内有效）
@@ -252,7 +307,7 @@ Cursor / Claude 连接好 MCP 后，AI 只调用工具即可。
 curl -s http://localhost:3333/health
 ```
 
-预期（0.4.x）：
+预期：
 
 ```json
 {
@@ -265,19 +320,19 @@ curl -s http://localhost:3333/health
 
 | 字段 | 含义 |
 |------|------|
-| `activeSessions` | 已完成 initialize 的标准 Session |
+| `activeSessions` | 已完成 initialize 的标准 Session（≠ 在线人数；重连会囤） |
 | `pendingSessions` | 正在 initialize、尚未绑定 Id 的临时 Session |
 | `compatSessions` | 无 Session-Id 的兼容通道数（按 owner） |
 
-相关环境变量（详见包 README）：
+相关环境变量：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `LIGHTDASH_MCP_MAX_SESSIONS` | `100` | 并发 Session 硬上限（含 compat） |
-| `LIGHTDASH_MCP_SESSION_TTL_MS` | `1800000` | 空闲回收 TTL |
-| `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` | `300000` | prune 间隔 |
+| `LIGHTDASH_MCP_SESSION_TTL_MS` | `1800000`（30 分钟） | 空闲回收 TTL |
+| `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` | `300000`（5 分钟） | prune 间隔 |
 
-满额时可能 **503** `Too many active MCP sessions, retry later`。
+满额时：先清空闲、再 LRU 淘汰最久未用；仍满则 **503** `Too many active MCP sessions, retry later`。
 
 ---
 
@@ -295,13 +350,11 @@ curl -s http://localhost:3333/health
 | `503 Too many active MCP sessions` | 并发 Session 触顶 | 增大 `LIGHTDASH_MCP_MAX_SESSIONS` 或缩短 TTL |
 | HTML `Bad Request`（旧镜像） | 非法 JSON 未优雅处理 | 升级到带 JSON 错误中间件的版本 |
 
-服务端对非法 JSON 的预期日志（新版本）：
+服务端对非法 JSON 的预期日志：
 
 ```text
 [RequestLog] ... POST /mcp | ... | 400 | ... | invalid_json_body | ...
 ```
-
-不再出现未捕获的 `SyntaxError` 堆栈。
 
 ---
 

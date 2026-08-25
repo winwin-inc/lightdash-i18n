@@ -2,7 +2,8 @@
 
 | 文档 | 给谁 |
 |------|------|
-| [标准客户端用法](./lightdash-mcp-client-usage.md) | 接入 / Session / compat / goldeneye |
+| [**外部接入指南**](./lightdash-mcp-external-guide.md) | **可单独转发给外部接入方**（含流程图） |
+| [标准客户端用法](./lightdash-mcp-client-usage.md) | 内部完整规范（Session / compat / 运维细节） |
 | [用户使用说明](./lightdash-mcp-user-guide.md) | 分析师怎么提问 |
 | [查询工具速查](./lightdash-mcp-query-tools-quickref.md) | semantic vs flat |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查 |
