@@ -102,18 +102,20 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 - 若频繁 **503** → 增大 `MAX_SESSIONS` 或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions` 与 `pendingSessions` 便于监控
+- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 
+**无 Session 兼容（compat）**：存量客户端可直接 `POST /mcp` 调 `tools/call`（不带 `Mcp-Session-Id`），服务端按鉴权身份隔离兼容通道。新接入请仍用标准 Session。详见下方文档。
+
 ### MCP 健康检查与调用约定
 
-Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tools/list`、`tools/call` 是 **JSON-RPC method**，写在 POST `/mcp` 的 body 里，**不是** `/mcp/tools/list` 这类 URL 子路径。
+Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tools/list`、`tools/call` 是 **JSON-RPC method**，写在 POST `/mcp` 的 body 里，**不是** `/mcp/tools/list` 这类 URL 子路径。非法 JSON body 返回 **400**（`Invalid JSON body`），日志标记 `invalid_json_body`。
 
 正确冒烟流程：
 
 ```bash
-# 1. 健康检查
+# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions）
 curl -s http://localhost:3333/health
 
 # 2. initialize（从响应头取 Mcp-Session-Id）
@@ -127,13 +129,17 @@ curl -i -X POST 'http://localhost:3333/mcp' \
 curl -X POST 'http://localhost:3333/mcp' \
   -H 'x-api-key: YOUR_PAT' \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
   -H 'Mcp-Session-Id: <session-id-from-step-2>' \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
 ```
 
 服务端 404 日志会区分内部原因（`missing Mcp-Session-Id header` / `unknown or expired session id` / `owner mismatch`），但客户端统一收到 `Session not found`。
 
-**客户端接入规范（标准 Session / 存量兼容 / projectUuid）** 见仓库文档：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)。
+**客户端接入规范（标准 Session / 存量兼容 / projectUuid / 排障）**：
+
+- 索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
+- 标准用法：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)
 
 ### 项目 `projectUuid` 解析顺序
 
@@ -195,7 +201,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
 - `run_semantic_metric_query` / `run_metric_query`：首条 **CSV** + `structuredContent`（默认 `valueFormat=raw`；`valueFormat=formatted` 为 Explorer 展示值；`full=true` 额外返回嵌套 rows、fields、warnings 及第二条 JSON）
 - `run_metric_query`：扁平参数（`exploreName` + `dimensions[]` + `metrics[]`），简单查询。规则在 `src/mcp/toolDescriptions/runMetricQueryFlat.ts`。
-- 维护者文档（AI 不可见）：`docs/mcp/lightdash-mcp-*.md`
+- 文档索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 - `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 
@@ -282,10 +288,12 @@ CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdas
 
 ## 相关仓库与文档
 
-- 技能与示例：`packages/lightdash-skills`
-- 总览：`[docs/lightdash-mcp.md](../../docs/lightdash-mcp.md)`
-- 分析师向说明：`[docs/lightdash-mcp-user-oriented-tools.md](../../docs/lightdash-mcp-user-oriented-tools.md)`
-- Docker 部署：`[docs/mcp/lightdash-mcp-docker-deploy.md](../../docs/mcp/lightdash-mcp-docker-deploy.md)`
+- 文档索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
+- 标准客户端用法：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)
+- 分析师说明：[`docs/mcp/lightdash-mcp-user-guide.md`](../../docs/mcp/lightdash-mcp-user-guide.md)
+- 查询速查：[`docs/mcp/lightdash-mcp-query-tools-quickref.md`](../../docs/mcp/lightdash-mcp-query-tools-quickref.md)
+- Docker：[`docs/mcp/lightdash-mcp-docker-deploy.md`](../../docs/mcp/lightdash-mcp-docker-deploy.md)
+- Skills：`packages/lightdash-skills`
 
 ## 可执行入口
 

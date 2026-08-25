@@ -30,9 +30,9 @@ pnpm bump-mcp-skills -- 0.1.1            # MCP package.json + 本目录 version.
 ## 工具名与 DEV_TOOL_NAMES
 
 - 工具名以 MCP 服务端注册为准；[`packages/lightdash-mcp/DEV_TOOL_NAMES.md`](../lightdash-mcp/DEV_TOOL_NAMES.md) 由仓库根 **`pnpm list-mcp-tools:write`**（或 `node scripts/list-mcp-tool-names.mjs --write`）根据源码生成，维护者按需执行。
-- MCP 连接与完整参数说明：[`packages/lightdash-mcp/README.md`](../lightdash-mcp/README.md)、[`docs/lightdash-mcp.md`](../../docs/lightdash-mcp.md)。
+- MCP 连接与完整参数说明：[`packages/lightdash-mcp/README.md`](../lightdash-mcp/README.md)、[`docs/mcp/README.md`](../../docs/mcp/README.md)。
 
-## 更长流程 SOP（仓库文档）
+## 查询 SOP
 
-- 完整查询门禁与阶段划分（若仍放在 monorepo）：[`docs/mcp/lightdash-mcp-query-sop.md`](../../docs/mcp/lightdash-mcp-query-sop.md)。  
-  技能包内精简门禁见 [`lightdash-insight-router/ROUTER-SOP.md`](./lightdash-insight-router/ROUTER-SOP.md)。
+技能包内门禁见 [`lightdash-insight-router/ROUTER-SOP.md`](./lightdash-insight-router/ROUTER-SOP.md)。  
+仓库 MCP 文档索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)。

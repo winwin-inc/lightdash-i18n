@@ -1,6 +1,6 @@
 # Project Guidance (Lightdash MCP + Skills)
 
-完整使用步骤（构建 MCP、stdio/HTTP 配置、Skills）：见 **`docs/lightdash-mcp.md`**。
+完整使用步骤（构建 MCP、HTTP 配置、Skills）：见 **`docs/mcp/README.md`**（索引）与 **`docs/mcp/lightdash-mcp-client-usage.md`**（接入规范）。
 
 ## Data Query Priority
 

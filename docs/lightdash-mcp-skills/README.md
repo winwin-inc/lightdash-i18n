@@ -2,7 +2,12 @@
 
 在 Cursor、Claude Code 里连接我们自建的 MCP，然后挂上 Skills 来更顺滑地和 Lightdash 打交道。
 
-具体怎么连、怎么配，看 user-guide；想了解背后的架构、鉴权、工具列表，看 architecture；自己部署 MCP 遇到问题，看 `packages/lightdash-mcp/README.md`。
+- 怎么连、怎么提问：[user-guide](./user-guide.md) · 仓库 [分析师说明](../mcp/lightdash-mcp-user-guide.md)
+- 接入 / Session / compat：[标准客户端用法](../mcp/lightdash-mcp-client-usage.md)
+- 架构与鉴权概览：[architecture](./architecture.md)（工具清单以 [包 README](../../packages/lightdash-mcp/README.md) 为准）
+- 全部文档索引：[docs/mcp/README.md](../mcp/README.md)
+
+对外只暴露一个技能入口时，优先 `lightdash-insight-router`；高级 Metric Query 由 router 在需要时进入 `lightdash-metric-query`。
 
 ## 几个基本概念
 
