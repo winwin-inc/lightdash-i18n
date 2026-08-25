@@ -152,14 +152,70 @@ describe('mcp http session lifecycle wiring', () => {
             assert.fail('expected capacity error');
         } catch (error) {
             assert.ok(error instanceof McpSessionCapacityError);
+            assert.equal(error.scope, 'global');
+            assert.equal(error.maxSessions, 1);
             // 与 http.ts 503 响应字段对齐
             const payload = {
                 error: 'Too many active MCP sessions, retry later',
-                maxSessions: 1,
+                maxSessions: error.maxSessions,
+                scope: error.scope,
             };
-            assert.equal(payload.maxSessions, 1);
+            assert.equal(payload.scope, 'global');
             assert.match(error.message, /Too many active MCP sessions/);
         }
+        await registry.closeAll();
+    });
+
+    it('GET-only wiring allows TTL while SSE lease is held', async () => {
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 5,
+                sessionTtlMs: 20,
+                exploreCache: createSharedExploreCache(),
+            }),
+        );
+        const pending = await registry.createPendingSession('owner-http');
+        const sessionId = await initializeEntry(pending);
+
+        // 模拟修复后的 http.ts：GET 仅 SSE lease，无 request lease
+        registry.acquireSseLease(sessionId);
+        assert.equal(registry.getHealthStats().activeSseConnections, 1);
+        assert.equal(registry.getHealthStats().inFlightRequests, 0);
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 1);
+        assert.equal(registry.getActiveCount(), 0);
+        await registry.closeAll();
+    });
+
+    it('POST request lease blocks prune until released', async () => {
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 5,
+                sessionTtlMs: 20,
+                exploreCache: createSharedExploreCache(),
+            }),
+        );
+        const pending = await registry.createPendingSession('owner-http');
+        const sessionId = await initializeEntry(pending);
+        const entry = registry.getForOwner(sessionId, 'owner-http')!;
+
+        const release = registry.acquireRequestLease(entry, {
+            refreshBusinessActivity: true,
+        });
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 0);
+        release();
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 1);
         await registry.closeAll();
     });
 });

@@ -218,7 +218,8 @@ async function main(): Promise<void> {
                     if (error instanceof McpSessionCapacityError) {
                         res.status(503).json({
                             error: 'Too many active MCP sessions, retry later',
-                            maxSessions: config.maxSessions,
+                            maxSessions: error.maxSessions,
+                            scope: error.scope,
                         });
                         return;
                     }
@@ -233,7 +234,8 @@ async function main(): Promise<void> {
                     if (error instanceof McpSessionCapacityError) {
                         res.status(503).json({
                             error: 'Too many active MCP sessions, retry later',
-                            maxSessions: config.maxSessions,
+                            maxSessions: error.maxSessions,
+                            scope: error.scope,
                         });
                         return;
                     }
@@ -264,12 +266,14 @@ async function main(): Promise<void> {
                 });
             }
 
+            // GET/SSE 只占 SSE lease，不占业务 request lease，避免长连阻止 TTL/LRU
             const isBusinessMethod =
                 req.method === 'POST' || req.method === 'DELETE';
-            const releaseRequestLease = sessionRegistry.acquireRequestLease(
-                sessionEntry,
-                { refreshBusinessActivity: isBusinessMethod },
-            );
+            const releaseRequestLease = isBusinessMethod
+                ? sessionRegistry.acquireRequestLease(sessionEntry, {
+                      refreshBusinessActivity: true,
+                  })
+                : (): void => undefined;
             try {
                 await httpRequestApiKeyStore.run(
                     {

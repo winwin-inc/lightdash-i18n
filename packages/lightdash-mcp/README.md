@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **24 个 MCP 工具**（**16** 个核心：健康/项目/目录/内容/查询；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **25 个 MCP 工具**（**17** 个核心：健康/项目/目录/内容/查询/文档；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -197,10 +197,11 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 ### 核心工具（17 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
+`get_lightdash_version` · `get_mcp_docs` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
 
 说明要点：
 
+- `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `session_lifecycle` / `security`）。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。

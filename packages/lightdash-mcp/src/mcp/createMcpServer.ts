@@ -14,6 +14,7 @@ import { getHttpRequestUserAttributesHeader } from '../lib/requestContext';
 import { createLightdashRestClient } from '../rest/lightdashRest';
 import { registerAnalystPrompt } from './registerAnalystPrompt';
 import { registerCoreMcpTools } from './registerCoreMcpTools';
+import { registerDocsTool } from './registerDocsTool';
 import { registerExtensionTools } from './registerExtensionTools';
 
 const EXPLORE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -113,6 +114,7 @@ export function createLightdashMcpServer(
         defaultPoll,
     });
 
+    registerDocsTool(server);
     registerAnalystPrompt(server);
 
     return server;

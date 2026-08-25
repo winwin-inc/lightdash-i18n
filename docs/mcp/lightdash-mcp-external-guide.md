@@ -105,7 +105,7 @@ sequenceDiagram
 同一令牌可同时开多个 Session（多进程 / 多窗口）。  
 Session 与令牌身份绑定，不要把别人的 Session-Id 拿来用。
 
-空闲约 **30 分钟**未使用会被服务端回收；触顶时也可能淘汰最久未用的 Session。收到 **404 Session not found** 时，应重新 `initialize`，**不要**继续用旧 Id。
+空闲约 **15 分钟**无业务活动（POST/DELETE）会被服务端回收；触顶时也可能淘汰空闲至少约 5 分钟的 Session。收到 **404 Session not found** 时，应重新 `initialize`，**不要**继续用旧 Id。
 
 ### 3.2 curl：连接与调用
 
@@ -120,7 +120,7 @@ curl -i -X POST "$MCP_BASE/mcp" \
   -H "x-api-key: $PAT" \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-app","version":"1.0"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"my-app","version":"1.0"}}}'
 
 # 2) 调用工具（替换 SESSION_ID）
 curl -X POST "$MCP_BASE/mcp" \
@@ -147,7 +147,8 @@ curl -X POST "$MCP_BASE/mcp" \
 }
 ```
 
-这类宿主会自动完成连接与 Session；应用侧只需调用工具，一般不必自己管 Session 头与断开。
+这类宿主会自动完成连接与 Session；应用侧一般只需调用工具。  
+注意：部分宿主（含 Cursor、Claude Code 的已知行为）**不一定**在退出时发送 `DELETE`，服务端会用约 15 分钟业务空闲 TTL 与容量 LRU 兜底回收。
 
 ---
 
@@ -159,7 +160,7 @@ curl -X POST "$MCP_BASE/mcp" \
 |------|------|------|
 | **正式断开** | `DELETE /mcp` + `Mcp-Session-Id` + 鉴权头 | 释放该标准 Session；之后该 Id 失效 |
 | **仅关掉 SSE** | 关闭 GET 长连接 | **不会**销毁 Session；仍可用同一 Id 继续 POST 或再开 SSE |
-| **不主动 DELETE** | 依赖空闲回收 | 约 30 分钟空闲后回收；频繁重连不 DELETE 易推高 `activeSessions` |
+| **不主动 DELETE** | 依赖空闲回收 | 约 15 分钟无业务活动后回收；频繁重连不 DELETE 易推高 `activeSessions` |
 
 ```bash
 # 3) 断开连接（替换 SESSION_ID）
@@ -248,7 +249,11 @@ curl -s "$MCP_BASE/health"
 | `activeSessions` | 标准 Session 数量（多次 initialize 不 DELETE 会上涨） |
 | `compatSessions` | 兼容通道数量 |
 
-服务有并发上限与空闲回收；触顶时新连接可能收到 **503**，稍后重试或先 DELETE 释放闲置 Session。
+服务有全局与单用户（owner）并发上限，以及按**业务空闲时间**的回收：
+
+- 单 owner 默认软上限 10 / 硬上限 20；超过软上限会优先回收该用户空闲 ≥5 分钟的旧 Session
+- 连续约 15 分钟无 POST/DELETE 业务活动即可回收，即使 SSE 仍连着
+- 触顶时新 `initialize` 可能收到 **503**，稍后重试或先 DELETE 释放闲置 Session
 
 ---
 

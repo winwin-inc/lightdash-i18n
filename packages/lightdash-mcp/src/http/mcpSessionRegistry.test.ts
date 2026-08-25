@@ -7,6 +7,7 @@ import {
     createSharedExploreCache,
     resetSharedExploreCacheForTests,
 } from '../lib/sharedExploreCache';
+import { createLightdashMcpServer } from '../mcp/createMcpServer';
 import {
     createMcpSessionRegistry,
     hashMcpSessionOwnerKey,
@@ -691,7 +692,7 @@ describe('createMcpSessionRegistry', () => {
         await registry.closeAll();
     });
 
-    it('GET-style request lease does not refresh business activity', async () => {
+    it('GET-style SSE lease alone does not refresh business activity', async () => {
         const exploreCache = createSharedExploreCache();
         const registry = createMcpSessionRegistry(
             testConfig,
@@ -709,21 +710,133 @@ describe('createMcpSessionRegistry', () => {
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 20);
         });
-        // 模拟 http.ts GET：SSE lease + request lease 不刷新业务活动
+        // 模拟 http.ts GET：仅 SSE lease，不拿业务 request lease
         registry.acquireSseLease(sessionId);
-        const release = registry.acquireRequestLease(entry, {
-            refreshBusinessActivity: false,
-        });
-        release();
-        registry.releaseSseLease(sessionId);
-
         assert.equal(entry.lastActivityAtMs, activityBefore);
+        registry.releaseSseLease(sessionId);
 
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 30);
         });
         assert.equal(await registry.pruneIdleSessions(), 1);
         await registry.closeAll();
+    });
+
+    it('business request lease refresh on release prevents immediate TTL after long call', async () => {
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 5,
+                sessionTtlMs: 40,
+                exploreCache,
+            }),
+        );
+
+        const sessionId = await initializeSession(registry, 'owner-a');
+        const entry = registry.getForOwner(sessionId, 'owner-a')!;
+        const release = registry.acquireRequestLease(entry, {
+            refreshBusinessActivity: true,
+        });
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 50);
+        });
+        // 执行中受保护
+        assert.equal(await registry.pruneIdleSessions(), 0);
+        release();
+        const afterRelease = entry.lastActivityAtMs;
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 20);
+        });
+        // 结束时已刷新，20ms 尚不足 TTL
+        assert.equal(await registry.pruneIdleSessions(), 0);
+        assert.ok(afterRelease >= entry.createdAtMs);
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 30);
+        });
+        assert.equal(await registry.pruneIdleSessions(), 1);
+        await registry.closeAll();
+    });
+
+    it('DELETE via transport closes mcpServer', async () => {
+        let serverClosed = 0;
+        const exploreCache = createSharedExploreCache();
+        const registry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 5,
+                exploreCache,
+                createMcpServer: (config, deps) => {
+                    const server = createLightdashMcpServer(config, deps);
+                    const originalClose = server.close.bind(server);
+                    server.close = async () => {
+                        serverClosed += 1;
+                        return originalClose();
+                    };
+                    return server;
+                },
+            }),
+        );
+
+        const sessionId = await initializeSession(registry, 'owner-a');
+        const entry = registry.getForOwner(sessionId, 'owner-a')!;
+        const { req, res } = createMockReqRes('DELETE', undefined, sessionId);
+        req.headers['mcp-protocol-version'] = '2024-11-05';
+        await entry.transport.handleRequest(req, res, undefined);
+
+        assert.equal(registry.getActiveCount(), 0);
+        assert.ok(serverClosed >= 1);
+        await registry.closeAll();
+    });
+
+    it('owner and global capacity errors expose distinct scope', async () => {
+        const exploreCache = createSharedExploreCache();
+        const ownerRegistry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 50,
+                softSessionsPerOwner: 1,
+                maxSessionsPerOwner: 1,
+                lruMinIdleMs: 60_000,
+                exploreCache,
+            }),
+        );
+        await initializeSession(ownerRegistry, 'owner-a');
+        await assert.rejects(
+            () => initializeSession(ownerRegistry, 'owner-a'),
+            (error: unknown) => {
+                assert.ok(error instanceof McpSessionCapacityError);
+                assert.equal(error.scope, 'owner');
+                assert.equal(error.maxSessions, 1);
+                return true;
+            },
+        );
+        await ownerRegistry.closeAll();
+
+        const globalRegistry = createMcpSessionRegistry(
+            testConfig,
+            registryOptions({
+                maxSessions: 1,
+                softSessionsPerOwner: 10,
+                maxSessionsPerOwner: 20,
+                lruMinIdleMs: 60_000,
+                exploreCache: createSharedExploreCache(),
+            }),
+        );
+        await globalRegistry.createPendingSession('owner-a');
+        await assert.rejects(
+            () => globalRegistry.createPendingSession('owner-b'),
+            (error: unknown) => {
+                assert.ok(error instanceof McpSessionCapacityError);
+                assert.equal(error.scope, 'global');
+                assert.equal(error.maxSessions, 1);
+                return true;
+            },
+        );
+        await globalRegistry.closeAll();
     });
 
     it('health stats report sse and in-flight request counts', async () => {

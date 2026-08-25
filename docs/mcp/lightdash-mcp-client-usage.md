@@ -127,7 +127,7 @@ sequenceDiagram
 
 同 PAT（或同一 OAuth subject）可同时持有**多个**标准 Session（多客户端并行）。Session 与认证身份绑定；带他人 Session-Id 会 **404**。
 
-> 说明：同一邮箱多次 `initialize`（重连 / 重载 MCP）会让 `activeSessions` 上涨，这是预期行为，不等于在线人数。空闲约 30 分钟后回收；满额时 LRU 淘汰最久未用的。
+> 说明：同一邮箱多次 `initialize`（重连 / 重载 MCP）会让 `activeSessions` 上涨，这是预期行为，不等于在线人数。空闲约 **15 分钟**无业务活动后回收；满额时 LRU 淘汰空闲至少约 5 分钟的 Session。部分宿主（Cursor、Claude Code）退出时未必发送 `DELETE`，回收依赖服务端兜底。
 
 ### 3.2 Cursor / Claude `.mcp.json`
 
@@ -167,7 +167,7 @@ curl -i -X POST 'http://localhost:3333/mcp' \
   -H 'x-api-key: YOUR_PAT' \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
 
 # 2) tools/list（必须带回 Session-Id）
 curl -X POST 'http://localhost:3333/mcp' \
@@ -323,16 +323,27 @@ curl -s http://localhost:3333/health
 | `activeSessions` | 已完成 initialize 的标准 Session（≠ 在线人数；重连会囤） |
 | `pendingSessions` | 正在 initialize、尚未绑定 Id 的临时 Session |
 | `compatSessions` | 无 Session-Id 的兼容通道数（按 owner） |
+| `activeSseConnections` | 当前挂起的 SSE（GET）连接数 |
+| `inFlightRequests` | 进行中的业务请求数（POST/DELETE） |
 
 相关环境变量：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `LIGHTDASH_MCP_MAX_SESSIONS` | `100` | 并发 Session 硬上限（含 compat） |
-| `LIGHTDASH_MCP_SESSION_TTL_MS` | `1800000`（30 分钟） | 空闲回收 TTL |
+| `LIGHTDASH_MCP_MAX_SESSIONS` | `100` | 全局并发 Session 硬上限（含 compat + pending） |
+| `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` | `10` | 单 owner 标准 Session 软上限 |
+| `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` | `20` | 单 owner 标准 Session 硬上限 |
+| `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | `300000`（5 分钟） | LRU 候选最小空闲时间 |
+| `LIGHTDASH_MCP_SESSION_TTL_MS` | `900000`（15 分钟） | 无业务活动（POST/DELETE）后的回收 TTL |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` | `300000`（5 分钟） | prune 间隔 |
 
-满额时：先清空闲、再 LRU 淘汰最久未用；仍满则 **503** `Too many active MCP sessions, retry later`。
+满额行为：
+
+- 超过单 owner **软上限**：优先 LRU 该 owner 空闲 ≥5 分钟且无进行中请求的最旧标准 Session
+- 达到单 owner **硬上限**且无可回收候选：拒绝新 initialize（**503**）
+- 全局满额：只 LRU 空闲 ≥5 分钟且无进行中请求的候选；无候选则 **503**
+- SSE 单独连接**不**阻止 TTL/LRU；仅进行中的业务请求受保护
+- GET/SSE 重连**不**刷新业务活动时间
 
 ---
 

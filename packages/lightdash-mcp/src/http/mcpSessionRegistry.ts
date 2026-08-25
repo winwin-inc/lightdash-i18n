@@ -6,9 +6,22 @@ import type { SharedExploreCache } from '../lib/sharedExploreCache';
 import { createLightdashMcpServer } from '../mcp/createMcpServer';
 
 export class McpSessionCapacityError extends Error {
-    constructor(maxSessions: number) {
-        super(`Too many active MCP sessions (max=${maxSessions})`);
+    readonly scope: 'owner' | 'global';
+
+    readonly maxSessions: number;
+
+    constructor(
+        maxSessions: number,
+        scope: 'owner' | 'global' = 'global',
+    ) {
+        super(
+            scope === 'owner'
+                ? `Too many active MCP sessions for owner (max=${maxSessions})`
+                : `Too many active MCP sessions (max=${maxSessions})`,
+        );
         this.name = 'McpSessionCapacityError';
+        this.scope = scope;
+        this.maxSessions = maxSessions;
     }
 }
 
@@ -196,35 +209,56 @@ export function createMcpSessionRegistry(
 
         target.state = 'closed';
         target.closePromise = (async () => {
-            if (target.mcpServer) {
-                try {
+            try {
+                if (target.mcpServer) {
                     await target.mcpServer.close();
-                } catch {
-                    // ignore close errors during eviction
                 }
-                return;
+            } catch {
+                // ignore close errors during eviction
             }
-            if (target.transport) {
-                try {
+            try {
+                if (target.transport) {
                     await target.transport.close();
-                } catch {
-                    // ignore close errors during eviction
                 }
+            } catch {
+                // ignore close errors during eviction
             }
         })();
         await target.closePromise;
     };
 
-    const unregisterSession = (
-        sessionId: string,
+    /**
+     * 幂等释放：从 registry 摘除并关闭 server/transport。
+     * DELETE / TTL / LRU / shutdown 共用此入口。
+     */
+    const disposeEntry = async (
         entry: McpSessionEntry,
-    ): void => {
-        if (sessions.get(sessionId) === entry) {
-            sessions.delete(sessionId);
-            const target = entry;
-            target.state = 'closed';
-            logSessionEvent('closed', sessionId, 'reason=client_delete');
+        reason: string,
+    ): Promise<void> => {
+        const ownerKey = entry.ownerKey;
+        const sessionId = entry.sessionId;
+        if (entry.kind === 'compat') {
+            if (compatByOwner.get(ownerKey) === entry) {
+                compatByOwner.delete(ownerKey);
+            }
+        } else {
+            pendingEntries.delete(entry);
+            if (sessionId && sessions.get(sessionId) === entry) {
+                sessions.delete(sessionId);
+            }
         }
+        await closeEntry(entry);
+        if (entry.kind === 'compat') {
+            logSessionEvent(
+                `compat closed owner=${ownerKey.slice(0, 8)}... reason=${reason}`,
+            );
+            return;
+        }
+        logSessionEvent(
+            `closed reason=${reason}`,
+            sessionId,
+            `ownerSessions=${countOwnerStateful(ownerKey)}`,
+        );
     };
 
     const removeSession = async (
@@ -235,16 +269,7 @@ export function createMcpSessionRegistry(
         if (!entry) {
             return;
         }
-        const ownerKey = entry.ownerKey;
-        sessions.delete(sessionId);
-        const target = entry;
-        target.state = 'closed';
-        await closeEntry(target);
-        logSessionEvent(
-            `closed reason=${reason}`,
-            sessionId,
-            `ownerSessions=${countOwnerStateful(ownerKey)}`,
-        );
+        await disposeEntry(entry, reason);
     };
 
     const removeCompatSession = async (
@@ -255,12 +280,7 @@ export function createMcpSessionRegistry(
         if (!entry) {
             return;
         }
-        compatByOwner.delete(ownerKey);
-        entry.state = 'closed';
-        await closeEntry(entry);
-        logSessionEvent(
-            `compat closed owner=${ownerKey.slice(0, 8)}... reason=${reason}`,
-        );
+        await disposeEntry(entry, reason);
     };
 
     const abortPendingSessionUnlocked = async (
@@ -270,10 +290,7 @@ export function createMcpSessionRegistry(
         if (target.state !== 'pending') {
             return;
         }
-        pendingEntries.delete(target);
-        target.state = 'closed';
-        await closeEntry(target);
-        logSessionEvent('abort_pending', target.sessionId);
+        await disposeEntry(target, 'abort_pending');
     };
 
     const findOldestEvictable = (args?: {
@@ -422,7 +439,7 @@ export function createMcpSessionRegistry(
                 null,
                 `ownerSessions=${countOwnerStateful(ownerKey)}`,
             );
-            throw new McpSessionCapacityError(maxSessionsPerOwner);
+            throw new McpSessionCapacityError(maxSessionsPerOwner, 'owner');
         }
     };
 
@@ -444,7 +461,7 @@ export function createMcpSessionRegistry(
             logSessionEvent(
                 `rejected: at capacity (max=${options.maxSessions})`,
             );
-            throw new McpSessionCapacityError(options.maxSessions);
+            throw new McpSessionCapacityError(options.maxSessions, 'global');
         }
     };
 
@@ -501,7 +518,19 @@ export function createMcpSessionRegistry(
                         );
                     },
                     onsessionclosed: async (sessionId: string) => {
-                        unregisterSession(sessionId, entry);
+                        // 不取 lifecycleMutex，避免 closeEntry → mcpServer.close → 本回调死锁
+                        const wasRegistered = sessions.get(sessionId) === entry;
+                        if (wasRegistered) {
+                            sessions.delete(sessionId);
+                        }
+                        await closeEntry(entry);
+                        if (wasRegistered) {
+                            logSessionEvent(
+                                'closed reason=client_delete',
+                                sessionId,
+                                `ownerSessions=${countOwnerStateful(ownerKey)}`,
+                            );
+                        }
                     },
                 });
 
@@ -648,8 +677,9 @@ export function createMcpSessionRegistry(
             return () => undefined;
         }
         const target = entry;
+        const refresh = leaseOptions?.refreshBusinessActivity !== false;
         target.activeRequestLeases += 1;
-        if (leaseOptions?.refreshBusinessActivity !== false) {
+        if (refresh) {
             touchEntry(target);
         }
         let released = false;
@@ -662,7 +692,10 @@ export function createMcpSessionRegistry(
                 0,
                 target.activeRequestLeases - 1,
             );
-            // 释放时不刷新业务活动时间，避免短请求反复续命
+            // 业务请求结束时再刷新，避免长查询结束后立刻被 TTL 判定过期
+            if (refresh) {
+                touchEntry(target);
+            }
         };
     };
 
