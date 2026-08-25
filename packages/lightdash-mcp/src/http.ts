@@ -376,7 +376,7 @@ async function main(): Promise<void> {
             err: unknown,
             req: express.Request,
             res: express.Response,
-            _next: express.NextFunction,
+            next: express.NextFunction,
         ) => {
             const ip = resolveClientIp(req);
             const message = err instanceof Error ? err.message : String(err);
@@ -387,7 +387,9 @@ async function main(): Promise<void> {
                 res.status(500).json({
                     error: 'Internal server error',
                 });
+                return;
             }
+            next(err);
         },
     );
 
