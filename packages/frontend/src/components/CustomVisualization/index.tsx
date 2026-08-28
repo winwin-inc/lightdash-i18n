@@ -63,10 +63,10 @@ const CustomVisualization: FC<Props> = (props) => {
     const { width, height } = useStableChartSize(observedSize);
     const hasSize = width > 0 && height > 0;
 
-    // Narrow / mini-program: pin size via React pixels + skip continuous Vega
-    // resize to avoid click-triggered fit collapse. Desktop keeps resize:true.
+    // Skip continuous Vega resize on all viewports. fit+resize shrinks layer
+    // overlays (Boston Matrix) until the X axis collapses; window / tile
+    // size changes remount via ResizeObserver + sizeKey instead.
     const isNarrowViewport = viewportWidth < DEFAULT_RESPONSIVE_BREAKPOINT;
-    const continuousResize = !isNarrowViewport;
     const useExplicitPixelSize = isNarrowViewport;
 
     useEffect(() => {
@@ -195,7 +195,7 @@ const CustomVisualization: FC<Props> = (props) => {
         specForVega as Record<string, unknown>,
         isDashboard,
         layout,
-        { continuousResize, useExplicitPixelSize },
+        { continuousResize: false, useExplicitPixelSize },
     );
 
     // Remount when stabilized size changes meaningfully (narrow path has no resize)

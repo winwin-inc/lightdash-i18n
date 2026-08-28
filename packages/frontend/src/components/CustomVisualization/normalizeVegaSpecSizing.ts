@@ -1309,9 +1309,9 @@ export function normalizeVegaSpecSizing(
 export type VegaAutosizeOptions = {
     /**
      * When false, dashboard charts still use fit but do not continuously
-     * resize on every container jitter (narrow/embed). Size updates come from
-     * React re-render with stabilized pixel dimensions instead.
-     * Defaults to true for dashboard (preserves tile drag / filter expand).
+     * resize on every container jitter. Size updates come from React
+     * remount with stabilized pixel dimensions instead.
+     * Custom viz always passes false — fit+resize collapses overlay layers.
      */
     continuousResize?: boolean;
     /**
