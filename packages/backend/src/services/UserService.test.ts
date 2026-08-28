@@ -440,6 +440,30 @@ describe('UserService', () => {
                 0,
             );
         });
+        test('should reject an existing openid user without an organization', async () => {
+            (
+                userModel.findSessionUserByOpenId as jest.Mock
+            ).mockImplementationOnce(async () => ({
+                ...sessionUser,
+                organizationUuid: undefined,
+                organizationName: undefined,
+                organizationCreatedAt: undefined,
+            }));
+            (
+                userModel.getOrganizationsForUser as jest.Mock
+            ).mockImplementationOnce(async () => []);
+
+            await expect(
+                userService.loginWithOpenId(
+                    openIdUser,
+                    undefined,
+                    undefined,
+                ),
+            ).rejects.toThrow('User not part of any organization');
+            expect(
+                openIdIdentityModel.updateIdentityByOpenId as jest.Mock,
+            ).not.toHaveBeenCalled();
+        });
     });
 
     describe('createPendingUserAndInviteLink', () => {
