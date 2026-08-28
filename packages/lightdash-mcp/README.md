@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **24 个 MCP 工具**（**16** 个核心：健康/项目/目录/内容/查询；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **25 个 MCP 工具**（**17** 个核心：健康/项目/目录/内容/查询/文档；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -75,8 +75,11 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `OAUTH_INTROSPECT_URL`           | 否   | introspect 地址（默认 `<LIGHTDASH_SITE_URL>/api/v1/oauth/introspect`） |
 | `OAUTH_REQUIRED_SCOPES`          | 否   | 逗号分隔 scope，默认 `mcp:read`                               |
 | `OAUTH_RESOURCE_METADATA_URL`    | 否   | 401 挑战头中的 `resource_metadata` URL                        |
-| `LIGHTDASH_MCP_MAX_SESSIONS`     | 否   | 最大并发 MCP session 数，默认 `100`（硬上限，防止 OOM）              |
-| `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 空闲 session 回收 TTL，默认 `1800000`（30 分钟）                  |
+| `LIGHTDASH_MCP_MAX_SESSIONS`     | 否   | 最大并发 MCP session 数，默认 `100`（全局硬上限，含 stateful + compat + pending） |
+| `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` | 否 | 单 owner 标准 Session 软上限，默认 `10`（超出优先回收空闲） |
+| `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` | 否 | 单 owner 标准 Session 硬上限，默认 `20`（无可回收候选时拒绝新建） |
+| `LIGHTDASH_MCP_LRU_MIN_IDLE_MS`  | 否   | LRU 候选最小空闲时间，默认 `300000`（5 分钟） |
+| `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 无业务活动（POST/DELETE）后的回收 TTL，默认 `900000`（15 分钟） |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
 
 ### 多用户并发与内存防护
@@ -87,11 +90,13 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 内存防护（进程内，无 Redis）：
 
-1. **硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰最久未活动 session（活跃 SSE 连接豁免）；仍满则返回 **503**（`Too many active MCP sessions, retry later`），避免 Map 无限增长导致 OOM。
-2. **空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS` 无活动的 session 会被定时 prune；未完成 initialize 的 pending session 也会按同一 TTL 回收。
-3. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
-4. **同 PAT 重连替换**：同一 PAT（或 OAuth subject）再次 `initialize` 时，会先关闭该用户旧 session（含 pending）再建新 session。GET SSE 断开后**不会销毁 session**，客户端可用同一 `Mcp-Session-Id` 重连 SSE；session 由 TTL、DELETE、同 PAT 重连或 LRU 回收。
-5. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner，后连会替换先连 session。
+1. **全局硬上限**：`LIGHTDASH_MCP_MAX_SESSIONS`；满额时先回收空闲 session，再 LRU 淘汰**至少空闲 5 分钟且无进行中业务请求**的最旧 session；仍满则返回 **503**。
+2. **单 owner 软/硬上限**：默认软上限 `10`、硬上限 `20`。超过软上限时优先关闭该 owner 空闲 ≥5 分钟且无进行中请求的最旧标准 Session；无可回收候选时允许增长到硬上限；达到硬上限仍无候选则 **503**，不中断刚活跃或正在查询的 Session。compat 通道不占 soft/hard 额度，但仍计入全局上限。
+3. **业务空闲 TTL**：超过 `LIGHTDASH_MCP_SESSION_TTL_MS`（默认 15 分钟）无 POST/DELETE 业务活动即可回收，**即使 SSE 仍连接**。GET/SSE 重连不刷新业务活动时间。未完成 initialize 的 pending session 也会按同一 TTL 回收。
+4. **进行中请求保护**：仅 `activeRequestLeases > 0`（进行中的 POST/DELETE）阻止 TTL/LRU；SSE 单独连接不再永久豁免。
+5. **共享 explore 缓存**：多 session 共用进程级 explore 元数据缓存，但缓存键包含凭证哈希，不同 PAT/OAuth token 不会互相命中，避免跨用户元数据泄露。
+6. **同 PAT 多客户端并发**：同一 PAT（或 OAuth subject）可同时持有多个独立 session（例如 `config_ui` 与 CLI 并行），受 soft/hard 上限约束。每个客户端必须保存 `initialize` 响应头中的 `Mcp-Session-Id`，并在后续 POST/GET `/mcp` 请求中回传。GET SSE 断开后**不会立即销毁 session**；session 由 TTL、DELETE 或 LRU 回收。
+7. **服务端兜底 PAT**：若 `MCP_OAUTH_ENABLED=false` 且客户端未传 `x-api-key`，所有请求共用 `LIGHTDASH_API_KEY`，视为同一 owner；多个客户端仍会各自创建独立 session，但共享同一认证身份。
 
 运维调参建议：
 
@@ -100,11 +105,46 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 2GB         | 50–100              |
 | 4GB         | 150–200             |
 
-- 若频繁 **503** → 增大 `MAX_SESSIONS` 或缩短 `SESSION_TTL_MS`
+- 若频繁 **503** → 增大 `MAX_SESSIONS` / 单 owner 硬上限，或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions` 与 `pendingSessions` 便于监控
+- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
+
+**无 Session 兼容（compat）**：存量客户端可直接 `POST /mcp` 调 `tools/call`（不带 `Mcp-Session-Id`），服务端按鉴权身份隔离兼容通道。新接入请仍用标准 Session。详见下方文档。
+
+### MCP 健康检查与调用约定
+
+Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tools/list`、`tools/call` 是 **JSON-RPC method**，写在 POST `/mcp` 的 body 里，**不是** `/mcp/tools/list` 这类 URL 子路径。非法 JSON body 返回 **400**（`Invalid JSON body`），日志标记 `invalid_json_body`。
+
+正确冒烟流程：
+
+```bash
+# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests）
+curl -s http://localhost:3333/health
+
+# 2. initialize（从响应头取 Mcp-Session-Id）
+curl -i -X POST 'http://localhost:3333/mcp' \
+  -H 'x-api-key: YOUR_PAT' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}},"id":1}'
+
+# 3. tools/list（仍是 POST /mcp，带上一步的 Mcp-Session-Id）
+curl -X POST 'http://localhost:3333/mcp' \
+  -H 'x-api-key: YOUR_PAT' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Mcp-Session-Id: <session-id-from-step-2>' \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
+```
+
+服务端 404 日志会区分内部原因（`missing Mcp-Session-Id header` / `unknown or expired session id` / `owner mismatch`），但客户端统一收到 `Session not found`。
+
+**客户端接入规范（标准 Session / 存量兼容 / projectUuid / 排障）**：
+
+- 索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
+- 标准用法：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)
 
 ### 项目 `projectUuid` 解析顺序
 
@@ -157,16 +197,17 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 ### 核心工具（17 个）
 
-`get_lightdash_version` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
+`get_lightdash_version` · `get_mcp_docs` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
 
 说明要点：
 
+- `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `session_lifecycle` / `security`）。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
 - `run_semantic_metric_query` / `run_metric_query`：首条 **CSV** + `structuredContent`（默认 `valueFormat=raw`；`valueFormat=formatted` 为 Explorer 展示值；`full=true` 额外返回嵌套 rows、fields、warnings 及第二条 JSON）
 - `run_metric_query`：扁平参数（`exploreName` + `dimensions[]` + `metrics[]`），简单查询。规则在 `src/mcp/toolDescriptions/runMetricQueryFlat.ts`。
-- 维护者文档（AI 不可见）：`docs/mcp/lightdash-mcp-*.md`
+- 文档索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
 - `find_explores` / `find_fields`：对 `dataCatalog` 返回的条目附加 `**heuristicScore**` 并按其降序排列；响应含 `**heuristicRankingVersion**`（当前为 `1`）。
 - `list_verified_content`：先做版本守卫，再尝试路由调用；若站点未部署该接口会返回中文提示而非裸 404。
 
@@ -253,10 +294,12 @@ CI 推阿里云时镜像为 **`registry.cn-hangzhou.aliyuncs.com/winwin/lightdas
 
 ## 相关仓库与文档
 
-- 技能与示例：`packages/lightdash-skills`
-- 总览：`[docs/lightdash-mcp.md](../../docs/lightdash-mcp.md)`
-- 分析师向说明：`[docs/lightdash-mcp-user-oriented-tools.md](../../docs/lightdash-mcp-user-oriented-tools.md)`
-- Docker 部署：`[docs/mcp/lightdash-mcp-docker-deploy.md](../../docs/mcp/lightdash-mcp-docker-deploy.md)`
+- 文档索引：[`docs/mcp/README.md`](../../docs/mcp/README.md)
+- 标准客户端用法：[`docs/mcp/lightdash-mcp-client-usage.md`](../../docs/mcp/lightdash-mcp-client-usage.md)
+- 分析师说明：[`docs/mcp/lightdash-mcp-user-guide.md`](../../docs/mcp/lightdash-mcp-user-guide.md)
+- 查询速查：[`docs/mcp/lightdash-mcp-query-tools-quickref.md`](../../docs/mcp/lightdash-mcp-query-tools-quickref.md)
+- Docker：[`docs/mcp/lightdash-mcp-docker-deploy.md`](../../docs/mcp/lightdash-mcp-docker-deploy.md)
+- Skills：`packages/lightdash-skills`
 
 ## 可执行入口
 

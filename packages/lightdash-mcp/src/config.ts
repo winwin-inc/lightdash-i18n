@@ -14,9 +14,15 @@ export type LightdashMcpEnvConfig = {
     oauthIntrospectUrl: string;
     oauthRequiredScopes: string[];
     oauthResourceMetadataUrl: string;
-    /** 最大并发 MCP session 数（硬上限，防止 OOM） */
+    /** 最大并发 MCP session 数（硬上限，防止 OOM；含 stateful + compat + pending） */
     maxSessions: number;
-    /** 空闲 session 回收 TTL（毫秒） */
+    /** 单 owner 标准 Session 软上限：超出后优先 LRU 空闲会话 */
+    softSessionsPerOwner: number;
+    /** 单 owner 标准 Session 硬上限：无可回收候选时拒绝新建 */
+    maxSessionsPerOwner: number;
+    /** LRU 候选最小空闲时间（毫秒）；短于此的会话视为刚活跃 */
+    lruMinIdleMs: number;
+    /** 无业务活动（POST/DELETE）后的 Session 回收 TTL（毫秒） */
     sessionTtlMs: number;
     /** 后台 prune 间隔（毫秒） */
     pruneIntervalMs: number;
@@ -31,6 +37,20 @@ function parsePositiveIntEnv(
     }
     const n = Number(raw);
     if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) {
+        return fallback;
+    }
+    return n;
+}
+
+function parseNonNegativeIntEnv(
+    raw: string | undefined,
+    fallback: number,
+): number {
+    if (raw === undefined) {
+        return fallback;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
         return fallback;
     }
     return n;
@@ -72,9 +92,21 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         process.env.LIGHTDASH_MCP_MAX_SESSIONS,
         100,
     );
+    const softSessionsPerOwner = parsePositiveIntEnv(
+        process.env.LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER,
+        10,
+    );
+    const maxSessionsPerOwner = parsePositiveIntEnv(
+        process.env.LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER,
+        20,
+    );
+    const lruMinIdleMs = parseNonNegativeIntEnv(
+        process.env.LIGHTDASH_MCP_LRU_MIN_IDLE_MS,
+        300_000,
+    );
     const sessionTtlMs = parsePositiveIntEnv(
         process.env.LIGHTDASH_MCP_SESSION_TTL_MS,
-        1_800_000,
+        900_000,
     );
     const pruneIntervalMs = parsePositiveIntEnv(
         process.env.LIGHTDASH_MCP_PRUNE_INTERVAL_MS,
@@ -90,6 +122,9 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         oauthRequiredScopes,
         oauthResourceMetadataUrl,
         maxSessions,
+        softSessionsPerOwner: Math.min(softSessionsPerOwner, maxSessionsPerOwner),
+        maxSessionsPerOwner: Math.max(softSessionsPerOwner, maxSessionsPerOwner),
+        lruMinIdleMs,
         sessionTtlMs,
         pruneIntervalMs,
     };
