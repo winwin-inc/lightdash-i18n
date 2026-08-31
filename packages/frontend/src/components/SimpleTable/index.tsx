@@ -43,6 +43,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         visualizationConfig,
         resultsData,
         isLoading,
+        tablePagination,
     } = useVisualizationContext();
 
     const shouldPaginateResults = useMemo(() => {
@@ -85,11 +86,38 @@ const SimpleTable: FC<SimpleTableProps> = ({
         return visualizationConfig.chartConfig.showColumnCalculation;
     }, [visualizationConfig]);
 
-    const pagination = useMemo(() => {
+    const footer = useMemo(() => {
         return {
             show: showColumnCalculation,
         };
     }, [showColumnCalculation]);
+
+    const showResultsTotal = isTableVisualizationConfig(visualizationConfig)
+        ? visualizationConfig.chartConfig.showResultsTotal
+        : false;
+
+    const tablePaginationConfig = useMemo(() => {
+        if (tablePagination?.enabled) {
+            return {
+                show: true,
+                showResultsTotal: true,
+                defaultScroll: false,
+                mode: 'server' as const,
+                pageIndex: tablePagination.pageIndex,
+                pageSize: tablePagination.pageSize,
+                onPageChange: tablePagination.onPageChange,
+                onPageSizeChange: tablePagination.onPageSizeChange,
+                hideScrollToggle: true,
+                isCountLoading: tablePagination.isCountLoading,
+                isCountError: tablePagination.isCountError,
+            };
+        }
+        return {
+            show: false,
+            showResultsTotal,
+            mode: 'client' as const,
+        };
+    }, [showResultsTotal, tablePagination, visualizationConfig]);
 
     const headerContextMenu = useCallback<
         FC<React.PropsWithChildren<HeaderProps>>
@@ -125,11 +153,11 @@ const SimpleTable: FC<SimpleTableProps> = ({
     );
 
     useEffect(() => {
-        if (shouldPaginateResults) return;
+        if (tablePagination?.enabled || shouldPaginateResults) return;
 
         // Load all the rows
         resultsData?.setFetchAll(true);
-    }, [shouldPaginateResults, resultsData]);
+    }, [shouldPaginateResults, resultsData, tablePagination?.enabled]);
 
     if (!isTableVisualizationConfig(visualizationConfig)) return null;
 
@@ -141,7 +169,6 @@ const SimpleTable: FC<SimpleTableProps> = ({
         pivotTableData,
         getFieldLabel,
         getField,
-        showResultsTotal,
         showSubtotals,
         pivotMetricHeaderPosition,
         pivotAutoFillWidth,
@@ -251,14 +278,32 @@ const SimpleTable: FC<SimpleTableProps> = ({
     }
 
     return (
-        <Box p="xs" pb="md" miw="100%" h="100%">
+        <Box
+            p="xs"
+            pb={tablePagination?.enabled ? 'xs' : 'md'}
+            miw="100%"
+            h="100%"
+            sx={
+                tablePagination?.enabled
+                    ? {
+                          display: 'flex',
+                          flexDirection: 'column',
+                          minHeight: 0,
+                      }
+                    : undefined
+            }
+        >
             <Table
                 minimal={minimal}
                 $shouldExpand={$shouldExpand}
                 className={className}
                 status={loadResultsStatus}
                 data={resultsData?.rows || []}
-                totalRowsCount={resultsData?.totalResults || 0}
+                totalRowsCount={
+                    tablePagination?.enabled
+                        ? tablePagination.totalRowCount ?? 0
+                        : resultsData?.totalResults || 0
+                }
                 isFetchingRows={!!resultsData?.isFetchingRows}
                 loadingState={LoadingChart}
                 fetchMoreRows={resultsData?.fetchMoreRows || noop}
@@ -272,10 +317,10 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 columnProperties={
                     visualizationConfig.chartConfig.columnProperties
                 }
-                footer={pagination}
+                footer={footer}
                 headerContextMenu={headerContextMenu}
                 cellContextMenu={cellContextMenu}
-                pagination={{ showResultsTotal }}
+                pagination={tablePaginationConfig}
                 {...rest}
             />
         </Box>

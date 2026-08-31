@@ -2140,7 +2140,12 @@
     },
     "components_common_paginate": {
         "page": "页",
-        "of": "的"
+        "of": "共",
+        "jump_to_page": "跳转到页",
+        "first": "首页",
+        "last": "末页",
+        "go_to_page": "前往",
+        "of_pages": "/{{totalPages}} 页"
     },
     "components_common_page_header": {
         "last_edited": "最近编辑",
@@ -2514,10 +2519,23 @@
     "components_common_table": {
         "copied_to_clipboard": "已复制到剪贴板!",
         "pagination": {
-            "pages": "页",
+            "pages": "分页",
             "scroll": "滚动",
             "page": "页",
-            "of": "共"
+            "of": "共",
+            "showing_of_total": "显示 {{shown}} / 共 {{total}}",
+            "page_size": "每页",
+            "page_size_prefix": "每页",
+            "page_size_suffix": "条",
+            "one_result": "1 条结果",
+            "n_results": "{{count}} 条结果",
+            "total_data_prefix": "共 ",
+            "total_data_suffix": " 条",
+            "loading_count": "加载中…",
+            "count_error": "无法获取总数",
+            "pagination_empty_page": {
+                "back_to_first_page": "返回第 1 页"
+            }
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"
@@ -5362,6 +5380,9 @@
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",
             "show_number_of_results": "显示结果数量",
+            "enable_pagination": "启用分页",
+            "pagination_not_supported": "透视表或小计不支持分页",
+            "page_size": "每页条数",
             "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
             "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
             "can_use_subtotals": "小计只能用于未透视的表",
@@ -6472,7 +6493,7 @@
             "label": "限制",
             "radio_01": "表格结果",
             "radio_02": "所有结果",
-            "radio_03": "自定义..."
+            "radio_03": "自定义"
         },
         "limit_alert_tip": {
             "part_1": "结果被限制在",
@@ -6516,10 +6537,12 @@
         "radio_groups_limit": {
             "part_1": "表格结果",
             "part_2": "所有结果",
-            "part_3": "自定义..."
+            "part_3": "自定义"
         },
         "prvot_tables_warning": "Pivot 导出限制为 {{csvCellsLimit}} 个单元格和 {{maxColumnLimit}} 列。",
-        "limit": "Excel 导出限制为 1,000,000 行。",
+        "table_results_limit_hint": "最多导出当前查询行数（{{count}}）。",
+        "csv_cells_limit_hint": "最多导出 {{csvCellsLimit}} 格（按行×列累计）",
+        "limit": "最多导出 1,000,000 行",
         "download": "下载"
     },
     "components_funnel_chart": {

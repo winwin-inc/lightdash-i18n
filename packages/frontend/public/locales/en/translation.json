@@ -2143,7 +2143,12 @@
     },
     "components_common_paginate": {
         "page": "Page",
-        "of": "of"
+        "of": "of",
+        "jump_to_page": "Jump to page",
+        "first": "First page",
+        "last": "Last page",
+        "go_to_page": "Go to",
+        "of_pages": "/ {{totalPages}} pages"
     },
     "components_common_page_header": {
         "last_edited": "Last edited",
@@ -2520,7 +2525,20 @@
             "pages": "Pages",
             "scroll": "Scroll",
             "page": "Page",
-            "of": "of"
+            "of": "of",
+            "showing_of_total": "Showing {{shown}} of {{total}}",
+            "page_size": "Rows per page",
+            "page_size_prefix": "Rows",
+            "page_size_suffix": "per page",
+            "one_result": "1 result",
+            "n_results": "{{count}} results",
+            "total_data_prefix": "Total ",
+            "total_data_suffix": " rows",
+            "loading_count": "Loading…",
+            "count_error": "Unable to load total",
+            "pagination_empty_page": {
+                "back_to_first_page": "Back to page 1"
+            }
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"
@@ -5354,6 +5372,9 @@
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",
             "show_number_of_results": "Show number of results",
+            "enable_pagination": "Enable pagination",
+            "pagination_not_supported": "Pagination is not available with pivot tables or subtotals",
+            "page_size": "Rows per page",
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
@@ -6464,7 +6485,7 @@
         "radio_groups_limit": {
             "radio_01": "Results in Table",
             "radio_02": "All Results",
-            "radio_03": "Custom..."
+            "radio_03": "Custom"
         },
         "limit_alert_tip": {
             "part_1": "Results are limited to",
@@ -6508,10 +6529,12 @@
         "radio_groups_limit": {
             "part_1": "Results in Table",
             "part_2": "All Results",
-            "part_3": "Custom..."
+            "part_3": "Custom"
         },
         "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
-        "limit": "Excel exports are limited to 1,000,000 rows.",
+        "table_results_limit_hint": "Export at most the current query rows ({{count}}).",
+        "csv_cells_limit_hint": "Up to {{csvCellsLimit}} cells (rows × columns)",
+        "limit": "Up to 1,000,000 rows",
         "download": "Download"
     },
     "components_funnel_chart": {

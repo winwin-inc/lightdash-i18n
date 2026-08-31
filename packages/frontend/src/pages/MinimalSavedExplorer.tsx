@@ -133,6 +133,7 @@ const MinimalSavedExplorer: FC = () => {
                                   },
                               },
                               queryExecution: defaultQueryExecution,
+                              chartTablePagination: null,
                           }
                         : undefined
                 }

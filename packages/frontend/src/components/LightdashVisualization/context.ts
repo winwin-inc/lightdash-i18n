@@ -15,6 +15,17 @@ import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import { type VisualizationConfig } from './types';
 
+export type TablePaginationState = {
+    enabled: boolean;
+    pageIndex: number;
+    pageSize: number;
+    totalRowCount: number | undefined;
+    isCountLoading: boolean;
+    isCountError: boolean;
+    onPageChange: (pageIndex: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+};
+
 type VisualizationContext = {
     minimal: boolean;
     isDashboard: boolean;
@@ -47,6 +58,7 @@ type VisualizationContext = {
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;
     useHashBased: boolean;
+    tablePagination?: TablePaginationState;
 };
 
 const Context = createContext<VisualizationContext | undefined>(undefined);

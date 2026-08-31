@@ -294,6 +294,7 @@ const ChartHistory = () => {
                                 },
                             },
                             queryExecution: defaultQueryExecution,
+                            chartTablePagination: null,
                         }}
                         savedChart={chartVersionQuery.data?.chart}
                     >

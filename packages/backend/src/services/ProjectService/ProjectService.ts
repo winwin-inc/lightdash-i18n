@@ -17,6 +17,7 @@ import {
     BigqueryAuthenticationType,
     CacheMetadata,
     type CalculateSubtotalsFromQuery,
+    CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartSourceType,
     ChartSummary,
@@ -225,7 +226,10 @@ import {
     MetricQueryBuilder,
 } from '../../utils/QueryBuilder/MetricQueryBuilder';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
-import { applyLimitToSqlQuery } from '../../utils/QueryBuilder/utils';
+import {
+    applyLimitToSqlQuery,
+    wrapSqlAsCountQuery,
+} from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
 import {
@@ -5909,6 +5913,306 @@ export class ProjectService extends BaseService {
             },
         );
         return results.row;
+    }
+
+    private static unwrapCountValue(raw: AnyType): unknown {
+        if (raw == null || typeof raw !== 'object') {
+            return raw;
+        }
+        if ('value' in raw && raw.value != null) {
+            const inner = (raw as { value: AnyType }).value;
+            if (
+                inner != null &&
+                typeof inner === 'object' &&
+                'raw' in (inner as Record<string, unknown>)
+            ) {
+                return (inner as { raw: unknown }).raw;
+            }
+            return inner;
+        }
+        if ('raw' in raw) {
+            return (raw as { raw: unknown }).raw;
+        }
+        return raw;
+    }
+
+    private static parseCountRow(
+        row: Record<string, AnyType> | undefined,
+    ): number {
+        if (!row) {
+            return 0;
+        }
+        const raw =
+            row.row_count ??
+            row.ROW_COUNT ??
+            row.rowCount ??
+            Object.values(row)[0];
+        const parsed = Number(ProjectService.unwrapCountValue(raw));
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    async _getCalculateCountQuery(
+        userAttributes: UserAttributeValueMap,
+        intrinsicUserAttributes: IntrinsicUserAttributes,
+        explore: Explore,
+        metricQuery: MetricQuery,
+        warehouseClient: WarehouseClient,
+        availableParameterDefinitions: ParameterDefinitions,
+        parameters?: ParametersValuesMap,
+    ) {
+        // COUNT must cover the full result set — do not inherit metricQuery.limit
+        // (MetricQueryBuilder omits LIMIT when limit is undefined).
+        const countMetricQuery: MetricQuery = {
+            ...metricQuery,
+            sorts: [],
+            offset: undefined,
+            limit: undefined as unknown as number,
+        };
+
+        const { query } = await ProjectService._compileQuery({
+            metricQuery: countMetricQuery,
+            explore,
+            warehouseSqlBuilder: warehouseClient,
+            intrinsicUserAttributes,
+            userAttributes,
+            timezone: this.lightdashConfig.query.timezone || 'UTC',
+            parameters,
+            availableParameterDefinitions,
+        });
+
+        return {
+            query: wrapSqlAsCountQuery(query),
+            countMetricQuery,
+        };
+    }
+
+    async _calculateCountFromCacheOrWarehouse(
+        account: Account,
+        projectUuid: string,
+        explore: Explore,
+        metricQuery: MetricQuery,
+        invalidateCache: boolean,
+        organizationUuid: string,
+        parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+    ): Promise<{ rowCount: number }> {
+        if (
+            metricQuery.dimensions.length === 0 &&
+            (metricQuery.customDimensions?.length ?? 0) === 0
+        ) {
+            return { rowCount: 1 };
+        }
+
+        const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
+            projectUuid,
+            await this.getWarehouseCredentials({
+                projectUuid,
+                userId: account.user.id,
+                isRegisteredUser: account.isRegisteredUser(),
+            }),
+            {
+                snowflakeVirtualWarehouse: explore.warehouse,
+                databricksCompute: explore.databricksCompute,
+            },
+        );
+
+        const { userAttributes, intrinsicUserAttributes } =
+            await this.getUserAttributes(
+                dashboardContext
+                    ? { account, context: dashboardContext }
+                    : { account },
+            );
+
+        const availableParameterDefinitions = await this.getAvailableParameters(
+            projectUuid,
+            explore,
+        );
+
+        const { query, countMetricQuery } = await this._getCalculateCountQuery(
+            userAttributes,
+            intrinsicUserAttributes,
+            explore,
+            metricQuery,
+            warehouseClient,
+            availableParameterDefinitions,
+            parameters,
+        );
+
+        const queryTags: RunQueryTags = {
+            ...this.getUserQueryTags(account),
+            organization_uuid: organizationUuid,
+            project_uuid: projectUuid,
+            explore_name: explore.name,
+            query_context: QueryExecutionContext.CALCULATE_COUNT,
+        };
+
+        const { rows } = await this.getResultsFromCacheOrWarehouse({
+            projectUuid,
+            context: QueryExecutionContext.CALCULATE_COUNT,
+            warehouseClient,
+            metricQuery: countMetricQuery,
+            query,
+            queryTags,
+            invalidateCache,
+        });
+        await sshTunnel.disconnect();
+        return { rowCount: ProjectService.parseCountRow(rows[0]) };
+    }
+
+    async calculateCountFromSavedChart(
+        account: Account,
+        chartUuid: string,
+        dashboardFilters?: DashboardFilters,
+        invalidateCache: boolean = false,
+        parameters?: ParametersValuesMap,
+        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+    ): Promise<{ rowCount: number }> {
+        assertIsAccountWithOrg(account);
+
+        const savedChart = await this.savedChartModel.get(
+            chartUuid,
+            undefined, // VersionUuid
+        );
+        const { organizationUuid, projectUuid } = savedChart;
+
+        const explore = await this.getExplore(
+            account,
+            projectUuid,
+            savedChart.tableName,
+            organizationUuid,
+        );
+        const tables = Object.keys(explore.tables);
+
+        const appliedDashboardFilters = dashboardFilters
+            ? {
+                  dimensions: getDashboardFilterRulesForTables(
+                      tables,
+                      dashboardFilters.dimensions,
+                  ),
+                  metrics: getDashboardFilterRulesForTables(
+                      tables,
+                      dashboardFilters.metrics,
+                  ),
+                  tableCalculations: getDashboardFilterRulesForTables(
+                      tables,
+                      dashboardFilters.tableCalculations,
+                  ),
+              }
+            : undefined;
+
+        // Pass explore so time-based overrides match dashboard-chart execute path
+        const metricQuery: MetricQuery = appliedDashboardFilters
+            ? addDashboardFiltersToMetricQuery(
+                  savedChart.metricQuery,
+                  appliedDashboardFilters,
+                  explore,
+              )
+            : savedChart.metricQuery;
+
+        const space = await this.spaceModel.getSpaceSummary(
+            savedChart.spaceUuid,
+        );
+        const access = await this.spaceModel.getUserSpaceAccess(
+            account.user.id,
+            savedChart.spaceUuid,
+        );
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('SavedChart', {
+                    organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access,
+                }),
+            ) ||
+            account.user.ability.cannot(
+                'view',
+                subject('Project', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const combinedParameters = await this.combineParameters(
+            projectUuid,
+            explore,
+            parameters,
+            savedChart.parameters,
+        );
+
+        return this._calculateCountFromCacheOrWarehouse(
+            account,
+            projectUuid,
+            explore,
+            metricQuery,
+            invalidateCache,
+            savedChart.organizationUuid,
+            combinedParameters,
+            dashboardContext,
+        );
+    }
+
+    async calculateCountFromQuery(
+        account: Account,
+        projectUuid: string,
+        data: CalculateCountFromQuery,
+    ): Promise<{ rowCount: number }> {
+        assertIsAccountWithOrg(account);
+
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            account.user.ability.cannot(
+                'manage',
+                subject('Explore', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        if (
+            data.metricQuery.customDimensions?.some(isCustomSqlDimension) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
+
+        const explore = await this.getExplore(
+            account,
+            projectUuid,
+            data.explore,
+            organizationUuid,
+        );
+
+        const combinedParameters = await this.combineParameters(
+            projectUuid,
+            explore,
+            data.parameters,
+        );
+
+        return this._calculateCountFromCacheOrWarehouse(
+            account,
+            projectUuid,
+            explore,
+            data.metricQuery,
+            false,
+            organizationUuid,
+            combinedParameters,
+            {
+                dashboardSlug: data.dashboardSlug,
+                dashboardName: data.dashboardName,
+            },
+        );
     }
 
     async _calculateSubtotals(

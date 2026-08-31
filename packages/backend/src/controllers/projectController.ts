@@ -1,5 +1,6 @@
 import {
     AnyType,
+    ApiCalculateCountResponse,
     ApiCalculateTotalResponse,
     ApiChartAsCodeListResponse,
     ApiChartAsCodeUpsertResponse,
@@ -16,6 +17,7 @@ import {
     ApiSpaceSummaryListResponse,
     ApiSqlQueryResults,
     ApiSuccessEmpty,
+    CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartAsCode,
     CreateProjectMember,
@@ -383,6 +385,31 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results: totalResult,
+        };
+    }
+
+    /**
+     * Calculate result row count from a metricQuery (no detail rows)
+     * @param projectUuid The uuid of the project
+     * @param body The metric query to count rows for
+     * @param req express request
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/calculate-count')
+    @OperationId('CalculateCountFromQuery')
+    async CalculateCountFromQuery(
+        @Path() projectUuid: string,
+        @Body() body: CalculateCountFromQuery,
+        @Request() req: express.Request,
+    ): Promise<ApiCalculateCountResponse> {
+        this.setStatus(200);
+        const countResult = await this.services
+            .getProjectService()
+            .calculateCountFromQuery(req.account!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: countResult,
         };
     }
 
