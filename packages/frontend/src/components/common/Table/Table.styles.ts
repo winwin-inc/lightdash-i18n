@@ -315,31 +315,46 @@ export const Td = styled.td<{
             : 'filter: initial'}
 `;
 
-export const FooterCell = styled.th<{ $isNaN: boolean }>`
+export const FooterCell = styled.th<{
+    $isNaN: boolean;
+    $textAlign?: string;
+}>`
     ${CellStyles}
     background-color: white;
+    ${({ $textAlign }) =>
+        $textAlign ? `text-align: ${$textAlign} !important;` : ''}
 `;
 
 export const Th = styled.th<{
     $maxWidth?: string;
     $minWidth?: string;
     $width?: string;
+    $textAlign?: string;
 }>`
     ${({ $width }) => ($width ? `width: ${$width};` : '')}
     max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
     ${({ $minWidth }) => ($minWidth ? `min-width: ${$minWidth};` : '')}
+    ${({ $textAlign }) =>
+        $textAlign ? `text-align: ${$textAlign} !important;` : ''}
 `;
 
-export const ThContainer = styled.div`
+export const ThContainer = styled.div<{ $textAlign?: string }>`
     display: flex;
     flex-direction: row;
     align-items: flex-start;
+    justify-content: ${({ $textAlign }) =>
+        $textAlign === 'center'
+            ? 'center'
+            : $textAlign === 'right'
+            ? 'flex-end'
+            : 'flex-start'};
 `;
 
 export const ThLabelContainer = styled.div``;
 
-export const ThActionsContainer = styled.div`
-    flex: 1;
+export const ThActionsContainer = styled.div<{ $textAlign?: string }>`
+    ${({ $textAlign }) =>
+        !$textAlign || $textAlign === 'left' ? 'flex: 1;' : ''}
     display: flex;
     flex-direction: row;
     justify-content: flex-end;

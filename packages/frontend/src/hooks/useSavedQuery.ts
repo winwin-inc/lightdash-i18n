@@ -11,6 +11,7 @@ import {
 import { IconArrowRight } from '@tabler/icons-react';
 import {
     useMutation,
+    type QueryClient,
     type UseMutationOptions,
     useQuery,
     useQueryClient,
@@ -23,6 +24,35 @@ import { lightdashApi } from '../api';
 import { convertDateFilters } from '../utils/dateFilter';
 import useToaster from './toaster/useToaster';
 import useSearchParams from './useSearchParams';
+
+const resetDashboardChartCaches = async (
+    queryClient: QueryClient,
+    {
+        chartUuid,
+        dashboardUuid,
+    }: {
+        chartUuid: string;
+        dashboardUuid: string;
+    },
+) => {
+    await queryClient.resetQueries({
+        queryKey: ['saved_dashboard_query', dashboardUuid],
+    });
+
+    // dashboard_chart_ready_query key:
+    // [projectUuid, tabUuid, chartUuid, dashboardUuid, ...]
+    await queryClient.resetQueries({
+        predicate: (query) => {
+            const key = query.queryKey;
+            return (
+                Array.isArray(key) &&
+                key[0] === 'dashboard_chart_ready_query' &&
+                key[3] === chartUuid &&
+                key[4] === dashboardUuid
+            );
+        },
+    });
+};
 
 const createSavedQuery = async (
     projectUuid: string,
@@ -323,13 +353,10 @@ export const useUpdateMutation = (
                 );
 
                 if (dashboardUuid) {
-                    // Invalidate dashboard chart queries to refresh charts on dashboards
-                    await queryClient.resetQueries([
-                        'dashboard_chart_ready_query',
-                        data.projectUuid,
-                        data.uuid,
+                    await resetDashboardChartCaches(queryClient, {
+                        chartUuid: data.uuid,
                         dashboardUuid,
-                    ]);
+                    });
                 }
 
                 showToastSuccess({
@@ -501,13 +528,10 @@ export const useAddVersionMutation = () => {
             await queryClient.resetQueries(['savedChartResults', data.uuid]);
 
             if (dashboardUuid) {
-                // Invalidate dashboard chart queries to refresh charts on dashboards
-                await queryClient.resetQueries([
-                    'dashboard_chart_ready_query',
-                    data.projectUuid,
-                    data.uuid,
+                await resetDashboardChartCaches(queryClient, {
+                    chartUuid: data.uuid,
                     dashboardUuid,
-                ]);
+                });
             }
 
             if (dashboardUuid)

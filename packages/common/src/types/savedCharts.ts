@@ -317,6 +317,8 @@ export type EChartsConfig = Partial<CompleteEChartsConfig>;
 
 type Axis = {
     name?: string;
+    /** Distance between axis title and axis line (ECharts nameGap, in px). */
+    nameGap?: number;
     min?: string | undefined;
     max?: string | undefined;
     minOffset?: string | undefined;

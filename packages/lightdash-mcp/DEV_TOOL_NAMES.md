@@ -1,8 +1,8 @@
 # MCP tool names
 
-> 共 **24** 个工具；与当前包内 MCP 注册一致。
+> 共 **25** 个工具；与当前包内 MCP 注册一致。
 
-- Core-like count: **16**
+- Core-like count: **17**
 - Extension (site/chart helpers) count: **8**
 
 ## All tools (sorted)
@@ -15,6 +15,7 @@
 - `find_spaces`
 - `get_current_project`
 - `get_lightdash_version`
+- `get_mcp_docs`
 - `get_saved_chart`
 - `get_dashboard_code`
 - `get_dashboard_tiles`
@@ -45,5 +46,6 @@
 
 ## Notes
 
+- `get_mcp_docs` 返回内置静态使用说明（overview / query_workflow / session_lifecycle / security），不读本地 `docs/mcp`、不访问远程 URL、不接受密钥。
 - `get_dashboard_tiles` / `run_dashboard_tiles` / `get_dashboard_code` 为本包扩展能力，不属于上游 EE 内置 MCP 工具集。
 - 多数列表与查询工具默认返回精简结构；传 `full: true` 才返回完整字段。
