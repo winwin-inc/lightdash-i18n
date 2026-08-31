@@ -2,11 +2,7 @@ import { Button, Card, Image, Stack, Text, Title } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-
-// 客服信息 - 可以从配置中获取
-const CUSTOMER_SERVICE = {
-    lockUrl: '/customer-service-lock@3x.png',
-};
+import lockUrl from '../../assets/images/customer-service-lock.png';
 
 const MobileView = () => {
     const { t } = useTranslation();
@@ -39,7 +35,7 @@ const MobileView = () => {
                     height: isMobile ? 154 : 213,
                     scale: isMobile ? 1 : 0.8,
                 }}
-                src={CUSTOMER_SERVICE.lockUrl}
+                src={lockUrl}
                 alt="Mobile Unsupported Lock"
             />
 

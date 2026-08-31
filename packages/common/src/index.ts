@@ -53,6 +53,7 @@ import {
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
 import {
+    type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
     type ChartHistory,
@@ -339,6 +340,7 @@ export * from './utils/github';
 export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
+export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
 export * from './utils/oauth';
 export * from './utils/organization';
@@ -934,6 +936,7 @@ type ApiResults =
     | ApiSshKeyPairResponse['results']
     | MostPopularAndRecentlyUpdated
     | ApiCalculateTotalResponse['results']
+    | ApiCalculateCountResponse['results']
     | Record<string, DbtExposure>
     | ApiCreateComment['results']
     | ApiGetComments['results']

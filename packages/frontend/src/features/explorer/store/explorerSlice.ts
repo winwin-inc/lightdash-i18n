@@ -686,6 +686,15 @@ const explorerSlice = createSlice({
                 unpivotedQueryUuidHistory: [],
             };
         },
+        setChartTablePagination: (
+            state,
+            action: PayloadAction<{
+                pageIndex: number;
+                pageSize: number;
+            } | null>,
+        ) => {
+            state.chartTablePagination = action.payload;
+        },
     },
 });
 

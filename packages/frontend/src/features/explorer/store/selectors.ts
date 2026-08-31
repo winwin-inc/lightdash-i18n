@@ -166,6 +166,11 @@ export const selectQueryLimit = createSelector(
     (metricQuery) => metricQuery.limit,
 );
 
+export const selectChartTablePagination = createSelector(
+    [selectExplorerState],
+    (explorer) => explorer.chartTablePagination ?? null,
+);
+
 // Timezone selector
 export const selectTimezone = createSelector(
     [selectMetricQuery],

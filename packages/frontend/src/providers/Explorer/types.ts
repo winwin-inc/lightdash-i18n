@@ -249,6 +249,14 @@ export interface ExplorerReduceState {
         queryUuidHistory: string[];
         unpivotedQueryUuidHistory: string[];
     };
+    /**
+     * Warehouse table chart pagination (Explore chart preview).
+     * When set, View SQL / 语义查询 use pageSize + offset instead of chart limit.
+     */
+    chartTablePagination: {
+        pageIndex: number;
+        pageSize: number;
+    } | null;
     fromDashboard?: string;
 }
 

@@ -85,6 +85,12 @@ const useTableConfig = (
     const [showResultsTotal, setShowResultsTotal] = useState<boolean>(
         tableChartConfig?.showResultsTotal ?? false,
     );
+    const [enablePagination, setEnablePagination] = useState<boolean>(
+        tableChartConfig?.enablePagination ?? false,
+    );
+    const [pageSize, setPageSize] = useState<number>(
+        tableChartConfig?.pageSize ?? 10,
+    );
     const [showSubtotals, setShowSubtotals] = useState<boolean>(
         tableChartConfig?.showSubtotals ?? false,
     );
@@ -637,6 +643,8 @@ const useTableConfig = (
             showRowCalculation,
             showTableNames,
             showResultsTotal,
+            enablePagination,
+            pageSize,
             showSubtotals,
             columns: columnProperties,
             hideRowNumbers,
@@ -655,6 +663,8 @@ const useTableConfig = (
             hideRowNumbers,
             showTableNames,
             showResultsTotal,
+            enablePagination,
+            pageSize,
             showSubtotals,
             columnProperties,
             conditionalFormattings,
@@ -683,6 +693,10 @@ const useTableConfig = (
             setHideRowNumbers,
             showResultsTotal,
             setShowResultsTotal,
+            enablePagination,
+            setEnablePagination,
+            pageSize,
+            setPageSize,
             showSubtotals,
             setShowSubtotals,
             columnProperties,
@@ -731,6 +745,10 @@ const useTableConfig = (
             setHideRowNumbers,
             showResultsTotal,
             setShowResultsTotal,
+            enablePagination,
+            setEnablePagination,
+            pageSize,
+            setPageSize,
             showSubtotals,
             setShowSubtotals,
             columnProperties,

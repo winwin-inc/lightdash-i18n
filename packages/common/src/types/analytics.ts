@@ -91,6 +91,7 @@ export enum QueryExecutionContext {
     SCHEDULED_CHART = 'scheduledChart',
     SCHEDULED_DASHBOARD = 'scheduledDashboard',
     CALCULATE_TOTAL = 'calculateTotal',
+    CALCULATE_COUNT = 'calculateCount',
     CALCULATE_SUBTOTAL = 'calculateSubtotal',
     EMBED = 'embed',
     AI = 'ai',

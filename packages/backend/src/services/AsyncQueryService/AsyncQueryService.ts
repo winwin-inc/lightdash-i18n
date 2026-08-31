@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
     Account,
     addDashboardFiltersToMetricQuery,
+    applyMetricQueryLimitOffset,
     type ApiDownloadAsyncQueryResults,
     type ApiDownloadAsyncQueryResultsAsCsv,
     type ApiDownloadAsyncQueryResultsAsXlsx,
@@ -2133,6 +2134,7 @@ export class AsyncQueryService extends ProjectService {
         context,
         invalidateCache,
         limit,
+        offset,
         parameters,
         pivotResults,
     }: ExecuteAsyncSavedChartQueryArgs): Promise<ApiExecuteAsyncMetricQueryResults> {
@@ -2198,17 +2200,15 @@ export class AsyncQueryService extends ProjectService {
             chartUuid,
             versionUuid,
             limit,
+            offset,
         };
 
-        // Apply limit override if provided in the request
-        // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit =
-            limit !== undefined
-                ? {
-                      ...metricQuery,
-                      limit: limit ?? MAX_SAFE_INTEGER,
-                  }
-                : metricQuery;
+        // Warehouse pagination: when offset is set, never keep chart metricQuery.limit
+        const metricQueryWithLimit = applyMetricQueryLimitOffset(
+            metricQuery,
+            limit,
+            offset,
+        );
 
         const queryTags: RunQueryTags = {
             ...this.getUserQueryTags(account),
@@ -2361,6 +2361,7 @@ export class AsyncQueryService extends ProjectService {
         context,
         invalidateCache,
         limit,
+        offset,
         parameters,
         pivotResults,
     }: ExecuteAsyncDashboardChartQueryArgs): Promise<ApiExecuteAsyncDashboardChartQueryResults> {
@@ -2424,15 +2425,12 @@ export class AsyncQueryService extends ProjectService {
                     : savedChart.metricQuery.sorts,
         };
 
-        // Apply limit override if provided in the request
-        // For unlimited results (null), use Number.MAX_SAFE_INTEGER
-        const metricQueryWithLimit =
-            limit !== undefined
-                ? {
-                      ...metricQueryWithDashboardOverrides,
-                      limit: limit ?? MAX_SAFE_INTEGER,
-                  }
-                : metricQueryWithDashboardOverrides;
+        // Warehouse pagination: when offset is set, never keep chart metricQuery.limit
+        const metricQueryWithLimit = applyMetricQueryLimitOffset(
+            metricQueryWithDashboardOverrides,
+            limit,
+            offset,
+        );
 
         const exploreDimensions = getDimensions(explore);
 
@@ -2473,6 +2471,7 @@ export class AsyncQueryService extends ProjectService {
             dashboardSorts,
             dateZoom,
             limit,
+            offset,
         };
 
         const queryTags: RunQueryTags = {

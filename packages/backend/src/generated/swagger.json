@@ -4575,6 +4575,10 @@
                         },
                         "type": "array"
                     },
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "limit": {
                         "type": "number",
                         "format": "double"
@@ -6819,6 +6823,10 @@
                         },
                         "type": "array"
                     },
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "limit": {
                         "type": "number",
                         "format": "double"
@@ -8243,6 +8251,19 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "success",
+                                                            "error"
+                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -13846,6 +13867,10 @@
                         },
                         "type": "array"
                     },
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "limit": {
                         "type": "number",
                         "format": "double"
@@ -13993,6 +14018,27 @@
                 "properties": {
                     "results": {
                         "$ref": "#/components/schemas/ChartVersion"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiCalculateCountResponse": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "rowCount": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "required": ["rowCount"],
+                        "type": "object"
                     },
                     "status": {
                         "type": "string",
@@ -15312,6 +15358,27 @@
                 "type": "object"
             },
             "CalculateTotalFromQuery": {
+                "properties": {
+                    "dashboardName": {
+                        "type": "string"
+                    },
+                    "dashboardSlug": {
+                        "type": "string"
+                    },
+                    "parameters": {
+                        "$ref": "#/components/schemas/ParametersValuesMap"
+                    },
+                    "explore": {
+                        "type": "string"
+                    },
+                    "metricQuery": {
+                        "$ref": "#/components/schemas/MetricQueryRequest"
+                    }
+                },
+                "required": ["explore", "metricQuery"],
+                "type": "object"
+            },
+            "CalculateCountFromQuery": {
                 "properties": {
                     "dashboardName": {
                         "type": "string"
@@ -20171,6 +20238,7 @@
                     "scheduledChart",
                     "scheduledDashboard",
                     "calculateTotal",
+                    "calculateCount",
                     "calculateSubtotal",
                     "embed",
                     "ai",
@@ -20241,6 +20309,10 @@
                         "type": "array"
                     },
                     "limit": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "offset": {
                         "type": "number",
                         "format": "double"
                     },
@@ -20324,6 +20396,10 @@
                             "pivotResults": {
                                 "type": "boolean"
                             },
+                            "offset": {
+                                "type": "number",
+                                "format": "double"
+                            },
                             "limit": {
                                 "type": "number",
                                 "format": "double",
@@ -20364,6 +20440,10 @@
                         "properties": {
                             "pivotResults": {
                                 "type": "boolean"
+                            },
+                            "offset": {
+                                "type": "number",
+                                "format": "double"
                             },
                             "limit": {
                                 "type": "number",
@@ -21495,7 +21575,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2108.4",
+        "version": "0.2109.9",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -26292,6 +26372,74 @@
                 }
             }
         },
+        "/api/v1/saved/{chartUuid}/calculate-count": {
+            "post": {
+                "operationId": "CalculateCountFromSavedChart",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiCalculateCountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Calculate result row count from a saved chart",
+                "tags": ["Charts"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "chartUuid for the chart to run",
+                        "in": "path",
+                        "name": "chartUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "dashboardName": {
+                                        "type": "string"
+                                    },
+                                    "dashboardSlug": {
+                                        "type": "string"
+                                    },
+                                    "parameters": {
+                                        "$ref": "#/components/schemas/ParametersValuesMap"
+                                    },
+                                    "invalidateCache": {
+                                        "type": "boolean"
+                                    },
+                                    "dashboardFilters": {
+                                        "$ref": "#/components/schemas/AnyType"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/saved/{chartUuid}/promote": {
             "post": {
                 "operationId": "promoteChart",
@@ -27448,6 +27596,59 @@
                             "schema": {
                                 "$ref": "#/components/schemas/CalculateTotalFromQuery",
                                 "description": "The metric query to calculate totals for"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/calculate-count": {
+            "post": {
+                "operationId": "CalculateCountFromQuery",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiCalculateCountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Calculate result row count from a metricQuery (no detail rows)",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "The uuid of the project",
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "The metric query to count rows for",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CalculateCountFromQuery",
+                                "description": "The metric query to count rows for"
                             }
                         }
                     }
