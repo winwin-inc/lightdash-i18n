@@ -1,6 +1,8 @@
 # Lightdash 2.x 功能正向迁移与集成实施指南
 
 > **核心原则**：以当前项目 **`lightdash-i18n`（现有稳定分支）为绝对主体与基线**，全面梳理上游官方（Lightdash 0.2513.0 -> 2.57.0）期间新增的高价值功能模块，制定**自底向上、模块化移植、逐步合入当前项目**的实施方案，确保不破坏当前项目现有的国际化、类目权限、自研 MCP、样式定制等所有生产特性。
+>
+> **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
 
 ---
 
@@ -19,6 +21,11 @@ flowchart LR
 1. **当前分支即为主战场**：我们直接在当前分支 **`feat/v2-upgrade`** 上开展所有功能移植与升级工作，该分支已具备当前项目的全部自研能力（i18n、类目权限、自研 MCP、样式定制、OSS直传、遥测关闭等）。
 2. **正向吸收上游 2.x 模块**：参考外部上游仓库 `D:\workspace_company\lightdash` 的 2.x 实现，将上游高价值模块（`formula`、`query-sdk`、`Honest Metadata`、`Direct Access` 等）分批正向移植进当前分支。
 3. **保护基线资产**：每一次移植后均执行类型检查与单测，确保当前分支既有的业务功能和样式不退化、不被意外覆盖。
+4. **推荐合入方式（混合策略）**：
+   - **不要**直接 `git merge` / `rebase` 整棵上游 2.x（冲突面会爆炸）。
+   - **也不要**幻想纯「拷文件」就能跑通强耦合模块。
+   - **推荐**：先对齐底座（Node/pnpm/TS/构建与公共类型），再按模块移植；独立包可先拷，强耦合功能必须连同依赖面一起搬并做回归。
+5. **EE 策略**：主迁移阶段 **只标记、原样引入、不解绑**；商业功能开源化改造放到主线稳定之后的专项。
 
 ---
 
@@ -163,69 +170,206 @@ flowchart TB
             E4["Dark Mode 树组件样式修复 (TreeItem)"]
         end
 
-        subgraph PA_6 ["6. 基础设施与私有化运维"]
+        subgraph PA_6 ["6. 看板 Tabs 增强 (超集)"]
+            T1["Tab 级独立筛选器 tabs[].filters"]
+            T2["tabFilterEnabled / isGlobalFilterEnabled / showTabAddFilterButton"]
+            T3["mergeFiltersForTab / useDashboardTabFilters"]
+            T4["迁移脚本 add_filters_to_saved_dashboard_tabs"]
+        end
+
+        subgraph PA_7 ["7. 基础设施与私有化运维"]
             G1["硬关闭官方遥测 (RudderStack/PostHog/Intercom/Headway/Pylon)"]
             G2["CDN 静态资源分离 + OSS 预签名直传 (OssService/OssController)"]
             G3["Jaeger 链路追踪过滤 (jaeger-debug-id) 与前端日志上报"]
-            G4["自研 5 个数据库 Migrations 与 Jenkins CLI 镜像构建"]
+            G4["自研数据库 Migrations 与 Jenkins CLI 镜像构建"]
         end
     end
 ```
 
 ---
 
-## 四、分步骤正向迁移实施路线图
+## 四、剩余关键风险与待决问题（开工前必须认清）
 
-直接在当前 **`feat/v2-upgrade`** 分支上，按以下 **5 个阶段** 逐步移植上游 2.x 模块：
+> 结论：**功能清单已较完整，但还不等于「可以直接无脑开干」**。下面这些是目前计划里仍然偏弱、容易踩坑的点。
+
+### 1. 工具链断层（当前最大硬门槛）
+
+| 项 | 当前 `feat/v2-upgrade` | 上游 2.57.x |
+|---|---|---|
+| Node | 20.x | >= 24 |
+| pnpm | 9.x | 11.x |
+| TypeScript | 5.5.4 | 7.x |
+| 构建编排 | pnpm recursive | Turbo |
+| 格式/Lint | prettier + eslint | oxfmt + oxlint |
+| 测试 | jest / 旧 vitest | Vitest 4 |
+
+**影响**：`packages/formula`、`query-sdk` 并非真正「拷进去就能编过」。若工具链不先对齐，Step 1 也会卡死。  
+**建议**：把「底座对齐（Node/pnpm/TS/turbo）」作为 **Step 0**，再谈独立包引入。
+
+### 2. 「按模块拷贝」对强耦合功能不够用
+
+下列功能依赖大量周边类型、API、前端状态机，**不能只拷目标文件**：
+
+- Nested Table Groups（ExploreSideBar + translator + ProjectModel + migration）
+- Honest Metadata / Merge Queries（QueryBuilder 全家桶 + DuckDB）
+- Dashboard Filter Override（与我们 Tab 筛选、动态日期强耦合）
+
+**建议**：强耦合模块采用「对照上游实现 → 在当前分支增量改写/合入依赖面 → 单测锁死行为」。
+
+### 3. 看板 Tabs：官方能力 vs 我们超集（必须专项合并）
+
+| 能力 | 官方 2.x | 我们当前分支 |
+|---|---|---|
+| Tab 基础切换 | 有（uuid/name/order/hidden） | 有 |
+| Tab 懒加载 / Activity 延迟渲染 | 有 | 需评估是否已有 |
+| Tab 切换时 ECharts dispose 修复 | 有 | 需评估 |
+| **Tab 级独立筛选器 `tabs[].filters`** | **无** | **有（核心自研）** |
+| 全局/Tab 筛选开关配置 | 无/弱 | 有 |
+| 定时推送按 Tab 选择 | 有 | 有（需对齐） |
+
+**合并原则**：以我们 Tab 筛选超集为底，吸收官方性能与隐藏 Tab 修复；禁止用官方 `DashboardTab` 类型直接覆盖掉 `filters` 字段。  
+**风险点**：`useSavedDashboardFiltersOverrides`、`mergeFiltersForTab`、`DashboardProvider` 与官方 filter override reconcile 必须手工三方对齐，否则会出现「切换 Tab 筛选器丢失/全局覆盖错乱」。
+
+### 4. 数据库 Migration 时间戳与幂等
+
+- 自研：`20250828...`、`20251112...`、`20260107...`、`20260108...`、`20260206...`
+- 上游：如 `20260506135156_add_table_groups_to_projects.ts` 等大量新迁移
+
+**风险**：直接拷上游 migration 可能与本地历史顺序、已部署环境 knex 记录冲突。  
+**建议**：新建「当前仓库时间戳」的等价 migration（内容对齐上游），禁止盲目复用上游原始文件名（除非确认从未在生产执行过同名文件）。
+
+### 5. 路由 / Slug / API 破坏性变化
+
+上游引入了：
+
+- project/chart/dashboard **slug 导航**
+- chart slug rename / alias
+- content API、Direct Access、Compose/Merge 新端点
+
+**风险**：旧书签、嵌入链接、自研 MCP REST 调用可能失效。  
+**建议**：每个强耦合步骤都要跑一遍 MCP 工具冒烟 + 常用看板深链回归。
+
+### 6. i18n 缺口会持续存在
+
+新 UI（树形分组、Merge Query、Chart Types、Shared with me）默认英文。  
+主迁移阶段允许「功能先上、词条后补」，但要有词条 backlog，避免生产出现裸 key。
+
+### 7. 自研 MCP / Skills 兼容面
+
+主站 API 语义变化后，`packages/lightdash-mcp` 的 19 个工具、异步查询轮询、dashboardUuid 注入都可能回归失败。  
+**建议**：Step 2/4 之后强制跑 `pnpm -F @lightdash/mcp test` 与一组真实 PAT 冒烟。
+
+### 8. 分支并行与发布节奏
+
+`feat/v2-upgrade` 迁移周期长时，`dev` 仍会持续修 bug。  
+**建议**：定期把 `dev` 合入 `feat/v2-upgrade`，避免最后一次大合并；生产热修只进 `dev`，再同步。
+
+### 9. EE 与计划步骤不一致（已纠正方向）
+
+此前 Step 3 写成「立刻移植 Direct Access 并融合鉴权」，与「EE 先标记、后改造」冲突。  
+**统一口径**：主迁移 **不做 EE 解绑**；Direct Access / Homepage / Autopilot 仅原样引入或暂缓，专项另开。
+
+### 10. UI 改造幅度（再确认）
+
+- **不是**整站重做；主框架仍是 Mantine + Explorer/Dashboard。
+- **是**局部增量：侧边栏树、合并查询入口、图表类型画廊、分享菜单等。
+- **真正费工的不是视觉**，而是 Tabs 筛选超集、类目权限、i18n、MCP、样式定制与上游新状态机的对齐。
+
+---
+
+## 五、分步骤正向迁移实施路线图
+
+直接在当前 **`feat/v2-upgrade`** 分支上，按以下阶段推进（**含 Step 0 底座对齐**）：
 
 ```mermaid
 flowchart TD
-    Start["当前分支 feat/v2-upgrade"] --> Step1["Step 1: 引入独立新包 (Formula + Query-SDK)"]
-    Step1 --> Test1["验证独立包构建与单测 (pnpm formula:test 等)"]
+    Start["当前分支 feat/v2-upgrade"] --> Step0["Step 0: 底座对齐 (Node24/pnpm11/TS/Turbo)"]
+    Step0 --> Step1["Step 1: 引入独立新包 (Formula + Query-SDK)"]
+    Step1 --> Test1["验证独立包构建与单测"]
     
-    Test1 --> Step2["Step 2: 移植查询优化与元数据真实性 (Honest Metadata + PoP)"]
-    Step2 --> Test2["验证后端查询与导出兼容性"]
+    Test1 --> Step2["Step 2: OSS 查询与元数据 (Honest Metadata + PoP)"]
+    Step2 --> Test2["验证后端查询/导出/MCP 冒烟"]
     
-    Test2 --> Step3["Step 3: 移植 Direct Access 细粒度授权并融合类目权限"]
-    Step3 --> Test3["验证权限拦截与内容中心 Shared with me"]
+    Test2 --> Step3["Step 3: OSS 高价值交互 (Nested Groups + Merge + Cache)"]
+    Step3 --> Test3["验证侧边栏树/合并查询/缓存配置"]
     
-    Test3 --> Step4["Step 4: 移植前端看板/图表增强并补全 i18n 中文词条"]
-    Step4 --> Test4["验证跨图表色差/动态日期/自定义样式无退化"]
+    Test3 --> Step4["Step 4: 看板 Tabs 超集合并 + Filter Override + i18n 补齐"]
+    Step4 --> Test4["验证 Tab 筛选/色差/动态日期/样式无退化"]
     
-    Test4 --> Step5["Step 5: 全量 Typecheck + Docker 镜像构建 + 端到端验收"]
-    Step5 --> Done["当前分支 feat/v2-upgrade 验收完成"]
+    Test4 --> Step5["Step 5: 全量 Typecheck + Docker + 端到端验收"]
+    Step5 --> Done["feat/v2-upgrade 主迁移完成"]
+    Done --> EELater["后续专项: EE 解绑改造 (Direct Access/Homepage/Autopilot)"]
 ```
 
 ### 阶段详细任务拆解：
 
-#### Step 1: 移植零耦合的独立工具包（风险：极低）
+#### Step 0: 底座对齐（风险：中，但是后续所有步骤的前提）
+1. 评估并将 Node / pnpm / TypeScript / Turbo 对齐到可编译上游独立包的最低水位。
+2. 保证现有 `dev`/`frontend`/`backend` 在新工具链下仍能 typecheck / 启动。
+3. 不在本步引入业务功能。
+
+#### Step 1: 移植零耦合的独立工具包（风险：低~中，依赖 Step 0）
 1. 将上游 `packages/formula` 和 `packages/formula-tests` 复制到当前 monorepo。
-2. 将上游 `packages/query-sdk` 复制到当前 monorepo。
-3. 在根 `package.json` 和 `pnpm-workspace.yaml` 中配置相关 scripts，执行 `pnpm formula:build && pnpm formula:test` 验证通过。
+2. 将上游 `packages/query-sdk` 复制到当前 monorepo（可先不接 Data Apps 全链路）。
+3. 在根 `package.json` 和 `pnpm-workspace.yaml` 中配置相关 scripts，执行构建与单测。
 
-#### Step 2: 移植后端查询层与元数据优化（风险：低）
-1. 移植 `packages/backend/src/utils/QueryBuilder/` 中的 Honest Column Metadata 机制。
-2. 移植 `MetricQueryBuilder` 中的 Period-to-date (PoP) 过滤保留修复。
-3. 移植 `ExcelService` / `CsvService` 相关的元数据格式化输出优化（保留我们已有的 NaN/空单元格兜底）。
-4. 运行 `pnpm backend-typecheck` 与后端查询单测。
+#### Step 2: 移植后端查询层与元数据优化（风险：中）
+1. 移植 Honest Column Metadata / PoP 修复（连同 QueryBuilder 依赖面）。
+2. 保留我们 Excel/CSV 空单元格与格式化兜底。
+3. `backend-typecheck` + 查询单测 + MCP 冒烟。
 
-#### Step 3: 移植细粒度资源共享 (Direct Access) 并融合鉴权（风险：中）
-1. 移植上游 Direct Access 相关的数据库迁移与 Model/Service。
-2. 在 `DashboardService` / `ProjectService` 中，将 Direct Access 权限检查与现有的 `CategoryRpcClient`、`UserDashboardCategoryModel` 权限逻辑做组合判定。
-3. 移植前端 Direct Access 管理弹窗与内容中心的 `Shared with me` 列表。
-4. 在 `public/locales/zh/translation.json` 中补齐 Direct Access 相关的全部中文翻译。
+#### Step 3: 移植 OSS 高价值交互（风险：中）—— **不含 EE 解绑**
+1. Nested Table Groups（migration 用本仓库新时间戳重写）。
+2. Merge Queries / External Sources / Query Caching（按业务优先级可再拆 PR）。
+3. EE 相关代码若需进仓，只做目录原样引入与编译通过，**不打开商业门控、不做解绑**。
 
-#### Step 4: 移植前端图表、看板与多层级分组树特性（风险：中）
-1. **移植 PR #22768 Nested Table Groups (多层级表格分组树)**：
-   - 执行后端 migration：`20260506135156_add_table_groups_to_projects.ts`。
-   - 移植 `packages/common/src/types/explore.ts` 与 `compiler/translator.ts` 中 `meta.groups` 解析逻辑（保持向后兼容 `group_label`）。
-   - 移植前端 `packages/frontend/src/components/Explorer/ExploreSideBar/exploreTree.ts`、`VirtualizedExploreList.tsx` 及 `useProjectTableGroups.ts`，支持多层递归缩进展示与搜索自动展开。
-2. 移植 Project Chart Types 版本化管理逻辑与 Explorer 升级摘要提示。
-3. 移植 Dashboard 共享筛选器覆盖协调逻辑（`useSavedDashboardFiltersOverrides.ts`）。
-4. **关键校验**：确保自研的「跨图表全局颜色同步」、「动态日期粒度筛选」、「Markdown Tile CSS 放行」、「表格对齐样式」依然生效。
-5. 全量补齐新增界面的 i18n 词条。
+#### Step 4: 看板 Tabs 超集合并 + 前端增强 + i18n（风险：高，专项）
+1. **Tabs 合并专项**：
+   - 保留 `DashboardTab.filters` 与 `DashboardConfig` 自研开关。
+   - 吸收上游 Tab 懒加载、hidden tab、切换时图表销毁/重建修复。
+   - 对齐 `mergeFiltersForTab` 与上游 filter override reconcile。
+2. 移植 Project Chart Types、Filter Override（与动态日期共存验证）。
+3. 补齐新增界面中文词条；验证色差同步、Markdown CSS、表格对齐。
 
 #### Step 5: 全量回归与构建验收（风险：低）
-1. 执行 `pnpm common-typecheck`、`pnpm backend-typecheck`、`pnpm frontend-typecheck`。
-2. 重新运行 `pnpm generate-api` 确保 OpenAPI / Swagger 与 TSOA 路由一致。
-3. 构建 Docker 镜像，验证私有化部署、OSS 直传、MCP 服务（19 个工具）及生产看板运行无误。
+1. `common/backend/frontend` typecheck。
+2. `pnpm generate-api`。
+3. Docker 镜像、OSS 直传、MCP 19 工具、生产看板冒烟。
+
+#### 后续专项（主迁移完成后再做）
+1. Direct Access 解绑 + 与 CategoryRpc 组合鉴权。
+2. Homepage Builder 解绑。
+3. Autopilot / Validator 企业能力开源化。
+
+---
+
+## 六、i18n 直接重构（不兼容旧 key）
+
+> **已确认决策**：直接重构；**不保留旧 key、不做双读/alias/fallback 兼容**。每个域 PR 内同时改完 zh/en JSON 与全部调用方，旧前缀随 PR 删除。
+
+### 现状
+
+- 仅 `public/locales/{zh,en}/translation.json`（各约 340~360KB）
+- 顶层 key ≈ 525，叶子词条 ≈ 5388
+- 已用 `i18next-http-backend`，`loadPath` 支持按 ns 加载
+
+### 目标
+
+| ns | 语义域 |
+|---|---|
+| `common` | actions / errors / 通用 |
+| `auth` | 登录注册 |
+| `dashboard` | filters / tabs / tiles / export |
+| `explorer` | sidebar / chartConfig / merge / groups |
+| `settings` | 设置 |
+
+- Key：嵌套语义路径 + camelCase，如 `filters.add`；禁止 `components_` / `hooks_` / `features_`
+- 调用：`useTranslation('dashboard'); t('filters.add')`
+- 完成后删除巨型 `translation.json`，defaultNS → `common`
+- 映射表仅供 codemod，**不进运行时**
+
+### 执行
+
+按域分 PR（`common` → `auth` → `dashboard` → `explorer` → `settings`），**每域零兼容**。主窗口放在 Step 4；Step 5 上 CI 禁旧前缀。
+
+细则见 Cursor Plan「第 9 节」。
