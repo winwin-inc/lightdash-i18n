@@ -1,283 +1,231 @@
-# Lightdash 2.x 升级与定制功能迁移全景指南
+# Lightdash 2.x 功能正向迁移与集成实施指南
 
-本文档全面梳理自基础版本（0.2091.x ~ 0.2513.0）以来：
-1. **当前项目（`lightdash-i18n`）沉淀的全部自研与定制功能**；
-2. **上游官方版本（Lightdash 2.x / 2.57.x）新增的架构演进与重磅能力**；
-3. **在当前项目内**平滑升级至 2.x 且不破坏现有生产特性的分步迁移实施方案。
+> **核心原则**：以当前项目 **`lightdash-i18n`（现有稳定分支）为绝对主体与基线**，全面梳理上游官方（Lightdash 0.2513.0 -> 2.57.0）期间新增的高价值功能模块，制定**自底向上、模块化移植、逐步合入当前项目**的实施方案，确保不破坏当前项目现有的国际化、类目权限、自研 MCP、样式定制等所有生产特性。
 
 ---
 
-## 一、升级背景与目标
-
-1. **升级背景**：
-   - 当前项目自上游分支（commit `c8b2bbead0`）拉出后，持续自研了国际化、类目鉴权、MCP 独立服务、图表色差优化、动态日期筛选、遥测硬关等核心能力，积累了 1000+ commit，修改涉及 1300+ 文件。
-   - 上游官方版本已大步演进至 `2.x`（如 2.57.0），重构了底层底层技术栈，推出了全新的独立公式计算引擎、自定义 Data Apps SDK、细粒度直接资源权限（Direct Access）、Chart/Dashboard-as-Code 增强体系等。
-2. **迁移目标**：
-   - 在**当前仓库内**建立升级分支，无缝引入 2.x 的上游最新特性与性能优化。
-   - **零遗漏地继承**当前项目的所有自研业务逻辑、接口、配置和工具。
-   - 保证平稳过渡，不影响现有生产功能。
-
----
-
-## 二、上游 Lightdash 2.x 新增核心功能与架构演进盘点
-
-从 `0.2513.0` 升级至 `2.57.0` 期间，上游官方进行了大刀阔斧的升级，主要涵盖以下 6 大维度：
-
-```mermaid
-flowchart TB
-    subgraph Upstream2x ["Lightdash 2.x 官方重磅演进全景"]
-        direction TB
-
-        subgraph U_Engine ["1. 独立公式与计算引擎 (Formula Engine)"]
-            UE1["新建 packages/formula (Peggy 语法解析器)"]
-            UE2["新建 packages/formula-tests (跨数仓/DuckDB 单元测试)"]
-            UE3["支持复杂自定义表达式与公式级字段派生计算"]
-        end
-
-        subgraph U_SDK ["2. 开放生态与 SDK (Query SDK & Data Apps)"]
-            US1["新建 packages/query-sdk (构建独立定制数据应用 SDK)"]
-            US2["支持 Viewer-Scoped 独立数据应用 (Data Apps)"]
-            US3["嵌入式 UI 覆写 (uiOverrides 支持国际化与定制文案透传)"]
-        end
-
-        subgraph U_Perm ["3. 细粒度资源级直接授权 (Direct Access)"]
-            UP1["支持资源级直接共享与管理 (Direct Access API/UI)"]
-            UP2["内容中心增加 'Shared with me' 视图与筛选"]
-            UP3["SQL 图表、Data Apps 与 Space 全面对齐 Direct Access"]
-        end
-
-        subgraph U_Viz ["4. 图表与看板架构演进 (Chart-as-Code & MCP)"]
-            UV1["Project Chart Types 架构 (版本锁定与版本升级对比摘要)"]
-            UV2["图表 URL Slug 动态重命名与生命周期规范"]
-            UV3["官方内置 MCP Session 优化与已保存内容直达"]
-            UV4["Dashboard 共享筛选器覆盖 (Reconcile Filter Override)"]
-        end
-
-        subgraph U_Query ["5. 后端查询与元数据真实性 (Honest Metadata)"]
-            UQ1["Query-Write 阶段直接固化字段展示元数据 (Honest Column Metadata)"]
-            UQ2["SQL、Merge 和 Compose 查询结果元数据统一传递"]
-            UQ3["异步查询引擎轮询与性能提升"]
-        end
-
-        subgraph U_Infra ["6. 现代工程化基础设施"]
-            UI1["Node.js 运行环境提升至 Node >= 24"]
-            UI2["包管理器全面升级至 pnpm 11 + Turbo 2.9 任务编排"]
-            UI3["测试体系全线迁移至 Vitest 4.x"]
-            UI4["代码格式与 Lint 引入 oxfmt + oxlint (性能提升数倍)"]
-        end
-    end
-```
-
-### 上游新增能力详细对照表
-
-| 核心领域 | 2.x 新增/改造特性 | 带来的价值与升级收益 |
-|---|---|---|
-| **公式引擎** | 新增 `packages/formula` 子包，基于 Peggy 实现专用公式语法解析；配合 `packages/formula-tests` 实现 DuckDB/数仓统一验证 | 用户可在界面直接使用丰富公式做派生计算，不再单纯依赖 dbt 或硬编码 SQL。 |
-| **应用开放 SDK** | 新增 `packages/query-sdk`，支持在外部 React 应用中直接对接 Lightdash 语义层 | 便于后续业务系统无缝嵌入 Lightdash 指标查询、自定义数据小应用（Data Apps）。 |
-| **嵌入与文案覆盖** | 官方新增 `uiOverrides` 机制（过滤操作符、时间单位、日期缩放文案注入） | 可与我方的 `i18n` 国际化系统深度配合，更优雅地实现全站文案覆写。 |
-| **资源直接共享** | 新增 **Direct Access** 体系及 **Shared with me** 功能 | 摆脱以往必须将用户拉进整个 Space 的粗粒度限制，可精确把单张图表/看板分享给特定用户。 |
-| **图表版本规范** | 引入 Project Chart Types 版本化管理与 Explorer 升级对比摘要 | 规范了自定义图表类型的发布周期与项目级版本锁定。 |
-| **真实字段元数据** | SQL/Merge/Compose 查询结果携带真实字段元数据（Honest Column Metadata） | 解决以往复杂合并查询在前端字段类型展示不准、格式化丢失的问题。 |
-| **现代工程体系** | Node 24 + pnpm 11 + Turbo + Vitest + oxfmt/oxlint | 构建、类型检查和单元测试速度提升 2~5 倍，Monorepo 任务编排更健壮。 |
-
----
-
-## 三、当前项目自研/定制功能清单盘点
-
-```mermaid
-flowchart TB
-    %% 核心业务与应用能力
-    subgraph FrontendApp ["前端与业务功能定制"]
-        direction TB
-        
-        subgraph F_i18n ["1. 国际化与本地化 (i18n)"]
-            F1_1["i18next 运行时集成"]
-            F1_2["中英文字典 (zh/en)"]
-            F1_3["CDN 动态加载语言包"]
-            F1_4["中文时间/相对日期格式化"]
-        end
-
-        subgraph F_Auth ["2. 业务鉴权与类目权限"]
-            F2_1["CategoryRpcClient (RPC 类目对接)"]
-            F2_2["手机号与类目级联筛选"]
-            F2_3["is_customer_use 项目隔离"]
-            F2_4["体验账号 (is_trial_account)"]
-        end
-
-        subgraph F_Viz ["3. 可视化与图表增强"]
-            F3_1["看板跨图表全局颜色同步 (色差保障)"]
-            F3_2["Vega 自适应与防重叠崩溃"]
-            F3_3["ECharts 系列排序/Y轴间距/单点轴"]
-            F3_4["图表导出多比例 (16:9/4:3/3:4/透明)"]
-        end
-
-        subgraph F_Exp ["4. 探索器与筛选器定制"]
-            F4_1["「在之间」动态多粒度日期筛选"]
-            F4_2["多选下拉 500 条 + 批量操作 + 倒序"]
-            F4_3["透视表 150 列上限 + 自动撑满"]
-            F4_4["ExcelService 导出 NaN/空单元格修复"]
-        end
-
-        subgraph F_Style ["5. 样式、主题与 UI 布局定制"]
-            FS_1["DatesProvider (zh-cn 中文日期组件)"]
-            FS_2["DashboardFilter 下拉框与胶囊样式优化"]
-            FS_3["表格/表头对齐 (textAlign/maxWidth/minWidth)"]
-            FS_4["Markdown Tile 深度放行 div/图片 CSS (sanitizeHtml)"]
-            FS_5["Dark Mode 树组件样式修复 (TreeItem)"]
-            FS_6["容器防截断 (移除 Dashboard overflow:hidden)"]
-        end
-    end
-
-    %% 架构、扩展与底层支撑
-    subgraph InfraArch ["架构、扩展与底层支撑"]
-        direction TB
-        
-        subgraph S_Pkgs ["6. 独立扩展子服务 (Monorepo)"]
-            F5_1["packages/lightdash-mcp (19 个工具)"]
-            F5_2["packages/lightdash-skills (Agent Skills)"]
-            F5_3["packages/lightdash-charts-viewer (Next.js)"]
-        end
-
-        subgraph S_Infra ["7. 基础架构与私有化运维"]
-            F6_1["硬关闭官方遥测 (Rudder/PostHog等)"]
-            F6_2["CDN 静态分离 + OSS 预签名直传"]
-            F6_3["Jaeger 链路过滤 + 前端日志上报"]
-            F6_4["自定义 Dockerfile + CLI 镜像打包"]
-        end
-
-        subgraph S_DB ["8. 数据库 Migration 扩展"]
-            F7_1["20251112... add_is_customer_use"]
-            F7_2["20260107... add_is_trial_account"]
-            F7_3["20260108... create_trial_account"]
-            F7_4["20260206... fix_duplicate_chart_slugs"]
-            F7_5["20250828... add_filters_to_dashboard_tabs"]
-        end
-    end
-```
-
----
-
-## 四、各模块详细功能与源码位置对照表
-
-### 1. 前端国际化与本地化 (i18n)
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| i18n 运行时初始化 | `packages/frontend/src/plugins/i18n.ts` | 挂载到 2.x 的 `MantineProvider` 或根 `App.tsx` |
-| 中英文翻译字典 | `packages/frontend/public/locales/zh/translation.json`<br>`packages/frontend/public/locales/en/translation.json` | 保留全量词条，对齐 2.x 新增界面的 key |
-| CDN 语言包加载 | `packages/frontend/src/plugins/i18n.ts` (`loadPath` 逻辑) | 支持 `window.__CDN_BASE_URL__` 动态前缀 |
-| 中文时间格式转换 | `packages/frontend/src/hooks/useTimeAgo.ts` | 结合 dayjs/date-fns 对中文相对时间做格式化 |
-
-### 2. 业务鉴权、类目权限与体验账号
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| RPC 类目服务客户端 | `packages/backend/src/clients/CategoryRpcClient/` | 注册进 `ClientRepository.ts` |
-| 手机号与类目权限模型 | `packages/backend/src/models/UserDashboardCategoryModel.ts` | 注册进 `ModelRepository.ts` |
-| 看板级联类目筛选 | `packages/backend/src/services/DashboardService/`<br>`packages/frontend/src/utils/categoryFilters.ts` | 首次与联动统一使用无 `isInit` 的校验逻辑 |
-| Customer Use 标记 | `packages/backend/src/database/entities/projects.ts`<br>`packages/common/src/types/projects.ts` | 拦截非授权项目的看板操作 |
-| 体验账号与登录拦截 | `packages/backend/src/database/migrations/20260108020640_create_trial_account.ts`<br>`packages/backend/src/utils/trailAccount.ts` | 迁移默认初始化账号及只读/受限逻辑 |
-
-### 3. 独立子包 (Zero-coupling)
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 独立 MCP 服务 | `packages/lightdash-mcp/` | 复制目录，在根 `pnpm-workspace.yaml` 与 `package.json` 添加 script |
-| LLM Agent 技能定义 | `packages/lightdash-skills/` | 同步 SKILL.md、ROUTER-SOP.md 及 `.mcp.json` 模板 |
-| 独立可视化查看器 | `packages/lightdash-charts-viewer/` | Next.js 独立工程，验证与 2.x backend 的 API 兼容 |
-
-### 4. 图表与可视化增强
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 跨图表全局颜色同步 | `packages/frontend/src/hooks/useChartColorConfig/`<br>`packages/frontend/src/utils/colorUtils.ts` | FNV-1a 哈希、72 色扩展与欧氏色差保底顺延 |
-| 自定义图表 (Vega) 尺寸自适应 | `packages/frontend/src/components/CustomVisualization/` | ResizeObserver 防抖，避免连续缩放重叠崩溃 |
-| ECharts 交互与展示优化 | `packages/common/src/visualizations/`<br>`packages/frontend/src/hooks/echarts/` | 堆叠条形图顺序、Y 轴标签间距、单点时间轴展示 |
-| 图表图片导出扩展 | `packages/frontend/src/utils/chartDownloadUtils.ts` | 支持 16:9、4:3、3:4 及透明/白底切换 |
-
-### 5. 探索器与筛选器定制
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 「在之间」动态日期切换 | `packages/common/src/types/filter.ts`<br>`packages/common/src/utils/filters.ts`<br>`packages/frontend/src/components/common/Filters/` | 日/月/季/年粒度切换，开始至最新月动态限制 |
-| 多选下拉批量操作 | `packages/frontend/src/components/common/Filters/FilterMultiSelect.tsx` | 500 条上限、批量反选/清空、日期倒序 |
-| 透视表列数与列宽控制 | `packages/common/src/constants/pivot.ts`<br>`packages/frontend/src/components/Explorer/VisualizationCard/` | 最大列数扩展至 150，支持列宽自适应撑满 |
-| Excel 导出服务修复 | `packages/backend/src/services/ExcelService/ExcelService.ts` | 空白单元格兜底、数值精度与单位处理 |
-
-### 6. 样式、主题与 UI 布局定制
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 日期组件中文语言 Provider | `packages/frontend/src/providers/MantineProvider.tsx` | 引入 `@mantine/dates` 的 `<DatesProvider settings={{ locale: 'zh-cn' }}>` 与 `dayjs/locale/zh-cn` |
-| Filter 下拉框与胶囊样式重构 | `packages/frontend/src/components/DashboardFilter/filterDropdownStyles.ts`<br>`packages/frontend/src/components/DashboardFilter/filterPillStyles.ts` | 优化下拉菜单阴影、圆角、间距与选项选中态 |
-| 容器防截断 (移除 overflow:hidden) | `packages/frontend/src/components/DashboardTiles/TileBase/TileBase.styles.tsx` | 避免看板卡片 overflow 隐藏导致 Filter 下拉面板或 Tooltip 被外层容器遮挡截断 |
-| 表格与表头对齐样式同步 | `packages/frontend/src/components/common/Table/Table.styles.ts`<br>`packages/frontend/src/components/common/Table/ScrollableTable/BodyCell.tsx`<br>`packages/frontend/src/components/common/Table/ScrollableTable/TableHeader.tsx` | 同步表头与单元格 `$textAlign`（左/中/右对齐），支持 `$maxWidth`、`$minWidth` 动态约束 |
-| Markdown Tile 深度放行 CSS 样式 | `packages/common/src/utils/sanitizeHtml.ts` | 允许 `div` 标签使用 Flexbox、Grid、Border、Background、Transform 等丰富样式，放行 `picture/source/srcset` 图片标签 |
-| 暗黑模式树组件背景修复 | `packages/frontend/src/components/common/Tree/TreeItem.module.css` | 修复 Dark Mode 下 Tree 目录树背景被默认类覆盖的问题（使用 `!important` 修正透明与 hover 背景） |
-| 无权限页与移动端/小程序适配 | `packages/frontend/src/pages/NoDashboardPermission.tsx`<br>`packages/frontend/src/features/` | 调整无权限页面 padding/scale 响应式比例，适配移动端与微信小程序环境 |
-
-### 7. 基础架构、安全与私有化运维
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 硬关闭官方遥测 | `packages/backend/src/config/parseConfig.ts`<br>`packages/backend/src/analytics/LightdashAnalytics.ts`<br>`packages/frontend/src/providers/Tracking/TrackingProvider.tsx`<br>`packages/cli/src/analytics/analytics.ts` | RudderStack、PostHog、Intercom、Headway、Pylon 彻底静默 |
-| CDN/OSS 静态分离 | `packages/backend/src/services/OssService.ts`<br>`packages/backend/src/controllers/ossController.ts`<br>`packages/common/src/types/api/oss.ts` | 后端运行时注入 HTML 静态路径，大文件直传 |
-| Jaeger 链路过滤与日志上报 | `packages/backend/src/instrumentation/jaeger-filter-span-processor.ts`<br>`packages/backend/src/controllers/logController.ts` | 按 `jaeger-debug-id` 按需上报 trace |
-| 构建与 CI/CD 镜像 | `dockerfile`、`dockerfile-dev`、`.github/workflows/` | 对齐 Node 24 运行时环境与 CLI 镜像打包 |
-
-### 8. 数据库 Migration 扩展
-
-| 功能项 | 关键文件与位置 | 迁移注意事项 |
-|---|---|---|
-| 项目客户使用标记 | `packages/backend/src/database/migrations/20251112101916_add_is_customer_use_to_projects.ts` | 项目表新增 `is_customer_use` 字段 |
-| 用户体验账号标记 | `packages/backend/src/database/migrations/20260107080255_add_is_trial_account_to_users.ts` | 用户表新增 `is_trial_account` 字段 |
-| 体验账号数据种子初始化 | `packages/backend/src/database/migrations/20260108020640_create_trial_account.ts` | 初始化 `dev-trial@brandct.cn` 账号与加密密码 |
-| 修复图表 Slug 重复问题 | `packages/backend/src/database/migrations/20260206100000_fix_duplicate_chart_slugs.ts` | 修复历史图表 slug 冲突 |
-| 看板 Tab 筛选器保存扩展 | `packages/backend/src/database/migrations/20250828164124_add_filters_to_saved_dashboard_tabs.ts` | 支持在 Tab 维度持久化筛选配置 |
-
----
-
-## 五、当前项目内的平滑迁移演进路线
-
-为确保现有业务不受任何影响，推荐在当前仓库内遵循**「分支隔离 -> 分层移植 -> 逐步验证 -> 最终切流」**的节奏：
+## 一、迁移策略与基准（以当前 `feat/v2-upgrade` 分支为主体）
 
 ```mermaid
 flowchart LR
-    DevBranch["当前 dev 分支 (生产环境基准)"] --> NewBranch["创建升级工作分支 (feat/v2-upgrade)"]
+    CurrentRepo["【当前工作分支】feat/v2-upgrade<br>(已包含当前项目全部生产定制能力)"]
     
-    subgraph MigrationSteps ["在 feat/v2-upgrade 内分阶段实施"]
-        P0["Phase 0: 引入 2.x 底座代码与构建工具链"]
-        P1["Phase 1: 迁移数据库 Migration 与底层字段"]
-        P2["Phase 2: 迁移后端核心业务 (RPC类目/体验账号/OSS/关闭遥测)"]
-        P3["Phase 3: 注入独立子包 (MCP/Skills/Charts-Viewer)"]
-        P4["Phase 4: 迁移前端增强 (i18n多语言字典/图表色差/动态日期筛选)"]
-        P5["Phase 5: 全量类型检查 (typecheck) 与集成回归测试"]
-    end
+    UpstreamRepo["【参考源】上游 Lightdash 2.x 仓库<br>(D:\\workspace_company\\lightdash)"]
 
-    NewBranch --> MigrationSteps
-    MigrationSteps --> PRVerify["提 PR 并进行多环境验证"]
-    PRVerify --> MergeDev["验证无误后合并回 dev / main"]
+    UpstreamRepo -->|"正向按模块移植"| Ingestion["分步原子化合入当前分支"]
+    Ingestion -->|"编译与单测验证"| CurrentRepo
 ```
 
-### 实施阶段划分
+1. **当前分支即为主战场**：我们直接在当前分支 **`feat/v2-upgrade`** 上开展所有功能移植与升级工作，该分支已具备当前项目的全部自研能力（i18n、类目权限、自研 MCP、样式定制、OSS直传、遥测关闭等）。
+2. **正向吸收上游 2.x 模块**：参考外部上游仓库 `D:\workspace_company\lightdash` 的 2.x 实现，将上游高价值模块（`formula`、`query-sdk`、`Honest Metadata`、`Direct Access` 等）分批正向移植进当前分支。
+3. **保护基线资产**：每一次移植后均执行类型检查与单测，确保当前分支既有的业务功能和样式不退化、不被意外覆盖。
 
-1. **Phase 0: 准备工作与依赖链对齐**
-   - 在当前仓库创建分支 `feat/v2-upgrade`。
-   - 对齐 Node.js (>=24)、pnpm (v11) 及 Turbo 构建配置。
-2. **Phase 1: 数据库与模型迁移**
-   - 导入 5 个自研迁移脚本至 `packages/backend/src/database/migrations/`。
-   - 验证 `knex migrate:latest` 与 `rollback` 幂等性。
-3. **Phase 2: 基础设施与后端逻辑移植**
-   - 移植硬关遥测配置。
-   - 移植 CategoryRpcClient、UserDashboardCategoryModel 及 DashboardService 权限逻辑。
-   - 移植 OssService / OssController 及 LogController。
-   - 执行 `pnpm generate-api` 重新生成 TSOA 路由。
-4. **Phase 3: 独立子包同步**
-   - 将 `packages/lightdash-mcp`、`packages/lightdash-skills`、`packages/lightdash-charts-viewer` 复制并挂载到 workspace。
-   - 针对 2.x API 验证 MCP 工具集。
-5. **Phase 4: 前端核心能力与国际化**
-   - 挂载 `i18n.ts` 并合并 `public/locales/zh/translation.json`。
-   - 移植全局颜色分配器、ECharts 细节优化与动态日期筛选器。
-6. **Phase 5: 全量测试与上线准备**
-   - 执行 `pnpm common-typecheck`、`pnpm backend-typecheck`、`pnpm frontend-typecheck`。
-   - 构建 Docker 镜像，进行前后端功能全量冒烟与回归测试。
+---
+
+## 二、上游 2.x 待迁移的高价值功能模块清单
+
+```mermaid
+flowchart TB
+    subgraph UpstreamModules ["上游 Lightdash 2.x 待移植功能全景"]
+        direction TB
+
+        subgraph M_Formula ["1. 独立公式计算引擎 (Formula Engine)"]
+            F1["新建 packages/formula (Peggy 语法解析器)"]
+            F2["新建 packages/formula-tests (跨数仓/DuckDB 校验)"]
+            F3["支持前端复杂自定义计算公式与字段派生"]
+        end
+
+        subgraph M_SDK ["2. 数据应用开放 SDK (Query SDK)"]
+            S1["新建 packages/query-sdk (独立 React 语义层组件库)"]
+            S2["支持轻量级自定义数据小应用 (Data Apps)"]
+            S3["uiOverrides 机制 (外部定制与多语言覆盖通道)"]
+        end
+
+        subgraph M_Perm ["3. 细粒度资源直接授权 (Direct Access)"]
+            P1["单图表/看板/Data Apps 直接授权与分享 (无需整个Space)"]
+            P2["内容中心增加 'Shared with me' (与我共享) 筛选视图"]
+            P3["Direct Access 管理面板与权限生命周期"]
+        end
+
+        subgraph M_Query ["4. 查询真实元数据与展示优化 (Honest Metadata)"]
+            Q1["Query-Write 阶段直接固化字段元数据 (Honest Column Metadata)"]
+            Q2["SQL、Merge 和 Compose 复杂混合查询元数据统一"]
+            Q3["Period-to-date (PoP) 同比环比查询过滤保留修复"]
+        end
+
+        subgraph M_Viz ["5. 图表与看板增强 (Chart Types & Dashboards)"]
+            V1["Project Chart Types (自定义图表版本锁定与升级摘要)"]
+            V2["图表 URL Slug 动态重命名与维护"]
+            V3["Dashboard 共享筛选器覆盖冲突协调 (Reconcile Filter Override)"]
+        end
+
+        subgraph M_TableGroups ["6. 侧边栏多层级嵌套分组 (PR #22768 Nested Groups)"]
+            G1["meta.groups 多层级分组 (替代弃用的 group_label，支持5级嵌套)"]
+            G2["Explore 侧边栏递归树 (Recursive Tree + 深度缩进 + 搜索自动展开)"]
+            G3["projects.table_groups (lightdash.config.yml 全局组标签与描述持久化)"]
+            G4["解决大项目海量模型平铺展示、难以检索的问题"]
+        end
+
+        subgraph M_Merge ["7. 多查询合并与混合计算引擎 (Merge Queries & Compose)"]
+            MQ1["跨 Explore / 跨数据源合并查询引擎 (Merge Query Engine)"]
+            MQ2["基于 DuckDB 的透视合并与计算合成 (Pivoted Merges)"]
+            MQ3["可视化合并查询结果与 SQL 导出 (Merged Visualizations)"]
+        end
+
+        subgraph M_External ["8. 外部即席数据源接入 (External Sources)"]
+            EX1["直接上传 CSV / 关联 Google Sheets 生成临时 Explore"]
+            EX2["支持外部数据与数仓表一键 Join 关联分析 (Merge Picker)"]
+            EX3["基于内置 DuckDB 引擎执行外部数据即席查询"]
+        end
+
+        subgraph M_Cache ["9. 结果集缓存与项目级 TTL 控制 (Query Caching)"]
+            QC1["项目设置新增 Query Caching 控制面板与 API"]
+            QC2["支持针对具体 Project 配置查询结果缓存过期时间 (Results Cache TTL)"]
+            QC3["支持 MotherDuck 实例缓存优化与多环境密钥轮转 (Keyring)"]
+        end
+
+        subgraph M_HomeTheme ["10. 全新模块化主页与主题包管理 (Homepage & Themes)"]
+            HT1["全新可编排主页 (Homepage Builder): 个人空间快捷操作/公告发布/多布局"]
+            HT2["内容中心组织级主题包导出与导入 (Theme Packages Import/Export)"]
+            HT3["支持自定义组织主题规范与品牌主色全局下发"]
+        end
+
+        subgraph M_Autopilot ["11. 内容健康度巡检与无效资产治理 (Validator & Autopilot)"]
+            AU1["失效模型与孤儿图表根因分组汇总 (Grouped Root Cause Summary)"]
+            AU2["已离职用户内容/长期无流量资产自动探测与批量清理 (Bulk Delete Guardrails)"]
+            AU3["已验证内容强保护锁 (manage:VerifiedContent 权限隔离)"]
+        end
+    end
+```
+
+### 待移植功能详细技术评估表
+
+> **版本属性说明**：
+> - 🟢 **OSS（开源免费）**：代码公开可用，无 License 门槛，可直接移植。
+> - 🟡 **EE 架构（企业收费特性）**：官方归类在 `packages/*/src/ee/` 目录下，通常受 `license.licenseKey` 或商业 feature flag 门槛保护。**自托管免费版无法直接使用，必须对其进行「开源化改造/解绑 License」后方可使用**。
+
+| 模块名称 | 版本属性 | 上游实现位置 | 移植难易度 | 对当前项目的影响与收益 | 移植与开源化改造要点 |
+|---|:---:|---|:---:|---|---|
+| **Formula 公式引擎** | 🟢 **OSS** | `packages/formula/`<br>`packages/formula-tests/` | **低（零耦合）** | 引入强大的自定义指标计算公式能力，用户可在前端自由编写计算公式 | 直接将 `formula` 作为独立 workspace package 拷入当前仓库，并在 `package.json` 添加构建命令。 |
+| **Query SDK & Data Apps** | 🟢 **OSS** | `packages/query-sdk/` | **低（零耦合）** | 允许第三方或独立业务页面直接调用语义层组件；提供 `uiOverrides` 扩展 | 直接将 `query-sdk` 作为独立包移入当前 monorepo，与已有 `lightdash-mcp` 形成互补。 |
+| **多层级表格分组 (Nested Table Groups)** | 🟢 **OSS** | `packages/frontend/src/components/Explorer/ExploreSideBar/`<br>`packages/common/src/types/explore.ts`<br>`packages/backend/src/models/ProjectModel/` | **中** | **彻底解决模型过多平铺展示难以查找的问题**，支持 `meta.groups: string[]`（替代已弃用的 `group_label`），侧边栏递归树形渲染（带深度缩进与搜索自动展开） | **必须重点迁移**。包含 `20260506135156_add_table_groups_to_projects.ts` 迁移、`exploreTree.ts` 递归树构建及 `lightdash.config.yml` 的 `table_groups` 配置解析，同时向后兼容旧版 `group_label`。 |
+| **真实字段元数据 (Honest Metadata)** | 🟢 **OSS** | `packages/backend/src/utils/QueryBuilder/`<br>`packages/common/src/types/` | **中** | 彻底解决复杂 SQL 查询、合并查询在前端数据类型展示错误、格式化丢失的问题 | 移植 QueryBuilder 中写入 column metadata 的逻辑，不改动现有数据源连接机制。 |
+| **图表版本体系 (Project Chart Types)** | 🟢 **OSS** | `packages/frontend/src/features/chartTypes/`<br>`packages/backend/src/models/` | **中** | 规范自定义可视化版本管理，在 Explorer 中支持平滑升级图表配置 | 合入到前端图表编辑区，并为新界面补充对应的 i18n 中文字典。 |
+| **查询结果集缓存与 TTL (Query Caching)** | 🟢 **OSS** | `packages/backend/src/services/ProjectService/`<br>`packages/frontend/src/pages/ProjectSettings/` | **低** | 项目级可配置结果缓存时间（Results Cache TTL），显著降低数仓查询压力并提升二次打开速度 | 移植 `query_results_cache_ttl` 配置字段及项目设置面板。 |
+| **看板筛选器冲突解决 (Reconcile Overrides)** | 🟢 **OSS** | `packages/frontend/src/hooks/useSavedDashboardFiltersOverrides.ts`<br>`packages/common/src/types/filter.ts` | **中** | 修复复杂看板多 Tab 与全局筛选器覆盖时的 ID 冲突 | 移植上游修复逻辑，注意保持我们自研的「在之间」动态粒度筛选器不受影响。 |
+| **PoP 同比环比查询过滤修复** | 🟢 **OSS** | `packages/backend/src/utils/QueryBuilder/MetricQueryBuilder.ts` | **低** | 修复 Period-to-Date 开启时同比环比查询条件被意外丢弃的问题 | 直接 cherry-pick 或合并对应 QueryBuilder 单测与修复代码。 |
+| **跨模型合并查询 (Merge Queries)** | 🟢 **OSS** | `packages/backend/src/services/MergeQueryService/`<br>`packages/frontend/src/features/mergeQueries/` | **中~高** | **支持将多个不同 Explore 的查询结果在前端直接通过公共维度合并为一个图表/表格展示** | 包含后端 DuckDB compose 查询引擎与前端 Merge Query 编辑器。为跨业务模型对比分析提供极大便利。 |
+| **外部即席数据源接入 (External Sources)** | 🟢 **OSS** | `packages/backend/src/services/ExternalSourceService/`<br>`packages/frontend/src/features/externalSources/` | **中** | 支持上传外部 CSV 或连接 Google Sheets 直接生成临时 Explore，并能与数仓数据做跨源 Join | 移植 CSV/Google Sheets Ingest Pipeline，路由到内置轻量 DuckDB 执行。 |
+| **细粒度直接授权 (Direct Access)** | 🟡 **EE 特性** | `packages/backend/src/ee/services/DirectAccessService/`<br>`packages/frontend/src/ee/features/directAccess/` | **中~高** | 支持直接把看板/图表共享给特定用户（内容中心新增 Shared with me） | ⚠️ **需解绑改造**：上游位于 `ee/` 目录下且通过 `gateDirectAccessService` 做商业鉴权。需剥离 License 校验，直接将核心授权服务移入常规 `services/` 并与自研 `CategoryRpc` 权限打通。 |
+| **模块化主页 (Homepage Builder)** | 🟡 **EE 特性** | `packages/frontend/src/ee/features/homepageBuilder/`<br>`packages/backend/src/ee/controllers/` | **中** | 支持自定义主页模块（个人空间直达、公告发布、卡片/紧凑布局）及企业级主题包导入导出 | ⚠️ **需解绑改造**：上游主页编排组件和 API 被 EE 特性开关限制。移植时需直接作为通用功能在 OSS 注册，绕过 `isHomepageBuilderEnabled` 的商业授权拦截。 |
+| **内容治理与失效资产清理 (Validator/Autopilot)** | 🟡 **EE 特性** | `packages/backend/src/ee/services/AutopilotService/`<br>`packages/frontend/src/ee/features/autopilot/` | **中** | 自动探测因底层 dbt 删改字段导致的失效图表/看板并按根因聚合，支持一键批量清理 | ⚠️ **需解绑改造**：部分自动探测动作（Autopilot actions）属于 EE 闭源扩展。可抽取其开源基础版 `ValidationService` 根因聚合逻辑，并在前端开放操作面板。 |
+
+---
+
+## 三、当前项目自研功能资产保护清单（移植过程严禁覆盖/破坏）
+
+在将上游功能移入当前项目的过程中，必须通过自动化测试和人工检查，严格保护以下现有业务资产：
+
+```mermaid
+flowchart TB
+    subgraph ProtectedAssets ["当前项目必须保护的现有业务资产"]
+        direction TB
+
+        subgraph PA_1 ["1. 国际化与本地化 (i18n)"]
+            A1["i18next 运行时与全站中文翻译 (public/locales/zh/)"]
+            A2["CDN 动态加载语言包 (__CDN_BASE_URL__)"]
+            A3["DatesProvider 中文日期组件 (zh-cn) & useTimeAgo"]
+        end
+
+        subgraph PA_2 ["2. 业务鉴权与类目权限"]
+            B1["CategoryRpcClient (RPC 外部类目接口对接)"]
+            B2["UserDashboardCategory 手机号鉴权与类目级联筛选"]
+            B3["is_customer_use 项目隔离 & 体验账号 (is_trial_account)"]
+        end
+
+        subgraph PA_3 ["3. 自研独立子包"]
+            C1["packages/lightdash-mcp (19 个 MCP 工具，独立进程，PAT 鉴权)"]
+            C2["packages/lightdash-skills (Claude/Cursor Agent Skills 库)"]
+            C3["packages/lightdash-charts-viewer (Next.js 独立可视化服务)"]
+        end
+
+        subgraph PA_4 ["4. 可视化与筛选器定制"]
+            D1["跨图表全局颜色同步 (FNV-1a 哈希 + 欧氏色差保底)"]
+            D2["「在之间」动态多粒度日期筛选 (日/月/季/年) 与边界限制"]
+            D3["透视表 150 列上限与自适应撑满 + 500 条多选批量操作"]
+            D4["Vega 容器防重叠崩溃 (ResizeObserver) + 多比例图片导出"]
+        end
+
+        subgraph PA_5 ["5. 样式、主题与 UI 布局"]
+            E1["Markdown Tile 深度放行 CSS (Flex/Grid/Border/Background/Transform)"]
+            E2["表格/表头对齐同步 (textAlign/maxWidth/minWidth)"]
+            E3["DashboardTiles 移除 overflow:hidden 避免下拉菜单截断"]
+            E4["Dark Mode 树组件样式修复 (TreeItem)"]
+        end
+
+        subgraph PA_6 ["6. 基础设施与私有化运维"]
+            G1["硬关闭官方遥测 (RudderStack/PostHog/Intercom/Headway/Pylon)"]
+            G2["CDN 静态资源分离 + OSS 预签名直传 (OssService/OssController)"]
+            G3["Jaeger 链路追踪过滤 (jaeger-debug-id) 与前端日志上报"]
+            G4["自研 5 个数据库 Migrations 与 Jenkins CLI 镜像构建"]
+        end
+    end
+```
+
+---
+
+## 四、分步骤正向迁移实施路线图
+
+直接在当前 **`feat/v2-upgrade`** 分支上，按以下 **5 个阶段** 逐步移植上游 2.x 模块：
+
+```mermaid
+flowchart TD
+    Start["当前分支 feat/v2-upgrade"] --> Step1["Step 1: 引入独立新包 (Formula + Query-SDK)"]
+    Step1 --> Test1["验证独立包构建与单测 (pnpm formula:test 等)"]
+    
+    Test1 --> Step2["Step 2: 移植查询优化与元数据真实性 (Honest Metadata + PoP)"]
+    Step2 --> Test2["验证后端查询与导出兼容性"]
+    
+    Test2 --> Step3["Step 3: 移植 Direct Access 细粒度授权并融合类目权限"]
+    Step3 --> Test3["验证权限拦截与内容中心 Shared with me"]
+    
+    Test3 --> Step4["Step 4: 移植前端看板/图表增强并补全 i18n 中文词条"]
+    Step4 --> Test4["验证跨图表色差/动态日期/自定义样式无退化"]
+    
+    Test4 --> Step5["Step 5: 全量 Typecheck + Docker 镜像构建 + 端到端验收"]
+    Step5 --> Done["当前分支 feat/v2-upgrade 验收完成"]
+```
+
+### 阶段详细任务拆解：
+
+#### Step 1: 移植零耦合的独立工具包（风险：极低）
+1. 将上游 `packages/formula` 和 `packages/formula-tests` 复制到当前 monorepo。
+2. 将上游 `packages/query-sdk` 复制到当前 monorepo。
+3. 在根 `package.json` 和 `pnpm-workspace.yaml` 中配置相关 scripts，执行 `pnpm formula:build && pnpm formula:test` 验证通过。
+
+#### Step 2: 移植后端查询层与元数据优化（风险：低）
+1. 移植 `packages/backend/src/utils/QueryBuilder/` 中的 Honest Column Metadata 机制。
+2. 移植 `MetricQueryBuilder` 中的 Period-to-date (PoP) 过滤保留修复。
+3. 移植 `ExcelService` / `CsvService` 相关的元数据格式化输出优化（保留我们已有的 NaN/空单元格兜底）。
+4. 运行 `pnpm backend-typecheck` 与后端查询单测。
+
+#### Step 3: 移植细粒度资源共享 (Direct Access) 并融合鉴权（风险：中）
+1. 移植上游 Direct Access 相关的数据库迁移与 Model/Service。
+2. 在 `DashboardService` / `ProjectService` 中，将 Direct Access 权限检查与现有的 `CategoryRpcClient`、`UserDashboardCategoryModel` 权限逻辑做组合判定。
+3. 移植前端 Direct Access 管理弹窗与内容中心的 `Shared with me` 列表。
+4. 在 `public/locales/zh/translation.json` 中补齐 Direct Access 相关的全部中文翻译。
+
+#### Step 4: 移植前端图表、看板与多层级分组树特性（风险：中）
+1. **移植 PR #22768 Nested Table Groups (多层级表格分组树)**：
+   - 执行后端 migration：`20260506135156_add_table_groups_to_projects.ts`。
+   - 移植 `packages/common/src/types/explore.ts` 与 `compiler/translator.ts` 中 `meta.groups` 解析逻辑（保持向后兼容 `group_label`）。
+   - 移植前端 `packages/frontend/src/components/Explorer/ExploreSideBar/exploreTree.ts`、`VirtualizedExploreList.tsx` 及 `useProjectTableGroups.ts`，支持多层递归缩进展示与搜索自动展开。
+2. 移植 Project Chart Types 版本化管理逻辑与 Explorer 升级摘要提示。
+3. 移植 Dashboard 共享筛选器覆盖协调逻辑（`useSavedDashboardFiltersOverrides.ts`）。
+4. **关键校验**：确保自研的「跨图表全局颜色同步」、「动态日期粒度筛选」、「Markdown Tile CSS 放行」、「表格对齐样式」依然生效。
+5. 全量补齐新增界面的 i18n 词条。
+
+#### Step 5: 全量回归与构建验收（风险：低）
+1. 执行 `pnpm common-typecheck`、`pnpm backend-typecheck`、`pnpm frontend-typecheck`。
+2. 重新运行 `pnpm generate-api` 确保 OpenAPI / Swagger 与 TSOA 路由一致。
+3. 构建 Docker 镜像，验证私有化部署、OSS 直传、MCP 服务（19 个工具）及生产看板运行无误。
