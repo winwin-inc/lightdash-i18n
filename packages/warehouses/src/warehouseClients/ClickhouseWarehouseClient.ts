@@ -172,6 +172,11 @@ export class ClickhouseSqlBuilder extends WarehouseBaseSqlBuilder {
                 .replaceAll('\0', '')
         );
     }
+
+    castToTimestamp(date: Date): string {
+        // ClickHouse uses toDateTime function with ISO 8601 format
+        return `toDateTime('${date.toISOString()}')`;
+    }
 }
 
 export class ClickhouseWarehouseClient extends WarehouseBaseClient<CreateClickhouseCredentials> {

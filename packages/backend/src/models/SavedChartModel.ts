@@ -28,7 +28,9 @@ import {
     MetricOverrides,
     NotFoundError,
     Organization,
+    parseSavedMergeQuery,
     Project,
+    SAVED_MERGE_QUERY_SCHEMA_VERSION,
     SavedChartDAO,
     SessionUser,
     SortField,
@@ -196,6 +198,7 @@ const createSavedChartVersion = async (
         pivotConfig,
         parameters,
         updatedByUser,
+        merge,
     }: CreateSavedChartVersion,
 ): Promise<void> => {
     await db.transaction(async (trx) => {
@@ -220,6 +223,15 @@ const createSavedChartVersion = async (
                 timezone: timezone || null,
             })
             .returning('*');
+        // Chart versions are immutable, so this is an insert per version and
+        // never an update. Only versions that actually merge get a row.
+        if (merge) {
+            await trx('saved_queries_version_merges').insert({
+                saved_queries_version_id: version.saved_queries_version_id,
+                schema_version: SAVED_MERGE_QUERY_SCHEMA_VERSION,
+                merge: JSON.stringify(merge),
+            });
+        }
         await createSavedChartVersionFields(
             trx,
             dimensions.map((dimension) => ({
@@ -357,6 +369,7 @@ export const createSavedChart = async (
         dashboardUuid,
         slug,
         forceSlug,
+        merge,
     }: CreateSavedChart & {
         updatedByUser: UpdatedByUser;
         slug: string;
@@ -426,6 +439,7 @@ export const createSavedChart = async (
             pivotConfig,
             parameters,
             updatedByUser,
+            merge,
         });
         return newSavedChart.saved_query_uuid;
     });
@@ -972,6 +986,11 @@ export class SavedChartModel {
                     SavedChartCustomSqlDimensionsTableName,
                 ).where('saved_queries_version_id', savedQueriesVersionId);
 
+                const mergeQuery = this.database('saved_queries_version_merges')
+                    .select(['schema_version', 'merge'])
+                    .where('saved_queries_version_id', savedQueriesVersionId)
+                    .first();
+
                 const [
                     fields,
                     sorts,
@@ -979,6 +998,7 @@ export class SavedChartModel {
                     additionalMetricsRows,
                     customBinDimensionsRows,
                     customSqlDimensionsRows,
+                    mergeRow,
                 ] = await Promise.all([
                     fieldsQuery,
                     sortsQuery,
@@ -986,7 +1006,17 @@ export class SavedChartModel {
                     additionalMetricsQuery,
                     customBinDimensionsQuery,
                     customSqlDimensionsQuery,
+                    mergeQuery,
                 ]);
+
+                // An unknown future shape leaves the chart working without its
+                // merge rather than failing the whole chart.
+                const merge = mergeRow
+                    ? parseSavedMergeQuery(
+                          mergeRow.schema_version,
+                          mergeRow.merge,
+                      )
+                    : null;
 
                 // Filters out "null" fields
                 const additionalMetricsFiltered: DBFilteredAdditionalMetrics[] =
@@ -1052,6 +1082,7 @@ export class SavedChartModel {
                     name: savedQuery.name,
                     description: savedQuery.description,
                     tableName: savedQuery.explore_name,
+                    merge,
                     updatedAt: savedQuery.created_at,
                     updatedByUser: {
                         userUuid: savedQuery.user_uuid,

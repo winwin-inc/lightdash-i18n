@@ -91,6 +91,11 @@ export const warehouseClientMock: WarehouseClient = {
         throw new Error('Function not implemented.');
     },
     escapeString: (value) => value,
+    castToTimestamp: (date) => `CAST('${date.toISOString()}' AS TIMESTAMP)`,
+    castToDate: (date) =>
+        `CAST('${date.toISOString().slice(0, 10)}' AS DATE)`,
+    castToNaiveTimestamp: (date) =>
+        `CAST('${date.toISOString()}' AS TIMESTAMP)`,
 };
 
 const sourceMock: Source = {

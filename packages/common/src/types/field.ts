@@ -562,6 +562,12 @@ export enum DimensionType {
     BOOLEAN = 'boolean',
 }
 
+/** Whether a timestamp carries a zone (`aware`) or is wall-clock only (`naive`). */
+export type TimestampDomain = 'aware' | 'naive';
+
+export const isTimestampDomain = (value: unknown): value is TimestampDomain =>
+    value === 'aware' || value === 'naive';
+
 export interface Dimension extends Field {
     fieldType: FieldType.DIMENSION;
     type: DimensionType;
@@ -575,6 +581,11 @@ export interface Dimension extends Field {
     isAdditionalDimension?: boolean;
     /** When true, display-timezone conversion is skipped for this dimension. */
     skipTimezoneConversion?: boolean;
+    /**
+     * Whether timestamp values carry a zone (`aware`) or are wall-clock only
+     * (`naive`). Used when casting join-key literals in merge queries.
+     */
+    timestampDomain?: TimestampDomain;
     colors?: Record<string, string>;
     isIntervalBase?: boolean;
     aiHint?: string | string[];

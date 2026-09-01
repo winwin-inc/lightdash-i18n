@@ -211,4 +211,16 @@ export default abstract class WarehouseBaseClient<
     escapeString(value: string): string {
         return this.sqlBuilder.escapeString(value);
     }
+
+    castToTimestamp(date: Date): string {
+        return this.sqlBuilder.castToTimestamp(date);
+    }
+
+    castToDate(date: Date): string {
+        return this.sqlBuilder.castToDate(date);
+    }
+
+    castToNaiveTimestamp(date: Date): string {
+        return this.sqlBuilder.castToNaiveTimestamp(date);
+    }
 }

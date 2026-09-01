@@ -56,6 +56,7 @@ import {
     type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
+    type ChartConfig,
     type ChartHistory,
     type ChartVersion,
     type SavedChart,
@@ -152,6 +153,7 @@ import type {
 } from './ee';
 import { type AnyType } from './types/any';
 import { type ApiOssUploadUrlResponse } from './types/api/oss';
+import type { ExecuteAsyncMergeQueryRequestParams } from './types/api/paginatedQuery';
 import {
     type ApiGetProjectParametersListResults,
     type ApiGetProjectParametersResults,
@@ -175,6 +177,11 @@ import {
     type ApiContentResponse,
 } from './types/content';
 import type { ApiGroupListResponse } from './types/groups';
+import type {
+    ApiCompiledMergeQueryResults,
+    MergeFieldOrigins,
+    MergeQueryError,
+} from './types/mergeQuery';
 import type {
     ApiMetricsExplorerQueryResults,
     ApiMetricsExplorerTotalResults,
@@ -274,6 +281,7 @@ export * from './types/lightdashProjectConfig';
 export * from './types/resultsCacheProjectSettings';
 export * from './types/metricQuery';
 export * from './types/metricsExplorer';
+export * from './types/mergeQuery';
 export * from './types/notifications';
 export * from './types/oauth';
 export * from './types/openIdIdentity';
@@ -344,6 +352,7 @@ export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
 export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
+export * from './utils/mergeQueryItems';
 export * from './utils/oauth';
 export * from './utils/organization';
 export * from './utils/projectMemberRole';
@@ -606,6 +615,39 @@ export type ApiExecuteAsyncMetricQueryResults =
         fields: ItemsMap;
         warnings: QueryWarning[];
     };
+
+type ApiExecuteAsyncMergeQueryMetadata = {
+    parameterReferences: string[];
+    fieldOrigins: MergeFieldOrigins;
+};
+
+export type ApiExecuteAsyncMergeQueryResults =
+    | (ApiExecuteAsyncMergeQueryMetadata & {
+          outcome: 'started';
+          query: ApiExecuteAsyncMetricQueryResults;
+      })
+    | (ApiExecuteAsyncMergeQueryMetadata & {
+          outcome: 'refused';
+          errors: MergeQueryError[];
+      });
+
+export type MergeQueryExecutionMode =
+    | { type: 'interactive' }
+    | { type: 'export'; limit: number | null };
+
+export type MergeQueryChart = {
+    chartConfig: ChartConfig;
+    pivotConfig?: SavedChart['pivotConfig'];
+};
+
+/** One-call merge execution request. Derived pivot SQL remains server-owned. */
+export type ApiExecuteAsyncMergeQueryRequest = Omit<
+    ExecuteAsyncMergeQueryRequestParams,
+    'pivotConfiguration'
+> & {
+    mode?: MergeQueryExecutionMode;
+    chart?: MergeQueryChart;
+};
 
 export type ApiExecuteAsyncDashboardChartQueryResults =
     ApiExecuteAsyncQueryResultsCommon & {
@@ -976,6 +1018,8 @@ type ApiResults =
     | ApiExecuteAsyncSqlQueryResults
     | ApiExecuteAsyncDashboardSqlChartQueryResults
     | ApiExecuteAsyncMetricQueryResults
+    | ApiExecuteAsyncMergeQueryResults
+    | ApiCompiledMergeQueryResults
     | ApiExecuteAsyncDashboardChartQueryResults
     | ApiGetAsyncQueryResults
     | ApiSchedulersResponse['results']

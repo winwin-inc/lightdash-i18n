@@ -3,6 +3,7 @@ import { type ViewStatistics } from './analytics';
 import { type ConditionalFormattingConfig } from './conditionalFormatting';
 import { type ChartSourceType } from './content';
 import { type CompactOrAlias, type FieldId } from './field';
+import { type SavedMergeQuery } from './mergeQuery';
 import { type MetricQuery, type MetricQueryRequest } from './metricQuery';
 import { type ParametersValuesMap } from './parameters';
 // eslint-disable-next-line import/no-cycle
@@ -447,6 +448,11 @@ export type SavedChart = {
     pivotConfig?: {
         columns: string[];
     };
+    /**
+     * Second query this chart's query is merged with, when it has one. Absent
+     * on the overwhelming majority of charts.
+     */
+    merge?: SavedMergeQuery | null;
     chartConfig: ChartConfig;
     tableConfig: {
         columnOrder: string[];
@@ -474,6 +480,7 @@ type CreateChartBase = Pick<
     | 'tableName'
     | 'metricQuery'
     | 'pivotConfig'
+    | 'merge'
     | 'chartConfig'
     | 'tableConfig'
     | 'parameters'

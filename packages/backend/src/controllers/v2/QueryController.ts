@@ -1,6 +1,8 @@
 import {
     AnyType,
     ApiErrorPayload,
+    type ApiExecuteAsyncMergeQueryRequest,
+    type ApiExecuteAsyncMergeQueryResults,
     ApiExecuteAsyncDashboardChartQueryResults,
     ApiExecuteAsyncDashboardSqlChartQueryResults,
     ApiExecuteAsyncSqlQueryResults,
@@ -177,6 +179,39 @@ export class QueryController extends BaseController {
             status: 'ok',
             results,
         };
+    }
+
+    /**
+     * Validates and executes a warehouse-native merge query asynchronously.
+     * @summary Execute merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/merge-query')
+    @OperationId('executeAsyncMergeQuery')
+    async executeAsyncMergeQuery(
+        @Body() body: ApiExecuteAsyncMergeQueryRequest,
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccess<ApiExecuteAsyncMergeQueryResults>> {
+        this.setStatus(200);
+        const results = await this.services
+            .getAsyncQueryService()
+            .executeAsyncMergeQuery({
+                account: req.account!,
+                projectUuid,
+                mergeQuery: body.mergeQuery,
+                context:
+                    body.context ??
+                    getContextFromHeader(req) ??
+                    QueryExecutionContext.API,
+                invalidateCache: body.invalidateCache,
+                parameters: body.parameters,
+                mode: body.mode ?? { type: 'interactive' },
+                chart: body.chart,
+            });
+
+        return { status: 'ok', results };
     }
 
     /**

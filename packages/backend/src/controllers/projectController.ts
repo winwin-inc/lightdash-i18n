@@ -6,6 +6,7 @@ import {
     ApiChartAsCodeUpsertResponse,
     ApiChartListResponse,
     ApiChartSummaryListResponse,
+    ApiCompiledMergeQueryResults,
     ApiCreateTagResponse,
     ApiDashboardAsCodeListResponse,
     ApiDashboardAsCodeUpsertResponse,
@@ -17,9 +18,11 @@ import {
     ApiSpaceSummaryListResponse,
     ApiSqlQueryResults,
     ApiSuccessEmpty,
+    ApiExecuteAsyncMetricQueryResults,
     CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartAsCode,
+    CompileMergeQueryRequest,
     CreateProjectMember,
     DashboardAsCode,
     DashboardTab,
@@ -27,7 +30,10 @@ import {
     DbtProjectEnvironmentVariable,
     LightdashRequestMethodHeader,
     ParameterError,
+    formatMergeQueryRefusal,
+    QueryExecutionContext,
     RequestMethod,
+    RunMergeQueryRequest,
     UpdateMetadata,
     UpdateProjectMember,
     UserWarehouseCredentials,
@@ -74,6 +80,7 @@ import {
     Tags,
 } from '@tsoa/runtime';
 import express from 'express';
+import { getContextFromHeader } from '../analytics/LightdashAnalytics';
 import type { DbTagUpdate } from '../database/entities/tags';
 import {
     allowApiKeyAuthentication,
@@ -364,6 +371,78 @@ export class ProjectController extends BaseController {
                 .getProjectService()
                 .runSqlQuery(req.user!, projectUuid, body.sql),
         };
+    }
+
+    /**
+     * Compile warehouse-native merge query SQL without executing it.
+     * @summary Compile merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/mergeQuery/compile')
+    @OperationId('CompileMergeQuery')
+    @Tags('Exploring')
+    async CompileMergeQuery(
+        @Path() projectUuid: string,
+        @Body() body: CompileMergeQueryRequest,
+        @Request() req: express.Request,
+    ): Promise<{
+        status: 'ok';
+        results: ApiCompiledMergeQueryResults;
+    }> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getAsyncQueryService()
+                .compileMergeQuery({
+                    account: req.account!,
+                    projectUuid,
+                    mergeQuery: body.mergeQuery,
+                    parameters: body.parameters,
+                }),
+        };
+    }
+
+    /**
+     * Execute a warehouse-native merge query asynchronously.
+     * @summary Run merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/mergeQuery/run')
+    @OperationId('RunMergeQuery')
+    @Tags('Exploring')
+    async RunMergeQuery(
+        @Path() projectUuid: string,
+        @Body() body: RunMergeQueryRequest,
+        @Request() req: express.Request,
+    ): Promise<{
+        status: 'ok';
+        results: ApiExecuteAsyncMetricQueryResults;
+    }> {
+        this.setStatus(200);
+        const result = await this.services
+            .getAsyncQueryService()
+            .executeLegacyAsyncMergeQuery({
+                account: req.account!,
+                projectUuid,
+                mergeQuery: body.mergeQuery,
+                parameters: body.parameters,
+                mode:
+                    body.csvLimit === undefined
+                        ? { type: 'interactive' }
+                        : { type: 'export', limit: body.csvLimit },
+                pivotConfiguration: body.pivotConfiguration,
+                context:
+                    getContextFromHeader(req) ?? QueryExecutionContext.EXPLORE,
+            });
+        if (result.outcome === 'refused') {
+            throw new ParameterError(formatMergeQueryRefusal(result.errors), {
+                errors: result.errors,
+            });
+        }
+        return { status: 'ok', results: result.query };
     }
 
     /**

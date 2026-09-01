@@ -64,6 +64,11 @@ export enum FeatureFlags {
     ResultsCacheEnabled = 'results-cache-enabled',
 
     /**
+     * Enable warehouse-native merge queries (JOIN multiple explores)
+     */
+    MergeQueries = 'merge-queries',
+
+    /**
      * Enable the unused content dashboard showing least viewed charts and dashboards
      */
     UnusedContentDashboard = 'unused-content-dashboard',

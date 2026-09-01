@@ -10,6 +10,7 @@ import Explorer from '../components/Explorer';
 import ExplorePanel from '../components/Explorer/ExplorePanel';
 import SavedChartsHeader from '../components/Explorer/SavedChartsHeader';
 import { explorerStore } from '../features/explorer/store';
+import { MergeProvider } from '../features/mergeQuery/context/MergeContext';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useExplorerQueryEffects } from '../hooks/useExplorerQueryEffects';
 import { useSavedQuery } from '../hooks/useSavedQuery';
@@ -83,53 +84,61 @@ const SavedExplorer = () => {
 
     return (
         <Provider store={explorerStore}>
-            <ExplorerProvider
-                isEditMode={isEditMode}
-                initialState={
-                    data
-                        ? {
-                              isEditMode,
-                              parameterReferences: Object.keys(
-                                  data.parameters ?? {},
-                              ),
-                              parameterDefinitions: {},
-                              expandedSections: [ExplorerSection.VISUALIZATION],
-                              unsavedChartVersion: {
-                                  tableName: data.tableName,
-                                  chartConfig: data.chartConfig,
-                                  metricQuery: data.metricQuery,
-                                  tableConfig: data.tableConfig,
-                                  pivotConfig: data.pivotConfig,
-                                  parameters: data.parameters,
-                              },
-                              modals: {
-                                  format: {
-                                      isOpen: false,
-                                  },
-                                  additionalMetric: {
-                                      isOpen: false,
-                                  },
-                                  customDimension: {
-                                      isOpen: false,
-                                  },
-                                  writeBack: {
-                                      isOpen: false,
-                                  },
-                                  itemDetail: {
-                                      isOpen: false,
-                                  },
-                              },
-                              queryExecution: defaultQueryExecution,
-                              chartTablePagination: null,
-                              fromDashboard: fromDashboard ?? undefined,
-                          }
-                        : undefined
-                }
-                savedChart={data}
-                defaultLimit={health.data?.query.defaultLimit}
+            <MergeProvider
+                savedMerge={data?.merge ?? null}
+                readOnly={mode !== 'edit'}
             >
-                <SavedExplorerContent isEditMode={isEditMode} />
-            </ExplorerProvider>
+                <ExplorerProvider
+                    isEditMode={isEditMode}
+                    initialState={
+                        data
+                            ? {
+                                  isEditMode,
+                                  parameterReferences: Object.keys(
+                                      data.parameters ?? {},
+                                  ),
+                                  parameterDefinitions: {},
+                                  expandedSections: [
+                                      ExplorerSection.VISUALIZATION,
+                                  ],
+                                  unsavedChartVersion: {
+                                      tableName: data.tableName,
+                                      chartConfig: data.chartConfig,
+                                      metricQuery: data.metricQuery,
+                                      tableConfig: data.tableConfig,
+                                      pivotConfig: data.pivotConfig,
+                                      parameters: data.parameters,
+                                      merge: data.merge ?? null,
+                                  },
+                                  modals: {
+                                      format: {
+                                          isOpen: false,
+                                      },
+                                      additionalMetric: {
+                                          isOpen: false,
+                                      },
+                                      customDimension: {
+                                          isOpen: false,
+                                      },
+                                      writeBack: {
+                                          isOpen: false,
+                                      },
+                                      itemDetail: {
+                                          isOpen: false,
+                                      },
+                                  },
+                                  queryExecution: defaultQueryExecution,
+                                  chartTablePagination: null,
+                                  fromDashboard: fromDashboard ?? undefined,
+                              }
+                            : undefined
+                    }
+                    savedChart={data}
+                    defaultLimit={health.data?.query.defaultLimit}
+                >
+                    <SavedExplorerContent isEditMode={isEditMode} />
+                </ExplorerProvider>
+            </MergeProvider>
         </Provider>
     );
 };

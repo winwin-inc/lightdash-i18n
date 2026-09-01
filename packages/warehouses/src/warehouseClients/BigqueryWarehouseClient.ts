@@ -178,6 +178,21 @@ export class BigquerySqlBuilder extends WarehouseBaseSqlBuilder {
                 .replaceAll('\0', '')
         );
     }
+
+    castToTimestamp(date: Date): string {
+        // BigQuery uses TIMESTAMP function with ISO 8601 format
+        return `TIMESTAMP('${date.toISOString()}')`;
+    }
+
+    castToDate(date: Date): string {
+        // BigQuery does not coerce between DATE and TIMESTAMP
+        return `DATE '${date.toISOString().slice(0, 10)}'`;
+    }
+
+    castToNaiveTimestamp(date: Date): string {
+        // DATETIME is BigQuery's zoneless timestamp type
+        return `DATETIME '${date.toISOString().slice(0, 19).replace('T', ' ')}'`;
+    }
 }
 
 export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryCredentials> {

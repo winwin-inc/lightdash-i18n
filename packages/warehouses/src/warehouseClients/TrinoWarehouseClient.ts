@@ -212,6 +212,15 @@ export class TrinoSqlBuilder extends WarehouseBaseSqlBuilder {
                 .replaceAll('\0', '')
         );
     }
+
+    castToTimestamp(date: Date): string {
+        // Trino rejects zone-suffixed strings cast to plain TIMESTAMP
+        return `TIMESTAMP '${date.toISOString().slice(0, 23).replace('T', ' ')}'`;
+    }
+
+    castToDate(date: Date): string {
+        return `DATE '${date.toISOString().slice(0, 10)}'`;
+    }
 }
 
 export class TrinoWarehouseClient extends WarehouseBaseClient<CreateTrinoCredentials> {

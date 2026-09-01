@@ -34,13 +34,13 @@ import {
     useExplorerDispatch,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { resolveMergeColumnOrder } from '../../../features/mergeQuery/utils/resolveMergeColumnOrder';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
-import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import {
     getTableConfigPageSize,
     isWarehousePaginatedTableConfig,
@@ -59,6 +59,7 @@ import { type EchartSeriesClickEvent } from '../../SimpleChart';
 import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
 import VisualizationConfig from '../VisualizationCard/VisualizationConfig';
 import { SeriesContextMenu } from './SeriesContextMenu';
+import { useExplorerResultsData } from './useExplorerResultsData';
 import VisualizationWarning from './VisualizationWarning';
 
 export type EchartsClickEvent = {
@@ -83,12 +84,15 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const {
         query,
         queryResults,
-        isLoading,
         getDownloadQueryUuid,
         missingRequiredParameters,
         computedMetricQuery,
         parameters,
-    } = useExplorerQuery();
+        merge,
+        mergeResults,
+        isLoadingQueryResults: mergeAwareIsLoadingQueryResults,
+        resultsData: mergeAwareResultsData,
+    } = useExplorerResultsData();
     const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const setPivotFields = useExplorerContext(
@@ -149,7 +153,10 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     );
 
     const chartPagedQuery = useExplorerChartPagedQuery({
-        enabled: isWarehousePaginatedTable && Boolean(tableName),
+        enabled:
+            isWarehousePaginatedTable &&
+            Boolean(tableName) &&
+            !mergeResults,
         projectUuid,
         tableName,
         metricQuery: computedMetricQuery,
@@ -165,15 +172,6 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             : undefined,
     });
 
-    const sharedResultsData = useMemo(
-        () => ({
-            ...queryResults,
-            metricQuery: query.data?.metricQuery,
-            fields: query.data?.fields,
-        }),
-        [query.data, queryResults],
-    );
-
     const chartResultsData = useMemo(
         () => ({
             ...chartPagedQuery.queryResults,
@@ -183,23 +181,36 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         [chartPagedQuery.query.data, chartPagedQuery.queryResults],
     );
 
-    const resultsData = isWarehousePaginatedTable
-        ? chartResultsData
-        : sharedResultsData;
+    const resultsData =
+        mergeResults || !isWarehousePaginatedTable
+            ? mergeAwareResultsData
+            : chartResultsData;
 
-    const isLoadingQueryResults = isWarehousePaginatedTable
-        ? chartPagedQuery.isLoading
-        : isLoading || queryResults.isFetchingRows;
+    const isLoadingQueryResults =
+        mergeResults || !isWarehousePaginatedTable
+            ? mergeAwareIsLoadingQueryResults
+            : chartPagedQuery.isLoading;
+
+    const visualizationColumnOrder = mergeResults
+        ? resolveMergeColumnOrder(mergeResults.columnOrder, columnOrder)
+        : columnOrder;
 
     const unsavedChartVersion = useMemo(
         () => ({
             tableName,
-            metricQuery,
-            tableConfig: { columnOrder },
+            metricQuery: mergeResults?.metricQuery ?? metricQuery,
+            tableConfig: { columnOrder: visualizationColumnOrder },
             chartConfig,
             pivotConfig,
         }),
-        [tableName, metricQuery, columnOrder, chartConfig, pivotConfig],
+        [
+            tableName,
+            metricQuery,
+            visualizationColumnOrder,
+            chartConfig,
+            pivotConfig,
+            mergeResults?.metricQuery,
+        ],
     );
 
     const tableCalculationsMetadata = useExplorerContext(
@@ -260,7 +271,19 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     );
 
     const apiErrorDetail = useMemo(() => {
-        const queryError = isWarehousePaginatedTable
+        if (merge?.runError) return merge.runError.error;
+        if (merge?.runErrors.length) {
+            return {
+                message: merge.runErrors
+                    .map((error) => error.message)
+                    .join(' '),
+                name: 'Error',
+                statusCode: 400,
+                data: {},
+            } satisfies ApiErrorDetail;
+        }
+
+        const queryError = isWarehousePaginatedTable && !mergeResults
             ? (chartPagedQuery.query.error?.error ??
               chartPagedQuery.queryResults.error?.error)
             : (query.error?.error ?? queryResults.error?.error);
@@ -275,7 +298,10 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                   data: {},
               } satisfies ApiErrorDetail);
     }, [
+        merge?.runError,
+        merge?.runErrors,
         isWarehousePaginatedTable,
+        mergeResults,
         chartPagedQuery.query.error?.error,
         chartPagedQuery.queryResults.error?.error,
         query.error?.error,
@@ -424,7 +450,9 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                     {!!projectUuid && (
                                         <ChartDownloadMenu
                                             getDownloadQueryUuid={
-                                                getDownloadQueryUuid
+                                                mergeResults && merge
+                                                    ? merge.getDownloadQueryUuid
+                                                    : getDownloadQueryUuid
                                             }
                                             projectUuid={projectUuid}
                                             chartName={savedChart?.name}

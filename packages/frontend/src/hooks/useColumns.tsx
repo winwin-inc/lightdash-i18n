@@ -50,6 +50,7 @@ import {
     selectTableName,
     useExplorerSelector,
 } from '../features/explorer/store';
+import { useMergeSafe } from '../features/mergeQuery/context/useMerge';
 import { BarChartDisplay } from './barChartDisplay';
 import { useCalculateTotal } from './useCalculateTotal';
 import { useExplore } from './useExplore';
@@ -268,9 +269,18 @@ export const useColumns = (): TableColumn[] => {
     const metricOverrides = useExplorerSelector(selectMetricOverrides);
 
     // Get state from new query hook
-    const { activeFields, query } = useExplorerQuery();
-    const resultsMetricQuery = query.data?.metricQuery;
-    const resultsFields = query.data?.fields;
+    const { activeFields: exploreActiveFields, query } = useExplorerQuery();
+    const mergeResults = useMergeSafe()?.mergeResults ?? null;
+    const activeFields = useMemo(
+        () =>
+            mergeResults
+                ? new Set(mergeResults.columnOrder)
+                : exploreActiveFields,
+        [mergeResults, exploreActiveFields],
+    );
+    const resultsMetricQuery =
+        mergeResults?.metricQuery ?? query.data?.metricQuery;
+    const resultsFields = mergeResults?.fields ?? query.data?.fields;
 
     // Get parameters from Redux
     const parameters = useExplorerSelector(selectParameters);
@@ -282,6 +292,7 @@ export const useColumns = (): TableColumn[] => {
     const { embedToken } = useEmbed();
 
     const itemsMap = useMemo<ItemsMap | undefined>(() => {
+        if (mergeResults) return mergeResults.fields;
         if (!exploreData) return;
 
         const baseItemsMap = getItemMap(
@@ -315,6 +326,7 @@ export const useColumns = (): TableColumn[] => {
             }),
         );
     }, [
+        mergeResults,
         resultsFields,
         exploreData,
         additionalMetrics,

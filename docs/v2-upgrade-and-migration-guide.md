@@ -238,6 +238,57 @@ flowchart TB
 **风险**：直接拷上游 migration 可能与本地历史顺序、已部署环境 knex 记录冲突。  
 **建议**：新建「当前仓库时间戳」的等价 migration（内容对齐上游），禁止盲目复用上游原始文件名（除非确认从未在生产执行过同名文件）。
 
+### 4.1 全计划数据库影响清单（按模块吸收，非整仓升 2.x）
+
+> **结论**：在当前「混合吸收 OSS、不整仓替换」策略下，**数据库改动整体不大**，且几乎都是「加可空列 / 加新表」。本地升级的主难点在应用代码耦合与自研保护，不在 DB。  
+> 下列变更只影响 **Lightdash 元数据库（Postgres）**，不改客户业务数仓（BQ/Snowflake 等）。
+
+#### 总体原则
+
+| 原则 | 说明 |
+|------|------|
+| 先 migrate 再发版 | 新代码一旦读写新列/新表，不 migrate 会直接 SQL 报错 |
+| 可空列可先迁库 | 旧代码一般不碰新列，先 migrate、后发版通常安全 |
+| 新表只服务新功能 | 不跑对应功能代码时，旧探索/看板路径不受影响 |
+| 禁止整仓拷上游 migration | 上游 2.x 历史 migration 数量很大；我们只按功能写等价新时间戳脚本 |
+| 预发 / 线上独立库 | 各环境各自 migrate；预发迁完不代表线上已迁 |
+
+#### 已落地（`feat/v2-upgrade` 当前进度）
+
+| 功能 | 本仓库 migration | Schema 变更 | 不跑 migrate 的影响 | 数据破坏风险 |
+|------|------------------|-------------|---------------------|--------------|
+| Nested Table Groups | `20260901140000_add_table_groups_to_projects.ts` | `projects.table_groups` jsonb **nullable** | compile/deploy 写组、侧边栏读组标签失败 | 低（只加列） |
+| Results Cache TTL | `20260901150000_add_results_cache_ttl_to_projects.ts` | `projects.results_cache_ttl_seconds` int **nullable** | 读/写项目缓存 TTL、按项目 TTL 查缓存失败 | 低 |
+| used_parameters | `20260901150100_add_used_parameters_to_query_history.ts` | `query_history.used_parameters` jsonb **nullable** | **异步查询写 history 可能失败**（影响面最大） | 低 |
+
+#### 主迁移待做（计划内 OSS）
+
+| 功能 | 预期 Schema | 量级 | 说明 |
+|------|-------------|------|------|
+| Warehouse-native Merge Query | 新表 `saved_queries_version_merges`（存合并图定义，对齐上游） | **小** | 只影响「保存/打开 merge 图表」；普通 Explore 不依赖该表 |
+| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | fork 已有 tab-level filters 相关迁移；本步以代码合并为主 |
+| i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方 |
+| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更 |
+| Formula 包 | **无 DB** | 无 | 独立包，不改元数据库 |
+
+#### 后置专项（主迁移完成后再做；库变更明显变大）
+
+| 功能 | 预期 Schema | 量级 | 说明 |
+|------|-------------|------|------|
+| External Sources | 多张新表（sources / lifecycle / scope 等） | **中** | 新业务域，仍偏「加表」；依赖 DuckDB 运行时 |
+| Direct Access（EE 解绑） | chart/dashboard/sql/app access 等多表 | **中~大** | 权限模型扩展，需专项评审 |
+| Homepage / Autopilot 等 EE | 视引入范围而定 | 中 | 主迁移不做解绑，库变更随专项走 |
+| 整仓对齐上游 2.57 | 上游近几个月大量新 migration + 历史存量 | **很大** | **明确不做**；那是另一种升级路径 |
+
+#### 发布与回滚注意
+
+1. **生产入口**：`docker/prod-entrypoint.sh` 会执行 `pnpm -F backend migrate-production`；自建 CI/CD 须确认有同等步骤。  
+2. **回滚应用、不回滚库**：可空列/新表留在库中通常无害；若必须 down migration，先确认无新代码依赖再 `rollback-last`。  
+3. **导出定制与 DB 无关**：CSV/Excel 自研逻辑不依赖上述新列；Merge 下载仍走通用 download + 现有导出服务。  
+4. **验收建议**：每个含 migration 的 PR，在预发先 `migrate`，再发应用；并用「旧书签/旧看板仍可打开」做一次冒烟。
+
+---
+
 ### 5. 路由 / Slug / API 破坏性变化
 
 上游引入了：

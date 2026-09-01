@@ -3406,6 +3406,11 @@
                 "type": "object",
                 "description": "Construct a type with a set of properties K of type T"
             },
+            "TimestampDomain": {
+                "type": "string",
+                "enum": ["aware", "naive"],
+                "description": "Whether a timestamp carries a zone (`aware`) or is wall-clock only (`naive`)."
+            },
             "FieldType": {
                 "enum": ["metric", "dimension"],
                 "type": "string"
@@ -3675,6 +3680,10 @@
                     "skipTimezoneConversion": {
                         "type": "boolean",
                         "description": "When true, display-timezone conversion is skipped for this dimension."
+                    },
+                    "timestampDomain": {
+                        "$ref": "#/components/schemas/TimestampDomain",
+                        "description": "Whether timestamp values carry a zone (`aware`) or are wall-clock only\n(`naive`). Used when casting join-key literals in merge queries."
                     },
                     "colors": {
                         "$ref": "#/components/schemas/Record_string.string_"
@@ -4630,6 +4639,124 @@
                     "exploreName"
                 ],
                 "type": "object"
+            },
+            "SavedMergeQuerySource": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["chart"],
+                                "nullable": false
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["kind", "id"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "metricQuery": {
+                                "$ref": "#/components/schemas/MetricQuery"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["query"],
+                                "nullable": false
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["metricQuery", "kind", "id"],
+                        "type": "object"
+                    }
+                ],
+                "description": "A persisted merge source.\n\nThe chart source is a reference: its metric query already lives on the chart\nversion. Every additional source owns its query. This keeps one source of\ntruth while allowing more sources without adding `thirdQuery`, `fourthQuery`,\nand so on."
+            },
+            "Record_string.FieldId_": {
+                "properties": {},
+                "additionalProperties": {
+                    "type": "string"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "MergeJoinKeyPart": {
+                "properties": {
+                    "fieldIdBySourceId": {
+                        "$ref": "#/components/schemas/Record_string.FieldId_",
+                        "description": "The field each source joins on. Every source must have an entry."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Column name this key part takes in the merged result."
+                    }
+                },
+                "required": ["fieldIdBySourceId", "name"],
+                "type": "object",
+                "description": "One column of the join key. Sources name the same real-world key differently\n(`orders.order_date` vs `users.created_date`), so the mapping is explicit per\nsource rather than positional."
+            },
+            "MergeJoinType": {
+                "description": "How unmatched keys survive the merge. Mirrors the SQL join it compiles to.",
+                "enum": ["full", "left", "inner"],
+                "type": "string"
+            },
+            "MergeTableCalculation": {
+                "properties": {
+                    "sql": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["sql", "displayName", "name"],
+                "type": "object",
+                "description": "A calculation over the *merged* result, which is the only place a row-wise\ncalculation across two queries can correctly live. References name a source\nand one of its fields, `${sourceId.fieldId}`, because the merged statement\nrenames columns to keep two sources from colliding."
+            },
+            "SavedMergeQuery": {
+                "properties": {
+                    "tableCalculations": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeTableCalculation"
+                        },
+                        "type": "array"
+                    },
+                    "joinType": {
+                        "$ref": "#/components/schemas/MergeJoinType"
+                    },
+                    "joinKey": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeJoinKeyPart"
+                        },
+                        "type": "array"
+                    },
+                    "sources": {
+                        "items": {
+                            "$ref": "#/components/schemas/SavedMergeQuerySource"
+                        },
+                        "type": "array"
+                    },
+                    "primarySourceId": {
+                        "type": "string",
+                        "description": "Source whose rows a LEFT merge preserves."
+                    }
+                },
+                "required": [
+                    "tableCalculations",
+                    "joinType",
+                    "joinKey",
+                    "sources",
+                    "primarySourceId"
+                ],
+                "type": "object",
+                "description": "Canonical, scalable representation of a merge stored on a chart version."
             },
             "ChartType.BIG_NUMBER": {
                 "enum": ["big_number"],
@@ -5871,6 +5998,15 @@
                     "chartConfig": {
                         "$ref": "#/components/schemas/ChartConfig"
                     },
+                    "merge": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SavedMergeQuery"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "Second query this chart's query is merged with, when it has one. Absent\non the overwhelming majority of charts."
+                    },
                     "pivotConfig": {
                         "properties": {
                             "columns": {
@@ -6260,6 +6396,10 @@
                     "skipTimezoneConversion": {
                         "type": "boolean",
                         "description": "When true, display-timezone conversion is skipped for this dimension."
+                    },
+                    "timestampDomain": {
+                        "$ref": "#/components/schemas/TimestampDomain",
+                        "description": "Whether timestamp values carry a zone (`aware`) or are wall-clock only\n(`naive`). Used when casting join-key literals in merge queries."
                     },
                     "colors": {
                         "$ref": "#/components/schemas/Record_string.string_"
@@ -8307,6 +8447,19 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "error",
+                                                            "success"
+                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -14169,6 +14322,15 @@
                         "required": ["columns"],
                         "type": "object"
                     },
+                    "merge": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SavedMergeQuery"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "Second query this chart's query is merged with, when it has one. Absent\non the overwhelming majority of charts."
+                    },
                     "tableConfig": {
                         "properties": {
                             "columnOrder": {
@@ -15406,6 +15568,426 @@
                 "required": ["rows", "fields"],
                 "type": "object"
             },
+            "MergeFieldOrigin": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "sourceFieldId": {
+                                "$ref": "#/components/schemas/FieldId"
+                            },
+                            "sourceId": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["source"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["sourceFieldId", "sourceId", "kind"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "fieldIdBySourceId": {
+                                "$ref": "#/components/schemas/Record_string.FieldId_"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": ["joinKey"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["fieldIdBySourceId", "kind"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["tableCalculation"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["kind"],
+                        "type": "object"
+                    }
+                ],
+                "description": "Where a merged field came from. Carried beside the fields rather than on\nthem, so every `Field` consumer downstream sees an ordinary field and only\nthe code that needs provenance — drilling into a cell, filtering a source —\nhas to know a merge happened."
+            },
+            "MergeTypedColumn": {
+                "properties": {
+                    "origin": {
+                        "$ref": "#/components/schemas/MergeFieldOrigin"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/DimensionType"
+                    },
+                    "reference": {
+                        "$ref": "#/components/schemas/FieldId",
+                        "description": "Column name in the core's output — the merged field id."
+                    }
+                },
+                "required": ["origin", "type", "reference"],
+                "type": "object",
+                "description": "One column of the composable core, typed accurately enough to build a\nvirtual view over it: the stable field-id alias, the value's\n`DimensionType`, and where it came from. Merged metrics arrive downstream as\ntyped *columns* — re-aggregating them is explicit and user-owned, so the\norigin is carried for a surface to suggest metrics, never to re-sum."
+            },
+            "MergeTerminalWrapper": {
+                "properties": {
+                    "sourceLimitExceededSql": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Boolean SQL expression that is true when a source exceeded its cap."
+                    },
+                    "limit": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "orderBy": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "ORDER BY terms in output-alias space, already quoted for the dialect."
+                    }
+                },
+                "required": ["sourceLimitExceededSql", "limit", "orderBy"],
+                "type": "object",
+                "description": "The terminal stage of a merged statement, owned by the run path: sort,\nlimit, and truncation detection. Kept as data rather than SQL text so the\nrun path can attach it above whatever it stacked on the core (for example a\ndate spine), and so the composable core stays clean under `SELECT *`."
+            },
+            "Record_string.Record_string.string__": {
+                "properties": {},
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/Record_string.string_"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "MergeQueryColumns": {
+                "properties": {
+                    "valueColumnBySourceColumn": {
+                        "$ref": "#/components/schemas/Record_string.Record_string.string__",
+                        "description": "Merged column name for each source column, keyed by source id."
+                    },
+                    "joinKeyColumns": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Join key columns, in join key order. Shared by every source."
+                    }
+                },
+                "required": ["valueColumnBySourceColumn", "joinKeyColumns"],
+                "type": "object",
+                "description": "Where each column of the merged result came from, so callers map results\nback to fields instead of re-deriving the naming rule."
+            },
+            "MergeQueryField": {
+                "properties": {
+                    "sourceFieldId": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "The field it came from; null for join key columns."
+                    },
+                    "sourceId": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "The query it came from; null for join key columns, which are shared."
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Underlying value type, for formatting and sort behaviour."
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": ["dimension", "metric"],
+                        "description": "Whether it behaves as a dimension or a metric downstream."
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Label to show, derived from the source field."
+                    },
+                    "column": {
+                        "type": "string",
+                        "description": "Column name in the merged result."
+                    }
+                },
+                "required": [
+                    "sourceFieldId",
+                    "sourceId",
+                    "type",
+                    "kind",
+                    "label",
+                    "column"
+                ],
+                "type": "object",
+                "description": "One column of the merged result, described well enough to be selected,\nsorted, formatted and charted like any other field.\n\nMerged columns are renamed to keep two sources from colliding, so the\nmapping back to the field a column came from cannot be recovered from its\nname — it has to be carried."
+            },
+            "Record_FieldId.MergeFieldOrigin_": {
+                "properties": {},
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/MergeFieldOrigin"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "MergeFieldOrigins": {
+                "$ref": "#/components/schemas/Record_FieldId.MergeFieldOrigin_",
+                "description": "Provenance of every merged field, by field id."
+            },
+            "MergeQueryErrorKind": {
+                "enum": [
+                    "too_few_sources",
+                    "too_many_sources",
+                    "duplicate_source_id",
+                    "reserved_source_id",
+                    "empty_join_key",
+                    "join_key_coverage",
+                    "unknown_source_in_join_key",
+                    "fan_out",
+                    "join_key_not_selected",
+                    "join_key_type_mismatch",
+                    "join_key_granularity_mismatch",
+                    "unsupported_table_calculation",
+                    "duplicate_calculation_name",
+                    "unresolved_calculation_reference",
+                    "unresolved_column_type",
+                    "missing_parameters",
+                    "compose_required",
+                    "result_source_unavailable"
+                ],
+                "type": "string"
+            },
+            "MergeQueryError": {
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "fieldIds": {
+                        "items": {
+                            "$ref": "#/components/schemas/FieldId"
+                        },
+                        "type": "array"
+                    },
+                    "sourceId": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "The source at fault, or null for errors about the merge as a whole."
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/MergeQueryErrorKind"
+                    }
+                },
+                "required": ["message", "fieldIds", "sourceId", "kind"],
+                "type": "object"
+            },
+            "ApiCompiledMergeQueryResults": {
+                "properties": {
+                    "errors": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeQueryError"
+                        },
+                        "type": "array"
+                    },
+                    "requiresCompose": {
+                        "type": "boolean",
+                        "description": "The merge references existing query results, so it has no warehouse\nstatement (`sql`/`coreSql` stay null without that being an error) and\nonly the compose engine can run it."
+                    },
+                    "fieldIdByColumn": {
+                        "$ref": "#/components/schemas/Record_string.FieldId_",
+                        "description": "Field id for each column the statement returns. Warehouse aliases are\nshort and positional so they cannot breach an identifier length limit;\nidentity lives in `itemsMap`, and rows are rekeyed through this map\nbefore anything downstream sees them."
+                    },
+                    "usedParametersValues": {
+                        "$ref": "#/components/schemas/ParametersValuesMap",
+                        "description": "Resolved parameter values embedded in the compiled source queries."
+                    },
+                    "parameterReferences": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "User parameters referenced by any source query."
+                    },
+                    "fieldOrigins": {
+                        "$ref": "#/components/schemas/MergeFieldOrigins",
+                        "description": "Provenance of each field in `itemsMap`."
+                    },
+                    "itemsMap": {
+                        "$ref": "#/components/schemas/ItemsMap",
+                        "description": "Every merged column as an ordinary field, keyed by field id, so results\nof a merge are consumed exactly like results of a query."
+                    },
+                    "fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeQueryField"
+                        },
+                        "type": "array",
+                        "description": "Selectable description of every merged column. Empty when sql is null."
+                    },
+                    "columns": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MergeQueryColumns"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "terminalWrapper": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/MergeTerminalWrapper"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "The terminal stage `sql` attaches over the core."
+                    },
+                    "typedColumns": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeTypedColumn"
+                        },
+                        "type": "array",
+                        "nullable": true,
+                        "description": "The core's columns, in the order the statement returns them."
+                    },
+                    "coreSql": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "The composable core: a self-contained single-statement SELECT with no\nORDER BY, no LIMIT and no guard column — valid under `SELECT *`, so it\ncan back a virtual view. `sql` is this core with the terminal wrapper\nattached."
+                    },
+                    "sql": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "errors",
+                    "requiresCompose",
+                    "fieldIdByColumn",
+                    "usedParametersValues",
+                    "parameterReferences",
+                    "fieldOrigins",
+                    "itemsMap",
+                    "fields",
+                    "columns",
+                    "terminalWrapper",
+                    "typedColumns",
+                    "coreSql",
+                    "sql"
+                ],
+                "type": "object",
+                "description": "What the compile endpoint returns. `sql` is null exactly when `errors` is\nnon-empty: a merge that would produce wrong numbers is reported, not run."
+            },
+            "MergeQueryMetricSource": {
+                "properties": {
+                    "metricQuery": {
+                        "$ref": "#/components/schemas/MetricQuery"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "Stable id. Names the CTE, and the table its merged fields belong to."
+                    }
+                },
+                "required": ["metricQuery", "id"],
+                "type": "object",
+                "description": "One side of a merge: a metric query compiled and run as part of the merge."
+            },
+            "MergeQueryResultSource": {
+                "properties": {
+                    "queryUuid": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "Stable id. Names the CTE, and the table its merged fields belong to."
+                    }
+                },
+                "required": ["queryUuid", "id"],
+                "type": "object",
+                "description": "One side of a merge: an existing query result, referenced by queryUuid and\njoined as the rows it already holds — nothing re-runs. Its structure and\ntypes resolve at compile time from the stored query metadata, and the join\nexecutes on the compose engine (`requiresCompose` on the compiled merge),\nso a merge with a result source is refused where that engine is\nunavailable. Results are creator-scoped and expire; an expired reference\nis re-submitted as a query, not refreshed by handle."
+            },
+            "MergeQuerySource": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/MergeQueryMetricSource"
+                    },
+                    {
+                        "$ref": "#/components/schemas/MergeQueryResultSource"
+                    }
+                ]
+            },
+            "MergeQuery": {
+                "properties": {
+                    "limit": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "tableCalculations": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeTableCalculation"
+                        },
+                        "type": "array",
+                        "description": "Calculations over the merged result. Applied last, after any pivot."
+                    },
+                    "joinType": {
+                        "$ref": "#/components/schemas/MergeJoinType"
+                    },
+                    "joinKey": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeJoinKeyPart"
+                        },
+                        "type": "array"
+                    },
+                    "sources": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeQuerySource"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "limit",
+                    "tableCalculations",
+                    "joinType",
+                    "joinKey",
+                    "sources"
+                ],
+                "type": "object"
+            },
+            "CompileMergeQueryRequest": {
+                "properties": {
+                    "parameters": {
+                        "$ref": "#/components/schemas/ParametersValuesMap"
+                    },
+                    "mergeQuery": {
+                        "$ref": "#/components/schemas/MergeQuery"
+                    }
+                },
+                "required": ["mergeQuery"],
+                "type": "object",
+                "description": "Body of the compile endpoint: the spec plus the parameter values."
+            },
+            "RunMergeQueryRequest": {
+                "properties": {
+                    "parameters": {
+                        "$ref": "#/components/schemas/ParametersValuesMap",
+                        "description": "Parameter values for every source query, one map for the whole merge —\ntwo sides of one question should never disagree on a parameter."
+                    },
+                    "csvLimit": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true,
+                        "description": "Export row limit. Null means all rows within the organization's cell cap."
+                    },
+                    "pivotConfiguration": {
+                        "$ref": "#/components/schemas/PivotConfiguration"
+                    },
+                    "mergeQuery": {
+                        "$ref": "#/components/schemas/MergeQuery"
+                    }
+                },
+                "required": ["mergeQuery"],
+                "type": "object",
+                "description": "Body of the run endpoint. The pivot configuration is the same one every\nother query runs with: the merged rows are wrapped by the standard pivot\nstage, so the pipeline is join within an explore, then merge between\nexplores, then pivot."
+            },
             "CalculateTotalFromQuery": {
                 "properties": {
                     "dashboardName": {
@@ -15813,7 +16395,7 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
-            "Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-pivotConfig-or-chartConfig-or-tableConfig-or-parameters_": {
+            "Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-pivotConfig-or-merge-or-chartConfig-or-tableConfig-or-parameters_": {
                 "properties": {
                     "description": {
                         "type": "string"
@@ -15842,6 +16424,15 @@
                         "required": ["columns"],
                         "type": "object"
                     },
+                    "merge": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SavedMergeQuery"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "Second query this chart's query is merged with, when it has one. Absent\non the overwhelming majority of charts."
+                    },
                     "tableConfig": {
                         "properties": {
                             "columnOrder": {
@@ -15869,7 +16460,7 @@
                 "description": "From T, pick a set of properties whose keys are in the union K"
             },
             "CreateChartBase": {
-                "$ref": "#/components/schemas/Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-pivotConfig-or-chartConfig-or-tableConfig-or-parameters_"
+                "$ref": "#/components/schemas/Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-pivotConfig-or-merge-or-chartConfig-or-tableConfig-or-parameters_"
             },
             "CreateChartInSpace": {
                 "allOf": [
@@ -16265,22 +16856,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "chart": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiChartAsCodeListResponse": {
@@ -16708,22 +17299,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -20571,6 +21162,217 @@
                         "type": "object"
                     }
                 ]
+            },
+            "ApiExecuteAsyncMergeQueryMetadata": {
+                "properties": {
+                    "fieldOrigins": {
+                        "$ref": "#/components/schemas/MergeFieldOrigins"
+                    },
+                    "parameterReferences": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["fieldOrigins", "parameterReferences"],
+                "type": "object"
+            },
+            "ApiExecuteAsyncMergeQueryResults": {
+                "anyOf": [
+                    {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ApiExecuteAsyncMergeQueryMetadata"
+                            },
+                            {
+                                "properties": {
+                                    "query": {
+                                        "$ref": "#/components/schemas/ApiExecuteAsyncMetricQueryResults"
+                                    },
+                                    "outcome": {
+                                        "type": "string",
+                                        "enum": ["started"],
+                                        "nullable": false
+                                    }
+                                },
+                                "required": ["query", "outcome"],
+                                "type": "object"
+                            }
+                        ]
+                    },
+                    {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ApiExecuteAsyncMergeQueryMetadata"
+                            },
+                            {
+                                "properties": {
+                                    "errors": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/MergeQueryError"
+                                        },
+                                        "type": "array"
+                                    },
+                                    "outcome": {
+                                        "type": "string",
+                                        "enum": ["refused"],
+                                        "nullable": false
+                                    }
+                                },
+                                "required": ["errors", "outcome"],
+                                "type": "object"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "ApiSuccess_ApiExecuteAsyncMergeQueryResults_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ApiExecuteAsyncMergeQueryResults"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "MetricSourcedMergeQuery": {
+                "properties": {
+                    "limit": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "tableCalculations": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeTableCalculation"
+                        },
+                        "type": "array"
+                    },
+                    "joinType": {
+                        "$ref": "#/components/schemas/MergeJoinType"
+                    },
+                    "joinKey": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeJoinKeyPart"
+                        },
+                        "type": "array"
+                    },
+                    "sources": {
+                        "items": {
+                            "$ref": "#/components/schemas/MergeQueryMetricSource"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "limit",
+                    "tableCalculations",
+                    "joinType",
+                    "joinKey",
+                    "sources"
+                ],
+                "type": "object",
+                "description": "A merge whose sources are all metric queries — what AI-built artifacts\nhold and their endpoints return. Response contracts use this so\n`metricQuery` stays required on every returned source, while the\nrun/compile requests accept the wider MergeQuerySource union\n(expand-only: requests widen, responses do not)."
+            },
+            "Pick_ExecuteAsyncMergeQueryRequestParams.Exclude_keyofExecuteAsyncMergeQueryRequestParams.pivotConfiguration__": {
+                "properties": {
+                    "invalidateCache": {
+                        "type": "boolean"
+                    },
+                    "context": {
+                        "$ref": "#/components/schemas/QueryExecutionContext"
+                    },
+                    "parameters": {
+                        "$ref": "#/components/schemas/ParametersValuesMap"
+                    },
+                    "mergeQuery": {
+                        "$ref": "#/components/schemas/MetricSourcedMergeQuery",
+                        "description": "Warehouse-side merges are metric-sourced by construction."
+                    }
+                },
+                "required": ["mergeQuery"],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "Omit_ExecuteAsyncMergeQueryRequestParams.pivotConfiguration_": {
+                "$ref": "#/components/schemas/Pick_ExecuteAsyncMergeQueryRequestParams.Exclude_keyofExecuteAsyncMergeQueryRequestParams.pivotConfiguration__",
+                "description": "Construct a type with the properties of T except for those in type K."
+            },
+            "MergeQueryExecutionMode": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["interactive"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["type"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "limit": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["export"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["limit", "type"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "MergeQueryChart": {
+                "properties": {
+                    "pivotConfig": {
+                        "properties": {
+                            "columns": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["columns"],
+                        "type": "object"
+                    },
+                    "chartConfig": {
+                        "$ref": "#/components/schemas/ChartConfig"
+                    }
+                },
+                "required": ["chartConfig"],
+                "type": "object"
+            },
+            "ApiExecuteAsyncMergeQueryRequest": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Omit_ExecuteAsyncMergeQueryRequestParams.pivotConfiguration_"
+                    },
+                    {
+                        "properties": {
+                            "chart": {
+                                "$ref": "#/components/schemas/MergeQueryChart"
+                            },
+                            "mode": {
+                                "$ref": "#/components/schemas/MergeQueryExecutionMode"
+                            }
+                        },
+                        "type": "object"
+                    }
+                ],
+                "description": "One-call merge execution request. Derived pivot SQL remains server-owned."
             },
             "ExecuteAsyncSavedChartRequestParams": {
                 "allOf": [
@@ -27735,6 +28537,130 @@
                 }
             }
         },
+        "/api/v1/projects/{projectUuid}/mergeQuery/compile": {
+            "post": {
+                "operationId": "CompileMergeQuery",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/ApiCompiledMergeQueryResults"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Compile warehouse-native merge query SQL without executing it.",
+                "summary": "Compile merge query",
+                "tags": ["Exploring", "Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CompileMergeQueryRequest"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/mergeQuery/run": {
+            "post": {
+                "operationId": "RunMergeQuery",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "results": {
+                                            "$ref": "#/components/schemas/ApiExecuteAsyncMetricQueryResults"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["ok"],
+                                            "nullable": false
+                                        }
+                                    },
+                                    "required": ["results", "status"],
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Execute a warehouse-native merge query asynchronously.",
+                "summary": "Run merge query",
+                "tags": ["Exploring", "Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RunMergeQueryRequest"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectUuid}/calculate-total": {
             "post": {
                 "operationId": "CalculateTotalFromQuery",
@@ -33848,6 +34774,57 @@
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/ExecuteAsyncMetricQueryRequestParams"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/projects/{projectUuid}/query/merge-query": {
+            "post": {
+                "operationId": "executeAsyncMergeQuery",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess_ApiExecuteAsyncMergeQueryResults_"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Validates and executes a warehouse-native merge query asynchronously.",
+                "summary": "Execute merge query",
+                "tags": ["Query"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApiExecuteAsyncMergeQueryRequest"
                             }
                         }
                     }

@@ -39,12 +39,26 @@ import {
 } from '../../../features/explorer/store';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import MantineIcon from '../../common/MantineIcon';
+import { ActiveFieldsOverrideProvider } from './ActiveFieldsOverride';
 import TableTree from './TableTree';
 import { getSearchResults } from './TableTree/Tree/utils';
+
+/**
+ * Which fields read as selected when the tree edits a query other than the
+ * explorer's own (e.g. a merge's second source).
+ */
+export type ExploreTreeSelection = {
+    activeFields: Set<string>;
+    selectedDimensions?: string[];
+};
 
 type ExploreTreeProps = {
     explore: Explore;
     onSelectedFieldChange: (fieldId: string, isDimension: boolean) => void;
+    selection?: ExploreTreeSelection;
+    /** Accepted for upstream merge API compatibility; unused in this fork strip. */
+    selectedFieldsOverride?: unknown;
+    hideSelectedFields?: boolean;
 };
 
 type Records = Record<string, AdditionalMetric | Dimension | Metric>;
@@ -52,6 +66,7 @@ type Records = Record<string, AdditionalMetric | Dimension | Metric>;
 const ExploreTreeComponent: FC<ExploreTreeProps> = ({
     explore,
     onSelectedFieldChange,
+    selection,
 }) => {
     const { t } = useTranslation();
 
@@ -67,7 +82,8 @@ const ExploreTreeComponent: FC<ExploreTreeProps> = ({
     const missingFieldIds = useExplorerSelector((state) =>
         selectMissingFieldIds(state, explore),
     );
-    const activeFields = useExplorerSelector(selectActiveFields);
+    const explorerActiveFields = useExplorerSelector(selectActiveFields);
+    const activeFields = selection?.activeFields ?? explorerActiveFields;
 
     const [search, setSearch] = useState<string>('');
     const [isPending, startTransition] = useTransition();
@@ -176,7 +192,9 @@ const ExploreTreeComponent: FC<ExploreTreeProps> = ({
     }, [activeFields, experimentalExplorerImprovements]);
 
     return (
-        <>
+        <ActiveFieldsOverrideProvider
+            activeFields={selection ? activeFields : null}
+        >
             <TextInput
                 icon={<MantineIcon icon={IconSearch} />}
                 rightSection={
@@ -214,12 +232,18 @@ const ExploreTreeComponent: FC<ExploreTreeProps> = ({
                                 Object.keys(explore.tables).length > 1
                             }
                             table={table}
-                            additionalMetrics={additionalMetrics}
+                            additionalMetrics={
+                                selection ? [] : additionalMetrics
+                            }
                             onSelectedNodeChange={onSelectedFieldChange}
-                            customDimensions={customDimensions}
-                            missingCustomMetrics={missingCustomMetrics}
-                            missingCustomDimensions={missingCustomDimensions}
-                            missingFieldIds={missingFieldIds}
+                            customDimensions={selection ? [] : customDimensions}
+                            missingCustomMetrics={
+                                selection ? [] : missingCustomMetrics
+                            }
+                            missingCustomDimensions={
+                                selection ? [] : missingCustomDimensions
+                            }
+                            missingFieldIds={selection ? [] : missingFieldIds}
                             searchResults={searchResultsMap[table.name]}
                             isSearching={isSearching}
                         />
@@ -232,7 +256,7 @@ const ExploreTreeComponent: FC<ExploreTreeProps> = ({
                     </Center>
                 )}
             </ScrollArea>
-        </>
+        </ActiveFieldsOverrideProvider>
     );
 };
 
