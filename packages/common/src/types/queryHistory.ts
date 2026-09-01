@@ -3,6 +3,7 @@ import type { PivotValuesColumn } from '../visualizations/types';
 import type { QueryExecutionContext } from './analytics';
 import type { ExecuteAsyncQueryRequestParams } from './api/paginatedQuery';
 import type { ItemsMap } from './field';
+import type { ParametersValuesMap } from './parameters';
 import type { MetricQuery } from './metricQuery';
 import type { WarehouseTypes } from './projects';
 
@@ -41,6 +42,7 @@ export type QueryHistory = {
     metricQuery: MetricQuery;
     fields: ItemsMap;
     requestParameters: ExecuteAsyncQueryRequestParams;
+    usedParameters: ParametersValuesMap | null;
     status: QueryHistoryStatus;
     totalRowCount: number | null;
     warehouseExecutionTimeMs: number | null;

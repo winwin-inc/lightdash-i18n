@@ -18,6 +18,7 @@ import {
     ExploreError,
     ExploreType,
     ForbiddenError,
+    GroupType,
     NotExistsError,
     NotFoundError,
     NotImplementedError,
@@ -124,6 +125,7 @@ type RawSummaryRow = {
     label: Explore['label'];
     tags: Explore['tags'];
     groupLabel: Explore['groupLabel'] | null;
+    groups: Explore['groups'] | null;
     type: Explore['type'] | null;
     errors: ExploreError['errors'] | null;
     baseTable: Explore['baseTable'];
@@ -821,6 +823,71 @@ export class ProjectModel {
         };
     }
 
+    async getTableGroups(
+        projectUuid: string,
+    ): Promise<Record<string, GroupType>> {
+        const [row] = await this.database(ProjectTableName)
+            .select('table_groups')
+            .where('project_uuid', projectUuid);
+        return row?.table_groups ?? {};
+    }
+
+    async setTableGroups(
+        projectUuid: string,
+        tableGroups: Record<string, GroupType> | undefined,
+    ): Promise<void> {
+        await this.database(ProjectTableName)
+            .update({
+                table_groups:
+                    tableGroups && Object.keys(tableGroups).length > 0
+                        ? tableGroups
+                        : null,
+            })
+            .where('project_uuid', projectUuid);
+    }
+
+    async getResultsCacheSettings(
+        projectUuid: string,
+    ): Promise<{ cacheTtlSeconds: number | null }> {
+        const row = await this.database(ProjectTableName)
+            .where('project_uuid', projectUuid)
+            .select('results_cache_ttl_seconds')
+            .first();
+
+        if (!row) {
+            throw new NotFoundError(
+                `Cannot find project with id: ${projectUuid}`,
+            );
+        }
+
+        return { cacheTtlSeconds: row.results_cache_ttl_seconds };
+    }
+
+    async updateResultsCacheSettings(
+        projectUuid: string,
+        settings: { cacheTtlSeconds: number | null },
+    ): Promise<void> {
+        const affectedRows = await this.database(ProjectTableName)
+            .where('project_uuid', projectUuid)
+            .update({ results_cache_ttl_seconds: settings.cacheTtlSeconds });
+        if (affectedRows === 0) {
+            throw new NotFoundError(
+                `Cannot find project with id: ${projectUuid}`,
+            );
+        }
+    }
+
+    async getEffectiveResultsCacheTtlSeconds(
+        projectUuid: string,
+    ): Promise<number> {
+        const { cacheTtlSeconds } =
+            await this.getResultsCacheSettings(projectUuid);
+        return (
+            cacheTtlSeconds ??
+            this.lightdashConfig.results.cacheStateTimeSeconds
+        );
+    }
+
     /*
     This method will load default values for backwards compatibility
     For example, when we introduce a new authentication type, we need to set the default value for the existing projects
@@ -1146,6 +1213,7 @@ export class ProjectModel {
                     explore->'label' as label,
                     explore->'tags' as tags,
                     explore->'groupLabel' as "groupLabel",
+                    explore->'groups' as "groups",
                     explore->'type' as type,
                     explore->'errors' as errors,
                     explore->'baseTable' as "baseTable",
@@ -1163,6 +1231,7 @@ export class ProjectModel {
             label: row.label,
             tags: row.tags,
             groupLabel: row.groupLabel ?? undefined,
+            groups: row.groups ?? undefined,
             databaseName: row.baseTableDatabase,
             schemaName: row.baseTableSchema,
             description: row.baseTableDescription ?? undefined,

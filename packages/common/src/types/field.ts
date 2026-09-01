@@ -11,6 +11,7 @@ import { type MetricFilterRule } from './filter';
 import { type TimeFrames } from './timeFrames';
 
 export enum Compact {
+    AUTO = 'auto',
     THOUSANDS = 'thousands',
     MILLIONS = 'millions',
     BILLIONS = 'billions',
@@ -77,6 +78,14 @@ type CompactConfig = {
 export type CompactOrAlias = Compact | typeof CompactAlias[number];
 
 export const CompactConfigMap: Record<Compact, CompactConfig> = {
+    [Compact.AUTO]: {
+        compact: Compact.AUTO,
+        alias: [],
+        orderOfMagnitude: 0,
+        convertFn: (value: number) => value,
+        label: 'Auto (K, M, B, T)',
+        suffix: '',
+    },
     [Compact.THOUSANDS]: {
         compact: Compact.THOUSANDS,
         alias: ['K', 'thousand'],
@@ -491,6 +500,7 @@ export interface Field {
     // @deprecated Use format expression instead
     round?: number;
     format?: Format | string; // Format type is deprecated, use format expression(string) instead
+    separator?: NumberSeparator;
     /**
      * @deprecated Use groups property instead.
      */
@@ -563,6 +573,8 @@ export interface Dimension extends Field {
     timeInterval?: TimeFrames;
     timeIntervalBaseDimensionName?: string;
     isAdditionalDimension?: boolean;
+    /** When true, display-timezone conversion is skipped for this dimension. */
+    skipTimezoneConversion?: boolean;
     colors?: Record<string, string>;
     isIntervalBase?: boolean;
     aiHint?: string | string[];

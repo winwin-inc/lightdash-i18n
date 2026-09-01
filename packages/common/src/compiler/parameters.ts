@@ -9,6 +9,11 @@ import type { LightdashProjectParameter } from '../types/lightdashProjectConfig'
 export const parameterRegex =
     /\$\{(?:lightdash|ld)\.parameters\.(\w+(?:\.\w+)?)\}/g;
 
+export enum LightdashParameters {
+    PREFIX = 'lightdash.parameters',
+    PREFIX_SHORT = 'ld.parameters',
+}
+
 /**
  * Extracts parameter references from SQL strings
  * @param sql - The SQL string to extract parameter references from

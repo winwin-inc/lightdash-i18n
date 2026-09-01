@@ -1,5 +1,6 @@
 import { type WeekDay } from '../utils/timeFrames';
 import { type ProjectGroupAccess } from './projectGroupAccess';
+import { type GroupType } from './table';
 
 export enum ProjectType {
     DEFAULT = 'DEFAULT',
@@ -496,3 +497,5 @@ export type PreviewContentMapping = {
 export type UpdateSchedulerSettings = {
     schedulerTimezone: string;
 };
+
+export type ApiTableGroupsResults = Record<string, GroupType>;

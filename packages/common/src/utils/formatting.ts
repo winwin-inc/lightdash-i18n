@@ -33,8 +33,9 @@ import {
 } from '../types/field';
 import { hasFormatOptions, type AdditionalMetric } from '../types/metricQuery';
 import { TimeFrames } from '../types/timeFrames';
+import { LightdashParameters } from '../compiler/parameters';
 import assertUnreachable from './assertUnreachable';
-import { getItemType } from './item';
+import { getItemType, isNumericItem } from './item';
 
 dayjs.extend(timezone);
 
@@ -329,6 +330,35 @@ export function hasFormatting(
     return false;
 }
 
+export const shouldShiftItemTimezone = (
+    item: Item | AdditionalMetric | undefined,
+): boolean => {
+    if (!item) return false;
+    if (isDimension(item) && item.skipTimezoneConversion) return false;
+    return getItemType(item) === DimensionType.TIMESTAMP;
+};
+
+export function getEffectiveSeparator(
+    item:
+        | Field
+        | AdditionalMetric
+        | TableCalculation
+        | CustomDimension
+        | undefined,
+): NumberSeparator | undefined {
+    if (!item) return undefined;
+    if (hasFormatOptions(item) && item.formatOptions.separator) {
+        return item.formatOptions.separator;
+    }
+    if (isTableCalculation(item) && item.format?.separator) {
+        return item.format.separator;
+    }
+    if ('separator' in item && item.separator) {
+        return item.separator;
+    }
+    return undefined;
+}
+
 export function getCustomFormat(
     item:
         | Field
@@ -336,23 +366,44 @@ export function getCustomFormat(
         | TableCalculation
         | CustomDimension
         | undefined,
-) {
+): CustomFormat | undefined {
     if (!item) return undefined;
 
+    let base: CustomFormat | undefined;
     if (hasFormatOptions(item)) {
-        return item.formatOptions;
+        base = item.formatOptions;
+    } else if (isTableCalculation(item)) {
+        base = item.format;
+    } else {
+        const legacyFormat = {
+            ...('format' in item &&
+                item.format != null && {
+                    format: item.format,
+                }),
+            ...('compact' in item &&
+                item.compact != null && {
+                    compact: item.compact,
+                }),
+            ...('round' in item &&
+                item.round != null && {
+                    round: item.round,
+                }),
+        };
+
+        if (Object.keys(legacyFormat).length > 0 || isNumericItem(item)) {
+            base = getCustomFormatFromLegacy(legacyFormat);
+        }
     }
 
-    if (isTableCalculation(item)) {
-        return item.format;
-    }
+    if (!base) return undefined;
 
-    // This converts legacy format type (which is Format), to CustomFormat
-    return getCustomFormatFromLegacy({
-        ...('format' in item && { format: item.format }),
-        ...('compact' in item && { compact: item.compact }),
-        ...('round' in item && { round: item.round }),
-    });
+    if (!base.separator) {
+        const separator = getEffectiveSeparator(item);
+        if (separator && separator !== NumberSeparator.DEFAULT) {
+            return { ...base, separator };
+        }
+    }
+    return base;
 }
 
 function applyCompact(
@@ -695,12 +746,24 @@ export function convertCustomFormatToFormatExpression(
     );
 }
 
+export function formatExpressionHasParameters(format: string): boolean {
+    return (
+        format.includes(`\${${LightdashParameters.PREFIX_SHORT}`) ||
+        format.includes(`\${${LightdashParameters.PREFIX}`)
+    );
+}
+
 export function getFormatExpression(
     item: Item | AdditionalMetric,
 ): string | undefined {
     if (hasValidFormatExpression(item)) {
         return item.format;
     }
+
+    if (isDimension(item) && item.timeInterval === TimeFrames.YEAR_NUM) {
+        return undefined;
+    }
+
     const customFormat = getCustomFormat(item);
     return customFormat
         ? convertCustomFormatToFormatExpression(customFormat) || undefined

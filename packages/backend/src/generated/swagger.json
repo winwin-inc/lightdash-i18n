@@ -2900,6 +2900,10 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "enableDynamicMaxAllowedDate": {
+                                "type": "boolean",
+                                "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
+                            },
                             "maxAllowedDate": {
                                 "type": "string"
                             },
@@ -3458,6 +3462,7 @@
             },
             "Compact": {
                 "enum": [
+                    "auto",
                     "thousands",
                     "millions",
                     "billions",
@@ -3526,6 +3531,16 @@
                     "dkk",
                     "id",
                     "percent"
+                ],
+                "type": "string"
+            },
+            "NumberSeparator": {
+                "enum": [
+                    "default",
+                    "commaPeriod",
+                    "spacePeriod",
+                    "periodComma",
+                    "noSeparatorPeriod"
                 ],
                 "type": "string"
             },
@@ -3606,6 +3621,9 @@
                             }
                         ]
                     },
+                    "separator": {
+                        "$ref": "#/components/schemas/NumberSeparator"
+                    },
                     "groupLabel": {
                         "type": "string",
                         "deprecated": true
@@ -3653,6 +3671,10 @@
                     },
                     "isAdditionalDimension": {
                         "type": "boolean"
+                    },
+                    "skipTimezoneConversion": {
+                        "type": "boolean",
+                        "description": "When true, display-timezone conversion is skipped for this dimension."
                     },
                     "colors": {
                         "$ref": "#/components/schemas/Record_string.string_"
@@ -3968,16 +3990,6 @@
                     "bytes_si",
                     "bytes_iec",
                     "custom"
-                ],
-                "type": "string"
-            },
-            "NumberSeparator": {
-                "enum": [
-                    "default",
-                    "commaPeriod",
-                    "spacePeriod",
-                    "periodComma",
-                    "noSeparatorPeriod"
                 ],
                 "type": "string"
             },
@@ -5044,6 +5056,11 @@
                     "min": {
                         "type": "string"
                     },
+                    "nameGap": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "Distance between axis title and axis line (ECharts nameGap, in px)."
+                    },
                     "name": {
                         "type": "string"
                     }
@@ -5647,6 +5664,15 @@
                     "columns": {
                         "$ref": "#/components/schemas/Record_string.ColumnProperties_"
                     },
+                    "pageSize": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "Rows per page when enablePagination is true. Default 10."
+                    },
+                    "enablePagination": {
+                        "type": "boolean",
+                        "description": "Warehouse OFFSET pagination for TABLE charts. Default off."
+                    },
                     "showSubtotals": {
                         "type": "boolean"
                     },
@@ -6180,6 +6206,9 @@
                             }
                         ]
                     },
+                    "separator": {
+                        "$ref": "#/components/schemas/NumberSeparator"
+                    },
                     "groupLabel": {
                         "type": "string",
                         "deprecated": true
@@ -6227,6 +6256,10 @@
                     },
                     "isAdditionalDimension": {
                         "type": "boolean"
+                    },
+                    "skipTimezoneConversion": {
+                        "type": "boolean",
+                        "description": "When true, display-timezone conversion is skipped for this dimension."
                     },
                     "colors": {
                         "$ref": "#/components/schemas/Record_string.string_"
@@ -6357,6 +6390,9 @@
                                 "type": "string"
                             }
                         ]
+                    },
+                    "separator": {
+                        "$ref": "#/components/schemas/NumberSeparator"
                     },
                     "groupLabel": {
                         "type": "string",
@@ -6719,8 +6755,16 @@
                     "baseTable": {
                         "type": "string"
                     },
+                    "groups": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Nested groups for the sidebar (max 5 levels). Group keys resolve to\nlabels/descriptions via the project-level `table_groups` config\n(fetched separately); missing keys fall back to using the key as\nthe label."
+                    },
                     "groupLabel": {
-                        "type": "string"
+                        "type": "string",
+                        "deprecated": true
                     },
                     "tags": {
                         "items": {
@@ -6936,6 +6980,9 @@
                             }
                         ]
                     },
+                    "separator": {
+                        "$ref": "#/components/schemas/NumberSeparator"
+                    },
                     "groupLabel": {
                         "type": "string",
                         "deprecated": true
@@ -7145,7 +7192,7 @@
                 },
                 "type": "object"
             },
-            "Pick_ExecuteAsyncDashboardChartRequestParams.dashboardFilters-or-dashboardSorts-or-pivotResults-or-invalidateCache-or-dateZoom_": {
+            "Pick_ExecuteAsyncDashboardChartRequestParams.dashboardFilters-or-dashboardSorts-or-pivotResults-or-invalidateCache-or-dateZoom-or-limit-or-offset_": {
                 "properties": {
                     "dashboardFilters": {
                         "$ref": "#/components/schemas/DashboardFilters"
@@ -7164,6 +7211,15 @@
                     },
                     "dateZoom": {
                         "$ref": "#/components/schemas/DateZoom"
+                    },
+                    "limit": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "required": ["dashboardFilters", "dashboardSorts"],
@@ -8263,19 +8319,6 @@
                                                         "enum": [
                                                             "success",
                                                             "error"
-                                                        ]
-                                                    }
-                                                },
-                                                "required": ["status"],
-                                                "type": "object"
-                                            },
-                                            {
-                                                "properties": {
-                                                    "status": {
-                                                        "type": "string",
-                                                        "enum": [
-                                                            "error",
-                                                            "success"
                                                         ]
                                                     }
                                                 },
@@ -11338,6 +11381,12 @@
             },
             "PivotConfiguration": {
                 "properties": {
+                    "passthroughDimensions": {
+                        "items": {
+                            "$ref": "#/components/schemas/GroupByColumn"
+                        },
+                        "type": "array"
+                    },
                     "sortBy": {
                         "$ref": "#/components/schemas/SortBy"
                     },
@@ -16061,6 +16110,73 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
+            "ApiTableGroupsResults": {
+                "$ref": "#/components/schemas/Record_string.GroupType_"
+            },
+            "ApiSuccess_ApiTableGroupsResults_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ApiTableGroupsResults"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ResultsCacheProjectSettings": {
+                "properties": {
+                    "instanceDefaultTtlSeconds": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "cacheTtlSeconds": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "instanceDefaultTtlSeconds",
+                    "cacheTtlSeconds",
+                    "projectUuid"
+                ],
+                "type": "object"
+            },
+            "ApiSuccess_ResultsCacheProjectSettings_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ResultsCacheProjectSettings"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiResultsCacheProjectSettingsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_ResultsCacheProjectSettings_"
+            },
+            "UpdateResultsCacheProjectSettings": {
+                "properties": {
+                    "cacheTtlSeconds": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    }
+                },
+                "required": ["cacheTtlSeconds"],
+                "type": "object"
+            },
             "Pick_SavedChart.name-or-description-or-tableName-or-metricQuery-or-chartConfig-or-tableConfig-or-pivotConfig-or-slug-or-updatedAt_": {
                 "properties": {
                     "description": {
@@ -16386,6 +16502,10 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "enableDynamicMaxAllowedDate": {
+                                "type": "boolean",
+                                "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
+                            },
                             "maxAllowedDate": {
                                 "type": "string"
                             },
@@ -16514,6 +16634,10 @@
                     },
                     "maxAllowedDate": {
                         "type": "string"
+                    },
+                    "enableDynamicMaxAllowedDate": {
+                        "type": "boolean",
+                        "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
                     },
                     "readOnly": {
                         "type": "boolean"
@@ -18830,7 +18954,15 @@
                         "type": "array"
                     },
                     "groupLabel": {
-                        "type": "string"
+                        "type": "string",
+                        "deprecated": true
+                    },
+                    "groups": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Nested groups for the sidebar (max 5 levels). Group keys resolve to\nlabels/descriptions via the project-level `table_groups` config\n(fetched separately); missing keys fall back to using the key as\nthe label."
                     },
                     "aiHint": {
                         "anyOf": [
@@ -18899,7 +19031,15 @@
                         "type": "array"
                     },
                     "groupLabel": {
-                        "type": "string"
+                        "type": "string",
+                        "deprecated": true
+                    },
+                    "groups": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Nested groups for the sidebar (max 5 levels). Group keys resolve to\nlabels/descriptions via the project-level `table_groups` config\n(fetched separately); missing keys fall back to using the key as\nthe label."
                     },
                     "aiHint": {
                         "anyOf": [
@@ -19010,7 +19150,15 @@
                         "$ref": "#/components/schemas/Record_string.LightdashProjectParameter_"
                     },
                     "groupLabel": {
-                        "type": "string"
+                        "type": "string",
+                        "deprecated": true
+                    },
+                    "groups": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Nested groups for the sidebar (max 5 levels). Group keys resolve to\nlabels/descriptions via the project-level `table_groups` config\n(fetched separately); missing keys fall back to using the key as\nthe label."
                     },
                     "aiHint": {
                         "anyOf": [
@@ -19951,8 +20099,46 @@
                     }
                 ]
             },
+            "ResultColumnProvenance": {
+                "properties": {
+                    "sourceQueryUuid": {
+                        "type": "string",
+                        "description": "Which query in a multi-source pipeline the field belongs to. Omitted\nfor single-query results."
+                    },
+                    "fieldId": {
+                        "type": "string",
+                        "description": "Key into the query's fields map (query_history.fields)."
+                    }
+                },
+                "required": ["fieldId"],
+                "type": "object"
+            },
             "ResultColumn": {
                 "properties": {
+                    "provenance": {
+                        "$ref": "#/components/schemas/ResultColumnProvenance",
+                        "description": "Absent ⇒ no semantic field behind this column."
+                    },
+                    "shiftsTimezone": {
+                        "type": "boolean"
+                    },
+                    "timeInterval": {
+                        "$ref": "#/components/schemas/TimeFrames"
+                    },
+                    "formatOptions": {
+                        "$ref": "#/components/schemas/CustomFormat"
+                    },
+                    "separator": {
+                        "$ref": "#/components/schemas/NumberSeparator"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "Lightdash format expression — render with formatValueWithExpression."
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Display label. Absent ⇒ consumers fall back to the reference."
+                    },
                     "type": {
                         "$ref": "#/components/schemas/DimensionType"
                     },
@@ -20273,6 +20459,14 @@
                     "dateZoom": {
                         "$ref": "#/components/schemas/DateZoom"
                     },
+                    "limit": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "offset": {
+                        "type": "number",
+                        "format": "double"
+                    },
                     "filters": {
                         "properties": {
                             "tableCalculations": {},
@@ -20308,14 +20502,6 @@
                         },
                         "type": "array"
                     },
-                    "limit": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "offset": {
-                        "type": "number",
-                        "format": "double"
-                    },
                     "additionalMetrics": {
                         "items": {
                             "$ref": "#/components/schemas/AdditionalMetric"
@@ -20345,13 +20531,13 @@
                     }
                 },
                 "required": [
+                    "limit",
                     "filters",
                     "dimensions",
                     "metrics",
                     "tableCalculations",
                     "exploreName",
-                    "sorts",
-                    "limit"
+                    "sorts"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
@@ -21575,7 +21761,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2109.9",
+        "version": "0.2111.5",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -28574,6 +28760,186 @@
                                     ]
                                 },
                                 "type": "array"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/table-groups": {
+            "get": {
+                "operationId": "getProjectTableGroups",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccess_ApiTableGroupsResults_"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get project-level table-group definitions from lightdash.config.yml.",
+                "summary": "Get project table groups",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "put": {
+                "operationId": "replaceProjectTableGroups",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiSuccessEmpty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Replace project-level table-group definitions. Sent by the CLI on\ndeploy/preview so labels & descriptions from `table_groups` in\n`lightdash.config.yml` are applied. Pass an empty object to clear.",
+                "summary": "Replace project table groups",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApiTableGroupsResults"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/results-cache-config": {
+            "get": {
+                "operationId": "getProjectResultsCacheSettings",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResultsCacheProjectSettingsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get the results cache TTL for a project. A null TTL means the\ninstance-wide default applies.",
+                "summary": "Get results cache settings",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "updateProjectResultsCacheSettings",
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResultsCacheProjectSettingsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Update the results cache TTL for a project. Pass null to fall back to\nthe instance-wide default.",
+                "summary": "Update results cache settings",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateResultsCacheProjectSettings"
                             }
                         }
                     }

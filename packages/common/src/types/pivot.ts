@@ -24,6 +24,7 @@ export type PivotConfiguration = {
     valuesColumns: ValuesColumn[];
     groupByColumns: GroupByColumn[] | undefined;
     sortBy: SortBy | undefined;
+    passthroughDimensions?: GroupByColumn[];
 };
 
 type Field =

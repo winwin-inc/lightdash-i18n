@@ -1,4 +1,5 @@
 import type { ParameterValue } from './parameters';
+import type { GroupType } from './table';
 
 type SpotlightCategory = {
     label: string;
@@ -30,6 +31,7 @@ export type LightdashProjectParameter = {
 export type LightdashProjectConfig = {
     spotlight: SpotlightConfig;
     parameters?: Record<string, LightdashProjectParameter>; // keys must be ^[a-zA-Z0-9_-]+$
+    table_groups?: Record<string, GroupType>;
 };
 
 export const DEFAULT_SPOTLIGHT_CONFIG: SpotlightConfig = {

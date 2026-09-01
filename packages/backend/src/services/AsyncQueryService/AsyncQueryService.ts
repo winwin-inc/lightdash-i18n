@@ -241,26 +241,31 @@ export class AsyncQueryService extends ProjectService {
         });
     }
 
-    public getCacheExpiresAt(baseDate: Date) {
-        return new Date(
-            baseDate.getTime() +
-                this.lightdashConfig.results.cacheStateTimeSeconds * 1000,
-        );
+    public async getCacheExpiresAt(projectUuid: string, baseDate: Date) {
+        const ttlSeconds =
+            await this.projectModel.getEffectiveResultsCacheTtlSeconds(
+                projectUuid,
+            );
+        return new Date(baseDate.getTime() + ttlSeconds * 1000);
     }
 
     async findResultsCache(
         projectUuid: string,
         cacheKey: string,
+        account: Account,
         invalidateCache: boolean = false,
     ): Promise<CreateCacheResult> {
         if (!invalidateCache) {
-            // Check if cache already exists
             const existingCache =
                 await this.cacheService?.findCachedResultsFile(
                     projectUuid,
                     cacheKey,
+                    {
+                        userUuid: account.user.id,
+                        organizationUuid: account.organization.organizationUuid,
+                        organizationName: account.organization.name,
+                    },
                 );
-            // Valid cache exists and not being invalidated
             if (existingCache) {
                 return existingCache;
             }
@@ -570,7 +575,7 @@ export class AsyncQueryService extends ProjectService {
             durationMs,
         } = await measureTime(
             () =>
-                this.storageClient.isEnabled || this.cacheService?.isEnabled
+                this.storageClient.isEnabled || !!resultsFileName
                     ? this.getResultsPageFromS3(
                           queryUuid,
                           resultsFileName,
@@ -1120,6 +1125,7 @@ export class AsyncQueryService extends ProjectService {
         write,
         pivotConfiguration,
         itemsMap,
+        usedParameters,
     }: {
         warehouseClient: WarehouseClient;
         query: string;
@@ -1127,6 +1133,7 @@ export class AsyncQueryService extends ProjectService {
         write?: (rows: Record<string, unknown>[]) => void;
         pivotConfiguration?: PivotConfiguration;
         itemsMap: ItemsMap;
+        usedParameters?: ParametersValuesMap | null;
     }): Promise<{
         columns: ResultColumns;
         warehouseResults: WarehouseExecuteAsyncQuery;
@@ -1164,6 +1171,8 @@ export class AsyncQueryService extends ProjectService {
                   unpivotedColumns = getUnpivotedColumns(
                       unpivotedColumns,
                       fields,
+                      itemsMap,
+                      usedParameters,
                   );
 
                   const { indexColumn, valuesColumns, groupByColumns } =
@@ -1277,6 +1286,8 @@ export class AsyncQueryService extends ProjectService {
                   unpivotedColumns = getUnpivotedColumns(
                       unpivotedColumns,
                       fields,
+                      itemsMap,
+                      usedParameters,
                   );
                   write?.(rows);
               };
@@ -1293,7 +1304,9 @@ export class AsyncQueryService extends ProjectService {
             ? getPivotedColumns(
                   unpivotedColumns,
                   pivotConfiguration,
-                  Array.from(valuesColumnData.keys()),
+                  Array.from(valuesColumnData.values()),
+                  itemsMap,
+                  usedParameters,
               )
             : unpivotedColumns;
 
@@ -1332,6 +1345,7 @@ export class AsyncQueryService extends ProjectService {
         cacheKey,
         pivotConfiguration,
         originalColumns,
+        usedParameters,
     }: RunAsyncWarehouseQueryArgs) {
         let stream:
             | {
@@ -1392,7 +1406,10 @@ export class AsyncQueryService extends ProjectService {
                 : undefined;
 
             const createdAt = new Date();
-            const newExpiresAt = this.getCacheExpiresAt(createdAt);
+            const newExpiresAt = await this.getCacheExpiresAt(
+                projectUuid,
+                createdAt,
+            );
             this.analytics.track({
                 ...analyticsIdentity,
                 event: 'results_cache.create',
@@ -1421,6 +1438,7 @@ export class AsyncQueryService extends ProjectService {
                 write: stream?.write,
                 pivotConfiguration,
                 itemsMap: fieldsMap,
+                usedParameters,
             });
 
             this.analytics.track({
@@ -1729,6 +1747,7 @@ export class AsyncQueryService extends ProjectService {
             sql: string; // SQL generated from metric query or provided by user
             originalColumns?: ResultColumns;
             missingParameterReferences: string[];
+            usedParameters?: ParametersValuesMap | null;
         },
         requestParameters: ExecuteAsyncQueryRequestParams,
     ): Promise<ExecuteAsyncQueryReturn> {
@@ -1749,6 +1768,7 @@ export class AsyncQueryService extends ProjectService {
                     originalColumns,
                     missingParameterReferences,
                     pivotConfiguration,
+                    usedParameters,
                 } = args;
 
                 try {
@@ -1836,6 +1856,7 @@ export class AsyncQueryService extends ProjectService {
                     const resultsCache = await this.findResultsCache(
                         projectUuid,
                         cacheKey,
+                        account,
                         args.invalidateCache,
                     );
 
@@ -1850,6 +1871,7 @@ export class AsyncQueryService extends ProjectService {
                             metricQuery,
                             cacheKey,
                             pivotConfiguration: pivotConfiguration ?? null,
+                            usedParameters: usedParameters ?? null,
                         });
 
                     this.analytics.trackAccount(account, {
@@ -1967,6 +1989,7 @@ export class AsyncQueryService extends ProjectService {
                         pivotConfiguration,
                         cacheKey,
                         originalColumns,
+                        usedParameters,
                     });
 
                     return {
@@ -2111,6 +2134,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns: undefined,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             requestParameters,
         );
@@ -2290,6 +2314,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns: undefined,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             requestParameters,
         );
@@ -2558,6 +2583,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns: undefined,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             requestParameters,
         );
@@ -2784,6 +2810,7 @@ export class AsyncQueryService extends ProjectService {
                     sql,
                     originalColumns: undefined,
                     missingParameterReferences,
+                    usedParameters,
                 },
                 underlyingDataRequestParameters,
             );
@@ -2867,6 +2894,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             {
                 query: metricQuery,
@@ -3225,6 +3253,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             {
                 query: metricQuery,
@@ -3332,6 +3361,7 @@ export class AsyncQueryService extends ProjectService {
                 originalColumns,
                 missingParameterReferences,
                 pivotConfiguration,
+                usedParameters,
             },
             {
                 query: metricQuery,

@@ -820,6 +820,17 @@ const Settings: FC = () => {
                                     />
 
                                     <RouterNavLink
+                                        label="Results caching"
+                                        exact
+                                        to={`/generalSettings/projectManagement/${project.projectUuid}/caching`}
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconDatabaseExport}
+                                            />
+                                        }
+                                    />
+
+                                    <RouterNavLink
                                         label={t(
                                             'pages_settings.scroll_area_box_update.navs.project_access',
                                         )}

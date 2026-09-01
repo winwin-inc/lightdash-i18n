@@ -290,11 +290,12 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     prometheusMetrics,
                     permissionsService: repository.getPermissionsService(),
                 }),
-            cacheService: ({ models, context, clients }) =>
+            cacheService: ({ models, clients }) =>
                 new CommercialCacheService({
                     queryHistoryModel: models.getQueryHistoryModel(),
-                    lightdashConfig: context.lightdashConfig,
+                    projectModel: models.getProjectModel(),
                     storageClient: clients.getResultsFileStorageClient(),
+                    featureFlagModel: models.getFeatureFlagModel(),
                 }),
             mcpService: ({ context, repository, models }) =>
                 new McpService({

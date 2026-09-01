@@ -42,6 +42,9 @@ import {
     type ApiGetTagsResponse,
     type ApiRefreshResults,
     type ApiSuccess,
+    type ApiTableGroupsResults,
+    type ApiResultsCacheProjectSettingsResponse,
+    type UpdateResultsCacheProjectSettings,
     type ApiUpdateDashboardsResponse,
     type CalculateSubtotalsFromQuery,
     type CreateDashboard,
@@ -921,6 +924,108 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results,
+        };
+    }
+
+    /**
+     * Get project-level table-group definitions from lightdash.config.yml.
+     * @summary Get project table groups
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/table-groups')
+    @OperationId('getProjectTableGroups')
+    async getProjectTableGroups(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccess<ApiTableGroupsResults>> {
+        this.setStatus(200);
+        const tableGroups = await this.services
+            .getProjectService()
+            .getTableGroups(req.user!, projectUuid);
+        return {
+            status: 'ok',
+            results: tableGroups,
+        };
+    }
+
+    /**
+     * Replace project-level table-group definitions. Sent by the CLI on
+     * deploy/preview so labels & descriptions from `table_groups` in
+     * `lightdash.config.yml` are applied. Pass an empty object to clear.
+     * @summary Replace project table groups
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Put('{projectUuid}/table-groups')
+    @OperationId('replaceProjectTableGroups')
+    async replaceProjectTableGroups(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Body() tableGroups: ApiTableGroupsResults,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services.getProjectService().replaceProjectTableGroups({
+            user: req.user!,
+            projectUuid,
+            tableGroups,
+        });
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    /**
+     * Get the results cache TTL for a project. A null TTL means the
+     * instance-wide default applies.
+     * @summary Get results cache settings
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/results-cache-config')
+    @OperationId('getProjectResultsCacheSettings')
+    async getProjectResultsCacheSettings(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiResultsCacheProjectSettingsResponse> {
+        this.setStatus(200);
+        const settings = await this.services
+            .getProjectService()
+            .getProjectResultsCacheSettings(req.user!, projectUuid);
+        return {
+            status: 'ok',
+            results: settings,
+        };
+    }
+
+    /**
+     * Update the results cache TTL for a project. Pass null to fall back to
+     * the instance-wide default.
+     * @summary Update results cache settings
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Updated')
+    @Patch('{projectUuid}/results-cache-config')
+    @OperationId('updateProjectResultsCacheSettings')
+    async updateProjectResultsCacheSettings(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Body() body: UpdateResultsCacheProjectSettings,
+    ): Promise<ApiResultsCacheProjectSettingsResponse> {
+        const settings = await this.services
+            .getProjectService()
+            .updateProjectResultsCacheSettings(req.user!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: settings,
         };
     }
 

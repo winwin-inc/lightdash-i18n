@@ -2,10 +2,14 @@ import assertUnreachable from '../utils/assertUnreachable';
 import { getItemType } from '../utils/item';
 import {
     DimensionType,
-    type Item,
     MetricType,
     TableCalculationType,
+    type CustomFormat,
+    type Item,
+    type NumberSeparator,
 } from './field';
+import { type AdditionalMetric } from './metricQuery';
+import { type TimeFrames } from './timeFrames';
 
 export type ResultValue = {
     raw: unknown;
@@ -23,7 +27,9 @@ export const isResultValue = (
     'raw' in value.value &&
     'formatted' in value.value;
 
-export function convertItemTypeToDimensionType(item: Item): DimensionType {
+export function convertItemTypeToDimensionType(
+    item: Item | AdditionalMetric,
+): DimensionType {
     const type = getItemType(item);
     switch (type) {
         case DimensionType.STRING:
@@ -66,9 +72,29 @@ export function convertItemTypeToDimensionType(item: Item): DimensionType {
     }
 }
 
+export type ResultColumnProvenance = {
+    /** Key into the query's fields map (query_history.fields). */
+    fieldId: string;
+    /**
+     * Which query in a multi-source pipeline the field belongs to. Omitted
+     * for single-query results.
+     */
+    sourceQueryUuid?: string;
+};
+
 export type ResultColumn = {
     reference: string;
     type: DimensionType; // Lightdash simple type. In the future, we might introduce the warehouse type as well, which provides more detail.
+    /** Display label. Absent ⇒ consumers fall back to the reference. */
+    label?: string;
+    /** Lightdash format expression — render with formatValueWithExpression. */
+    format?: string;
+    separator?: NumberSeparator;
+    formatOptions?: CustomFormat;
+    timeInterval?: TimeFrames;
+    shiftsTimezone?: boolean;
+    /** Absent ⇒ no semantic field behind this column. */
+    provenance?: ResultColumnProvenance;
 };
 
 export type ResultColumns = Record<string, ResultColumn>;

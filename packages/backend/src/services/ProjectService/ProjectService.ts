@@ -57,6 +57,7 @@ import {
     Explore,
     ExploreError,
     ExploreType,
+    FeatureFlags,
     FilterableDimension,
     FilterGroupItem,
     FilterOperator,
@@ -76,6 +77,7 @@ import {
     getItemId,
     getMetrics,
     getTimezoneLabel,
+    GroupType,
     hasIntersection,
     hasWarehouseCredentials,
     IntrinsicUserAttributes,
@@ -102,6 +104,8 @@ import {
     mergeDashboardAvailableFiltersFromChartFilterSets,
     mergeWarehouseCredentials,
     MetricQuery,
+    MAX_RESULTS_CACHE_TTL_SECONDS,
+    MIN_RESULTS_CACHE_TTL_SECONDS,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
     normalizeIndexColumns,
@@ -128,6 +132,7 @@ import {
     replaceDimensionInExplore,
     RequestMethod,
     ResultRow,
+    ResultsCacheProjectSettings,
     type RunQueryTags,
     SavedChartDAO,
     SavedChartsInfoForDashboardAvailableFilters,
@@ -148,6 +153,7 @@ import {
     UpdateMetadata,
     UpdateProject,
     UpdateProjectMember,
+    UpdateResultsCacheProjectSettings,
     UpdateVirtualViewPayload,
     UserAccessControls,
     UserAttributeValueMap,
@@ -1450,6 +1456,10 @@ export class ProjectService extends BaseService {
                         projectUuid: newProjectUuid,
                         parameters: lightdashProjectConfig.parameters,
                     });
+                    await this.projectModel.setTableGroups(
+                        newProjectUuid,
+                        lightdashProjectConfig.table_groups,
+                    );
                     await this.saveExploresToCacheAndIndexCatalog(
                         user.userUuid,
                         newProjectUuid,
@@ -1745,6 +1755,10 @@ export class ProjectService extends BaseService {
                                 projectUuid,
                                 parameters: lightdashProjectConfig.parameters,
                             });
+                            await this.projectModel.setTableGroups(
+                                projectUuid,
+                                lightdashProjectConfig.table_groups,
+                            );
                             await this.saveExploresToCacheAndIndexCatalog(
                                 user.userUuid,
                                 projectUuid,
@@ -4238,6 +4252,10 @@ export class ProjectService extends BaseService {
                             projectUuid,
                             parameters: lightdashProjectConfig.parameters,
                         });
+                        await this.projectModel.setTableGroups(
+                            projectUuid,
+                            lightdashProjectConfig.table_groups,
+                        );
                         return this.saveExploresToCacheAndIndexCatalog(
                             user.userUuid,
                             projectUuid,
@@ -6869,6 +6887,139 @@ export class ProjectService extends BaseService {
         }
 
         return this.tagsModel.list(projectUuid);
+    }
+
+    async getTableGroups(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<Record<string, GroupType>> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Project', { projectUuid, organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        return this.projectModel.getTableGroups(projectUuid);
+    }
+
+    async replaceProjectTableGroups({
+        user,
+        projectUuid,
+        tableGroups,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        tableGroups: Record<string, GroupType>;
+    }) {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'update',
+                subject('Project', {
+                    projectUuid,
+                    organizationUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                `User does not have permission to update project table groups`,
+            );
+        }
+
+        await this.projectModel.setTableGroups(projectUuid, tableGroups);
+    }
+
+    async getProjectResultsCacheSettings(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<ResultsCacheProjectSettings> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'update',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const settings =
+            await this.projectModel.getResultsCacheSettings(projectUuid);
+        return {
+            projectUuid,
+            ...settings,
+            instanceDefaultTtlSeconds:
+                this.lightdashConfig.results.cacheStateTimeSeconds,
+        };
+    }
+
+    async updateProjectResultsCacheSettings(
+        user: SessionUser,
+        projectUuid: string,
+        settings: UpdateResultsCacheProjectSettings,
+    ): Promise<ResultsCacheProjectSettings> {
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'update',
+                subject('Project', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const { enabled: resultsCacheEnabled } =
+            await this.featureFlagModel.get({
+                user,
+                featureFlagId: FeatureFlags.ResultsCacheEnabled,
+            });
+        if (!resultsCacheEnabled) {
+            throw new ForbiddenError('Results caching is not enabled');
+        }
+
+        const { cacheTtlSeconds } = settings;
+        if (cacheTtlSeconds !== null) {
+            if (!Number.isInteger(cacheTtlSeconds)) {
+                throw new ParameterError(
+                    'Cache duration must be a whole number of seconds',
+                );
+            }
+            if (
+                cacheTtlSeconds < MIN_RESULTS_CACHE_TTL_SECONDS ||
+                cacheTtlSeconds > MAX_RESULTS_CACHE_TTL_SECONDS
+            ) {
+                throw new ParameterError(
+                    `Cache duration must be between ${MIN_RESULTS_CACHE_TTL_SECONDS} and ${MAX_RESULTS_CACHE_TTL_SECONDS} seconds (30 days)`,
+                );
+            }
+        }
+
+        await this.projectModel.updateResultsCacheSettings(projectUuid, {
+            cacheTtlSeconds,
+        });
+
+        return {
+            projectUuid,
+            cacheTtlSeconds,
+            instanceDefaultTtlSeconds:
+                this.lightdashConfig.results.cacheStateTimeSeconds,
+        };
     }
 
     async replaceProjectParameters({

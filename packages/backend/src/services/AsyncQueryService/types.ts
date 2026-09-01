@@ -162,4 +162,5 @@ export type RunAsyncWarehouseQueryArgs = {
     };
     pivotConfiguration?: PivotConfiguration;
     originalColumns?: ResultColumns;
+    usedParameters?: ParametersValuesMap | null;
 };

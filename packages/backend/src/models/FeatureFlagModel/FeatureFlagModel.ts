@@ -38,6 +38,8 @@ export class FeatureFlagModel {
                 this.getUseSqlPivotResults.bind(this),
             [FeatureFlags.ExperimentalExplorerImprovements]:
                 this.getExperimentalExplorerImprovements.bind(this),
+            [FeatureFlags.ResultsCacheEnabled]:
+                this.getResultsCacheEnabled.bind(this),
         };
     }
 
@@ -146,5 +148,14 @@ export class FeatureFlagModel {
             id: featureFlagId,
             enabled,
         };
+    }
+
+    private getResultsCacheEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: this.lightdashConfig.results.cacheEnabled,
+        });
     }
 }

@@ -341,6 +341,9 @@ export class DbtBaseProjectAdapter implements ProjectAdapter {
                         name: model.name,
                         label: model.meta.label || friendlyName(model.name),
                         groupLabel: model.meta.group_label,
+                        ...(model.meta.groups && model.meta.groups.length > 0
+                            ? { groups: model.meta.groups }
+                            : {}),
                         errors: [
                             error.type === InlineErrorType.METADATA_PARSE_ERROR
                                 ? {

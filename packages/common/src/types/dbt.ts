@@ -78,7 +78,14 @@ export type DbtModelMetadata = DbtModelLightdashConfig & {};
 type ExploreConfig = {
     label?: string;
     description?: string;
+    /** @deprecated Use groups instead */
     group_label?: string;
+    /**
+     * Nested groups for tables in the sidebar (max 5 levels). Group keys
+     * resolve to labels via `table_groups` in lightdash.config.yml; missing
+     * keys fall back to using the key as the label.
+     */
+    groups?: string[];
     joins?: DbtModelJoin[];
 };
 

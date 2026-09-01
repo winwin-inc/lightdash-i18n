@@ -9,6 +9,7 @@ import { DataOps } from '../components/DataOps';
 import ProjectUserAccess from '../components/ProjectAccess';
 import { UpdateProjectConnection } from '../components/ProjectConnection';
 import ProjectParameters from '../components/ProjectParameters';
+import ProjectResultsCache from '../components/ProjectResultsCache';
 import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration/ProjectTablesConfiguration';
 import SettingsScheduler from '../components/SettingsScheduler';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
@@ -67,6 +68,10 @@ const ProjectSettings: FC = () => {
             {
                 path: `/parameters`,
                 element: <ProjectParameters projectUuid={projectUuid} />,
+            },
+            {
+                path: `/caching`,
+                element: <ProjectResultsCache projectUuid={projectUuid} />,
             },
             {
                 path: '*',

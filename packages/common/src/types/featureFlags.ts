@@ -54,9 +54,14 @@ export enum FeatureFlags {
     WorkerQueryExecution = 'worker-query-execution',
 
     /**
-     * Enable SQL pivot results conversion to PivotData format
+     * Use SQL pivot results conversion to PivotData format
      */
     UseSqlPivotResults = 'use-sql-pivot-results',
+
+    /**
+     * Enable project-level results cache TTL configuration and cache lookups
+     */
+    ResultsCacheEnabled = 'results-cache-enabled',
 
     /**
      * Enable the unused content dashboard showing least viewed charts and dashboards
