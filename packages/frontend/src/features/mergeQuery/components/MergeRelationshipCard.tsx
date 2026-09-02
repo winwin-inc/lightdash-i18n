@@ -1,6 +1,7 @@
 import { MergeJoinType } from '@lightdash/common';
 import { Badge, Box } from '@mantine-8/core';
 import { useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import CollapsableCard from '../../../components/common/CollapsableCard/CollapsableCard';
 import { PRIMARY_SOURCE_ID } from '../constants';
 import { useMergeSafe } from '../context/useMerge';
@@ -9,6 +10,7 @@ import { MergeJoinBar } from './MergeJoinBar';
 import { getJoinClauseLabel } from './mergeJoinLabels';
 
 const MergeRelationshipCardContent: FC = () => {
+    const { t } = useTranslation();
     const {
         effectiveParts,
         labelFor,
@@ -20,14 +22,16 @@ const MergeRelationshipCardContent: FC = () => {
     } = useMergeSetup();
     const merge = useMergeSafe();
     const [isOpen, setIsOpen] = useState(true);
-    const primaryLabel = primaryExploreLabel ?? 'First data';
-    const additionalLabel = additionalExploreLabel ?? 'Combined data';
+    const primaryLabel =
+        primaryExploreLabel ?? t('features_mergeQuery.first_data');
+    const additionalLabel =
+        additionalExploreLabel ?? t('features_mergeQuery.combined_data');
     const joinTypeLabel =
         merge?.joinType === MergeJoinType.LEFT
-            ? 'Left'
+            ? t('features_mergeQuery.join_left')
             : merge?.joinType === MergeJoinType.INNER
-              ? 'Inner'
-              : 'Full outer';
+              ? t('features_mergeQuery.join_inner')
+              : t('features_mergeQuery.join_full_outer');
     const relationshipSummary = effectiveParts
         .map((part) => {
             const primaryFieldId = part.fieldIdBySourceId[PRIMARY_SOURCE_ID];
@@ -45,7 +49,7 @@ const MergeRelationshipCardContent: FC = () => {
 
     return (
         <CollapsableCard
-            title="Relationship"
+            title={t('features_mergeQuery.relationship')}
             isOpen={isOpen}
             onToggle={setIsOpen}
             headerElement={

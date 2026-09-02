@@ -70,7 +70,19 @@
         "match_queries": "匹配查询",
         "match_queries_desc": "在关联关系中选择对应字段。",
         "review_relationship": "检查关联关系",
-        "review_relationship_desc": "确认保留规则后运行合并查询。"
+        "review_relationship_desc": "确认保留规则后运行合并查询。",
+        "add_metric_from_table": "请从 {{table}} 至少添加一个指标",
+        "pick_join_field": "请在两侧各选一个用于关联的字段",
+        "cannot_join_on_field": "无法使用该字段关联这两个查询",
+        "field_only_in_one_query": "该字段仅存在于其中一个查询",
+        "relationship": "关联关系",
+        "data_sources": "数据源",
+        "selected_count": "已选 {{count}} 项",
+        "active_filters_badge": "{{count}} 个生效筛选",
+        "filters_join_hint": "匹配字段上的筛选会同时作用于两个查询，其余筛选仅作用于各自查询。",
+        "selected_for_result": "结果字段 · {{count}}",
+        "source_order_first": "第一份",
+        "source_order_second": "第二份"
     },
     "about_footer": {
         "about_msy_x": "关于 马上赢X"

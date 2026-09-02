@@ -15,6 +15,7 @@ import {
     type MetricQuery,
 } from '@lightdash/common';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useExplore } from '../../../hooks/useExplore';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import {
@@ -43,6 +44,7 @@ import { useMergeSafe } from '../context/useMerge';
  * it".
  */
 export const useMergeSetup = () => {
+    const { t } = useTranslation();
     const { data: mergeFlag } = useServerFeatureFlag(FeatureFlags.MergeQueries);
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
@@ -520,9 +522,11 @@ export const useMergeSetup = () => {
     // unreadable: a grain warning means nothing until there is a merge to
     // warn about.
     const setupStep = !additionalSource.exploreName
-        ? 'Choose data to combine'
+        ? t('features_mergeQuery.choose_data_to_combine')
         : additionalSource.metrics.length === 0
-          ? `Add at least one metric from ${additionalExploreLabel ?? 'the second table'}`
+          ? t('features_mergeQuery.add_metric_from_table', {
+                table: additionalExploreLabel ?? t('features_mergeQuery.second_table'),
+            })
           : !effectiveParts.every(
                   (part) =>
                       part.fieldIdBySourceId[PRIMARY_SOURCE_ID] &&
@@ -534,16 +538,16 @@ export const useMergeSetup = () => {
                           part.fieldIdBySourceId[additionalSourceId] as string,
                       ),
               )
-            ? 'Pick a field from each query to join on'
+            ? t('features_mergeQuery.pick_join_field')
             : null;
     const isIncomplete = setupStep !== null;
 
     const blockingReason =
         setupStep ??
         (joinKeyErrors.length > 0
-            ? 'These queries cannot be joined on that field'
+            ? t('features_mergeQuery.cannot_join_on_field')
             : fanOut.length > 0
-              ? 'A field is only in one of the queries'
+              ? t('features_mergeQuery.field_only_in_one_query')
               : null);
 
     const canRun =

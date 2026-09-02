@@ -70,7 +70,20 @@
         "match_queries": "Match the queries",
         "match_queries_desc": "Choose corresponding fields in the relationship.",
         "review_relationship": "Review the relationship",
-        "review_relationship_desc": "Check what to keep, then run the merged query."
+        "review_relationship_desc": "Check what to keep, then run the merged query.",
+        "add_metric_from_table": "Add at least one metric from {{table}}",
+        "pick_join_field": "Pick a field from each query to join on",
+        "cannot_join_on_field": "These queries cannot be joined on that field",
+        "field_only_in_one_query": "A field is only in one of the queries",
+        "relationship": "Relationship",
+        "data_sources": "Data sources",
+        "selected_count": "{{count}} selected",
+        "active_filters_badge": "{{count}} active filter",
+        "active_filters_badge_plural": "{{count}} active filters",
+        "filters_join_hint": "Filters on a matching field apply to both queries. Other filters stay with their query.",
+        "selected_for_result": "Selected for result · {{count}}",
+        "source_order_first": "First",
+        "source_order_second": "Second"
     },
     "about_footer": {
         "about_msy_x": "About MSY X"

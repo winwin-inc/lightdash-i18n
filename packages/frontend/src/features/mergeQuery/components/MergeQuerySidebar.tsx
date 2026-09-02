@@ -56,7 +56,9 @@ const DatasetHeader: FC<{
     onRemove,
     countSubtitle,
     removeLabel = '',
-}) => (
+}) => {
+    const { t } = useTranslation();
+    return (
     <Box className={styles.header} data-open={open}>
         <UnstyledButton className={styles.headerButton} onClick={onClick}>
             <Box className={styles.headerCopy}>
@@ -66,7 +68,7 @@ const DatasetHeader: FC<{
                 <Text size="xs" c="dimmed">
                     {count === 0
                         ? countSubtitle
-                        : `${count} selected`}
+                        : t('features_mergeQuery.selected_count', { count })}
                 </Text>
             </Box>
             <MantineIcon
@@ -88,7 +90,8 @@ const DatasetHeader: FC<{
             </ActionIcon>
         )}
     </Box>
-);
+    );
+};
 
 /** One continuous field builder: shared output, then one expandable dataset at a time. */
 export const MergeQuerySidebar: FC<{
@@ -186,7 +189,7 @@ export const MergeQuerySidebar: FC<{
                     selectionKey: `${PRIMARY_SOURCE_ID}:${fieldId}`,
                     item,
                     tableLabel: sameLabel
-                        ? `${primaryLabel} · First`
+                        ? `${primaryLabel} · ${t('features_mergeQuery.source_order_first')}`
                         : primaryLabel,
                     isDimension: metricQuery.dimensions.includes(fieldId),
                     onDeselect: onPrimaryFieldChange,
@@ -219,7 +222,7 @@ export const MergeQuerySidebar: FC<{
                     selectionKey: `${additionalSourceId}:${fieldId}`,
                     item,
                     tableLabel: sameLabel
-                        ? `${additionalSourceLabel} · Second`
+                        ? `${additionalSourceLabel} · ${t('features_mergeQuery.source_order_second')}`
                         : additionalSourceLabel,
                     isDimension:
                         additionalSource?.dimensions.includes(fieldId) ?? false,
@@ -252,6 +255,7 @@ export const MergeQuerySidebar: FC<{
         mergeSetup,
         metricQuery,
         onPrimaryFieldChange,
+        t,
     ]);
 
     return (
@@ -259,12 +263,16 @@ export const MergeQuerySidebar: FC<{
             <SelectedFieldsSection
                 fields={selectedFields}
                 onDeselect={onPrimaryFieldChange}
-                heading={`Selected for result · ${selectedFields.length}`}
+                heading={t('features_mergeQuery.selected_for_result', {
+                    count: selectedFields.length,
+                })}
                 showAllFieldsDivider={false}
             />
 
             <Box className={styles.datasets}>
-                <Text className={styles.sourcesLabel}>Data sources</Text>
+                <Text className={styles.sourcesLabel}>
+                    {t('features_mergeQuery.data_sources')}
+                </Text>
                 <Box className={styles.sourceList}>
                     <DatasetHeader
                         sourceRole="primary"

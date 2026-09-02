@@ -162,7 +162,9 @@ export const MergeFiltersCard: FC = () => {
             headerElement={
                 total > 0 && !filterIsOpen ? (
                     <Badge color="gray" variant="light" tt="none" fw={500}>
-                        {total} active filter{total === 1 ? '' : 's'}
+                        {t('features_mergeQuery.active_filters_badge', {
+                            count: total,
+                        })}
                     </Badge>
                 ) : null
             }
@@ -251,8 +253,7 @@ export const MergeFiltersCard: FC = () => {
                     </Stack>
 
                     <Text size="xs" c="dimmed" px="xs" pb="xs">
-                        Filters on a matching field apply to both queries. Other
-                        filters stay with their query.
+                        {t('features_mergeQuery.filters_join_hint')}
                     </Text>
                 </Stack>
             )}

@@ -2,6 +2,7 @@ import { type SummaryExplore } from '@lightdash/common';
 import { Box, Button, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useMemo, type Dispatch, type FC, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import ExploreTree from '../../../components/Explorer/ExploreTree';
 import { type SelectedField } from '../../../components/Explorer/ExploreTree/SelectedFieldsSection';
@@ -23,6 +24,7 @@ export const MergeSourceTree: FC<{
     isChoosingExplore,
     setIsChoosingExplore,
 }) => {
+    const { t } = useTranslation();
     const merge = useMerge();
     const projectUuid = useProjectUuid();
     const source = merge.additionalSources.find(({ id }) => id === sourceId);
@@ -69,7 +71,7 @@ export const MergeSourceTree: FC<{
                     onClick={() => setIsChoosingExplore(false)}
                     w="fit-content"
                 >
-                    Back to fields
+                    {t('features_mergeQuery.back_to_fields')}
                 </Button>
                 <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                     {exploresResult.isInitialLoading ? (
@@ -113,7 +115,7 @@ export const MergeSourceTree: FC<{
                 onClick={() => setIsChoosingExplore(true)}
                 w="fit-content"
             >
-                Change table
+                {t('features_mergeQuery.change_table')}
             </Button>
 
             {source.exploreName && isInitialLoading && (

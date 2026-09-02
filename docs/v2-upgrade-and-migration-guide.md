@@ -262,11 +262,21 @@ flowchart TB
 | used_parameters | `20260901150100_add_used_parameters_to_query_history.ts` | `query_history.used_parameters` jsonb **nullable** | **异步查询写 history 可能失败**（影响面最大） | 低 |
 | Warehouse-native Merge Query | `20260901160000_create_saved_query_version_merges.ts` | 新表 `saved_queries_version_merges` | 保存/打开 merge 图表失败；普通 Explore 不受影响 | 低（只加表） |
 
+**Step 4 代码已合入（无新 migration）：**
+
+| 能力 | 关键路径 | 状态 |
+|------|----------|------|
+| Filter Override reconcile | `packages/common/src/types/filter.ts`、`useSavedDashboardFiltersOverrides.ts`、`DashboardProvider.tsx` | ✅ |
+| Tab hidden + 懒挂载 + 切换不销毁图表 | `DashboardTabs/`、`getActiveTabForTabs.ts`、`FeatureFlags.DashboardTabsInMemory` | ✅ |
+| Merge Query i18n | `features/mergeQuery/**`、`translation.json` `features_mergeQuery` | ✅ |
+| Tab 内存模式 FF | `FeatureFlagModel` + env `DASHBOARD_TABS_IN_MEMORY=true` | ✅ |
+
 #### 主迁移待做（计划内 OSS）
 
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
-| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | fork 已有 tab-level filters 相关迁移；本步以代码合并为主 |
+| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | **reconcile + hidden/懒加载已合入**；locked-tab override 待评估 |
+| Project Chart Types | 视 Data Apps 范围 | **中~大** | 上游 `features/chartTypes` + Data App viz，Step 4 下一批 |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方 |
 | Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更 |
 | Formula 包 | **无 DB** | 无 | 独立包，不改元数据库 |
@@ -286,6 +296,7 @@ flowchart TB
 2. **回滚应用、不回滚库**：可空列/新表留在库中通常无害；若必须 down migration，先确认无新代码依赖再 `rollback-last`。  
 3. **导出定制与 DB 无关**：CSV/Excel 自研逻辑不依赖上述新列；Merge 下载仍走通用 download + 现有导出服务。  
 4. **验收建议**：每个含 migration 的 PR，在预发先 `migrate`，再发应用；并用「旧书签/旧看板仍可打开」做一次冒烟。
+5. **Tab 内存模式**：设置环境变量 `DASHBOARD_TABS_IN_MEMORY=true` 并启用 FF `dashboard-tabs-in-memory` 后，看板切换 tab 会保留已访问 tab 的图表实例（默认仅挂载当前 tab 以省内存）。
 
 ---
 

@@ -40,6 +40,8 @@ export class FeatureFlagModel {
                 this.getExperimentalExplorerImprovements.bind(this),
             [FeatureFlags.ResultsCacheEnabled]:
                 this.getResultsCacheEnabled.bind(this),
+            [FeatureFlags.DashboardTabsInMemory]:
+                this.getDashboardTabsInMemory.bind(this),
         };
     }
 
@@ -156,6 +158,15 @@ export class FeatureFlagModel {
         return Promise.resolve({
             id: featureFlagId,
             enabled: this.lightdashConfig.results.cacheEnabled,
+        });
+    }
+
+    private getDashboardTabsInMemory({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.DASHBOARD_TABS_IN_MEMORY === 'true',
         });
     }
 }

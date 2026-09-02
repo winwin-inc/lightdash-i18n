@@ -116,9 +116,10 @@ const JoinTypePicker: FC<{
     value: MergeJoinType;
     options: JoinTypeOption[];
     onChange: (value: MergeJoinType) => void;
-}> = ({ value, options, onChange }) => (
+    ariaLabel: string;
+}> = ({ value, options, onChange, ariaLabel }) => (
     <Radio.Group
-        aria-label="Join type"
+        aria-label={ariaLabel}
         value={value}
         onChange={(nextValue) => onChange(nextValue as MergeJoinType)}
     >
@@ -517,7 +518,10 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                             onClick={() =>
                                                 removeJoinPart(index)
                                             }
-                                            aria-label={`Remove join condition ${index + 1}`}
+                                            aria-label={t(
+                                                'features_mergeQuery.remove_join_condition',
+                                                { index: index + 1 },
+                                            )}
                                         >
                                             <MantineIcon
                                                 icon={IconX}
@@ -555,6 +559,7 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                 value={joinType}
                                 options={keepOptions}
                                 onChange={setJoinType}
+                                ariaLabel={t('features_mergeQuery.join_type')}
                             />
                         </Stack>
 
