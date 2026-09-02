@@ -74,6 +74,11 @@ export enum FeatureFlags {
     DashboardTabsInMemory = 'dashboard-tabs-in-memory',
 
     /**
+     * Allow dashboard editors to lock filters on specific tabs (or dashboard-wide).
+     */
+    LockDashboardFilters = 'lock-dashboard-filters',
+
+    /**
      * Enable the unused content dashboard showing least viewed charts and dashboards
      */
     UnusedContentDashboard = 'unused-content-dashboard',

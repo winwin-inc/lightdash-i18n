@@ -2784,7 +2784,13 @@
             "tables": "表格",
             "filter_rules": {
                 "part_1": "是任何值"
-            }
+            },
+            "lock": "锁定筛选器",
+            "lock_on_tab": "在此标签页锁定筛选器",
+            "lock_unlock": "解锁筛选器",
+            "lock_unlock_tab": "在此标签页解锁筛选器",
+            "locked": "已由看板编辑者锁定",
+            "locked_on_tab": "已在此标签页锁定"
         },
         "filter_dashboard": {
             "title": "筛选看板为...",

@@ -2774,7 +2774,13 @@
             "tables": "Tables: ",
             "filter_rules": {
                 "part_1": "is any value"
-            }
+            },
+            "lock": "Lock filter",
+            "lock_on_tab": "Lock filter on this tab",
+            "lock_unlock": "Unlock filter",
+            "lock_unlock_tab": "Unlock filter on this tab",
+            "locked": "Locked by the dashboard editor",
+            "locked_on_tab": "Locked on this tab"
         },
         "filter_dashboard": {
             "title": "Filter dashboard to...",

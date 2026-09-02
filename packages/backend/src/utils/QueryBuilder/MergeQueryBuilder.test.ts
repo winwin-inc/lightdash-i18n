@@ -1,3 +1,21 @@
+jest.mock('@lightdash/warehouses', () => ({
+    BigquerySqlBuilder: jest.requireActual(
+        '../../../../warehouses/src/warehouseClients/BigqueryWarehouseClient',
+    ).BigquerySqlBuilder,
+    PostgresSqlBuilder: jest.requireActual(
+        '../../../../warehouses/src/warehouseClients/PostgresWarehouseClient',
+    ).PostgresSqlBuilder,
+    RedshiftSqlBuilder: jest.requireActual(
+        '../../../../warehouses/src/warehouseClients/RedshiftWarehouseClient',
+    ).RedshiftSqlBuilder,
+    SnowflakeSqlBuilder: jest.requireActual(
+        '../../../../warehouses/src/warehouseClients/SnowflakeWarehouseClient',
+    ).SnowflakeSqlBuilder,
+    TrinoSqlBuilder: jest.requireActual(
+        '../../../../warehouses/src/warehouseClients/TrinoWarehouseClient',
+    ).TrinoSqlBuilder,
+}));
+
 import {
     createTemporaryVirtualView,
     DimensionType,

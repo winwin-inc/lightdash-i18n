@@ -268,6 +268,7 @@ flowchart TB
 |------|----------|------|
 | Filter Override reconcile | `packages/common/src/types/filter.ts`、`useSavedDashboardFiltersOverrides.ts`、`DashboardProvider.tsx` | ✅ |
 | Locked-tab filter override | `stripOverridesForLockedFiltersOnTab`、`lockedTabUuids` on `DashboardFilterRule` | ✅ |
+| 筛选器锁定 UI（编辑模式） | `DashboardFilter/ActiveFilters/Filter.tsx` + `LockDashboardFilters` FF | ✅ |
 | Tab hidden + 懒挂载 + 切换不销毁图表 | `DashboardTabs/`、`getActiveTabForTabs.ts`、`FeatureFlags.DashboardTabsInMemory` | ✅ |
 | Merge Query i18n | `features/mergeQuery/**`、`translation.json` `features_mergeQuery` | ✅ |
 | Tab 内存模式 FF | `FeatureFlagModel` + env `DASHBOARD_TABS_IN_MEMORY=true` | ✅ |
@@ -395,9 +396,11 @@ flowchart TD
 3. 补齐新增界面中文词条；验证色差同步、Markdown CSS、表格对齐。
 
 #### Step 5: 全量回归与构建验收（风险：低）
-1. `common/backend/frontend` typecheck。
-2. `pnpm generate-api`。
-3. Docker 镜像、OSS 直传、MCP 19 工具、生产看板冒烟。
+1. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
+2. `pnpm generate-api` — **已通过**。
+3. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
+4. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**。
+5. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）
 1. Direct Access 解绑 + 与 CategoryRpc 组合鉴权。
