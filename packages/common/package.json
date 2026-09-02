@@ -40,7 +40,8 @@
         "type-fest": "^4.32.0",
         "uuid": "^11.0.3",
         "yaml": "^2.7.0",
-        "zod": "^3.25.55"
+        "zod": "^3.25.55",
+        "zod-to-json-schema": "3.25.1"
     },
     "scripts": {
         "dev": "tsc --build --watch --preserveWatchOutput --incremental ./tsconfig.build.json",

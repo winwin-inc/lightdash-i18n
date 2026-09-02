@@ -1,5 +1,7 @@
 export * from './AiAgent';
+export * from './apps/dataAppVizConfigOptions';
 export * from './apps/sdkFeatures';
+export * from './apps/types';
 export * from './commercialFeatureFlags';
 export * from './embed';
 export * from './scim/errors';

@@ -1,3 +1,8 @@
+import {
+    type APP_SDK_DATA_APP_VIZ_CONTEXT_MESSAGE,
+    type DataAppVizContext,
+    type DataAppVizOptionValue,
+} from '@lightdash/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Transport } from './types';
 import {
@@ -9,12 +14,63 @@ import {
     resolveValueColor,
     toVizContextState,
     type DataAppVizContextMessage,
+    type VizContextOptionValue,
     type VizContextPivotDetails,
     type VizContextRow,
 } from './vizContext';
 
-// Host type-sync asserts (DataAppVizContext in @lightdash/common ee/apps)
-// deferred until Data Apps types are ported; runtime coverage kept below.
+type Assert<T extends true> = T;
+type Equal<A, B> =
+    (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+        ? true
+        : false;
+type IsOptional<T, K extends keyof T> =
+    object extends Pick<T, K> ? true : false;
+type IsAssignable<From, To> = From extends To ? true : false;
+
+const messageKeysMatchHost: Assert<
+    Equal<
+        Exclude<keyof DataAppVizContextMessage, 'type'>,
+        keyof DataAppVizContext
+    >
+> = true;
+const messageTypeMatchesHost: Assert<
+    Equal<
+        DataAppVizContextMessage['type'],
+        typeof APP_SDK_DATA_APP_VIZ_CONTEXT_MESSAGE
+    >
+> = true;
+const optionValueTypesMatchHost: Assert<
+    Equal<VizContextOptionValue, DataAppVizOptionValue>
+> = true;
+const hostPayloadIsAcceptedBySdk: Assert<
+    IsAssignable<
+        DataAppVizContext,
+        Required<Omit<DataAppVizContextMessage, 'type'>>
+    >
+> = true;
+const inboundOptionsRemainOptional: Assert<
+    IsOptional<DataAppVizContextMessage, 'options'>
+> = true;
+const inboundPaletteRemainsOptional: Assert<
+    IsOptional<DataAppVizContextMessage, 'colorPalette'>
+> = true;
+const inboundSeriesColorsRemainOptional: Assert<
+    IsOptional<DataAppVizContextMessage, 'seriesColors'>
+> = true;
+const inboundValueColorsRemainOptional: Assert<
+    IsOptional<DataAppVizContextMessage, 'valueColors'>
+> = true;
+void [
+    messageKeysMatchHost,
+    messageTypeMatchesHost,
+    optionValueTypesMatchHost,
+    hostPayloadIsAcceptedBySdk,
+    inboundOptionsRemainOptional,
+    inboundPaletteRemainsOptional,
+    inboundSeriesColorsRemainOptional,
+    inboundValueColorsRemainOptional,
+];
 
 const row: VizContextRow = {
     orders_status: { value: { raw: 'completed', formatted: 'Completed' } },
