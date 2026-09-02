@@ -2,6 +2,7 @@ import { MergeJoinType } from '@lightdash/common';
 import { Box, Group, Paper, Text, ThemeIcon } from '@mantine-8/core';
 import { IconArrowMerge } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { PRIMARY_SOURCE_ID } from '../constants';
 import { useMergeSafe } from '../context/useMerge';
@@ -14,6 +15,7 @@ import { getJoinClauseLabel } from './mergeJoinLabels';
  * merged numbers with nothing saying where half of them came from.
  */
 export const MergeReadOnlyBar: FC = () => {
+    const { t } = useTranslation();
     const merge = useMergeSafe();
     const {
         effectiveParts,
@@ -39,19 +41,21 @@ export const MergeReadOnlyBar: FC = () => {
                 : '?';
 
             return getJoinClauseLabel(
-                primaryExploreLabel ?? 'First data',
+                primaryExploreLabel ?? t('features_mergeQuery.first_data'),
                 primaryField,
-                additionalExploreLabel ?? 'Combined data',
+                additionalExploreLabel ?? t('features_mergeQuery.combined_data'),
                 additionalField,
             );
         })
         .join(' AND ');
     const keepLabel =
         merge.joinType === MergeJoinType.LEFT
-            ? `Keep ${primaryExploreLabel}`
+            ? t('features_mergeQuery.keep_query', {
+                  label: primaryExploreLabel,
+              })
             : merge.joinType === MergeJoinType.INNER
-              ? 'Matches only'
-              : 'Keep all rows';
+              ? t('features_mergeQuery.matches_only')
+              : t('features_mergeQuery.keep_all_rows');
     const runError = merge.mergeResults?.results.error ?? null;
 
     return (
@@ -77,7 +81,7 @@ export const MergeReadOnlyBar: FC = () => {
                         </Text>
                     </Group>
                     <Text size="xs" c="dimmed" truncate>
-                        Matched on{' '}
+                        {t('features_mergeQuery.matched_on')}{' '}
                         <Text span size="xs" fw={600} c="gray.7">
                             {keys}
                         </Text>{' '}
@@ -86,7 +90,8 @@ export const MergeReadOnlyBar: FC = () => {
                 </Box>
                 {runError && (
                     <Text size="xs" c="orange.8" truncate>
-                        {runError.error?.message ?? 'The merge failed to run'}
+                        {runError.error?.message ??
+                            t('features_mergeQuery.merge_failed')}
                     </Text>
                 )}
             </Group>

@@ -44,11 +44,17 @@ export const useDashboardFilters = ({
     const [haveFiltersChanged, setHaveFiltersChanged] =
         useState<boolean>(false);
 
+    const savedDashboardFiltersForReconcile = useMemo(
+        () => dashboard?.filters ?? embedDashboard?.filters,
+        [dashboard?.filters, embedDashboard?.filters],
+    );
+
     const {
         overridesForSavedDashboardFilters,
         addSavedFilterOverride,
         removeSavedFilterOverride,
-    } = useSavedDashboardFiltersOverrides();
+        resetSavedFilterOverrides,
+    } = useSavedDashboardFiltersOverrides(savedDashboardFiltersForReconcile);
 
     const allFilters = useMemo(() => {
         if (!isFilterEnabled) return emptyFilters;
@@ -256,6 +262,7 @@ export const useDashboardFilters = ({
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
+        resetSavedFilterOverrides,
         applyInteractivityFiltering,
     };
 };

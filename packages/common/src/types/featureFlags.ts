@@ -69,6 +69,11 @@ export enum FeatureFlags {
     MergeQueries = 'merge-queries',
 
     /**
+     * Keep visited dashboard tabs mounted in memory for faster tab switching.
+     */
+    DashboardTabsInMemory = 'dashboard-tabs-in-memory',
+
+    /**
      * Enable the unused content dashboard showing least viewed charts and dashboards
      */
     UnusedContentDashboard = 'unused-content-dashboard',

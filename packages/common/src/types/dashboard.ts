@@ -137,6 +137,8 @@ export type DashboardTab = {
     name: string;
     order: number;
     filters?: DashboardFilters;
+    /** Hidden tabs are omitted from the tab bar in view mode. */
+    hidden?: boolean;
 };
 
 export type DashboardTabWithUrls = DashboardTab & {

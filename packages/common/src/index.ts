@@ -187,6 +187,7 @@ import type {
     ApiMetricsExplorerTotalResults,
 } from './types/metricsExplorer';
 import type { ResultsPaginationMetadata } from './types/paginateResults';
+import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
 import { type ParametersValuesMap } from './types/parameters';
 import { type PivotConfiguration } from './types/pivot';
 import { type ApiPromotionChangesResponse } from './types/promotion';
@@ -345,6 +346,7 @@ export * from './utils/dependencyGraph';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
+export * from './utils/getActiveTabForTabs';
 export * from './utils/formatting';
 export * from './utils/github';
 export * from './utils/i18n';
@@ -1052,7 +1054,8 @@ type ApiResults =
     | ApiAiOrganizationSettingsResponse['results']
     | ApiUpdateAiOrganizationSettingsResponse['results']
     | ApiOssUploadUrlResponse['results']
-    | UserCategoryList;
+    | UserCategoryList
+    | ResultsCacheProjectSettings;
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';

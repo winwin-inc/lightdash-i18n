@@ -16,6 +16,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useId, useState, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import FieldSelect from '../../../components/common/FieldSelect';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
@@ -153,6 +154,7 @@ const JoinTypePicker: FC<{
  * error is not chrome.
  */
 export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
+    const { t } = useTranslation();
     const dispatch = useExplorerDispatch();
     const { data: mergeFlag } = useServerFeatureFlag(FeatureFlags.MergeQueries);
     const tableName = useExplorerSelector(selectTableName);
@@ -203,23 +205,34 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
     if (!isMerging) return null;
     if (!additionalSource?.exploreName || !additionalSourceId) return null;
 
-    const thisQuery = primaryExploreLabel || 'this query';
-    const otherQuery = additionalExploreLabel || 'the other query';
+    const thisQuery = primaryExploreLabel || t('features_mergeQuery.this_query');
+    const otherQuery =
+        additionalExploreLabel || t('features_mergeQuery.other_query');
     const keepOptions: JoinTypeOption[] = [
         {
             value: MergeJoinType.INNER,
-            label: 'Inner',
-            help: `Inner join · Only the ${joinFieldLabel} values in both ${thisQuery} and ${otherQuery}. Everything unmatched is dropped.`,
+            label: t('features_mergeQuery.join_inner'),
+            help: t('features_mergeQuery.join_inner_help', {
+                joinField: joinFieldLabel,
+                thisQuery,
+                otherQuery,
+            }),
         },
         {
             value: MergeJoinType.LEFT,
-            label: 'Left',
-            help: `Left join · Only the ${joinFieldLabel} values in ${thisQuery}. Anything found solely in ${otherQuery} is dropped.`,
+            label: t('features_mergeQuery.join_left'),
+            help: t('features_mergeQuery.join_left_help', {
+                joinField: joinFieldLabel,
+                thisQuery,
+                otherQuery,
+            }),
         },
         {
             value: MergeJoinType.FULL,
-            label: 'Full outer',
-            help: `Full outer join · Every ${joinFieldLabel} from either query. Where one side has no match, its columns are blank.`,
+            label: t('features_mergeQuery.join_full_outer'),
+            help: t('features_mergeQuery.join_full_help', {
+                joinField: joinFieldLabel,
+            }),
         },
     ];
     const activeKeep =
@@ -274,7 +287,9 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                 fw={600}
                                 onClick={() => setEditingOverride(!expanded)}
                             >
-                                {expanded ? 'Done' : 'Edit'}
+                                {expanded
+                                    ? t('features_mergeQuery.done')
+                                    : t('features_mergeQuery.edit')}
                             </Anchor>
                         )}
                     </Box>
@@ -283,7 +298,7 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                 {expanded && (
                     <Box className={styles.editor} data-guided={guided}>
                         <Text size="xs" fw={600}>
-                            Join conditions
+                            {t('features_mergeQuery.join_conditions')}
                         </Text>
                         {effectiveParts.map((part, index) => (
                             // eslint-disable-next-line react/no-array-index-key
@@ -394,7 +409,7 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                                     );
                                                 }}
                                             >
-                                                Use suggestion
+                                                {t('features_mergeQuery.use_suggestion')}
                                             </Anchor>
                                         </Box>
                                     )}
@@ -404,7 +419,9 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                         <FieldSelect
                                             aria-label={`${thisQuery} join field`}
                                             size="xs"
-                                            placeholder="Choose or add a field"
+                                            placeholder={t(
+                                                'features_mergeQuery.choose_field',
+                                            )}
                                             hasGrouping
                                             items={availablePrimaryJoinItems}
                                             item={availablePrimaryJoinItems.find(
@@ -453,7 +470,9 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                                         <FieldSelect
                                             aria-label={`${otherQuery} join field`}
                                             size="xs"
-                                            placeholder="Choose or add a field"
+                                            placeholder={t(
+                                                'features_mergeQuery.choose_field',
+                                            )}
                                             hasGrouping
                                             items={availableAdditionalJoinItems}
                                             item={availableAdditionalJoinItems.find(
@@ -524,13 +543,13 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
                         >
                             <Group gap={4} wrap="nowrap">
                                 <MantineIcon icon={IconPlus} size={12} />
-                                Add join condition
+                                {t('features_mergeQuery.add_join_condition')}
                             </Group>
                         </Anchor>
 
                         <Stack gap={4} mt={2}>
                             <Text size="xs" fw={600}>
-                                Join type
+                                {t('features_mergeQuery.join_type')}
                             </Text>
                             <JoinTypePicker
                                 value={joinType}
@@ -579,7 +598,8 @@ export const MergeJoinBar: FC<{ guided?: boolean }> = ({ guided = false }) => {
 
             {mergeError && (
                 <Note tone="warn">
-                    {mergeError.error?.message ?? 'Something went wrong'}
+                    {mergeError.error?.message ??
+                        t('features_mergeQuery.something_went_wrong')}
                 </Note>
             )}
         </Box>

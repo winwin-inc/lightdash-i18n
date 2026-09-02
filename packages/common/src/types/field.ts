@@ -742,6 +742,11 @@ export interface Metric extends Field {
     percentile?: number;
     formatOptions?: CustomFormat;
     dimensionReference?: string; // field id of the dimension this metric is based on
+    // Temporal base of a MIN/MAX metric over a single DATE/TIMESTAMP dimension,
+    // set at compile time so the formatter and query builder can tell a calendar
+    // DATE aggregation from a TIMESTAMP instant. Undefined for arbitrary-SQL metrics.
+    baseDimensionType?: DimensionType;
+    baseDimensionTimeInterval?: TimeFrames;
     requiredAttributes?: Record<string, string | string[]>; // Required attributes for the dimension this metric is based on
     defaultTimeDimension?: DefaultTimeDimension; // Default time dimension for the metric when the user has not specified a time dimension
     spotlight?: {

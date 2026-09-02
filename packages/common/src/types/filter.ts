@@ -541,45 +541,122 @@ export const removeFieldFromFilterGroup = (
     };
 };
 
+type DashboardDimensionOverrideMatch = {
+    savedFilterIndex: number;
+    overrideIndex: number;
+};
+
+export const getDashboardDimensionOverrideMatches = (
+    savedFilters: DashboardFilterRule[],
+    overrides: DashboardFilterRuleOverride[],
+): DashboardDimensionOverrideMatch[] => {
+    const savedIds = new Set(savedFilters.map(({ id }) => id));
+    const appliedOverrideIds = new Set<string>();
+
+    return savedFilters.reduce<DashboardDimensionOverrideMatch[]>(
+        (matches, savedFilter, savedFilterIndex) => {
+            const exactMatchIndex = overrides.findIndex(
+                ({ id }) => id === savedFilter.id,
+            );
+            const overrideIndex =
+                exactMatchIndex >= 0
+                    ? exactMatchIndex
+                    : overrides.findIndex(
+                          (override) =>
+                              !savedIds.has(override.id) &&
+                              !appliedOverrideIds.has(override.id) &&
+                              override.target.fieldId ===
+                                  savedFilter.target.fieldId &&
+                              override.target.tableName ===
+                                  savedFilter.target.tableName,
+                      );
+
+            if (overrideIndex >= 0) {
+                appliedOverrideIds.add(overrides[overrideIndex].id);
+                matches.push({ savedFilterIndex, overrideIndex });
+            }
+
+            return matches;
+        },
+        [],
+    );
+};
+
 export const applyDimensionOverrides = (
     dashboardFilters: DashboardFilters,
     overrides: DashboardFilters | DashboardFilterRule[],
 ) => {
     const overrideArray =
         overrides instanceof Array ? overrides : overrides.dimensions;
+    const matches = getDashboardDimensionOverrideMatches(
+        dashboardFilters.dimensions,
+        overrideArray,
+    );
+    const overrideIndexBySavedFilterIndex = new Map(
+        matches.map(({ savedFilterIndex, overrideIndex }) => [
+            savedFilterIndex,
+            overrideIndex,
+        ]),
+    );
+    const savedIds = new Set(dashboardFilters.dimensions.map((d) => d.id));
+    const appliedOverrideIds = new Set(
+        matches.map(({ overrideIndex }) => overrideArray[overrideIndex].id),
+    );
 
-    // Apply overrides to existing dashboard dimensions
     const overriddenDimensions = dashboardFilters.dimensions.map(
-        (dimension) => {
-            const override = overrideArray.find(
-                (overrideDimension) => overrideDimension.id === dimension.id,
-            );
-            if (override) {
-                return {
-                    ...override,
-                    tileTargets: dimension.tileTargets,
-                    // Preserve category filter configuration (categoryLevel and parentFieldId)
-                    // These should be retained from the original dimension, not from override
-                    categoryLevel: dimension.categoryLevel,
-                    parentFieldId: dimension.parentFieldId,
-                    excludedValues: dimension.excludedValues,
-                    allowedOperators: dimension.allowedOperators,
-                    minAllowedDate: dimension.minAllowedDate,
-                    maxAllowedDate: dimension.maxAllowedDate,
-                };
-            }
-            return dimension;
+        (dimension, savedFilterIndex) => {
+            const overrideIndex =
+                overrideIndexBySavedFilterIndex.get(savedFilterIndex);
+            if (overrideIndex === undefined) return dimension;
+
+            const override = overrideArray[overrideIndex];
+            return {
+                ...override,
+                // The saved dashboard owns identity and tile targeting; the
+                // override only carries value/operator. Forcing the id re-homes
+                // a field-matched override onto the saved filter.
+                id: dimension.id,
+                tileTargets: dimension.tileTargets,
+                // Preserve category filter configuration from the saved filter.
+                categoryLevel: dimension.categoryLevel,
+                parentFieldId: dimension.parentFieldId,
+                excludedValues: dimension.excludedValues,
+                allowedOperators: dimension.allowedOperators,
+                minAllowedDate: dimension.minAllowedDate,
+                maxAllowedDate: dimension.maxAllowedDate,
+            };
         },
     );
 
-    // Add scheduler filters that don't exist in dashboard saved filters
-    const existingIds = new Set(dashboardFilters.dimensions.map((d) => d.id));
+    // Append overrides that matched no saved filter by id or field.
     const newDimensions = overrideArray.filter(
-        (schedulerFilter) => !existingIds.has(schedulerFilter.id),
+        (o) => !savedIds.has(o.id) && !appliedOverrideIds.has(o.id),
     );
     overriddenDimensions.push(...newDimensions);
 
     return overriddenDimensions;
+};
+
+export const applyMetricOverrides = (
+    dashboardFilters: DashboardFilters,
+    overrides: DashboardFilters | DashboardFilterRule[],
+) => {
+    const overrideArray =
+        overrides instanceof Array ? overrides : overrides.metrics;
+
+    // Match by id only; unmatched metric overrides are never appended.
+    return dashboardFilters.metrics.map((metric) => {
+        const override = overrideArray.find((o) => o.id === metric.id);
+        if (override) {
+            return {
+                ...override,
+                // The saved dashboard owns tile targeting; the override only
+                // carries value/operator.
+                tileTargets: metric.tileTargets,
+            };
+        }
+        return metric;
+    });
 };
 
 export const isDashboardFilterRule = (

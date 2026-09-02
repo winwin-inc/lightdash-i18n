@@ -260,12 +260,12 @@ flowchart TB
 | Nested Table Groups | `20260901140000_add_table_groups_to_projects.ts` | `projects.table_groups` jsonb **nullable** | compile/deploy 写组、侧边栏读组标签失败 | 低（只加列） |
 | Results Cache TTL | `20260901150000_add_results_cache_ttl_to_projects.ts` | `projects.results_cache_ttl_seconds` int **nullable** | 读/写项目缓存 TTL、按项目 TTL 查缓存失败 | 低 |
 | used_parameters | `20260901150100_add_used_parameters_to_query_history.ts` | `query_history.used_parameters` jsonb **nullable** | **异步查询写 history 可能失败**（影响面最大） | 低 |
+| Warehouse-native Merge Query | `20260901160000_create_saved_query_version_merges.ts` | 新表 `saved_queries_version_merges` | 保存/打开 merge 图表失败；普通 Explore 不受影响 | 低（只加表） |
 
 #### 主迁移待做（计划内 OSS）
 
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
-| Warehouse-native Merge Query | 新表 `saved_queries_version_merges`（存合并图定义，对齐上游） | **小** | 只影响「保存/打开 merge 图表」；普通 Explore 不依赖该表 |
 | Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | fork 已有 tab-level filters 相关迁移；本步以代码合并为主 |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方 |
 | Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更 |
@@ -282,7 +282,7 @@ flowchart TB
 
 #### 发布与回滚注意
 
-1. **生产入口**：`docker/prod-entrypoint.sh` 会执行 `pnpm -F backend migrate-production`；自建 CI/CD 须确认有同等步骤。  
+1. **生产入口**：`docker/prod-entrypoint.sh` 会先 `cd /usr/app` 再执行 `pnpm -F backend migrate-production`（避免 WORKDIR 在 `packages/backend` 时 migrate 路径异常）；自建 CI/CD 须确认有同等步骤。  
 2. **回滚应用、不回滚库**：可空列/新表留在库中通常无害；若必须 down migration，先确认无新代码依赖再 `rollback-last`。  
 3. **导出定制与 DB 无关**：CSV/Excel 自研逻辑不依赖上述新列；Merge 下载仍走通用 download + 现有导出服务。  
 4. **验收建议**：每个含 migration 的 PR，在预发先 `migrate`，再发应用；并用「旧书签/旧看板仍可打开」做一次冒烟。

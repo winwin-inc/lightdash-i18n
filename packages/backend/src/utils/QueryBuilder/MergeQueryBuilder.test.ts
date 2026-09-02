@@ -11,6 +11,16 @@ import {
     type MetricQuery,
     type WarehouseSqlBuilder,
 } from '@lightdash/common';
+// Import SQL builders from package — avoid relative `warehouses/src` paths that
+// break backend tsc (files outside rootDir). Jest still avoids the Databricks
+// barrel via the local stub below.
+import {
+    BigquerySqlBuilder,
+    PostgresSqlBuilder,
+    RedshiftSqlBuilder,
+    SnowflakeSqlBuilder,
+    TrinoSqlBuilder,
+} from '@lightdash/warehouses';
 import { compileMetricQuery } from '../../queryCompiler';
 import {
     applyMergeTerminalWrapper,
@@ -21,24 +31,23 @@ import {
 } from './MergeQueryBuilder';
 import { MetricQueryBuilder } from './MetricQueryBuilder';
 
-// Import SQL builders directly — avoid `@lightdash/warehouses` barrel, which
-// loads Databricks/lz4 native bindings and breaks Jest on Windows.
-import { BigquerySqlBuilder } from '../../../../warehouses/src/warehouseClients/BigqueryWarehouseClient';
-import { PostgresSqlBuilder } from '../../../../warehouses/src/warehouseClients/PostgresWarehouseClient';
-import { RedshiftSqlBuilder } from '../../../../warehouses/src/warehouseClients/RedshiftWarehouseClient';
-import { SnowflakeSqlBuilder } from '../../../../warehouses/src/warehouseClients/SnowflakeWarehouseClient';
-import { TrinoSqlBuilder } from '../../../../warehouses/src/warehouseClients/TrinoWarehouseClient';
-import WarehouseBaseSqlBuilder from '../../../../warehouses/src/warehouseClients/WarehouseBaseSqlBuilder';
-
-class DatabricksSqlBuilderStub extends WarehouseBaseSqlBuilder {
-    getAdapterType(): SupportedDbtAdapter {
-        return SupportedDbtAdapter.DATABRICKS;
-    }
-
-    getFieldQuoteChar(): string {
-        return '`';
-    }
-}
+const databricksSqlBuilderStub = (
+    startOfWeek: WeekDay = WeekDay.MONDAY,
+): WarehouseSqlBuilder =>
+    ({
+        getFieldQuoteChar: () => '`',
+        getAdapterType: () => SupportedDbtAdapter.DATABRICKS,
+        supportsCteMaterialization: () => true,
+        getStartOfWeek: () => startOfWeek,
+        getStringQuoteChar: () => "'",
+        escapeString: (value: string) => value.replaceAll("'", "''"),
+        castToTimestamp: (date: Date) =>
+            `CAST('${date.toISOString()}' AS TIMESTAMP)`,
+        castToDate: (date: Date) =>
+            `CAST('${date.toISOString().slice(0, 10)}' AS DATE)`,
+        castToNaiveTimestamp: (date: Date) =>
+            `CAST('${date.toISOString()}' AS TIMESTAMP)`,
+    }) as unknown as WarehouseSqlBuilder;
 
 const warehouseSqlBuilderFromType = (
     adapter: SupportedDbtAdapter,
@@ -56,9 +65,9 @@ const warehouseSqlBuilderFromType = (
         case SupportedDbtAdapter.TRINO:
             return new TrinoSqlBuilder(startOfWeek);
         case SupportedDbtAdapter.DATABRICKS:
-            return new DatabricksSqlBuilderStub(startOfWeek);
+            return databricksSqlBuilderStub(startOfWeek);
         case SupportedDbtAdapter.CLICKHOUSE:
-            return new DatabricksSqlBuilderStub(startOfWeek);
+            return databricksSqlBuilderStub(startOfWeek);
         default:
             return new PostgresSqlBuilder(startOfWeek);
     }

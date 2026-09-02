@@ -17,6 +17,7 @@ import {
     type FC,
     type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import ExploreTree from '../../../components/Explorer/ExploreTree';
 import SelectedFieldsSection, {
@@ -44,7 +45,18 @@ const DatasetHeader: FC<{
     open: boolean;
     onClick: () => void;
     onRemove?: () => void;
-}> = ({ sourceRole, label, count, open, onClick, onRemove }) => (
+    countSubtitle: string;
+    removeLabel?: string;
+}> = ({
+    sourceRole,
+    label,
+    count,
+    open,
+    onClick,
+    onRemove,
+    countSubtitle,
+    removeLabel = '',
+}) => (
     <Box className={styles.header} data-open={open}>
         <UnstyledButton className={styles.headerButton} onClick={onClick}>
             <Box className={styles.headerCopy}>
@@ -53,9 +65,7 @@ const DatasetHeader: FC<{
                 </Text>
                 <Text size="xs" c="dimmed">
                     {count === 0
-                        ? sourceRole === 'additional'
-                            ? 'Select data and fields'
-                            : 'Choose fields'
+                        ? countSubtitle
                         : `${count} selected`}
                 </Text>
             </Box>
@@ -71,7 +81,7 @@ const DatasetHeader: FC<{
                 variant="subtle"
                 color="gray"
                 size="sm"
-                aria-label="Remove combined data"
+                aria-label={removeLabel}
                 onClick={onRemove}
             >
                 <MantineIcon icon={IconX} size={14} />
@@ -92,6 +102,7 @@ export const MergeQuerySidebar: FC<{
     isChoosingAdditionalExplore,
     setIsChoosingAdditionalExplore,
 }) => {
+    const { t } = useTranslation();
     const merge = useMerge();
     const additionalSource = merge.additionalSources[0];
     const additionalSourceId = additionalSource?.id;
@@ -121,8 +132,9 @@ export const MergeQuerySidebar: FC<{
         (additionalSource?.dimensions.length ?? 0) +
         (additionalSource?.metrics.length ?? 0);
     const additionalLabel = additionalSource?.exploreName
-        ? (mergeSetup.additionalExploreLabel ?? 'Combined data')
-        : 'Choose data to combine';
+        ? (mergeSetup.additionalExploreLabel ??
+          t('features_mergeQuery.combined_data'))
+        : t('features_mergeQuery.choose_data_to_combine');
     const filteredFieldIds = useMemo<Record<string, Set<string>>>(
         () => ({
             [PRIMARY_SOURCE_ID]: new Set(
@@ -147,9 +159,12 @@ export const MergeQuerySidebar: FC<{
         [additionalSource?.filters, additionalSourceId, primaryFilters],
     );
     const selectedFields = useMemo<SelectedField[]>(() => {
-        const primaryLabel = mergeSetup.primaryExploreLabel ?? 'First data';
+        const primaryLabel =
+            mergeSetup.primaryExploreLabel ??
+            t('features_mergeQuery.first_data');
         const additionalSourceLabel =
-            mergeSetup.additionalExploreLabel ?? 'Combined data';
+            mergeSetup.additionalExploreLabel ??
+            t('features_mergeQuery.combined_data');
         const sameLabel = primaryLabel === additionalSourceLabel;
         const selectedPrimary = [
             ...metricQuery.dimensions,
@@ -260,6 +275,7 @@ export const MergeQuerySidebar: FC<{
                         count={primaryCount}
                         open={openSourceId === PRIMARY_SOURCE_ID}
                         onClick={() => toggle(PRIMARY_SOURCE_ID)}
+                        countSubtitle={t('features_mergeQuery.choose_fields')}
                     />
                     {additionalSourceId && (
                         <DatasetHeader
@@ -271,6 +287,12 @@ export const MergeQuerySidebar: FC<{
                             onRemove={() =>
                                 merge.removeSource(additionalSourceId)
                             }
+                            countSubtitle={t(
+                                'features_mergeQuery.select_data_and_fields',
+                            )}
+                            removeLabel={t(
+                                'features_mergeQuery.remove_combined_data',
+                            )}
                         />
                     )}
                 </Box>

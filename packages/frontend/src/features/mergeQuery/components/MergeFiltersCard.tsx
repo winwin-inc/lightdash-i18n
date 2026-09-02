@@ -5,6 +5,7 @@ import {
 } from '@lightdash/common';
 import { Badge, Box, Divider, Group, Stack, Text } from '@mantine-8/core';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import CollapsableCard from '../../../components/common/CollapsableCard/CollapsableCard';
 import FiltersForm from '../../../components/common/Filters';
 import FiltersProvider from '../../../components/common/Filters/FiltersProvider';
@@ -33,7 +34,9 @@ const FilterSectionTitle: FC<{
     label: string;
     primary: boolean;
     count: number;
-}> = ({ label, primary, count }) => (
+    noFiltersLabel: string;
+    activeFiltersLabel: (count: number) => string;
+}> = ({ label, primary, count, noFiltersLabel, activeFiltersLabel }) => (
     <Group justify="space-between" gap="xs" px="xs" pt={4} pb={2}>
         <Group gap={7}>
             <Box
@@ -51,13 +54,14 @@ const FilterSectionTitle: FC<{
             </Text>
         </Group>
         <Text size="xs" c="dimmed">
-            {count === 0 ? 'No filters' : `${count} active`}
+            {count === 0 ? noFiltersLabel : activeFiltersLabel(count)}
         </Text>
     </Group>
 );
 
 /** Both source filters in one card. Join-key rules are shared automatically. */
 export const MergeFiltersCard: FC = () => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const project = useProject(projectUuid);
     const merge = useMerge();
@@ -146,7 +150,7 @@ export const MergeFiltersCard: FC = () => {
     return (
         <CollapsableCard
             isOpen={filterIsOpen}
-            title="Filters"
+            title={t('features_mergeQuery.filters')}
             disabled={total === 0 && !isEditMode}
             onToggle={() =>
                 dispatch(
@@ -167,9 +171,18 @@ export const MergeFiltersCard: FC = () => {
                 <Stack gap="md">
                     <Stack gap="xs">
                         <FilterSectionTitle
-                            label={primaryExplore?.label ?? 'First table'}
+                            label={
+                                primaryExplore?.label ??
+                                t('features_mergeQuery.first_table')
+                            }
                             primary
                             count={primaryCount}
+                            noFiltersLabel={t('features_mergeQuery.no_filters')}
+                            activeFiltersLabel={(count) =>
+                                t('features_mergeQuery.active_filters', {
+                                    count,
+                                })
+                            }
                         />
                         <FiltersProvider
                             projectUuid={projectUuid}
@@ -199,9 +212,18 @@ export const MergeFiltersCard: FC = () => {
 
                     <Stack gap="xs">
                         <FilterSectionTitle
-                            label={additionalExplore?.label ?? 'Second table'}
+                            label={
+                                additionalExplore?.label ??
+                                t('features_mergeQuery.second_table')
+                            }
                             primary={false}
                             count={additionalCount}
+                            noFiltersLabel={t('features_mergeQuery.no_filters')}
+                            activeFiltersLabel={(count) =>
+                                t('features_mergeQuery.active_filters', {
+                                    count,
+                                })
+                            }
                         />
                         <FiltersProvider
                             projectUuid={projectUuid}

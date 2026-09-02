@@ -12,7 +12,7 @@ import {
     Switch,
     Text,
     Title,
-} from '@mantine/core';
+} from '@mantine-8/core';
 import { useForm } from '@mantine/form';
 import { type FC } from 'react';
 import {
