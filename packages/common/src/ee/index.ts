@@ -1,4 +1,5 @@
 export * from './AiAgent';
+export * from './apps/sdkFeatures';
 export * from './commercialFeatureFlags';
 export * from './embed';
 export * from './scim/errors';

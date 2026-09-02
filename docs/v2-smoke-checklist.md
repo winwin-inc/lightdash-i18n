@@ -92,9 +92,9 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 
 | 项 | 说明 |
 |----|------|
-| Project Chart Types | 依赖 Data Apps 全栈，~250+ 文件 |
+| Project Chart Types | 依赖 Data Apps 全栈，~250+ 文件；前置 `query-sdk` **已引入** |
 | External Sources | DuckDB 运行时 + 多表 migration |
-| query-sdk 包 | 随 Data Apps 专项引入 |
+| ~~query-sdk 包~~ | **已引入** `packages/query-sdk`（`pnpm -F @lightdash/query-sdk test` 146 通过）；未接 Data Apps UI |
 | i18n ns 硬重构 | 5 域 PR，删巨型 translation.json |
 | Honest Metadata 剩余 | `used_parameters` 已落地；PoP 整包未引入 |
 | EE 解绑 | Direct Access / Homepage / Autopilot |

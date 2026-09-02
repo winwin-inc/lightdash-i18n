@@ -4,7 +4,7 @@
 >
 > **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
 >
-> **主迁移代码状态（2026-09-02）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。
+> **主迁移代码状态（2026-09-02）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**（build/test 通过，未接 Data Apps UI）。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。
 
 ---
 
@@ -280,10 +280,11 @@ flowchart TB
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
 | ~~Tabs 超集合并 / Filter Override~~ | 无大 schema | — | **已合入**（reconcile + hidden/懒加载 + locked-tab + 锁定 UI） |
-| Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | 与 Data Apps / query-sdk / SandboxRuntime 强耦合，**后置专项**，主迁移不做 |
+| Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | 与 Data Apps / query-sdk / SandboxRuntime 强耦合；**query-sdk 包已引入**，宿主 UI 与 Chart Types 仍后置 |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方；见第六节 |
 | Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更；与上游差距主要为 timezone display 门控等细节 |
 | Formula 包 | **无 DB** | 无 | **已引入** `packages/formula` + `formula-tests`；`pnpm -F @lightdash/formula test` |
+| Query SDK 包 | **无 DB** | 无 | **已引入** `packages/query-sdk`（toolchain 对齐本仓 TS 5.5 / vitest 2）；`pnpm -F @lightdash/query-sdk test`；common 镜像 `ee/apps/sdkFeatures.ts`；**未接** Data Apps UI / Chart Types |
 
 #### 后置专项（主迁移完成后再做；库变更明显变大）
 
@@ -381,9 +382,9 @@ flowchart TD
 3. 不在本步引入业务功能。
 
 #### Step 1: 移植零耦合的独立工具包（风险：低~中，依赖 Step 0）
-1. 将上游 `packages/formula` 和 `packages/formula-tests` 复制到当前 monorepo。
-2. 将上游 `packages/query-sdk` 复制到当前 monorepo（可先不接 Data Apps 全链路）。
-3. 在根 `package.json` 和 `pnpm-workspace.yaml` 中配置相关 scripts，执行构建与单测。
+1. 将上游 `packages/formula` 和 `packages/formula-tests` 复制到当前 monorepo。 — **已完成**
+2. 将上游 `packages/query-sdk` 复制到当前 monorepo（可先不接 Data Apps 全链路）。 — **已完成**（`pnpm -F @lightdash/query-sdk test`）
+3. 在根 `package.json` 和 `pnpm-workspace.yaml` 中配置相关 scripts，执行构建与单测。 — **已完成**
 
 #### Step 2: 移植后端查询层与元数据优化（风险：中）
 1. 移植 Honest Column Metadata / PoP 修复（连同 QueryBuilder 依赖面）。
