@@ -179,6 +179,18 @@ export type DashboardFilterRule<
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
+    /**
+     * Dashboard filters sharing a requiredGroupId form an "any-one required"
+     * group: the dashboard is locked until at least one member has a value.
+     */
+    requiredGroupId?: string;
+    /**
+     * Tab UUIDs where this filter is locked. When the active tab is in this
+     * list, viewers see the filter but cannot change it, and URL / embed
+     * filter overrides targeting the same field are ignored on that tab.
+     * Empty or omitted means the filter is not locked anywhere.
+     */
+    lockedTabUuids?: string[];
 };
 
 export type FilterDashboardToRule = DashboardFilterRule & {
@@ -189,7 +201,7 @@ export type FilterDashboardToRule = DashboardFilterRule & {
 
 export type DashboardFilterRuleOverride = Omit<
     DashboardFilterRule,
-    'tileTargets'
+    'tileTargets' | 'lockedTabUuids' | 'required' | 'requiredGroupId'
 >;
 
 export type DateFilterSettings = {
@@ -617,6 +629,9 @@ export const applyDimensionOverrides = (
                 // a field-matched override onto the saved filter.
                 id: dimension.id,
                 tileTargets: dimension.tileTargets,
+                lockedTabUuids: dimension.lockedTabUuids,
+                required: dimension.required,
+                requiredGroupId: dimension.requiredGroupId,
                 // Preserve category filter configuration from the saved filter.
                 categoryLevel: dimension.categoryLevel,
                 parentFieldId: dimension.parentFieldId,
@@ -628,10 +643,15 @@ export const applyDimensionOverrides = (
         },
     );
 
-    // Append overrides that matched no saved filter by id or field.
-    const newDimensions = overrideArray.filter(
-        (o) => !savedIds.has(o.id) && !appliedOverrideIds.has(o.id),
-    );
+    // Append overrides that matched no saved filter by id or field. Strip
+    // requirement flags so URL overrides cannot inject required metadata.
+    const newDimensions = overrideArray
+        .filter((o) => !savedIds.has(o.id) && !appliedOverrideIds.has(o.id))
+        .map((o) => ({
+            ...o,
+            required: undefined,
+            requiredGroupId: undefined,
+        }));
     overriddenDimensions.push(...newDimensions);
 
     return overriddenDimensions;
@@ -650,9 +670,12 @@ export const applyMetricOverrides = (
         if (override) {
             return {
                 ...override,
-                // The saved dashboard owns tile targeting; the override only
-                // carries value/operator.
+                // The saved dashboard owns tile targeting, lock state and
+                // requirement flags; the override only carries value/operator.
                 tileTargets: metric.tileTargets,
+                lockedTabUuids: metric.lockedTabUuids,
+                required: metric.required,
+                requiredGroupId: metric.requiredGroupId,
             };
         }
         return metric;

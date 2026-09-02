@@ -68,4 +68,23 @@ describe('applyMetricOverrides', () => {
         expect(result).toHaveLength(1);
         expect(result[0].values).toEqual(['999']);
     });
+
+    it('preserves lock metadata from the saved dashboard', () => {
+        const savedFilters = createDashboardFilters([
+            {
+                ...createMetricFilter('metric-1', 'orders_total'),
+                lockedTabUuids: ['tab-1'],
+                requiredGroupId: 'group-1',
+            },
+        ]);
+        const overrides = [
+            createMetricFilter('metric-1', 'orders_total', ['999']),
+        ];
+
+        const result = applyMetricOverrides(savedFilters, overrides);
+
+        expect(result[0].values).toEqual(['999']);
+        expect(result[0].lockedTabUuids).toEqual(['tab-1']);
+        expect(result[0].requiredGroupId).toEqual('group-1');
+    });
 });

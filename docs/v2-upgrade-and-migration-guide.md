@@ -267,6 +267,7 @@ flowchart TB
 | 能力 | 关键路径 | 状态 |
 |------|----------|------|
 | Filter Override reconcile | `packages/common/src/types/filter.ts`、`useSavedDashboardFiltersOverrides.ts`、`DashboardProvider.tsx` | ✅ |
+| Locked-tab filter override | `stripOverridesForLockedFiltersOnTab`、`lockedTabUuids` on `DashboardFilterRule` | ✅ |
 | Tab hidden + 懒挂载 + 切换不销毁图表 | `DashboardTabs/`、`getActiveTabForTabs.ts`、`FeatureFlags.DashboardTabsInMemory` | ✅ |
 | Merge Query i18n | `features/mergeQuery/**`、`translation.json` `features_mergeQuery` | ✅ |
 | Tab 内存模式 FF | `FeatureFlagModel` + env `DASHBOARD_TABS_IN_MEMORY=true` | ✅ |
@@ -275,8 +276,8 @@ flowchart TB
 
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
-| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | **reconcile + hidden/懒加载已合入**；locked-tab override 待评估 |
-| Project Chart Types | 视 Data Apps 范围 | **中~大** | 上游 `features/chartTypes` + Data App viz，Step 4 下一批 |
+| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | **reconcile + hidden/懒加载 + locked-tab override 已合入** |
+| Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | 与 Data Apps / query-sdk / SandboxRuntime 强耦合，**后置专项**，主迁移不做 |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方 |
 | Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更 |
 | Formula 包 | **无 DB** | 无 | 独立包，不改元数据库 |
@@ -390,7 +391,7 @@ flowchart TD
    - 保留 `DashboardTab.filters` 与 `DashboardConfig` 自研开关。
    - 吸收上游 Tab 懒加载、hidden tab、切换时图表销毁/重建修复。
    - 对齐 `mergeFiltersForTab` 与上游 filter override reconcile。
-2. 移植 Project Chart Types、Filter Override（与动态日期共存验证）。
+2. ~~移植 Project Chart Types~~（后置专项，依赖 Data Apps 全栈）；Filter Override + locked-tab（与动态日期共存验证）已完成核心逻辑。
 3. 补齐新增界面中文词条；验证色差同步、Markdown CSS、表格对齐。
 
 #### Step 5: 全量回归与构建验收（风险：低）
