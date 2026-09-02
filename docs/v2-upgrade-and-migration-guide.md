@@ -296,7 +296,7 @@ flowchart TB
 
 #### 发布与回滚注意
 
-1. **生产入口**：`docker/prod-entrypoint.sh` 会先 `cd /usr/app` 再执行 `pnpm -F backend migrate-production`（避免 WORKDIR 在 `packages/backend` 时 migrate 路径异常）；自建 CI/CD 须确认有同等步骤。  
+1. **生产入口**：`docker/prod-entrypoint.sh` 会先 `cd /usr/app` 执行 `pnpm -F backend migrate-production`，再 `cd /usr/app/packages/backend` 后 `exec` 启动（与 dockerfile `WORKDIR` 对齐，避免相对路径 `dist/index.js` 找不到）；自建 CI/CD 须确认有同等步骤。  
 2. **回滚应用、不回滚库**：可空列/新表留在库中通常无害；若必须 down migration，先确认无新代码依赖再 `rollback-last`。  
 3. **导出定制与 DB 无关**：CSV/Excel 自研逻辑不依赖上述新列；Merge 下载仍走通用 download + 现有导出服务。  
 4. **验收建议**：每个含 migration 的 PR，在预发先 `migrate`，再发应用；并用「旧书签/旧看板仍可打开」做一次冒烟。
@@ -306,6 +306,7 @@ flowchart TB
    - `LOCK_DASHBOARD_FILTERS_ENABLED=true` → 启用筛选器锁定 UI（FF `lock-dashboard-filters`；前端 DEV 模式默认可用）
    - `DASHBOARD_TABS_IN_MEMORY=true` → Tab 内存模式（见上）
    - `RESULTS_CACHE_ENABLED=true` → 结果缓存（见 `results.cacheEnabled`）
+7. **发版 tag 与静态资源**：正式 `vX.Y.Z` 由 GA 上传 OSS 并走 CDN；试跑 `vX.Y.Z-test.N`（semver 预发布）跳过 OSS，运行时后端托管镜像内前端（见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
 
 ---
 

@@ -13,6 +13,7 @@ import {
     getIntegerFromEnvironmentVariable,
     getMaybeBase64EncodedFromEnvironmentVariable,
     getObjectFromEnvironmentVariable,
+    isSemverPrereleaseVersion,
     parseConfig,
     parseOrganizationMemberRoleArray,
 } from './parseConfig';
@@ -557,5 +558,40 @@ describe('parseAndSanitizeSchedulerTasks', () => {
             parseConfig();
             expect(console.warn).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('isSemverPrereleaseVersion', () => {
+    test('detects semver prerelease tags', () => {
+        expect(isSemverPrereleaseVersion('2.0.1-test.1')).toBe(true);
+        expect(isSemverPrereleaseVersion('2.0.1-rc.1')).toBe(true);
+        expect(isSemverPrereleaseVersion(' 1.2.3-beta ')).toBe(true);
+    });
+
+    test('rejects formal versions and non-semver strings', () => {
+        expect(isSemverPrereleaseVersion('2.0.1')).toBe(false);
+        expect(isSemverPrereleaseVersion('dev-20260902-120000')).toBe(false);
+        expect(isSemverPrereleaseVersion(undefined)).toBe(false);
+        expect(isSemverPrereleaseVersion('')).toBe(false);
+    });
+});
+
+describe('CDN config prerelease', () => {
+    test('prerelease STATIC_FILES_VERSION forces backend static even with CDN_BASE_URL', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.CDN_BASE_URL = 'https://img0.banmahui.cn';
+        process.env.STATIC_FILES_VERSION = '2.0.1-test.1';
+        const config = parseConfig();
+        expect(config.cdn?.baseUrl).toBeUndefined();
+        expect(config.cdn?.staticFilesVersion).toBe('2.0.1-test.1');
+    });
+
+    test('formal version keeps CDN_BASE_URL', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.CDN_BASE_URL = 'https://cdn.example.com';
+        process.env.STATIC_FILES_VERSION = '2.0.1';
+        const config = parseConfig();
+        expect(config.cdn?.baseUrl).toBe('https://cdn.example.com');
+        expect(config.cdn?.staticFilesVersion).toBe('2.0.1');
     });
 });

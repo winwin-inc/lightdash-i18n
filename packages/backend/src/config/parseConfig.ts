@@ -297,7 +297,17 @@ export const parseOrganizationMemberRoleArray = (
     });
 };
 /**
- * Parse CDN base URL from environment variable or use default for production
+ * Semver prerelease: `x.y.z-<id>` (e.g. 2.0.1-test.1, 2.0.1-rc.1).
+ * Used by CDN config and (by convention) GA OSS upload skip.
+ */
+export const isSemverPrereleaseVersion = (
+    version: string | undefined,
+): boolean =>
+    typeof version === 'string' && /^\d+\.\d+\.\d+-.+/.test(version.trim());
+
+/**
+ * Parse CDN base URL from environment variable or use default for production.
+ * Callers must skip this for prerelease versions (see parseCdnConfig).
  * @returns CDN base URL string if configured, undefined otherwise
  */
 const parseCdnBaseUrl = (): string | undefined => {
@@ -357,9 +367,20 @@ const parseStaticFilesVersion = (): string | undefined => {
  * @returns CDN configuration object
  */
 const parseCdnConfig = (): LightdashConfig['cdn'] => {
-    const baseUrl = parseCdnBaseUrl();
     const pathPrefix = process.env.CDN_PATH_PREFIX || 'msy-x';
     const staticFilesVersion = parseStaticFilesVersion();
+
+    // Prerelease tags (2.0.1-test.1) skip OSS upload; force backend-hosted static
+    // even if deploy env still injects production CDN_BASE_URL.
+    let baseUrl: string | undefined;
+    if (isSemverPrereleaseVersion(staticFilesVersion)) {
+        console.log(
+            `[CDN Config] Prerelease ${staticFilesVersion} — serving frontend from backend (skip CDN)`,
+        );
+        baseUrl = undefined;
+    } else {
+        baseUrl = parseCdnBaseUrl();
+    }
 
     const cdnConfig = {
         baseUrl,

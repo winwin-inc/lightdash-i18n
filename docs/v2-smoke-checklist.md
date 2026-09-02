@@ -3,6 +3,18 @@
 > 主迁移代码已合入 `feat/v2-upgrade`；本清单用于 Step 5 发布前验收。  
 > 自动化项已在本地通过（2026-09-02），以下为需人工或预发环境执行的项。
 
+## 发版 tag 约定（OSS / 静态资源）
+
+| Tag | 含义 | GitHub Actions OSS | 运行时静态 |
+|-----|------|--------------------|------------|
+| `v2.0.1` | 正式发版 | **上传** OSS | CDN（现网） |
+| `v2.0.1-test.1` | 试跑 | **跳过**上传（job 仍绿） | 后端托管镜像内 `frontend/build`（忽略 env 中的 `CDN_BASE_URL`） |
+
+判定规则：版本匹配 `x.y.z-<prerelease>`（如 `2.0.1-test.1`、`2.0.1-rc.1`）即为预发布。  
+试跑部署请勿用 `STATIC_FILES_VERSION=2.0.1` 覆盖镜像版本，否则会按正式版走 CDN。
+
+生产入口：`docker/prod-entrypoint.sh` 先在 monorepo 根 migrate，再 `cd packages/backend` 启动（避免 `MODULE_NOT_FOUND`）。
+
 ## 一、发布前（CI / 本地可跑）
 
 ```bash
