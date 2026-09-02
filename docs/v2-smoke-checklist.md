@@ -6,6 +6,12 @@
 ## 一、发布前（CI / 本地可跑）
 
 ```bash
+pnpm v2:verify
+```
+
+或分步执行：
+
+```bash
 pnpm -F common typecheck
 pnpm -F backend typecheck
 pnpm -F frontend typecheck

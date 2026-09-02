@@ -3,6 +3,8 @@
 > **核心原则**：以当前项目 **`lightdash-i18n`（现有稳定分支）为绝对主体与基线**，全面梳理上游官方（Lightdash 0.2513.0 -> 2.57.0）期间新增的高价值功能模块，制定**自底向上、模块化移植、逐步合入当前项目**的实施方案，确保不破坏当前项目现有的国际化、类目权限、自研 MCP、样式定制等所有生产特性。
 >
 > **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
+>
+> **主迁移代码状态（2026-09-02）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。
 
 ---
 
@@ -277,11 +279,11 @@ flowchart TB
 
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
-| Tabs 超集合并 / Filter Override | 通常 **无大 schema** | **极小** | **reconcile + hidden/懒加载 + locked-tab override 已合入** |
+| ~~Tabs 超集合并 / Filter Override~~ | 无大 schema | — | **已合入**（reconcile + hidden/懒加载 + locked-tab + 锁定 UI） |
 | Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | 与 Data Apps / query-sdk / SandboxRuntime 强耦合，**后置专项**，主迁移不做 |
-| i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方 |
-| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更 |
-| Formula 包 | **无 DB** | 无 | 独立包，不改元数据库 |
+| i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方；见第六节 |
+| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更；与上游差距主要为 timezone display 门控等细节 |
+| Formula 包 | **无 DB** | 无 | **已引入** `packages/formula` + `formula-tests`；`pnpm -F @lightdash/formula test` |
 
 #### 后置专项（主迁移完成后再做；库变更明显变大）
 
@@ -401,11 +403,12 @@ flowchart TD
 3. 补齐新增界面中文词条；验证色差同步、Markdown CSS、表格对齐。
 
 #### Step 5: 全量回归与构建验收（风险：低）
-1. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
-2. `pnpm generate-api` — **已通过**。
-3. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
-4. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
-5. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
+1. **一键自动化**：`pnpm v2:verify`（typecheck + formula + generate-api + MCP + merge/filter 单测）。
+2. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
+3. `pnpm generate-api` — **已通过**。
+4. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
+5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
+6. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）
 1. Direct Access 解绑 + 与 CategoryRpc 组合鉴权。
