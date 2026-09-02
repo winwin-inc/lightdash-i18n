@@ -4,6 +4,7 @@ import {
     type UpdateResultsCacheProjectSettings,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 
@@ -39,6 +40,7 @@ const updateResultsCacheSettings = async (
 export const useUpdateResultsCacheSettings = (projectUuid: string) => {
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<
         ApiResultsCacheProjectSettingsResponse['results'],
@@ -48,13 +50,13 @@ export const useUpdateResultsCacheSettings = (projectUuid: string) => {
         mutationKey: ['results_cache_settings_update', projectUuid],
         onSuccess: async () => {
             showToastSuccess({
-                title: 'Cache duration updated',
+                title: t('hooks_project_results_cache_settings.save_success'),
             });
             await queryClient.invalidateQueries(queryKey(projectUuid));
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: 'Failed to update cache duration',
+                title: t('hooks_project_results_cache_settings.save_error'),
                 apiError: error,
             });
         },

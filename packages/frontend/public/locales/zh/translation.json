@@ -367,6 +367,10 @@
         "save_success": "项目配置已保存",
         "save_error": "保存表配置失败"
     },
+    "hooks_project_results_cache_settings": {
+        "save_success": "缓存时长已更新",
+        "save_error": "更新缓存时长失败"
+    },
     "hooks_project": {
         "update_error": "更新项目失败",
         "create_error": "创建项目失败"
@@ -3745,6 +3749,14 @@
         "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误",
         "validation_errors": "验证错误"
     },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} 在看板「{{dashboardName}}」中提到了你",
+            "tagged_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中提到了你",
+            "commented": "{{author}} 在看板「{{dashboardName}}」中发表了评论",
+            "commented_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中发表了评论"
+        }
+    },
     "components_navbar_headway_menu": {
         "tooltip": {
             "label": "有什么新闻吗?"
@@ -6716,6 +6728,7 @@
                 "data_ops": "数据操作",
                 "changesets": "变更集",
                 "parameters": "参数",
+                "results_caching": "结果缓存",
                 "custom_sql": "自定义 SQL",
                 "semantic_layer_integration": "语义层集成"
             }
@@ -7865,6 +7878,24 @@
             "source": "来源",
             "no_parameters_found": "没有找到匹配的参数",
             "no_parameters_configured": "没有为这个项目配置参数"
+        }
+    },
+    "components_project_results_cache": {
+        "title": "缓存时长",
+        "description": "缓存结果保留多久后，马上赢X 会再次查询数据仓库。",
+        "use_default": "使用默认缓存时长",
+        "default_expires": "缓存结果将在 {{duration}} 后过期。",
+        "ttl_label": "缓存时长（分钟）",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "请输入 {{min}} 到 {{max}}（30 天）之间的整数分钟数",
+        "save": "保存",
+        "units": {
+            "minute": "分钟",
+            "minutes": "分钟",
+            "hour": "小时",
+            "hours": "小时",
+            "day": "天",
+            "days": "天"
         }
     },
     "components_limit_button": {

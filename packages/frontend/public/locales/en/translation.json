@@ -368,6 +368,10 @@
         "save_success": "Saved project configuration",
         "save_error": "Failed to save tables configuration"
     },
+    "hooks_project_results_cache_settings": {
+        "save_success": "Cache duration updated",
+        "save_error": "Failed to update cache duration"
+    },
     "hooks_project": {
         "update_error": "Failed to update project",
         "create_error": "Failed to create project"
@@ -3735,6 +3739,14 @@
         "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors",
         "validation_errors": "Validation errors"
     },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} tagged you in dashboard \"{{dashboardName}}\"",
+            "tagged_in_tile": "{{author}} tagged you in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\"",
+            "commented": "{{author}} commented in dashboard \"{{dashboardName}}\"",
+            "commented_in_tile": "{{author}} commented in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\""
+        }
+    },
     "components_navbar_headway_menu": {
         "tooltip": {
             "label": "What's new?"
@@ -6709,6 +6721,7 @@
                 "custom_sql": "Custom SQL",
                 "changesets": "Changesets",
                 "parameters": "Parameters",
+                "results_caching": "Results caching",
                 "project_access": "Project access",
                 "semantic_layer_integration": "Semantic Layer Integration"
             }
@@ -7851,6 +7864,24 @@
             "source": "Source",
             "no_parameters_found": "No parameters found matching your search",
             "no_parameters_configured": "No parameters configured for this project"
+        }
+    },
+    "components_project_results_cache": {
+        "title": "Cache duration",
+        "description": "How long cached results are kept before MSY X queries the warehouse again.",
+        "use_default": "Use the default cache duration",
+        "default_expires": "Cached results expire after {{duration}}.",
+        "ttl_label": "Cache duration (minutes)",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "Enter a whole number of minutes between {{min}} and {{max}} (30 days)",
+        "save": "Save",
+        "units": {
+            "minute": "minute",
+            "minutes": "minutes",
+            "hour": "hour",
+            "hours": "hours",
+            "day": "day",
+            "days": "days"
         }
     },
     "components_limit_button": {

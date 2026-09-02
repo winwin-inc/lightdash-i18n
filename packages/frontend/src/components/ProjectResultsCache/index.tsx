@@ -15,6 +15,7 @@ import {
 } from '@mantine-8/core';
 import { useForm } from '@mantine/form';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     useResultsCacheSettings,
     useUpdateResultsCacheSettings,
@@ -27,26 +28,46 @@ const MAX_TTL_MINUTES = MAX_RESULTS_CACHE_TTL_SECONDS / 60;
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 
-const plural = (value: number, unit: string) =>
-    `${value} ${unit}${value === 1 ? '' : 's'}`;
+type TranslateFn = (
+    key: string,
+    options?: Record<string, string | number>,
+) => string;
 
-const formatDuration = (minutes: number): string => {
+const formatDuration = (minutes: number, t: TranslateFn): string => {
     if (minutes >= 2 * MINUTES_PER_DAY && minutes % MINUTES_PER_DAY === 0) {
-        return plural(minutes / MINUTES_PER_DAY, 'day');
+        const days = minutes / MINUTES_PER_DAY;
+        return `${days} ${t(
+            days === 1
+                ? 'components_project_results_cache.units.day'
+                : 'components_project_results_cache.units.days',
+        )}`;
     }
     if (minutes > MINUTES_PER_HOUR) {
         const hours = minutes / MINUTES_PER_HOUR;
-        return plural(
-            Number.isInteger(hours) ? hours : Number(hours.toFixed(1)),
-            'hour',
-        );
+        const displayHours = Number.isInteger(hours)
+            ? hours
+            : Number(hours.toFixed(1));
+        return `${displayHours} ${t(
+            displayHours === 1
+                ? 'components_project_results_cache.units.hour'
+                : 'components_project_results_cache.units.hours',
+        )}`;
     }
-    return plural(minutes, 'minute');
+    return `${minutes} ${t(
+        minutes === 1
+            ? 'components_project_results_cache.units.minute'
+            : 'components_project_results_cache.units.minutes',
+    )}`;
 };
 
-const formatDurationHint = (minutes: number | ''): string | null =>
+const formatDurationHint = (
+    minutes: number | '',
+    t: TranslateFn,
+): string | null =>
     typeof minutes === 'number' && minutes > MINUTES_PER_HOUR
-        ? `= ${formatDuration(minutes)}`
+        ? t('components_project_results_cache.ttl_hint', {
+              duration: formatDuration(minutes, t),
+          })
         : null;
 
 type FormValues = {
@@ -65,6 +86,7 @@ const ProjectResultsCacheForm: FC<FormProps> = ({
     initialTtlSeconds,
     instanceDefaultSeconds,
 }) => {
+    const { t } = useTranslation();
     const { mutate: updateSettings, isLoading: isUpdating } =
         useUpdateResultsCacheSettings(projectUuid);
     const instanceDefaultMinutes = Math.round(instanceDefaultSeconds / 60);
@@ -86,7 +108,10 @@ const ProjectResultsCacheForm: FC<FormProps> = ({
                     value < MIN_TTL_MINUTES ||
                     value > MAX_TTL_MINUTES
                 ) {
-                    return `Enter a whole number of minutes between ${MIN_TTL_MINUTES} and ${MAX_TTL_MINUTES} (30 days)`;
+                    return t('components_project_results_cache.ttl_error', {
+                        min: MIN_TTL_MINUTES,
+                        max: MAX_TTL_MINUTES,
+                    });
                 }
                 return null;
             },
@@ -105,10 +130,16 @@ const ProjectResultsCacheForm: FC<FormProps> = ({
         >
             <Stack gap="md">
                 <Switch
-                    label="Use the default cache duration"
-                    description={`Cached results expire after ${formatDuration(
-                        instanceDefaultMinutes,
-                    )}.`}
+                    label={t('components_project_results_cache.use_default')}
+                    description={t(
+                        'components_project_results_cache.default_expires',
+                        {
+                            duration: formatDuration(
+                                instanceDefaultMinutes,
+                                t,
+                            ),
+                        },
+                    )}
                     disabled={isUpdating}
                     {...form.getInputProps('useInstanceDefault', {
                         type: 'checkbox',
@@ -116,14 +147,14 @@ const ProjectResultsCacheForm: FC<FormProps> = ({
                 />
 
                 <NumberInput
-                    label="Cache duration (minutes)"
+                    label={t('components_project_results_cache.ttl_label')}
                     min={MIN_TTL_MINUTES}
                     max={MAX_TTL_MINUTES}
                     step={1}
                     rightSectionWidth={90}
                     rightSection={
                         <Text c="ldGray.6" fz="xs">
-                            {formatDurationHint(form.values.ttlMinutes)}
+                            {formatDurationHint(form.values.ttlMinutes, t)}
                         </Text>
                     }
                     disabled={isUpdating || form.values.useInstanceDefault}
@@ -136,7 +167,7 @@ const ProjectResultsCacheForm: FC<FormProps> = ({
                         loading={isUpdating}
                         disabled={isUpdating || !form.isValid()}
                     >
-                        Save
+                        {t('components_project_results_cache.save')}
                     </Button>
                 </Group>
             </Stack>
@@ -149,15 +180,17 @@ type Props = {
 };
 
 const ProjectResultsCache: FC<Props> = ({ projectUuid }) => {
+    const { t } = useTranslation();
     const { data: settings, isLoading } = useResultsCacheSettings(projectUuid);
 
     return (
         <SettingsGridCard>
             <Box>
-                <Title order={5}>Cache duration</Title>
+                <Title order={5}>
+                    {t('components_project_results_cache.title')}
+                </Title>
                 <Text c="ldGray.6" fz="xs">
-                    How long cached results are kept before Lightdash queries
-                    the warehouse again.
+                    {t('components_project_results_cache.description')}
                 </Text>
             </Box>
             {isLoading || !settings ? (
