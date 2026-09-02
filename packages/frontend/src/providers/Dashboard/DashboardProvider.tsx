@@ -33,6 +33,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useDeepCompareEffect, useMount } from 'react-use';
 import { useConditionalRuleLabelFromItem } from '../../components/common/Filters/FilterInputs/utils';
@@ -95,6 +96,7 @@ const DashboardProvider: React.FC<
     defaultInvalidateCache,
     children,
 }) => {
+    const { t } = useTranslation();
     const { search, pathname } = useLocation();
     const navigate = useNavigate();
 
@@ -921,11 +923,18 @@ const DashboardProvider: React.FC<
             ) {
                 hasNotifiedLockedOverrideRef.current = true;
                 showToastInfo({
-                    title: 'Locked dashboard filter',
+                    title: t(
+                        'components_dashboard_filter.filter_locked_toast.title',
+                    ),
                     subtitle:
                         droppedLockedOverrides === 1
-                            ? 'A filter override was ignored because the dashboard editor locked that filter.'
-                            : `${droppedLockedOverrides} filter overrides were ignored because the dashboard editor locked those filters.`,
+                            ? t(
+                                  'components_dashboard_filter.filter_locked_toast.override_single',
+                              )
+                            : t(
+                                  'components_dashboard_filter.filter_locked_toast.override_many',
+                                  { count: droppedLockedOverrides },
+                              ),
                 });
             }
 
@@ -983,6 +992,7 @@ const DashboardProvider: React.FC<
         initializeCategoryFiltersWithFieldSearch,
         activeTab,
         showToastInfo,
+        t,
     ]);
     // This ensures category filters are initialized even if userCategories loads after dashboard
     useEffect(() => {
@@ -1077,15 +1087,26 @@ const DashboardProvider: React.FC<
         if (hasNotifiedLockedOverrideRef.current) return;
         hasNotifiedLockedOverrideRef.current = true;
         const hasTabs = (dashboard?.tabs?.length ?? 0) > 0;
-        const scopeSuffix = hasTabs ? ' on this tab' : '';
+        const scopeSuffix = hasTabs
+            ? t('components_dashboard_filter.filter_locked_toast.scope_tab')
+            : '';
         showToastInfo({
-            title: 'Locked dashboard filter',
+            title: t('components_dashboard_filter.filter_locked_toast.title'),
             subtitle:
                 lockedTemporaryDroppedCount === 1
-                    ? `A temporary filter was ignored because the dashboard editor locked it${scopeSuffix}.`
-                    : `${lockedTemporaryDroppedCount} temporary filters were ignored because the dashboard editor locked them${scopeSuffix}.`,
+                    ? t(
+                          'components_dashboard_filter.filter_locked_toast.temp_single',
+                          { scope: scopeSuffix },
+                      )
+                    : t(
+                          'components_dashboard_filter.filter_locked_toast.temp_many',
+                          {
+                              count: lockedTemporaryDroppedCount,
+                              scope: scopeSuffix,
+                          },
+                      ),
         });
-    }, [lockedTemporaryDroppedCount, showToastInfo, dashboard?.tabs]);
+    }, [lockedTemporaryDroppedCount, showToastInfo, dashboard?.tabs, t]);
 
     // Updates url with temp and overridden filters and deep compare to avoid unnecessary re-renders for dashboardTemporaryFilters
     // Only sync URL in regular dashboards or 'direct' embed mode (not 'sdk' mode)

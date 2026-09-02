@@ -299,6 +299,11 @@ flowchart TB
 3. **导出定制与 DB 无关**：CSV/Excel 自研逻辑不依赖上述新列；Merge 下载仍走通用 download + 现有导出服务。  
 4. **验收建议**：每个含 migration 的 PR，在预发先 `migrate`，再发应用；并用「旧书签/旧看板仍可打开」做一次冒烟。
 5. **Tab 内存模式**：设置环境变量 `DASHBOARD_TABS_IN_MEMORY=true` 并启用 FF `dashboard-tabs-in-memory` 后，看板切换 tab 会保留已访问 tab 的图表实例（默认仅挂载当前 tab 以省内存）。
+6. **本地/预发特性开关（无需 PostHog）**：
+   - `MERGE_QUERIES_ENABLED=true` → 启用合并查询（FF `merge-queries`）
+   - `LOCK_DASHBOARD_FILTERS_ENABLED=true` → 启用筛选器锁定 UI（FF `lock-dashboard-filters`；前端 DEV 模式默认可用）
+   - `DASHBOARD_TABS_IN_MEMORY=true` → Tab 内存模式（见上）
+   - `RESULTS_CACHE_ENABLED=true` → 结果缓存（见 `results.cacheEnabled`）
 
 ---
 
@@ -399,7 +404,7 @@ flowchart TD
 1. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
 2. `pnpm generate-api` — **已通过**。
 3. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
-4. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**。
+4. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
 5. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）

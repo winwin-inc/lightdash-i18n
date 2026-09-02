@@ -2794,7 +2794,15 @@
             "reset_all_filters": "Reset all filters"
         },
         "enable_filter": "Enable filter",
-        "show_add_filter_button": "Show add filter"
+        "show_add_filter_button": "Show add filter",
+        "filter_locked_toast": {
+            "title": "Locked dashboard filter",
+            "override_single": "A filter override was ignored because the dashboard editor locked that filter.",
+            "override_many": "{{count}} filter overrides were ignored because the dashboard editor locked those filters.",
+            "temp_single": "A temporary filter was ignored because the dashboard editor locked it{{scope}}.",
+            "temp_many": "{{count}} temporary filters were ignored because the dashboard editor locked them{{scope}}.",
+            "scope_tab": " on this tab"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {

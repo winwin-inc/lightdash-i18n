@@ -42,6 +42,9 @@ export class FeatureFlagModel {
                 this.getResultsCacheEnabled.bind(this),
             [FeatureFlags.DashboardTabsInMemory]:
                 this.getDashboardTabsInMemory.bind(this),
+            [FeatureFlags.MergeQueries]: this.getMergeQueriesEnabled.bind(this),
+            [FeatureFlags.LockDashboardFilters]:
+                this.getLockDashboardFiltersEnabled.bind(this),
         };
     }
 
@@ -167,6 +170,24 @@ export class FeatureFlagModel {
         return Promise.resolve({
             id: featureFlagId,
             enabled: process.env.DASHBOARD_TABS_IN_MEMORY === 'true',
+        });
+    }
+
+    private getMergeQueriesEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.MERGE_QUERIES_ENABLED === 'true',
+        });
+    }
+
+    private getLockDashboardFiltersEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.LOCK_DASHBOARD_FILTERS_ENABLED === 'true',
         });
     }
 }

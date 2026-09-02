@@ -2804,7 +2804,15 @@
             "reset_all_filters": "重置所有筛选器"
         },
         "enable_filter": "启用筛选器",
-        "show_add_filter_button": "显示筛选器"
+        "show_add_filter_button": "显示筛选器",
+        "filter_locked_toast": {
+            "title": "筛选器已锁定",
+            "override_single": "已忽略一条筛选覆盖，因为看板编辑者锁定了该筛选器。",
+            "override_many": "已忽略 {{count}} 条筛选覆盖，因为看板编辑者锁定了这些筛选器。",
+            "temp_single": "已忽略一条临时筛选，因为看板编辑者锁定了它{{scope}}。",
+            "temp_many": "已忽略 {{count}} 条临时筛选，因为看板编辑者锁定了它们{{scope}}。",
+            "scope_tab": "（当前标签页）"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {
