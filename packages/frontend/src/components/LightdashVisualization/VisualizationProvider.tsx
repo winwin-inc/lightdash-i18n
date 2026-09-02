@@ -53,6 +53,7 @@ import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
+import { type VisualizationConfig } from './types';
 import Context, { type TablePaginationState } from './context';
 import { type useVisualizationContext } from './useVisualizationContext';
 
@@ -533,6 +534,18 @@ const VisualizationProvider: FC<
                     )}
                 </VisualizationCustomConfig>
             );
+        case ChartType.DATA_APP_VIZ: {
+            // Full DataAppViz config lives under features/apps; stub until wired.
+            const visualizationConfig: VisualizationConfig = {
+                chartType: ChartType.DATA_APP_VIZ,
+                chartConfig: { validConfig: null },
+            };
+            return (
+                <Context.Provider value={{ ...value, visualizationConfig }}>
+                    {children}
+                </Context.Provider>
+            );
+        }
         default:
             return assertUnreachable(chartConfig, 'Unknown chart type');
     }

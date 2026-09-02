@@ -6290,7 +6290,8 @@
         "resource_view_labels": {
             "chart": "chart",
             "dashboard": "dashboard",
-            "space": "space"
+            "space": "space",
+            "data_app": "data app"
         },
         "resource_view_chart_labels": {
             "bar": "Bar chart",
@@ -6369,6 +6370,8 @@
             "table": "Table",
             "big_number": "Big number",
             "custom_visualization": "Custom visualization",
+            "data_app": "Data app",
+            "custom_chart": "Custom chart",
             "not_supported": "Chart type {{chartKind}} not supported"
         }
     },
@@ -6376,7 +6379,8 @@
         "all": "All",
         "dashboards": "Dashboards",
         "charts": "Charts",
-        "spaces": "Spaces"
+        "spaces": "Spaces",
+        "data_apps": "Data apps"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "Only visible to you",

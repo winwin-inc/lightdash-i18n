@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
+import { useAppPinningMutation } from '../../../features/apps/hooks/useAppPinningMutation';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
 import { useDashboardPinningMutation } from '../../../hooks/pinning/useDashboardPinningMutation';
 import { useSpacePinningMutation } from '../../../hooks/pinning/useSpaceMutation';
@@ -56,6 +57,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
     const { mutate: pinChart } = useChartPinningMutation();
     const { mutate: pinDashboard } = useDashboardPinningMutation();
     const { mutate: pinSpace } = useSpacePinningMutation(projectUuid);
+    const { mutate: pinApp } = useAppPinningMutation();
 
     const handleReset = useCallback(() => {
         onAction({ type: ResourceViewItemAction.CLOSE });
@@ -99,6 +101,17 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             contentType: ContentType.SPACE,
                         },
                     });
+                case ResourceViewItemType.DATA_APP:
+                    return contentAction({
+                        action: {
+                            type: 'move',
+                            targetSpaceUuid: spaceUuid,
+                        },
+                        item: {
+                            uuid: item.data.uuid,
+                            contentType: ContentType.DATA_APP,
+                        },
+                    });
                 default:
                     return assertUnreachable(
                         item,
@@ -129,13 +142,19 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                 return pinDashboard({ uuid: action.item.data.uuid });
             case ResourceViewItemType.SPACE:
                 return pinSpace(action.item.data.uuid);
+            case ResourceViewItemType.DATA_APP:
+                if (!projectUuid) return undefined;
+                return pinApp({
+                    projectUuid,
+                    appUuid: action.item.data.uuid,
+                });
             default:
                 return assertUnreachable(
                     action.item,
                     'Resource type not supported',
                 );
         }
-    }, [action, pinChart, pinDashboard, pinSpace]);
+    }, [action, pinChart, pinDashboard, pinSpace, pinApp, projectUuid]);
 
     useEffect(() => {
         if (action.type === ResourceViewItemAction.PIN_TO_HOMEPAGE) {
@@ -187,6 +206,9 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             parentSpaceUuid={action.item.data.parentSpaceUuid}
                         />
                     );
+                case ResourceViewItemType.DATA_APP:
+                    // AppUpdateModal lives under features/apps; stub until wired.
+                    return null;
                 default:
                     return assertUnreachable(
                         action.item,
@@ -244,6 +266,9 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             parentSpaceUuid={null}
                         />
                     );
+                case ResourceViewItemType.DATA_APP:
+                    // AppDeleteModal lives under features/apps; stub until wired.
+                    return null;
 
                 default:
                     return assertUnreachable(

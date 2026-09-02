@@ -1,3 +1,4 @@
+import { type DataAppVizOptionValue } from '../ee/apps/dataAppVizConfigOptions';
 import assertUnreachable from '../utils/assertUnreachable';
 import { type ViewStatistics } from './analytics';
 import { type ConditionalFormattingConfig } from './conditionalFormatting';
@@ -24,6 +25,7 @@ export enum ChartKind {
     FUNNEL = 'funnel',
     CUSTOM = 'custom',
     TREEMAP = 'treemap',
+    DATA_APP_VIZ = 'data_app_viz',
 }
 
 export enum ChartType {
@@ -34,6 +36,7 @@ export enum ChartType {
     FUNNEL = 'funnel',
     TREEMAP = 'treemap',
     CUSTOM = 'custom',
+    DATA_APP_VIZ = 'data_app_viz',
 }
 
 export enum ComparisonFormatTypes {
@@ -425,6 +428,27 @@ export type TreemapChartConfig = {
     config?: TreemapChart;
 };
 
+export type DataAppVizFieldMapping = Record<string, string>;
+
+/** Maps a declared config option's name → the value the user chose for it. */
+export type DataAppVizOptionValues = Record<string, DataAppVizOptionValue>;
+
+export type DataAppVizChart = {
+    dataAppVizUuid: string;
+    /**
+     * @isInt
+     * @minimum 1
+     */
+    dataAppVizVersion?: number;
+    fieldMapping: DataAppVizFieldMapping;
+    optionValues?: DataAppVizOptionValues;
+};
+
+export type DataAppVizChartConfig = {
+    type: ChartType.DATA_APP_VIZ;
+    config?: DataAppVizChart;
+};
+
 export type ChartConfig =
     | BigNumberConfig
     | CartesianChartConfig
@@ -432,7 +456,8 @@ export type ChartConfig =
     | PieChartConfig
     | FunnelChartConfig
     | TableChartConfig
-    | TreemapChartConfig;
+    | TreemapChartConfig
+    | DataAppVizChartConfig;
 
 export type SavedChartType = ChartType;
 
@@ -545,6 +570,11 @@ export const isCartesianChartConfig = (
 ): value is CartesianChart =>
     !!value && 'layout' in value && 'eChartsConfig' in value;
 
+export const isDataAppVizChart = (
+    value: ChartConfig['config'],
+): value is DataAppVizChart =>
+    !!value && 'dataAppVizUuid' in value && 'fieldMapping' in value;
+
 export const getChartRequiresPivotResults = (
     chartConfig: ChartConfig | undefined,
     pivotConfig: SavedChartDAO['pivotConfig'] | undefined,
@@ -567,11 +597,13 @@ export const getChartRequiresPivotResults = (
 
 export const isBigNumberConfig = (
     value: ChartConfig['config'],
-): value is BigNumber => !!value && !isCartesianChartConfig(value);
+): value is BigNumber =>
+    !!value && !isCartesianChartConfig(value) && !isDataAppVizChart(value);
 
 export const isTableChartConfig = (
     value: ChartConfig['config'],
-): value is TableChart => !!value && !isCartesianChartConfig(value);
+): value is TableChart =>
+    !!value && !isCartesianChartConfig(value) && !isDataAppVizChart(value);
 
 export const isPieChartConfig = (
     value: ChartConfig['config'],
@@ -652,6 +684,8 @@ export const getChartType = (chartKind: ChartKind | undefined): ChartType => {
             return ChartType.TABLE;
         case ChartKind.TREEMAP:
             return ChartType.TREEMAP;
+        case ChartKind.DATA_APP_VIZ:
+            return ChartType.DATA_APP_VIZ;
         default:
             return ChartType.CARTESIAN;
     }
@@ -671,6 +705,8 @@ export const getChartKind = (
             return ChartKind.TABLE;
         case ChartType.CUSTOM:
             return ChartKind.CUSTOM;
+        case ChartType.DATA_APP_VIZ:
+            return ChartKind.DATA_APP_VIZ;
         case ChartType.CARTESIAN:
             if (isCartesianChartConfig(value)) {
                 const { series } = value.eChartsConfig;

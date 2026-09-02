@@ -114,6 +114,8 @@ const EmbedDashboardGrid: FC<{
                                     onDelete={() => {}}
                                     onEdit={() => {}}
                                 />
+                            ) : tile.type === DashboardTileTypes.DATA_APP ? (
+                                null
                             ) : (
                                 assertUnreachable(
                                     tile,

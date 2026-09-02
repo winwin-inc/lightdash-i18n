@@ -106,7 +106,7 @@ const updateSavedQuery = async (
     });
 };
 
-const getSavedQuery = async (id: string): Promise<SavedChart> =>
+export const getSavedQuery = async (id: string): Promise<SavedChart> =>
     lightdashApi<SavedChart>({
         url: `/saved/${id}`,
         method: 'GET',

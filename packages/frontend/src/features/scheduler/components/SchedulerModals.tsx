@@ -87,3 +87,16 @@ export const ChartSchedulersModal: FC<ChartSchedulersProps> = ({
         />
     );
 };
+
+// STUB: Phase C — app schedulers not wired yet.
+interface AppSchedulersProps {
+    projectUuid: string;
+    appUuid: string;
+    name: string;
+    isOpen: boolean;
+    onClose: () => void;
+    initialSchedulerUuid?: string;
+    capturedQueryCount?: number;
+}
+
+export const AppSchedulersModal: FC<AppSchedulersProps> = () => null;

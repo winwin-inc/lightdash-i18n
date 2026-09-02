@@ -16,6 +16,7 @@ import {
     IconChevronDown,
     IconCode,
     IconFilter,
+    IconPuzzle,
     IconSquareNumber1,
     IconTable,
 } from '@tabler/icons-react';
@@ -202,6 +203,13 @@ const VisualizationCardOptions: FC = memo(() => {
                         'components_explorer_visualization_card_options.chart_types.custom',
                     ),
                     icon: <MantineIcon icon={IconCode} color="gray" />,
+                };
+            case ChartType.DATA_APP_VIZ:
+                return {
+                    text: t(
+                        'components_explorer_visualization_card_options.chart_types.custom',
+                    ),
+                    icon: <MantineIcon icon={IconPuzzle} color="gray" />,
                 };
             default: {
                 return assertUnreachable(

@@ -328,6 +328,7 @@ export function derivePivotConfigurationFromChart(
         case ChartType.TREEMAP:
         case ChartType.CUSTOM:
         case ChartType.BIG_NUMBER:
+        case ChartType.DATA_APP_VIZ:
             newConfig = undefined;
             break;
         default:

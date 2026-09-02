@@ -125,8 +125,9 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
     useEffect(() => {
         const allPages = contentPages?.pages.map((p) => p.data).flat() ?? [];
         const itemsWithUpdatePermission = allPages.filter((summary) => {
+            if (!summary.space) return false;
             const summarySpace = spaces?.find(
-                ({ uuid }) => uuid === summary.space.uuid,
+                ({ uuid }) => uuid === summary.space!.uuid,
             );
             return user.data?.ability.can(
                 'update',
@@ -180,14 +181,16 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
     );
 
     const selectItems: SelectItemData[] = useMemo(() => {
-        return allItems.map<SelectItemData>(
-            ({
+        return allItems.flatMap<SelectItemData>((item) => {
+            if (!item.space) return [];
+            const {
                 uuid: itemUuid,
                 name,
                 space: { uuid: itemSpaceUuid, name: itemSpaceName },
-            }) => {
-                const disabled = spaceUuid === itemSpaceUuid;
-                return {
+            } = item;
+            const disabled = spaceUuid === itemSpaceUuid;
+            return [
+                {
                     value: itemUuid,
                     label: name,
                     disabled,
@@ -197,9 +200,9 @@ const AddResourceToSpaceModal: FC<Props> = ({ resourceType, onClose }) => {
                           )} ${itemSpaceName}`
                         : '',
                     spaceName: itemSpaceName,
-                };
-            },
-        );
+                },
+            ];
+        });
     }, [spaceUuid, allItems, resourceType, getResourceTypeLabel, t]);
 
     const handleSubmit = form.onSubmit(({ items }) => {

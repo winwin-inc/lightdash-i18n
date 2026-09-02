@@ -161,4 +161,8 @@ export enum EventName {
     AI_AGENT_CHART_HOW_ITS_CALCULATED_CLICKED = 'ai_agent_chart_how_its_calculated.clicked',
     AI_AGENT_CHART_CREATED = 'ai_agent_chart.created',
     AI_AGENT_CHART_EXPLORED = 'ai_agent_chart.explored',
+
+    // Data apps (Phase C)
+    DATA_APP_RECENT_SUGGESTION_CLICK = 'data_app_recent_suggestion.click',
+    DATA_APP_CLARIFY_ROUND_RESOLVED = 'data_app_clarify_round.resolved',
 }

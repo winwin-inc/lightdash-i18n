@@ -27,6 +27,7 @@ import ChartTile from '../components/DashboardTiles/DashboardChartTile';
 import LoomTile from '../components/DashboardTiles/DashboardLoomTile';
 import MarkdownTile from '../components/DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../components/DashboardTiles/DashboardSqlChartTile';
+import TileBase from '../components/DashboardTiles/TileBase';
 import MinimalDashboardTabs from '../components/MinimalDashboardTabs';
 import { useScheduler } from '../features/scheduler/hooks/useScheduler';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
@@ -325,6 +326,16 @@ const MinimalDashboard: FC = () => {
                                     key={tile.uuid}
                                     tile={tile}
                                     isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                />
+                            ) : tile.type === DashboardTileTypes.DATA_APP ? (
+                                <TileBase
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    isEditMode={false}
+                                    title=""
+                                    isLoading={false}
                                     onDelete={() => {}}
                                     onEdit={() => {}}
                                 />

@@ -18,6 +18,7 @@ export enum DashboardTileTypes {
     SQL_CHART = 'sql_chart',
     MARKDOWN = 'markdown',
     LOOM = 'loom',
+    DATA_APP = 'data_app',
 }
 
 type CreateDashboardTileBase = {
@@ -73,6 +74,17 @@ export type DashboardSqlChartTileProperties = {
     };
 };
 
+export type DashboardDataAppTileProperties = {
+    type: DashboardTileTypes.DATA_APP;
+    properties: {
+        title: string;
+        hideTitle?: boolean;
+        appUuid: string;
+        appSlug?: string | null;
+        appDeletedAt?: string | null;
+    };
+};
+
 export type CreateDashboardMarkdownTile = CreateDashboardTileBase &
     DashboardMarkdownTileProperties;
 export type DashboardMarkdownTile = DashboardTileBase &
@@ -92,6 +104,11 @@ export type CreateDashboardSqlChartTile = CreateDashboardTileBase &
 export type DashboardSqlChartTile = DashboardTileBase &
     DashboardSqlChartTileProperties;
 
+export type CreateDashboardDataAppTile = CreateDashboardTileBase &
+    DashboardDataAppTileProperties;
+export type DashboardDataAppTile = DashboardTileBase &
+    DashboardDataAppTileProperties;
+
 export type CreateDashboard = {
     name: string;
     description?: string;
@@ -100,6 +117,7 @@ export type CreateDashboard = {
         | CreateDashboardMarkdownTile
         | CreateDashboardLoomTile
         | CreateDashboardSqlChartTile
+        | CreateDashboardDataAppTile
     >;
     filters?: DashboardFilters;
     parameters?: DashboardParameters;
@@ -114,7 +132,8 @@ export type DashboardTile =
     | DashboardChartTile
     | DashboardMarkdownTile
     | DashboardLoomTile
-    | DashboardSqlChartTile;
+    | DashboardSqlChartTile
+    | DashboardDataAppTile;
 
 export const isDashboardChartTileType = (
     tile: DashboardTile,
@@ -131,6 +150,10 @@ export const isDashboardLoomTileType = (
 export const isDashboardSqlChartTile = (
     tile: DashboardTileBase,
 ): tile is DashboardSqlChartTile => tile.type === DashboardTileTypes.SQL_CHART;
+
+export const isDashboardDataAppTileType = (
+    tile: DashboardTile,
+): tile is DashboardDataAppTile => tile.type === DashboardTileTypes.DATA_APP;
 
 export type DashboardTab = {
     uuid: string;

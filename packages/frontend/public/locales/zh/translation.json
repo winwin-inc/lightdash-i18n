@@ -6295,7 +6295,8 @@
         "resource_view_labels": {
             "chart": "图表",
             "dashboard": "看板",
-            "space": "空间"
+            "space": "空间",
+            "data_app": "数据应用"
         },
         "resource_view_chart_labels": {
             "bar": "柱状图",
@@ -6374,6 +6375,8 @@
             "table": "表格",
             "big_number": "大数值",
             "custom_visualization": "自定义可视化",
+            "data_app": "数据应用",
+            "custom_chart": "自定义图表",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
     },
@@ -6381,7 +6384,8 @@
         "all": "全部",
         "dashboards": "看板",
         "charts": "图表",
-        "spaces": "空间"
+        "spaces": "空间",
+        "data_apps": "数据应用"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "只有你可见",

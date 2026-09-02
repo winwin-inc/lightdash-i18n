@@ -77,6 +77,25 @@ import { type ApiSuccessEmpty } from './types/api/success';
 import { type ApiGetChangeResponse } from './types/changeset';
 import { type DbtExposure } from './types/dbt';
 import { type EmailStatusExpiring } from './types/email';
+import {
+    type ApiAppImageUrlResponse,
+    type ApiAppThumbnailUrlResponse,
+    type ApiDataAppActivityResponse,
+    type ApiDuplicateAppResponse,
+    type ApiGenerateAppResponse,
+    type ApiGetAppResponse,
+    type ApiMyAppsResponse,
+    type ApiPreviewTokenResponse,
+    type ApiPromoteAppDiffResponse,
+    type ApiPromoteAppResponse,
+    type ApiRestoreAppVersionResponse,
+    type ApiUpdateAppResponse,
+    type ApiUpgradeAppResponse,
+} from './ee/apps/types';
+import {
+    type ApiFavoriteItems,
+    type ApiToggleFavorite,
+} from './types/favorites';
 import { type FieldValueSearchResult } from './types/fieldMatch';
 import { type DashboardFilters } from './types/filter';
 import {
@@ -265,10 +284,12 @@ export * from './types/content';
 export * from './types/csv';
 export * from './types/dashboard';
 export * from './types/dbt';
+export * from './types/directAccess';
 export * from './types/downloadFile';
 export * from './types/email';
 export * from './types/errors';
 export * from './types/explore';
+export * from './types/favorites';
 export * from './types/featureFlags';
 export * from './types/field';
 export * from './types/fieldMatch';
@@ -1055,7 +1076,24 @@ type ApiResults =
     | ApiUpdateAiOrganizationSettingsResponse['results']
     | ApiOssUploadUrlResponse['results']
     | UserCategoryList
-    | ResultsCacheProjectSettings;
+    | ResultsCacheProjectSettings
+    // Data apps (Phase C)
+    | ApiGenerateAppResponse['results']
+    | ApiGetAppResponse['results']
+    | ApiUpdateAppResponse['results']
+    | ApiDuplicateAppResponse['results']
+    | ApiUpgradeAppResponse['results']
+    | ApiPromoteAppResponse['results']
+    | ApiPromoteAppDiffResponse['results']
+    | ApiPreviewTokenResponse['results']
+    | ApiAppThumbnailUrlResponse['results']
+    | ApiAppImageUrlResponse['results']
+    | ApiMyAppsResponse['results']
+    | ApiDataAppActivityResponse['results']
+    | ApiRestoreAppVersionResponse['results']
+    | ApiToggleFavorite['results']
+    | ApiFavoriteItems['results']
+    | { token: string; version: number }; // EmbedAppPreviewToken
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';
@@ -1231,6 +1269,10 @@ export type HealthState = {
     ai: {
         analyticsProjectUuid?: string;
         analyticsDashboardUuid?: string;
+    };
+    dataApps: {
+        previewOrigin: string | null;
+        sampleDataEnabled: boolean;
     };
 };
 

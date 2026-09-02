@@ -69,6 +69,9 @@ export type ComputedAiOrganizationSettings = {
 export type AiOrganizationSettings = {
     organizationUuid: string;
     aiAgentsVisible: boolean;
+    /** Phase C stubs for data-app model selection */
+    dataAppCodingAgent?: 'claude' | 'codex';
+    visibleDataAppModels?: import('../apps/types').DataAppClaudeModel[];
 };
 
 export type CreateAiOrganizationSettings = AiOrganizationSettings;

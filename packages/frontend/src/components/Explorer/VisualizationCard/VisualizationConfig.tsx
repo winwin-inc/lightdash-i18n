@@ -59,6 +59,9 @@ const VisualizationConfig: FC<Props> = ({ chartType, onClose }) => {
                         <CustomVisConfigTabsLazy />
                     </Suspense>
                 );
+            case ChartType.DATA_APP_VIZ:
+                // DataAppViz config panel lives under features/apps; no-op until wired.
+                return () => null;
             default:
                 return assertUnreachable(
                     chartType,

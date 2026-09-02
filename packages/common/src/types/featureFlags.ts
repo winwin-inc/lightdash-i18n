@@ -87,6 +87,11 @@ export enum FeatureFlags {
      * Enable experimental explorer improvements
      */
     ExperimentalExplorerImprovements = 'experimental-explorer-improvements',
+
+    /**
+     * Enable Data Apps (custom apps against the semantic layer)
+     */
+    EnableDataApps = 'enable-data-apps',
 }
 
 export type FeatureFlag = {

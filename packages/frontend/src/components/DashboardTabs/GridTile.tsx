@@ -44,6 +44,13 @@ const GridTile: FC<
             return <LoomTile {...props} tile={tile} />;
         case DashboardTileTypes.SQL_CHART:
             return <SqlChartTile {...props} tile={tile} />;
+        case DashboardTileTypes.DATA_APP:
+            // DashboardDataAppTile depends on features/apps; placeholder until wired.
+            return (
+                <Box h="100%">
+                    <TileBase isLoading={false} title={''} {...props} />
+                </Box>
+            );
         default: {
             return assertUnreachable(
                 tile,

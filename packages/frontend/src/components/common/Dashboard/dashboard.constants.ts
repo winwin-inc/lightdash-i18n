@@ -1,0 +1,4 @@
+export const DASHBOARD_HEADER_HEIGHT = 50;
+export const DASHBOARD_HEADER_ZINDEX = 99;
+export const DASHBOARD_TAB_HEIGHT = 50;
+export const DASHBOARD_TABS_ZINDEX = 98;

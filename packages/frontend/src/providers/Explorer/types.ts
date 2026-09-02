@@ -24,6 +24,7 @@ import {
     type TableChartConfig,
     type TimeZone,
     type TreemapChartConfig,
+    type DataAppVizChartConfig,
 } from '@lightdash/common';
 import { type QueryResultsProps } from '../../hooks/useQueryResults';
 
@@ -74,6 +75,7 @@ export type ConfigCacheMap = {
     [ChartType.CARTESIAN]: CartesianChartConfig['config'];
     [ChartType.TREEMAP]: TreemapChartConfig['config'];
     [ChartType.CUSTOM]: CustomVisConfig['config'];
+    [ChartType.DATA_APP_VIZ]: DataAppVizChartConfig['config'];
 };
 
 export type Action =

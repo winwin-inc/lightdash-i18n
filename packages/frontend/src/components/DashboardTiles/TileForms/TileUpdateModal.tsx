@@ -135,7 +135,7 @@ const TileUpdateModal = <T extends Tile>({
                             }
                             withHideTitle
                         />
-                    ) : (
+                    ) : tile.type === DashboardTileTypes.DATA_APP ? null : (
                         assertUnreachable(tile, 'Tile type not supported')
                     )}
 

@@ -113,7 +113,7 @@ const postContentBulkAction = async ({
     });
 };
 
-const invalidateContent = async (
+export const invalidateContent = async (
     queryClient: QueryClient,
     projectUuid: string,
 ) => {

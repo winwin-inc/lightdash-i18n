@@ -6,6 +6,7 @@ export enum ContentType {
     CHART = 'chart',
     DASHBOARD = 'dashboard',
     SPACE = 'space',
+    DATA_APP = 'data_app',
 }
 
 export interface Content {
@@ -88,9 +89,31 @@ export interface SpaceContent extends Content {
     path: string;
 }
 
+export interface DataAppContent extends Omit<Content, 'space' | 'pinnedList'> {
+    contentType: ContentType.DATA_APP;
+    // Personal apps have no space until moved into one.
+    space: {
+        uuid: string;
+        name: string;
+    } | null;
+    latestVersionNumber: number | null;
+    latestVersionStatus: import('../ee/apps/types').AppVersionStatus | null;
+    latestReadyVersionNumber: number | null;
+    pinnedList: {
+        uuid: string;
+        order?: number;
+    } | null;
+    /** 'data_app_viz' marks a reusable chart-type viz rather than a standalone app. */
+    template: import('../ee/apps/types').DataAppTemplate | null;
+}
+
 // Group types
 
-export type SummaryContent = ChartContent | DashboardContent | SpaceContent; // Note: more types will be added.
+export type SummaryContent =
+    | ChartContent
+    | DashboardContent
+    | SpaceContent
+    | DataAppContent;
 
 // API types
 
@@ -126,6 +149,10 @@ type ItemPayload =
     | {
           uuid: string;
           contentType: ContentType.SPACE;
+      }
+    | {
+          uuid: string;
+          contentType: ContentType.DATA_APP;
       };
 
 export type ContentAction = ContentActionMove | ContentActionDelete;

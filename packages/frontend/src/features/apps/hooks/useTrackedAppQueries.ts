@@ -1,0 +1,255 @@
+import { useLocalStorage } from '@mantine-8/hooks';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { QueryEvent } from './useAppSdkBridge';
+
+const PERSIST_LOGS_STORAGE_KEY = 'data-apps:persist-logs';
+
+export type UseTrackedAppQueriesResult = {
+    queries: QueryEvent[];
+    persistLogs: boolean;
+    setPersistLogs: (value: boolean) => void;
+    handleQueryEvent: (event: QueryEvent) => void;
+    clearQueries: () => void;
+    resetQueries: () => void;
+    interruptInFlightQueries: () => void;
+};
+
+/**
+ * Count of `ready` entries beyond a previously-recorded boundary. Used to
+ * scope a live query count (e.g. the scheduler's app csv/xlsx gate) to "since
+ * the last version switch" while the full list â€?kept around for "Persist" â€?
+ * still carries earlier versions' entries.
+ */
+export const countReadyQueriesSinceBoundary = (
+    queries: QueryEvent[],
+    boundary: number,
+): number =>
+    Math.max(0, queries.filter((q) => q.status === 'ready').length - boundary);
+
+/**
+ * Tracks metric queries emitted by the app preview iframe SDK bridge.
+ *
+ * Owns the merge logic that turns POST initiations + poll results into a
+ * single timeline entry per query, plus the "interrupted by reload" recovery
+ * used by the builder when the preview iframe restarts mid-query.
+ *
+ * Shared between the builder (`AppGenerate`) where the queries panel is
+ * always-on, and the preview (`AppPreviewTest`) where it's opt-in via a menu.
+ * Preview uses only `queries`, `handleQueryEvent`, `clearQueries`, and
+ * `resetKey` â€?the persist/interrupt machinery is builder-specific (the
+ * builder handles its own version-switch reset because it must choose
+ * between clearing and interrupting based on "Persist").
+ *
+ * @param resetKey - When this changes (e.g. the previewed app version),
+ * queries are reset automatically (see resetQueries). Omit to manage resets
+ * manually.
+ */
+export const useTrackedAppQueries = (
+    resetKey?: string | number,
+): UseTrackedAppQueriesResult => {
+    const [queries, setQueries] = useState<QueryEvent[]>([]);
+    // Mirrors Chrome DevTools "Preserve log". When off (default), the queries
+    // panel is cleared on iframe refresh and on new-version load â€?fresh
+    // bundles re-run their queries, so stale entries would only confuse the
+    // user. Stored in localStorage so the preference survives a tab close
+    // and stays consistent across tabs.
+    const [persistLogs, setPersistLogs] = useLocalStorage<boolean>({
+        key: PERSIST_LOGS_STORAGE_KEY,
+        defaultValue: false,
+    });
+    // Request IDs of queries we marked as interrupted on iframe reload. The
+    // bridge's parent-side fetch keeps running after the iframe dies and will
+    // emit a late `running` event for them â€?without this guard that event
+    // would resurrect the entry as 'running', or (if not matched) get appended
+    // as a fresh ghost entry. The set grows for the page session; entries are
+    // short request IDs, so the footprint is negligible.
+    const interruptedRequestIdsRef = useRef<Set<string>>(new Set());
+    // queryUuids of entries wiped by resetQueries(). A late event can arrive
+    // under a DIFFERENT id than the one we interrupted (results-cache dedupe
+    // folds a second POST onto the same queryUuid) â€?id-only exclusion misses
+    // that case, so terminal events are also checked against this set. Not
+    // permanent: handleQueryEvent hands a uuid back to a live request that
+    // the backend gave the same uuid to, so a valid new version isn't muted.
+    const interruptedQueryUuidsRef = useRef<Set<string>>(new Set());
+    // Mirror of `queries`, kept in sync by commitQueries. Reading state from a
+    // ref instead of a functional updater keeps the exclusion bookkeeping (ref
+    // mutations) out of the updater, which React may invoke more than once.
+    const queriesRef = useRef<QueryEvent[]>([]);
+
+    const commitQueries = useCallback((next: QueryEvent[]) => {
+        queriesRef.current = next;
+        setQueries(next);
+    }, []);
+
+    const clearQueries = useCallback(() => {
+        commitQueries([]);
+    }, [commitQueries]);
+
+    // Like clearQueries(), but for a resource-boundary reset (version switch)
+    // rather than an explicit "clear the log" action: the parent-owned
+    // fetch/poll isn't torn down by an iframe reload, so a query in flight at
+    // reset time can still deliver its terminal event afterwards. Without
+    // remembering the wiped entries' ids/queryUuids, that late event finds
+    // nothing to merge into and gets appended as a phantom row inflating the
+    // new boundary's count â€?mirroring why interruptInFlightQueries registers
+    // ids instead of just dropping entries.
+    const resetQueries = useCallback(() => {
+        queriesRef.current.forEach((q) => {
+            interruptedRequestIdsRef.current.add(q.id);
+            if (q.queryUuid) {
+                interruptedQueryUuidsRef.current.add(q.queryUuid);
+            }
+        });
+        commitQueries([]);
+    }, [commitQueries]);
+
+    // Resets on every resetKey change but not on mount, so a caller passing
+    // e.g. the previewed version never loses queries fired during initial load.
+    const previousResetKeyRef = useRef(resetKey);
+    useEffect(() => {
+        if (previousResetKeyRef.current === resetKey) return;
+        previousResetKeyRef.current = resetKey;
+        resetQueries();
+    }, [resetKey, resetQueries]);
+
+    // Move pending/running entries into a terminal `error` state. Used when
+    // the preview iframe reloads with persistLogs on â€?the iframe that would
+    // have polled their queryUuids is dead, so they would otherwise sit
+    // non-terminal forever.
+    const interruptInFlightQueries = useCallback(() => {
+        let mutated = false;
+        const next = queriesRef.current.map((q) => {
+            if (q.status !== 'pending' && q.status !== 'running') {
+                return q;
+            }
+            mutated = true;
+            interruptedRequestIdsRef.current.add(q.id);
+            return {
+                ...q,
+                status: 'error' as const,
+                error: 'Interrupted by reload',
+            };
+        });
+        if (mutated) commitQueries(next);
+    }, [commitQueries]);
+
+    const handleQueryEvent = useCallback(
+        (event: QueryEvent) => {
+            // Drop late events (typically the POST-resolution `running` event)
+            // for requests we already marked interrupted â€?without this they
+            // either un-terminal the entry or get appended as a ghost.
+            if (interruptedRequestIdsRef.current.has(event.id)) {
+                return;
+            }
+            const prev = queriesRef.current;
+            // Same drop, keyed by queryUuid â€?but reclaimable, because the
+            // backend can hand a NEW submission a recycled uuid: a tracked id
+            // or a non-terminal event means a live request owns it now.
+            if (
+                event.queryUuid &&
+                interruptedQueryUuidsRef.current.has(event.queryUuid)
+            ) {
+                const isLiveRequest =
+                    event.status === 'pending' ||
+                    event.status === 'running' ||
+                    prev.some((q) => q.id === event.id);
+                if (!isLiveRequest) return;
+                interruptedQueryUuidsRef.current.delete(event.queryUuid);
+            }
+            // If this event has a queryUuid, merge it with an existing entry
+            if (event.queryUuid) {
+                const existing = prev.find(
+                    (q) => q.queryUuid === event.queryUuid,
+                );
+                if (existing) {
+                    // Don't resurrect a terminal entry. Covers the rare race
+                    // where iframe-1 managed to issue a poll GET before
+                    // dying, so a late `ready` event arrives keyed on the
+                    // (already-interrupted) queryUuid.
+                    if (
+                        existing.status === 'ready' ||
+                        existing.status === 'error'
+                    ) {
+                        return;
+                    }
+                    commitQueries(
+                        prev
+                            .map((q) =>
+                                q.queryUuid === event.queryUuid
+                                    ? {
+                                          ...q,
+                                          label: event.label ?? q.label,
+                                          status: event.status,
+                                          rowCount:
+                                              event.rowCount ?? q.rowCount,
+                                          durationMs:
+                                              event.durationMs ?? q.durationMs,
+                                          error: event.error ?? q.error,
+                                          rawMetricQuery:
+                                              event.rawMetricQuery ??
+                                              q.rawMetricQuery,
+                                      }
+                                    : q,
+                            )
+                            .filter(
+                                // Drop this event's own now-redundant `pending`
+                                // placeholder â€?results-cache dedupe means a
+                                // second POST can fold into an entry it didn't
+                                // create, stranding its own placeholder row.
+                                (q) =>
+                                    !(
+                                        q.id === event.id &&
+                                        q.status === 'pending' &&
+                                        q.queryUuid !== event.queryUuid
+                                    ),
+                            ),
+                    );
+                    return;
+                }
+            }
+            // If this is a POST initiation with queryUuid, check if we
+            // have a pending entry from the same request id to merge
+            const pendingIdx = prev.findIndex(
+                (q) => q.id === event.id && q.status === 'pending',
+            );
+            if (pendingIdx >= 0) {
+                commitQueries(
+                    prev.map((q, i) =>
+                        i === pendingIdx
+                            ? {
+                                  ...event,
+                                  rawMetricQuery:
+                                      event.rawMetricQuery ?? q.rawMetricQuery,
+                              }
+                            : q,
+                    ),
+                );
+                return;
+            }
+            const isTerminal =
+                event.status === 'ready' || event.status === 'error';
+            // A queryUuid-less terminal for an id we already track (e.g. a
+            // displaced-lifecycle close signal) carries no new info â€?drop
+            // it rather than append a blank ghost row.
+            if (
+                !event.queryUuid &&
+                isTerminal &&
+                prev.some((q) => q.id === event.id)
+            ) {
+                return;
+            }
+            commitQueries([...prev, event]);
+        },
+        [commitQueries],
+    );
+
+    return {
+        queries,
+        persistLogs,
+        setPersistLogs,
+        handleQueryEvent,
+        clearQueries,
+        resetQueries,
+        interruptInFlightQueries,
+    };
+};
