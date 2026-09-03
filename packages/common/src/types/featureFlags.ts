@@ -92,6 +92,7 @@ export enum FeatureFlags {
      * Enable Data Apps (custom apps against the semantic layer)
      */
     EnableDataApps = 'enable-data-apps',
+    EnableDataAppCustomDependencies = 'enable-data-app-custom-dependencies',
 }
 
 export type FeatureFlag = {

@@ -25,10 +25,12 @@ export type AuditableUser = Pick<
 
 // Todo: can we remove the & { properties } by improving typing of CaslSubjectNames?
 type AuditableCaslSubject = ForcedSubject<CaslSubjectNames> & {
-    organizationUuid: string;
-    uuid: string;
+    organizationUuid?: string;
+    uuid?: string;
     name?: string;
     projectUuid?: string;
+    metadata?: Record<string, unknown>;
+    [key: string]: unknown;
 };
 
 type AuditHelperArgs = {
@@ -58,11 +60,17 @@ const createActorFromUser = (user: AuditableUser): AuditActor => ({
 const createResourceFromSubject = (
     subject: AuditableCaslSubject,
 ): AuditResource => ({
-    type: subject.__caslSubjectType__ || 'unknown',
+    type: (subject.__caslSubjectType__ as string) || 'unknown',
     uuid: subject.uuid,
-    name: subject.name,
-    organizationUuid: subject.organizationUuid,
-    projectUuid: subject.projectUuid,
+    name: typeof subject.name === 'string' ? subject.name : undefined,
+    organizationUuid:
+        typeof subject.organizationUuid === 'string'
+            ? subject.organizationUuid
+            : '',
+    projectUuid:
+        typeof subject.projectUuid === 'string'
+            ? subject.projectUuid
+            : undefined,
 });
 
 const createContextFromArgs = (args: AuditHelperArgs): AuditContext => ({
@@ -144,7 +152,7 @@ export class CaslAuditWrapper<T extends Ability> {
         this.auditLogger(event);
     }
 
-    can(action: string, subject: AuditableCaslSubject): boolean {
+    can(action: string, subject: any): boolean {
         const result = this.wrappedAbility.can(action, subject);
 
         // Extract the relevant rule that allowed this permission
@@ -157,7 +165,7 @@ export class CaslAuditWrapper<T extends Ability> {
             {
                 user: this.user,
                 action,
-                subject,
+                subject: subject as AuditableCaslSubject,
                 ip: this.ip,
                 userAgent: this.userAgent,
                 requestId: this.requestId,
@@ -169,7 +177,7 @@ export class CaslAuditWrapper<T extends Ability> {
         return result;
     }
 
-    cannot(action: string, subject: AuditableCaslSubject): boolean {
+    cannot(action: string, subject: any): boolean {
         const result = this.wrappedAbility.cannot(action, subject);
 
         const rule = this.wrappedAbility.relevantRuleFor(action, subject);
@@ -180,7 +188,7 @@ export class CaslAuditWrapper<T extends Ability> {
             {
                 user: this.user,
                 action,
-                subject,
+                subject: subject as AuditableCaslSubject,
                 ip: this.ip,
                 userAgent: this.userAgent,
                 requestId: this.requestId,

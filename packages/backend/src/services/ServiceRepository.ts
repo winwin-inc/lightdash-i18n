@@ -61,6 +61,8 @@ import { ValidationService } from './ValidationService/ValidationService';
  */
 interface ServiceManifest {
     analyticsService: AnalyticsService;
+    /** EE: provided when license present */
+    appGenerateService?: unknown;
     chartTemplateService: ChartTemplateService;
     commentService: CommentService;
     csvService: CsvService;
@@ -947,6 +949,11 @@ export class ServiceRepository
                     featureFlagModel: this.models.getFeatureFlagModel(),
                 }),
         );
+    }
+
+    
+    public getAppGenerateService<AppGenerateServiceImplT>(): AppGenerateServiceImplT {
+        return this.getService('appGenerateService' as keyof ServiceManifest) as AppGenerateServiceImplT;
     }
 
     public getEmbedService<EmbedServiceImplT>(): EmbedServiceImplT {

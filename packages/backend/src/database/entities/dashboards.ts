@@ -15,6 +15,7 @@ export const DashboardTileChartTableName = 'dashboard_tile_charts';
 export const DashboardTileSqlChartTableName = 'dashboard_tile_sql_charts';
 export const DashboardTileMarkdownsTableName = 'dashboard_tile_markdowns';
 export const DashboardTileLoomsTableName = 'dashboard_tile_looms';
+export const DashboardTileDataAppsTableName = 'dashboard_tile_data_apps';
 export const DashboardTabsTableName = 'dashboard_tabs';
 
 export type DbDashboard = {
@@ -124,6 +125,18 @@ type DbDashboardTileMarkdowns = {
 
 export type DashboardTileMarkdownsTable =
     Knex.CompositeTableType<DbDashboardTileMarkdowns>;
+
+
+type DbDashboardTileDataApps = {
+    dashboard_version_id: number;
+    dashboard_tile_uuid: string;
+    app_uuid: string;
+    title: string | null;
+    hide_title: boolean | null;
+};
+
+export type DashboardTileDataAppsTable =
+    Knex.CompositeTableType<DbDashboardTileDataApps>;
 
 export type DbDashboardTabs = {
     name: string;

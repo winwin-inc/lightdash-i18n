@@ -92,7 +92,8 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 
 | 项 | 说明 |
 |----|------|
-| Project Chart Types | 依赖 Data Apps 全栈；**前置**：query-sdk ✅、common `ee/apps` types ✅；下一步需 `features/apps` 再接 `features/chartTypes` |
+| Project Chart Types | 依赖 Data Apps 全栈；**前置**：query-sdk ✅、common `ee/apps` types ✅、`features/apps` UI+路由 ✅；下一步接 `features/chartTypes`（sandbox 真跑通可并行） |
+| Data Apps 运行时 | **运行时收口已落地**：CASL/Health/路由/pages/Dashboard tile ✅；后端 AppModel+API+preview+migrations ✅（`backend typecheck` 通过）；Sandbox 真跑通 / generate 端到端仍待第二刀 |
 | External Sources | DuckDB 运行时 + 多表 migration |
 | ~~query-sdk 包~~ | **已引入**；vizContext ↔ host 类型同步已恢复 |
 | ~~common ee/apps 宿主类型~~ | **已引入** `types` / `sdkFeatures` / `dataAppVizConfigOptions`（不含 code/dataReferences/serializer 等） |

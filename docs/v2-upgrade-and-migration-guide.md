@@ -4,7 +4,7 @@
 >
 > **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
 >
-> **主迁移代码状态（2026-09-02）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**（`types` / `sdkFeatures` / `dataAppVizConfigOptions`，query-sdk vizContext 类型同步已恢复）。后置专项：Data Apps UI（`features/apps`）→ Chart Types、External Sources、i18n ns 重构、EE 解绑。
+> **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。
 
 ---
 
@@ -280,11 +280,11 @@ flowchart TB
 | 功能 | 预期 Schema | 量级 | 说明 |
 |------|-------------|------|------|
 | ~~Tabs 超集合并 / Filter Override~~ | 无大 schema | — | **已合入**（reconcile + hidden/懒加载 + locked-tab + 锁定 UI） |
-| Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | **不可单独落地**：硬依赖 `features/apps`（iframe / build poller / SdkBridge）。顺序：common apps types（✅）→ `features/apps` → `features/chartTypes` → sandbox/backend |
+| Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | **不可单独落地**：硬依赖可运行 apps。顺序：common apps types（✅）→ `features/apps` UI+路由（✅）→ 后端 API（✅ typecheck）→ Sandbox 真跑通（⚠️）→ `features/chartTypes` |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方；见第六节 |
 | Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更；与上游差距主要为 timezone display 门控等细节 |
 | Formula 包 | **无 DB** | 无 | **已引入** `packages/formula` + `formula-tests`；`pnpm -F @lightdash/formula test` |
-| Query SDK 包 | **无 DB** | 无 | **已引入** `packages/query-sdk`；common 镜像 `ee/apps/sdkFeatures.ts` + **`ee/apps/types.ts` / `dataAppVizConfigOptions.ts`**（viz 宿主类型同步）；**未接** Data Apps UI / Chart Types |
+| Query SDK 包 | **无 DB** | 无 | **已引入** `packages/query-sdk`；common 镜像 `ee/apps` 宿主类型；Data Apps UI/路由/后端 API ✅（typecheck 通过）；Chart Types / Sandbox 真跑通未接 |
 
 #### 后置专项（主迁移完成后再做；库变更明显变大）
 

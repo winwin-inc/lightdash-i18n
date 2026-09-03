@@ -1,0 +1,354 @@
+import {
+    ContentType,
+    DATA_APP_VIZ_TEMPLATE,
+    DataAppContent,
+} from '@lightdash/common';
+import { Knex } from 'knex';
+import {
+    AppsTableName,
+    AppVersionsTableName,
+} from '../../../database/entities/apps';
+import { OrganizationTableName } from '../../../database/entities/organizations';
+import { PinnedAppTableName } from '../../../database/entities/pinnedList';
+import { ProjectTableName } from '../../../database/entities/projects';
+import { SpaceTableName } from '../../../database/entities/spaces';
+import { UserTableName } from '../../../database/entities/users';
+import {
+    ContentConfiguration,
+    ContentFilters,
+    ContentTypePriority,
+    SummaryContentRow,
+} from '../ContentModelTypes';
+import { applyContentNameSearch } from '../ContentSearchUtils';
+
+export const dataAppContentConfiguration: ContentConfiguration<SummaryContentRow> =
+    {
+        // Only dashboards have owners, so the owner filter excludes data apps
+        shouldQueryBeIncluded: (filters: ContentFilters) =>
+            !filters.ownerUserUuids &&
+            (!filters.contentTypes ||
+                filters.contentTypes?.includes(ContentType.DATA_APP)),
+        getSummaryQuery: (
+            knex: Knex,
+            filters: ContentFilters,
+        ): Knex.QueryBuilder =>
+            knex
+                .from(AppsTableName)
+                .where((deletedFilter) => {
+                    if (filters.deleted) {
+                        void deletedFilter.whereNotNull(
+                            `${AppsTableName}.deleted_at`,
+                        );
+                        if (filters.deletedByUserUuids) {
+                            void deletedFilter.whereIn(
+                                `${AppsTableName}.deleted_by_user_uuid`,
+                                filters.deletedByUserUuids,
+                            );
+                        }
+                    } else {
+                        void deletedFilter.whereNull(
+                            `${AppsTableName}.deleted_at`,
+                        );
+                    }
+                })
+                // Apps without a space are personal drafts. They're hidden
+                // from space-based content listings unless the caller opts
+                // into personal apps (the "All data apps" browse, where
+                // `filters.dataApps` is set), and they surface in the
+                // recently-deleted view so admins can restore them. Vizs are
+                // spaceless by design (project-global chart content), so the
+                // "only" listing must never hide them behind the personal opt-in.
+                .where((personalFilter) => {
+                    if (
+                        !filters.deleted &&
+                        !filters.dataApps &&
+                        !filters.sharedWithMe &&
+                        filters.dataAppVizsFilter !== 'only'
+                    ) {
+                        void personalFilter.whereNotNull(
+                            `${AppsTableName}.space_uuid`,
+                        );
+                    }
+                })
+                .where((templateFilter) => {
+                    if (filters.dataAppVizsFilter === 'exclude') {
+                        void templateFilter
+                            .whereNot(
+                                `${AppsTableName}.template`,
+                                DATA_APP_VIZ_TEMPLATE,
+                            )
+                            .orWhereNull(`${AppsTableName}.template`);
+                    } else if (filters.dataAppVizsFilter === 'only') {
+                        void templateFilter.where(
+                            `${AppsTableName}.template`,
+                            DATA_APP_VIZ_TEMPLATE,
+                        );
+                    }
+                })
+                .leftJoin(
+                    SpaceTableName,
+                    `${SpaceTableName}.space_uuid`,
+                    `${AppsTableName}.space_uuid`,
+                )
+                .innerJoin(
+                    ProjectTableName,
+                    `${ProjectTableName}.project_uuid`,
+                    `${AppsTableName}.project_uuid`,
+                )
+                .innerJoin(
+                    OrganizationTableName,
+                    `${OrganizationTableName}.organization_id`,
+                    `${ProjectTableName}.organization_id`,
+                )
+                .leftJoin(
+                    `${UserTableName} as created_by_user`,
+                    `created_by_user.user_uuid`,
+                    `${AppsTableName}.created_by_user_uuid`,
+                )
+                .leftJoin(
+                    `${AppVersionsTableName} as latest_version`,
+                    `latest_version.app_id`,
+                    `${AppsTableName}.app_id`,
+                )
+                .leftJoin(
+                    `${UserTableName} as last_updated_by_user`,
+                    `last_updated_by_user.user_uuid`,
+                    `latest_version.created_by_user_uuid`,
+                )
+                .leftJoin(
+                    PinnedAppTableName,
+                    `${PinnedAppTableName}.app_uuid`,
+                    `${AppsTableName}.app_id`,
+                )
+                .select<SummaryContentRow[]>([
+                    knex.raw(`'${ContentType.DATA_APP}' as content_type`),
+                    knex.raw(
+                        `${ContentTypePriority.DATA_APP} as content_type_rank`,
+                    ),
+                    knex.raw(`${AppsTableName}.app_id::text as uuid`),
+                    `${AppsTableName}.name`,
+                    `${AppsTableName}.description`,
+                    // Apps don't have a real slug column yet — synthesize one
+                    // for the content listing URL shape. Uniqueness isn't
+                    // relied upon since we link by UUID.
+                    knex.raw(
+                        `'data-app-' || ${AppsTableName}.app_id::text as slug`,
+                    ),
+                    `${SpaceTableName}.space_uuid`,
+                    `${SpaceTableName}.name as space_name`,
+                    `${ProjectTableName}.project_uuid`,
+                    `${ProjectTableName}.name as project_name`,
+                    `${OrganizationTableName}.organization_uuid`,
+                    `${OrganizationTableName}.organization_name`,
+                    `${PinnedAppTableName}.pinned_list_uuid as pinned_list_uuid`,
+                    knex.raw(
+                        `${AppsTableName}.created_at::timestamp as created_at`,
+                    ),
+                    `created_by_user.user_uuid             as created_by_user_uuid`,
+                    `created_by_user.first_name            as created_by_user_first_name`,
+                    `created_by_user.last_name             as created_by_user_last_name`,
+                    `latest_version.created_at             as last_updated_at`,
+                    `last_updated_by_user.user_uuid        as last_updated_by_user_uuid`,
+                    `last_updated_by_user.first_name       as last_updated_by_user_first_name`,
+                    `last_updated_by_user.last_name        as last_updated_by_user_last_name`,
+
+                    `${AppsTableName}.views_count as views`,
+                    knex.raw(
+                        `${AppsTableName}.created_at::timestamp as first_viewed_at`,
+                    ),
+                    knex.raw(
+                        `${AppsTableName}.deleted_at::timestamp as deleted_at`,
+                    ),
+                    `${AppsTableName}.deleted_by_user_uuid as deleted_by_user_uuid`,
+                    knex.raw(
+                        `(SELECT first_name FROM users WHERE user_uuid = ${AppsTableName}.deleted_by_user_uuid) as deleted_by_user_first_name`,
+                    ),
+                    knex.raw(
+                        `(SELECT last_name FROM users WHERE user_uuid = ${AppsTableName}.deleted_by_user_uuid) as deleted_by_user_last_name`,
+                    ),
+                    knex.raw(`null::timestamp as verified_at`),
+                    knex.raw(`null::uuid as verified_by_user_uuid`),
+                    knex.raw(`null as verified_by_user_first_name`),
+                    knex.raw(`null as verified_by_user_last_name`),
+                    knex.raw(`null::uuid as owner_user_uuid`),
+                    knex.raw(`null as owner_user_first_name`),
+                    knex.raw(`null as owner_user_last_name`),
+                    knex.raw(`null as owner_user_email`),
+                    knex.raw(
+                        `json_build_object(
+                            'latestVersionNumber', latest_version.version,
+                            'latestVersionStatus', latest_version.status,
+                            'latestReadyVersionNumber', (
+                                select ready_version.version
+                                from ${AppVersionsTableName} as ready_version
+                                where ready_version.app_id = ${AppsTableName}.app_id
+                                    and ready_version.status = 'ready'
+                                order by ready_version.version desc
+                                limit 1
+                            ),
+                            'pinnedListOrder', ${PinnedAppTableName}.order,
+                            'template', ${AppsTableName}.template
+                        ) as metadata`,
+                    ),
+                ])
+                .where((builder) => {
+                    if (filters.projectUuids) {
+                        void builder.whereIn(
+                            `${ProjectTableName}.project_uuid`,
+                            filters.projectUuids,
+                        );
+                    }
+
+                    if (filters.uuids) {
+                        void builder.whereIn(
+                            `${AppsTableName}.app_id`,
+                            filters.uuids,
+                        );
+                    }
+
+                    // Vizs are project-global chart content, not scoped to a
+                    // space — `space_uuid` is null for every row, so this
+                    // whole visibility block (space-uuid whereIn / personal
+                    // opt-in) would wrongly exclude them. Skip it entirely;
+                    // `filters.projectUuids` above already scopes the query.
+                    if (filters.dataAppVizsFilter !== 'only') {
+                        const personal = filters.dataApps;
+                        if (personal) {
+                            // Surface space apps the caller can access OR personal
+                            // apps they may see (their own, plus everyone's in
+                            // projects where they're an admin).
+                            void builder.where((visibility) => {
+                                if (filters.spaceUuids) {
+                                    void visibility.whereIn(
+                                        `${SpaceTableName}.space_uuid`,
+                                        filters.spaceUuids,
+                                    );
+                                }
+                                void visibility.orWhere((personalApps) => {
+                                    void personalApps.whereNull(
+                                        `${AppsTableName}.space_uuid`,
+                                    );
+                                    void personalApps.where((owner) => {
+                                        void owner.where(
+                                            `${AppsTableName}.created_by_user_uuid`,
+                                            personal.personalForUserUuid,
+                                        );
+                                        if (
+                                            personal.personalAdminProjectUuids
+                                                .length > 0
+                                        ) {
+                                            void owner.orWhereIn(
+                                                `${ProjectTableName}.project_uuid`,
+                                                personal.personalAdminProjectUuids,
+                                            );
+                                        }
+                                    });
+                                });
+                            });
+                        } else if (filters.spaceUuids) {
+                            void builder.whereIn(
+                                `${SpaceTableName}.space_uuid`,
+                                filters.spaceUuids,
+                            );
+                        }
+                    }
+
+                    // Pick the latest version per app — every app has at
+                    // least one version (created atomically with the app).
+                    void builder.where(
+                        `latest_version.app_version_id`,
+                        knex.raw(
+                            `(select app_version_id
+                                from ${AppVersionsTableName}
+                                where app_id = ${AppsTableName}.app_id
+                                order by version desc
+                                limit 1)`,
+                        ),
+                    );
+
+                    if (filters.search) {
+                        applyContentNameSearch(
+                            builder,
+                            `${AppsTableName}.name`,
+                            filters.search,
+                        );
+                    }
+
+                    // Exclude apps in deleted spaces
+                    void builder.whereNull(`${SpaceTableName}.deleted_at`);
+                }),
+        shouldRowBeConverted: (value): value is SummaryContentRow =>
+            value.content_type === ContentType.DATA_APP,
+        convertSummaryRow: (value): DataAppContent => {
+            if (!dataAppContentConfiguration.shouldRowBeConverted(value)) {
+                throw new Error('Invalid content row');
+            }
+            return {
+                contentType: ContentType.DATA_APP,
+                // Filled in by ContentService for the requesting user.
+                directAccessRoles: [],
+                uuid: value.uuid,
+                slug: value.slug,
+                name: value.name,
+                description: value.description,
+                createdAt: value.created_at,
+                createdBy: value.created_by_user_uuid
+                    ? {
+                          uuid: value.created_by_user_uuid,
+                          firstName: value.created_by_user_first_name ?? '',
+                          lastName: value.created_by_user_last_name ?? '',
+                      }
+                    : null,
+                lastUpdatedAt: value.last_updated_at,
+                lastUpdatedBy: value.last_updated_by_user_uuid
+                    ? {
+                          uuid: value.last_updated_by_user_uuid,
+                          firstName:
+                              value.last_updated_by_user_first_name ?? '',
+                          lastName: value.last_updated_by_user_last_name ?? '',
+                      }
+                    : null,
+                project: {
+                    uuid: value.project_uuid,
+                    name: value.project_name,
+                },
+                organization: {
+                    uuid: value.organization_uuid,
+                    name: value.organization_name,
+                },
+                space: value.space_uuid
+                    ? {
+                          uuid: value.space_uuid,
+                          name: value.space_name,
+                      }
+                    : null,
+                pinnedList: value.pinned_list_uuid
+                    ? {
+                          uuid: value.pinned_list_uuid,
+                          order:
+                              (value.metadata.pinnedListOrder as
+                                  | number
+                                  | null) ?? 0,
+                      }
+                    : null,
+                views: value.views,
+                firstViewedAt: value.first_viewed_at,
+                verification: null,
+                latestVersionNumber:
+                    (value.metadata.latestVersionNumber as number | null) ??
+                    null,
+                latestVersionStatus:
+                    (value.metadata.latestVersionStatus as
+                        | DataAppContent['latestVersionStatus']
+                        | null) ?? null,
+                latestReadyVersionNumber:
+                    (value.metadata.latestReadyVersionNumber as
+                        | number
+                        | null) ?? null,
+                template:
+                    (value.metadata.template as
+                        | DataAppContent['template']
+                        | null) ?? null,
+            };
+        },
+    };

@@ -45,6 +45,8 @@ export class FeatureFlagModel {
             [FeatureFlags.MergeQueries]: this.getMergeQueriesEnabled.bind(this),
             [FeatureFlags.LockDashboardFilters]:
                 this.getLockDashboardFiltersEnabled.bind(this),
+            [FeatureFlags.EnableDataApps]:
+                this.getEnableDataAppsEnabled.bind(this),
         };
     }
 
@@ -189,5 +191,14 @@ export class FeatureFlagModel {
             id: featureFlagId,
             enabled: process.env.LOCK_DASHBOARD_FILTERS_ENABLED === 'true',
         });
+    }
+
+    private async getEnableDataAppsEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        if (this.lightdashConfig.appRuntime.enabled) {
+            return { id: featureFlagId, enabled: true };
+        }
+        return { id: featureFlagId, enabled: false };
     }
 }

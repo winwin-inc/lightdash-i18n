@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { type ReadyQueryResultsPage } from '../../types/api';
 import { type ApiSuccess, type ApiSuccessEmpty } from '../../types/api/success';
 import {
     type DashboardConfig,
@@ -21,10 +22,6 @@ import {
     type DataAppVizOptionValue,
     type DataAppVizPaletteDeclaration,
 } from './dataAppVizConfigOptions';
-
-// Fork: ReadyQueryResultsPage lives on common index (not types/api). Type-only
-// import to avoid pulling the index value graph into this module at runtime.
-import { type ReadyQueryResultsPage } from '../../index';
 
 export type {
     DataAppVizConfigOption,

@@ -13,3 +13,7 @@ export const isRequestMethod = (
     value: string | undefined,
 ): value is RequestMethod =>
     !!value && Object.values(RequestMethod).includes(value as AnyType);
+
+
+// STUB for Data Apps types
+export type ReadyQueryResultsPage = Record<string, unknown>;

@@ -86,6 +86,24 @@ export type DashboardAccess = {
     filtering?: DashboardFilterInteractivityOptions;
     /** User-specific access controls */
     controls?: UserAccessControls;
+    /**
+     * STUB: upstream uses EmbedAccess.content; keep a compatible shape for
+     * Data Apps embed auth until full EmbedAccess is ported.
+     */
+    content: {
+        type:
+            | 'dashboard'
+            | 'chart'
+            | 'dataApp'
+            | 'aiAgent'
+            | 'metricsCatalog'
+            | 'apiAccess';
+        dashboardUuid?: string;
+        appUuid?: string;
+        chartUuids?: string[];
+        explores?: string[];
+        agentUuid?: string;
+    };
 };
 
 export type AccountHelpers = {

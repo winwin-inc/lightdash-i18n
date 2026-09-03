@@ -2,6 +2,7 @@ import {
     DashboardTileTypes,
     assertUnreachable,
     type Dashboard,
+    type DashboardDataAppTileProperties,
     type DashboardLoomTileProperties,
     type DashboardMarkdownTile,
     type DashboardMarkdownTileProperties,
@@ -15,11 +16,12 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import { useForm, type UseFormReturnType } from '@mantine/form';
-import { IconMarkdown, IconVideo } from '@tabler/icons-react';
+import { IconAppWindow, IconMarkdown, IconVideo } from '@tabler/icons-react';
 import { produce } from 'immer';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
+import DataAppTileEditForm from './DataAppTileEditForm';
 import LoomTileForm from './LoomTileForm';
 import MarkdownTileForm from './MarkdownTileForm';
 import { getLoomId, markdownTileContentTransform } from './utils';
@@ -61,6 +63,7 @@ const TileUpdateModal = <T extends Tile>({
 
         if (tile.type === DashboardTileTypes.LOOM)
             return { ...urlValidator, ...titleValidator };
+        if (tile.type === DashboardTileTypes.DATA_APP) return titleValidator;
     };
 
     const form = useForm<TileProperties>({
@@ -97,7 +100,9 @@ const TileUpdateModal = <T extends Tile>({
                         icon={
                             tile.type === DashboardTileTypes.MARKDOWN
                                 ? IconMarkdown
-                                : IconVideo
+                                : tile.type === DashboardTileTypes.DATA_APP
+                                  ? IconAppWindow
+                                  : IconVideo
                         }
                     />
                     <Title order={4}>
@@ -135,7 +140,15 @@ const TileUpdateModal = <T extends Tile>({
                             }
                             withHideTitle
                         />
-                    ) : tile.type === DashboardTileTypes.DATA_APP ? null : (
+                    ) : tile.type === DashboardTileTypes.DATA_APP ? (
+                        <DataAppTileEditForm
+                            form={
+                                form as UseFormReturnType<
+                                    DashboardDataAppTileProperties['properties']
+                                >
+                            }
+                        />
+                    ) : (
                         assertUnreachable(tile, 'Tile type not supported')
                     )}
 

@@ -21,6 +21,7 @@ import useEmbed from '../../../../providers/Embed/useEmbed';
 import { useEmbedDashboard } from '../hooks';
 import EmbedDashboardChartTile from './EmbedDashboardChartTile';
 import EmbedDashboardHeader from './EmbedDashboardHeader';
+import EmbedDataAppTile from './EmbedDataAppTile';
 
 import { Group, Tabs, Title } from '@mantine/core';
 import '../../../../../styles/react-grid.css';
@@ -115,7 +116,11 @@ const EmbedDashboardGrid: FC<{
                                     onEdit={() => {}}
                                 />
                             ) : tile.type === DashboardTileTypes.DATA_APP ? (
-                                null
+                                <EmbedDataAppTile
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    projectUuid={projectUuid}
+                                />
                             ) : (
                                 assertUnreachable(
                                     tile,

@@ -6,9 +6,12 @@ import { ProjectTableName } from '../database/entities/projects';
 import { SavedChartsTableName } from '../database/entities/savedCharts';
 import { SpaceTableName } from '../database/entities/spaces';
 
+
+const PROJECT_SLUG_LOCK_NAMESPACE = 42;
+
 export const generateUniqueSlug = async (
     trx: Knex,
-    tableName: 'saved_queries' | 'saved_sql' | 'dashboards' | 'spaces',
+    tableName: 'saved_queries' | 'saved_sql' | 'dashboards' | 'spaces' | 'apps',
     name: string,
 ) => {
     const baseSlug = generateSlug(name);
@@ -50,10 +53,22 @@ export const generateUniqueSpaceSlug = async (
     return baseSlug;
 };
 
+
+export const acquireProjectSlugLock = async (
+    trx: Knex,
+    projectUuid: string,
+    slug: string,
+): Promise<void> => {
+    await trx.raw('SELECT pg_advisory_xact_lock(?, hashtext(?))', [
+        PROJECT_SLUG_LOCK_NAMESPACE,
+        `${projectUuid}:${slug}`,
+    ]);
+};
+
 export const generateUniqueSlugScopedToProject = async (
     trx: Knex,
     projectUuid: string,
-    tableName: 'saved_queries' | 'saved_sql' | 'dashboards' | 'spaces',
+    tableName: 'saved_queries' | 'saved_sql' | 'dashboards' | 'spaces' | 'apps',
     name: string,
 ) => {
     const baseSlug = generateSlug(name);
@@ -106,6 +121,8 @@ export const generateUniqueSlugScopedToProject = async (
             break;
         case 'saved_sql':
         case 'spaces':
+            throw new Error('Not implemented');
+        case 'apps':
             throw new Error('Not implemented');
         default:
             return assertUnreachable(

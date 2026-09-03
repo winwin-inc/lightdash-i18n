@@ -469,6 +469,21 @@ export const convertToAiHints = (
     return aiHint;
 };
 
+export const getEffectiveFieldAiHints = (
+    field: Pick<{ aiHint?: string | string[]; groups?: string[] }, 'aiHint' | 'groups'>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    table: { groupDetails?: Record<string, any> } | undefined,
+): string[] | undefined => {
+    const hints = [
+        ...(convertToAiHints(field.aiHint) ?? []),
+        ...(field.groups ?? []).flatMap(
+            (group) =>
+                convertToAiHints(table?.groupDetails?.[group]?.aiHint) ?? [],
+        ),
+    ];
+    return hints.length > 0 ? [...new Set(hints)] : undefined;
+};
+
 export const isDbtRpcRunSqlResults = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results: Record<string, any>,

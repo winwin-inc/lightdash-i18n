@@ -31,6 +31,20 @@ export class LightdashError extends Error {
     }
 }
 
+export class TooManyRequestsError extends LightdashError {
+    constructor(
+        message = 'Too many requests',
+        data: { [key: string]: AnyType } = {},
+    ) {
+        super({
+            message,
+            name: 'TooManyRequestsError',
+            statusCode: 429,
+            data,
+        });
+    }
+}
+
 export class ForbiddenError extends LightdashError {
     constructor(
         message = "You don't have access to this resource or action",

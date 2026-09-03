@@ -24,10 +24,10 @@ import {
     getResponsiveGridLayoutProps,
 } from '../components/DashboardTabs/gridUtils';
 import ChartTile from '../components/DashboardTiles/DashboardChartTile';
+import DataAppTile from '../components/DashboardTiles/DashboardDataAppTile';
 import LoomTile from '../components/DashboardTiles/DashboardLoomTile';
 import MarkdownTile from '../components/DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../components/DashboardTiles/DashboardSqlChartTile';
-import TileBase from '../components/DashboardTiles/TileBase';
 import MinimalDashboardTabs from '../components/MinimalDashboardTabs';
 import { useScheduler } from '../features/scheduler/hooks/useScheduler';
 import { useDateZoomGranularitySearch } from '../hooks/useExplorerRoute';
@@ -330,12 +330,10 @@ const MinimalDashboard: FC = () => {
                                     onEdit={() => {}}
                                 />
                             ) : tile.type === DashboardTileTypes.DATA_APP ? (
-                                <TileBase
+                                <DataAppTile
                                     key={tile.uuid}
                                     tile={tile}
                                     isEditMode={false}
-                                    title=""
-                                    isLoading={false}
                                     onDelete={() => {}}
                                     onEdit={() => {}}
                                 />

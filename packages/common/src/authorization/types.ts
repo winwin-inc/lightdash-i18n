@@ -57,6 +57,7 @@ export type CaslSubjectNames =
     | 'Validation'
     | 'VirtualView'
     | 'DataApp'
+    | 'DataAppDependency'
     | 'ExternalConnection';
 
 export type Subject =

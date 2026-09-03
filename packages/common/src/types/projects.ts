@@ -466,7 +466,10 @@ export type Project = {
 export type ProjectSummary = Pick<
     Project,
     'name' | 'projectUuid' | 'organizationUuid' | 'type' | 'upstreamProjectUuid'
->;
+> & {
+    /** Present on newer project rows; optional until all callers populate it */
+    createdByUserUuid?: string | null;
+};
 
 export type ApiProjectResponse = {
     status: 'ok';

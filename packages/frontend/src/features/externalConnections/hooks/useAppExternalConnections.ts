@@ -1,14 +1,11 @@
-// STUB: Phase C — external connections not wired for apps yet.
-import type {
-    AppExternalConnectionLink,
-    ExternalConnection,
-} from '@lightdash/common';
+// STUB: returns empty linked connections until External Connections API is ported.
+import { type AppExternalConnectionLinked } from '@lightdash/common';
 
 export const useAppExternalConnections = (
-    _projectUuid?: string,
-    _appUuid?: string,
+    _projectUuid: string | undefined,
+    _appUuid: string | undefined,
 ) => ({
-    data: [] as AppExternalConnectionLink[],
-    isLoading: false,
+    data: [] as AppExternalConnectionLinked[],
     isInitialLoading: false,
+    isLoading: false,
 });

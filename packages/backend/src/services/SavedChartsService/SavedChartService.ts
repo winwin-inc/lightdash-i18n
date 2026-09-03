@@ -814,6 +814,8 @@ export class SavedChartService
     async get(
         savedChartUuidOrSlug: string,
         account: Account,
+        // Optional project scoping (upstream); ignored until model supports it.
+        _options?: { projectUuid?: string },
     ): Promise<SavedChart> {
         const savedChart = await this.savedChartModel.get(savedChartUuidOrSlug);
         const space = await this.spaceModel.getSpaceSummary(

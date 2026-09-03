@@ -19,6 +19,7 @@ export enum DashboardTileTypes {
     MARKDOWN = 'markdown',
     LOOM = 'loom',
     DATA_APP = 'data_app',
+    HEADING = 'heading',
 }
 
 type CreateDashboardTileBase = {

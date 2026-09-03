@@ -41,7 +41,9 @@
         "knex-mock-client": "^1.11.0",
         "mastra": "^0.10.15",
         "nodemon": "^3.1.9",
-        "ts-node": "^10.9.2"
+        "ts-node": "^10.9.2",
+        "@types/tar-stream": "3.1.4",
+        "@types/dockerode": "4.0.1"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^2.0.13",
@@ -160,7 +162,11 @@
         "vitest": "^3.2.4",
         "winston": "^3.3.3",
         "yaml": "^2.7.0",
-        "zod": "^3.25.55"
+        "zod": "^3.25.55",
+        "e2b": "2.16.0",
+        "tar-stream": "3.1.8",
+        "@azure/identity": "4.5.0",
+        "dockerode": "5.0.0"
     },
     "scripts": {
         "generate-api": "tsoa spec-and-routes --configuration tsoa.yml",

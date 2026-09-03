@@ -105,6 +105,10 @@ export interface DataAppContent extends Omit<Content, 'space' | 'pinnedList'> {
     } | null;
     /** 'data_app_viz' marks a reusable chart-type viz rather than a standalone app. */
     template: import('../ee/apps/types').DataAppTemplate | null;
+    /** STUB: direct-access roles until SpacePermission is fully ported */
+    directAccessRoles?: unknown[];
+    /** STUB: content verification until content verification is ported */
+    verification?: unknown;
 }
 
 // Group types

@@ -375,7 +375,7 @@ const parseCdnConfig = (): LightdashConfig['cdn'] => {
     let baseUrl: string | undefined;
     if (isSemverPrereleaseVersion(staticFilesVersion)) {
         console.log(
-            `[CDN Config] Prerelease ${staticFilesVersion} — serving frontend from backend (skip CDN)`,
+            `[CDN Config] Prerelease ${staticFilesVersion} �?serving frontend from backend (skip CDN)`,
         );
         baseUrl = undefined;
     } else {
@@ -746,8 +746,17 @@ export type LoggingConfig = {
     filePath: string;
 };
 
+
+export type LightdashSecrets = {
+    active: string;
+    fallbacks: readonly string[];
+    all: readonly string[];
+};
+
 export type LightdashConfig = {
     lightdashSecret: string;
+    /** Always equals lightdashSecrets.active; kept for compatibility */
+    lightdashSecrets: LightdashSecrets;
     secureCookies: boolean;
     cookieSameSite?: 'lax' | 'none';
     security: {
@@ -970,7 +979,259 @@ export type LightdashConfig = {
         baseUrl: string;
         timeoutMs: number;
     };
+    appRuntime: AppRuntimeConfig;
+    softDelete: {
+        enabled: boolean;
+        retentionDays: number;
+    };
 };
+
+export type AppRuntimeConfig = {
+    enabled: boolean;
+    /** Coding agent invoked by the data-app generation pipeline. */
+    dataAppCodingAgent: 'claude' | 'codex';
+    lightdashOrigin: string;
+    cdnOrigin: string | null;
+    /**
+     * Origin where data-app preview iframes are served, distinct from the
+     * Lightdash app origin (e.g., `https://acme.lightdash.app`). When null,
+     * previews are served same-origin �?dev / pre-cutover behavior. The
+     * host filter rejects requests on this hostname unless the path matches
+     * the preview-router prefix.
+     */
+    previewOrigin: string | null;
+    /**
+     * Additional origins allowed in the preview iframe CSP for style-src
+     * and font-src directives. Parsed from a comma-separated env var
+     * (e.g. `https://fonts.googleapis.com,https://fonts.gstatic.com`).
+     */
+    cspAllowedOrigins: string[];
+    s3: S3Config | null;
+    e2bApiKey: string | null;
+    e2bTemplateName: string;
+    /**
+     * Tag identifying which build of `e2bTemplateName` to launch sandboxes
+     * from. Composed into `name:tag` for `Sandbox.create`. Empty string falls
+     * back to E2B's implicit `default` tag �?used as a transition state for
+     * deployments that haven't picked up a version-tagged build yet.
+     */
+    e2bTemplateTag: string;
+    /**
+     * Separate template name+tag for the AI writeback sandbox. Decoupled from
+     * the data-app template so operators can pin or roll back the writeback
+     * image independently (e.g. roll back writeback without disturbing data
+     * apps). Defaults match the release workflow's build target.
+     */
+    e2bAiWritebackTemplateName: string;
+    e2bAiWritebackTemplateTag: string;
+    /**
+     * Which sandbox backend the data-app pipeline launches sandboxes on.
+     * `e2b` keeps today's hosted path; `docker` runs a plain local container
+     * (dev / self-host testbed �?see docs/sandbox-runtime.md);
+     * `lambda-microvm` runs AWS Lambda MicroVMs (native suspend/resume);
+     * `azure-sandboxes` runs Azure Container Apps Sandboxes (native
+     * suspend/resume �?the Azure analog of E2B / Lambda MicroVMs);
+     * `gcp-cloud-run` runs Google Cloud Run Sandboxes behind a gateway service
+     * deployed with `--sandbox-launcher` (object-store snapshots, like Docker).
+     * Later: kubernetes | ecs | microsandbox.
+     */
+    sandboxProvider:
+        | 'e2b'
+        | 'docker'
+        | 'lambda-microvm'
+        | 'azure-sandboxes'
+        | 'gcp-cloud-run';
+    /**
+     * OCI image the `docker` sandbox provider launches data-app containers
+     * from. Built locally from sandboxes/data-apps (e.g. `lightdash-sandbox:local`).
+     */
+    sandboxDockerImage: string;
+    /**
+     * OCI image the `docker` sandbox provider launches AI writeback containers
+     * from. Decoupled from the data-app image (different toolchain: dbt venvs +
+     * Lightdash CLI + Claude Code) �?the Docker analog of the separate E2B
+     * writeback template. Built locally from sandboxes/ai-writeback (e.g.
+     * `lightdash-ai-writeback:local`).
+     */
+    sandboxAiWritebackDockerImage: string;
+    /** OCI image used by managed project onboarding with the Docker provider. */
+    sandboxAgentOnboardingDockerImage: string;
+    /**
+     * How long a *running* sandbox can be idle before the backend suspends it.
+     * Feeds the native-pause provider's own idle policy (Lambda MicroVMs'
+     * AWS-side auto-suspend); ignored by E2B (which has its own timeout) and
+     * Docker. Defaults to 30 minutes.
+     */
+    sandboxIdleTimeoutMs: number;
+    /**
+     * How long a *suspended* sandbox snapshot is kept (resumable) before it is
+     * reclaimed. Feeds the native-pause provider's idle policy (Lambda MicroVMs'
+     * AWS-side auto-terminate). Defaults to 7 days.
+     */
+    sandboxSnapshotRetentionMs: number;
+    /**
+     * Static config the `lambda-microvm` sandbox provider needs (region, IAM
+     * execution role, network connectors, idle policy). Idle/suspended durations
+     * are derived from `sandboxIdleTimeoutMs`/`sandboxSnapshotRetentionMs` so the
+     * AWS-side `idlePolicy` (auto-suspend / auto-terminate) governs idle expiry.
+     * Always populated (with defaults); only read when the provider is
+     * `lambda-microvm`.
+     */
+    lambdaMicroVm: {
+        region: string;
+        executionRoleArn: string | null;
+        ingressConnectorArn: string;
+        egressConnectorArn: string;
+        maxIdleDurationSeconds: number;
+        suspendedDurationSeconds: number;
+    };
+    /**
+     * Lambda MicroVM image ARN the data-app pipeline runs from (the
+     * `lambda-microvm` analog of the Docker data-app image).
+     * Built out-of-band by the image pipeline (see sandboxes/). Required only
+     * when `sandboxProvider === 'lambda-microvm'`.
+     */
+    lambdaMicroVmDataAppImageArn: string | null;
+    /**
+     * Lambda MicroVM image ARN the AI writeback pipeline runs from (decoupled
+     * from the data-app image, mirroring the split Docker images).
+     * Required only when `sandboxProvider === 'lambda-microvm'`.
+     */
+    lambdaMicroVmAiWritebackImageArn: string | null;
+    /**
+     * Shared config for the `azure-sandboxes` provider (subscription / resource
+     * group / region + ADC data-plane API version, Entra token scope, and sandbox
+     * resource tier). The per-feature sandbox group + disk image are separate
+     * fields below. Always populated (with defaults); `subscriptionId`/`resourceGroup`
+     * are only required when the provider is `azure-sandboxes`.
+     */
+    azureSandboxes: {
+        subscriptionId: string | null;
+        resourceGroup: string | null;
+        region: string;
+        apiVersion: string;
+        tokenScope: string;
+        resourceTier: string;
+    };
+    /**
+     * Sandbox group the data-app pipeline runs sandboxes in (one group + disk
+     * image per feature, mirroring the split Docker images / Lambda ARNs).
+     * Required only when `sandboxProvider === 'azure-sandboxes'`.
+     */
+    azureSandboxesDataAppGroup: string | null;
+    /** Disk image **id** (UUID assigned at registration) the data-app pipeline
+     * launches from �?passed as `sourcesRef.diskImage.id`. Required only when
+     * `azure-sandboxes`. */
+    azureSandboxesDataAppDiskImage: string | null;
+    /**
+     * Sandbox group the AI writeback pipeline runs sandboxes in (decoupled from
+     * the data-app group). Required only when `sandboxProvider === 'azure-sandboxes'`.
+     */
+    azureSandboxesAiWritebackGroup: string | null;
+    /** Disk image the AI writeback pipeline launches (decoupled from the data-app
+     * image). Required only when `azure-sandboxes`. */
+    azureSandboxesAiWritebackDiskImage: string | null;
+    /**
+     * Config for the `gcp-cloud-run` provider: URL + shared secret of the
+     * sandbox gateway Cloud Run service (deployed with `--sandbox-launcher`,
+     * data-app toolchain image baked in). Required only when
+     * `sandboxProvider === 'gcp-cloud-run'`.
+     */
+    gcpCloudRun: {
+        sandboxUrl: string | null;
+        sandboxSecret: string | null;
+    };
+    /** E2B template used by managed project onboarding. */
+    e2bAgentOnboardingTemplateName: string;
+    e2bAgentOnboardingTemplateTag: string;
+    /**
+     * Lean template name+tag for the general-purpose coding agent (`editRepo`):
+     * git + Claude CLI + the generic skill only �?no dbt venvs, no compile
+     * wrapper, no profiles. Defaults to the `lightdash-ai-coding-agent` image at
+     * the running version's tag, published per release by the post-release
+     * workflow; override the name/tag to pin, roll back, or point at another
+     * image for local dev.
+     */
+    e2bCodingAgentTemplateName: string;
+    e2bCodingAgentTemplateTag: string;
+    /**
+     * Claude Code OpenTelemetry tracing for data-app builds. When enabled, the
+     * `claude` CLI in the sandbox exports OTLP traces (a span per LLM request /
+     * tool call) to `endpoint`, nested under the backend's `DataApp.generate`
+     * parent span. The endpoint/protocol/interval are generic OTLP settings;
+     * `auth` selects how export headers are minted (see `gcpOtelAuth.ts`).
+     */
+    otel: DataAppOtelConfig;
+    /**
+     * NPM registry hosts added to the sandbox egress allowlist when a version
+     * has a custom dependency set (`app_versions.dependencies` non-null).
+     * Template-only builds never gain these hosts. Comma-separated env var
+     * `LIGHTDASH_APP_DEPENDENCY_REGISTRY_HOSTS`; defaults to the public npm
+     * registry.
+     */
+    dependencyRegistryHosts: string[];
+    /**
+     * Timeout in milliseconds for the `pnpm install` step that runs before the
+     * Vite build when a version has custom dependencies. Defaults to 2 minutes.
+     */
+    dependencyInstallTimeoutMs: number;
+    /**
+     * Minimum age (in days) a declared custom dependency's resolved version
+     * must have since publication, checked against npm registry metadata at
+     * upload time. Guards against freshly-published (potentially compromised)
+     * versions. Env var `LIGHTDASH_APP_DEPENDENCY_MIN_RELEASE_AGE_DAYS`.
+     *
+     * `0` (default) disables the check �?deliberately off, matching the rest
+     * of the custom-dependencies feature, since enabling it adds registry
+     * round-trips and can block legitimate recent releases. When you do turn
+     * it on, `3` is a sensible starting point: it mirrors this repo's own
+     * `minimum-release-age=3d` npm policy.
+     */
+    dependencyMinReleaseAgeDays: number;
+    /**
+     * When true, every resolved package in a custom-dependency upload's
+     * lockfile (direct + transitive) is checked against the OSV
+     * malicious-packages feed at upload time; known-malicious versions are
+     * rejected. Only runs for uploads that already passed the custom-deps
+     * gates, so orgs not using custom deps are unaffected.
+     *
+     * Env var `LIGHTDASH_APP_DEPENDENCY_MALWARE_CHECK_ENABLED`; defaults to
+     * `true`. It is precise (matches only OSV `MAL-` advisories, so
+     * near-zero false positives), which is why it is the one dependency guard
+     * that defaults on. The check FAILS CLOSED �?if OSV can't be reached the
+     * upload is rejected �?so an instance whose backend has no egress to
+     * `api.osv.dev` (air-gapped, or during an OSV outage) must set this to
+     * `false` to keep uploading custom-dependency apps.
+     */
+    dependencyMalwareCheckEnabled: boolean;
+    /**
+     * When false, app generation never runs chart sample queries, so no
+     * warehouse row values are sent to the sandbox or the LLM �?the per-chart
+     * "include sample data" opt-in is disabled instance-wide and hidden in
+     * the UI. Env var `LIGHTDASH_APP_SAMPLE_DATA_ENABLED`; defaults to `true`.
+     */
+    sampleDataEnabled: boolean;
+};
+
+export type DataAppOtelConfig = {
+    enabled: boolean;
+    /** OTLP collector endpoint the sandbox exports traces to. */
+    endpoint: string;
+    /** OTEL_EXPORTER_OTLP_PROTOCOL value (e.g. `http/protobuf`, `grpc`). */
+    protocol: string;
+    /** OTEL_TRACES_EXPORT_INTERVAL (ms) �?short so spans flush before teardown. */
+    exportIntervalMs: number;
+    /**
+     * How OTLP export auth headers are resolved per build. `none` exports with
+     * no auth headers; `gcp` mints a fresh bearer token at execute time. Keep
+     * provider-specific behaviour out of this config �?it only selects a path.
+     */
+    auth: DataAppOtelAuthConfig;
+};
+
+export type DataAppOtelAuthConfig =
+    | { type: 'none' }
+    | { type: 'gcp'; quotaProjectId: string | null };
 
 export type SlackConfig = {
     signingSecret?: string;
@@ -992,12 +1253,16 @@ export type HeadlessBrowserConfig = {
 export type S3Config = {
     region: string;
     endpoint: string;
+    /** Optional public/CDN endpoint for browser-facing asset URLs */
+    publicEndpoint?: string;
     bucket: string;
     expirationTime?: number;
     accessKey?: string;
     secretKey?: string;
     forcePathStyle?: boolean;
     pathPrefix?: string;
+    /** Ordered credential sources for AWS SDK resolution */
+    useCredentialsFrom?: string[];
 };
 export type IntercomConfig = {
     appId: string;
@@ -1145,6 +1410,233 @@ export type SmtpConfig = {
 };
 
 const DEFAULT_JOB_TIMEOUT = 1000 * 60 * 10; // 10 minutes
+
+const parseSandboxProvider = (
+    value: string | undefined,
+): AppRuntimeConfig['sandboxProvider'] => {
+    // Normalized so deploy-tooling artifacts (case, stray whitespace) don't
+    // crash boot; real typos still throw rather than silently running on e2b.
+    const normalized = value?.trim().toLowerCase();
+    if (!normalized) return 'e2b';
+    if (normalized === 'e2b') return 'e2b';
+    if (normalized === 'docker') return 'docker';
+    if (normalized === 'lambda-microvm') return 'lambda-microvm';
+    if (normalized === 'azure-sandboxes') return 'azure-sandboxes';
+    if (normalized === 'gcp-cloud-run') return 'gcp-cloud-run';
+    throw new ParseError(
+        `Cannot parse environment variable "SANDBOX_PROVIDER". Value must be one of e2b, docker, lambda-microvm, azure-sandboxes, gcp-cloud-run but SANDBOX_PROVIDER=${value}`,
+    );
+};
+
+const parseDataAppOtelConfig = (): DataAppOtelConfig => {
+    const exportIntervalMs = Number(
+        process.env.DATA_APP_OTEL_EXPORT_INTERVAL_MS || '1000',
+    );
+    return {
+        enabled: process.env.DATA_APP_OTEL_TRACES_ENABLED === 'true',
+        endpoint: process.env.DATA_APP_OTEL_EXPORTER_ENDPOINT || '',
+        protocol:
+            process.env.DATA_APP_OTEL_EXPORTER_PROTOCOL || 'http/protobuf',
+        exportIntervalMs: Number.isFinite(exportIntervalMs)
+            ? exportIntervalMs
+            : 1000,
+        auth:
+            process.env.DATA_APP_OTEL_AUTH === 'gcp'
+                ? {
+                      type: 'gcp',
+                      quotaProjectId:
+                          process.env.DATA_APP_OTEL_GCP_QUOTA_PROJECT || null,
+                  }
+                : { type: 'none' },
+    };
+};
+
+const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
+    const enabled = process.env.APPS_RUNTIME_ENABLED === 'true';
+    const dataAppCodingAgent = (() => {
+        const value = process.env.APPS_CODING_AGENT?.trim().toLowerCase();
+        if (!value || value === 'claude') return 'claude' as const;
+        if (value === 'codex') return 'codex' as const;
+        throw new ParseError(
+            `Cannot parse environment variable "APPS_CODING_AGENT". Value must be one of claude, codex but APPS_CODING_AGENT=${process.env.APPS_CODING_AGENT}`,
+        );
+    })();
+    const appsBucket = process.env.APPS_S3_BUCKET;
+
+    const baseS3Config = parseBaseS3Config();
+
+    let s3: S3Config | null = null;
+
+    if (baseS3Config) {
+        const {
+            endpoint: baseEndpoint,
+            publicEndpoint: basePublicEndpoint,
+            bucket: baseBucket,
+            region: baseRegion,
+            accessKey: baseAccessKey,
+            secretKey: baseSecretKey,
+            forcePathStyle: baseForcePathStyle,
+            useCredentialsFrom: baseUseCredentialsFrom,
+        } = baseS3Config;
+
+        const bucket = appsBucket || baseBucket;
+        const region = process.env.APPS_S3_REGION || baseRegion;
+        const accessKey = process.env.APPS_S3_ACCESS_KEY || baseAccessKey;
+        const secretKey = process.env.APPS_S3_SECRET_KEY || baseSecretKey;
+
+        s3 = {
+            endpoint: baseEndpoint,
+            publicEndpoint: basePublicEndpoint,
+            forcePathStyle: baseForcePathStyle,
+            bucket,
+            region,
+            accessKey,
+            secretKey,
+            useCredentialsFrom: baseUseCredentialsFrom,
+        };
+    }
+
+    const sandboxIdleTimeoutMs = process.env.SANDBOX_IDLE_TIMEOUT_MS
+        ? parseInt(process.env.SANDBOX_IDLE_TIMEOUT_MS, 10)
+        : 30 * 60 * 1000;
+    const sandboxSnapshotRetentionMs = process.env.SANDBOX_SNAPSHOT_RETENTION_MS
+        ? parseInt(process.env.SANDBOX_SNAPSHOT_RETENTION_MS, 10)
+        : 7 * 24 * 60 * 60 * 1000;
+    // Lambda MicroVMs run in eu-west-1 (Ireland) �?the EU launch region.
+    const lambdaMicroVmRegion =
+        process.env.LAMBDA_MICROVM_REGION || 'eu-west-1';
+
+    return {
+        enabled,
+        dataAppCodingAgent,
+        lightdashOrigin: process.env.APP_RUNTIME_LIGHTDASH_ORIGIN || siteUrl,
+        cdnOrigin: process.env.APP_RUNTIME_CDN_ORIGIN || null,
+        previewOrigin: process.env.APP_RUNTIME_PREVIEW_ORIGIN || null,
+        cspAllowedOrigins: (process.env.APP_RUNTIME_CSP_ALLOWED_ORIGINS || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        s3,
+        e2bApiKey: process.env.E2B_API_KEY || null,
+        e2bTemplateName:
+            process.env.E2B_TEMPLATE_NAME || 'lightdash/lightdash-data-app',
+        // Default to the running Lightdash version so prod always launches
+        // sandboxes from the matching template build (the release workflow
+        // guarantees this tag exists). Operators can override to roll back
+        // or pin during incidents.
+        e2bTemplateTag: process.env.E2B_TEMPLATE_TAG ?? (VERSION as string),
+        e2bAiWritebackTemplateName:
+            process.env.E2B_AI_WRITEBACK_TEMPLATE_NAME ||
+            'lightdash-ai-writeback',
+        e2bAiWritebackTemplateTag:
+            process.env.E2B_AI_WRITEBACK_TEMPLATE_TAG ?? (VERSION as string),
+        sandboxProvider: parseSandboxProvider(process.env.SANDBOX_PROVIDER),
+        sandboxDockerImage:
+            process.env.SANDBOX_DOCKER_IMAGE || 'lightdash-sandbox:local',
+        sandboxAiWritebackDockerImage:
+            process.env.SANDBOX_AI_WRITEBACK_DOCKER_IMAGE ||
+            'lightdash-ai-writeback:local',
+        sandboxAgentOnboardingDockerImage:
+            process.env.SANDBOX_AGENT_ONBOARDING_DOCKER_IMAGE ||
+            'lightdash-agent-onboarding:local',
+        sandboxIdleTimeoutMs,
+        sandboxSnapshotRetentionMs,
+        lambdaMicroVm: {
+            region: lambdaMicroVmRegion,
+            executionRoleArn:
+                process.env.LAMBDA_MICROVM_EXECUTION_ROLE_ARN || null,
+            // Managed connectors are fixed, region-scoped ARNs (no list op). The
+            // open `INTERNET_EGRESS` connector is the MVP egress; a custom VPC
+            // connector (egress allowlist) is a later hardening.
+            ingressConnectorArn:
+                process.env.LAMBDA_MICROVM_INGRESS_CONNECTOR_ARN ||
+                `arn:aws:lambda:${lambdaMicroVmRegion}:aws:network-connector:aws-network-connector:ALL_INGRESS`,
+            egressConnectorArn:
+                process.env.LAMBDA_MICROVM_EGRESS_CONNECTOR_ARN ||
+                `arn:aws:lambda:${lambdaMicroVmRegion}:aws:network-connector:aws-network-connector:INTERNET_EGRESS`,
+            maxIdleDurationSeconds: Math.floor(sandboxIdleTimeoutMs / 1000),
+            suspendedDurationSeconds: Math.floor(
+                sandboxSnapshotRetentionMs / 1000,
+            ),
+        },
+        lambdaMicroVmDataAppImageArn:
+            process.env.LAMBDA_MICROVM_DATA_APP_IMAGE_ARN || null,
+        lambdaMicroVmAiWritebackImageArn:
+            process.env.LAMBDA_MICROVM_AI_WRITEBACK_IMAGE_ARN || null,
+        azureSandboxes: {
+            subscriptionId: process.env.AZURE_SANDBOXES_SUBSCRIPTION_ID || null,
+            resourceGroup: process.env.AZURE_SANDBOXES_RESOURCE_GROUP || null,
+            region: process.env.AZURE_SANDBOXES_REGION || 'eastus2',
+            apiVersion:
+                process.env.AZURE_SANDBOXES_API_VERSION || '2026-02-01-preview',
+            // AAD resource for the Sandboxes ADC data plane.
+            tokenScope:
+                process.env.AZURE_SANDBOXES_TOKEN_SCOPE ||
+                'https://management.azuredevcompute.io/.default',
+            resourceTier: process.env.AZURE_SANDBOXES_RESOURCE_TIER || 'M',
+        },
+        azureSandboxesDataAppGroup:
+            process.env.AZURE_SANDBOXES_DATA_APP_GROUP || null,
+        azureSandboxesDataAppDiskImage:
+            process.env.AZURE_SANDBOXES_DATA_APP_DISK_IMAGE || null,
+        gcpCloudRun: {
+            sandboxUrl: process.env.GCP_CLOUD_RUN_SANDBOX_URL || null,
+            sandboxSecret: process.env.GCP_CLOUD_RUN_SANDBOX_SECRET || null,
+        },
+        azureSandboxesAiWritebackGroup:
+            process.env.AZURE_SANDBOXES_AI_WRITEBACK_GROUP || null,
+        azureSandboxesAiWritebackDiskImage:
+            process.env.AZURE_SANDBOXES_AI_WRITEBACK_DISK_IMAGE || null,
+        e2bAgentOnboardingTemplateName:
+            process.env.E2B_AGENT_ONBOARDING_TEMPLATE_NAME ||
+            'lightdash-agent-onboarding',
+        e2bAgentOnboardingTemplateTag:
+            process.env.E2B_AGENT_ONBOARDING_TEMPLATE_TAG ??
+            (VERSION as string),
+        // The lean coding-agent image (sandboxes/ai-coding-agent), published per
+        // release by the post-release workflow at the running version's tag �?
+        // same pattern as the other templates. Operators can override the
+        // name/tag (e.g. to pin, roll back, or point at the writeback image for
+        // local dev before the lean image is built).
+        e2bCodingAgentTemplateName:
+            process.env.E2B_CODING_AGENT_TEMPLATE_NAME ||
+            'lightdash-ai-coding-agent',
+        e2bCodingAgentTemplateTag:
+            process.env.E2B_CODING_AGENT_TEMPLATE_TAG ?? (VERSION as string),
+        otel: parseDataAppOtelConfig(),
+        dependencyRegistryHosts: (
+            process.env.LIGHTDASH_APP_DEPENDENCY_REGISTRY_HOSTS ||
+            'registry.npmjs.org'
+        )
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((host) => {
+                // These feed the sandbox egress allowlist �?fail loudly on
+                // anything that isn't a plain hostname.
+                if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*$/.test(host)) {
+                    throw new ParseError(
+                        `Cannot parse environment variable "LIGHTDASH_APP_DEPENDENCY_REGISTRY_HOSTS". "${host}" is not a valid hostname`,
+                    );
+                }
+                return host;
+            }),
+        dependencyInstallTimeoutMs:
+            getIntegerFromEnvironmentVariable(
+                'LIGHTDASH_APP_DEPENDENCY_INSTALL_TIMEOUT_MS',
+            ) ?? 120_000,
+        dependencyMinReleaseAgeDays:
+            getIntegerFromEnvironmentVariable(
+                'LIGHTDASH_APP_DEPENDENCY_MIN_RELEASE_AGE_DAYS',
+            ) ?? 0,
+        dependencyMalwareCheckEnabled:
+            process.env.LIGHTDASH_APP_DEPENDENCY_MALWARE_CHECK_ENABLED !==
+            'false',
+        sampleDataEnabled:
+            process.env.LIGHTDASH_APP_SAMPLE_DATA_ENABLED !== 'false',
+    };
+};
+
 
 export const parseConfig = (): LightdashConfig => {
     const lightdashSecret = process.env.LIGHTDASH_SECRET;
@@ -1318,7 +1810,7 @@ export const parseConfig = (): LightdashConfig => {
                   },
               }
             : undefined,
-        // 自托管：硬关闭官方 PostHog / RudderStack，忽略相关环境变量
+        // 自托管：硬关闭官�?PostHog / RudderStack，忽略相关环境变�?
         posthog: undefined,
         rudder: {
             writeKey: undefined,
@@ -1352,6 +1844,11 @@ export const parseConfig = (): LightdashConfig => {
             },
         },
         lightdashSecret,
+        lightdashSecrets: Object.freeze({
+            active: lightdashSecret,
+            fallbacks: Object.freeze([]) as readonly string[],
+            all: Object.freeze([lightdashSecret]) as readonly string[],
+        }),
         secureCookies,
         cookiesMaxAgeHours: getIntegerFromEnvironmentVariable(
             'COOKIES_MAX_AGE_HOURS',
@@ -1475,7 +1972,7 @@ export const parseConfig = (): LightdashConfig => {
                     ) || 60 * 60 * 24 * 14, // 2 weeks
             },
         },
-        // 自托管：硬关闭官方 Intercom / Pylon 客服组件
+        // 自托管：硬关闭官�?Intercom / Pylon 客服组件
         intercom: {
             appId: '',
             apiBase: '',
@@ -1743,5 +2240,13 @@ export const parseConfig = (): LightdashConfig => {
                 10000,
         },
         cdn: parseCdnConfig(),
+        appRuntime: parseAppRuntimeConfig(siteUrl),
+        softDelete: {
+            enabled: process.env.SOFT_DELETE_ENABLED === 'true',
+            retentionDays:
+                getIntegerFromEnvironmentVariable(
+                    'SOFT_DELETE_RETENTION_DAYS',
+                ) ?? 30,
+        },
     };
 };

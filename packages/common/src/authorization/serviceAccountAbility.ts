@@ -318,6 +318,15 @@ const applyServiceAccountStaticAbilities: Record<
         can('manage', 'AiAgentThread', {
             organizationUuid,
         });
+        can('manage', 'DataApp', {
+            organizationUuid,
+        });
+        can('manage', 'DataAppDependency', {
+            organizationUuid,
+        });
+        can('manage', 'ExternalConnection', {
+            organizationUuid,
+        });
     },
     // TODO migrate SCIM permissions to abilities
     [ServiceAccountScope.SCIM_MANAGE]: ({

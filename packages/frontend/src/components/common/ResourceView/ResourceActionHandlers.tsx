@@ -27,6 +27,8 @@ import AddTilesToDashboardModal from '../../SavedDashboards/AddTilesToDashboardM
 import SpaceActionModal from '../SpaceActionModal';
 import { ActionType } from '../SpaceActionModal/types';
 import TransferItemsModal from '../TransferItemsModal/TransferItemsModal';
+import AppDeleteModal from '../modal/AppDeleteModal';
+import AppUpdateModal from '../modal/AppUpdateModal';
 import ChartDeleteModal from '../modal/ChartDeleteModal';
 import ChartDuplicateModal from '../modal/ChartDuplicateModal';
 import ChartUpdateModal from '../modal/ChartUpdateModal';
@@ -207,8 +209,19 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                         />
                     );
                 case ResourceViewItemType.DATA_APP:
-                    // AppUpdateModal lives under features/apps; stub until wired.
-                    return null;
+                    return (
+                        <AppUpdateModal
+                            opened
+                            projectUuid={projectUuid}
+                            uuid={action.item.data.uuid}
+                            initialName={action.item.data.name}
+                            initialDescription={
+                                action.item.data.description ?? ''
+                            }
+                            onClose={handleReset}
+                            onConfirm={handleReset}
+                        />
+                    );
                 default:
                     return assertUnreachable(
                         action.item,
@@ -267,8 +280,16 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                         />
                     );
                 case ResourceViewItemType.DATA_APP:
-                    // AppDeleteModal lives under features/apps; stub until wired.
-                    return null;
+                    return (
+                        <AppDeleteModal
+                            opened
+                            projectUuid={projectUuid}
+                            uuid={action.item.data.uuid}
+                            name={action.item.data.name}
+                            onClose={handleReset}
+                            onConfirm={handleReset}
+                        />
+                    );
 
                 default:
                     return assertUnreachable(

@@ -32,6 +32,10 @@ export type ContentArgs = {
     search?: string;
     sortBy?: ContentSortByColumns;
     sortDirection?: 'asc' | 'desc';
+    /** Include personal (space-less) data apps in results. */
+    includePersonalDataApps?: boolean;
+    /** 'exclude' = data apps only, 'only' = custom chart type builds only. */
+    dataAppVizsFilter?: 'exclude' | 'only';
 };
 
 function createQueryString(params: Record<string, any>): string {

@@ -161,6 +161,17 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                     },
                 );
             },
+            // STUB: port AppGenerateService worker handlers from upstream later
+            [EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: async () => {
+                throw new Error(
+                    'APP_GENERATE_PIPELINE worker is not available in this build',
+                );
+            },
+            [EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: async () => {
+                throw new Error(
+                    'APP_BUILD_FROM_SOURCE worker is not available in this build',
+                );
+            },
         };
     }
 }

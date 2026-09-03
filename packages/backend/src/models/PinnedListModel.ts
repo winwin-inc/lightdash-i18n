@@ -1,8 +1,10 @@
 import {
     CreatePinnedItem,
     DeletePinnedItem,
+    isCreateAppPinnedItem,
     isCreateChartPinnedItem,
     isCreateSpacePinnedItem,
+    isDeleteAppPinnedItem,
     isDeleteChartPinnedItem,
     isDeleteSpacePinnedItem,
     NotFoundError,
@@ -16,6 +18,7 @@ import { Knex } from 'knex';
 import {
     DbPinnedItem,
     DbPinnedList,
+    PinnedAppTableName,
     PinnedChartTableName,
     PinnedDashboardTableName,
     PinnedListTableName,
@@ -70,6 +73,11 @@ export class PinnedListModel {
                 pinned_list_uuid: results.pinnedListUuid,
                 space_uuid: item.spaceUuid,
             });
+        } else if (isCreateAppPinnedItem(item)) {
+            await this.database(PinnedAppTableName).insert({
+                pinned_list_uuid: results.pinnedListUuid,
+                app_uuid: item.appUuid,
+            });
         } else {
             await this.database(PinnedDashboardTableName).insert({
                 pinned_list_uuid: results.pinnedListUuid,
@@ -88,6 +96,11 @@ export class PinnedListModel {
             await this.database(PinnedSpaceTableName)
                 .delete()
                 .where('space_uuid', item.spaceUuid)
+                .andWhere('pinned_list_uuid', item.pinnedListUuid);
+        } else if (isDeleteAppPinnedItem(item)) {
+            await this.database(PinnedAppTableName)
+                .delete()
+                .where('app_uuid', item.appUuid)
                 .andWhere('pinned_list_uuid', item.pinnedListUuid);
         } else {
             await this.database(PinnedDashboardTableName)

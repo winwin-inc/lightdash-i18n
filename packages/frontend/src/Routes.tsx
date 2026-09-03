@@ -15,6 +15,8 @@ import ProjectRoute from './components/ProjectRoute';
 import UserCompletionModal from './components/UserCompletionModal';
 import { MetricCatalogView } from './features/metricsCatalog/types';
 import AuthPopupResult from './pages/AuthPopupResult';
+import AppGenerate from './pages/AppGenerate';
+import AppPreviewTest from './pages/AppPreviewTest';
 import Catalog from './pages/Catalog';
 import ChartHistory from './pages/ChartHistory';
 import CreateProject from './pages/CreateProject';
@@ -27,11 +29,13 @@ import JoinOrganization from './pages/JoinOrganization';
 import LegacySqlRunner from './pages/LegacySqlRunner';
 import Login from './pages/Login';
 import MetricsCatalog from './pages/MetricsCatalog';
+import MinimalApp from './pages/MinimalApp';
 import NoDashboardPermission from './pages/NoDashboardPermission';
 import PasswordRecovery from './pages/PasswordRecovery';
 import PasswordReset from './pages/PasswordReset';
 import Projects from './pages/Projects';
 import Register from './pages/Register';
+import SavedApps from './pages/SavedApps';
 import SavedDashboards from './pages/SavedDashboards';
 import SavedExplorer from './pages/SavedExplorer';
 import SavedQueries from './pages/SavedQueries';
@@ -44,6 +48,7 @@ import UnusedContent from './pages/UnusedContent';
 import UserActivity from './pages/UserActivity';
 import VerifyEmailPage from './pages/VerifyEmail';
 import ViewSqlChart from './pages/ViewSqlChart';
+import LegacyAppPreviewRedirect from './features/apps/LegacyAppPreviewRedirect';
 import { TrackPage } from './providers/Tracking/TrackingProvider';
 import { PageName } from './types/Events';
 
@@ -197,6 +202,10 @@ const MINIMAL_ROUTES: RouteObject[] = [
                 path: '/minimal/projects/:projectUuid/dashboards/:dashboardUuid/view/tabs/:tabUuid',
                 element: <RedirectFromMinimal />,
             },
+            {
+                path: '/minimal/projects/:projectUuid/apps/:appUuid',
+                element: <MinimalApp />,
+            },
         ],
     },
 ];
@@ -267,6 +276,52 @@ const DASHBOARD_ROUTES: RouteObject[] = [
                 element: <DashboardPageWrapper />,
             },
         ],
+    },
+];
+
+const DATA_APP_ROUTES: RouteObject[] = [
+    {
+        path: '/projects/:projectUuid/apps',
+        element: (
+            <>
+                <NavBar />
+                <SavedApps />
+            </>
+        ),
+    },
+    {
+        path: '/projects/:projectUuid/apps/generate',
+        element: (
+            <>
+                <NavBar />
+                <AppGenerate />
+            </>
+        ),
+    },
+    {
+        path: '/projects/:projectUuid/apps/:appUuid',
+        element: (
+            <>
+                <NavBar />
+                <AppGenerate />
+            </>
+        ),
+    },
+    {
+        path: '/projects/:projectUuid/apps/:appUuid/view',
+        element: <AppPreviewTest />,
+    },
+    {
+        path: '/projects/:projectUuid/apps/:appUuid/versions/:version/view',
+        element: <AppPreviewTest />,
+    },
+    {
+        path: '/projects/:projectUuid/apps/:appUuid/preview',
+        element: <LegacyAppPreviewRedirect />,
+    },
+    {
+        path: '/projects/:projectUuid/apps/:appUuid/versions/:version/preview',
+        element: <LegacyAppPreviewRedirect />,
     },
 ];
 
@@ -414,6 +469,7 @@ const APP_ROUTES: RouteObject[] = [
                     ...SQL_RUNNER_ROUTES,
                     ...CHART_ROUTES,
                     ...DASHBOARD_ROUTES,
+                    ...DATA_APP_ROUTES,
                     ...SPACES_ROUTES,
                     ...METRICS_ROUTES,
                     {

@@ -795,6 +795,8 @@ export class SavedChartModel {
     async get(
         savedChartUuidOrSlug: string,
         versionUuid?: string,
+        // Optional filters (upstream); ignored until query path is ported.
+        _options?: { deleted?: boolean | 'any'; projectUuid?: string },
     ): Promise<SavedChartDAO> {
         return Sentry.startSpan(
             {

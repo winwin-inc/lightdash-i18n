@@ -1,6 +1,8 @@
 import { subject } from '@casl/ability';
+import { FeatureFlags } from '@lightdash/common';
 import { Box, Button, Center, Loader, Menu, ScrollArea } from '@mantine/core';
 import {
+    IconAppWindow,
     IconCategory,
     IconChartAreaLine,
     IconFolder,
@@ -11,6 +13,7 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useHasMetricsInCatalog } from '../../features/metricsCatalog/hooks/useMetricsCatalog';
+import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import { useSpaceSummaries } from '../../hooks/useSpaces';
 import useApp from '../../providers/App/useApp';
 import MantineIcon from '../common/MantineIcon';
@@ -24,6 +27,8 @@ interface Props {
 const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
     const { t } = useTranslation();
     const { user } = useApp();
+    const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
+    const canViewDataApps = user.data?.ability?.can('view', 'DataApp') ?? false;
 
     const { data: spaces, isInitialLoading } = useSpaceSummaries(
         projectUuid,
@@ -217,6 +222,16 @@ const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
                 >
                     {t('components_navbar_browse_menu.menus.charts.title')}
                 </Menu.Item>
+
+                {dataAppsFlag.data?.enabled && canViewDataApps && (
+                    <Menu.Item
+                        component={Link}
+                        to={`/projects/${projectUuid}/apps`}
+                        icon={<MantineIcon icon={IconAppWindow} />}
+                    >
+                        All data apps
+                    </Menu.Item>
+                )}
 
                 {!hasMetrics && (
                     <MetricsLink projectUuid={projectUuid} asMenu />

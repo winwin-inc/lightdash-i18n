@@ -28,6 +28,12 @@ import { AiService } from './services/AiService/AiService';
 import { CommercialCacheService } from './services/CommercialCacheService';
 import { CommercialSlackIntegrationService } from './services/CommercialSlackIntegrationService';
 import { EmbedService } from './services/EmbedService/EmbedService';
+import { AppGenerateService } from './services/AppGenerateService/AppGenerateService';
+import { ExternalConnectionModel } from './models/ExternalConnectionModel';
+import { SandboxRegistryModel } from './models/SandboxRegistryModel';
+import { OrgAiCopilotConfigResolver } from './services/ai/OrgAiCopilotConfigResolver';
+import { SpacePermissionService } from '../services/SpaceService/SpacePermissionService';
+
 import { McpService } from './services/McpService/McpService';
 import { OrganizationWarehouseCredentialsService } from './services/OrganizationWarehouseCredentialsService';
 import { ScimService } from './services/ScimService/ScimService';
@@ -64,6 +70,37 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
 
     return {
         serviceProviders: {
+
+            appGenerateService: ({ context, models, clients, repository }) =>
+                new AppGenerateService({
+                    lightdashConfig: context.lightdashConfig,
+                    analytics: context.lightdashAnalytics,
+                    analyticsModel: models.getAnalyticsModel(),
+                    catalogModel: models.getCatalogModel(),
+                    appModel: models.getAppModel(),
+                    featureFlagModel: models.getFeatureFlagModel(),
+                    // STUB deps until OrganizationDesign / SpacePermission / ExternalConnection are ported
+                    organizationDesignModel: models.getOrganizationDesignModel(),
+                    pinnedListModel: models.getPinnedListModel(),
+                    projectModel: models.getProjectModel(),
+                    projectParametersModel: models.getProjectParametersModel(),
+                    spaceModel: models.getSpaceModel(),
+                    userModel: models.getUserModel(),
+                    savedChartModel: models.getSavedChartModel(),
+                    schedulerClient:
+                        clients.getSchedulerClient() as CommercialSchedulerClient,
+                    savedChartService: repository.getSavedChartService(),
+                    spacePermissionService: new SpacePermissionService(),
+                    coderService: repository.getCoderService(),
+                    dashboardService: repository.getDashboardService(),
+                    projectService: repository.getProjectService(),
+                    promoteService: repository.getPromoteService(),
+                    externalConnectionModel: new ExternalConnectionModel(),
+                    sandboxRegistryModel: new SandboxRegistryModel(),
+                    orgAiCopilotConfigResolver: new OrgAiCopilotConfigResolver({
+                        lightdashConfig: context.lightdashConfig,
+                    }),
+                }),
             embedService: ({ repository, context, models }) =>
                 new EmbedService({
                     analytics: context.lightdashAnalytics,

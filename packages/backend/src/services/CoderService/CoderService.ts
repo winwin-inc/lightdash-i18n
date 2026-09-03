@@ -981,6 +981,10 @@ export class CoderService extends BaseService {
         spaceSlug: string,
         user: SessionUser,
         skipSpaceCreate?: boolean,
+        // Extra upstream args accepted for call-site compatibility; unused here.
+        _publicSpaceCreate?: boolean,
+        _spaceNames?: Record<string, string>,
+        _allowSpaceCreate?: boolean,
     ): Promise<{ space: Omit<SpaceSummary, 'userAccess'>; created: boolean }> {
         const [existingSpace] = await this.spaceModel.find({
             path: getLtreePathFromContentAsCodePath(spaceSlug),
