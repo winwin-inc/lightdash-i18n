@@ -30,11 +30,12 @@ export const ResultCount: FC<ResultCountProps> = ({
     isError = false,
 }) => {
     const { t } = useTranslation();
+    const style = alignEnd ? { marginLeft: 'auto' } : undefined;
 
     if (variant === 'warehouse') {
         if (isLoading) {
             return (
-                <Group spacing={6} align="center" noWrap>
+                <Group spacing={6} align="center" noWrap style={style}>
                     <Loader size="xs" />
                     <Text fz="xs" c="dimmed" m={0} lh={1}>
                         {t('components_common_table.pagination.loading_count')}
@@ -45,14 +46,14 @@ export const ResultCount: FC<ResultCountProps> = ({
 
         if (isError) {
             return (
-                <Text fz="xs" c="dimmed" m={0} lh={1}>
+                <Text style={style} fz="xs" c="dimmed" m={0} lh={1}>
                     {t('components_common_table.pagination.count_error')}
                 </Text>
             );
         }
 
         return (
-            <Text fz="xs" c="dimmed" m={0} lh={1}>
+            <Text style={style} fz="xs" c="dimmed" m={0} lh={1}>
                 {t('components_common_table.pagination.total_data_prefix')}
                 <Text span fw={600}>
                     {count.toLocaleString()}
@@ -65,8 +66,6 @@ export const ResultCount: FC<ResultCountProps> = ({
     if (count === 0) {
         return null;
     }
-
-    const style = alignEnd ? { marginLeft: 'auto' } : undefined;
 
     if (shown !== undefined && shown !== count) {
         return (
@@ -317,7 +316,17 @@ const TablePagination: FC = () => {
                     ) : null}
                 </Group>
             ) : showResultCountOnly ? (
-                <ResultCount count={totalRowsCount} alignEnd />
+                <ResultCount
+                    count={totalRowsCount}
+                    alignEnd
+                    variant={
+                        pagination?.useWarehouseResultsCount
+                            ? 'warehouse'
+                            : 'default'
+                    }
+                    isLoading={Boolean(pagination?.isCountLoading)}
+                    isError={Boolean(pagination?.isCountError)}
+                />
             ) : null}
         </TableFooter>
     );

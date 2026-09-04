@@ -1,6 +1,8 @@
 import { subject } from '@casl/ability';
 import {
+    ChartType,
     ECHARTS_DEFAULT_COLORS,
+    isTableChartConfig,
     NotFoundError,
     type ApiErrorDetail,
     type PivotConfig,
@@ -38,6 +40,7 @@ import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianCon
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
+import { useCalculateCount } from '../../../hooks/useCalculateCount';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
@@ -54,6 +57,7 @@ import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard/constants';
 import MantineIcon from '../../common/MantineIcon';
 import LightdashVisualization from '../../LightdashVisualization';
+import { type TablePaginationState } from '../../LightdashVisualization/context';
 import VisualizationProvider from '../../LightdashVisualization/VisualizationProvider';
 import { type EchartSeriesClickEvent } from '../../SimpleChart';
 import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
@@ -164,6 +168,59 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
               }
             : undefined,
     });
+
+    // Real total for showResultsTotal without pagination (do NOT enable paged query).
+    // Pivot tables keep limit-based rowsCount; skip COUNT when warehouse pagination
+    // already fetches count via chartPagedQuery.
+    const showResultsTotalWithoutPagination = useMemo(() => {
+        if (isWarehousePaginatedTable) {
+            return false;
+        }
+        if (chartConfig.type !== ChartType.TABLE) {
+            return false;
+        }
+        if (pivotConfig?.columns && pivotConfig.columns.length > 0) {
+            return false;
+        }
+        const config = chartConfig.config;
+        return isTableChartConfig(config) && Boolean(config.showResultsTotal);
+    }, [chartConfig, isWarehousePaginatedTable, pivotConfig]);
+
+    const resultsTotalCount = useCalculateCount({
+        metricQuery: computedMetricQuery,
+        explore: tableName,
+        parameters,
+        projectUuid,
+        dashboardContext: fromDashboardData
+            ? {
+                  dashboardSlug: fromDashboardData.slug,
+                  dashboardName: fromDashboardData.name,
+              }
+            : undefined,
+        enabled: showResultsTotalWithoutPagination && Boolean(tableName),
+    });
+
+    const tablePagination = useMemo((): TablePaginationState | undefined => {
+        if (chartPagedQuery.tablePagination) {
+            return chartPagedQuery.tablePagination;
+        }
+        if (!showResultsTotalWithoutPagination) {
+            return undefined;
+        }
+        return {
+            enabled: false,
+            totalRowCount: resultsTotalCount.data?.rowCount,
+            isCountLoading:
+                resultsTotalCount.data === undefined &&
+                !resultsTotalCount.isError,
+            isCountError: Boolean(resultsTotalCount.isError),
+        };
+    }, [
+        chartPagedQuery.tablePagination,
+        showResultsTotalWithoutPagination,
+        resultsTotalCount.data,
+        resultsTotalCount.isError,
+    ]);
 
     const sharedResultsData = useMemo(
         () => ({
@@ -344,7 +401,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                         ? chartPagedQuery.query.data?.usedParametersValues
                         : query.data?.usedParametersValues
                 }
-                tablePagination={chartPagedQuery.tablePagination}
+                tablePagination={tablePagination}
             >
                 <CollapsableCard
                     title={t('components_explorer_visualization_card.chart')}

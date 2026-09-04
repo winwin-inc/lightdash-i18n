@@ -559,6 +559,9 @@ const GeneralSettings: FC = () => {
                     label={t(
                         'components_visualization_configs_table.settings.show_number_of_results',
                     )}
+                    description={t(
+                        'components_visualization_configs_table.settings.show_number_of_results_description',
+                    )}
                     checked={showResultsTotal}
                     onChange={() => {
                         setShowResultsTotal(!showResultsTotal);

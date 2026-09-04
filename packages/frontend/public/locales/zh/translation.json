@@ -5380,6 +5380,7 @@
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",
             "show_number_of_results": "显示结果数量",
+            "show_number_of_results_description": "显示筛选后的真实总条数（会额外查询），与查询行数上限无关",
             "enable_pagination": "启用分页",
             "pagination_not_supported": "透视表或小计不支持分页",
             "page_size": "每页条数",

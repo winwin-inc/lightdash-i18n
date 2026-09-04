@@ -96,6 +96,14 @@ const SimpleTable: FC<SimpleTableProps> = ({
         ? visualizationConfig.chartConfig.showResultsTotal
         : false;
 
+    const hasWarehouseResultsCount = Boolean(
+        tablePagination &&
+            (tablePagination.enabled ||
+                tablePagination.isCountLoading ||
+                tablePagination.isCountError ||
+                tablePagination.totalRowCount !== undefined),
+    );
+
     const tablePaginationConfig = useMemo(() => {
         if (tablePagination?.enabled) {
             return {
@@ -112,12 +120,23 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 isCountError: tablePagination.isCountError,
             };
         }
+        if (showResultsTotal && hasWarehouseResultsCount) {
+            return {
+                show: false,
+                showResultsTotal: true,
+                mode: 'client' as const,
+                // Warehouse calculate-count (not limit-truncated totalResults)
+                useWarehouseResultsCount: true,
+                isCountLoading: tablePagination?.isCountLoading,
+                isCountError: tablePagination?.isCountError,
+            };
+        }
         return {
             show: false,
             showResultsTotal,
             mode: 'client' as const,
         };
-    }, [showResultsTotal, tablePagination, visualizationConfig]);
+    }, [showResultsTotal, tablePagination, hasWarehouseResultsCount]);
 
     const headerContextMenu = useCallback<
         FC<React.PropsWithChildren<HeaderProps>>
@@ -300,8 +319,8 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 status={loadResultsStatus}
                 data={resultsData?.rows || []}
                 totalRowsCount={
-                    tablePagination?.enabled
-                        ? tablePagination.totalRowCount ?? 0
+                    tablePagination?.enabled || hasWarehouseResultsCount
+                        ? tablePagination?.totalRowCount ?? 0
                         : resultsData?.totalResults || 0
                 }
                 isFetchingRows={!!resultsData?.isFetchingRows}

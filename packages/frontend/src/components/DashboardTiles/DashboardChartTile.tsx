@@ -303,6 +303,23 @@ const ValidDashboardChartTile: FC<{
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
+    const showResultsTotalWithoutPagination = useMemo(() => {
+        if (tablePagination?.enabled) {
+            return false;
+        }
+        if (chart.chartConfig.type !== ChartType.TABLE) {
+            return false;
+        }
+        if (
+            chart.pivotConfig?.columns &&
+            chart.pivotConfig.columns.length > 0
+        ) {
+            return false;
+        }
+        const config = chart.chartConfig.config;
+        return isTableChartConfig(config) && Boolean(config.showResultsTotal);
+    }, [chart.chartConfig, chart.pivotConfig, tablePagination?.enabled]);
+
     const { data: countData, isError: isCountError } = useCalculateCount({
         savedChartUuid: chart.uuid,
         dashboardFilters: countDashboardFilters,
@@ -313,22 +330,36 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug,
             dashboardName,
         },
-        enabled: Boolean(tablePagination?.enabled),
+        enabled:
+            Boolean(tablePagination?.enabled) ||
+            showResultsTotalWithoutPagination,
     });
     const resolvedTablePagination = useMemo(():
         | TablePaginationState
         | undefined => {
-        if (!tablePagination?.enabled) {
+        if (tablePagination?.enabled) {
+            return {
+                ...tablePagination,
+                totalRowCount: countData?.rowCount,
+                isCountLoading: countData === undefined && !isCountError,
+                isCountError: Boolean(isCountError),
+            };
+        }
+        if (!showResultsTotalWithoutPagination) {
             return undefined;
         }
         return {
-            ...tablePagination,
+            enabled: false,
             totalRowCount: countData?.rowCount,
-            isCountLoading:
-                countData === undefined && !isCountError,
+            isCountLoading: countData === undefined && !isCountError,
             isCountError: Boolean(isCountError),
         };
-    }, [tablePagination, countData, isCountError]);
+    }, [
+        tablePagination,
+        countData,
+        isCountError,
+        showResultsTotalWithoutPagination,
+    ]);
 
     const { data: organization } = useOrganization();
 
