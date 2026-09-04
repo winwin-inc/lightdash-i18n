@@ -10,7 +10,7 @@ import fs from 'fs';
 import { PassThrough, Readable, Writable } from 'stream';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
-import { resolveDownloadSigningBucket } from '../Aws/createS3DownloadSigningClient';
+import { buildPublicDownloadUrl } from '../Aws/buildPublicDownloadUrl';
 import {
     S3CacheClient,
     type S3CacheClientArguments,
@@ -150,24 +150,21 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         );
 
         const prefixedKey = this.getPrefixedFileId(key);
-        const signingClient = this.downloadSigningS3 ?? this.s3;
-        // Get the S3 URL
-        const url = await getSignedUrl(
-            signingClient,
+        const publicEndpoint = this.configuration.publicEndpoint?.trim();
+        if (publicEndpoint) {
+            return buildPublicDownloadUrl(publicEndpoint, prefixedKey);
+        }
+
+        return getSignedUrl(
+            this.s3,
             new GetObjectCommand({
-                Bucket: resolveDownloadSigningBucket(
-                    this.configuration.bucket,
-                    this.configuration.publicEndpoint,
-                    signingClient !== this.s3,
-                ),
+                Bucket: this.configuration.bucket,
                 Key: prefixedKey,
             }),
             {
                 expiresIn: this.s3ExpiresIn,
             },
         );
-
-        return url;
     }
 
     async transformResultsIntoNewFile(
