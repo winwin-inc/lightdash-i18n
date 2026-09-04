@@ -1,4 +1,5 @@
 import type { ApiSuccess, KnexPaginatedData } from '../..';
+import type { DataAppClaudeModel } from '../apps/types';
 import type {
     AiAgentSummary,
     AiAgentThreadSummary,
@@ -71,7 +72,7 @@ export type AiOrganizationSettings = {
     aiAgentsVisible: boolean;
     /** Phase C stubs for data-app model selection */
     dataAppCodingAgent?: 'claude' | 'codex';
-    visibleDataAppModels?: import('../apps/types').DataAppClaudeModel[];
+    visibleDataAppModels?: DataAppClaudeModel[];
 };
 
 export type CreateAiOrganizationSettings = AiOrganizationSettings;

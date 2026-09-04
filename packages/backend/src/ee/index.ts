@@ -7,7 +7,7 @@ import { McpContextModel } from '../models/McpContextModel';
 import { AsyncQueryService } from '../services/AsyncQueryService/AsyncQueryService';
 import { InstanceConfigurationService } from '../services/InstanceConfigurationService/InstanceConfigurationService';
 import { ProjectService } from '../services/ProjectService/ProjectService';
-import { RolesService } from '../services/RolesService/RolesService';
+import { SpacePermissionService } from '../services/SpaceService/SpacePermissionService';
 import { EncryptionUtil } from '../utils/EncryptionUtil/EncryptionUtil';
 import LicenseClient from './clients/License/LicenseClient';
 import OpenAi from './clients/OpenAi';
@@ -18,6 +18,8 @@ import { CommercialFeatureFlagModel } from './models/CommercialFeatureFlagModel'
 import { CommercialSlackAuthenticationModel } from './models/CommercialSlackAuthenticationModel';
 import { DashboardSummaryModel } from './models/DashboardSummaryModel';
 import { EmbedModel } from './models/EmbedModel';
+import { ExternalConnectionModel } from './models/ExternalConnectionModel';
+import { SandboxRegistryModel } from './models/SandboxRegistryModel';
 import { ServiceAccountModel } from './models/ServiceAccountModel';
 import { CommercialSchedulerClient } from './scheduler/SchedulerClient';
 import { CommercialSchedulerWorker } from './scheduler/SchedulerWorker';
@@ -25,15 +27,11 @@ import { AiAgentAdminService } from './services/AiAgentAdminService';
 import { AiAgentService } from './services/AiAgentService';
 import { AiOrganizationSettingsService } from './services/AiOrganizationSettingsService';
 import { AiService } from './services/AiService/AiService';
+import { OrgAiCopilotConfigResolver } from './services/ai/OrgAiCopilotConfigResolver';
+import { AppGenerateService } from './services/AppGenerateService/AppGenerateService';
 import { CommercialCacheService } from './services/CommercialCacheService';
 import { CommercialSlackIntegrationService } from './services/CommercialSlackIntegrationService';
 import { EmbedService } from './services/EmbedService/EmbedService';
-import { AppGenerateService } from './services/AppGenerateService/AppGenerateService';
-import { ExternalConnectionModel } from './models/ExternalConnectionModel';
-import { SandboxRegistryModel } from './models/SandboxRegistryModel';
-import { OrgAiCopilotConfigResolver } from './services/ai/OrgAiCopilotConfigResolver';
-import { SpacePermissionService } from '../services/SpaceService/SpacePermissionService';
-
 import { McpService } from './services/McpService/McpService';
 import { OrganizationWarehouseCredentialsService } from './services/OrganizationWarehouseCredentialsService';
 import { ScimService } from './services/ScimService/ScimService';
@@ -50,9 +48,106 @@ type EnterpriseAppArguments = Pick<
     | 'customExpressMiddlewares'
 >;
 
+type ServiceProviderMap = NonNullable<EnterpriseAppArguments['serviceProviders']>;
+type ClientProviderMap = NonNullable<EnterpriseAppArguments['clientProviders']>;
+
+const appGenerateServiceProvider: ServiceProviderMap['appGenerateService'] = ({
+    context,
+    models,
+    clients,
+    repository,
+}) =>
+    new AppGenerateService({
+        lightdashConfig: context.lightdashConfig,
+        analytics: context.lightdashAnalytics,
+        analyticsModel: models.getAnalyticsModel(),
+        catalogModel: models.getCatalogModel(),
+        appModel: models.getAppModel(),
+        featureFlagModel: models.getFeatureFlagModel(),
+        // STUB deps until OrganizationDesign / SpacePermission / ExternalConnection are ported
+        organizationDesignModel: models.getOrganizationDesignModel(),
+        pinnedListModel: models.getPinnedListModel(),
+        projectModel: models.getProjectModel(),
+        projectParametersModel: models.getProjectParametersModel(),
+        spaceModel: models.getSpaceModel(),
+        userModel: models.getUserModel(),
+        savedChartModel: models.getSavedChartModel(),
+        schedulerClient:
+            clients.getSchedulerClient() as CommercialSchedulerClient,
+        savedChartService: repository.getSavedChartService(),
+        spacePermissionService: new SpacePermissionService(),
+        coderService: repository.getCoderService(),
+        dashboardService: repository.getDashboardService(),
+        projectService: repository.getProjectService(),
+        promoteService: repository.getPromoteService(),
+        externalConnectionModel: new ExternalConnectionModel(),
+        sandboxRegistryModel: new SandboxRegistryModel(),
+        orgAiCopilotConfigResolver: new OrgAiCopilotConfigResolver({
+            lightdashConfig: context.lightdashConfig,
+        }),
+    });
+
+const commercialSchedulerClientProvider: ClientProviderMap['schedulerClient'] =
+    ({ context, models }) =>
+        new CommercialSchedulerClient({
+            lightdashConfig: context.lightdashConfig,
+            analytics: context.lightdashAnalytics,
+            schedulerModel: models.getSchedulerModel(),
+        });
+
+/**
+ * Data Apps core DI — registered without EE license.
+ * Product gate remains APPS_RUNTIME_ENABLED → EnableDataApps.
+ */
+function getDataAppsAppArguments(): EnterpriseAppArguments {
+    return {
+        serviceProviders: {
+            appGenerateService: appGenerateServiceProvider,
+        },
+        clientProviders: {
+            schedulerClient: commercialSchedulerClientProvider,
+        },
+        schedulerWorkerFactory: (context) =>
+            new CommercialSchedulerWorker({
+                lightdashConfig: context.lightdashConfig,
+                analytics: context.analytics,
+                slackClient: context.clients.getSlackClient(),
+                unfurlService: context.serviceRepository.getUnfurlService(),
+                csvService: context.serviceRepository.getCsvService(),
+                dashboardService:
+                    context.serviceRepository.getDashboardService(),
+                projectService: context.serviceRepository.getProjectService(),
+                schedulerService:
+                    context.serviceRepository.getSchedulerService(),
+                validationService:
+                    context.serviceRepository.getValidationService(),
+                userService: context.serviceRepository.getUserService(),
+                emailClient: context.clients.getEmailClient(),
+                googleDriveClient: context.clients.getGoogleDriveClient(),
+                s3Client: context.clients.getS3Client(),
+                schedulerClient: context.clients.getSchedulerClient(),
+                catalogService: context.serviceRepository.getCatalogService(),
+                encryptionUtil: context.utils.getEncryptionUtil(),
+                msTeamsClient: context.clients.getMsTeamsClient(),
+                renameService: context.serviceRepository.getRenameService(),
+                asyncQueryService:
+                    context.serviceRepository.getAsyncQueryService(),
+                appGenerateService:
+                    context.serviceRepository.getAppGenerateService<AppGenerateService>(),
+                aiAgentService: null,
+                embedService: null,
+            }),
+    };
+}
+
 export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArguments> {
+    const dataAppsArgs = getDataAppsAppArguments();
+
     if (!lightdashConfig.license.licenseKey) {
-        return {};
+        Logger.info(
+            'No enterprise license key — registering Data Apps core services only.',
+        );
+        return dataAppsArgs;
     }
 
     const licenseClient = new LicenseClient({});
@@ -70,37 +165,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
 
     return {
         serviceProviders: {
-
-            appGenerateService: ({ context, models, clients, repository }) =>
-                new AppGenerateService({
-                    lightdashConfig: context.lightdashConfig,
-                    analytics: context.lightdashAnalytics,
-                    analyticsModel: models.getAnalyticsModel(),
-                    catalogModel: models.getCatalogModel(),
-                    appModel: models.getAppModel(),
-                    featureFlagModel: models.getFeatureFlagModel(),
-                    // STUB deps until OrganizationDesign / SpacePermission / ExternalConnection are ported
-                    organizationDesignModel: models.getOrganizationDesignModel(),
-                    pinnedListModel: models.getPinnedListModel(),
-                    projectModel: models.getProjectModel(),
-                    projectParametersModel: models.getProjectParametersModel(),
-                    spaceModel: models.getSpaceModel(),
-                    userModel: models.getUserModel(),
-                    savedChartModel: models.getSavedChartModel(),
-                    schedulerClient:
-                        clients.getSchedulerClient() as CommercialSchedulerClient,
-                    savedChartService: repository.getSavedChartService(),
-                    spacePermissionService: new SpacePermissionService(),
-                    coderService: repository.getCoderService(),
-                    dashboardService: repository.getDashboardService(),
-                    projectService: repository.getProjectService(),
-                    promoteService: repository.getPromoteService(),
-                    externalConnectionModel: new ExternalConnectionModel(),
-                    sandboxRegistryModel: new SandboxRegistryModel(),
-                    orgAiCopilotConfigResolver: new OrgAiCopilotConfigResolver({
-                        lightdashConfig: context.lightdashConfig,
-                    }),
-                }),
+            appGenerateService: appGenerateServiceProvider,
             embedService: ({ repository, context, models }) =>
                 new EmbedService({
                     analytics: context.lightdashAnalytics,
@@ -399,22 +464,19 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                 googleDriveClient: context.clients.getGoogleDriveClient(),
                 s3Client: context.clients.getS3Client(),
                 schedulerClient: context.clients.getSchedulerClient(),
-                aiAgentService: context.serviceRepository.getAiAgentService(),
                 catalogService: context.serviceRepository.getCatalogService(),
                 encryptionUtil: context.utils.getEncryptionUtil(),
                 msTeamsClient: context.clients.getMsTeamsClient(),
                 renameService: context.serviceRepository.getRenameService(),
                 asyncQueryService:
                     context.serviceRepository.getAsyncQueryService(),
+                appGenerateService:
+                    context.serviceRepository.getAppGenerateService<AppGenerateService>(),
+                aiAgentService: context.serviceRepository.getAiAgentService(),
                 embedService: context.serviceRepository.getEmbedService(),
             }),
         clientProviders: {
-            schedulerClient: ({ context, models }) =>
-                new CommercialSchedulerClient({
-                    lightdashConfig: context.lightdashConfig,
-                    analytics: context.lightdashAnalytics,
-                    schedulerModel: models.getSchedulerModel(),
-                }),
+            schedulerClient: commercialSchedulerClientProvider,
             slackClient: ({ context, models }) =>
                 new CommercialSlackClient({
                     analytics: context.lightdashAnalytics,

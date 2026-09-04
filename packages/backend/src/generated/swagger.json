@@ -2503,7 +2503,14 @@
                 "type": "object"
             },
             "DashboardTileTypes": {
-                "enum": ["saved_chart", "sql_chart", "markdown", "loom"],
+                "enum": [
+                    "saved_chart",
+                    "sql_chart",
+                    "markdown",
+                    "loom",
+                    "data_app",
+                    "heading"
+                ],
                 "type": "string"
             },
             "Required_CreateDashboardTileBase_": {
@@ -2558,7 +2565,8 @@
                     "big_number",
                     "funnel",
                     "custom",
-                    "treemap"
+                    "treemap",
+                    "data_app_viz"
                 ],
                 "type": "string"
             },
@@ -2733,6 +2741,52 @@
                     }
                 ]
             },
+            "DashboardTileTypes.DATA_APP": {
+                "enum": ["data_app"],
+                "type": "string"
+            },
+            "DashboardDataAppTileProperties": {
+                "properties": {
+                    "properties": {
+                        "properties": {
+                            "appDeletedAt": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "appSlug": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            },
+                            "hideTitle": {
+                                "type": "boolean"
+                            },
+                            "title": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["appUuid", "title"],
+                        "type": "object"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/DashboardTileTypes.DATA_APP"
+                    }
+                },
+                "required": ["properties", "type"],
+                "type": "object"
+            },
+            "DashboardDataAppTile": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/DashboardTileBase"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DashboardDataAppTileProperties"
+                    }
+                ]
+            },
             "DashboardTile": {
                 "anyOf": [
                     {
@@ -2746,6 +2800,9 @@
                     },
                     {
                         "$ref": "#/components/schemas/DashboardSqlChartTile"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DashboardDataAppTile"
                     }
                 ]
             },
@@ -5906,6 +5963,72 @@
                 "required": ["type"],
                 "type": "object"
             },
+            "ChartType.DATA_APP_VIZ": {
+                "enum": ["data_app_viz"],
+                "type": "string"
+            },
+            "DataAppVizFieldMapping": {
+                "$ref": "#/components/schemas/Record_string.string_"
+            },
+            "DataAppVizOptionValue": {
+                "anyOf": [
+                    {
+                        "type": "boolean"
+                    },
+                    {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    {
+                        "type": "string"
+                    }
+                ],
+                "description": "A persisted config value; its shape is set by the option's declared `type`."
+            },
+            "Record_string.DataAppVizOptionValue_": {
+                "properties": {},
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/DataAppVizOptionValue"
+                },
+                "type": "object",
+                "description": "Construct a type with a set of properties K of type T"
+            },
+            "DataAppVizOptionValues": {
+                "$ref": "#/components/schemas/Record_string.DataAppVizOptionValue_",
+                "description": "Maps a declared config option's name → the value the user chose for it."
+            },
+            "DataAppVizChart": {
+                "properties": {
+                    "optionValues": {
+                        "$ref": "#/components/schemas/DataAppVizOptionValues"
+                    },
+                    "fieldMapping": {
+                        "$ref": "#/components/schemas/DataAppVizFieldMapping"
+                    },
+                    "dataAppVizVersion": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 1
+                    },
+                    "dataAppVizUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["fieldMapping", "dataAppVizUuid"],
+                "type": "object"
+            },
+            "DataAppVizChartConfig": {
+                "properties": {
+                    "config": {
+                        "$ref": "#/components/schemas/DataAppVizChart"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/ChartType.DATA_APP_VIZ"
+                    }
+                },
+                "required": ["type"],
+                "type": "object"
+            },
             "ChartConfig": {
                 "anyOf": [
                     {
@@ -5928,6 +6051,9 @@
                     },
                     {
                         "$ref": "#/components/schemas/TreemapChartConfig"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DataAppVizChartConfig"
                     }
                 ]
             },
@@ -7582,6 +7708,2078 @@
             "ApiRemoveScopeFromRoleResponse": {
                 "$ref": "#/components/schemas/ApiSuccessEmpty"
             },
+            "ApiSuccess__appUuid-string--version-number__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "version": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["version", "appUuid"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiGenerateAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--version-number__"
+            },
+            "DataAppTemplate": {
+                "type": "string",
+                "enum": [
+                    "dashboard",
+                    "slideshow",
+                    "pdf",
+                    "custom",
+                    "data_app_viz"
+                ]
+            },
+            "DataAppCreationExperience": {
+                "type": "string",
+                "enum": [
+                    "app_builder",
+                    "explorer_chart_config",
+                    "chart_type_builder"
+                ]
+            },
+            "AppChartReference": {
+                "properties": {
+                    "linkLive": {
+                        "type": "boolean",
+                        "description": "When true the app runs this chart live by UUID (linked) instead of\ncopying its metric query inline. Optional for backwards compatibility —\nomitted (older clients) is treated as false (copy) on the server."
+                    },
+                    "includeSampleData": {
+                        "type": "boolean"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["includeSampleData", "uuid"],
+                "type": "object",
+                "description": "A saved-chart reference attached to a generation request.\n`includeSampleData` is opt-in per chart: when true the backend runs the\nunderlying metric query and inlines a small sample of rows into the\nsandbox so Claude can see actual values (e.g. \"season 2026 only\")."
+            },
+            "AppDashboardReference": {
+                "properties": {
+                    "includeSampleData": {
+                        "type": "boolean"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["includeSampleData", "uuid"],
+                "type": "object",
+                "description": "A dashboard reference attached to a generation request. The dashboard is\nexpanded server-side into its chart tiles. When `includeSampleData` is\ntrue, every resolved chart in the dashboard receives a sample."
+            },
+            "AppClarification": {
+                "properties": {
+                    "answer": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    }
+                },
+                "required": ["answer", "question"],
+                "type": "object",
+                "description": "A clarifying question the backend posed to the user before the build, paired\nwith the user's answer. Persisted on the version's `resources.clarifications`\nso the chat can render them as a structured Q&A card on the user message."
+            },
+            "DataAppClaudeModel": {
+                "type": "string",
+                "enum": ["opus", "sonnet", "haiku"]
+            },
+            "DataAppCodexModel": {
+                "type": "string",
+                "enum": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+            },
+            "AppExternalConnectionReference": {
+                "properties": {
+                    "alias": {
+                        "type": "string"
+                    },
+                    "externalConnectionUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["alias", "externalConnectionUuid"],
+                "type": "object",
+                "description": "An external connection attached to a generation request. Linked to the app\n(under `alias`) server-side at creation — before the catalog stage — so the\ngenerated app can call it via `client.externalFetch(alias, …)`. Validated\n(must belong to the app's project) before linking."
+            },
+            "GenerateAppRequestBody": {
+                "properties": {
+                    "externalConnections": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppExternalConnectionReference"
+                        },
+                        "type": "array"
+                    },
+                    "designUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "codexModel": {
+                        "$ref": "#/components/schemas/DataAppCodexModel"
+                    },
+                    "claudeModel": {
+                        "$ref": "#/components/schemas/DataAppClaudeModel"
+                    },
+                    "spaceUuid": {
+                        "type": "string"
+                    },
+                    "clarifications": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppClarification"
+                        },
+                        "type": "array"
+                    },
+                    "dashboard": {
+                        "$ref": "#/components/schemas/AppDashboardReference"
+                    },
+                    "charts": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppChartReference"
+                        },
+                        "type": "array"
+                    },
+                    "appUuid": {
+                        "type": "string"
+                    },
+                    "fileIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "imageIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "deprecated": true
+                    },
+                    "creationExperience": {
+                        "$ref": "#/components/schemas/DataAppCreationExperience"
+                    },
+                    "template": {
+                        "$ref": "#/components/schemas/DataAppTemplate"
+                    },
+                    "prompt": {
+                        "type": "string"
+                    }
+                },
+                "required": ["prompt"],
+                "type": "object"
+            },
+            "Exclude_DataAppTemplate.custom_": {
+                "type": "string",
+                "enum": ["dashboard", "slideshow", "pdf", "data_app_viz"],
+                "description": "Exclude from T those types that are assignable to U"
+            },
+            "EmbedProjectApp": {
+                "properties": {
+                    "template": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Exclude_DataAppTemplate.custom_"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "appUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["slug", "name", "appUuid"],
+                "type": "object",
+                "description": "Minimal app shape for the embed config's standalone-app allowlist picker."
+            },
+            "ApiSuccess_EmbedProjectApp-Array_": {
+                "properties": {
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/EmbedProjectApp"
+                        },
+                        "type": "array"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiEmbedProjectAppsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_EmbedProjectApp-Array_"
+            },
+            "DataAppVizFieldType": {
+                "type": "string",
+                "enum": ["dimension", "metric", "series"]
+            },
+            "DataAppVizField": {
+                "properties": {
+                    "required": {
+                        "type": "boolean"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/DataAppVizFieldType"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["required", "type", "label", "name"],
+                "type": "object"
+            },
+            "DataAppVizConfigOption": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "default": {
+                                "type": "boolean"
+                            },
+                            "group": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["boolean"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["default", "label", "name", "type"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "default": {
+                                "type": "string"
+                            },
+                            "choices": {
+                                "items": {
+                                    "properties": {
+                                        "label": {
+                                            "type": "string"
+                                        },
+                                        "value": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": ["label", "value"],
+                                    "type": "object"
+                                },
+                                "type": "array"
+                            },
+                            "group": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["select"],
+                                "nullable": false
+                            }
+                        },
+                        "required": [
+                            "default",
+                            "choices",
+                            "label",
+                            "name",
+                            "type"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "max": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "min": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "default": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "group": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["number"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["default", "label", "name", "type"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "default": {
+                                "type": "string"
+                            },
+                            "group": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["text"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["default", "label", "name", "type"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "default": {
+                                "type": "string"
+                            },
+                            "group": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["color"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["default", "label", "name", "type"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "DataAppVizPaletteDeclaration": {
+                "properties": {
+                    "group": {
+                        "type": "string",
+                        "description": "Tab to place the picker in, matching a config option `group`."
+                    }
+                },
+                "type": "object",
+                "description": "Declared by a viz that colours from the resolved Lightdash palette. Not a\nconfig option: it carries no value of its own, it only asks the config panel\nfor the standard palette picker, whose choice is stored as the chart's\npalette and delivered on `colorPalette`. There is one palette per chart, so\na viz either declares this or it does not."
+            },
+            "DataAppVizSchema": {
+                "properties": {
+                    "colorPalette": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppVizPaletteDeclaration"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "Null when the viz colours nothing from the resolved palette."
+                    },
+                    "configOptions": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppVizConfigOption"
+                        },
+                        "type": "array"
+                    },
+                    "fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppVizField"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["colorPalette", "configOptions", "fields"],
+                "type": "object",
+                "description": "The full declaration a data app viz emits: data-binding fields + config form."
+            },
+            "DataAppViz": {
+                "properties": {
+                    "createdByUserUuid": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "schema": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppVizSchema"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "spaceUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "dataAppVizUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdByUserUuid",
+                    "createdAt",
+                    "schema",
+                    "spaceUuid",
+                    "projectUuid",
+                    "description",
+                    "name",
+                    "dataAppVizUuid"
+                ],
+                "type": "object"
+            },
+            "KnexPaginateArgs": {
+                "properties": {
+                    "page": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "pageSize": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": ["page", "pageSize"],
+                "type": "object"
+            },
+            "KnexPaginatedData_DataAppViz-Array_": {
+                "properties": {
+                    "pagination": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/KnexPaginateArgs"
+                            },
+                            {
+                                "properties": {
+                                    "totalResults": {
+                                        "type": "number",
+                                        "format": "double"
+                                    },
+                                    "totalPageCount": {
+                                        "type": "number",
+                                        "format": "double"
+                                    }
+                                },
+                                "required": ["totalResults", "totalPageCount"],
+                                "type": "object"
+                            }
+                        ]
+                    },
+                    "data": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppViz"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["data"],
+                "type": "object"
+            },
+            "ApiSuccess_KnexPaginatedData_DataAppViz-Array__": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/KnexPaginatedData_DataAppViz-Array_"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiListDataAppVizsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_KnexPaginatedData_DataAppViz-Array__"
+            },
+            "ApiSuccess_DataAppViz_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/DataAppViz"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiGetDataAppVizResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_DataAppViz_"
+            },
+            "DataAppVizRenderMetadata": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "latestBuildInProgress": {
+                                "type": "boolean"
+                            },
+                            "schema": {
+                                "$ref": "#/components/schemas/DataAppVizSchema"
+                            },
+                            "version": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": ["ready"],
+                                "nullable": false
+                            }
+                        },
+                        "required": [
+                            "latestBuildInProgress",
+                            "schema",
+                            "version",
+                            "state"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "latestBuildInProgress": {
+                                "type": "boolean",
+                                "enum": [true],
+                                "nullable": false
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": ["building"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["latestBuildInProgress", "state"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "latestBuildInProgress": {
+                                "type": "boolean",
+                                "enum": [false],
+                                "nullable": false
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": ["unavailable"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["latestBuildInProgress", "state"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "latestBuildInProgress": {
+                                "type": "boolean",
+                                "enum": [false],
+                                "nullable": false
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": ["failed"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["latestBuildInProgress", "state"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "ApiSuccess_DataAppVizRenderMetadata_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/DataAppVizRenderMetadata"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiDataAppVizRenderMetadataResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_DataAppVizRenderMetadata_"
+            },
+            "ApiSuccess__token-string__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "token": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["token"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiDataAppVizPreviewTokenResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__token-string__"
+            },
+            "UUID": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Stringified UUIDv4.\nSee [RFC 4112](https://tools.ietf.org/html/rfc4122)",
+                "pattern": "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}"
+            },
+            "ApiSuccess__questions-string-Array__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "questions": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["questions"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiClarifyAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__questions-string-Array__"
+            },
+            "ApiClarifyAppRequest": {
+                "properties": {
+                    "fileIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "imageIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "deprecated": true
+                    },
+                    "dashboard": {
+                        "$ref": "#/components/schemas/AppDashboardReference"
+                    },
+                    "charts": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppChartReference"
+                        },
+                        "type": "array"
+                    },
+                    "template": {
+                        "$ref": "#/components/schemas/DataAppTemplate"
+                    },
+                    "prompt": {
+                        "type": "string"
+                    }
+                },
+                "required": ["prompt"],
+                "type": "object"
+            },
+            "ApiSuccess__fileId-string--imageId_deprecated-true_-string--filename_description-Sanitizedoriginalfilename.canonicalizedserver-side._-string--mimeType_description-NormalizedMIMEtypeasstoredonthestagedS3object._-string__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "mimeType": {
+                                "type": "string",
+                                "description": "Normalized MIME type as stored on the staged S3 object."
+                            },
+                            "filename": {
+                                "type": "string",
+                                "description": "Sanitized original filename, canonicalized server-side."
+                            },
+                            "imageId": {
+                                "type": "string",
+                                "deprecated": true
+                            },
+                            "fileId": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "mimeType",
+                            "filename",
+                            "imageId",
+                            "fileId"
+                        ],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiAppFileUploadResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__fileId-string--imageId_deprecated-true_-string--filename_description-Sanitizedoriginalfilename.canonicalizedserver-side._-string--mimeType_description-NormalizedMIMEtypeasstoredonthestagedS3object._-string__"
+            },
+            "DataAppContextFile": {
+                "properties": {
+                    "contentBase64": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    }
+                },
+                "required": ["contentBase64", "path"],
+                "type": "object"
+            },
+            "DataAppThemeContext": {
+                "properties": {
+                    "skippedAssetCount": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "assets": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppContextFile"
+                        },
+                        "type": "array"
+                    },
+                    "instructions": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppContextFile"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "required": ["skippedAssetCount", "assets", "instructions"],
+                "type": "object"
+            },
+            "DataAppContext": {
+                "properties": {
+                    "theme": {
+                        "$ref": "#/components/schemas/DataAppThemeContext"
+                    },
+                    "promptHistory": {
+                        "$ref": "#/components/schemas/DataAppContextFile"
+                    },
+                    "parameters": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppContextFile"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "semanticLayerFiles": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppContextFile"
+                        },
+                        "type": "array"
+                    },
+                    "semanticLayer": {
+                        "$ref": "#/components/schemas/DataAppContextFile"
+                    }
+                },
+                "required": [
+                    "theme",
+                    "promptHistory",
+                    "parameters",
+                    "semanticLayer"
+                ],
+                "type": "object"
+            },
+            "ApiSuccess_DataAppContext_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/DataAppContext"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiGetDataAppAuthoringContextResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_DataAppContext_"
+            },
+            "AppVersionStatus": {
+                "type": "string",
+                "enum": [
+                    "catalog",
+                    "pending",
+                    "sandbox",
+                    "generating",
+                    "building",
+                    "packaging",
+                    "ready",
+                    "error"
+                ]
+            },
+            "AppVersionStatusHistoryEntryKind": {
+                "type": "string",
+                "enum": ["stage", "thinking", "tool"]
+            },
+            "AppVersionStatusHistoryEntry": {
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/AppVersionStatusHistoryEntryKind"
+                    },
+                    "timestamp": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": ["kind", "timestamp", "message"],
+                "type": "object"
+            },
+            "AppVersionImageResource": {
+                "properties": {
+                    "imageId": {
+                        "type": "string"
+                    }
+                },
+                "required": ["imageId"],
+                "type": "object"
+            },
+            "AppVersionFileResource": {
+                "properties": {
+                    "mimeType": {
+                        "type": "string"
+                    },
+                    "filename": {
+                        "type": "string"
+                    },
+                    "fileId": {
+                        "type": "string"
+                    }
+                },
+                "required": ["mimeType", "filename", "fileId"],
+                "type": "object",
+                "description": "A non-image file attached to a generation request (JSON, Tableau workbook,\nmarkdown, code, PDF…). Filename and MIME type are canonicalized server-side\nfrom the staged S3 object at version creation, so the chat can render a\nnamed chip without touching S3."
+            },
+            "AppVersionChartResource": {
+                "properties": {
+                    "linkLive": {
+                        "type": "boolean",
+                        "description": "Whether this chart was attached as a live link — persists the linked\nchip indicator across reloads. Optional for backwards compatibility."
+                    },
+                    "chartKind": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "chartName": {
+                        "type": "string"
+                    },
+                    "chartUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["chartKind", "chartName", "chartUuid"],
+                "type": "object"
+            },
+            "AppVersionExternalConnectionResource": {
+                "properties": {
+                    "alias": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "externalConnectionUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["alias", "name", "externalConnectionUuid"],
+                "type": "object"
+            },
+            "AppVersionDesignSnapshot": {
+                "properties": {
+                    "fileCount": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "designUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["fileCount", "name", "designUuid"],
+                "type": "object"
+            },
+            "AppVersionResources": {
+                "properties": {
+                    "vizSchema": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppVizSchema"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "design": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AppVersionDesignSnapshot"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "codexModel": {
+                        "$ref": "#/components/schemas/DataAppCodexModel"
+                    },
+                    "claudeModel": {
+                        "$ref": "#/components/schemas/DataAppClaudeModel"
+                    },
+                    "clarifications": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppClarification"
+                        },
+                        "type": "array"
+                    },
+                    "dashboardUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "dashboardName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "externalConnections": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppVersionExternalConnectionResource"
+                        },
+                        "type": "array"
+                    },
+                    "charts": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppVersionChartResource"
+                        },
+                        "type": "array"
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppVersionFileResource"
+                        },
+                        "type": "array"
+                    },
+                    "creationExperience": {
+                        "$ref": "#/components/schemas/DataAppCreationExperience"
+                    },
+                    "images": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppVersionImageResource"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "clarifications",
+                    "dashboardName",
+                    "charts",
+                    "images"
+                ],
+                "type": "object"
+            },
+            "AppVersionDependencyEntry": {
+                "properties": {
+                    "version": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["version", "name"],
+                "type": "object"
+            },
+            "ApiAppVersionSummary": {
+                "properties": {
+                    "dependencies": {
+                        "properties": {
+                            "custom": {
+                                "items": {
+                                    "$ref": "#/components/schemas/AppVersionDependencyEntry"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["custom"],
+                        "type": "object"
+                    },
+                    "resources": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AppVersionResources"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "createdByUser": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "userUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "userUuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "statusUpdatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "error": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "statusHistory": {
+                        "items": {
+                            "$ref": "#/components/schemas/AppVersionStatusHistoryEntry"
+                        },
+                        "type": "array"
+                    },
+                    "statusMessage": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/AppVersionStatus"
+                    },
+                    "prompt": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": [
+                    "resources",
+                    "createdByUser",
+                    "statusUpdatedAt",
+                    "createdAt",
+                    "error",
+                    "statusHistory",
+                    "statusMessage",
+                    "status",
+                    "prompt",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "ApiSuccess__appUuid-string--name-string--description-string--createdByUserUuid-string--spaceUuid-string-or-null--spaceName-string-or-null--template-Exclude_DataAppTemplate.custom_-or-null--pinnedListUuid-string-or-null--pinnedListOrder-number-or-null--slug-string--views-number--versions-ApiAppVersionSummary-Array--hasMore-boolean--latestReadyVersion-number-or-null__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "latestReadyVersion": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "hasMore": {
+                                "type": "boolean"
+                            },
+                            "versions": {
+                                "items": {
+                                    "$ref": "#/components/schemas/ApiAppVersionSummary"
+                                },
+                                "type": "array"
+                            },
+                            "views": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "pinnedListOrder": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "pinnedListUuid": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "template": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/Exclude_DataAppTemplate.custom_"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "spaceName": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "spaceUuid": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "createdByUserUuid": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "latestReadyVersion",
+                            "hasMore",
+                            "versions",
+                            "views",
+                            "slug",
+                            "pinnedListOrder",
+                            "pinnedListUuid",
+                            "template",
+                            "spaceName",
+                            "spaceUuid",
+                            "createdByUserUuid",
+                            "description",
+                            "name",
+                            "appUuid"
+                        ],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiGetAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--name-string--description-string--createdByUserUuid-string--spaceUuid-string-or-null--spaceName-string-or-null--template-Exclude_DataAppTemplate.custom_-or-null--pinnedListUuid-string-or-null--pinnedListOrder-number-or-null--slug-string--views-number--versions-ApiAppVersionSummary-Array--hasMore-boolean--latestReadyVersion-number-or-null__"
+            },
+            "UuidOrSlug": {
+                "type": "string"
+            },
+            "ApiCancelAppVersionResponse": {
+                "$ref": "#/components/schemas/ApiSuccessEmpty"
+            },
+            "ApiRestoreAppVersionResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--version-number__"
+            },
+            "ApiDuplicateAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--version-number__"
+            },
+            "ApiUpgradeAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--version-number__"
+            },
+            "UpgradeCandidateFeature": {
+                "properties": {
+                    "wiring": {
+                        "type": "string",
+                        "description": "Agent-facing app-code wiring the feature needs before it works;\nabsent = activates automatically on the new SDK."
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    }
+                },
+                "required": ["description", "label", "key"],
+                "type": "object",
+                "description": "A feature the frontend's SDK registry says may be new to this app.\nMirrors the SdkFeature shape from"
+            },
+            "UpgradeAppRequestBody": {
+                "properties": {
+                    "candidateFeatures": {
+                        "items": {
+                            "$ref": "#/components/schemas/UpgradeCandidateFeature"
+                        },
+                        "type": "array"
+                    },
+                    "reportedFeatures": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "reportedSdkVersion": {
+                        "type": "string"
+                    }
+                },
+                "type": "object",
+                "description": "What the app's running bundle reported about itself via the SDK's\n`lightdash:sdk:manifest` message. Both fields absent for legacy bundles\nwhose SDK predates feature reporting. Forwarded into the upgrade prompt —\nthe backend does not validate against any registry.\n\ncandidateFeatures is the authoritative \"possibly new\" list computed by the\nfrontend from its own SDK registry — the in-sandbox agent only verifies and\nfilters it, never discovers features on its own."
+            },
+            "PromoteAppAction": {
+                "type": "string",
+                "enum": ["create", "update"]
+            },
+            "PromoteAppDiff": {
+                "properties": {
+                    "space": {
+                        "properties": {
+                            "path": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["path", "name"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "upstreamAppUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "upstreamProjectName": {
+                        "type": "string"
+                    },
+                    "upstreamProjectUuid": {
+                        "type": "string"
+                    },
+                    "action": {
+                        "$ref": "#/components/schemas/PromoteAppAction"
+                    }
+                },
+                "required": [
+                    "space",
+                    "upstreamAppUuid",
+                    "upstreamProjectName",
+                    "upstreamProjectUuid",
+                    "action"
+                ],
+                "type": "object",
+                "description": "Preview of what promoting a data app from a preview project into its\nupstream (production) project will do. Drives the confirmation dialog."
+            },
+            "ApiSuccess_PromoteAppDiff_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/PromoteAppDiff"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiPromoteAppDiffResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_PromoteAppDiff_"
+            },
+            "ApiSuccess__appUuid-string--projectUuid-string--version-number--action-PromoteAppAction__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "action": {
+                                "$ref": "#/components/schemas/PromoteAppAction"
+                            },
+                            "version": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "projectUuid": {
+                                "type": "string"
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "action",
+                            "version",
+                            "projectUuid",
+                            "appUuid"
+                        ],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiPromoteAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--projectUuid-string--version-number--action-PromoteAppAction__"
+            },
+            "ApiSuccess__appUuid-string--name-string--description-string__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "description": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["description", "name", "appUuid"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiUpdateAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--name-string--description-string__"
+            },
+            "ApiUpdateAppRequest": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiDeleteAppResponse": {
+                "$ref": "#/components/schemas/ApiSuccessEmpty"
+            },
+            "TogglePinnedItemInfo": {
+                "properties": {
+                    "isPinned": {
+                        "type": "boolean"
+                    },
+                    "spaceUuid": {
+                        "type": "string"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "pinnedListUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "isPinned",
+                    "spaceUuid",
+                    "projectUuid",
+                    "pinnedListUuid"
+                ],
+                "type": "object"
+            },
+            "ApiTogglePinnedItem": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/TogglePinnedItemInfo"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiPreviewTokenResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__token-string__"
+            },
+            "DataAppManifestExternalConnection": {
+                "properties": {
+                    "connectionSlug": {
+                        "type": "string"
+                    },
+                    "alias": {
+                        "type": "string"
+                    }
+                },
+                "required": ["connectionSlug", "alias"],
+                "type": "object"
+            },
+            "DataAppManifest": {
+                "properties": {
+                    "scaffoldingVersion": {
+                        "type": "string"
+                    },
+                    "downloadedAt": {
+                        "type": "string"
+                    },
+                    "spaceSlug": {
+                        "type": "string"
+                    },
+                    "externalConnections": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppManifestExternalConnection"
+                        },
+                        "type": "array"
+                    },
+                    "vizSchema": {
+                        "$ref": "#/components/schemas/DataAppVizSchema"
+                    },
+                    "template": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Exclude_DataAppTemplate.custom_"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "appUuid": {
+                        "type": "string"
+                    },
+                    "codeVersion": {
+                        "type": "number",
+                        "enum": [1],
+                        "nullable": false
+                    }
+                },
+                "required": [
+                    "downloadedAt",
+                    "template",
+                    "description",
+                    "name",
+                    "version",
+                    "codeVersion"
+                ],
+                "type": "object"
+            },
+            "DataAppCodeFile": {
+                "properties": {
+                    "contentBase64": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    }
+                },
+                "required": ["contentBase64", "path"],
+                "type": "object"
+            },
+            "DataAppDependencies": {
+                "properties": {
+                    "lockfile": {
+                        "type": "string"
+                    },
+                    "packageJson": {
+                        "type": "string"
+                    }
+                },
+                "required": ["lockfile", "packageJson"],
+                "type": "object"
+            },
+            "DataAppCode": {
+                "properties": {
+                    "dependencies": {
+                        "$ref": "#/components/schemas/DataAppDependencies"
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppCodeFile"
+                        },
+                        "type": "array"
+                    },
+                    "manifest": {
+                        "$ref": "#/components/schemas/DataAppManifest"
+                    }
+                },
+                "required": ["files", "manifest"],
+                "type": "object"
+            },
+            "DataAppCodeDownload": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/DataAppCode"
+                    },
+                    {
+                        "properties": {
+                            "context": {
+                                "$ref": "#/components/schemas/DataAppContext"
+                            }
+                        },
+                        "required": ["context"],
+                        "type": "object"
+                    }
+                ]
+            },
+            "ApiSuccess_DataAppCodeDownload_": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/DataAppCodeDownload"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiGetAppCodeResponse": {
+                "$ref": "#/components/schemas/ApiSuccess_DataAppCodeDownload_"
+            },
+            "ApiSuccess__appUuid-string--version-number--action-create-or-append-or-unchanged--slug-string--warnings_63_-string-Array__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "warnings": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "action": {
+                                "type": "string",
+                                "enum": ["create", "append", "unchanged"]
+                            },
+                            "version": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "appUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["slug", "action", "version", "appUuid"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiImportAppCodeResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__appUuid-string--version-number--action-create-or-append-or-unchanged--slug-string--warnings_63_-string-Array__"
+            },
+            "ImportAppCodeRequestBody": {
+                "properties": {
+                    "force": {
+                        "type": "boolean"
+                    },
+                    "createNew": {
+                        "type": "boolean"
+                    },
+                    "spaceUuid": {
+                        "type": "string"
+                    },
+                    "targetAppUuid": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "$ref": "#/components/schemas/DataAppCode"
+                    }
+                },
+                "required": ["code"],
+                "type": "object"
+            },
+            "ApiSuccess__imageUrl-string__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "imageUrl": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["imageUrl"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiAppImageUrlResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__imageUrl-string__"
+            },
+            "ApiSuccess__thumbnailUrl-string__": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "thumbnailUrl": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["thumbnailUrl"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiAppThumbnailUrlResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__thumbnailUrl-string__"
+            },
+            "ApiAppSchedulersResponse": {
+                "properties": {
+                    "results": {},
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiCreateAppSchedulerResponse": {
+                "properties": {
+                    "results": {},
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiAppSummary": {
+                "properties": {
+                    "lastVersionStatus": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AppVersionStatus"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "lastVersionNumber": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "spaceName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "spaceUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "projectName": {
+                        "type": "string"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "appUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "lastVersionStatus",
+                    "lastVersionNumber",
+                    "createdAt",
+                    "spaceName",
+                    "spaceUuid",
+                    "projectName",
+                    "projectUuid",
+                    "description",
+                    "name",
+                    "appUuid"
+                ],
+                "type": "object"
+            },
+            "ApiSuccess__data-ApiAppSummary-Array--pagination_63_-KnexPaginateArgs-and-_totalPageCount-number--totalResults-number___": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "pagination": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/KnexPaginateArgs"
+                                    },
+                                    {
+                                        "properties": {
+                                            "totalResults": {
+                                                "type": "number",
+                                                "format": "double"
+                                            },
+                                            "totalPageCount": {
+                                                "type": "number",
+                                                "format": "double"
+                                            }
+                                        },
+                                        "required": [
+                                            "totalResults",
+                                            "totalPageCount"
+                                        ],
+                                        "type": "object"
+                                    }
+                                ]
+                            },
+                            "data": {
+                                "items": {
+                                    "$ref": "#/components/schemas/ApiAppSummary"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["data"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiMyAppsResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__data-ApiAppSummary-Array--pagination_63_-KnexPaginateArgs-and-_totalPageCount-number--totalResults-number___"
+            },
+            "MyAppsSortBy": {
+                "type": "string",
+                "enum": ["createdAt", "latestActivity"]
+            },
+            "DataAppCodingAgent": {
+                "type": "string",
+                "enum": ["claude", "codex"]
+            },
+            "DataAppCodingAgentModel": {
+                "anyOf": [
+                    {
+                        "$ref": "#/components/schemas/DataAppClaudeModel"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DataAppCodexModel"
+                    }
+                ]
+            },
+            "DataAppGenerationUsage": {
+                "properties": {
+                    "costUsd": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "durationApiMs": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "numTurns": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "cacheCreationInputTokens": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "cacheReadInputTokens": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "outputTokens": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "inputTokens": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": [
+                    "costUsd",
+                    "durationApiMs",
+                    "numTurns",
+                    "cacheCreationInputTokens",
+                    "cacheReadInputTokens",
+                    "outputTokens",
+                    "inputTokens"
+                ],
+                "type": "object",
+                "description": "Usage for one generation, aggregated across every coding-agent invocation in\nthat version's pipeline, including build-fix retries.\n\nThis is spend attributable to a generation, not all data-app AI spend: the\nshort prompt-clarification and app-naming calls happen outside any version.\n\n`costUsd` is an estimate rather than an invoice. It is null when the coding\nagent reports tokens without a trustworthy price."
+            },
+            "DataAppActivityEvent": {
+                "properties": {
+                    "usage": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppGenerationUsage"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "user": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "userUuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "userUuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "projectName": {
+                        "type": "string"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "claudeModel": {
+                        "$ref": "#/components/schemas/DataAppClaudeModel"
+                    },
+                    "codingAgentModel": {
+                        "$ref": "#/components/schemas/DataAppCodingAgentModel"
+                    },
+                    "codingAgent": {
+                        "$ref": "#/components/schemas/DataAppCodingAgent"
+                    },
+                    "prompt": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/AppVersionStatus"
+                    },
+                    "version": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "template": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Exclude_DataAppTemplate.custom_"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "appDeleted": {
+                        "type": "boolean"
+                    },
+                    "appName": {
+                        "type": "string"
+                    },
+                    "appUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "usage",
+                    "user",
+                    "projectName",
+                    "projectUuid",
+                    "createdAt",
+                    "codingAgentModel",
+                    "codingAgent",
+                    "prompt",
+                    "status",
+                    "version",
+                    "template",
+                    "appDeleted",
+                    "appName",
+                    "appUuid"
+                ],
+                "type": "object",
+                "description": "One data app generation event — a row of the org-wide activity log. Backed by\nan `app_versions` row, so it covers both new apps and iterations, and both\nsuccessful and failed generations."
+            },
+            "ApiSuccess__data-DataAppActivityEvent-Array--pagination_63_-KnexPaginateArgs-and-_totalPageCount-number--totalResults-number___": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "pagination": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/KnexPaginateArgs"
+                                    },
+                                    {
+                                        "properties": {
+                                            "totalResults": {
+                                                "type": "number",
+                                                "format": "double"
+                                            },
+                                            "totalPageCount": {
+                                                "type": "number",
+                                                "format": "double"
+                                            }
+                                        },
+                                        "required": [
+                                            "totalResults",
+                                            "totalPageCount"
+                                        ],
+                                        "type": "object"
+                                    }
+                                ]
+                            },
+                            "data": {
+                                "items": {
+                                    "$ref": "#/components/schemas/DataAppActivityEvent"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "required": ["data"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiDataAppActivityResponse": {
+                "$ref": "#/components/schemas/ApiSuccess__data-DataAppActivityEvent-Array--pagination_63_-KnexPaginateArgs-and-_totalPageCount-number--totalResults-number___"
+            },
             "DashboardSummaryTone": {
                 "enum": ["friendly", "formal", "direct", "enthusiastic"],
                 "type": "string"
@@ -8478,19 +10676,6 @@
                                                     "status": {
                                                         "type": "string",
                                                         "enum": [
-                                                            "error",
-                                                            "success"
-                                                        ]
-                                                    }
-                                                },
-                                                "required": ["status"],
-                                                "type": "object"
-                                            },
-                                            {
-                                                "properties": {
-                                                    "status": {
-                                                        "type": "string",
-                                                        "enum": [
                                                             "success",
                                                             "error"
                                                         ]
@@ -8534,7 +10719,7 @@
                     },
                     "artifactType": {
                         "type": "string",
-                        "enum": ["chart", "dashboard"]
+                        "enum": ["dashboard", "chart"]
                     }
                 },
                 "required": [
@@ -8829,7 +11014,7 @@
                     },
                     "artifactType": {
                         "type": "string",
-                        "enum": ["chart", "dashboard"]
+                        "enum": ["dashboard", "chart"]
                     },
                     "threadUuid": {
                         "type": "string"
@@ -9304,20 +11489,6 @@
             "ApiAiAgentEvaluationResponse": {
                 "$ref": "#/components/schemas/ApiSuccess_AiAgentEvaluation_"
             },
-            "KnexPaginateArgs": {
-                "properties": {
-                    "page": {
-                        "type": "number",
-                        "format": "double"
-                    },
-                    "pageSize": {
-                        "type": "number",
-                        "format": "double"
-                    }
-                },
-                "required": ["page", "pageSize"],
-                "type": "object"
-            },
             "KnexPaginatedData__runs-AiAgentEvaluationRunSummary-Array__": {
                 "properties": {
                     "pagination": {
@@ -9729,6 +11900,17 @@
             },
             "AiOrganizationSettings": {
                 "properties": {
+                    "visibleDataAppModels": {
+                        "items": {
+                            "$ref": "#/components/schemas/DataAppClaudeModel"
+                        },
+                        "type": "array"
+                    },
+                    "dataAppCodingAgent": {
+                        "type": "string",
+                        "enum": ["claude", "codex"],
+                        "description": "Phase C stubs for data-app model selection"
+                    },
                     "aiAgentsVisible": {
                         "type": "boolean"
                     },
@@ -9796,6 +11978,18 @@
                 "properties": {
                     "aiAgentsVisible": {
                         "type": "boolean"
+                    },
+                    "dataAppCodingAgent": {
+                        "type": "string",
+                        "enum": ["claude", "codex"],
+                        "description": "Phase C stubs for data-app model selection"
+                    },
+                    "visibleDataAppModels": {
+                        "items": {
+                            "type": "string",
+                            "enum": ["opus", "sonnet", "haiku"]
+                        },
+                        "type": "array"
                     }
                 },
                 "required": ["aiAgentsVisible"],
@@ -12576,7 +14770,8 @@
                     "pie",
                     "funnel",
                     "treemap",
-                    "custom"
+                    "custom",
+                    "data_app_viz"
                 ],
                 "type": "string"
             },
@@ -13662,6 +15857,8 @@
                 "enum": [
                     "slackAiPrompt",
                     "aiAgentEvalResult",
+                    "appGeneratePipeline",
+                    "appBuildFromSource",
                     "handleScheduledDelivery",
                     "sendSlackNotification",
                     "sendEmailNotification",
@@ -16334,6 +18531,16 @@
                     }
                 ]
             },
+            "CreateDashboardDataAppTile": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CreateDashboardTileBase"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DashboardDataAppTileProperties"
+                    }
+                ]
+            },
             "Pick_UpdatedByUser.userUuid_": {
                 "properties": {
                     "userUuid": {
@@ -16387,6 +18594,9 @@
                                 },
                                 {
                                     "$ref": "#/components/schemas/CreateDashboardSqlChartTile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/CreateDashboardDataAppTile"
                                 }
                             ]
                         },
@@ -16967,7 +19177,23 @@
             "Pick_DashboardTile.Exclude_keyofDashboardTile.properties-or-uuid__": {
                 "properties": {
                     "type": {
-                        "$ref": "#/components/schemas/DashboardTileTypes"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/DashboardTileTypes.SAVED_CHART"
+                            },
+                            {
+                                "$ref": "#/components/schemas/DashboardTileTypes.SQL_CHART"
+                            },
+                            {
+                                "$ref": "#/components/schemas/DashboardTileTypes.MARKDOWN"
+                            },
+                            {
+                                "$ref": "#/components/schemas/DashboardTileTypes.LOOM"
+                            },
+                            {
+                                "$ref": "#/components/schemas/DashboardTileTypes.DATA_APP"
+                            }
+                        ]
                     },
                     "x": {
                         "type": "number",
@@ -17342,22 +19568,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -17870,6 +20096,119 @@
                 "required": ["data", "type"],
                 "type": "object"
             },
+            "ResourceViewItemType.DATA_APP": {
+                "enum": ["data_app"],
+                "type": "string"
+            },
+            "ResourceViewDataAppItem": {
+                "properties": {
+                    "category": {
+                        "$ref": "#/components/schemas/ResourceItemCategory"
+                    },
+                    "data": {
+                        "properties": {
+                            "pinnedListOrder": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "pinnedListUuid": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "latestReadyVersionNumber": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "latestVersionStatus": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/AppVersionStatus"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "latestVersionNumber": {
+                                "type": "number",
+                                "format": "double",
+                                "nullable": true
+                            },
+                            "firstViewedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "views": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "updatedByUser": {
+                                "properties": {
+                                    "lastName": {
+                                        "type": "string"
+                                    },
+                                    "firstName": {
+                                        "type": "string"
+                                    },
+                                    "userUuid": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "lastName",
+                                    "firstName",
+                                    "userUuid"
+                                ],
+                                "type": "object",
+                                "nullable": true
+                            },
+                            "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "createdByUserUuid": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "spaceUuid": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "pinnedListOrder",
+                            "pinnedListUuid",
+                            "latestReadyVersionNumber",
+                            "latestVersionStatus",
+                            "latestVersionNumber",
+                            "firstViewedAt",
+                            "views",
+                            "updatedByUser",
+                            "updatedAt",
+                            "createdByUserUuid",
+                            "spaceUuid",
+                            "name",
+                            "uuid"
+                        ],
+                        "type": "object"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/ResourceViewItemType.DATA_APP"
+                    }
+                },
+                "required": ["data", "type"],
+                "type": "object"
+            },
             "PinnedItems": {
                 "items": {
                     "anyOf": [
@@ -17881,6 +20220,9 @@
                         },
                         {
                             "$ref": "#/components/schemas/ResourceViewSpaceItem"
+                        },
+                        {
+                            "$ref": "#/components/schemas/ResourceViewDataAppItem"
                         }
                     ]
                 },
@@ -17901,10 +20243,10 @@
                 "type": "object"
             },
             "ResourceViewItemType": {
-                "enum": ["chart", "dashboard", "space"],
+                "enum": ["chart", "dashboard", "space", "data_app"],
                 "type": "string"
             },
-            "Pick_ResourceViewItem-at-data.uuid-or-pinnedListOrder_": {
+            "Pick_ResourceViewChartItem-at-data-or-ResourceViewDashboardItem-at-data-or-ResourceViewSpaceItem-at-data-or-ResourceViewDataAppItem-at-data.uuid-or-pinnedListOrder_": {
                 "properties": {
                     "uuid": {
                         "type": "string"
@@ -17922,7 +20264,7 @@
             "UpdatePinnedItemOrder": {
                 "properties": {
                     "data": {
-                        "$ref": "#/components/schemas/Pick_ResourceViewItem-at-data.uuid-or-pinnedListOrder_"
+                        "$ref": "#/components/schemas/Pick_ResourceViewChartItem-at-data-or-ResourceViewDashboardItem-at-data-or-ResourceViewSpaceItem-at-data-or-ResourceViewDataAppItem-at-data.uuid-or-pinnedListOrder_"
                     },
                     "type": {
                         "$ref": "#/components/schemas/ResourceViewItemType"
@@ -18320,12 +20662,6 @@
                 },
                 "required": ["results", "status"],
                 "type": "object"
-            },
-            "UUID": {
-                "type": "string",
-                "format": "uuid",
-                "description": "Stringified UUIDv4.\nSee [RFC 4112](https://tools.ietf.org/html/rfc4122)",
-                "pattern": "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}"
             },
             "OrganizationMemberProfileUpdate": {
                 "properties": {
@@ -21065,7 +23401,8 @@
                     "mcp",
                     "api",
                     "cli",
-                    "metricsExplorer"
+                    "metricsExplorer",
+                    "dataAppSample"
                 ],
                 "type": "string"
             },
@@ -21968,7 +24305,7 @@
                 "type": "string"
             },
             "ContentType": {
-                "enum": ["chart", "dashboard", "space"],
+                "enum": ["chart", "dashboard", "space", "data_app"],
                 "type": "string"
             },
             "ChartContent": {
@@ -22440,6 +24777,300 @@
                 "type": "object",
                 "additionalProperties": true
             },
+            "ContentType.DATA_APP": {
+                "enum": ["data_app"],
+                "type": "string"
+            },
+            "Pick_Content.Exclude_keyofContent.space-or-pinnedList__": {
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "project": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name", "uuid"],
+                        "type": "object"
+                    },
+                    "organization": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name", "uuid"],
+                        "type": "object"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "views": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "firstViewedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "createdBy": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "uuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "contentType": {
+                        "$ref": "#/components/schemas/ContentType"
+                    },
+                    "lastUpdatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "lastUpdatedBy": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "uuid"],
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "description",
+                    "name",
+                    "project",
+                    "organization",
+                    "createdAt",
+                    "uuid",
+                    "slug",
+                    "views",
+                    "firstViewedAt",
+                    "createdBy",
+                    "contentType",
+                    "lastUpdatedAt",
+                    "lastUpdatedBy"
+                ],
+                "type": "object",
+                "description": "From T, pick a set of properties whose keys are in the union K"
+            },
+            "DataAppContent": {
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "project": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name", "uuid"],
+                        "type": "object"
+                    },
+                    "organization": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name", "uuid"],
+                        "type": "object"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "views": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "firstViewedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "createdBy": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "uuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "contentType": {
+                        "$ref": "#/components/schemas/ContentType.DATA_APP"
+                    },
+                    "lastUpdatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "lastUpdatedBy": {
+                        "properties": {
+                            "lastName": {
+                                "type": "string"
+                            },
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["lastName", "firstName", "uuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "space": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name", "uuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "latestVersionNumber": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "latestVersionStatus": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AppVersionStatus"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "latestReadyVersionNumber": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "pinnedList": {
+                        "properties": {
+                            "order": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["uuid"],
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "template": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataAppTemplate"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "'data_app_viz' marks a reusable chart-type viz rather than a standalone app."
+                    },
+                    "directAccessRoles": {
+                        "items": {},
+                        "type": "array",
+                        "description": "STUB: direct-access roles until SpacePermission is fully ported"
+                    },
+                    "verification": {
+                        "description": "STUB: content verification until content verification is ported"
+                    }
+                },
+                "required": [
+                    "description",
+                    "name",
+                    "project",
+                    "organization",
+                    "createdAt",
+                    "uuid",
+                    "slug",
+                    "views",
+                    "firstViewedAt",
+                    "createdBy",
+                    "contentType",
+                    "lastUpdatedAt",
+                    "lastUpdatedBy",
+                    "space",
+                    "latestVersionNumber",
+                    "latestVersionStatus",
+                    "latestReadyVersionNumber",
+                    "pinnedList",
+                    "template"
+                ],
+                "type": "object",
+                "additionalProperties": true
+            },
             "SummaryContent": {
                 "anyOf": [
                     {
@@ -22450,6 +25081,9 @@
                     },
                     {
                         "$ref": "#/components/schemas/SpaceContent"
+                    },
+                    {
+                        "$ref": "#/components/schemas/DataAppContent"
                     }
                 ]
             },
@@ -22544,6 +25178,18 @@
                         },
                         "required": ["contentType", "uuid"],
                         "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "contentType": {
+                                "$ref": "#/components/schemas/ContentType.DATA_APP"
+                            },
+                            "uuid": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["contentType", "uuid"],
+                        "type": "object"
                     }
                 ]
             },
@@ -22606,7 +25252,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "0.2111.5",
+        "version": "2.0.1-test.1",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"

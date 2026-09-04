@@ -4,31 +4,37 @@ import {
     isSchedulerTaskName,
     SCHEDULER_TASKS,
     SchedulerJobStatus,
-    type Account,
 } from '@lightdash/common';
-import { fromSession } from '../../auth/account';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { tryJobOrTimeout } from '../../scheduler/SchedulerJobTimeout';
 import { SchedulerTaskArguments } from '../../scheduler/SchedulerTask';
 import { SchedulerWorker } from '../../scheduler/SchedulerWorker';
 import { TypedEETaskList } from '../../scheduler/types';
 import { AiAgentService } from '../services/AiAgentService';
+import { AppGenerateService } from '../services/AppGenerateService/AppGenerateService';
 import type { EmbedService } from '../services/EmbedService/EmbedService';
 
 const AI_AGENT_EVAL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+const APP_GENERATE_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
 
 type CommercialSchedulerWorkerArguments = SchedulerTaskArguments & {
-    aiAgentService: AiAgentService;
-    embedService: EmbedService;
+    appGenerateService: AppGenerateService;
+    /** Null when running without EE license (Data Apps-only registration). */
+    aiAgentService: AiAgentService | null;
+    /** Null when running without EE license (Data Apps-only registration). */
+    embedService: EmbedService | null;
 };
 
 export class CommercialSchedulerWorker extends SchedulerWorker {
-    protected readonly aiAgentService: AiAgentService;
+    protected readonly appGenerateService: AppGenerateService;
 
-    protected readonly embedService: EmbedService;
+    protected readonly aiAgentService: AiAgentService | null;
+
+    protected readonly embedService: EmbedService | null;
 
     constructor(args: CommercialSchedulerWorkerArguments) {
         super(args);
+        this.appGenerateService = args.appGenerateService;
         this.aiAgentService = args.aiAgentService;
         this.embedService = args.embedService;
     }
@@ -47,6 +53,11 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
         return {
             ...super.getFullTaskList(),
             [EE_SCHEDULER_TASKS.SLACK_AI_PROMPT]: async (payload, _helpers) => {
+                if (!this.aiAgentService) {
+                    throw new Error(
+                        'SLACK_AI_PROMPT requires an enterprise license',
+                    );
+                }
                 await this.aiAgentService.replyToSlackPrompt(
                     payload.slackPromptUuid,
                 );
@@ -55,6 +66,12 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                 payload,
                 helpers,
             ) => {
+                if (!this.aiAgentService) {
+                    throw new Error(
+                        'AI_AGENT_EVAL_RESULT requires an enterprise license',
+                    );
+                }
+                const aiAgentService = this.aiAgentService;
                 await tryJobOrTimeout(
                     SchedulerClient.processJob(
                         EE_SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT,
@@ -62,15 +79,13 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                         helpers.job.run_at,
                         payload,
                         async () => {
-                            await this.aiAgentService.executeEvalResult(
-                                payload,
-                            );
+                            await aiAgentService.executeEvalResult(payload);
                         },
                     ),
                     helpers.job,
                     AI_AGENT_EVAL_TIMEOUT_MS,
                     async (job, e) => {
-                        await this.aiAgentService.updateEvalRunResult(
+                        await aiAgentService.updateEvalRunResult(
                             payload.evalRunUuid,
                             payload.evalRunResultUuid,
                             new Error('Evaluation task timed out', {
@@ -108,7 +123,12 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                         async (): Promise<void> => {
                             const { encodedJwt, ...rest } = payload;
                             if (encodedJwt) {
-                                // For JWT users, wrap in logWrapper so it works with scheduler logs and we can poll
+                                if (!this.embedService) {
+                                    throw new Error(
+                                        'JWT downloadAsyncQueryResults requires an enterprise license',
+                                    );
+                                }
+                                const embedService = this.embedService;
                                 await this.logWrapper(
                                     {
                                         task: SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS,
@@ -123,7 +143,7 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                                     },
                                     async () => {
                                         const account =
-                                            await this.embedService.getAccountFromJwt(
+                                            await embedService.getAccountFromJwt(
                                                 rest.projectUuid,
                                                 encodedJwt,
                                             );
@@ -134,7 +154,6 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                                     },
                                 );
                             } else {
-                                // For non-JWT users, reuse the existing task
                                 await this.downloadAsyncQueryResults(
                                     helpers.job.id,
                                     helpers.job.run_at,
@@ -161,15 +180,72 @@ export class CommercialSchedulerWorker extends SchedulerWorker {
                     },
                 );
             },
-            // STUB: port AppGenerateService worker handlers from upstream later
-            [EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: async () => {
-                throw new Error(
-                    'APP_GENERATE_PIPELINE worker is not available in this build',
+            [EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: async (
+                payload,
+                helpers,
+            ) => {
+                const schedulerWaitMs = Math.max(
+                    Date.now() - helpers.job.run_at.getTime(),
+                    0,
+                );
+                await tryJobOrTimeout(
+                    SchedulerClient.processJob(
+                        EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE,
+                        helpers.job.id,
+                        helpers.job.run_at,
+                        payload,
+                        async () => {
+                            await this.appGenerateService.runPipeline(
+                                payload,
+                                schedulerWaitMs,
+                            );
+                        },
+                    ),
+                    helpers.job,
+                    APP_GENERATE_TIMEOUT_MS,
+                    async (_job, e) => {
+                        const marked = await this.appGenerateService.markError(
+                            payload.appUuid,
+                            payload.version,
+                            e,
+                            'Build timed out. Please try again.',
+                        );
+                        if (marked) {
+                            await this.appGenerateService.trackTimeoutFailure(
+                                payload,
+                                e,
+                                schedulerWaitMs,
+                            );
+                        }
+                    },
                 );
             },
-            [EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: async () => {
-                throw new Error(
-                    'APP_BUILD_FROM_SOURCE worker is not available in this build',
+            [EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: async (
+                payload,
+                helpers,
+            ) => {
+                await tryJobOrTimeout(
+                    SchedulerClient.processJob(
+                        EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE,
+                        helpers.job.id,
+                        helpers.job.run_at,
+                        payload,
+                        async () => {
+                            await this.appGenerateService.runBuildFromSourcePipeline(
+                                payload,
+                            );
+                        },
+                    ),
+                    helpers.job,
+                    APP_GENERATE_TIMEOUT_MS,
+                    async (_job, e) => {
+                        await this.appGenerateService.markError(
+                            payload.appUuid,
+                            payload.version,
+                            e,
+                            'Build timed out. Please try again.',
+                        );
+                    },
                 );
             },
         };

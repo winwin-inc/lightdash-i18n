@@ -1,3 +1,4 @@
+import type { AppVersionStatus, DataAppTemplate } from '../ee/apps/types';
 import type { KnexPaginatedData } from './knex-paginate';
 import { type ChartKind } from './savedCharts';
 import { type SessionUser } from './user';
@@ -97,14 +98,14 @@ export interface DataAppContent extends Omit<Content, 'space' | 'pinnedList'> {
         name: string;
     } | null;
     latestVersionNumber: number | null;
-    latestVersionStatus: import('../ee/apps/types').AppVersionStatus | null;
+    latestVersionStatus: AppVersionStatus | null;
     latestReadyVersionNumber: number | null;
     pinnedList: {
         uuid: string;
         order?: number;
     } | null;
     /** 'data_app_viz' marks a reusable chart-type viz rather than a standalone app. */
-    template: import('../ee/apps/types').DataAppTemplate | null;
+    template: DataAppTemplate | null;
     /** STUB: direct-access roles until SpacePermission is fully ported */
     directAccessRoles?: unknown[];
     /** STUB: content verification until content verification is ported */
