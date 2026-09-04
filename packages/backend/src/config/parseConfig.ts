@@ -573,6 +573,7 @@ export const getUpdateSetupConfig = (): LightdashConfig['updateSetup'] => {
 
 export const parseBaseS3Config = (): LightdashConfig['s3'] => {
     const endpoint = process.env.S3_ENDPOINT;
+    const publicEndpoint = process.env.S3_PUBLIC_ENDPOINT || undefined;
     const bucket = process.env.S3_BUCKET;
     const region = process.env.S3_REGION;
     const accessKey = process.env.S3_ACCESS_KEY;
@@ -590,6 +591,7 @@ export const parseBaseS3Config = (): LightdashConfig['s3'] => {
 
     return {
         endpoint,
+        publicEndpoint,
         bucket,
         region,
         accessKey,
@@ -609,6 +611,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
 
     const {
         endpoint: baseEndpoint,
+        publicEndpoint: basePublicEndpoint,
         bucket: baseBucket,
         region: baseRegion,
         accessKey: baseAccessKey,
@@ -636,6 +639,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
 
     return {
         endpoint: baseEndpoint, // ! For now we keep reusing the S3_ENDPOINT like we have been so far, we are just going to enforce it
+        publicEndpoint: basePublicEndpoint,
         forcePathStyle: baseForcePathStyle, // ! For now we keep reusing the S3_FORCE_PATH_STYLE like we have been so far, we are just going to enforce it
         pathPrefix: basePathPrefix,
         bucket,
@@ -971,6 +975,8 @@ export type HeadlessBrowserConfig = {
 export type S3Config = {
     region: string;
     endpoint: string;
+    /** Optional public/CDN custom domain for browser-facing download signed URLs */
+    publicEndpoint?: string;
     bucket: string;
     expirationTime?: number;
     accessKey?: string;
@@ -1297,7 +1303,7 @@ export const parseConfig = (): LightdashConfig => {
                   },
               }
             : undefined,
-        // 自托管：硬关闭官方 PostHog / RudderStack，忽略相关环境变量
+        // èªæç®¡ï¼ç¡¬å³é­å®æ¹ PostHog / RudderStackï¼å¿½ç¥ç¸å³ç¯å¢åé
         posthog: undefined,
         rudder: {
             writeKey: undefined,
@@ -1454,7 +1460,7 @@ export const parseConfig = (): LightdashConfig => {
                     ) || 60 * 60 * 24 * 14, // 2 weeks
             },
         },
-        // 自托管：硬关闭官方 Intercom / Pylon 客服组件
+        // èªæç®¡ï¼ç¡¬å³é­å®æ¹ Intercom / Pylon å®¢æç»ä»¶
         intercom: {
             appId: '',
             apiBase: '',

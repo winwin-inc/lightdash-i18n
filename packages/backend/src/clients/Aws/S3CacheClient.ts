@@ -18,6 +18,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { wrapSentryTransaction } from '../../utils';
+import { createS3DownloadSigningClient } from './createS3DownloadSigningClient';
 
 export type S3CacheClientArguments = {
     lightdashConfig: LightdashConfig;
@@ -27,6 +28,9 @@ export class S3CacheClient {
     configuration: LightdashConfig['results']['s3'];
 
     protected readonly s3: S3 | undefined;
+
+    /** Client used only for GetObject download pre-signed URLs */
+    protected readonly downloadSigningS3: S3 | undefined;
 
     constructor({ lightdashConfig }: S3CacheClientArguments) {
         this.configuration = lightdashConfig.results.s3;
@@ -88,6 +92,18 @@ export class S3CacheClient {
         }
 
         this.s3 = new S3(s3Config);
+        this.downloadSigningS3 = createS3DownloadSigningClient(
+            this.s3,
+            this.configuration,
+        );
+        if (
+            this.configuration.publicEndpoint &&
+            this.downloadSigningS3 !== this.s3
+        ) {
+            Logger.info(
+                `Results S3 download signed URLs use public endpoint: ${this.configuration.publicEndpoint}`,
+            );
+        }
     }
 
     protected getPrefixedFileId(fileId: string): string {

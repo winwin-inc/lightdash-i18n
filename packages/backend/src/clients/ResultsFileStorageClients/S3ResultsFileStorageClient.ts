@@ -149,9 +149,10 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         );
 
         const prefixedKey = this.getPrefixedFileId(key);
+        const signingClient = this.downloadSigningS3 ?? this.s3;
         // Get the S3 URL
         const url = await getSignedUrl(
-            this.s3,
+            signingClient,
             new GetObjectCommand({
                 Bucket: this.configuration.bucket,
                 Key: prefixedKey,

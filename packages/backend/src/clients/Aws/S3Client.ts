@@ -20,6 +20,7 @@ import { PassThrough, Readable } from 'stream';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { createS3DownloadSigningClient } from './createS3DownloadSigningClient';
 
 type S3ClientArguments = {
     lightdashConfig: LightdashConfig;
@@ -29,6 +30,9 @@ export class S3Client {
     lightdashConfig: LightdashConfig;
 
     private readonly s3?: S3;
+
+    /** Client used only for GetObject download pre-signed URLs */
+    private readonly downloadSigningS3?: S3;
 
     constructor({ lightdashConfig }: S3ClientArguments) {
         this.lightdashConfig = lightdashConfig;
@@ -71,6 +75,18 @@ export class S3Client {
             }
 
             this.s3 = new S3(s3Config);
+            this.downloadSigningS3 = createS3DownloadSigningClient(
+                this.s3,
+                lightdashConfig.s3,
+            );
+            if (
+                lightdashConfig.s3.publicEndpoint &&
+                this.downloadSigningS3 !== this.s3
+            ) {
+                Logger.info(
+                    `S3 download signed URLs use public endpoint: ${lightdashConfig.s3.publicEndpoint}`,
+                );
+            }
         } else {
             Logger.debug('Missing S3 bucket configuration');
         }
@@ -115,8 +131,9 @@ export class S3Client {
         });
         try {
             await upload.done();
+            const signingClient = this.downloadSigningS3 ?? this.s3;
             const url = await getSignedUrl(
-                this.s3,
+                signingClient,
                 new GetObjectCommand({
                     Bucket: this.lightdashConfig.s3.bucket,
                     Key: prefixedKey,
