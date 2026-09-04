@@ -129,7 +129,7 @@ export const CreateVirtualViewModal: FC<Props> = ({ opened, onClose }) => {
                 <Stack p="md">
                     <TextInput
                         radius="md"
-                        label="Name"
+                        label={t('common.name')}
                         required
                         {...form.getInputProps('name')}
                         error={!!error?.error}

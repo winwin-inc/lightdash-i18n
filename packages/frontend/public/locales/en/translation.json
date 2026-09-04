@@ -2,6 +2,29 @@
     "app": {
         "title": "MSY X"
     },
+    "common": {
+        "yes": "Yes",
+        "no": "No",
+        "key": "Key",
+        "value": "Value",
+        "name": "Name",
+        "loading": "Loading...",
+        "error": "Error",
+        "branch": "Branch",
+        "auto": "Auto"
+    },
+    "components_common_timezone_picker": {
+        "placeholder": "Select timezone",
+        "local": "Local"
+    },
+    "features_comments": {
+        "no_comments_yet": "No comments yet"
+    },
+    "features_sql_runner_download": {
+        "download_results": "Download results",
+        "download_as": "Download as",
+        "results": "Results"
+    },
     "about_footer": {
         "about_msy_x": "About MSY X"
     },
@@ -322,6 +345,9 @@
         "invalid_action_type": "Invalid action type in useContentBulkAction"
     },
     "hooks_toaster": {
+        "errors": "Errors",
+        "show_count": "Show {{count}}",
+        "hide_count": "Hide {{count}}",
         "snowflake": {
             "title": "Snowflake Authentication Error",
             "message": "You can try to reauthenticate with Snowflake:"
@@ -366,6 +392,7 @@
         },
         "include_image": "Include this image",
         "more_details": "Do you have and other details you'd like to share?",
+        "enter_more_details": "Enter more details",
         "allow_access": "Allow MSY X support access to your instance",
         "tips": {
             "part_1": "By ticking this box, you agree to give MSY X Support access to your organization for 12 hours to investigate this issue.",
@@ -1095,6 +1122,10 @@
         "unsaved_changes": "Unsaved changes"
     },
     "features_scheduler_form": {
+        "attach_file_disabled": "You must have at least one email target to attach a file to emails",
+        "attach_file": "Attach file to emails",
+        "attach_file_requires_email": "You must have at least one email target to attach a file to emails",
+        "attach_file_to_emails": "Attach file to emails",
         "threshold_operator_options": {
             "is_greater_than": "is greater than",
             "is_less_than": "is less than",
@@ -1272,7 +1303,9 @@
     },
     "features_scheduler_parameters": {
         "no_value_set": "No value set",
-        "reset_parameter": "Reset parameter back to dashboard default"
+        "reset_parameter": "Reset parameter back to dashboard default",
+        "loading": "Loading parameters...",
+        "no_parameters": "No parameters defined for this project."
     },
     "features_semantic_content": {
         "chart": "Chart",
@@ -1357,6 +1390,8 @@
             "toggle_on": "Notifications paused. Toggle on to resume"
         },
         "select_google_sheet": "Select Google Sheet via Google drive",
+        "google_sheet_destination_tooltip": "Please ensure you have a Google Sheet already created in your Drive to set as the destination for your results",
+        "sync_now": "Sync now",
         "modal": {
             "title": {
                 "sync_with_google_sheets": "Sync with Google Sheets",
@@ -1481,7 +1516,14 @@
     },
     "features_metrics_catalog": {
         "title": "Click to view this in the Metrics Explorer",
-        "explore": "Explore"
+        "explore": "Explore",
+        "uncategorized": "Uncategorized",
+        "filter_by": "Filter by",
+        "condition": "Condition",
+        "clear_all_categories": "Clear all categories",
+        "yaml_cannot_remove": "This category cannot be removed from this metric because it was defined in the .yml file.",
+        "yaml_cannot_edit": "This category was created in the .yml config and its properties cannot be edited",
+        "zoom_reset": "Drag between two points on the chart to zoom in. Use this button to reset the view."
     },
     "features_metrics_catalog_form": {
         "edit_category": "Edit category",
@@ -2101,7 +2143,12 @@
     },
     "components_common_paginate": {
         "page": "Page",
-        "of": "of"
+        "of": "of",
+        "jump_to_page": "Jump to page",
+        "first": "First page",
+        "last": "Last page",
+        "go_to_page": "Go to",
+        "of_pages": "/ {{totalPages}} pages"
     },
     "components_common_page_header": {
         "last_edited": "Last edited",
@@ -2278,6 +2325,12 @@
         "add_filter": "Add filter",
         "clear_all_filters": "Clear all filters",
         "clear_all": "Clear all",
+        "number_range": {
+            "min": "Min value",
+            "max": "Max value",
+            "both_required": "Both values are required",
+            "min_less_than_max": "Minimum should be less than the maximum"
+        },
         "group_form": {
             "tip": "of the following {{conditionLabel}} conditions match:",
             "add_group_rule": "Add group rule",
@@ -2389,7 +2442,27 @@
             "to_latest_month": "to latest month"
         },
         "date_range": {
-            "and": "and"
+            "and": "and",
+            "dynamic": {
+                "custom_label": "Dynamic Date",
+                "fixed_label": "Fixed Date",
+                "start_label": "Start time",
+                "end_label": "End time",
+                "mode_label": "Dynamic",
+                "direction": {
+                    "ago": "ago",
+                    "later": "later"
+                },
+                "unit": {
+                    "days": "days",
+                    "weeks": "weeks",
+                    "months": "months",
+                    "quarters": "quarters",
+                    "years": "years"
+                },
+                "bound_summary": "{{direction}} {{count}} {{unit}}",
+                "range_summary": "{{start}} to {{end}}"
+            }
         },
         "to_latest_month_hint": "Start month",
         "to_latest_month_chip": "≥ {{start}}",
@@ -2452,7 +2525,20 @@
             "pages": "Pages",
             "scroll": "Scroll",
             "page": "Page",
-            "of": "of"
+            "of": "of",
+            "showing_of_total": "Showing {{shown}} of {{total}}",
+            "page_size": "Rows per page",
+            "page_size_prefix": "Rows",
+            "page_size_suffix": "per page",
+            "one_result": "1 result",
+            "n_results": "{{count}} results",
+            "total_data_prefix": "Total ",
+            "total_data_suffix": " rows",
+            "loading_count": "Loading…",
+            "count_error": "Unable to load total",
+            "pagination_empty_page": {
+                "back_to_first_page": "Back to page 1"
+            }
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"
@@ -2545,7 +2631,11 @@
                 "min_label": "Earliest selectable date",
                 "max_label": "Latest selectable date",
                 "placeholder": "YYYY-MM-DD",
-                "hint": "Leave empty for no limit. Click the date fields and pick in the calendar (stored as YYYY-MM-DD) to bound the date filter pickers above.",
+                "hint": "Leave earliest date empty for no lower limit. Leave latest date empty for no upper limit unless the data-update limit is enabled. You can also set a fixed latest date.",
+                "dynamic_max_label": "Limit latest date by data refresh",
+                "dynamic_max_description": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+                "default_out_of_range": "The default date is outside the allowed range",
+                "start_after_end": "Start date cannot be later than end date",
                 "granularity_label": "Date selector",
                 "granularity": {
                     "day": "Day",
@@ -2750,6 +2840,8 @@
         "last_validated_at": "Last validated at: {{date}}"
     },
     "components_settings_validator_modal": {
+        "fix_title": "Fix validation error",
+        "fix_error": "Fix <bold>{{source}}</bold> error:",
         "rename_tip": "You can rename the missing dimension by renaming the affected field or model using the drop down below.",
         "field": "Field",
         "model": "Model",
@@ -2781,6 +2873,7 @@
             "name": "Name",
             "error": "Error"
         },
+        "table": "Table",
         "error": {
             "no_longer_exists": "no longer exists",
             "is_broken": "is broken",
@@ -4639,6 +4732,7 @@
         "cancel": "Cancel",
         "save": "Save changes",
         "appearance_settings": "Appearance settings",
+        "custom_override": "Custom override",
         "customizing": "Click here to learn more about customizing the appearance of your project"
     },
     "components_user_settings_delete_organization_modal": {
@@ -5031,6 +5125,8 @@
             "y_axis_label": "Y-axis label",
             "y_axis_label_left": "Y-axis label (left)",
             "y_axis_label_right": "Y-axis label (right)",
+            "y_axis_label_gap": "Y-axis label distance",
+            "y_axis_label_gap_placeholder": "Auto",
             "x_axis_label_bottom": "X-axis label (bottom)",
             "x_axis_label_top": "X-axis label (top)",
             "auto_x_axis_range": "Auto x-axis range",
@@ -5276,6 +5372,9 @@
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",
             "show_number_of_results": "Show number of results",
+            "enable_pagination": "Enable pagination",
+            "pagination_not_supported": "Pagination is not available with pivot tables or subtotals",
+            "page_size": "Rows per page",
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
@@ -6386,7 +6485,7 @@
         "radio_groups_limit": {
             "radio_01": "Results in Table",
             "radio_02": "All Results",
-            "radio_03": "Custom..."
+            "radio_03": "Custom"
         },
         "limit_alert_tip": {
             "part_1": "Results are limited to",
@@ -6430,10 +6529,12 @@
         "radio_groups_limit": {
             "part_1": "Results in Table",
             "part_2": "All Results",
-            "part_3": "Custom..."
+            "part_3": "Custom"
         },
         "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
-        "limit": "Excel exports are limited to 1,000,000 rows.",
+        "table_results_limit_hint": "Export at most the current query rows ({{count}}).",
+        "csv_cells_limit_hint": "Up to {{csvCellsLimit}} cells (rows × columns)",
+        "limit": "Up to 1,000,000 rows",
         "download": "Download"
     },
     "components_funnel_chart": {
@@ -6574,6 +6675,7 @@
         },
         "loading": "Loading...",
         "title": "User activity for {{name}}",
+        "export_csv_tooltip": "Export raw chart and dashboard user views in a CSV format",
         "items": {
             "usage_analytics": "Usage Analytics",
             "user_activity": "User activity for {{name}}"
@@ -8316,7 +8418,8 @@
         "spaces": "Spaces",
         "dashboards": "Dashboards",
         "charts": "Charts",
-        "logout": "Logout"
+        "logout": "Logout",
+        "ask_ai": "Ask AI"
     },
     "ai_copilot_channel_project_mappings": {
         "select_project": "Select project",

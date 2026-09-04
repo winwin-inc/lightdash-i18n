@@ -73,8 +73,8 @@ function addConditionalStyleToColumns(
                           return style;
                       }
                     : staticStyle
-                      ? () => staticStyle
-                      : undefined;
+                    ? () => staticStyle
+                    : undefined;
             result.push({
                 ...c,
                 ...(styleFn && { style: styleFn }),
@@ -275,7 +275,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                     bgColor: '#f5f5f5',
                     borderColor: '#e8e8e8',
                     borderLineWidth: 1,
-                    textAlign: 'center',
+                    textAlign: cellAlignment,
                 },
                 frameStyle: {
                     borderColor: '#e8e8e8',

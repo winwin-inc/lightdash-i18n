@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { LightdashMcpEnvConfig } from '../config';
 import { getMcpPackageVersion } from '../lib/mcpPackageVersion';
@@ -5,24 +6,43 @@ import {
     createFieldIdResolverFromExplore,
     exploreRequiresDashboardContext,
 } from './fieldIdResolver';
+import {
+    createSharedExploreCache,
+    type SharedExploreCache,
+} from '../lib/sharedExploreCache';
+import { getHttpRequestUserAttributesHeader } from '../lib/requestContext';
 import { createLightdashRestClient } from '../rest/lightdashRest';
 import { registerAnalystPrompt } from './registerAnalystPrompt';
 import { registerCoreMcpTools } from './registerCoreMcpTools';
+import { registerDocsTool } from './registerDocsTool';
 import { registerExtensionTools } from './registerExtensionTools';
+
+const EXPLORE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function createExploreCacheKey(
+    apiKey: string,
+    projectUuid: string,
+    exploreName: string,
+    userAttributesHeader: string | undefined,
+): string {
+    const authorizationHash = createHash('sha256')
+        .update(apiKey, 'utf8')
+        .update('\0', 'utf8')
+        .update(userAttributesHeader ?? '', 'utf8')
+        .digest('hex');
+    return `${authorizationHash}:${projectUuid}:${exploreName}`;
+}
+
+export type CreateLightdashMcpServerDeps = {
+    exploreCache?: SharedExploreCache;
+};
 
 export function createLightdashMcpServer(
     config: LightdashMcpEnvConfig,
+    deps?: CreateLightdashMcpServerDeps,
 ): McpServer {
     const api = createLightdashRestClient(config);
-    const exploreCache = new Map<
-        string,
-        {
-            expiresAtMs: number;
-            explore: unknown;
-            resolve: (field: string) => string;
-            requiresDashboardContext: boolean;
-        }
-    >();
+    const exploreCache = deps?.exploreCache ?? createSharedExploreCache();
     const server = new McpServer({
         name: 'lightdash-local-mcp',
         version: getMcpPackageVersion(),
@@ -37,7 +57,12 @@ export function createLightdashMcpServer(
         resolve: (field: string) => string;
         requiresDashboardContext: boolean;
     }> => {
-        const cacheKey = `${projectUuid}:${exploreName}`;
+        const cacheKey = createExploreCacheKey(
+            apiKey,
+            projectUuid,
+            exploreName,
+            getHttpRequestUserAttributesHeader(),
+        );
         const now = Date.now();
         const cached = exploreCache.get(cacheKey);
         if (cached && cached.expiresAtMs > now) {
@@ -55,7 +80,7 @@ export function createLightdashMcpServer(
             explore,
             resolve,
             requiresDashboardContext,
-            expiresAtMs: now + 5 * 60 * 1000,
+            expiresAtMs: now + EXPLORE_CACHE_TTL_MS,
         });
         return { explore, resolve, requiresDashboardContext };
     };
@@ -89,6 +114,7 @@ export function createLightdashMcpServer(
         defaultPoll,
     });
 
+    registerDocsTool(server);
     registerAnalystPrompt(server);
 
     return server;

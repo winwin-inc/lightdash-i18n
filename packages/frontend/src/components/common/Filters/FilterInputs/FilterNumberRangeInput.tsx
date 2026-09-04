@@ -1,6 +1,7 @@
 import { Group, Stack, Text, type TextInputProps } from '@mantine/core';
 import isNil from 'lodash/isNil';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import z from 'zod';
 import FilterNumberInput from './FilterNumberInput';
 
@@ -9,24 +10,10 @@ interface Props extends Omit<TextInputProps, 'type' | 'value' | 'onChange'> {
     onChange: (value: unknown[]) => void;
 }
 
-const numberRangeSchema = z
-    .tuple([z.number().nullable().optional(), z.number().nullable().optional()])
-    .superRefine(([min, max], ctx) => {
-        if (isNil(min) || isNil(max)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Both values are required',
-                fatal: true,
-            });
-            return z.NEVER;
-        }
-        if (min > max) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Minimum should be less than the maximum',
-            });
-        }
-    });
+const numberRangeSchema = z.tuple([
+    z.number().nullable().optional(),
+    z.number().nullable().optional(),
+]);
 
 const FilterNumberRangeInput: FC<Props> = ({
     value,
@@ -36,10 +23,23 @@ const FilterNumberRangeInput: FC<Props> = ({
     autoFocus,
     ...rest
 }) => {
-    const validationResult = numberRangeSchema.safeParse(value);
-    const errorMessage = validationResult.error
-        ? validationResult.error.issues[0].message // only show one issue at a time
-        : undefined;
+    const { t } = useTranslation();
+    const parsed = numberRangeSchema.safeParse(value);
+    const min = parsed.success ? parsed.data[0] : undefined;
+    const max = parsed.success ? parsed.data[1] : undefined;
+
+    let errorMessage: string | undefined;
+    if (!isNil(min) || !isNil(max)) {
+        if (isNil(min) || isNil(max)) {
+            errorMessage = t(
+                'components_common_filters.number_range.both_required',
+            );
+        } else if (min > max) {
+            errorMessage = t(
+                'components_common_filters.number_range.min_less_than_max',
+            );
+        }
+    }
 
     return (
         <Stack spacing={2} w="100%">
@@ -48,7 +48,9 @@ const FilterNumberRangeInput: FC<Props> = ({
                     error={!!errorMessage}
                     disabled={disabled}
                     autoFocus={true}
-                    placeholder="Min value"
+                    placeholder={t(
+                        'components_common_filters.number_range.min',
+                    )}
                     {...rest}
                     value={value?.[0]}
                     onChange={(newValue) => {
@@ -68,7 +70,9 @@ const FilterNumberRangeInput: FC<Props> = ({
                 <FilterNumberInput
                     error={!!errorMessage}
                     disabled={disabled}
-                    placeholder="Max value"
+                    placeholder={t(
+                        'components_common_filters.number_range.max',
+                    )}
                     {...rest}
                     value={value?.[1]}
                     onChange={(newValue) => {

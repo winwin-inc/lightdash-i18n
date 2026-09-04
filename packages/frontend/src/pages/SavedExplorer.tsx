@@ -120,6 +120,7 @@ const SavedExplorer = () => {
                                   },
                               },
                               queryExecution: defaultQueryExecution,
+                              chartTablePagination: null,
                               fromDashboard: fromDashboard ?? undefined,
                           }
                         : undefined

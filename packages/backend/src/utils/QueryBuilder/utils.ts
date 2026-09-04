@@ -521,6 +521,11 @@ export const removeCommentsAndOuterLimitOffset = (sql: string): string => {
 };
 
 // Apply a limit (and optional offset) to a SQL query
+export const wrapSqlAsCountQuery = (sqlQuery: string): string => {
+    const innerSql = removeCommentsAndOuterLimitOffset(sqlQuery);
+    return `SELECT COUNT(*) AS row_count FROM (${innerSql}) AS ld_count_subquery`;
+};
+
 export const applyLimitToSqlQuery = ({
     sqlQuery,
     limit,

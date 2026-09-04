@@ -19,6 +19,8 @@ export type FilterInputsProps<T extends BaseFilterRule> = {
     popoverProps?: Omit<PopoverProps, 'children'>;
     /** 为 true 时多选下拉启用「鼠标移出则收起」（编辑模式）；查看模式不传或 false */
     closeDropdownOnMouseLeave?: boolean;
+    /** true = 编辑模式（配置默认值），false / undefined = 查看模式 */
+    isEditMode?: boolean;
 };
 
 const FilterInputComponent = <T extends BaseFilterRule>(

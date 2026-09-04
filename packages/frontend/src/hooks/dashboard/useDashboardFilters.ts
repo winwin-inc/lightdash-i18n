@@ -1,6 +1,7 @@
 import {
     FilterInteractivityValues,
     getFilterInteractivityValue,
+    isDateRangeDynamic,
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
@@ -8,6 +9,7 @@ import {
 } from '@lightdash/common';
 import { useCallback, useMemo, useState } from 'react';
 import { hasSavedFilterValueChanged } from '../../components/DashboardFilter/FilterConfiguration/utils';
+import { prepareDashboardFilterRuleForQuery } from '../../components/common/Filters/FilterInputs/utils';
 import { useSavedDashboardFiltersOverrides } from '../useSavedDashboardFiltersOverrides';
 
 export const emptyFilters: DashboardFilters = {
@@ -15,6 +17,10 @@ export const emptyFilters: DashboardFilters = {
     metrics: [],
     tableCalculations: [],
 };
+
+export const shouldPersistSavedFilterOverride = (
+    originalFilter: DashboardFilterRule,
+): boolean => !isDateRangeDynamic(originalFilter);
 
 export const useDashboardFilters = ({
     dashboard,
@@ -38,13 +44,22 @@ export const useDashboardFilters = ({
     const [haveFiltersChanged, setHaveFiltersChanged] =
         useState<boolean>(false);
 
+    const {
+        overridesForSavedDashboardFilters,
+        addSavedFilterOverride,
+        removeSavedFilterOverride,
+    } = useSavedDashboardFiltersOverrides();
+
     const allFilters = useMemo(() => {
         if (!isFilterEnabled) return emptyFilters;
 
+        const forQuery = (rule: DashboardFilterRule): DashboardFilterRule =>
+            prepareDashboardFilterRuleForQuery(rule);
+
         return {
             dimensions: [
-                ...dashboardFilters.dimensions,
-                ...dashboardTemporaryFilters?.dimensions,
+                ...dashboardFilters.dimensions.map(forQuery),
+                ...dashboardTemporaryFilters?.dimensions.map(forQuery),
             ],
             metrics: [
                 ...dashboardFilters.metrics,
@@ -56,12 +71,6 @@ export const useDashboardFilters = ({
             ],
         };
     }, [dashboardFilters, dashboardTemporaryFilters, isFilterEnabled]);
-
-    const {
-        overridesForSavedDashboardFilters,
-        addSavedFilterOverride,
-        removeSavedFilterOverride,
-    } = useSavedDashboardFiltersOverrides();
 
     /**
      * Apply interactivity filtering for embedded dashboards
@@ -134,6 +143,11 @@ export const useDashboardFilters = ({
                 embedDashboard?.filters?.dimensions ||
                 [];
             const isFilterSaved = filters.some(({ id }) => id === item.id);
+            const shouldPersistOverride = shouldPersistSavedFilterOverride(
+                originalDashboardFilters.dimensions.find(
+                    ({ id }) => id === item.id,
+                ) ?? item,
+            );
 
             setFunction((previousFilters) => {
                 if (!isTemporary) {
@@ -156,7 +170,11 @@ export const useDashboardFilters = ({
                             );
 
                             if (hasChanged && isFilterSaved) {
-                                addSavedFilterOverride(item);
+                                if (shouldPersistOverride) {
+                                    addSavedFilterOverride(item);
+                                } else {
+                                    removeSavedFilterOverride(item);
+                                }
                             }
                         }
                     }

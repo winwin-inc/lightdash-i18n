@@ -1,12 +1,19 @@
-import { FilterOperator, type DashboardFilterRule } from '@lightdash/common';
+import {
+    FilterOperator,
+    TimeFrames,
+    UnitOfTime,
+    type DashboardFilterRule,
+} from '@lightdash/common';
 
 import {
     applyExcludedValuesToFilterRule,
     hasFilterValueSet,
+    hasSavedFilterValueChanged,
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     normalizeExcludedValues,
     removeValuesExcludedFromFilterRule,
+    validateDashboardFilterDynamicDateRange,
 } from './index';
 
 const createFilterRule = (
@@ -56,6 +63,66 @@ describe('hasFilterValueSet', () => {
                 }),
             ),
         ).toBe(false);
+    });
+});
+
+describe('hasSavedFilterValueChanged', () => {
+    it('detects a viewer value override without removing the dynamic default', () => {
+        const original = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            values: ['2025-08-01', '2026-07-31'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            hasSavedFilterValueChanged(original, {
+                ...original,
+                values: ['2026-01-01', '2026-03-31'],
+            }),
+        ).toBe(true);
+    });
+
+    it('detects a fixed viewer override even when values equal the saved snapshot', () => {
+        const original = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            values: ['2025-08-01', '2026-07-31'],
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            hasSavedFilterValueChanged(original, {
+                ...original,
+                settings: undefined,
+            }),
+        ).toBe(true);
     });
 });
 
@@ -117,5 +184,196 @@ describe('applyExcludedValuesToFilterRule', () => {
 
         expect(result.excludedValues).toEqual(['伊利股份', '蒙牛']);
         expect(result.values).toBeUndefined();
+    });
+});
+
+describe('validateDashboardFilterDynamicDateRange', () => {
+    it('returns start_after_end when start is more recent than end', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-07-10'),
+            ),
+        ).toBe('start_after_end');
+    });
+
+    it('returns end_after_max when dynamic end exceeds rolling max', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 0,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-03-03'),
+            ),
+        ).toBe('end_after_max');
+    });
+
+    it('skips rolling max validation when the switch is off', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 0,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-03-03'),
+            ),
+        ).toBeNull();
+    });
+
+    it('allows 1 month ago before the 4th because config validation ignores data availability delay', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-03-03'),
+            ),
+        ).toBeNull();
+    });
+
+    it('passes when dynamic end is within rolling max', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 2,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-05-10'),
+            ),
+        ).toBeNull();
+    });
+
+    it('returns null for fixed date mode', () => {
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                createFilterRule({
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['2026-01-01', '2026-03-31'],
+                }),
+            ),
+        ).toBeNull();
+    });
+
+    it('returns end_after_max for current quarter vs last complete quarter', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.QUARTER,
+            enableDynamicMaxAllowedDate: true,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 8,
+                        unit: UnitOfTime.quarters,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 0,
+                        unit: UnitOfTime.quarters,
+                    },
+                },
+            },
+        });
+
+        expect(
+            validateDashboardFilterDynamicDateRange(
+                rule,
+                new Date('2026-04-10'),
+            ),
+        ).toBe('end_after_max');
     });
 });

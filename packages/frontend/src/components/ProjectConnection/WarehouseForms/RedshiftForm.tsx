@@ -254,12 +254,8 @@ const RedshiftForm: FC<{
                             {...form.getInputProps('warehouse.ra3Node', {
                                 type: 'checkbox',
                             })}
-                            onLabel={t(
-                                'components_project_connection_warehouse_form.redshift.ra3_node.yes',
-                            )}
-                            offLabel={t(
-                                'components_project_connection_warehouse_form.redshift.ra3_node.no',
-                            )}
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                         />
 
                         <StartOfWeekSelect disabled={disabled} />
@@ -293,8 +289,8 @@ const RedshiftForm: FC<{
                             {...form.getInputProps('warehouse.useSshTunnel', {
                                 type: 'checkbox',
                             })}
-                            onLabel="Yes"
-                            offLabel="No"
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                             defaultChecked={RedshiftDefaultValues.useSshTunnel}
                         />
 

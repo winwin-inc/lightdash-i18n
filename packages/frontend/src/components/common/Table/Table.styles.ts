@@ -10,13 +10,20 @@ export const TABLE_HEADER_BG = DEFAULT_THEME.colors.gray[0];
 // Needed for virtualization. Matches value from Pivot table.
 export const ROW_HEIGHT_PX = 34;
 
-export const TableScrollableWrapper = styled.div`
+export const TableScrollableWrapper = styled.div<{ $fill?: boolean }>`
     display: flex;
     flex-direction: column;
 
     position: relative;
     overflow: auto;
     min-width: 100%;
+    ${({ $fill }) =>
+        $fill
+            ? `
+                flex: 1 1 auto;
+                min-height: 0;
+            `
+            : ''}
 `;
 
 interface TableContainerProps {
@@ -41,7 +48,9 @@ export const TableContainer = styled.div<
     ${({ $shouldExpand }) =>
         $shouldExpand
             ? `
-                height: inherit;
+                flex: 1 1 auto;
+                height: 100%;
+                min-height: 0;
             `
             : `
                 max-height: 800px;
@@ -154,12 +163,16 @@ export const Table = styled.table<{ $showFooter?: boolean }>`
     }
 `;
 
-export const TableFooter = styled.div`
+export const TableFooter = styled.div<{ $compact?: boolean }>`
     display: flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
-    margin-top: 10px;
+    flex-shrink: 0;
+    margin-top: ${({ $compact }) => ($compact ? '12px' : '10px')};
+    gap: 8px;
+    ${({ $compact }) => ($compact ? `min-height: 28px;` : '')}
 `;
 
 const FontSyles = `
@@ -302,31 +315,46 @@ export const Td = styled.td<{
             : 'filter: initial'}
 `;
 
-export const FooterCell = styled.th<{ $isNaN: boolean }>`
+export const FooterCell = styled.th<{
+    $isNaN: boolean;
+    $textAlign?: string;
+}>`
     ${CellStyles}
     background-color: white;
+    ${({ $textAlign }) =>
+        $textAlign ? `text-align: ${$textAlign} !important;` : ''}
 `;
 
 export const Th = styled.th<{
     $maxWidth?: string;
     $minWidth?: string;
     $width?: string;
+    $textAlign?: string;
 }>`
     ${({ $width }) => ($width ? `width: ${$width};` : '')}
     max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
     ${({ $minWidth }) => ($minWidth ? `min-width: ${$minWidth};` : '')}
+    ${({ $textAlign }) =>
+        $textAlign ? `text-align: ${$textAlign} !important;` : ''}
 `;
 
-export const ThContainer = styled.div`
+export const ThContainer = styled.div<{ $textAlign?: string }>`
     display: flex;
     flex-direction: row;
     align-items: flex-start;
+    justify-content: ${({ $textAlign }) =>
+        $textAlign === 'center'
+            ? 'center'
+            : $textAlign === 'right'
+            ? 'flex-end'
+            : 'flex-start'};
 `;
 
 export const ThLabelContainer = styled.div``;
 
-export const ThActionsContainer = styled.div`
-    flex: 1;
+export const ThActionsContainer = styled.div<{ $textAlign?: string }>`
+    ${({ $textAlign }) =>
+        !$textAlign || $textAlign === 'left' ? 'flex: 1;' : ''}
     display: flex;
     flex-direction: row;
     justify-content: flex-end;

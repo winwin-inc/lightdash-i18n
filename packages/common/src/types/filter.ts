@@ -1,6 +1,10 @@
+import moment from 'moment-timezone';
+
+import assertUnreachable from '../utils/assertUnreachable';
+import { getDateFormat } from '../utils/formatting';
 import { type AnyType } from './any';
 import { type DimensionType } from './field';
-import { type TimeFrames } from './timeFrames';
+import { TimeFrames } from './timeFrames';
 
 export enum FilterType {
     STRING = 'string',
@@ -166,6 +170,12 @@ export type DashboardFilterRule<
     /** Optional selectable range for date inputs (YYYY-MM-DD) */
     minAllowedDate?: string;
     maxAllowedDate?: string;
+    /**
+     * When true and maxAllowedDate is empty, month/quarter pickers use a
+     * rolling latest date (before the 4th: two months ago; from the 4th:
+     * last month; quarters: last complete quarter). Default is off.
+     */
+    enableDynamicMaxAllowedDate?: boolean;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
@@ -185,6 +195,47 @@ export type DashboardFilterRuleOverride = Omit<
 export type DateFilterSettings = {
     unitOfTime?: UnitOfTime;
     completed?: boolean;
+    /**
+     * Optional configuration for `IN_BETWEEN` / `NOT_IN_BETWEEN` rules that
+     * supports a dynamic (relative) start/end. When `dateRange.mode` is
+     * `'dynamic'`, the actual `values` are resolved at query time from
+     * `dateRange.start` and `dateRange.end` (direction + count + unit).
+     * When `mode` is `'fixed'` or undefined, the rule behaves as before and
+     * `values` holds the two literal dates.
+     */
+    dateRange?: DateRangeSetting;
+};
+
+/**
+ * Whether a date-range rule should be resolved from literal values
+ * (`fixed`) or computed relative to "now" (`dynamic`).
+ */
+export type DateRangeMode = 'fixed' | 'dynamic';
+
+/**
+ * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,
+ * `later` = `now + count unit`.
+ */
+export type DateRangeDirection = 'ago' | 'later';
+
+/**
+ * Settings for a single bound (start or end) of a dynamic date range.
+ */
+export type DateRangeBoundSetting = {
+    direction?: DateRangeDirection;
+    count?: number;
+    unit?: UnitOfTime;
+};
+
+/**
+ * Top-level setting attached to a date-range rule's `settings.dateRange`.
+ * `mode` controls whether `values` is used as-is or rewritten from
+ * `start` / `end`.
+ */
+export type DateRangeSetting = {
+    mode?: DateRangeMode;
+    start?: DateRangeBoundSetting;
+    end?: DateRangeBoundSetting;
 };
 
 export type DateFilterRule = FilterRule<
@@ -197,6 +248,125 @@ export type DateFilterRule = FilterRule<
 export const isDateFilterRule = (
     filter: FilterRule<FilterOperator, FieldTarget | unknown, AnyType, AnyType>,
 ): filter is DateFilterRule => 'unitOfTime' in (filter.settings || {});
+
+/**
+ * Whether a date-range rule should be rendered/resolved as dynamic. Treats
+ * rules without explicit settings as fixed (backwards compatible).
+ */
+export const isDateRangeDynamic = (
+    rule: BaseFilterRule & { settings?: unknown },
+): boolean => {
+    const settings = rule.settings as
+        | { dateRange?: DateRangeSetting }
+        | undefined;
+    return settings?.dateRange?.mode === 'dynamic';
+};
+
+/**
+ * Resolve a single dynamic date-range bound to an absolute date relative to
+ * `now`. Returns `undefined` if the bound is missing or incomplete, which
+ * lets callers fall back to a fixed `values[i]` if they want.
+ *
+ * @param bound - The bound settings (direction/count/unit)
+ * @param now   - The reference "now" date (defaults to `new Date()`)
+ */
+export const resolveDateRangeBound = (
+    bound: DateRangeBoundSetting | undefined,
+    now: Date = new Date(),
+    timezone?: string,
+): Date | undefined => {
+    if (!bound || bound.count == null || !bound.unit) {
+        return undefined;
+    }
+    const count = Number(bound.count);
+    if (!Number.isFinite(count) || count < 0) {
+        return undefined;
+    }
+    const sign = bound.direction === 'later' ? 1 : -1;
+    const referenceDate = timezone ? moment(now).tz(timezone) : moment(now);
+    switch (bound.unit) {
+        case UnitOfTime.milliseconds:
+        case UnitOfTime.seconds:
+        case UnitOfTime.minutes:
+        case UnitOfTime.hours:
+        case UnitOfTime.days:
+        case UnitOfTime.weeks:
+        case UnitOfTime.months:
+        case UnitOfTime.quarters:
+        case UnitOfTime.years:
+            return referenceDate.add(sign * count, bound.unit).toDate();
+        default:
+            return assertUnreachable(
+                bound.unit,
+                `Unexpected UnitOfTime: ${bound.unit}`,
+            );
+    }
+};
+
+/**
+ * Resolve the literal `[start, end]` values for a date-range rule as
+ * `Date` objects. If the rule is configured as dynamic, the values are
+ * computed from `settings.dateRange.start` / `.end` at call time (so they
+ * are always "relative to now"). Otherwise, the original `values` are
+ * parsed as `YYYY-MM-DD` strings (the format the filter UI stores) and
+ * returned. Slots that cannot be resolved are returned as `null`.
+ */
+export const resolveDateRangeValuesAsDates = (
+    rule: Pick<FilterRule, 'values' | 'settings'>,
+    _timeInterval: TimeFrames = TimeFrames.DAY,
+    now: Date = new Date(),
+    timezone?: string,
+): [Date | null, Date | null] => {
+    const settings = rule.settings as
+        | { dateRange?: DateRangeSetting }
+        | undefined;
+    if (settings?.dateRange?.mode !== 'dynamic') {
+        const rawStart = rule.values?.[0] as string | undefined;
+        const rawEnd = rule.values?.[1] as string | undefined;
+        const parseSlot = (raw: string | undefined): Date | null => {
+            if (raw == null || raw === '') return null;
+            // Stored values are always `YYYY-MM-DD` regardless of the
+            // configured granularity (the UI rounds to the period boundary
+            // before storing).
+            const parsed = moment(raw, getDateFormat(TimeFrames.DAY), true);
+            return parsed.isValid() ? parsed.toDate() : null;
+        };
+        return [parseSlot(rawStart), parseSlot(rawEnd)];
+    }
+    return [
+        resolveDateRangeBound(settings.dateRange.start, now, timezone) ?? null,
+        resolveDateRangeBound(settings.dateRange.end, now, timezone) ?? null,
+    ];
+};
+
+export const resolveDateRangeValues = (
+    rule: Pick<FilterRule, 'values' | 'settings'>,
+    granularity: TimeFrames = TimeFrames.DAY,
+    now: Date = new Date(),
+    timezone?: string,
+): [string | null, string | null] => {
+    const [start, end] = resolveDateRangeValuesAsDates(
+        rule,
+        granularity,
+        now,
+        timezone,
+    );
+    const formatBound = (date: Date | null, isEnd: boolean): string | null => {
+        if (!date) return null;
+
+        const value = timezone ? moment(date).tz(timezone) : moment(date);
+        if (granularity === TimeFrames.MONTH) {
+            value[isEnd ? 'endOf' : 'startOf']('month');
+        } else if (granularity === TimeFrames.QUARTER) {
+            value[isEnd ? 'endOf' : 'startOf']('quarter');
+        } else if (granularity === TimeFrames.YEAR) {
+            value[isEnd ? 'endOf' : 'startOf']('year');
+        }
+        return value.format(getDateFormat(TimeFrames.DAY));
+    };
+
+    return [formatBound(start, false), formatBound(end, true)];
+};
 
 export type FilterGroupItem = FilterGroup | FilterRule;
 

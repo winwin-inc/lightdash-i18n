@@ -2,13 +2,15 @@ import { Button, Card, Image, Stack, Text, Title } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import lockUrl from '../assets/images/customer-service-lock.png';
+import qrCodeUrl from '../assets/images/customer-service-qrcode.png';
 
 // 客服信息 - 可以从配置中获取
 const CUSTOMER_SERVICE = {
     wechatId: 'joy000boy',
     phone: '17612234299',
-    lockUrl: '/customer-service-lock@3x.png',
-    qrCodeUrl: '/customer-service-qrcode@3x.png', // 二维码图片路径，需要放在 public/images 目录
+    lockUrl,
+    qrCodeUrl,
 };
 
 const NoDashboardPermission = () => {

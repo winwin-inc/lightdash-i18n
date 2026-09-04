@@ -20,9 +20,11 @@ const dimensionFilter = (
     label: undefined,
 });
 
-const last13Months = dimensionFilter('global-month', FilterOperator.IN_THE_PAST, [
-    13,
-]);
+const last13Months = dimensionFilter(
+    'global-month',
+    FilterOperator.IN_THE_PAST,
+    [13],
+);
 last13Months.settings = {
     unitOfTime: UnitOfTime.months,
     completed: false,
@@ -104,11 +106,9 @@ describe('mergeFiltersForTab', () => {
             globalFilters,
             globalTemporaryFilters: {
                 dimensions: [
-                    dimensionFilter(
-                        'global-temp',
-                        FilterOperator.EQUALS,
-                        ['x'],
-                    ),
+                    dimensionFilter('global-temp', FilterOperator.EQUALS, [
+                        'x',
+                    ]),
                 ],
                 metrics: [],
                 tableCalculations: [],

@@ -299,6 +299,7 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                     parameters: {},
                     fromDashboard: fromDashboard ?? undefined,
                     queryExecution: defaultQueryExecution,
+                    chartTablePagination: null,
                 };
             } catch (e: any) {
                 const errorMessage = e.message ? ` Error: "${e.message}"` : '';

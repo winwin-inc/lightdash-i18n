@@ -53,7 +53,7 @@ import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
-import Context from './context';
+import Context, { type TablePaginationState } from './context';
 import { type useVisualizationContext } from './useVisualizationContext';
 
 export type VisualizationProviderProps = {
@@ -91,6 +91,7 @@ export type VisualizationProviderProps = {
     useHashBased?: boolean;
     /** Dashboard UUID，用于全局颜色分配器隔离 */
     dashboardUuid?: string;
+    tablePagination?: TablePaginationState;
 };
 
 const VisualizationProvider: FC<
@@ -123,6 +124,7 @@ const VisualizationProvider: FC<
     dashboardName,
     useHashBased = false,
     dashboardUuid,
+    tablePagination,
 }) => {
     const itemsMap = useMemo(() => {
         const metricOverrides = resultsData?.metricQuery?.metricOverrides;
@@ -386,6 +388,7 @@ const VisualizationProvider: FC<
         getSeriesColor,
         chartConfig,
         useHashBased,
+        tablePagination,
     };
 
     switch (chartConfig.type) {

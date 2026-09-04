@@ -174,6 +174,10 @@ export type TableChart = {
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
+    /** Warehouse OFFSET pagination for TABLE charts. Default off. */
+    enablePagination?: boolean;
+    /** Rows per page when enablePagination is true. Default 10. */
+    pageSize?: number;
     columns?: Record<string, ColumnProperties>;
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;
@@ -313,6 +317,8 @@ export type EChartsConfig = Partial<CompleteEChartsConfig>;
 
 type Axis = {
     name?: string;
+    /** Distance between axis title and axis line (ECharts nameGap, in px). */
+    nameGap?: number;
     min?: string | undefined;
     max?: string | undefined;
     minOffset?: string | undefined;
@@ -809,6 +815,21 @@ export type CalculateTotalFromQuery = {
 export type ApiCalculateTotalResponse = {
     status: 'ok';
     results: Record<string, number>;
+};
+
+export type CalculateCountFromQuery = {
+    metricQuery: MetricQueryRequest;
+    explore: string;
+    parameters?: ParametersValuesMap;
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
+export type ApiCalculateCountResponse = {
+    status: 'ok';
+    results: {
+        rowCount: number;
+    };
 };
 
 export type CalculateSubtotalsFromQuery = CalculateTotalFromQuery & {

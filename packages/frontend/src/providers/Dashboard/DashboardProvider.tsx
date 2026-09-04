@@ -543,8 +543,8 @@ const DashboardProvider: React.FC<
         if (!dashboardTabs?.length || !firstTabByOrder) return;
 
         const matchedTab = tabUuid
-            ? dashboardTabs.find((item) => item.uuid === tabUuid) ??
-              firstTabByOrder
+            ? (dashboardTabs.find((item) => item.uuid === tabUuid) ??
+              firstTabByOrder)
             : firstTabByOrder;
 
         setActiveTab(matchedTab);
@@ -1150,12 +1150,16 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce((acc, [uuid, filter]) => {
-                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
-                        filter as DashboardFiltersFromSearchParam,
-                    );
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
+                Object.entries(filters).reduce(
+                    (acc, [uuid, filter]) => {
+                        acc[uuid] =
+                            convertDashboardFiltersParamToDashboardFilters(
+                                filter as DashboardFiltersFromSearchParam,
+                            );
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                ),
             );
         }
     });
