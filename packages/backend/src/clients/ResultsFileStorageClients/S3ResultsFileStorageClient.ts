@@ -10,6 +10,7 @@ import fs from 'fs';
 import { PassThrough, Readable, Writable } from 'stream';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { resolveDownloadSigningBucket } from '../Aws/createS3DownloadSigningClient';
 import {
     S3CacheClient,
     type S3CacheClientArguments,
@@ -154,7 +155,11 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         const url = await getSignedUrl(
             signingClient,
             new GetObjectCommand({
-                Bucket: this.configuration.bucket,
+                Bucket: resolveDownloadSigningBucket(
+                    this.configuration.bucket,
+                    this.configuration.publicEndpoint,
+                    signingClient !== this.s3,
+                ),
                 Key: prefixedKey,
             }),
             {

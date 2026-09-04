@@ -20,7 +20,10 @@ import { PassThrough, Readable } from 'stream';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
-import { createS3DownloadSigningClient } from './createS3DownloadSigningClient';
+import {
+    createS3DownloadSigningClient,
+    resolveDownloadSigningBucket,
+} from './createS3DownloadSigningClient';
 
 type S3ClientArguments = {
     lightdashConfig: LightdashConfig;
@@ -135,7 +138,11 @@ export class S3Client {
             const url = await getSignedUrl(
                 signingClient,
                 new GetObjectCommand({
-                    Bucket: this.lightdashConfig.s3.bucket,
+                    Bucket: resolveDownloadSigningBucket(
+                        this.lightdashConfig.s3.bucket,
+                        this.lightdashConfig.s3.publicEndpoint,
+                        signingClient !== this.s3,
+                    ),
                     Key: prefixedKey,
                 }),
                 {
