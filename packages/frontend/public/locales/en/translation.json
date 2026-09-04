@@ -5372,7 +5372,6 @@
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",
             "show_number_of_results": "Show number of results",
-            "show_number_of_results_description": "Shows the real total matching your filters (runs an extra count query), not the query row limit",
             "enable_pagination": "Enable pagination",
             "pagination_not_supported": "Pagination is not available with pivot tables or subtotals",
             "page_size": "Rows per page",
