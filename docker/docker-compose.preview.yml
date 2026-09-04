@@ -74,6 +74,7 @@ services:
             S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE}
             S3_EXPIRATION_TIME: ${S3_EXPIRATION_TIME}
             S3_PATH_PREFIX: ${S3_PATH_PREFIX}
+            S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
             MCP_ENABLED: true
             CUSTOM_ROLES_ENABLED: true
 
