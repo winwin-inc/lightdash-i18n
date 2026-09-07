@@ -594,6 +594,7 @@ export const getUpdateSetupConfig = (): LightdashConfig['updateSetup'] => {
 
 export const parseBaseS3Config = (): LightdashConfig['s3'] => {
     const endpoint = process.env.S3_ENDPOINT;
+    const publicEndpoint = process.env.S3_PUBLIC_ENDPOINT || undefined;
     const bucket = process.env.S3_BUCKET;
     const region = process.env.S3_REGION;
     const accessKey = process.env.S3_ACCESS_KEY;
@@ -611,6 +612,7 @@ export const parseBaseS3Config = (): LightdashConfig['s3'] => {
 
     return {
         endpoint,
+        publicEndpoint,
         bucket,
         region,
         accessKey,
@@ -630,6 +632,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
 
     const {
         endpoint: baseEndpoint,
+        publicEndpoint: basePublicEndpoint,
         bucket: baseBucket,
         region: baseRegion,
         accessKey: baseAccessKey,
@@ -657,6 +660,7 @@ export const parseResultsS3Config = (): LightdashConfig['results']['s3'] => {
 
     return {
         endpoint: baseEndpoint, // ! For now we keep reusing the S3_ENDPOINT like we have been so far, we are just going to enforce it
+        publicEndpoint: basePublicEndpoint,
         forcePathStyle: baseForcePathStyle, // ! For now we keep reusing the S3_FORCE_PATH_STYLE like we have been so far, we are just going to enforce it
         pathPrefix: basePathPrefix,
         bucket,

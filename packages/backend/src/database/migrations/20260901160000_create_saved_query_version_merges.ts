@@ -17,6 +17,8 @@ const SavedQueryVersionMergesTableName = 'saved_queries_version_merges';
  * existing row.
  *
  * schema_version defaults to 2 (current SavedMergeQuery schema).
+ *
+ * Idempotent: safe if the table already exists (e.g. partial v2-upgrade deploy).
  */
 export async function up(knex: Knex): Promise<void> {
     const exists = await knex.schema.hasTable(SavedQueryVersionMergesTableName);

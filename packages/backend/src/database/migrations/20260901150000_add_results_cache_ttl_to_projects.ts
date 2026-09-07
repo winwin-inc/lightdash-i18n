@@ -4,6 +4,11 @@ const ProjectTableName = 'projects';
 const ColumnName = 'results_cache_ttl_seconds';
 
 export async function up(knex: Knex): Promise<void> {
+    const hasColumn = await knex.schema.hasColumn(ProjectTableName, ColumnName);
+    if (hasColumn) {
+        return;
+    }
+
     await knex.raw("SET LOCAL lock_timeout = '5s'");
     await knex.schema.alterTable(ProjectTableName, (table) => {
         // null means the instance-wide CACHE_STALE_TIME_SECONDS applies
@@ -12,6 +17,11 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+    const hasColumn = await knex.schema.hasColumn(ProjectTableName, ColumnName);
+    if (!hasColumn) {
+        return;
+    }
+
     await knex.raw("SET LOCAL lock_timeout = '5s'");
     await knex.schema.alterTable(ProjectTableName, (table) => {
         table.dropColumn(ColumnName);
