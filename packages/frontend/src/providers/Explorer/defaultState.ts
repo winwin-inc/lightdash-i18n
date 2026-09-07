@@ -54,6 +54,9 @@ export const defaultState: ExplorerReduceState = {
         itemDetail: {
             isOpen: false,
         },
+        periodOverPeriodComparison: {
+            isOpen: false,
+        },
     },
     queryExecution: defaultQueryExecution,
     chartTablePagination: null,

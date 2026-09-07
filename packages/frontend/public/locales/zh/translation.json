@@ -5935,7 +5935,22 @@
         "edit_dimension": "编辑自定义维度",
         "eidt_calculation": "编辑计算",
         "sort": "排序",
-        "sorting": "排序方式"
+        "sorting": "排序方式",
+        "add_period_comparison": "添加同期对比"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "添加同期对比",
+        "confirm": "添加对比",
+        "cancel": "取消",
+        "already_exists_title": "该对比已存在",
+        "already_exists_body": "该指标已存在相同时间维度和偏移量的同期对比。请选择其他时间维度或偏移量。",
+        "time_dimension": "时间维度",
+        "time_dimension_placeholder": "选择时间维度",
+        "time_dimension_placeholder_disabled": "请先添加时间维度以启用对比",
+        "offset": "偏移量",
+        "granularity_label": "{{label}} 粒度",
+        "granularity_from_dimension": "粒度由所选维度决定",
+        "will_create": "将创建："
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "已复制到剪贴板",

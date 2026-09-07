@@ -43,6 +43,11 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
    - `20260901150000_add_results_cache_ttl_to_projects`
    - `20260901150100_add_used_parameters_to_query_history`
    - `20260901160000_create_saved_query_version_merges`
+   - `20260907130000_add_formula_to_table_calculations`（幂等；勿再跑已删除的 `20260908120000` 重复脚本）
+   - `20260907130100_add_total_mode_to_table_calculations`（幂等）
+   - `20260907140000_add_pop_additional_metrics_columns`（PoP additional metric 元数据列，幂等）
+
+> **迁移风险**：重复 `formula`/`total_mode` 的 `20260908*` 文件已删除。`up` 含 `hasColumn` 守卫，避免二次加列导致 migrate 失败、生产入口不起服。
 
 ## 三、特性开关（预发 env，无需 PostHog）
 
@@ -52,6 +57,7 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 | `DASHBOARD_TABS_IN_MEMORY=true` | Tab 切换保留图表实例 |
 | `LOCK_DASHBOARD_FILTERS_ENABLED=true` | 看板筛选器锁定 UI |
 | `RESULTS_CACHE_ENABLED=true` | 项目结果缓存 TTL |
+| `ENABLE_TIMEZONE_SUPPORT=true` | Explore 查询时区选择器（`EnableTimezoneSupport`） |
 
 重启 backend 后，前端刷新即可。
 
@@ -88,6 +94,25 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 - [ ] CSV/Excel 导出空单元格与格式化（fork 定制）
 - [ ] 定时推送 / 类目权限看板
 
+## 八-b、Formula + Period-over-Period（主服务闭环）
+
+### Formula
+- [ ] 表计算 Modal 可选 Formula 模式（仓库方言在 SUPPORTED_DIALECTS 内）
+- [ ] 编写简单公式 → validate API 通过 → Run 出列
+- [ ] 保存图表后重开，formula / total_mode 仍在
+
+### Period-over-Period（简单路径）
+- [ ] Explore 选日期维（日/周/月/季/年）+ 指标，列头菜单「添加同期对比」
+- [ ] Modal 选时间维与 offset，确认后出现 PoP 列；Run 有上一期数值
+- [ ] 保存图表后重开，PoP additional metric 仍在
+- [ ] 未选时间维时，列头入口不可用或 Modal 提示需先加时间维
+
+```bash
+# 自动化冒烟（本地）
+cd packages/common && npx jest src/utils/additionalMetrics.test.ts src/types/periodOverPeriodComparison.test.ts
+cd packages/backend && npx jest src/utils/QueryBuilder/periodOverPeriodQueries.test.ts
+```
+
 ## 九、主迁移未完成（后置，本清单不阻塞发布）
 
 | 项 | 说明 |
@@ -98,5 +123,6 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 | ~~query-sdk 包~~ | **已引入**；vizContext ↔ host 类型同步已恢复 |
 | ~~common ee/apps 宿主类型~~ | **已引入** `types` / `sdkFeatures` / `dataAppVizConfigOptions`（不含 code/dataReferences/serializer 等） |
 | i18n ns 硬重构 | 5 域 PR，删巨型 translation.json |
-| Honest Metadata 剩余 | `used_parameters` 已落地；PoP 整包未引入 |
+| Honest Metadata 剩余 | `used_parameters` 已落地；**PoP 简单路径已引入**（fanout CTE / TotalQueryBuilder / 项目级 queryTimezone Settings 仍可后置） |
 | EE 解绑 | Direct Access / Homepage / Autopilot |
+| PoP fanout CTE | 多对一 join inflation 场景下的 experimental PoP 路径；MVP 未移植 |

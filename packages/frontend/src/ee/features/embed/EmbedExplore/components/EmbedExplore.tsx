@@ -82,6 +82,9 @@ const getInitialState = (exploreId: string, savedChart: SavedChart) => ({
         itemDetail: {
             isOpen: false,
         },
+        periodOverPeriodComparison: {
+            isOpen: false,
+        },
     },
     queryExecution: defaultQueryExecution,
     chartTablePagination: null,

@@ -5927,7 +5927,22 @@
         "edit_dimension": " Edit custom dimension",
         "eidt_calculation": "Edit calculation",
         "sort": "Sort",
-        "sorting": "Sorting"
+        "sorting": "Sorting",
+        "add_period_comparison": "Add period comparison"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "Add period comparison",
+        "confirm": "Add comparison",
+        "cancel": "Cancel",
+        "already_exists_title": "This comparison already exists",
+        "already_exists_body": "A period comparison with the same time dimension and offset already exists for this metric. Choose a different time dimension or offset.",
+        "time_dimension": "Time dimension",
+        "time_dimension_placeholder": "Select time dimension",
+        "time_dimension_placeholder_disabled": "Add a time dimension to enable comparison",
+        "offset": "Offset",
+        "granularity_label": "{{label}} granularity",
+        "granularity_from_dimension": "Granularity derived from dimension",
+        "will_create": "This will create:"
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "Copied to clipboard",

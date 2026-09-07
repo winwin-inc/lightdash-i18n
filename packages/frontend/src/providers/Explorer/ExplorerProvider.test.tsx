@@ -775,6 +775,7 @@ describe('ExplorerProvider reducer', () => {
                         item: mockAdditionalMetric,
                     },
                     itemDetail: { isOpen: false },
+                    periodOverPeriodComparison: { isOpen: false },
                 },
             });
 
@@ -799,6 +800,7 @@ describe('ExplorerProvider reducer', () => {
                     customDimension: { isOpen: false },
                     writeBack: { isOpen: false },
                     itemDetail: { isOpen: false },
+                    periodOverPeriodComparison: { isOpen: false },
                 },
             });
 
@@ -824,6 +826,7 @@ describe('ExplorerProvider reducer', () => {
                         items: [],
                     },
                     itemDetail: { isOpen: false },
+                    periodOverPeriodComparison: { isOpen: false },
                 },
             });
 

@@ -12,6 +12,7 @@ import {
     type FieldId,
     type FunnelChartConfig,
     type Item,
+    type ItemsMap,
     type Metric,
     type MetricQuery,
     type MetricType,
@@ -241,6 +242,11 @@ export interface ExplorerReduceState {
             label?: string;
             description?: string;
             fieldItem?: Item | AdditionalMetric;
+        };
+        periodOverPeriodComparison: {
+            isOpen: boolean;
+            metric?: Metric;
+            itemsMap?: ItemsMap;
         };
     };
 

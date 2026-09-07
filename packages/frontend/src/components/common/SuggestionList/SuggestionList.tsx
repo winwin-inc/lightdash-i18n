@@ -143,14 +143,14 @@ export const SuggestionList = forwardRef<
             </div>
             <Group gap="xs" wrap="nowrap" className={styles.footer}>
                 <Group gap={4} wrap="nowrap">
-                    <kbd className={styles.kbd}>â†?/kbd>
-                    <kbd className={styles.kbd}>â†?/kbd>
+                    <kbd className={styles.kbd}>?</kbd>
+                    <kbd className={styles.kbd}>?</kbd>
                     <Text size="xs" inherit>
                         navigate
                     </Text>
                 </Group>
                 <Group gap={4} wrap="nowrap">
-                    <kbd className={styles.kbd}>â†?/kbd>
+                    <kbd className={styles.kbd}>?</kbd>
                     <Text size="xs" inherit>
                         select
                     </Text>

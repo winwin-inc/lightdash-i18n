@@ -371,3 +371,8 @@ export const selectAdditionalMetricModal = createSelector(
     [selectModals],
     (modals) => modals?.additionalMetric ?? { isOpen: false },
 );
+
+export const selectPeriodOverPeriodComparisonModal = createSelector(
+    [selectModals],
+    (modals) => modals?.periodOverPeriodComparison ?? { isOpen: false },
+);

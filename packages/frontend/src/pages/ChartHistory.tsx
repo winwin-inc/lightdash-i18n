@@ -292,6 +292,9 @@ const ChartHistory = () => {
                                 itemDetail: {
                                     isOpen: false,
                                 },
+                                periodOverPeriodComparison: {
+                                    isOpen: false,
+                                },
                             },
                             queryExecution: defaultQueryExecution,
                             chartTablePagination: null,

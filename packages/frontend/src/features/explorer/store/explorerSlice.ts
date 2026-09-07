@@ -8,6 +8,7 @@ import {
     type Dimension,
     type FieldId,
     type Item,
+    type ItemsMap,
     type Metric,
     type MetricQuery,
     type MetricType,
@@ -274,6 +275,17 @@ const explorerSlice = createSlice({
         ) => {
             state.modals.additionalMetric = {
                 isOpen: !state.modals.additionalMetric.isOpen,
+                ...(action.payload && { ...action.payload }),
+            };
+        },
+        togglePeriodOverPeriodComparisonModal: (
+            state,
+            action: PayloadAction<
+                { metric?: Metric; itemsMap?: ItemsMap } | undefined
+            >,
+        ) => {
+            state.modals.periodOverPeriodComparison = {
+                isOpen: !state.modals.periodOverPeriodComparison.isOpen,
                 ...(action.payload && { ...action.payload }),
             };
         },

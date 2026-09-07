@@ -263,6 +263,9 @@ flowchart TB
 | Results Cache TTL | `20260901150000_add_results_cache_ttl_to_projects.ts` | `projects.results_cache_ttl_seconds` int **nullable** | 读/写项目缓存 TTL、按项目 TTL 查缓存失败 | 低 |
 | used_parameters | `20260901150100_add_used_parameters_to_query_history.ts` | `query_history.used_parameters` jsonb **nullable** | **异步查询写 history 可能失败**（影响面最大） | 低 |
 | Warehouse-native Merge Query | `20260901160000_create_saved_query_version_merges.ts` | 新表 `saved_queries_version_merges` | 保存/打开 merge 图表失败；普通 Explore 不受影响 | 低（只加表） |
+| Formula table calc | `20260907130000_add_formula_to_table_calculations.ts`（幂等） | `saved_queries_version_table_calculations.formula` text **nullable** | 保存/读取 Formula 表计算失败 | 低；已删重复 `20260908*` |
+| Formula total_mode | `20260907130100_add_total_mode_to_table_calculations.ts`（幂等） | `…total_mode` text **nullable** | 读写 total_mode 失败 | 低 |
+| PoP additional metrics | `20260907140000_add_pop_additional_metrics_columns.ts`（幂等） | additional_metrics 上 5 个 PoP 元数据列 **nullable** | 保存/打开含 PoP 的图表失败；无 PoP 路径不受影响 | 低 |
 
 **Step 4 代码已合入（无新 migration）：**
 
@@ -282,8 +285,8 @@ flowchart TB
 | ~~Tabs 超集合并 / Filter Override~~ | 无大 schema | — | **已合入**（reconcile + hidden/懒加载 + locked-tab + 锁定 UI） |
 | Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | **不可单独落地**：硬依赖可运行 apps。顺序：common apps types（✅）→ `features/apps` UI+路由（✅）→ 后端 API（✅ typecheck）→ Sandbox 真跑通（⚠️）→ `features/chartTypes` |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方；见第六节 |
-| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | 不引入 PoP 整包则无额外库变更；与上游差距主要为 timezone display 门控等细节 |
-| Formula 包 | **无 DB** | 无 | **已引入** `packages/formula` + `formula-tests`；`pnpm -F @lightdash/formula test` |
+| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | **PoP 简单路径已落地**（types + migration + MQB CTE + Explore Modal）；fanout CTE / TotalQueryBuilder / 项目级 `queryTimezone` Settings 可后置 |
+| Formula 包 | **有 DB**（见上表 formula / total_mode） | 小 | **已引入** `packages/formula` + FormulaForm UI + validate API |
 | Query SDK 包 | **无 DB** | 无 | **已引入** `packages/query-sdk`；common 镜像 `ee/apps` 宿主类型；Data Apps UI/路由/后端 API ✅（typecheck 通过）；Chart Types / Sandbox 真跑通未接 |
 
 #### 后置专项（主迁移完成后再做；库变更明显变大）

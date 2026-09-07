@@ -789,6 +789,12 @@ export interface Metric extends Field {
         categories?: string[]; // yaml_reference
     };
     aiHint?: string | string[];
+    /** PoP-generated metrics: marker + comparison metadata preserved into ItemsMap */
+    generationType?: 'periodOverPeriod';
+    baseMetricId?: string;
+    timeDimensionId?: string;
+    granularity?: TimeFrames;
+    periodOffset?: number;
 }
 
 export const isFilterableDimension = (

@@ -13,6 +13,7 @@ import {
     selectMetricQuery,
     selectMetrics,
     selectParameterReferences,
+    selectPeriodOverPeriodComparisonModal,
     selectSorts,
     selectTableName,
     useExplorerDispatch,
@@ -39,6 +40,7 @@ import ExplorerHeader from './ExplorerHeader';
 import FiltersCard from './FiltersCard/FiltersCard';
 import { FormatModal } from './FormatModal';
 import ParametersCard from './ParametersCard/ParametersCard';
+import { PeriodOverPeriodComparisonModal } from './PeriodOverPeriodComparisonModal/PeriodOverPeriodComparisonModal';
 import ResultsCard from './ResultsCard/ResultsCard';
 import SqlCard from './SqlCard/SqlCard';
 import VisualizationCard from './VisualizationCard/VisualizationCard';
@@ -77,6 +79,8 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
         );
         const { isOpen: isFormatModalOpen } =
             useExplorerSelector(selectFormatModal);
+        const { isOpen: isPeriodOverPeriodComparisonModalOpen } =
+            useExplorerSelector(selectPeriodOverPeriodComparisonModal);
 
         const dispatch = useExplorerDispatch();
 
@@ -212,6 +216,9 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
 
                 {isAdditionalMetricModalOpen && <CustomMetricModal />}
                 {isFormatModalOpen && <FormatModal />}
+                {isPeriodOverPeriodComparisonModalOpen && (
+                    <PeriodOverPeriodComparisonModal />
+                )}
             </MetricQueryDataProvider>
         );
     },

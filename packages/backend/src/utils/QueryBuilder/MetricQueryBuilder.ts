@@ -11,6 +11,7 @@ import {
     FieldReferenceError,
     FieldType,
     FilterGroup,
+    FilterGroupItem,
     FilterOperator,
     FilterRule,
     getCustomMetricDimensionId,
@@ -19,6 +20,8 @@ import {
     getFilterRulesFromGroup,
     getItemId,
     getParsedReference,
+    getPopComparisonConfigKey,
+    hashPopComparisonConfigKeyToSuffix,
     IntrinsicUserAttributes,
     isAndFilterGroup,
     isCompiledCustomSqlDimension,
@@ -27,6 +30,7 @@ import {
     isFilterRuleInQuery,
     isJoinModelRequiredFilter,
     isNonAggregateMetric,
+    isPeriodOverPeriodAdditionalMetric,
     isPostCalculationMetric,
     ItemsMap,
     lightdashVariablePattern,
@@ -90,8 +94,222 @@ export type BuildQueryProps = {
     timezone: string;
 };
 
+function normalizeIntervalGranularity(
+    value: number,
+    granularity: string,
+    convertWeeks: boolean = false,
+): [number, string] {
+    const upperGranularity = granularity.toUpperCase();
+
+    if (upperGranularity === 'QUARTER') {
+        return [value * 3, 'MONTH'];
+    }
+
+    if (convertWeeks && upperGranularity === 'WEEK') {
+        return [value * 7, 'DAY'];
+    }
+
+    return [value, granularity];
+}
+
+export function getIntervalSyntax(
+    adapterType: SupportedDbtAdapter,
+    column: string,
+    columnWithInterval: string,
+    operator: '=' | '>=' | '<=',
+    value: number,
+    granularity: string,
+    isAdd: boolean = true,
+): string {
+    const operation = isAdd ? 'ADD' : 'SUB';
+
+    let intervalExpression: string;
+
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+            // BigQuery always uses DATE_ADD/DATE_SUB
+            intervalExpression = `DATE_${operation}(DATE(${columnWithInterval}), INTERVAL ${value} ${granularity})`;
+            break;
+        case SupportedDbtAdapter.DATABRICKS: {
+            // Databricks uses interval arithmetic with quoted values
+            // Doesn't support QUARTER interval, convert to months
+            const [dbValue, dbGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${dbValue}' ${dbGranularity}`;
+            break;
+        }
+        case SupportedDbtAdapter.SNOWFLAKE:
+            // Snowflake uses DATEADD function
+            intervalExpression = `DATEADD(${granularity}, ${
+                isAdd ? value : -value
+            }, ${columnWithInterval})`;
+            break;
+        case SupportedDbtAdapter.REDSHIFT: {
+            // Redshift uses DATEADD and doesn't support QUARTER directly
+            const [redshiftValue, redshiftGranularity] =
+                normalizeIntervalGranularity(value, granularity);
+            intervalExpression = `DATEADD(${redshiftGranularity}, ${
+                isAdd ? redshiftValue : -redshiftValue
+            }, ${columnWithInterval})`;
+            break;
+        }
+        case SupportedDbtAdapter.POSTGRES: {
+            // Postgres uses standard interval arithmetic
+            // Postgres doesn't support QUARTER interval, convert to months
+            const [pgValue, pgGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${pgValue} ${pgGranularity}'`;
+            break;
+        }
+        case SupportedDbtAdapter.TRINO: {
+            // Trino uses standard interval arithmetic
+            const [trinoValue, trinoGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${trinoValue}' ${trinoGranularity}`;
+            break;
+        }
+        case SupportedDbtAdapter.CLICKHOUSE: {
+            // ClickHouse uses date arithmetic functions
+            // ClickHouse doesn't support QUARTER interval, convert to months
+            const [chValue, chGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            const func = isAdd ? 'date_add' : 'date_sub';
+            intervalExpression = `${func}(${columnWithInterval}, INTERVAL ${chValue} ${chGranularity})`;
+            break;
+        }
+        default:
+            // Default to standard SQL interval syntax
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL ${value} ${granularity}`;
+            break;
+    }
+
+    return `${
+        adapterType === SupportedDbtAdapter.BIGQUERY
+            ? `DATE(${column})`
+            : column
+    } ${operator} ${intervalExpression}`;
+}
+
 export class MetricQueryBuilder {
-    constructor(private args: BuildQueryProps) {}
+    private readonly baseMetricIdByPopMetricId: Record<string, string> = {};
+
+    private popComparisonConfigs: Array<{
+        timeDimensionId: string;
+        granularity: TimeFrames;
+        periodOffset: number;
+        configKey: string;
+        cteSuffix: string;
+    }> = [];
+
+    private readonly popMetricEntriesByConfigKey: Record<
+        string,
+        Array<{ popMetricId: string; baseMetricId: string }>
+    > = {};
+
+    private isPopMetricId(metricId: string): boolean {
+        return metricId in this.baseMetricIdByPopMetricId;
+    }
+
+    constructor(private args: BuildQueryProps) {
+        const { compiledMetricQuery } = this.args;
+
+        const metricFilterIds = new Set(
+            getFilterRulesFromGroup(compiledMetricQuery.filters.metrics).map(
+                (filter) => filter.target.fieldId,
+            ),
+        );
+        const selectedOrFilteredPopAdditionalMetrics = (
+            compiledMetricQuery.additionalMetrics ?? []
+        )
+            .filter(isPeriodOverPeriodAdditionalMetric)
+            .filter((am) => {
+                const popMetricId = getItemId(am);
+                return (
+                    compiledMetricQuery.metrics.includes(popMetricId) ||
+                    metricFilterIds.has(popMetricId)
+                );
+            });
+
+        if (selectedOrFilteredPopAdditionalMetrics.length > 0) {
+            const configsByKey = new Map<
+                string,
+                {
+                    timeDimensionId: string;
+                    granularity: TimeFrames;
+                    periodOffset: number;
+                    cteSuffix: string;
+                }
+            >();
+
+            selectedOrFilteredPopAdditionalMetrics.forEach((am) => {
+                const configKey = getPopComparisonConfigKey({
+                    timeDimensionId: am.timeDimensionId,
+                    granularity: am.granularity,
+                    periodOffset: am.periodOffset,
+                });
+                const cteSuffixHash =
+                    hashPopComparisonConfigKeyToSuffix(configKey);
+                const granularityLabel = String(am.granularity).toLowerCase();
+                // Keep CTE suffix short to avoid identifier truncation (e.g. Postgres 63-char limit).
+                // Uniqueness comes from hashing the full config key.
+                const cteSuffix = `${granularityLabel}_${am.periodOffset}__${cteSuffixHash}`;
+                configsByKey.set(configKey, {
+                    timeDimensionId: am.timeDimensionId,
+                    granularity: am.granularity,
+                    periodOffset: am.periodOffset,
+                    cteSuffix,
+                });
+
+                const popMetricId = getItemId(am);
+                this.baseMetricIdByPopMetricId[popMetricId] = am.baseMetricId;
+
+                if (!this.popMetricEntriesByConfigKey[configKey]) {
+                    this.popMetricEntriesByConfigKey[configKey] = [];
+                }
+                this.popMetricEntriesByConfigKey[configKey].push({
+                    popMetricId,
+                    baseMetricId: am.baseMetricId,
+                });
+            });
+
+            this.popComparisonConfigs = Array.from(configsByKey.entries()).map(
+                ([configKey, config]) => ({
+                    ...config,
+                    configKey,
+                }),
+            );
+
+            // Ensure each comparison time dimension is selected in the query (required for joins)
+            this.popComparisonConfigs.forEach((cfg) => {
+                if (
+                    !compiledMetricQuery.dimensions.includes(
+                        cfg.timeDimensionId,
+                    )
+                ) {
+                    throw new CompileError(
+                        `Period comparison time dimension "${cfg.timeDimensionId}" must be selected in the query`,
+                        {},
+                    );
+                }
+            });
+        }
+    }
 
     static buildCtesSQL(ctes: string[]) {
         return ctes.length > 0 ? `WITH ${ctes.join(',\n')}` : undefined;
@@ -101,20 +319,145 @@ export class MetricQueryBuilder {
         return parts.filter((l) => l !== undefined).join('\n');
     }
 
+    private static combineWhereClauses(
+        ...clauses: Array<string | undefined>
+    ): string | undefined {
+        const conditions = clauses
+            .filter((clause): clause is string => clause !== undefined)
+            .map((clause) => clause.replace(/^WHERE\s+/i, '').trim())
+            .filter((clause) => clause.length > 0);
+
+        return conditions.length > 0
+            ? `WHERE ${conditions.join(' AND ')}`
+            : undefined;
+    }
+
+    /** NULL-safe equality for JOIN conditions (fork lacks WarehouseSqlBuilder helper). */
+    private static nullSafeEqualJoinSql(left: string, right: string): string {
+        return `(${left} = ${right} OR (${left} IS NULL AND ${right} IS NULL))`;
+    }
+
+    private isFilterOnPopComparisonTimeDimension(
+        filter: FilterRule,
+        timeDimensionId: string,
+    ): boolean {
+        if (filter.target.fieldId === timeDimensionId) {
+            return true;
+        }
+
+        const { explore, compiledMetricQuery, warehouseSqlBuilder } = this.args;
+        const adapterType: SupportedDbtAdapter =
+            warehouseSqlBuilder.getAdapterType();
+        const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
+
+        const popDimension = getDimensionFromId(
+            timeDimensionId,
+            explore,
+            adapterType,
+            startOfWeek,
+        );
+        const popDimensionBaseId = `${popDimension.table}_${
+            popDimension.timeIntervalBaseDimensionName ?? popDimension.name
+        }`;
+
+        const filterDimension = getDimensionFromFilterTargetId(
+            filter.target.fieldId,
+            explore,
+            compiledMetricQuery.compiledCustomDimensions.filter(
+                isCompiledCustomSqlDimension,
+            ),
+            adapterType,
+            startOfWeek,
+        );
+
+        if (isCompiledCustomSqlDimension(filterDimension)) {
+            return false;
+        }
+
+        return (
+            `${filterDimension.table}_${
+                filterDimension.timeIntervalBaseDimensionName ??
+                filterDimension.name
+            }` === popDimensionBaseId
+        );
+    }
+
+    private getDimensionsFilterGroupWithoutPopTimeFilters(
+        timeDimensionId: string,
+        filterGroup: FilterGroup | undefined,
+    ): FilterGroup | undefined {
+        if (!filterGroup) {
+            return undefined;
+        }
+
+        const items = isAndFilterGroup(filterGroup)
+            ? filterGroup.and
+            : filterGroup.or;
+
+        const filteredItems = items.reduce<FilterGroupItem[]>((acc, item) => {
+            if (isFilterGroup(item)) {
+                const nestedGroup =
+                    this.getDimensionsFilterGroupWithoutPopTimeFilters(
+                        timeDimensionId,
+                        item,
+                    );
+                return nestedGroup ? [...acc, nestedGroup] : acc;
+            }
+
+            return this.isFilterOnPopComparisonTimeDimension(
+                item,
+                timeDimensionId,
+            )
+                ? acc
+                : [...acc, item];
+        }, []);
+
+        if (filteredItems.length === 0) {
+            return undefined;
+        }
+
+        return isAndFilterGroup(filterGroup)
+            ? {
+                  ...filterGroup,
+                  and: filteredItems,
+              }
+            : {
+                  ...filterGroup,
+                  or: filteredItems,
+              };
+    }
+
+    private getPopDimensionsFilterSQL(
+        timeDimensionId: string,
+    ): string | undefined {
+        const strippedGroup =
+            this.getDimensionsFilterGroupWithoutPopTimeFilters(
+                timeDimensionId,
+                this.args.compiledMetricQuery.filters.dimensions,
+            );
+        return this.buildDimensionsWhereClause(strippedGroup);
+    }
+
     private getDimensionsFilterSQL() {
+        return this.buildDimensionsWhereClause(
+            this.args.compiledMetricQuery.filters.dimensions,
+        );
+    }
+
+    private buildDimensionsWhereClause(
+        dimensionsFilterGroup?: FilterGroup,
+    ): string | undefined {
         const {
             explore,
-            compiledMetricQuery,
             warehouseSqlBuilder,
             userAttributes = {},
             intrinsicUserAttributes,
         } = this.args;
-        const { filters } = compiledMetricQuery;
 
         const requiredDimensionFilterSql =
             this.getNestedDimensionFilterSQLFromModelFilters(
                 explore.tables[explore.baseTable],
-                filters.dimensions,
+                dimensionsFilterGroup,
             );
         const tableCompiledSqlWhere =
             explore.tables[explore.baseTable].sqlWhere;
@@ -131,7 +474,7 @@ export class MetricQueryBuilder {
             : [];
 
         const nestedFilterSql = this.getNestedFilterSQLFromGroup(
-            filters.dimensions,
+            dimensionsFilterGroup,
             FieldType.DIMENSION,
         );
         const requiredFiltersWhere = requiredDimensionFilterSql
@@ -353,13 +696,18 @@ export class MetricQueryBuilder {
         const { explore, compiledMetricQuery } = this.args;
         const { metrics, filters } = compiledMetricQuery;
 
-        // Regular metrics
-        const referencedMetricIds = new Set<string>(metrics);
-
-        // Add metrics from filters
-        getFilterRulesFromGroup(filters.metrics).forEach((filter) =>
-            referencedMetricIds.add(filter.target.fieldId),
+        // Regular metrics. PoP metrics are materialized by shifted comparison CTEs.
+        const referencedMetricIds = new Set<string>(
+            metrics.filter((metricId) => !this.isPopMetricId(metricId)),
         );
+
+        // Add metrics from filters. PoP filter metrics are materialized
+        // by shifted comparison CTEs instead of the raw metric SELECT.
+        getFilterRulesFromGroup(filters.metrics).forEach((filter) => {
+            if (!this.isPopMetricId(filter.target.fieldId)) {
+                referencedMetricIds.add(filter.target.fieldId);
+            }
+        });
 
         // Add metrics referenced in PostCalculation metrics
         this.getPostCalculationMetricReferences(
@@ -432,6 +780,21 @@ export class MetricQueryBuilder {
                 `  ${metric.compiledSql} AS ${fieldQuoteChar}${alias}${fieldQuoteChar}`,
             );
             // Add tables
+            (metric.tablesReferences || [metric.table]).forEach((table) =>
+                tables.add(table),
+            );
+        });
+
+        // PoP base metrics are computed in shifted CTEs; still need their tables joined.
+        Object.values(this.baseMetricIdByPopMetricId).forEach((baseMetricId) => {
+            if (metrics.includes(baseMetricId)) {
+                return;
+            }
+            const metric = getMetricFromId(
+                baseMetricId,
+                explore,
+                compiledMetricQuery,
+            );
             (metric.tablesReferences || [metric.table]).forEach((table) =>
                 tables.add(table),
             );
@@ -1718,7 +2081,9 @@ export class MetricQueryBuilder {
         ].join(',\n')}`;
         const sqlFrom = this.getBaseTableFromSQL();
         const sqlLimit = this.getLimitSQL();
-        const { sqlOrderBy, requiresQueryInCTE } = this.getSortSQL();
+        const sortSQL = this.getSortSQL();
+        const sqlOrderBy = sortSQL.sqlOrderBy;
+        let { requiresQueryInCTE } = sortSQL;
         const ctes = [...dimensionsSQL.ctes];
         let finalSelectParts: Array<string | undefined> = [
             sqlSelect,
@@ -1741,6 +2106,155 @@ export class MetricQueryBuilder {
         if (experimentalMetricsCteSQL.finalSelectParts) {
             finalSelectParts = experimentalMetricsCteSQL.finalSelectParts;
             ctes.push(...experimentalMetricsCteSQL.ctes);
+        } else if (this.popComparisonConfigs.length > 0) {
+            // Support multiple PoP configs (e.g. Previous month + 2 months ago) in the same query
+            const fieldQuoteChar =
+                this.args.warehouseSqlBuilder.getFieldQuoteChar();
+            const adapterType: SupportedDbtAdapter =
+                this.args.warehouseSqlBuilder.getAdapterType();
+            const startOfWeek = this.args.warehouseSqlBuilder.getStartOfWeek();
+
+            const baseCteName = 'base_metrics';
+            ctes.push(
+                MetricQueryBuilder.wrapAsCte(baseCteName, finalSelectParts),
+            );
+
+            const dimensionAlias = Object.keys(dimensionsSQL.selects).map(
+                (alias) => `${fieldQuoteChar}${alias}${fieldQuoteChar}`,
+            );
+
+            const popJoins: string[] = [];
+            const popMetricSelects: string[] = [];
+
+            this.popComparisonConfigs.forEach((cfg) => {
+                const popEntries =
+                    this.popMetricEntriesByConfigKey[cfg.configKey] ?? [];
+                if (popEntries.length === 0) return;
+
+                const popConfigSuffix = cfg.cteSuffix;
+                const popFieldId = cfg.timeDimensionId;
+
+                const popMinMaxCteName = `pop_min_max_${popConfigSuffix}`;
+                const popMinMaxCteParts = [
+                    `SELECT`,
+                    [
+                        `MIN(${baseCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as min_date`,
+                        `MAX(${baseCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as max_date`,
+                    ].join(',\n'),
+                    `FROM ${baseCteName}`,
+                ];
+                ctes.push(
+                    `${popMinMaxCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                        popMinMaxCteParts,
+                    )}\n)`,
+                );
+
+                const popCteName = `pop_metrics_${popConfigSuffix}`;
+                const popField = getDimensionFromId(
+                    popFieldId,
+                    explore,
+                    adapterType,
+                    startOfWeek,
+                );
+                const popFieldSql = popField.compiledSql;
+                const popDimensionFilters =
+                    this.getPopDimensionsFilterSQL(popFieldId);
+
+                const popMetricSelectsInPopCte = popEntries.map((entry) => {
+                    const metric = getMetricFromId(
+                        entry.baseMetricId,
+                        explore,
+                        compiledMetricQuery,
+                    );
+                    return `  ${metric.compiledSql} AS ${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar}`;
+                });
+
+                const popCteParts = [
+                    `SELECT\n${[
+                        ...Object.values(dimensionsSQL.selects),
+                        ...popMetricSelectsInPopCte,
+                    ].join(',\n')}`,
+                    sqlFrom,
+                    joins.joinSQL,
+                    ...dimensionsSQL.joins,
+                    ...[`LEFT JOIN ${popMinMaxCteName} ON TRUE`],
+                    MetricQueryBuilder.combineWhereClauses(
+                        popDimensionFilters,
+                        `WHERE ${getIntervalSyntax(
+                            adapterType,
+                            popFieldSql,
+                            `${popMinMaxCteName}.min_date`,
+                            '>=',
+                            cfg.periodOffset,
+                            cfg.granularity,
+                            false,
+                        )} AND ${getIntervalSyntax(
+                            adapterType,
+                            popFieldSql,
+                            `${popMinMaxCteName}.max_date`,
+                            '<=',
+                            cfg.periodOffset,
+                            cfg.granularity,
+                            false,
+                        )}`,
+                    ),
+                    dimensionsSQL.groupBySQL,
+                ];
+
+                ctes.push(
+                    `${popCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                        popCteParts,
+                    )}\n)`,
+                );
+
+                popMetricSelects.push(
+                    ...popEntries.map(
+                        (entry) =>
+                            `  ${popCteName}.${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar} AS ${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar}`,
+                    ),
+                );
+
+                if (dimensionAlias.length === 0) {
+                    popJoins.push(`CROSS JOIN ${popCteName}`);
+                    return;
+                }
+
+                popJoins.push(
+                    `LEFT JOIN ${popCteName} ON ${dimensionAlias
+                        .map((alias) => {
+                            if (
+                                alias ===
+                                `${fieldQuoteChar}${popFieldId}${fieldQuoteChar}`
+                            ) {
+                                return `( ${getIntervalSyntax(
+                                    adapterType,
+                                    `${baseCteName}.${alias}`,
+                                    `${popCteName}.${alias}`,
+                                    '=',
+                                    cfg.periodOffset,
+                                    cfg.granularity,
+                                    true,
+                                )})`;
+                            }
+                            return MetricQueryBuilder.nullSafeEqualJoinSql(
+                                `${baseCteName}.${alias}`,
+                                `${popCteName}.${alias}`,
+                            );
+                        })
+                        .join(' AND ')}`,
+                );
+            });
+
+            if (popMetricSelects.length > 0) {
+                finalSelectParts = [
+                    `SELECT`,
+                    [`  ${baseCteName}.*`, ...popMetricSelects].join(',\n'),
+                    `FROM ${baseCteName}`,
+                    ...popJoins,
+                ];
+                // Sorting by a shared dimension alias can become ambiguous with joins.
+                requiresQueryInCTE = true;
+            }
         }
         warnings.push(...experimentalMetricsCteSQL.warnings);
 

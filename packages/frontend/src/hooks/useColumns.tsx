@@ -4,6 +4,7 @@ import {
     formatItemValue,
     getItemId,
     getItemMap,
+    getMetricOverridesWithPopInheritance,
     hasPercentageFormat,
     isAdditionalMetric,
     isCustomDimension,
@@ -307,11 +308,17 @@ export const useColumns = (): TableColumn[] => {
             ...(resultsFields || {}),
         };
 
+        const resolvedMetricOverrides = getMetricOverridesWithPopInheritance({
+            metricOverrides,
+            additionalMetrics,
+        });
+
         // Apply metric overrides and remove legacy format properties
         // to ensure formatItemValue uses new formatOptions instead of old format expressions
         return Object.fromEntries(
             Object.entries(mergedMap).map(([key, value]) => {
-                if (!metricOverrides?.[key]) return [key, value];
+                const override = resolvedMetricOverrides[key];
+                if (!override) return [key, value];
                 const itemWithoutLegacyFormat = omit(value, [
                     'format',
                     'round',
@@ -320,7 +327,7 @@ export const useColumns = (): TableColumn[] => {
                     key,
                     {
                         ...itemWithoutLegacyFormat,
-                        ...metricOverrides[key],
+                        ...override,
                     },
                 ];
             }),
