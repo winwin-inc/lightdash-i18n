@@ -195,6 +195,80 @@ export const resolveTimezoneWrap = (
     return { timezone, sourceTimezone, timestampDomain };
 };
 
+// EXTRACT returns a number/string, so no `toUTC` inverse — one-way shift only.
+type DateExtractTimezoneConversion = {
+    toExtractInputTz: (
+        sql: string,
+        tz: string,
+        sourceTimezone?: string,
+    ) => string;
+    toExtractInputTzFromInstant: (instantSql: string, tz: string) => string;
+};
+
+export const dateExtractsTimezoneConversions: Record<
+    SupportedDbtAdapter,
+    DateExtractTimezoneConversion
+> = {
+    [SupportedDbtAdapter.BIGQUERY]: {
+        toExtractInputTz: (sql, tz) => `TIMESTAMP(${sql}) AT TIME ZONE '${tz}'`,
+        toExtractInputTzFromInstant: (sql, tz) => `${sql} AT TIME ZONE '${tz}'`,
+    },
+    [SupportedDbtAdapter.SNOWFLAKE]: {
+        toExtractInputTz: (sql, tz, sourceTimezone = 'UTC') =>
+            `CONVERT_TIMEZONE('${sourceTimezone}', '${tz}', ${sql})`,
+        toExtractInputTzFromInstant: (sql, tz) =>
+            `CONVERT_TIMEZONE('UTC', '${tz}', ${sql})`,
+    },
+    [SupportedDbtAdapter.POSTGRES]: {
+        toExtractInputTz: (sql, tz) =>
+            `(${sql})::timestamptz AT TIME ZONE '${tz}'`,
+        toExtractInputTzFromInstant: postgresLikeToProjectTzFromInstant,
+    },
+    [SupportedDbtAdapter.REDSHIFT]: {
+        toExtractInputTz: (sql, tz) =>
+            `(${sql})::timestamptz AT TIME ZONE '${tz}'`,
+        toExtractInputTzFromInstant: postgresLikeToProjectTzFromInstant,
+    },
+    [SupportedDbtAdapter.DATABRICKS]: {
+        toExtractInputTz: (sql, tz) =>
+            `from_utc_timestamp(to_utc_timestamp(${sql}, current_timezone()), '${tz}')`,
+        toExtractInputTzFromInstant: databricksToProjectTzFromInstant,
+    },
+    [SupportedDbtAdapter.TRINO]: {
+        toExtractInputTz: (sql, tz) =>
+            `CAST(${sql} AT TIME ZONE '${tz}' AS timestamp)`,
+        toExtractInputTzFromInstant: trinoToProjectTzFromInstant,
+    },
+    [SupportedDbtAdapter.CLICKHOUSE]: {
+        toExtractInputTz: (sql, tz) => `toTimeZone(${sql}, '${tz}')`,
+        toExtractInputTzFromInstant: (sql, tz) => `toTimeZone(${sql}, '${tz}')`,
+    },
+};
+
+/** Shift an EXTRACT/format input into the project zone. */
+export const getExtractInputTzSql = (
+    adapterType: SupportedDbtAdapter,
+    originalSql: string,
+    timezone: string,
+    sourceTimezone?: string,
+    timestampDomain?: TimestampDomain,
+): string => {
+    const { castNaiveToInstant } = dateTruncTimezoneConversions[adapterType];
+    if (timestampDomain === 'naive' && castNaiveToInstant) {
+        return dateExtractsTimezoneConversions[
+            adapterType
+        ].toExtractInputTzFromInstant(
+            castNaiveToInstant(originalSql, sourceTimezone ?? 'UTC'),
+            timezone,
+        );
+    }
+    return dateExtractsTimezoneConversions[adapterType].toExtractInputTz(
+        originalSql,
+        timezone,
+        sourceTimezone,
+    );
+};
+
 /**
  * Apply timezone round-trip around a warehouse DATE_TRUNC expression.
  * Input `truncate` receives SQL already shifted into the project timezone.

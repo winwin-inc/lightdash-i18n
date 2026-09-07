@@ -11,6 +11,7 @@ import {
     type CompiledCustomSqlDimension,
     type CompiledField,
     type TableCalculation,
+    type TimestampDomain,
 } from '../types/field';
 import {
     FilterOperator,
@@ -26,10 +27,11 @@ import {
 import { TimeFrames } from '../types/timeFrames';
 import assertUnreachable from '../utils/assertUnreachable';
 import { convertToBooleanValue } from '../utils/booleanConverter';
+import { dateTruncTimezoneConversions } from '../utils/dateTruncTimezone';
 import { formatDate } from '../utils/formatting';
 import { getItemId } from '../utils/item';
 import { getMomentDateWithCustomStartOfWeek } from '../utils/time';
-import { type WeekDay } from '../utils/timeFrames';
+import { SUB_DAY_TIME_FRAMES, type WeekDay } from '../utils/timeFrames';
 
 // NOTE: This function requires a complete date as input.
 // It produces a timezoneless string which is implied to be in UTC.
@@ -37,6 +39,204 @@ import { type WeekDay } from '../utils/timeFrames';
 // Calling .utc() here makes it safe to drop the tz.
 const formatTimestampAsUTCWithNoTimezone = (date: Date): string =>
     moment(date).utc().format('YYYY-MM-DD HH:mm:ss');
+
+// Wall clock of the UTC instant in `zone` — domain-directed literals render
+// the boundary in the same zone the LHS compares in.
+const formatTimestampAsWallClock =
+    (zone: string) =>
+    (date: Date): string =>
+        moment(date).tz(zone).format('YYYY-MM-DD HH:mm:ss');
+
+export type TimestampFilterContext =
+    | { mode: 'legacy'; instantLhs: boolean }
+    | { mode: 'wrapped' }
+    | { mode: 'naiveWall'; wallClockTimezone: string }
+    | { mode: 'awareInstant' };
+
+export type TimestampFilterLhsMode = 'legacy' | 'instant' | 'wrapped';
+
+const legacyTimestampFilterContext: TimestampFilterContext = {
+    mode: 'legacy',
+    instantLhs: false,
+};
+
+export const resolveTimestampFilterContext = ({
+    adapterType,
+    useTimezoneAwareDateTrunc,
+    sourceTimezone,
+    timestampDomain,
+    timeInterval,
+    lhsMode,
+}: {
+    adapterType: SupportedDbtAdapter;
+    useTimezoneAwareDateTrunc?: boolean;
+    sourceTimezone?: string;
+    timestampDomain?: TimestampDomain;
+    timeInterval?: TimeFrames;
+    lhsMode: TimestampFilterLhsMode;
+}): TimestampFilterContext => {
+    const legacyContext: TimestampFilterContext = {
+        mode: 'legacy',
+        instantLhs: timeInterval === TimeFrames.RAW && lhsMode === 'instant',
+    };
+    const domainZone = sourceTimezone ?? 'UTC';
+    const effectiveDomain =
+        timestampDomain === 'naive' &&
+        dateTruncTimezoneConversions[adapterType].castNaiveToInstant === null
+            ? 'aware'
+            : timestampDomain;
+
+    if (
+        !useTimezoneAwareDateTrunc ||
+        effectiveDomain === undefined ||
+        domainZone === 'UTC' ||
+        adapterType === SupportedDbtAdapter.SNOWFLAKE
+    ) {
+        return legacyContext;
+    }
+
+    if (timeInterval !== undefined && SUB_DAY_TIME_FRAMES.has(timeInterval)) {
+        return lhsMode === 'wrapped' ? { mode: 'wrapped' } : legacyContext;
+    }
+
+    return effectiveDomain === 'naive'
+        ? { mode: 'naiveWall', wallClockTimezone: domainZone }
+        : { mode: 'awareInstant' };
+};
+
+const getAwareInstantFormatter = (
+    adapterType: SupportedDbtAdapter,
+): ((date: Date) => string) | null => {
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+        case SupportedDbtAdapter.CLICKHOUSE:
+        case SupportedDbtAdapter.TRINO:
+            return formatTimestampAsWallClock('UTC');
+        case SupportedDbtAdapter.DATABRICKS:
+        case SupportedDbtAdapter.SNOWFLAKE:
+        case SupportedDbtAdapter.REDSHIFT:
+        case SupportedDbtAdapter.POSTGRES:
+            return null;
+        default:
+            return assertUnreachable(
+                adapterType,
+                `Unknown adapter ${adapterType}`,
+            );
+    }
+};
+
+const castWrappedTimestampLiteral = (
+    value: string,
+    adapterType: SupportedDbtAdapter,
+    timezone: string,
+): string => {
+    const { toUTC, freezeInstantOutput } =
+        dateTruncTimezoneConversions[adapterType];
+    let naiveLiteral: string;
+
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+            return `TIMESTAMP('${value}', '${timezone}')`;
+        case SupportedDbtAdapter.TRINO:
+            naiveLiteral = `CAST('${value}' AS timestamp)`;
+            break;
+        case SupportedDbtAdapter.DATABRICKS:
+            naiveLiteral = `'${value}'`;
+            break;
+        case SupportedDbtAdapter.CLICKHOUSE:
+            naiveLiteral = `toDateTime('${value}', '${timezone}')`;
+            break;
+        case SupportedDbtAdapter.SNOWFLAKE:
+        case SupportedDbtAdapter.REDSHIFT:
+        case SupportedDbtAdapter.POSTGRES:
+            naiveLiteral = `'${value}'::timestamp`;
+            break;
+        default:
+            return assertUnreachable(
+                adapterType,
+                `Unknown adapter ${adapterType}`,
+            );
+    }
+
+    const wrapped = toUTC(naiveLiteral, timezone);
+    return freezeInstantOutput ? freezeInstantOutput(wrapped) : wrapped;
+};
+
+const castNaiveWallTimestampLiteral = (
+    value: string,
+    adapterType: SupportedDbtAdapter,
+): string => {
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+            return `DATETIME '${value}'`;
+        case SupportedDbtAdapter.DATABRICKS:
+            return `TIMESTAMP_NTZ '${value}'`;
+        case SupportedDbtAdapter.TRINO:
+            return `TIMESTAMP '${value}'`;
+        case SupportedDbtAdapter.REDSHIFT:
+        case SupportedDbtAdapter.POSTGRES:
+            return `('${value}'::timestamp)`;
+        case SupportedDbtAdapter.SNOWFLAKE:
+            return `('${value}'::timestamp_ntz)`;
+        case SupportedDbtAdapter.CLICKHOUSE:
+            throw new CompileError(
+                'ClickHouse does not support naive timestamp filter literals',
+            );
+        default:
+            return assertUnreachable(
+                adapterType,
+                `Unknown adapter ${adapterType}`,
+            );
+    }
+};
+
+const castAwareInstantTimestampLiteral = (
+    value: string,
+    adapterType: SupportedDbtAdapter,
+): string => {
+    switch (adapterType) {
+        case SupportedDbtAdapter.CLICKHOUSE:
+            return `toDateTime64('${value}', 3, 'UTC')`;
+        case SupportedDbtAdapter.BIGQUERY:
+            return `TIMESTAMP '${value}+00'`;
+        case SupportedDbtAdapter.TRINO:
+            return `TIMESTAMP '${value} UTC'`;
+        case SupportedDbtAdapter.DATABRICKS:
+        case SupportedDbtAdapter.SNOWFLAKE:
+        case SupportedDbtAdapter.REDSHIFT:
+        case SupportedDbtAdapter.POSTGRES:
+            return `('${value}')`;
+        default:
+            return assertUnreachable(
+                adapterType,
+                `Unknown adapter ${adapterType}`,
+            );
+    }
+};
+
+const castLegacyTimestampLiteral = (
+    value: string,
+    adapterType: SupportedDbtAdapter,
+    instantLhs: boolean,
+): string => {
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+            return instantLhs ? `TIMESTAMP('${value}', 'UTC')` : `('${value}')`;
+        case SupportedDbtAdapter.TRINO:
+            return `CAST('${value}' AS timestamp)`;
+        case SupportedDbtAdapter.DATABRICKS:
+        case SupportedDbtAdapter.SNOWFLAKE:
+        case SupportedDbtAdapter.REDSHIFT:
+        case SupportedDbtAdapter.POSTGRES:
+        case SupportedDbtAdapter.CLICKHOUSE:
+            return `('${value}')`;
+        default:
+            return assertUnreachable(
+                adapterType,
+                `Unknown adapter ${adapterType}`,
+            );
+    }
+};
 
 const raiseInvalidFilterError = (
     type: string,
@@ -210,25 +410,72 @@ export const renderDateFilterSql = (
      * When omitted, falls back to filter.values[1] if present.
      */
     latestDataMonthMaxSql: string | undefined = undefined,
+    timestampFilterContext: TimestampFilterContext = legacyTimestampFilterContext,
 ): string => {
-    const castValue = (value: string): string => {
-        switch (adapterType) {
-            case SupportedDbtAdapter.TRINO: {
-                return `CAST('${value}' AS timestamp)`;
-            }
+    const domainFormatter = ((): ((date: Date) => string) | null => {
+        switch (timestampFilterContext.mode) {
+            case 'wrapped':
+                return formatTimestampAsWallClock(timezone);
+            case 'naiveWall':
+                return formatTimestampAsWallClock(
+                    timestampFilterContext.wallClockTimezone,
+                );
+            case 'awareInstant':
+                return getAwareInstantFormatter(adapterType);
+            case 'legacy':
+                return null;
             default:
-                return `('${value}')`;
+                return assertUnreachable(
+                    timestampFilterContext,
+                    'Unknown timestamp filter context',
+                );
+        }
+    })();
+    const effectiveDateFormatter = domainFormatter ?? dateFormatter;
+
+    const castValue = (value: string): string => {
+        switch (timestampFilterContext.mode) {
+            case 'wrapped':
+                return castWrappedTimestampLiteral(
+                    value,
+                    adapterType,
+                    timezone,
+                );
+            case 'naiveWall':
+                return castNaiveWallTimestampLiteral(value, adapterType);
+            case 'awareInstant':
+                return castAwareInstantTimestampLiteral(value, adapterType);
+            case 'legacy':
+                if (timestampFilterContext.instantLhs) {
+                    return castLegacyTimestampLiteral(
+                        value,
+                        adapterType,
+                        true,
+                    );
+                }
+                switch (adapterType) {
+                    case SupportedDbtAdapter.TRINO: {
+                        return `CAST('${value}' AS timestamp)`;
+                    }
+                    default:
+                        return `('${value}')`;
+                }
+            default:
+                return assertUnreachable(
+                    timestampFilterContext,
+                    'Unknown timestamp filter context',
+                );
         }
     };
 
     switch (filter.operator) {
         case FilterOperator.EQUALS:
             return `(${dimensionSql}) = ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )}`;
         case FilterOperator.NOT_EQUALS:
             return `((${dimensionSql}) != ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )} OR (${dimensionSql}) IS NULL)`;
         case FilterOperator.NULL:
             return `(${dimensionSql}) IS NULL`;
@@ -236,19 +483,19 @@ export const renderDateFilterSql = (
             return `(${dimensionSql}) IS NOT NULL`;
         case FilterOperator.GREATER_THAN:
             return `(${dimensionSql}) > ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )}`;
         case FilterOperator.GREATER_THAN_OR_EQUAL:
             return `(${dimensionSql}) >= ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )}`;
         case FilterOperator.LESS_THAN:
             return `(${dimensionSql}) < ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )}`;
         case FilterOperator.LESS_THAN_OR_EQUAL:
             return `(${dimensionSql}) <= ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )}`;
         case FilterOperator.NOT_IN_THE_PAST:
         case FilterOperator.IN_THE_PAST: {
@@ -266,13 +513,13 @@ export const renderDateFilterSql = (
                         .startOf(unitOfTime)
                         .format(unitOfTimeFormat[unitOfTime]),
                 ).toDate();
-                const untilDate = dateFormatter(
+                const untilDate = effectiveDateFormatter(
                     getMomentDateWithCustomStartOfWeek(startOfWeek)
                         .startOf(unitOfTime)
                         .toDate(),
                 );
                 return `${not}((${dimensionSql}) >= ${castValue(
-                    dateFormatter(
+                    effectiveDateFormatter(
                         getMomentDateWithCustomStartOfWeek(
                             startOfWeek,
                             completedDate,
@@ -282,11 +529,11 @@ export const renderDateFilterSql = (
                     ),
                 )} AND (${dimensionSql}) < ${castValue(untilDate)})`;
             }
-            const untilDate = dateFormatter(
+            const untilDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek).toDate(),
             );
             return `${not}((${dimensionSql}) >= ${castValue(
-                dateFormatter(
+                effectiveDateFormatter(
                     getMomentDateWithCustomStartOfWeek(startOfWeek)
                         .subtract(filter.values?.[0], unitOfTime)
                         .toDate(),
@@ -304,19 +551,19 @@ export const renderDateFilterSql = (
                         .add(1, unitOfTime)
                         .startOf(unitOfTime),
                 ).toDate();
-                const toDate = dateFormatter(
+                const toDate = effectiveDateFormatter(
                     getMomentDateWithCustomStartOfWeek(startOfWeek, fromDate)
                         .add(filter.values?.[0], unitOfTime)
                         .toDate(),
                 );
                 return `((${dimensionSql}) >= ${castValue(
-                    dateFormatter(fromDate),
+                    effectiveDateFormatter(fromDate),
                 )} AND (${dimensionSql}) < ${castValue(toDate)})`;
             }
-            const fromDate = dateFormatter(
+            const fromDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek).toDate(),
             );
-            const toDate = dateFormatter(
+            const toDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek)
                     .add(filter.values?.[0], unitOfTime)
                     .toDate(),
@@ -329,14 +576,14 @@ export const renderDateFilterSql = (
             const unitOfTime: UnitOfTime =
                 filter.settings?.unitOfTime || UnitOfTime.days;
 
-            const fromDate = dateFormatter(
+            const fromDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek)
                     .tz(timezone)
                     .startOf(unitOfTime)
                     .utc()
                     .toDate(),
             );
-            const untilDate = dateFormatter(
+            const untilDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek)
                     .tz(timezone)
                     .endOf(unitOfTime)
@@ -353,14 +600,14 @@ export const renderDateFilterSql = (
             const unitOfTime: UnitOfTime =
                 filter.settings?.unitOfTime || UnitOfTime.days;
 
-            const fromDate = dateFormatter(
+            const fromDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek)
                     .tz(timezone)
                     .startOf(unitOfTime)
                     .utc()
                     .toDate(),
             );
-            const untilDate = dateFormatter(
+            const untilDate = effectiveDateFormatter(
                 getMomentDateWithCustomStartOfWeek(startOfWeek)
                     .tz(timezone)
                     .endOf(unitOfTime)
@@ -400,9 +647,9 @@ export const renderDateFilterSql = (
             // values may be ISO strings that strict YYYY-MM-DD parsing
             // would reject.
             return `((${dimensionSql}) >= ${castValue(
-                dateFormatter(filter.values?.[0]),
+                effectiveDateFormatter(filter.values?.[0]),
             )} AND (${dimensionSql}) <= ${castValue(
-                dateFormatter(filter.values?.[1]),
+                effectiveDateFormatter(filter.values?.[1]),
             )})`;
         }
         case FilterOperator.FROM_START_TO_LATEST_MONTH: {
@@ -419,17 +666,21 @@ export const renderDateFilterSql = (
                     new Date(),
                     timezone,
                 );
-                startDate = resolvedStart ?? dateFormatter(filter.values?.[0]);
+                startDate =
+                    resolvedStart ??
+                    effectiveDateFormatter(filter.values?.[0]);
             } else {
                 // Fixed mode: use values directly (preserves TIMESTAMP
                 // ISO strings etc.)
-                startDate = dateFormatter(filter.values?.[0]);
+                startDate = effectiveDateFormatter(filter.values?.[0]);
             }
             let endBound: string | undefined;
             if (latestDataMonthMaxSql) {
                 endBound = `(${latestDataMonthMaxSql})`;
             } else if (filter.values?.[1] != null) {
-                endBound = castValue(dateFormatter(filter.values[1]));
+                endBound = castValue(
+                    effectiveDateFormatter(filter.values[1]),
+                );
             }
 
             if (endBound === undefined) {
@@ -552,6 +803,7 @@ export const renderFilterRuleSql = (
     adapterType: SupportedDbtAdapter,
     timezone: string = 'UTC',
     latestDataMonthMaxSql: string | undefined = undefined,
+    timestampFilterContext: TimestampFilterContext = legacyTimestampFilterContext,
 ): string => {
     if (filterRule.disabled) {
         return `1=1`; // When filter is disabled, we want to return all rows
@@ -607,6 +859,7 @@ export const renderFilterRuleSql = (
                 formatTimestampAsUTCWithNoTimezone,
                 startOfWeek,
                 latestDataMonthMaxSql,
+                timestampFilterContext,
             );
         }
         case DimensionType.BOOLEAN:
@@ -633,6 +886,7 @@ export const renderFilterRuleSqlFromField = (
     adapterType: SupportedDbtAdapter,
     timezone: string = 'UTC',
     latestDataMonthMaxSql: string | undefined = undefined,
+    timestampFilterContext: TimestampFilterContext = legacyTimestampFilterContext,
 ): string => {
     const fieldType = isCompiledCustomSqlDimension(field)
         ? field.dimensionType
@@ -650,5 +904,6 @@ export const renderFilterRuleSqlFromField = (
         adapterType,
         timezone,
         latestDataMonthMaxSql,
+        timestampFilterContext,
     );
 };

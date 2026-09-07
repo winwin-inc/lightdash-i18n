@@ -3,12 +3,14 @@ import { ParseError } from '../types/errors';
 import { DimensionType, type TimestampDomain } from '../types/field';
 import { DateGranularity, TimeFrames } from '../types/timeFrames';
 import {
+    getExtractInputTzSql,
     resolveTimezoneWrap,
     wrapTruncatedDateWithTimezone,
 } from './dateTruncTimezone';
 
 export {
     dateTruncTimezoneConversions,
+    getExtractInputTzSql,
     isTimezoneRoundTripNoOp,
     resolveTimezoneWrap,
 } from './dateTruncTimezone';
@@ -503,24 +505,65 @@ const getSqlForDatePart: TimeFrameConfig['getSql'] = (
     originalSql,
     type,
     startOfWeek,
-) =>
-    warehouseConfigs[adapterType].getSqlForDatePart(
+    timezone,
+    sourceTimezone,
+    timestampDomain,
+) => {
+    const wrap = resolveTimezoneWrap(
+        adapterType,
+        type,
+        timezone,
+        sourceTimezone,
+        timestampDomain,
+    );
+    const wrappedSql = wrap
+        ? getExtractInputTzSql(
+              adapterType,
+              originalSql,
+              wrap.timezone,
+              wrap.sourceTimezone,
+              wrap.timestampDomain,
+          )
+        : originalSql;
+    return warehouseConfigs[adapterType].getSqlForDatePart(
         timeFrame,
-        originalSql,
+        wrappedSql,
         type,
         startOfWeek,
     );
+};
 const getSqlForDatePartName: TimeFrameConfig['getSql'] = (
     adapterType,
     timeFrame,
     originalSql,
     type,
-) =>
-    warehouseConfigs[adapterType].getSqlForDatePartName(
+    _startOfWeek,
+    timezone,
+    sourceTimezone,
+    timestampDomain,
+) => {
+    const wrap = resolveTimezoneWrap(
+        adapterType,
+        type,
+        timezone,
+        sourceTimezone,
+        timestampDomain,
+    );
+    const wrappedSql = wrap
+        ? getExtractInputTzSql(
+              adapterType,
+              originalSql,
+              wrap.timezone,
+              wrap.sourceTimezone,
+              wrap.timestampDomain,
+          )
+        : originalSql;
+    return warehouseConfigs[adapterType].getSqlForDatePartName(
         timeFrame,
-        originalSql,
+        wrappedSql,
         type,
     );
+};
 
 type TimeFrameConfig = {
     getLabel: () => string;

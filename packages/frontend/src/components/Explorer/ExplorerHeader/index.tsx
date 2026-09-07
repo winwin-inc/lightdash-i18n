@@ -26,7 +26,7 @@ import { RefreshButton } from '../../RefreshButton';
 import RefreshDbtButton from '../../RefreshDbtButton';
 import MantineIcon from '../../common/MantineIcon';
 import ShareShortLinkButton from '../../common/ShareShortLinkButton';
-import TimeZonePicker from '../../common/TimeZonePicker';
+import ChartTimezoneSelect from '../../common/ChartTimezoneSelect';
 import SaveChartButton from '../SaveChartButton';
 import QueryWarnings from './QueryWarnings';
 
@@ -168,9 +168,9 @@ const ExplorerHeader: FC = memo(() => {
                     )}
 
                 {showTimezonePicker && (
-                    <TimeZonePicker
+                    <ChartTimezoneSelect
                         onChange={setTimeZone}
-                        value={selectedTimezone as string}
+                        value={selectedTimezone ?? undefined}
                     />
                 )}
 

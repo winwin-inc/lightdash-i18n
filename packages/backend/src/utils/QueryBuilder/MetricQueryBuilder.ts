@@ -42,6 +42,7 @@ import {
     QueryWarning,
     renderFilterRuleSqlFromField,
     renderTableCalculationFilterRuleSql,
+    resolveTimestampFilterContext,
     snakeCaseName,
     SortField,
     SupportedDbtAdapter,
@@ -49,9 +50,12 @@ import {
     truncatableTimeFrames,
     extractableTimeFrames,
     getSqlForTruncatedDate,
+    isTimezoneRoundTripNoOp,
     timeFrameConfigs,
     UserAttributeValueMap,
     DimensionType,
+    type TimestampDomain,
+    type TimestampFilterLhsMode,
     type WeekDay,
     type ParameterDefinitions,
     type ParametersValuesMap,
@@ -324,24 +328,25 @@ export class MetricQueryBuilder {
     /**
      * Recompute time-interval dimension SQL with timezone-aware DATE_TRUNC when
      * EnableTimezoneSupport is on. Falls back to explore-compiled SQL otherwise.
+     * Also returns the LHS mode used by timestamp filter literal casting.
      */
-    private getTimezoneAwareDimensionSql(
+    private resolveTimezoneAwareDimensionSql(
         dimension: CompiledDimension,
         adapterType: SupportedDbtAdapter,
         startOfWeek: WeekDay | null | undefined,
         respectConvertTimezone: boolean = true,
-    ): string {
+    ): { sql: string; lhsMode: TimestampFilterLhsMode } {
         const { timezone, useTimezoneAwareDateTrunc } = this.args;
 
         if (!useTimezoneAwareDateTrunc || !dimension.timeInterval) {
-            return dimension.compiledSql;
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
         }
 
         const isRaw = dimension.timeInterval === TimeFrames.RAW;
         const isTruncatable = truncatableTimeFrames.has(dimension.timeInterval);
         const isExtractable = extractableTimeFrames.has(dimension.timeInterval);
         if (!isRaw && !isTruncatable && !isExtractable) {
-            return dimension.compiledSql;
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
         }
 
         const baseDimensionId = dimension.timeIntervalBaseDimensionName
@@ -356,22 +361,46 @@ export class MetricQueryBuilder {
             !baseDimension?.compiledSql ||
             baseDimension.type !== DimensionType.TIMESTAMP
         ) {
-            return dimension.compiledSql;
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
         }
 
         if (respectConvertTimezone && baseDimension.skipTimezoneConversion) {
-            return dimension.compiledSql;
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
         }
 
         const timestampDomain =
             dimension.timestampDomain ?? baseDimension.timestampDomain;
 
         if (isRaw) {
-            return dimension.compiledSql;
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
         }
 
         if (isTruncatable) {
-            return getSqlForTruncatedDate(
+            return {
+                sql: getSqlForTruncatedDate(
+                    adapterType,
+                    dimension.timeInterval,
+                    baseDimension.compiledSql,
+                    baseDimension.type,
+                    startOfWeek,
+                    timezone,
+                    this.columnTimezone,
+                    timestampDomain,
+                    true,
+                ),
+                lhsMode: isTimezoneRoundTripNoOp(
+                    adapterType,
+                    timezone ?? 'UTC',
+                    this.columnTimezone,
+                    timestampDomain,
+                )
+                    ? 'legacy'
+                    : 'wrapped',
+            };
+        }
+
+        return {
+            sql: timeFrameConfigs[dimension.timeInterval].getSql(
                 adapterType,
                 dimension.timeInterval,
                 baseDimension.compiledSql,
@@ -380,20 +409,53 @@ export class MetricQueryBuilder {
                 timezone,
                 this.columnTimezone,
                 timestampDomain,
-                true,
-            );
-        }
+            ),
+            lhsMode: 'legacy',
+        };
+    }
 
-        return timeFrameConfigs[dimension.timeInterval].getSql(
+    private getTimezoneAwareDimensionSql(
+        dimension: CompiledDimension,
+        adapterType: SupportedDbtAdapter,
+        startOfWeek: WeekDay | null | undefined,
+        respectConvertTimezone: boolean = true,
+    ): string {
+        return this.resolveTimezoneAwareDimensionSql(
+            dimension,
             adapterType,
-            dimension.timeInterval,
-            baseDimension.compiledSql,
-            baseDimension.type,
             startOfWeek,
-            timezone,
-            this.columnTimezone,
-            timestampDomain,
-        );
+            respectConvertTimezone,
+        ).sql;
+    }
+
+    private resolveFilterTimestampDomain(
+        dimension: CompiledDimension,
+    ): TimestampDomain | undefined {
+        if (!dimension.timeInterval) {
+            return dimension.type === DimensionType.TIMESTAMP &&
+                !dimension.skipTimezoneConversion
+                ? dimension.timestampDomain
+                : undefined;
+        }
+        const baseDimensionId = dimension.timeIntervalBaseDimensionName
+            ? `${dimension.table}_${dimension.timeIntervalBaseDimensionName}`
+            : undefined;
+        const baseDimension = baseDimensionId
+            ? this.exploreDimensions[baseDimensionId]
+            : undefined;
+        if (
+            !baseDimension?.compiledSql ||
+            baseDimension.type !== DimensionType.TIMESTAMP
+        ) {
+            return undefined;
+        }
+        if (
+            dimension.timeInterval === TimeFrames.RAW &&
+            baseDimension.skipTimezoneConversion
+        ) {
+            return undefined;
+        }
+        return dimension.timestampDomain ?? baseDimension.timestampDomain;
     }
 
     constructor(private args: BuildQueryProps) {
@@ -1245,22 +1307,42 @@ export class MetricQueryBuilder {
             );
         }
 
+        let timestampFilterLhsMode: TimestampFilterLhsMode = 'legacy';
         const filterField =
             fieldType === FieldType.DIMENSION &&
             !isCompiledCustomSqlDimension(field)
                 ? (() => {
                       const dimensionField = field as CompiledDimension;
+                      const resolved = this.resolveTimezoneAwareDimensionSql(
+                          dimensionField,
+                          adapterType,
+                          startOfWeek,
+                          false,
+                      );
+                      timestampFilterLhsMode = resolved.lhsMode;
                       return {
                           ...dimensionField,
-                          compiledSql: this.getTimezoneAwareDimensionSql(
-                              dimensionField,
-                              adapterType,
-                              startOfWeek,
-                              false,
-                          ),
+                          compiledSql: resolved.sql,
                       };
                   })()
                 : field;
+
+        const timestampFilterContext =
+            fieldType === FieldType.DIMENSION &&
+            !isCompiledCustomSqlDimension(field) &&
+            (field as CompiledDimension).type === DimensionType.TIMESTAMP
+                ? resolveTimestampFilterContext({
+                      adapterType,
+                      useTimezoneAwareDateTrunc:
+                          this.args.useTimezoneAwareDateTrunc,
+                      sourceTimezone: this.columnTimezone,
+                      timestampDomain: this.resolveFilterTimestampDomain(
+                          field as CompiledDimension,
+                      ),
+                      timeInterval: (field as CompiledDimension).timeInterval,
+                      lhsMode: timestampFilterLhsMode,
+                  })
+                : undefined;
 
         let latestDataMonthMaxSql: string | undefined;
         if (
@@ -1311,6 +1393,7 @@ export class MetricQueryBuilder {
             adapterType,
             timezone,
             latestDataMonthMaxSql,
+            timestampFilterContext,
         );
     }
 

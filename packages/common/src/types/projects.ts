@@ -57,6 +57,7 @@ export type CreateBigqueryCredentials = {
     maximumBytesBilled: number | undefined;
     startOfWeek?: WeekDay | null;
     executionProject?: string;
+    dataTimezone?: string;
 };
 export const sensitiveCredentialsFieldNames = [
     'user',
@@ -88,6 +89,7 @@ export type CreateDatabricksCredentials = {
     personalAccessToken: string;
     requireUserCredentials?: boolean;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
     compute?: Array<{
         name: string;
         httpPath: string;
@@ -124,6 +126,7 @@ export type CreatePostgresCredentials = SshTunnelConfiguration &
         role?: string;
         startOfWeek?: WeekDay | null;
         timeoutSeconds?: number;
+        dataTimezone?: string;
     };
 export type PostgresCredentials = Omit<
     CreatePostgresCredentials,
@@ -140,6 +143,7 @@ export type CreateTrinoCredentials = {
     schema: string;
     http_scheme: string;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
 };
 export type TrinoCredentials = Omit<
     CreateTrinoCredentials,
@@ -156,6 +160,7 @@ export type CreateClickhouseCredentials = {
     secure?: boolean;
     startOfWeek?: WeekDay | null;
     timeoutSeconds?: number;
+    dataTimezone?: string;
 };
 export type ClickhouseCredentials = Omit<
     CreateClickhouseCredentials,
@@ -176,6 +181,7 @@ export type CreateRedshiftCredentials = SshTunnelConfiguration & {
     ra3Node?: boolean;
     startOfWeek?: WeekDay | null;
     timeoutSeconds?: number;
+    dataTimezone?: string;
 };
 export type RedshiftCredentials = Omit<
     CreateRedshiftCredentials,
@@ -209,7 +215,9 @@ export type CreateSnowflakeCredentials = {
     queryTag?: string;
     accessUrl?: string;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
     quotedIdentifiersIgnoreCase?: boolean;
+    disableTimestampConversion?: boolean; // Disable timestamp conversion to UTC - only disable if all timestamp values are already in UTC
     override?: boolean;
     organizationWarehouseCredentialsUuid?: string;
 };
@@ -235,14 +243,21 @@ export type WarehouseCredentials =
     | ClickhouseCredentials;
 
 /**
- * Timezone the warehouse column data is in when the query runs.
- * Fork currently has no per-warehouse `dataTimezone` setting, so this defaults
- * to UTC (Snowflake's compile-time CONVERT_TIMEZONE wrap also normalizes to UTC).
+ * Returns the timezone the column data is in when the query runs.
+ * Snowflake's dbt translator wraps timestamps with CONVERT_TIMEZONE('UTC', col),
+ * so columns are UTC unless `disableTimestampConversion` opts out of that wrap.
  */
 export const getColumnTimezone = (
-    _credentials: CreateWarehouseCredentials | WarehouseCredentials,
-): string => 'UTC';
-
+    credentials: CreateWarehouseCredentials | WarehouseCredentials,
+): string => {
+    if (
+        credentials.type === WarehouseTypes.SNOWFLAKE &&
+        !credentials.disableTimestampConversion
+    ) {
+        return 'UTC';
+    }
+    return credentials.dataTimezone ?? 'UTC';
+};
 export type CreatePostgresLikeCredentials =
     | CreateRedshiftCredentials
     | CreatePostgresCredentials;

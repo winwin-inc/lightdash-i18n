@@ -1314,11 +1314,15 @@ export type CreateProject = Omit<
     | 'organizationUuid'
     | 'schedulerTimezone'
     | 'createdByUserUuid'
+    | 'queryTimezone'
+    | 'useProjectTimezoneInFilters'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
     copyWarehouseConnectionFromUpstreamProject?: boolean;
     tableConfiguration?: CreateProjectTableConfiguration;
     copyContent?: boolean;
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export type CreateProjectOptionalCredentials = Omit<
@@ -1343,8 +1347,12 @@ export type UpdateProject = Omit<
     | 'type'
     | 'schedulerTimezone'
     | 'createdByUserUuid'
+    | 'queryTimezone'
+    | 'useProjectTimezoneInFilters'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export const getResultValueArray = (

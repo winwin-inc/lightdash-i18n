@@ -15,6 +15,7 @@ import {
     type ParameterValue,
     type SortField,
     type TableCalculation,
+    type TimezoneSetting,
 } from '@lightdash/common';
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type QueryResultsProps } from '../../../hooks/useQueryResults';
@@ -190,6 +191,10 @@ const explorerSlice = createSlice({
 
         setRowLimit: (state, action: PayloadAction<number>) => {
             state.unsavedChartVersion.metricQuery.limit = action.payload;
+        },
+
+        setTimeZone: (state, action: PayloadAction<TimezoneSetting>) => {
+            state.unsavedChartVersion.metricQuery.timezone = action.payload;
         },
 
         setColumnOrder: (state, action: PayloadAction<string[]>) => {

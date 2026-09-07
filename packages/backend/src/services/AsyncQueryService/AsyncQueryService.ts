@@ -47,6 +47,7 @@ import {
     getFieldsFromMetricQuery,
     getItemId,
     getItemMap,
+    getColumnTimezone,
     getMetrics,
     isCartesianChartConfig,
     isCustomBinDimension,
@@ -1594,6 +1595,7 @@ export class AsyncQueryService extends ProjectService {
         dateZoom,
         explore,
         warehouseSqlBuilder,
+        warehouseCredentials,
         parameters,
         projectUuid,
         pivotConfiguration,
@@ -1603,6 +1605,7 @@ export class AsyncQueryService extends ProjectService {
         'account' | 'metricQuery' | 'dateZoom' | 'parameters' | 'projectUuid'
     > & {
         warehouseSqlBuilder: WarehouseSqlBuilder;
+        warehouseCredentials: CreateWarehouseCredentials;
         explore: Explore;
         pivotConfiguration?: PivotConfiguration;
         context?: {
@@ -1653,7 +1656,7 @@ export class AsyncQueryService extends ProjectService {
             availableParameterDefinitions,
             pivotConfiguration,
             useTimezoneAwareDateTrunc,
-            columnTimezone: 'UTC',
+            columnTimezone: getColumnTimezone(warehouseCredentials),
         });
 
         // Log the compiled SQL for debugging
@@ -2131,6 +2134,7 @@ export class AsyncQueryService extends ProjectService {
             dateZoom,
             explore,
             warehouseSqlBuilder,
+            warehouseCredentials,
             parameters: combinedParameters,
             projectUuid,
             pivotConfiguration,
@@ -2313,6 +2317,7 @@ export class AsyncQueryService extends ProjectService {
             metricQuery: metricQueryWithLimit,
             explore,
             warehouseSqlBuilder,
+            warehouseCredentials,
             parameters: combinedParameters,
             projectUuid,
             pivotConfiguration,
@@ -2577,6 +2582,7 @@ export class AsyncQueryService extends ProjectService {
             explore,
             dateZoom,
             warehouseSqlBuilder,
+            warehouseCredentials,
             parameters: combinedParameters,
             projectUuid,
             pivotConfiguration,
@@ -2808,6 +2814,7 @@ export class AsyncQueryService extends ProjectService {
             explore,
             dateZoom,
             warehouseSqlBuilder,
+            warehouseCredentials,
             parameters: combinedParameters,
             projectUuid,
             context: dashboardContext,

@@ -23,7 +23,7 @@ import {
     type TableCalculation,
     type TableCalculationMetadata,
     type TableChartConfig,
-    type TimeZone,
+    type TimezoneSetting,
     type TreemapChartConfig,
     type DataAppVizChartConfig,
 } from '@lightdash/common';
@@ -94,7 +94,7 @@ export type Action =
       }
     | {
           type: ActionType.SET_TIME_ZONE;
-          payload: TimeZone;
+          payload: TimezoneSetting;
       }
     | {
           type: ActionType.ADD_TABLE_CALCULATION;
@@ -286,7 +286,7 @@ export interface ExplorerContextType {
         reset: () => void;
         setTableName: (tableName: string) => void;
         setRowLimit: (limit: number) => void;
-        setTimeZone: (timezone: string | null) => void;
+        setTimeZone: (timezone: TimezoneSetting) => void;
         setFilters: (filters: MetricQuery['filters']) => void;
         addAdditionalMetric: (metric: AdditionalMetric) => void;
         editAdditionalMetric: (

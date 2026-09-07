@@ -1,3 +1,4 @@
+import { type TimezoneSetting } from '@lightdash/common';
 import {
     Button,
     Divider,
@@ -9,8 +10,8 @@ import {
 import { useClickOutside, useDisclosure } from '@mantine-8/hooks';
 import { IconChevronDown } from '@tabler/icons-react';
 import { memo, useEffect, useState, type FC } from 'react';
+import ChartTimezoneSelect from '../common/ChartTimezoneSelect';
 import MantineIcon from '../common/MantineIcon';
-import TimeZonePicker from '../common/TimeZonePicker';
 import AutoFetchResultsSwitch from './AutoFetchResultsSwitch';
 import LimitInput from './LimitInput';
 
@@ -23,7 +24,7 @@ export type Props = {
     showAutoFetchSetting?: boolean;
     showTimezoneSetting?: boolean;
     timezone?: string | null;
-    onTimezoneChange?: (value: string | null) => void;
+    onTimezoneChange?: (value: TimezoneSetting) => void;
     targetProps?: ButtonProps;
 };
 
@@ -101,12 +102,10 @@ const RunQuerySettings: FC<Props> = memo(
                             }}
                         />
                         {showTimezoneSetting && onTimezoneChange && (
-                            <TimeZonePicker
+                            <ChartTimezoneSelect
                                 label="Timezone"
                                 value={timezone ?? undefined}
                                 onChange={onTimezoneChange}
-                                searchable
-                                clearable
                                 w="100%"
                             />
                         )}
