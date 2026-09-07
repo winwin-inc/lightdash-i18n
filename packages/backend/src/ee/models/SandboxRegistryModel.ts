@@ -1,5 +1,9 @@
-// STUB: full Knex-backed registry not ported — implements SandboxRegistryStore for compile
 import { Knex } from 'knex';
+import {
+    SandboxRegistryTableName,
+    type DbSandboxRegistry,
+    type SandboxRegistryTable,
+} from '../database/entities/sandboxRegistry';
 import {
     type SandboxRegistryRecord,
     type SandboxRegistryStore,
@@ -9,42 +13,97 @@ import {
     type SnapshotRef,
 } from '../services/SandboxRuntime/types';
 
-export class SandboxRegistryModel implements SandboxRegistryStore {
-    constructor(_args?: { database?: Knex }) {}
+type Dependencies = {
+    database: Knex;
+};
 
-    async create(_input: {
+/**
+ * Knex-backed sandbox registry. Implements {@link SandboxRegistryStore} so the
+ * SandboxManager stays decoupled from the table.
+ */
+export class SandboxRegistryModel implements SandboxRegistryStore {
+    private database: Knex;
+
+    constructor(dependencies: Dependencies) {
+        this.database = dependencies.database;
+    }
+
+    private static mapRow(row: DbSandboxRegistry): SandboxRegistryRecord {
+        return {
+            sandboxUuid: row.sandbox_uuid,
+            organizationUuid: row.organization_uuid,
+            projectUuid: row.project_uuid,
+            providerSandboxId: row.provider_sandbox_id,
+            snapshotRef: row.snapshot_ref,
+            workspace: row.workspace,
+        };
+    }
+
+    async create(input: {
         organizationUuid: string;
         projectUuid: string;
         provider: string;
         providerSandboxId: string;
         workspace: PersistentWorkspace;
     }): Promise<string> {
-        return 'stub-sandbox-uuid';
+        const [row] = await this.database<SandboxRegistryTable>(
+            SandboxRegistryTableName,
+        )
+            .insert({
+                organization_uuid: input.organizationUuid,
+                project_uuid: input.projectUuid,
+                provider: input.provider,
+                provider_sandbox_id: input.providerSandboxId,
+                status: 'running',
+                workspace: JSON.stringify(
+                    input.workspace,
+                ) as unknown as PersistentWorkspace,
+            })
+            .returning('sandbox_uuid');
+        return row.sandbox_uuid;
     }
 
     async findBySandboxUuid(
-        _sandboxUuid: string,
+        sandboxUuid: string,
     ): Promise<SandboxRegistryRecord | null> {
-        return null;
+        const row = await this.database<SandboxRegistryTable>(
+            SandboxRegistryTableName,
+        )
+            .where('sandbox_uuid', sandboxUuid)
+            .first();
+        return row ? SandboxRegistryModel.mapRow(row) : null;
     }
 
     async markRunning(
-        _sandboxUuid: string,
-        _providerSandboxId: string,
-    ): Promise<void> {}
-
-    async markSuspended(
-        _sandboxUuid: string,
-        _input: { snapshotRef: SnapshotRef; providerSandboxId: string | null },
-    ): Promise<void> {}
-
-    async deleteBySandboxUuid(_sandboxUuid: string): Promise<void> {}
-
-    async get(..._args: unknown[]): Promise<null> {
-        return null;
+        sandboxUuid: string,
+        providerSandboxId: string,
+    ): Promise<void> {
+        await this.database(SandboxRegistryTableName)
+            .where('sandbox_uuid', sandboxUuid)
+            .update({
+                status: 'running',
+                provider_sandbox_id: providerSandboxId,
+                updated_at: this.database.fn.now(),
+            });
     }
 
-    async upsert(..._args: unknown[]): Promise<void> {}
+    async markSuspended(
+        sandboxUuid: string,
+        input: { snapshotRef: SnapshotRef; providerSandboxId: string | null },
+    ): Promise<void> {
+        await this.database(SandboxRegistryTableName)
+            .where('sandbox_uuid', sandboxUuid)
+            .update({
+                status: 'suspended',
+                provider_sandbox_id: input.providerSandboxId,
+                snapshot_ref: JSON.stringify(input.snapshotRef),
+                updated_at: this.database.fn.now(),
+            });
+    }
 
-    async delete(..._args: unknown[]): Promise<void> {}
+    async deleteBySandboxUuid(sandboxUuid: string): Promise<void> {
+        await this.database(SandboxRegistryTableName)
+            .where('sandbox_uuid', sandboxUuid)
+            .delete();
+    }
 }

@@ -115,6 +115,7 @@ export type ModelManifest = {
     embedModel: unknown;
     dashboardSummaryModel: unknown;
     serviceAccountModel: unknown;
+    sandboxRegistryModel: unknown;
 };
 
 /**
@@ -596,6 +597,10 @@ export class ModelRepository
 
     public getAiAgentModel<ModelImplT>(): ModelImplT {
         return this.getModel('aiAgentModel');
+    }
+
+    public getSandboxRegistryModel<ModelImplT>(): ModelImplT {
+        return this.getModel('sandboxRegistryModel');
     }
 
     public getAiOrganizationSettingsModel<ModelImplT>(): ModelImplT {

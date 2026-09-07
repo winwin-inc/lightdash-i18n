@@ -81,7 +81,8 @@ const appGenerateServiceProvider: ServiceProviderMap['appGenerateService'] = ({
         projectService: repository.getProjectService(),
         promoteService: repository.getPromoteService(),
         externalConnectionModel: new ExternalConnectionModel(),
-        sandboxRegistryModel: new SandboxRegistryModel(),
+        sandboxRegistryModel:
+            models.getSandboxRegistryModel<SandboxRegistryModel>(),
         orgAiCopilotConfigResolver: new OrgAiCopilotConfigResolver({
             lightdashConfig: context.lightdashConfig,
         }),
@@ -106,6 +107,10 @@ function getDataAppsAppArguments(): EnterpriseAppArguments {
         },
         clientProviders: {
             schedulerClient: commercialSchedulerClientProvider,
+        },
+        modelProviders: {
+            sandboxRegistryModel: ({ database }) =>
+                new SandboxRegistryModel({ database }),
         },
         schedulerWorkerFactory: (context) =>
             new CommercialSchedulerWorker({
@@ -421,6 +426,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                 }),
         },
         modelProviders: {
+            ...dataAppsArgs.modelProviders,
             aiAgentModel: ({ database }) => new AiAgentModel({ database }),
             aiOrganizationSettingsModel: ({ database }) =>
                 new AiOrganizationSettingsModel({ database }),

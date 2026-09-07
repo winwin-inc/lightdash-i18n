@@ -1,64 +1,72 @@
-// STUB: full OrgAiCopilotConfigResolver (BYO AI config DB) not ported.
-// Signatures match AppGenerateService / claudeCodeEnv / codexCodeEnv call sites.
+/**
+ * Instance-level AI copilot config resolver for Data Apps.
+ * Passes through `lightdashConfig.ai.copilot` (ANTHROPIC_API_KEY / OPENAI_API_KEY / …).
+ * Full BYO org key overlay is not ported yet.
+ */
+import { ParameterError } from '@lightdash/common';
 import type { LanguageModel } from 'ai';
 import type { AiKeyManagement } from '../../../analytics/aiUsage';
+import type { AiCopilotConfigSchemaType } from '../../../config/aiConfigSchema';
+import type { LightdashConfig } from '../../../config/parseConfig';
 import type { ClaudeCodeBedrockConfig } from '../AppGenerateService/claudeCodeEnv';
+import { getModel, resolveKeyManagement } from './models';
 
 /**
  * Structurally compatible with ClaudeCodeProviderConfig & CodexProviderConfig
  * so it can be passed straight into buildClaudeCodeEnv / buildCodexCodeEnv.
  */
-export type CopilotConfig = {
-    providers: {
-        openai?: {
-            apiKey: string;
-            modelName: string;
-            baseUrl?: string;
-        };
-        anthropic?: {
-            apiKey: string;
-            baseUrl?: string;
-        };
-        azure?: { apiKey: string; [key: string]: unknown };
-        openrouter?: { apiKey: string; [key: string]: unknown };
+export type CopilotConfig = AiCopilotConfigSchemaType & {
+    providers: AiCopilotConfigSchemaType['providers'] & {
         bedrock?: ClaudeCodeBedrockConfig;
     };
-    /** Required so config is assignable to ClaudeCode / Codex provider configs */
-    defaultProvider: string;
-    enabled?: boolean;
 };
 
 export type ResolvedCopilotConfig = CopilotConfig & {
     byoProviders: string[];
 };
 
-const emptyResolved = (defaultProvider: string): ResolvedCopilotConfig => ({
-    providers: {},
-    defaultProvider,
-    byoProviders: [],
-});
+type Dependencies = {
+    lightdashConfig: LightdashConfig;
+};
 
 export class OrgAiCopilotConfigResolver {
-    constructor(_args: unknown) {}
+    private readonly lightdashConfig: LightdashConfig;
 
-    async resolve(..._args: unknown[]): Promise<ResolvedCopilotConfig> {
-        return emptyResolved('anthropic');
+    constructor(dependencies: Dependencies) {
+        this.lightdashConfig = dependencies.lightdashConfig;
+    }
+
+    private instanceConfig(): ResolvedCopilotConfig {
+        const base = this.lightdashConfig.ai.copilot as CopilotConfig;
+        return { ...base, byoProviders: [] };
+    }
+
+    async resolve(
+        _organizationUuid?: string | null,
+    ): Promise<ResolvedCopilotConfig> {
+        return this.instanceConfig();
     }
 
     async getCopilotConfig(
-        ..._args: unknown[]
+        organizationUuid?: string | null,
     ): Promise<ResolvedCopilotConfig> {
-        return this.resolve();
+        return this.resolve(organizationUuid);
     }
 
     async getClaudeCodeConfig(
-        ..._args: unknown[]
+        organizationUuid?: string | null,
     ): Promise<ResolvedCopilotConfig> {
-        return emptyResolved('anthropic');
+        return this.resolve(organizationUuid);
     }
 
-    async getCodexConfig(..._args: unknown[]): Promise<ResolvedCopilotConfig> {
-        return emptyResolved('openai');
+    async getCodexConfig(
+        organizationUuid?: string | null,
+    ): Promise<ResolvedCopilotConfig> {
+        const config = await this.resolve(organizationUuid);
+        return {
+            ...config,
+            defaultProvider: 'openai',
+        };
     }
 
     async getDataAppModelVisibility(
@@ -67,20 +75,27 @@ export class OrgAiCopilotConfigResolver {
         return null;
     }
 
-    async resolveFastModel(..._args: unknown[]): Promise<{
+    async resolveFastModel(
+        config: CopilotConfig,
+        _options?: { enableReasoning?: boolean },
+    ): Promise<{
         model: LanguageModel;
         callOptions?: Record<string, unknown>;
         providerOptions?: any;
         keyManagement: AiKeyManagement;
         provider?: string;
     }> {
-        // Runtime unused until full AI BYO config is ported; cast for compile.
+        if (!config.providers[config.defaultProvider]) {
+            throw new ParameterError(
+                `No AI provider configured for defaultProvider "${config.defaultProvider}". Set ANTHROPIC_API_KEY or OPENAI_API_KEY.`,
+            );
+        }
+
+        const resolved = getModel(config);
         return {
-            model: null as any as LanguageModel,
-            callOptions: {},
-            providerOptions: undefined,
-            keyManagement: 'lightdash-managed',
-            provider: 'anthropic',
+            ...resolved,
+            keyManagement: resolveKeyManagement(config, config.defaultProvider),
+            provider: config.defaultProvider,
         };
     }
 }
