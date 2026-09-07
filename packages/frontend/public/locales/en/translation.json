@@ -2435,6 +2435,7 @@
             "end_date": "End date"
         },
         "utc_time": "UTC time",
+        "local_time": "Local time",
         "filters_error": "projectUuid is required in FiltersProvider",
         "add": "Add",
         "add_filter_tip": "Please type to add the filter value",

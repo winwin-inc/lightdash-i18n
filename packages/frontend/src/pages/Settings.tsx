@@ -7,6 +7,7 @@ import {
     IconBuildingSkyscraper,
     IconCalendarStats,
     IconChecklist,
+    IconClock,
     IconDatabase,
     IconDatabaseCog,
     IconDatabaseExport,
@@ -427,6 +428,12 @@ const Settings: FC = () => {
             !matchPath(
                 {
                     path: '/generalSettings/projectManagement/:projectUuid/scheduledDeliveries',
+                },
+                location.pathname,
+            ) &&
+            !matchPath(
+                {
+                    path: '/generalSettings/projectManagement/:projectUuid/queryTimezone',
                 },
                 location.pathname,
             )
@@ -863,6 +870,17 @@ const Settings: FC = () => {
                                             <MantineIcon
                                                 icon={IconCalendarStats}
                                             />
+                                        }
+                                    />
+
+                                    <RouterNavLink
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.query_timezone',
+                                        )}
+                                        exact
+                                        to={`/generalSettings/projectManagement/${project.projectUuid}/queryTimezone`}
+                                        icon={
+                                            <MantineIcon icon={IconClock} />
                                         }
                                     />
 

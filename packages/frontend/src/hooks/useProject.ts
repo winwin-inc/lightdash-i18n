@@ -5,6 +5,7 @@ import {
     type MostPopularAndRecentlyUpdated,
     type Project,
     type UpdateProject,
+    type UpdateQueryTimezoneSettings,
     type UpdateSchedulerSettings,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -136,6 +137,29 @@ export const useProjectUpdateSchedulerSettings = (uuid: string) => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['project', uuid]);
                 await queryClient.invalidateQueries(['schedulerLogs']);
+            },
+        },
+    );
+};
+
+const updateQueryTimezoneSettings = async (
+    uuid: string,
+    data: UpdateQueryTimezoneSettings,
+) =>
+    lightdashApi<undefined>({
+        url: `/projects/${uuid}/queryTimezoneSettings`,
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+
+export const useProjectUpdateQueryTimezoneSettings = (uuid: string) => {
+    const queryClient = useQueryClient();
+    return useMutation<undefined, ApiError, UpdateQueryTimezoneSettings>(
+        (data) => updateQueryTimezoneSettings(uuid, data),
+        {
+            mutationKey: ['project_query_timezone_settings_update', uuid],
+            onSuccess: async () => {
+                await queryClient.invalidateQueries(['project', uuid]);
             },
         },
     );

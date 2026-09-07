@@ -84,6 +84,10 @@ import {
     getMetrics,
     getMergeSourceTableLabel,
     getTimezoneLabel,
+    getAccountUserTimezone,
+    resolveQueryTimezone,
+    isValidTimezone,
+    getColumnTimezone,
     GroupType,
     hasIntersection,
     hasWarehouseCredentials,
@@ -176,6 +180,7 @@ import {
     UpdateMetadata,
     UpdateProject,
     UpdateProjectMember,
+    UpdateQueryTimezoneSettings,
     UpdateResultsCacheProjectSettings,
     UpdateVirtualViewPayload,
     UserAccessControls,
@@ -267,6 +272,7 @@ import {
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
     applyLimitToSqlQuery,
+    type TotalConfiguration,
     wrapSqlAsCountQuery,
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
@@ -2023,6 +2029,9 @@ export class ProjectService extends BaseService {
         parameters,
         availableParameterDefinitions,
         pivotConfiguration,
+        totalConfiguration,
+        useTimezoneAwareDateTrunc,
+        columnTimezone,
     }: {
         metricQuery: MetricQuery;
         explore: Explore;
@@ -2034,7 +2043,10 @@ export class ProjectService extends BaseService {
         parameters?: ParametersValuesMap;
         availableParameterDefinitions: ParameterDefinitions;
         pivotConfiguration?: PivotConfiguration;
-    }): Promise<CompiledQuery> {
+        totalConfiguration?: TotalConfiguration;
+        useTimezoneAwareDateTrunc?: boolean;
+        columnTimezone?: string;
+    }): Promise<CompiledQuery & { effectiveMetricQuery: MetricQuery }> {
         const availableParameters = Object.keys(availableParameterDefinitions);
 
         const exploreWithOverride = ProjectService.updateExploreWithDateZoom(
@@ -2062,11 +2074,21 @@ export class ProjectService extends BaseService {
             parameters,
             parameterDefinitions: availableParameterDefinitions,
             pivotConfiguration,
+            totalConfiguration,
+            useTimezoneAwareDateTrunc,
+            columnTimezone,
         });
 
-        return wrapSentryTransactionSync('QueryBuilder.buildQuery', {}, () =>
-            queryBuilder.compileQuery(),
+        const compiled = wrapSentryTransactionSync(
+            'QueryBuilder.buildQuery',
+            {},
+            () => queryBuilder.compileQuery(),
         );
+
+        return {
+            ...compiled,
+            effectiveMetricQuery: queryBuilder.getEffectiveMetricQuery(),
+        };
     }
 
     /**
@@ -2184,15 +2206,27 @@ export class ProjectService extends BaseService {
             explore,
         );
 
+        const timezone = await this.resolveQueryTimezoneForAccount(
+            account,
+            projectUuid,
+            metricQuery,
+        );
+        const useTimezoneAwareDateTrunc = await this.isTimezoneSupportEnabled({
+            userUuid: account.user.id,
+            organizationUuid: account.organization.organizationUuid,
+        });
+
         const compiledQuery = await ProjectService._compileQuery({
             metricQuery,
             explore,
             warehouseSqlBuilder: warehouseClient,
             intrinsicUserAttributes,
             userAttributes,
-            timezone: this.lightdashConfig.query.timezone || 'UTC',
+            timezone,
             parameters,
             availableParameterDefinitions,
+            useTimezoneAwareDateTrunc,
+            columnTimezone: getColumnTimezone(warehouseClient.credentials),
         });
 
         await sshTunnel.disconnect();
@@ -3059,16 +3093,32 @@ export class ProjectService extends BaseService {
                             filteredExplore,
                         );
 
+                    const timezone = await this.resolveQueryTimezoneForAccount(
+                        account,
+                        projectUuid,
+                        metricQueryWithLimit,
+                    );
+                    const useTimezoneAwareDateTrunc =
+                        await this.isTimezoneSupportEnabled({
+                            userUuid: account.user.id,
+                            organizationUuid:
+                                account.organization.organizationUuid,
+                        });
+
                     const fullQuery = await ProjectService._compileQuery({
                         metricQuery: metricQueryWithLimit,
                         explore: filteredExplore,
                         warehouseSqlBuilder: warehouseClient,
                         intrinsicUserAttributes,
                         userAttributes,
-                        timezone: this.lightdashConfig.query.timezone || 'UTC',
+                        timezone,
                         dateZoom,
                         parameters,
                         availableParameterDefinitions,
+                        useTimezoneAwareDateTrunc,
+                        columnTimezone: getColumnTimezone(
+                            warehouseClient.credentials,
+                        ),
                     });
 
                     const { query } = fullQuery;
@@ -5631,42 +5681,29 @@ export class ProjectService extends BaseService {
         metricQuery: MetricQuery,
         warehouseClient: WarehouseClient,
         availableParameterDefinitions: ParameterDefinitions,
-        parameters?: ParametersValuesMap,
+        parameters: ParametersValuesMap | undefined,
+        timezone: string,
+        useTimezoneAwareDateTrunc: boolean = false,
     ) {
-        const totalQuery: MetricQuery = {
-            ...metricQuery,
-            limit: 1,
-            tableCalculations: [],
-            sorts: [],
-            dimensions: [],
-            customDimensions: metricQuery.customDimensions,
-            metrics: metricQuery.metrics,
-            additionalMetrics: metricQuery.additionalMetrics,
-        };
-
-        const hasMetricFilters =
-            !!totalQuery.filters.metrics &&
-            flattenFilterGroup(totalQuery.filters.metrics).length > 0;
-        const hasTableCalculationFilters =
-            !!totalQuery.filters.tableCalculations &&
-            flattenFilterGroup(totalQuery.filters.tableCalculations).length > 0;
-
-        if (hasMetricFilters || hasTableCalculationFilters) {
-            throw new NotSupportedError(
-                'Totals cannot be correctly calculated with metric filters or table calculation filters',
-            );
-        }
-
-        const { query } = await ProjectService._compileQuery({
-            metricQuery: totalQuery,
-            explore,
-            warehouseSqlBuilder: warehouseClient,
-            intrinsicUserAttributes,
-            userAttributes,
-            timezone: this.lightdashConfig.query.timezone || 'UTC',
-            parameters,
-            availableParameterDefinitions,
-        });
+        // MQB totalConfiguration collapses the source query and embeds
+        // source_rows when metric/table-calc filters or sum-of-rows need it.
+        const { query, effectiveMetricQuery: totalQuery } =
+            await ProjectService._compileQuery({
+                metricQuery,
+                explore,
+                warehouseSqlBuilder: warehouseClient,
+                intrinsicUserAttributes,
+                userAttributes,
+                timezone,
+                parameters,
+                availableParameterDefinitions,
+                totalConfiguration: {
+                    kind: 'grandTotal',
+                    subtotalDimensions: undefined,
+                },
+                useTimezoneAwareDateTrunc,
+                columnTimezone: getColumnTimezone(warehouseClient.credentials),
+            });
 
         return { query, totalQuery };
     }
@@ -5705,6 +5742,16 @@ export class ProjectService extends BaseService {
             explore,
         );
 
+        const timezone = await this.resolveQueryTimezoneForAccount(
+            account,
+            projectUuid,
+            metricQuery,
+        );
+        const useTimezoneAwareDateTrunc = await this.isTimezoneSupportEnabled({
+            userUuid: account.user.id,
+            organizationUuid: account.organization.organizationUuid,
+        });
+
         try {
             const { query } = await this._getCalculateTotalQuery(
                 userAttributes,
@@ -5714,6 +5761,8 @@ export class ProjectService extends BaseService {
                 warehouseClient,
                 availableParameterDefinitions,
                 parameters,
+                timezone,
+                useTimezoneAwareDateTrunc,
             );
 
             const queryTags: RunQueryTags = {
@@ -5771,6 +5820,16 @@ export class ProjectService extends BaseService {
             explore,
         );
 
+        const timezone = await this.resolveQueryTimezoneForAccount(
+            account,
+            projectUuid,
+            metricQuery,
+        );
+        const useTimezoneAwareDateTrunc = await this.isTimezoneSupportEnabled({
+            userUuid: account.user.id,
+            organizationUuid: account.organization.organizationUuid,
+        });
+
         try {
             const { query, totalQuery } = await this._getCalculateTotalQuery(
                 userAttributes,
@@ -5780,6 +5839,8 @@ export class ProjectService extends BaseService {
                 warehouseClient,
                 availableParameterDefinitions,
                 parameters,
+                timezone,
+                useTimezoneAwareDateTrunc,
             );
 
             const queryTags: RunQueryTags = {
@@ -6801,6 +6862,95 @@ export class ProjectService extends BaseService {
         });
 
         return updatedProject;
+    }
+
+    async isTimezoneSupportEnabled(user: {
+        userUuid: string;
+        organizationUuid?: string;
+    }): Promise<boolean> {
+        const { enabled } = await this.featureFlagModel.get({
+            featureFlagId: FeatureFlags.EnableTimezoneSupport,
+            user,
+        });
+        return enabled;
+    }
+
+    async getQueryTimezoneForProject(projectUuid: string): Promise<string> {
+        const projectTimezone =
+            await this.projectModel.getQueryTimezone(projectUuid);
+        return projectTimezone ?? this.lightdashConfig.query.timezone ?? 'UTC';
+    }
+
+    async resolveQueryTimezoneForAccount(
+        account: Account,
+        projectUuid: string,
+        metricQuery: Pick<MetricQuery, 'timezone'>,
+    ): Promise<string> {
+        const enabled = await this.isTimezoneSupportEnabled({
+            userUuid: account.user.id,
+            organizationUuid: account.organization.organizationUuid,
+        });
+        if (!enabled) {
+            return this.lightdashConfig.query.timezone || 'UTC';
+        }
+        const projectTimezone =
+            await this.getQueryTimezoneForProject(projectUuid);
+        return resolveQueryTimezone({
+            sessionTimezone: null,
+            metricQuery,
+            projectTimezone,
+            userTimezone: getAccountUserTimezone(account),
+        });
+    }
+
+    async updateQueryTimezone(
+        user: SessionUser,
+        projectUuid: string,
+        settings: UpdateQueryTimezoneSettings,
+    ) {
+        const project = await this.projectModel.getSummary(projectUuid);
+
+        if (user.ability.cannot('update', subject('Project', project))) {
+            throw new ForbiddenError();
+        }
+
+        const { queryTimezone, useProjectTimezoneInFilters } = settings;
+
+        if (
+            queryTimezone === undefined &&
+            useProjectTimezoneInFilters === undefined
+        ) {
+            throw new ParameterError(
+                'Must provide queryTimezone or useProjectTimezoneInFilters',
+            );
+        }
+
+        if (
+            queryTimezone !== null &&
+            queryTimezone !== undefined &&
+            !isValidTimezone(queryTimezone)
+        ) {
+            throw new ParameterError(`Invalid timezone: "${queryTimezone}"`);
+        }
+
+        const updatedProject = await this.projectModel.updateQueryTimezone(
+            projectUuid,
+            settings,
+        );
+
+        this.analytics.track({
+            event: 'query_timezone.updated',
+            userId: user.userUuid,
+            properties: {
+                projectId: projectUuid,
+                organizationUuid: project.organizationUuid,
+                queryTimezone: updatedProject.query_timezone
+                    ? getTimezoneLabel(updatedProject.query_timezone)
+                    : null,
+                useProjectTimezoneInFilters:
+                    updatedProject.use_project_timezone_in_filters,
+            },
+        });
     }
 
     async createTag(

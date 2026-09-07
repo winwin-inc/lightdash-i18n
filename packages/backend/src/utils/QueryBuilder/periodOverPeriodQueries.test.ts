@@ -4,6 +4,7 @@ import {
     Explore,
     FieldType,
     FilterOperator,
+    JoinRelationship,
     MetricType,
     SupportedDbtAdapter,
     TimeFrames,
@@ -272,5 +273,194 @@ describe('Period-over-Period simple path', () => {
                 timezone: QUERY_BUILDER_UTC_TIMEZONE,
             }),
         ).toThrow(/time dimension/i);
+    });
+});
+
+describe('Period-over-Period fanout path', () => {
+    const FANOUT_POP_METRIC_NAME = 'metric_amount__pop__year_1__fanout';
+    const FANOUT_POP_METRIC_ID = `table2_${FANOUT_POP_METRIC_NAME}`;
+
+    const FANOUT_EXPLORE: Explore = {
+        targetDatabase: SupportedDbtAdapter.POSTGRES,
+        name: 'base',
+        label: 'base',
+        baseTable: 'table1',
+        tags: [],
+        joinedTables: [
+            {
+                table: 'table2',
+                sqlOn: '${table1.shared} = ${table2.shared}',
+                compiledSqlOn: '("table1".shared) = ("table2".shared)',
+                type: undefined,
+                tablesReferences: ['table1', 'table2'],
+                relationship: JoinRelationship.MANY_TO_ONE,
+            },
+        ],
+        tables: {
+            table1: {
+                name: 'table1',
+                label: 'table1',
+                database: 'database',
+                schema: 'schema',
+                sqlTable: '"db"."schema"."table1"',
+                primaryKey: ['id'],
+                dimensions: {
+                    id: {
+                        type: DimensionType.NUMBER,
+                        name: 'id',
+                        label: 'id',
+                        table: 'table1',
+                        tableLabel: 'table1',
+                        fieldType: FieldType.DIMENSION,
+                        sql: '${TABLE}.id',
+                        compiledSql: '"table1".id',
+                        tablesReferences: ['table1'],
+                        hidden: false,
+                    },
+                    shared: {
+                        type: DimensionType.STRING,
+                        name: 'shared',
+                        label: 'shared',
+                        table: 'table1',
+                        tableLabel: 'table1',
+                        fieldType: FieldType.DIMENSION,
+                        sql: '${TABLE}.shared',
+                        compiledSql: '"table1".shared',
+                        tablesReferences: ['table1'],
+                        hidden: false,
+                    },
+                },
+                metrics: {},
+                lineageGraph: {},
+            },
+            table2: {
+                name: 'table2',
+                label: 'table2',
+                database: 'database',
+                schema: 'schema',
+                sqlTable: '"db"."schema"."table2"',
+                primaryKey: ['id'],
+                dimensions: {
+                    id: {
+                        type: DimensionType.NUMBER,
+                        name: 'id',
+                        label: 'id',
+                        table: 'table2',
+                        tableLabel: 'table2',
+                        fieldType: FieldType.DIMENSION,
+                        sql: '${TABLE}.id',
+                        compiledSql: '"table2".id',
+                        tablesReferences: ['table2'],
+                        hidden: false,
+                    },
+                    shared: {
+                        type: DimensionType.STRING,
+                        name: 'shared',
+                        label: 'shared',
+                        table: 'table2',
+                        tableLabel: 'table2',
+                        fieldType: FieldType.DIMENSION,
+                        sql: '${TABLE}.shared',
+                        compiledSql: '"table2".shared',
+                        tablesReferences: ['table2'],
+                        hidden: false,
+                    },
+                    order_date_year: {
+                        type: DimensionType.DATE,
+                        name: 'order_date_year',
+                        label: 'order_date_year',
+                        table: 'table2',
+                        tableLabel: 'table2',
+                        fieldType: FieldType.DIMENSION,
+                        sql: "DATE_TRUNC('YEAR', ${TABLE}.order_date)",
+                        compiledSql: `DATE_TRUNC('YEAR', "table2".order_date)`,
+                        tablesReferences: ['table2'],
+                        hidden: false,
+                        timeInterval: TimeFrames.YEAR,
+                        timeIntervalBaseDimensionName: 'order_date',
+                    },
+                },
+                metrics: {
+                    metric_amount: {
+                        type: MetricType.SUM,
+                        fieldType: FieldType.METRIC,
+                        table: 'table2',
+                        tableLabel: 'table2',
+                        name: 'metric_amount',
+                        label: 'metric_amount',
+                        sql: '${TABLE}.amount',
+                        compiledSql: 'SUM("table2".amount)',
+                        tablesReferences: ['table2'],
+                        hidden: false,
+                    },
+                },
+                lineageGraph: {},
+            },
+        },
+    };
+
+    const FANOUT_METRIC_QUERY: CompiledMetricQuery = {
+        exploreName: 'base',
+        dimensions: ['table2_order_date_year'],
+        metrics: ['table2_metric_amount', FANOUT_POP_METRIC_ID],
+        filters: {},
+        sorts: [{ fieldId: 'table2_order_date_year', descending: true }],
+        limit: 500,
+        tableCalculations: [],
+        compiledTableCalculations: [],
+        additionalMetrics: [
+            {
+                table: 'table2',
+                name: FANOUT_POP_METRIC_NAME,
+                label: 'Previous year metric_amount',
+                type: MetricType.SUM,
+                sql: '${TABLE}.amount',
+                generationType: 'periodOverPeriod' as const,
+                baseMetricId: 'table2_metric_amount',
+                timeDimensionId: 'table2_order_date_year',
+                granularity: TimeFrames.YEAR,
+                periodOffset: 1,
+            },
+        ],
+        compiledAdditionalMetrics: [
+            {
+                type: MetricType.SUM,
+                fieldType: FieldType.METRIC,
+                table: 'table2',
+                tableLabel: 'table2',
+                name: FANOUT_POP_METRIC_NAME,
+                label: 'Previous year metric_amount',
+                sql: '${TABLE}.amount',
+                compiledSql: 'SUM("table2".amount)',
+                tablesReferences: ['table2'],
+                hidden: true,
+                generationType: 'periodOverPeriod',
+                baseMetricId: 'table2_metric_amount',
+                timeDimensionId: 'table2_order_date_year',
+                granularity: TimeFrames.YEAR,
+                periodOffset: 1,
+            },
+        ],
+        compiledCustomDimensions: [],
+    };
+
+    test('Should emit cte_pop_* CTEs when fanout protection is active', () => {
+        const { query } = buildQuery({
+            explore: FANOUT_EXPLORE,
+            compiledMetricQuery: FANOUT_METRIC_QUERY,
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+        });
+
+        expect(query).toMatch(/cte_keys_/);
+        expect(query).toMatch(/cte_pop_min_max_/);
+        expect(query).toMatch(/cte_pop_keys_/);
+        expect(query).toMatch(/cte_pop_metrics_/);
+        expect(query).toContain(FANOUT_POP_METRIC_ID);
+        expect(query).toMatch(/LEFT JOIN cte_pop_metrics_/);
+        expect(query).toMatch(/INTERVAL '1 year'/i);
+        // Fanout path should not fall back to simple-path base_metrics
+        expect(query).not.toContain('base_metrics');
     });
 });

@@ -97,8 +97,10 @@ const SavedChartsHeader: FC = () => {
     const { data: timezoneSupportFlag } = useServerFeatureFlag(
         FeatureFlags.EnableTimezoneSupport,
     );
+    // EnableTimezoneSupport moves timezone UX to RunQuerySettings; keep legacy
+    // Header timezone label only for the PostHog EnableUserTimezones path.
     const showTimezoneInfo =
-        !!userTimeZonesEnabled || timezoneSupportFlag?.enabled === true;
+        !!userTimeZonesEnabled && timezoneSupportFlag?.enabled !== true;
 
     const { search } = useLocation();
     const { projectUuid } = useParams<{

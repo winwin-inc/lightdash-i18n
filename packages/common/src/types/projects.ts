@@ -234,6 +234,15 @@ export type WarehouseCredentials =
     | TrinoCredentials
     | ClickhouseCredentials;
 
+/**
+ * Timezone the warehouse column data is in when the query runs.
+ * Fork currently has no per-warehouse `dataTimezone` setting, so this defaults
+ * to UTC (Snowflake's compile-time CONVERT_TIMEZONE wrap also normalizes to UTC).
+ */
+export const getColumnTimezone = (
+    _credentials: CreateWarehouseCredentials | WarehouseCredentials,
+): string => 'UTC';
+
 export type CreatePostgresLikeCredentials =
     | CreateRedshiftCredentials
     | CreatePostgresCredentials;
@@ -461,6 +470,15 @@ export type Project = {
      * If true, certain features/content may be hidden
      */
     isCustomerUse?: boolean;
+    /** IANA zone used as the project default for query timezone resolution */
+    queryTimezone: string | null;
+    /** When true, absolute date filters use the project timezone */
+    useProjectTimezoneInFilters: boolean;
+};
+
+export type UpdateQueryTimezoneSettings = {
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export type ProjectSummary = Pick<

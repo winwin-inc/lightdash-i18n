@@ -1,4 +1,8 @@
-import { getEmailSchema, type ApiError } from '@lightdash/common';
+import {
+    FeatureFlags,
+    getEmailSchema,
+    type ApiError,
+} from '@lightdash/common';
 import {
     Anchor,
     Button,
@@ -19,15 +23,18 @@ import {
     useEmailStatus,
     useOneTimePassword,
 } from '../../../hooks/useEmailVerification';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import { useUserUpdateMutation } from '../../../hooks/user/useUserUpdateMutation';
 import { VerifyEmailModal } from '../../../pages/VerifyEmail';
 import useApp from '../../../providers/App/useApp';
 import MantineIcon from '../../common/MantineIcon';
+import TimeZonePicker from '../../common/TimeZonePicker';
 
 const validationSchema = z.object({
     firstName: z.string().nonempty(),
     lastName: z.string().nonempty(),
     email: getEmailSchema().or(z.undefined()),
+    timezone: z.string().nullable(),
 });
 
 type FormValues = z.infer<typeof validationSchema>;
@@ -39,6 +46,10 @@ const ProfilePanel: FC = () => {
     } = useApp();
     const { showToastSuccess, showToastApiError } = useToaster();
     const { t } = useTranslation();
+    const { data: timezoneSupportFlag } = useServerFeatureFlag(
+        FeatureFlags.EnableTimezoneSupport,
+    );
+    const timezoneSupportEnabled = timezoneSupportFlag?.enabled === true;
 
     const form = useForm<FormValues>({
         validate: zodResolver(validationSchema),
@@ -51,6 +62,7 @@ const ProfilePanel: FC = () => {
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
+            timezone: userData.timezone ?? null,
         };
 
         if (form.initialized) {
@@ -107,7 +119,10 @@ const ProfilePanel: FC = () => {
 
     const handleOnSubmit = form.onSubmit((formValues) => {
         if (!form.isValid()) return;
-        updateUser(formValues);
+        updateUser({
+            ...formValues,
+            timezone: formValues.timezone ?? null,
+        });
     });
 
     const isLoading = isLoadingUser || isUpdatingUser || !form.initialized;
@@ -204,6 +219,27 @@ const ProfilePanel: FC = () => {
                         ) : null
                     }
                 />
+
+                {timezoneSupportEnabled && (
+                    <TimeZonePicker
+                        label={t(
+                            'components_user_settings_profile_panel.form.timezone.label',
+                        )}
+                        description={t(
+                            'components_user_settings_profile_panel.form.timezone.description',
+                        )}
+                        variant="default"
+                        maw="100%"
+                        size="sm"
+                        searchable
+                        clearable
+                        placeholder={t(
+                            'components_user_settings_profile_panel.form.timezone.placeholder',
+                        )}
+                        disabled={isLoading}
+                        {...form.getInputProps('timezone')}
+                    />
+                )}
 
                 <Flex justify="flex-end" gap="sm">
                     {form.isDirty() && !isUpdatingUser && (

@@ -383,6 +383,7 @@ const QueryAFiltersCard: FC = memo(() => {
                         project.data?.warehouseConnection?.startOfWeek ??
                         undefined
                     }
+                    metricQueryTimezone={metricQuery.timezone}
                     popoverProps={{
                         withinPortal: true,
                     }}

@@ -9,18 +9,22 @@ import {
 } from '@mantine-8/core';
 import { useHotkeys, useOs } from '@mantine-8/hooks';
 import { IconPlayerPlay, IconX } from '@tabler/icons-react';
+import { FeatureFlags } from '@lightdash/common';
 import { memo, useCallback, useTransition, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     explorerActions,
     selectIsValidQuery,
     selectQueryLimit,
+    selectTimezone,
     useExplorerDispatch,
     useExplorerSelector,
 } from '../features/explorer/store';
 import { useMergeSetup } from '../features/mergeQuery/hooks/useMergeSetup';
 import useHealth from '../hooks/health/useHealth';
 import { useExplorerQuery } from '../hooks/useExplorerQuery';
+import { useServerFeatureFlag } from '../hooks/useServerOrClientFeatureFlag';
+import useExplorerContext from '../providers/Explorer/useExplorerContext';
 import useTracking from '../providers/Tracking/useTracking';
 import { EventName } from '../types/Events';
 import RunQuerySettings from './RunQuerySettings';
@@ -35,8 +39,16 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
 
     // Get state and actions from Redux
     const limit = useExplorerSelector(selectQueryLimit);
+    const selectedTimezone = useExplorerSelector(selectTimezone);
     const isValidQuery = useExplorerSelector(selectIsValidQuery);
     const dispatch = useExplorerDispatch();
+    const setTimeZone = useExplorerContext(
+        (context) => context.actions.setTimeZone,
+    );
+    const { data: timezoneSupportFlag } = useServerFeatureFlag(
+        FeatureFlags.EnableTimezoneSupport,
+    );
+    const showTimezoneSetting = timezoneSupportFlag?.enabled === true;
 
     // Get query state and actions from hooks
     const { isLoading, fetchResults, cancelQuery } = useExplorerQuery();
@@ -155,6 +167,9 @@ export const RefreshButton: FC<{ size?: MantineSize }> = memo(({ size }) => {
                     limit={limit}
                     onLimitChange={setRowLimit}
                     showAutoFetchSetting
+                    showTimezoneSetting={showTimezoneSetting}
+                    timezone={selectedTimezone}
+                    onTimezoneChange={setTimeZone}
                     targetProps={{
                         style: {
                             borderTopLeftRadius: 0,

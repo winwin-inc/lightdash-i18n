@@ -59,6 +59,13 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 | `RESULTS_CACHE_ENABLED=true` | 项目结果缓存 TTL |
 | `ENABLE_TIMEZONE_SUPPORT=true` | Explore 查询时区选择器（`EnableTimezoneSupport`） |
 
+> **时区 FF 说明**：`EnableTimezoneSupport` **仅能通过环境变量开启**，界面无法切换。关闭时主查询仍用服务器 `query.timezone`（默认 UTC）。开启后走 `resolveQueryTimezoneForAccount`（项目 / 用户 / 图表级时区），并启用：
+> - 时间维 `DATE_TRUNC` 时区感知（`useTimezoneAwareDateTrunc`）
+> - 筛选输入在 `useProjectTimezoneInFilters` 开启时按项目时区显示/回写
+> - 用户资料「默认时区」（`users.timezone`，解锁图表 `user_timezone`）
+>
+> 仍可能不完整：filtersCompiler `TimestampFilterContext`、EXTRACT 命名时间帧、非 UTC `columnTimezone` / warehouse `dataTimezone`。
+
 重启 backend 后，前端刷新即可。
 
 ## 四、合并查询（Merge Query）
@@ -100,17 +107,30 @@ cd packages/common && npx jest src/utils/filters.test.ts src/types/applyMetricOv
 - [ ] 表计算 Modal 可选 Formula 模式（仓库方言在 SUPPORTED_DIALECTS 内）
 - [ ] 编写简单公式 → validate API 通过 → Run 出列
 - [ ] 保存图表后重开，formula / total_mode 仍在
+- [ ] 开启 totals：纯标量 Formula 可出合计；含窗口/sum-of-rows 时合计可空白或报不支持
 
-### Period-over-Period（简单路径）
+### Period-over-Period
 - [ ] Explore 选日期维（日/周/月/季/年）+ 指标，列头菜单「添加同期对比」
 - [ ] Modal 选时间维与 offset，确认后出现 PoP 列；Run 有上一期数值
 - [ ] 保存图表后重开，PoP additional metric 仍在
 - [ ] 未选时间维时，列头入口不可用或 Modal 提示需先加时间维
+- [ ]（可选）存在 join inflation 时，SQL 含 `cte_pop_*` 且仍有对比列
+
+### 项目查询时区
+- [ ] 项目设置 →「查询时区」可保存 `queryTimezone`
+- [ ] `ENABLE_TIMEZONE_SUPPORT=true` 时：Explore RunQuerySettings 有时区；Header 不再单独显示选择器
+- [ ] 开 FF 后改项目时区：按日/月分组边界应跟项目时区（DATE_TRUNC 时区感知）
+- [ ] 开 `useProjectTimezoneInFilters`：绝对日期筛选输入按项目墙钟显示
+- [ ] 用户资料「默认时区」可保存；图表选「用户时区」时 resolve 到该区
+- [ ] PoP + join inflation：不设 FF 时 SQL 仍应含 `cte_pop_*`（fanout **无** FF 门控）
+- [ ] 复杂 totals（metric filter / sum-of-rows）：合计可出数，不再一律 NotSupported
 
 ```bash
-# 自动化冒烟（本地）
+# 自动化冒烟（本地，Windows 先设 $env:TZ='UTC'）
 cd packages/common && npx jest src/utils/additionalMetrics.test.ts src/types/periodOverPeriodComparison.test.ts
-cd packages/backend && npx jest src/utils/QueryBuilder/periodOverPeriodQueries.test.ts
+cd packages/backend && npx jest src/utils/QueryBuilder/periodOverPeriodQueries.test.ts src/utils/QueryBuilder/TotalQueryBuilder.test.ts
+# 迁移（预发必跑；失败会导致 prod-entrypoint 不起服）
+pnpm -F backend migrate
 ```
 
 ## 九、主迁移未完成（后置，本清单不阻塞发布）
@@ -123,6 +143,11 @@ cd packages/backend && npx jest src/utils/QueryBuilder/periodOverPeriodQueries.t
 | ~~query-sdk 包~~ | **已引入**；vizContext ↔ host 类型同步已恢复 |
 | ~~common ee/apps 宿主类型~~ | **已引入** `types` / `sdkFeatures` / `dataAppVizConfigOptions`（不含 code/dataReferences/serializer 等） |
 | i18n ns 硬重构 | 5 域 PR，删巨型 translation.json |
-| Honest Metadata 剩余 | `used_parameters` 已落地；**PoP 简单路径已引入**（fanout CTE / TotalQueryBuilder / 项目级 queryTimezone Settings 仍可后置） |
+| Honest Metadata 剩余 | `used_parameters` 已落地；PoP / TotalQueryBuilder / 项目级 queryTimezone / users.timezone / trunc+筛选最小路径 / MQB totalConfiguration 已补齐。上游完整 TimestampFilterContext / dataTimezone 仍可后置 |
 | EE 解绑 | Direct Access / Homepage / Autopilot |
-| PoP fanout CTE | 多对一 join inflation 场景下的 experimental PoP 路径；MVP 未移植 |
+| ~~PoP fanout CTE~~ | **已移植** |
+| ~~项目级 queryTimezone~~ | **已移植**；FF 仅 env |
+| ~~Formula totals（标量）~~ | **已移植** |
+| ~~users.timezone~~ | **已移植**：migration + UserModel/Service + ProfilePanel（FF 门控） |
+| ~~timezone-aware trunc + 筛选~~ | **最小路径已移植**：DATE_TRUNC 时区 + FilterDateTimePicker shift；TimestampFilterContext / EXTRACT 仍可后置 |
+| ~~MQB totalConfiguration~~ | **已移植**：`source_rows` 嵌入；metric/table-calc filter、sum-of-rows totals 可生成 SQL |

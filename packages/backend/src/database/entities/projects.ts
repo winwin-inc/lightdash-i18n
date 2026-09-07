@@ -31,6 +31,8 @@ export type DbProject = {
     is_customer_use: boolean;
     table_groups: Record<string, GroupType> | null;
     results_cache_ttl_seconds: number | null;
+    query_timezone: string | null;
+    use_project_timezone_in_filters: boolean;
 };
 
 type CreateDbProject = Pick<
@@ -63,6 +65,8 @@ type UpdateDbProject = Partial<
         | 'is_customer_use'
         | 'table_groups'
         | 'results_cache_ttl_seconds'
+        | 'query_timezone'
+        | 'use_project_timezone_in_filters'
     >
 >;
 

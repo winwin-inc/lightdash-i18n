@@ -1630,18 +1630,30 @@ export class AsyncQueryService extends ProjectService {
             filteredExplore,
         );
 
+        const timezone = await this.resolveQueryTimezoneForAccount(
+            account,
+            projectUuid,
+            metricQuery,
+        );
+        const useTimezoneAwareDateTrunc = await this.isTimezoneSupportEnabled({
+            userUuid: account.user.id,
+            organizationUuid: account.organization.organizationUuid,
+        });
+
         const fullQuery = await ProjectService._compileQuery({
             metricQuery,
             explore: filteredExplore,
             warehouseSqlBuilder,
             intrinsicUserAttributes,
             userAttributes,
-            timezone: this.lightdashConfig.query.timezone || 'UTC',
+            timezone,
             dateZoom,
             // ! TODO: Should validate the parameters to make sure they are valid from the options
             parameters,
             availableParameterDefinitions,
             pivotConfiguration,
+            useTimezoneAwareDateTrunc,
+            columnTimezone: 'UTC',
         });
 
         // Log the compiled SQL for debugging

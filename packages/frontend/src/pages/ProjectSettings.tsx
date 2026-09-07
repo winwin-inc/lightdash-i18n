@@ -12,6 +12,7 @@ import ProjectParameters from '../components/ProjectParameters';
 import ProjectResultsCache from '../components/ProjectResultsCache';
 import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration/ProjectTablesConfiguration';
 import SettingsScheduler from '../components/SettingsScheduler';
+import SettingsQueryTimezone from '../components/SettingsQueryTimezone';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
 import { SettingsValidator } from '../components/SettingsValidator';
 import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
@@ -56,6 +57,10 @@ const ProjectSettings: FC = () => {
             {
                 path: `/scheduledDeliveries`,
                 element: <SettingsScheduler projectUuid={projectUuid} />,
+            },
+            {
+                path: `/queryTimezone`,
+                element: <SettingsQueryTimezone projectUuid={projectUuid} />,
             },
             {
                 path: `/validator`,

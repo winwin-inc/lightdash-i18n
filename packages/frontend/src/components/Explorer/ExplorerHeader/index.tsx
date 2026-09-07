@@ -97,15 +97,16 @@ const ExplorerHeader: FC = memo(() => {
         };
     }, [getHasDashboardChanges, t]);
 
-    // Legacy PostHog flag + env-gated EnableTimezoneSupport
+    // Legacy PostHog flag; EnableTimezoneSupport moves picker into RunQuerySettings
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
     );
     const { data: timezoneSupportFlag } = useServerFeatureFlag(
         FeatureFlags.EnableTimezoneSupport,
     );
+    const timezoneSupportEnabled = timezoneSupportFlag?.enabled === true;
     const showTimezonePicker =
-        !!userTimeZonesEnabled || timezoneSupportFlag?.enabled === true;
+        !!userTimeZonesEnabled && !timezoneSupportEnabled;
 
     const userCanManageCompileProject = user?.data?.ability?.can(
         'manage',

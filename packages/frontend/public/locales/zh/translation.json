@@ -2432,6 +2432,7 @@
             "end_date": "结束日期"
         },
         "utc_time": "UTC 时间",
+        "local_time": "本地时间",
         "filters_error": "FiltersProvider 中需要 projectUuid",
         "add": "添加",
         "add_filter_tip": "请输入以添加筛选器值",
@@ -2997,6 +2998,22 @@
                     "part_2": "项目定时交付的默认时区"
                 }
             },
+            "update": "更新"
+        }
+    },
+    "components_settings_query_timezone": {
+        "tips": {
+            "success": "成功更新项目的查询时区设置",
+            "failed": "更新项目的查询时区设置失败"
+        },
+        "title": "时区行为",
+        "description_enabled": "用于日期筛选、时间分组，以及图表与表格中日期展示的时区。这不会改变数据库会话时区。",
+        "description_disabled": "控制「今天」「本周」等相对日期筛选的含义。例如设为 US/Eastern 时，「今天」表示纽约时间的午夜到午夜，而不是 UTC。这不会改变数据库会话时区。",
+        "form": {
+            "timezone_label": "默认时区",
+            "timezone_placeholder": "服务器默认（UTC）",
+            "filter_toggle_label": "筛选输入使用项目时区",
+            "filter_toggle_description": "将绝对日期按项目时区解释，而不是用户浏览器时区。需开启 ENABLE_TIMEZONE_SUPPORT 后生效。",
             "update": "更新"
         }
     },
@@ -4345,6 +4362,11 @@
                     "part_1": "此电子邮件尚未验证.",
                     "part_2": "单击此处验证"
                 }
+            },
+            "timezone": {
+                "label": "默认时区",
+                "description": "用于按「用户时区」渲染查询结果；留空则回退到项目时区。",
+                "placeholder": "项目默认"
             }
         },
         "cancel": "取消",
@@ -6744,6 +6766,7 @@
                 "dbt_semantic_layer": "dbt 语义层",
                 "usage_analytics": "使用分析",
                 "syncs_scheduled_deliveries": "同步与定时交付",
+                "query_timezone": "查询时区",
                 "validator": "验证器",
                 "data_ops": "数据操作",
                 "changesets": "变更集",

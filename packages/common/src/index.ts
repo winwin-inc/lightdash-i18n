@@ -876,6 +876,8 @@ export type UpdateUserArgs = {
     isSetupComplete: boolean;
     isActive: boolean;
     isTrialAccount?: boolean;
+    /** IANA timezone; null clears preference and falls back to project */
+    timezone?: string | null;
 };
 
 export type PasswordResetLink = {
