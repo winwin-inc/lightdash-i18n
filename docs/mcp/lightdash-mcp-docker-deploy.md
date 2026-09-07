@@ -2,7 +2,7 @@
 
 本文说明如何将 `packages/lightdash-mcp` 构建为独立镜像，并通过 GitHub Actions 推送到阿里云 ACR。
 
-> 关联阅读：[Lightdash MCP 与 Skills 完整指南](../lightdash-mcp.md)、[包级 README](../../packages/lightdash-mcp/README.md)。
+> 关联阅读：[MCP 文档索引](./README.md)、[标准客户端用法](./lightdash-mcp-client-usage.md)、[包级 README](../../packages/lightdash-mcp/README.md)。
 
 ---
 
@@ -59,18 +59,20 @@ docker run --rm -p 3333:3333 \
 容器启动后先做健康检查：
 
 ```bash
-curl http://localhost:3333/health
+curl -s http://localhost:3333/health
 ```
 
-预期返回 `{"ok":true}`（或同等健康响应）。
+预期（0.4.x）类似：
 
-再验证 MCP 端点可访问：
-
-```bash
-curl -i http://localhost:3333/mcp
+```json
+{"ok":true,"activeSessions":0,"pendingSessions":0,"compatSessions":0}
 ```
 
-如果你在客户端（Cursor/Claude）里配置了该 URL，且请求头带 `x-api-key`，就可以直接开始调 MCP 工具（见 `packages/lightdash-mcp/README.md`）。
+若仍只有 `{"ok":true}`，多半是旧镜像（不含 Session 计数字段）。
+
+未带凭证访问 `/mcp` 预期 **401**。标准 Session / 兼容模式冒烟见 [标准客户端用法](./lightdash-mcp-client-usage.md)。
+
+在客户端（Cursor/Claude）配置该 URL，并带 `x-api-key` 后即可调工具（详见 `packages/lightdash-mcp/README.md`）。
 
 ---
 

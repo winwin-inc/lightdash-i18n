@@ -48,5 +48,5 @@ MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不�
 
 ## 相关文档
 
--   [Lightdash MCP](docs/lightdash-mcp.md)
+-   [Lightdash MCP 文档索引](docs/mcp/README.md)
 -   [本地前端调试线上环境](docs/local-frontend-debug-production.md)

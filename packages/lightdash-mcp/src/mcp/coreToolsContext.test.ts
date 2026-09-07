@@ -21,6 +21,12 @@ function baseConfig(
         oauthRequiredScopes: ['mcp:read'],
         oauthResourceMetadataUrl:
             'https://example.com/api/v1/oauth/.well-known/oauth-protected-resource',
+        maxSessions: 100,
+        softSessionsPerOwner: 10,
+        maxSessionsPerOwner: 20,
+        lruMinIdleMs: 300_000,
+        sessionTtlMs: 1_800_000,
+        pruneIntervalMs: 300_000,
     };
 }
 

@@ -72,6 +72,8 @@ export type ProviderProps = {
         hideScrollToggle?: boolean;
         isCountLoading?: boolean;
         isCountError?: boolean;
+        /** When true, ResultCount uses warehouse variant (real total from calculate-count) */
+        useWarehouseResultsCount?: boolean;
     };
     showSubtotals?: boolean;
     hideRowNumbers?: boolean;
