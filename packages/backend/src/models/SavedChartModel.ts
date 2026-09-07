@@ -21,6 +21,7 @@ import {
     isCustomBinDimension,
     isCustomSqlDimension,
     isFormat,
+    isFormulaTableCalculation,
     isSqlTableCalculation,
     isTemplateTableCalculation,
     LightdashUser,
@@ -36,6 +37,7 @@ import {
     SortField,
     Space,
     TableCalculation,
+    TimeFrames,
     TimeZone,
     UpdatedByUser,
     UpdateMultipleSavedChart,
@@ -281,6 +283,10 @@ const createSavedChartVersion = async (
                 template: isTemplateTableCalculation(tableCalculation)
                     ? tableCalculation.template
                     : undefined,
+                formula: isFormulaTableCalculation(tableCalculation)
+                    ? tableCalculation.formula
+                    : undefined,
+                total_mode: tableCalculation.totalMode,
             })),
         );
         await createSavedChartVersionCustomDimensions(
@@ -346,6 +352,14 @@ const createSavedChartVersion = async (
                 format_options: additionalMetric.formatOptions
                     ? JSON.stringify(additionalMetric.formatOptions)
                     : null,
+                generation_type: additionalMetric.generationType ?? null,
+                base_metric_id: additionalMetric.baseMetricId ?? null,
+                time_dimension_id: additionalMetric.timeDimensionId ?? null,
+                granularity: additionalMetric.granularity ?? null,
+                period_offset:
+                    additionalMetric.periodOffset !== undefined
+                        ? additionalMetric.periodOffset
+                        : null,
             })),
         );
     });
@@ -503,6 +517,23 @@ export class SavedChartModel {
             sql: additionalMetric.sql,
             table: additionalMetric.table,
             type: additionalMetric.type,
+            ...(additionalMetric.generation_type && {
+                generationType:
+                    additionalMetric.generation_type as 'periodOverPeriod',
+            }),
+            ...(additionalMetric.base_metric_id && {
+                baseMetricId: additionalMetric.base_metric_id,
+            }),
+            ...(additionalMetric.time_dimension_id && {
+                timeDimensionId: additionalMetric.time_dimension_id,
+            }),
+            ...(additionalMetric.granularity && {
+                granularity: additionalMetric.granularity as TimeFrames,
+            }),
+            ...(additionalMetric.period_offset !== undefined &&
+                additionalMetric.period_offset !== null && {
+                    periodOffset: additionalMetric.period_offset,
+                }),
             ...(additionalMetric.base_dimension_name && {
                 baseDimensionName: additionalMetric.base_dimension_name,
             }),
@@ -956,6 +987,8 @@ export class SavedChartModel {
                         'format',
                         'type',
                         'template',
+                        'formula',
+                        'total_mode',
                     ])
                     .where('saved_queries_version_id', savedQueriesVersionId);
 
@@ -978,6 +1011,11 @@ export class SavedChartModel {
                         'uuid',
                         'compact',
                         'format_options',
+                        'generation_type',
+                        'base_metric_id',
+                        'time_dimension_id',
+                        'granularity',
+                        'period_offset',
                     ])
                     .where('saved_queries_version_id', savedQueriesVersionId);
 
@@ -1117,6 +1155,11 @@ export class SavedChartModel {
                                     type: tableCalculation.type || undefined,
                                     template:
                                         tableCalculation.template || undefined,
+                                    formula:
+                                        tableCalculation.formula || undefined,
+                                    totalMode:
+                                        tableCalculation.total_mode ||
+                                        undefined,
                                 } as TableCalculation),
                         ),
                         additionalMetrics,

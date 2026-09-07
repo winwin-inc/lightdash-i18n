@@ -144,6 +144,10 @@ export default defineConfig({
                           __dirname,
                           '../common/src/index.ts',
                       ),
+                      '@lightdash/formula': path.resolve(
+                          __dirname,
+                          '../formula/src/index.ts',
+                      ),
                       // Dev 默认走 echarts/lib（含 __DEV__ assert），数据异步更新时会触发
                       // cartesianAxisHelper 断言导致图表崩溃；线上 prod bundle 无此问题。
                       echarts: path.resolve(

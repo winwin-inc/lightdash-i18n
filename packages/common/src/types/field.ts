@@ -424,20 +424,49 @@ export type TableCalculationTemplate =
           frame?: FrameClause;
       };
 
-export type TableCalculation = {
+export enum TableCalculationTotalMode {
+    /** Apply the calculation to the aggregated totals row (default) — right for ratios */
+    FORMULA = 'formula',
+    /** Sum the calculation's row-level values — right for row-level transformations */
+    SUM_OF_ROWS = 'sum_of_rows',
+    /** Show no total for this calculation */
+    NONE = 'none',
+}
+
+export type TableCalculationBase = {
+    /** Display order index */
     index?: number;
+    /** Internal name of the table calculation */
     name: string;
-    displayName: string; // This is a unique property of the table calculation
+    /** Display name shown in the UI */
+    displayName: string;
+    /** Formatting options for the calculation */
     format?: CustomFormat;
+    /** Data type of the calculation result */
     type?: TableCalculationType;
-} & (
-    | {
-          sql: string;
-      }
-    | {
-          template: TableCalculationTemplate;
-      }
-);
+    /** How column totals are computed for this calculation */
+    totalMode?: TableCalculationTotalMode;
+};
+
+export type SqlTableCalculation = TableCalculationBase & {
+    /** SQL expression for the calculation (can reference fields with ${table.field}) */
+    sql: string;
+};
+
+export type TemplateTableCalculation = TableCalculationBase & {
+    /** Template-based calculation (alternative to sql) */
+    template: TableCalculationTemplate;
+};
+
+export type FormulaTableCalculation = TableCalculationBase & {
+    /** Spreadsheet-like formula compiled to SQL at query time */
+    formula: string;
+};
+
+export type TableCalculation =
+    | SqlTableCalculation
+    | TemplateTableCalculation
+    | FormulaTableCalculation;
 
 export type TableCalculationMetadata = {
     oldName: string;
@@ -457,7 +486,8 @@ export const isTableCalculation = (
     item
         ? !isCustomDimension(item) &&
           (!!('sql' in item && item.sql) ||
-              !!('template' in item && item.template)) &&
+              !!('template' in item && item.template) ||
+              !!('formula' in item && item.formula)) &&
           !('description' in item) &&
           !('tableName' in item) &&
           'displayName' in item
@@ -465,13 +495,18 @@ export const isTableCalculation = (
 
 export const isSqlTableCalculation = (
     calc: TableCalculation,
-): calc is TableCalculation & { sql: string } =>
+): calc is SqlTableCalculation =>
     !!calc && 'sql' in calc && !!calc.sql && calc.sql.length > 0;
 
 export const isTemplateTableCalculation = (
     calc: TableCalculation,
-): calc is TableCalculation & { template: TableCalculationTemplate } =>
+): calc is TemplateTableCalculation =>
     !!calc && 'template' in calc && !!calc.template;
+
+export const isFormulaTableCalculation = (
+    calc: TableCalculation,
+): calc is FormulaTableCalculation =>
+    !!calc && 'formula' in calc && !!calc.formula && calc.formula.length > 0;
 
 export type CompiledTableCalculation = TableCalculation & {
     compiledSql: string;

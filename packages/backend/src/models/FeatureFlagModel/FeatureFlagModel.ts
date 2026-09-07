@@ -47,6 +47,8 @@ export class FeatureFlagModel {
                 this.getLockDashboardFiltersEnabled.bind(this),
             [FeatureFlags.EnableDataApps]:
                 this.getEnableDataAppsEnabled.bind(this),
+            [FeatureFlags.EnableTimezoneSupport]:
+                this.getEnableTimezoneSupportEnabled.bind(this),
         };
     }
 
@@ -200,5 +202,14 @@ export class FeatureFlagModel {
             return { id: featureFlagId, enabled: true };
         }
         return { id: featureFlagId, enabled: false };
+    }
+
+    private getEnableTimezoneSupportEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.ENABLE_TIMEZONE_SUPPORT === 'true',
+        });
     }
 }

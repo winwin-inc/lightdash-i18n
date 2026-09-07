@@ -58,6 +58,7 @@
         "@langchain/core": "^0.3.36",
         "@langchain/openai": "^0.4.2",
         "@lightdash/common": "workspace:*",
+        "@lightdash/formula": "workspace:*",
         "@lightdash/warehouses": "workspace:*",
         "@mastra/core": "^0.16.0",
         "@mastra/evals": "^0.13.4",

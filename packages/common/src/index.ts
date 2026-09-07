@@ -74,6 +74,7 @@ import {
 } from './types/api/comments';
 import { type Email } from './types/api/email';
 import { type ApiSuccessEmpty } from './types/api/success';
+import { type ApiFormulaValidationResults } from './types/api';
 import { type ApiGetChangeResponse } from './types/changeset';
 import { type DbtExposure } from './types/dbt';
 import { type EmailStatusExpiring } from './types/email';
@@ -312,6 +313,7 @@ export * from './types/organizationMemberProfile';
 export * from './types/organizationWarehouseCredentials';
 export * from './types/paginateResults';
 export * from './types/parameters';
+export * from './types/periodOverPeriodComparison';
 export * from './types/personalAccessToken';
 export * from './types/pinning';
 export * from './types/pivot';
@@ -380,6 +382,7 @@ export * from './utils/oauth';
 export * from './utils/organization';
 export * from './utils/projectMemberRole';
 export * from './utils/promises';
+export * from './utils/resolveQueryTimezone';
 export * from './utils/resultColumns';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
@@ -932,6 +935,7 @@ type ApiResults =
     | ApiQueryResults
     | ApiSqlQueryResults
     | ApiCompiledQueryResults
+    | ApiFormulaValidationResults
     | ApiExploresResults
     | ApiExploreResults
     | ApiStatusResults

@@ -10,6 +10,7 @@ import {
     ApiCompiledMergeQueryResults,
     ApiCreatePreviewResults,
     type ApiCreateProjectResults,
+    ApiFormulaValidationResults,
     ApiQueryResults,
     ApiSqlQueryResults,
     assertEmbeddedAuth,
@@ -7740,6 +7741,9 @@ export class ProjectService extends BaseService {
         ];
         const referenceErrors: MergeQueryError[] =
             mergeQuery.tableCalculations.flatMap((calculation) => {
+                if (!isSqlTableCalculation(calculation)) {
+                    return [];
+                }
                 const unresolved = [
                     ...calculation.sql.matchAll(
                         mergeCalculationReferencePattern,
@@ -8016,5 +8020,83 @@ export class ProjectService extends BaseService {
             ...(savedParameters || {}),
             ...(requestParameters || {}),
         };
+    }
+
+    async validateFormula(args: {
+        account: Account;
+        projectUuid: string;
+        exploreName: string;
+        formula: string;
+        metricQuery: MetricQuery;
+    }): Promise<ApiFormulaValidationResults> {
+        const { account, projectUuid, exploreName, formula, metricQuery } =
+            args;
+
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('Project', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const explore = await this.getExplore(
+            account,
+            projectUuid,
+            exploreName,
+        );
+
+        const warehouseCredentials =
+            await this.projectModel.getWarehouseCredentialsForProject(
+                projectUuid,
+            );
+
+        const warehouseSqlBuilder = warehouseSqlBuilderFromType(
+            warehouseCredentials.type,
+            warehouseCredentials.startOfWeek,
+        );
+
+        const queryWithFormula: MetricQuery = {
+            ...metricQuery,
+            tableCalculations: [
+                ...metricQuery.tableCalculations,
+                {
+                    name: '__formula_validation__',
+                    displayName: '',
+                    formula,
+                },
+            ],
+        };
+
+        try {
+            const compiled = compileMetricQuery({
+                explore,
+                metricQuery: queryWithFormula,
+                warehouseSqlBuilder,
+                availableParameters: [],
+            });
+
+            const validationCalc = compiled.compiledTableCalculations.find(
+                (tc) => tc.name === '__formula_validation__',
+            );
+
+            return {
+                valid: true,
+                compiledSql: validationCalc?.compiledSql ?? '',
+            };
+        } catch (e) {
+            return {
+                valid: false,
+                error: e instanceof Error ? e.message : String(e),
+            };
+        }
     }
 }

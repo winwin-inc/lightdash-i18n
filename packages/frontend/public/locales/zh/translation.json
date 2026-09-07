@@ -79,6 +79,7 @@
         "data_sources": "数据源",
         "selected_count": "已选 {{count}} 项",
         "active_filters_badge": "{{count}} 个生效筛选",
+        "active_filters_badge_plural": "{{count}} 个生效筛选",
         "filters_join_hint": "匹配字段上的筛选会同时作用于两个查询，其余筛选仅作用于各自查询。",
         "selected_for_result": "结果字段 · {{count}}",
         "source_order_first": "第一份",

@@ -17,6 +17,7 @@ import {
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../../hooks/useExplorerRoute';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
@@ -96,10 +97,15 @@ const ExplorerHeader: FC = memo(() => {
         };
     }, [getHasDashboardChanges, t]);
 
-    // FEATURE FLAG: this component doesn't appear when the feature flag is disabled
+    // Legacy PostHog flag + env-gated EnableTimezoneSupport
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
     );
+    const { data: timezoneSupportFlag } = useServerFeatureFlag(
+        FeatureFlags.EnableTimezoneSupport,
+    );
+    const showTimezonePicker =
+        !!userTimeZonesEnabled || timezoneSupportFlag?.enabled === true;
 
     const userCanManageCompileProject = user?.data?.ability?.can(
         'manage',
@@ -160,7 +166,7 @@ const ExplorerHeader: FC = memo(() => {
                         <QueryWarnings queryWarnings={queryWarnings} />
                     )}
 
-                {userTimeZonesEnabled && (
+                {showTimezonePicker && (
                     <TimeZonePicker
                         onChange={setTimeZone}
                         value={selectedTimezone as string}

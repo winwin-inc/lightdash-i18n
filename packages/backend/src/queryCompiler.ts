@@ -11,6 +11,7 @@ import {
     detectCircularDependencies,
     Explore,
     ExploreCompiler,
+    isFormulaTableCalculation,
     isPostCalculationMetricType,
     isSqlTableCalculation,
     isTemplateTableCalculation,
@@ -21,7 +22,20 @@ import {
     TableCalculation,
     type WarehouseSqlBuilder,
 } from '@lightdash/common';
+import {
+    compile as compileFormula,
+    extractColumnRefs,
+    parse as parseFormula,
+} from '@lightdash/formula';
+import { mapAdapterToFormulaDialect } from './formulaDialectMapper';
 import { compileTableCalculationFromTemplate } from './tableCalculationTemplateQueryCompiler';
+
+const formatFormulaError = (displayName: string, error: unknown): string => {
+    const message = error instanceof Error ? error.message : String(error);
+    return displayName
+        ? `Error in formula "${displayName}": ${message}`
+        : `Formula error: ${message}`;
+};
 
 const getTableCalculationReferences = (sql: string): string[] => {
     const matches = sql.match(lightdashVariablePattern) || [];
@@ -63,7 +77,25 @@ const buildTableCalculationDependencyGraph = (
             };
         }
 
-        throw new CompileError(`Table calculation has no SQL or template`, {});
+        if (isFormulaTableCalculation(calc)) {
+            try {
+                const ast = parseFormula(calc.formula);
+                return {
+                    name: calc.name,
+                    dependencies: extractColumnRefs(ast),
+                };
+            } catch (e) {
+                throw new CompileError(
+                    formatFormulaError(calc.displayName, e),
+                    {},
+                );
+            }
+        }
+
+        throw new CompileError(
+            `Table calculation has no SQL, template, or formula`,
+            {},
+        );
     });
 
 const compileTableCalculation = (
@@ -72,6 +104,7 @@ const compileTableCalculation = (
     quoteChar: string,
     dependencyGraph: DependencyNode[],
     warehouseSqlBuilder: WarehouseSqlBuilder,
+    sortFields: MetricQuery['sorts'] = [],
 ): CompiledTableCalculation => {
     if (validFieldIds.includes(tableCalculation.name)) {
         throw new CompileError(
@@ -139,7 +172,62 @@ const compileTableCalculation = (
         };
     }
 
-    throw new CompileError(`Table calculation has no SQL or template`, {});
+    if (isFormulaTableCalculation(tableCalculation)) {
+        try {
+            const dialect = mapAdapterToFormulaDialect(
+                warehouseSqlBuilder.getAdapterType(),
+            );
+            const columns: Record<string, string> = {};
+            for (const fieldId of validFieldIds) {
+                columns[fieldId] = fieldId;
+            }
+            for (const dep of dependencyGraph) {
+                if (dep.name !== tableCalculation.name) {
+                    columns[dep.name] = dep.name;
+                }
+            }
+            // Filter out sorts on table calculations: a formula table calc
+            // and its siblings are projected in the same SELECT, so ordering
+            // by a sibling alias inside its OVER clause self-references
+            // within that SELECT and every warehouse rejects it.
+            const validFieldIdsForSort = new Set(validFieldIds);
+            const defaultOrderBy = sortFields
+                .filter((s) => validFieldIdsForSort.has(s.fieldId))
+                .map((s) => ({
+                    column: s.fieldId,
+                    direction: (s.descending ? 'DESC' : 'ASC') as
+                        | 'ASC'
+                        | 'DESC',
+                }));
+            // Table calcs land in a post-aggregation SELECT alongside non-
+            // aggregate dimension columns, so bare SQL aggregates would be
+            // rejected by the warehouse. Wrapping as `AGG(x) OVER ()` turns
+            // them into window aggregates — legal in that context and
+            // preserving Sheets-like whole-result-set semantics.
+            const compiledSql = compileFormula(tableCalculation.formula, {
+                dialect,
+                columns,
+                renderAggregate: (inner) => `${inner} OVER ()`,
+                defaultOrderBy,
+            });
+            return {
+                ...tableCalculation,
+                compiledSql,
+                dependsOn: tableCalcDependencies,
+            };
+        } catch (e) {
+            if (e instanceof CompileError) throw e;
+            throw new CompileError(
+                formatFormulaError(tableCalculation.displayName, e),
+                {},
+            );
+        }
+    }
+
+    throw new CompileError(
+        `Table calculation has no SQL, template, or formula`,
+        {},
+    );
 };
 
 const compileTableCalculations = (
@@ -147,6 +235,7 @@ const compileTableCalculations = (
     validFieldIds: string[],
     quoteChar: string,
     warehouseSqlBuilder: WarehouseSqlBuilder,
+    sortFields: MetricQuery['sorts'] = [],
 ): CompiledTableCalculation[] => {
     if (tableCalculations.length === 0) {
         return [];
@@ -170,6 +259,7 @@ const compileTableCalculations = (
             quoteChar,
             dependencyGraph,
             warehouseSqlBuilder,
+            sortFields,
         );
         compiledTableCalculations.push(compiled);
     }
@@ -311,6 +401,7 @@ export const compileMetricQuery = ({
         validFieldIds,
         fieldQuoteChar,
         warehouseSqlBuilder,
+        metricQuery.sorts,
     );
 
     return {

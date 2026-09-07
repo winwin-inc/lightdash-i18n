@@ -15,6 +15,11 @@ export enum FeatureFlags {
     EnableUserTimezones = 'enable-user-timezones',
 
     /**
+     * Enable query timezone selection / display gating (project + chart settings).
+     */
+    EnableTimezoneSupport = 'enable-timezone-support',
+
+    /**
      * Enable dashboard comments
      */
     DashboardComments = 'dashboard-comments-enabled',
