@@ -533,7 +533,8 @@
             "edit": "Edit table calculation",
             "add": "Add table calculation",
             "empty": "SQL cannot be empty",
-            "name": "Name cannot be empty"
+            "name": "Name cannot be empty",
+            "no_sql_permission": "You do not have permission to create or edit SQL table calculations"
         },
         "edit": "Edit table calculation",
         "create": "Create table calculation",
@@ -547,7 +548,8 @@
                 "placeholder": "Select",
                 "dropdown": {
                     "raw_sql": "Raw SQL",
-                    "template": "Predefined Template"
+                    "template": "Predefined Template",
+                    "formula": "Formula"
                 }
             },
             "tabs": {
@@ -1213,7 +1215,10 @@
         },
         "validate_tips": {
             "name": "Name is required",
-            "custom_limit": "Custom limit must be an integer"
+            "custom_limit": "Custom limit must be an integer",
+            "required_filters": "Required filters must have values",
+            "requirement_group": "Set a value for at least one filter in each requirement group",
+            "required_filters_missing": "Some required filters are missing values"
         },
         "form": {
             "tabs_list": {
@@ -1240,6 +1245,7 @@
                 "threshold_alert": " This is the frequency at which MSY X runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
                 "default_project": "Project Default",
                 "format": "Format",
+                "format_image": "Image",
                 "image_disabled": {
                     "part_1": "You must enable the",
                     "part_2": "headless browser",
@@ -1255,6 +1261,10 @@
                 "all_results": "All results",
                 "custom": "Custom...",
                 "results_are_limited": "Results are limited to {{limit}} cells for each file",
+                "xlsx_output": "XLSX output",
+                "xlsx_output_help": "Separate files puts each dashboard tile in its own XLSX file inside a ZIP. Single workbook puts each tile on its own sheet in one XLSX file.",
+                "xlsx_zip": "Separate files (ZIP)",
+                "xlsx_workbook": "Single workbook",
                 "tabs": {
                     "title": "Tabs",
                     "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",
@@ -1272,6 +1282,11 @@
                     "part_4": "for your MSY X instance"
                 },
                 "search_slack_channels": "Search Slack channels",
+                "slack_group": {
+                    "channels": "Channels",
+                    "users": "Users",
+                    "private_channels": "Private channels"
+                },
                 "send_to_private_channel": "Send to private channel #{{query}}",
                 "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the MSY X Slackbot into that channel."
             },
@@ -3071,6 +3086,11 @@
             "label": "Upstream project"
         },
         "select_project": "Select project",
+        "group": {
+            "production": "Production projects",
+            "preview": "Preview projects"
+        },
+        "current_suffix": "{{name}} (Current)",
         "update": "Update",
         "toast_success": {
             "title": "Project updated",
@@ -4045,8 +4065,10 @@
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
         "tooltip": {
             "label": "Export results in table for all charts in a zip file",
-            "button": "Export CSV"
+            "button": "Export CSV",
+            "button_xlsx": "Export XLSX"
         },
+        "tabs_label": "Tabs",
         "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
         "include_all_tabs": "Include all tabs",
         "select_tabs": "Select tabs to include in the export",
@@ -4055,7 +4077,8 @@
         "export_dashboard": "Export dashboard",
         "tabs": {
             "image": "Image",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {

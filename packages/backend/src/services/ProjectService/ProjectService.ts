@@ -2146,6 +2146,18 @@ export class ProjectService extends BaseService {
         ) {
             throw new CustomSqlQueryForbiddenError();
         }
+        if (
+            metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
 
         // Align with AsyncQuery: resolve dashboard context for sql_filter / user attrs
         let dashboardContext:
@@ -2298,6 +2310,18 @@ export class ProjectService extends BaseService {
             account.user.ability.cannot(
                 'manage',
                 subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
+        if (
+            metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
             )
         ) {
             throw new CustomSqlQueryForbiddenError();
@@ -2606,6 +2630,18 @@ export class ProjectService extends BaseService {
             account.user.ability.cannot(
                 'manage',
                 subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
+        if (
+            metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
             )
         ) {
             throw new CustomSqlQueryForbiddenError();
@@ -5998,6 +6034,18 @@ export class ProjectService extends BaseService {
         ) {
             throw new CustomSqlQueryForbiddenError();
         }
+        if (
+            data.metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
 
         const explore = await this.getExplore(
             account,
@@ -6298,6 +6346,18 @@ export class ProjectService extends BaseService {
         ) {
             throw new CustomSqlQueryForbiddenError();
         }
+        if (
+            data.metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
 
         const explore = await this.getExplore(
             account,
@@ -6451,6 +6511,18 @@ export class ProjectService extends BaseService {
             account.user.ability.cannot(
                 'manage',
                 subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new CustomSqlQueryForbiddenError();
+        }
+        if (
+            data.metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            account.user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
             )
         ) {
             throw new CustomSqlQueryForbiddenError();

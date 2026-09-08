@@ -7,6 +7,20 @@
 > **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。  
 > **CHANGELOG 增量高价值候选**（未进 §二评估表、不阻塞试跑）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
 
+### 上游对齐基线
+
+> 后续增量只扫 **对齐水位之后** 的上游 CHANGELOG / commit；与 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md) §1 保持同步。
+
+| 字段 | 当前值 | 含义 |
+|------|--------|------|
+| 迁移窗口起点 | 上游 **0.2513.0** | fork 开始按模块追齐的 CHANGELOG 下沿 |
+| 对齐水位 / 窗口终点 | 上游 **2.57.0** | 主迁移与高价值 backlog 评估所对照的上沿 |
+| 上游对照 commit | `c2ac5d553a`（`../lightdash`，2026-08-30） | 比版本号更准；本地对照仓移动后应更新 |
+| 本仓产品版本 | `2.0.1-test.1`（根 `package.json`） | **≠** 上游版本号，勿混用 |
+| 本仓工作分支 | `feat/v2-upgrade` | 主迁移合入线 |
+
+**维护约定**：每完成一批对照上游某版本/commit 的功能移植，或显式抬高评估窗口时，同步更新本表与 backlog §1。下一次大升级入口：`对齐水位(2.57.0 @ c2ac5d553a) → 新目标版本`。
+
 ---
 
 ## 一、迁移策略与基准（以当前 `feat/v2-upgrade` 分支为主体）

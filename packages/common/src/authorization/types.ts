@@ -27,6 +27,7 @@ export type CaslSubjectNames =
     | 'CompileProject'
     | 'ContentAsCode'
     | 'CustomSql'
+    | 'CustomSqlTableCalculations'
     | 'Dashboard'
     | 'DashboardComments'
     | 'DashboardCsv'

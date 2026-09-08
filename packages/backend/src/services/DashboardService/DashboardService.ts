@@ -33,14 +33,19 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    SCHEDULER_TASKS,
     type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
+    type DashboardFilterRule,
     type DashboardQueryContext,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
+    type ExportContentPayload,
+    type ExportContentRequest,
+    type SchedulerCsvOptions,
     type UserCategoryList,
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
@@ -68,6 +73,7 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
+import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
@@ -1322,6 +1328,72 @@ export class DashboardService
         return this.schedulerModel.getDashboardSchedulers(dashboardUuid);
     }
 
+    /**
+     * Schedule a one-click dashboard content export (CSV or XLSX zip/workbook).
+     * Image export continues to use the legacy /export screenshot route.
+     */
+    async scheduleExportContent(
+        user: SessionUser,
+        dashboardUuid: string,
+        data: ExportContentRequest,
+    ): Promise<{ jobId: string }> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+
+        if (
+            data.format !== SchedulerFormat.CSV &&
+            data.format !== SchedulerFormat.XLSX
+        ) {
+            throw new ParameterError('Unsupported export format');
+        }
+
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('ExportCsv', {
+                    organizationUuid: dashboard.organizationUuid,
+                    projectUuid: dashboard.projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const options: SchedulerCsvOptions = {
+            formatted: data.options?.formatted ?? true,
+            limit: data.options?.limit ?? 'table',
+            xlsxFileLayout: data.options?.xlsxFileLayout,
+        };
+
+        const payload: ExportContentPayload = {
+            resourceType: 'dashboard',
+            resourceUuid: dashboard.uuid,
+            format: data.format,
+            options,
+            dashboardFilters: data.dashboardFilters,
+            dateZoomGranularity: data.dateZoomGranularity,
+            customViewportWidth: data.customViewportWidth,
+            selectedTabs: data.selectedTabs ?? null,
+            parameters: data.parameters,
+            organizationUuid: dashboard.organizationUuid,
+            projectUuid: dashboard.projectUuid,
+            userUuid: user.userUuid,
+            schedulerUuid: undefined,
+        };
+
+        const { jobId } = await this.schedulerClient.scheduleTask(
+            SCHEDULER_TASKS.EXPORT_CONTENT,
+            payload,
+        );
+
+        return { jobId };
+    }
+
     async createScheduler(
         user: SessionUser,
         dashboardUuid: string,
@@ -1341,8 +1413,19 @@ export class DashboardService
             throw new ParameterError('Timezone string is not valid');
         }
 
-        const { projectUuid, organizationUuid } =
-            await this.checkCreateScheduledDeliveryAccess(user, dashboardUuid);
+        const dashboard = await this.checkCreateScheduledDeliveryAccess(
+            user,
+            dashboardUuid,
+        );
+        const { projectUuid, organizationUuid } = dashboard;
+        assertDashboardSchedulerFilterRequirementsMet({
+            savedDashboardFilters: dashboard.filters,
+            // Dashboard create path always carries optional dimension overrides
+            schedulerFilters: (
+                newScheduler as { filters?: DashboardFilterRule[] }
+            ).filters,
+        });
+
         const scheduler = await this.schedulerModel.createScheduler({
             ...newScheduler,
             createdBy: user.userUuid,

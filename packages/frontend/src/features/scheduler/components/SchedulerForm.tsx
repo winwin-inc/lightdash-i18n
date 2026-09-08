@@ -22,7 +22,9 @@ import {
     type ParameterDefinitions,
     type ParametersValuesMap,
     type SchedulerAndTargets,
+    type SchedulerCsvOptions,
 } from '@lightdash/common';
+import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
     Anchor,
     Box,
@@ -103,6 +105,9 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
+        xlsxFileLayout: 'zip' as NonNullable<
+            SchedulerCsvOptions['xlsxFileLayout']
+        >,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -167,6 +172,7 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             formOptions.customLimit = options.limit as number;
         }
         formOptions.asAttachment = options.asAttachment || false;
+        formOptions.xlsxFileLayout = options.xlsxFileLayout ?? 'zip';
     } else if (isSchedulerImageOptions(options)) {
         formOptions.withPdf = options.withPdf || false;
     }
@@ -421,19 +427,39 @@ const SchedulerForm: FC<Props> = ({
                         : null;
                 },
             },
-            filters: (value: DashboardFilterRule[] | null) => {
-                if (!value) {
-                    // Dashboard filters are null for charts
+            filters: (value: DashboardFilterRule[] | null, values: any) => {
+                if (!isDashboard) {
                     return null;
                 }
-                const requiredFiltersWithoutValues = value.filter(
-                    (filter) =>
-                        filter.required &&
-                        (!filter.values || filter.values.length === 0),
-                );
+                // Tab-scoped requirements: filters that only apply to tabs left
+                // out of the delivery must not block it. Without per-tile
+                // filterable fields we still evaluate against the full dashboard.
+                const { unmetRequirements, filtersWithUnmetRequirements } =
+                    getSchedulerFilterRequirements(
+                        dashboard?.filters,
+                        value ?? undefined,
+                        dashboard
+                            ? {
+                                  tiles: dashboard.tiles,
+                                  tabUuids: dashboard.tabs.map(
+                                      (tab) => tab.uuid,
+                                  ),
+                                  filterableFieldsByTileUuid: undefined,
+                                  selectedTabs: values.selectedTabs ?? null,
+                              }
+                            : undefined,
+                    );
 
-                if (requiredFiltersWithoutValues.length > 0) {
-                    return `Required filters must have values`;
+                if (filtersWithUnmetRequirements.length > 0) {
+                    return unmetRequirements.every(
+                        (requirement) => requirement.type === 'group',
+                    )
+                        ? t(
+                              'features_scheduler_form.validate_tips.requirement_group',
+                          )
+                        : t(
+                              'features_scheduler_form.validate_tips.required_filters',
+                          );
                 }
                 return null;
             },
@@ -444,7 +470,9 @@ const SchedulerForm: FC<Props> = ({
             },
             selectedTabs: (value: string[] | null) => {
                 if (value && value.length === 0) {
-                    return 'Selected tabs should not be empty';
+                    return t(
+                        'features_scheduler_form.form.tabs_panel_setup.tabs.error',
+                    );
                 }
                 return null;
             },
@@ -469,6 +497,11 @@ const SchedulerForm: FC<Props> = ({
                         values.emailTargets.length > 0
                             ? values.options.asAttachment
                             : false,
+                    xlsxFileLayout:
+                        values.format === SchedulerFormat.XLSX &&
+                        resource?.type === 'dashboard'
+                            ? values.options.xlsxFileLayout
+                            : undefined,
                 };
             } else if (values.format === SchedulerFormat.IMAGE) {
                 options = {
@@ -536,7 +569,7 @@ const SchedulerForm: FC<Props> = ({
         Array<{
             label: string;
             value: string;
-            group: 'Private channels';
+            group: string;
         }>
     >([]);
 
@@ -578,14 +611,20 @@ const SchedulerForm: FC<Props> = ({
                     label: channel.name,
                     group:
                         channelPrefix === '#'
-                            ? 'Channels'
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.channels',
+                              )
                             : channelPrefix === '@'
-                            ? 'Users'
-                            : 'Private channels',
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.users',
+                              )
+                            : t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                              ),
                 };
             })
             .concat(privateChannels);
-    }, [slackChannelsQuery?.data, privateChannels]);
+    }, [slackChannelsQuery?.data, privateChannels, t]);
 
     let responsiveChannelsSearchEnabled =
         slackChannels.length >= MAX_SLACK_CHANNELS || search.length > 0; // enable responvive channel search if there are more than MAX_SLACK_CHANNELS defined channels
@@ -644,7 +683,11 @@ const SchedulerForm: FC<Props> = ({
                                     </Text>
                                 )}
                             </Tabs.Tab>
-                            <Tabs.Tab value="parameters">Parameters</Tabs.Tab>
+                            <Tabs.Tab value="parameters">
+                                {t(
+                                    'features_scheduler_form.form.tabs_list.parameters',
+                                )}
+                            </Tabs.Tab>
                         </>
                     ) : null}
 
@@ -877,9 +920,11 @@ const SchedulerForm: FC<Props> = ({
                                     <TimeZonePicker
                                         size="sm"
                                         style={{ flexGrow: 1 }}
-                                        placeholder={`Project Default ${
+                                        placeholder={`${t(
+                                            'features_scheduler_form.form.tabs_panel_setup.default_project',
+                                        )}${
                                             projectDefaultOffsetString
-                                                ? `(UTC ${projectDefaultOffsetString})`
+                                                ? ` (UTC ${projectDefaultOffsetString})`
                                                 : ''
                                         }`}
                                         maw={350}
@@ -910,7 +955,9 @@ const SchedulerForm: FC<Props> = ({
                                                 value: SchedulerFormat.XLSX,
                                             },
                                             {
-                                                label: 'Image',
+                                                label: t(
+                                                    'features_scheduler_form.form.tabs_panel_setup.format_image',
+                                                ),
                                                 value: SchedulerFormat.IMAGE,
                                                 disabled: isImageDisabled,
                                             },
@@ -1124,6 +1171,40 @@ const SchedulerForm: FC<Props> = ({
                                                     )}
                                                 </Stack>
                                             </Group>
+                                            {form.values.format ===
+                                                SchedulerFormat.XLSX &&
+                                                isDashboard && (
+                                                    <Radio.Group
+                                                        mt="sm"
+                                                        label={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
+                                                        )}
+                                                        description={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
+                                                        )}
+                                                        {...form.getInputProps(
+                                                            'options.xlsxFileLayout',
+                                                        )}
+                                                    >
+                                                        <Stack
+                                                            spacing="xxs"
+                                                            pt="xs"
+                                                        >
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
+                                                                )}
+                                                                value="zip"
+                                                            />
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
+                                                                )}
+                                                                value="workbook"
+                                                            />
+                                                        </Stack>
+                                                    </Radio.Group>
+                                                )}
                                         </Collapse>
                                     </Stack>
                                 )}
@@ -1133,7 +1214,9 @@ const SchedulerForm: FC<Props> = ({
                         {isDashboardTabsAvailable && !isThresholdAlert && (
                             <Stack spacing={10}>
                                 <Input.Label>
-                                    Tabs
+                                    {t(
+                                        'features_scheduler_form.form.tabs_panel_setup.tabs.title',
+                                    )}
                                     <Tooltip
                                         withinPortal={true}
                                         maw={400}
@@ -1354,7 +1437,9 @@ const SchedulerForm: FC<Props> = ({
                                                                     {
                                                                         label: newItem,
                                                                         value: newItem,
-                                                                        group: 'Private channels',
+                                                                        group: t(
+                                                                            'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                                                                        ),
                                                                     },
                                                                 ],
                                                             );
@@ -1536,7 +1621,9 @@ const SchedulerForm: FC<Props> = ({
                 }
                 disabledMessage={
                     requiredFiltersWithoutValues.length > 0
-                        ? 'Some required filters are missing values'
+                        ? t(
+                              'features_scheduler_form.validate_tips.required_filters_missing',
+                          )
                         : undefined
                 }
                 onBack={onBack}

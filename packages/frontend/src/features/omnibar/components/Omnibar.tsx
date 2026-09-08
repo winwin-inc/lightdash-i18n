@@ -36,7 +36,7 @@ import { useProject } from '../../../hooks/useProject';
 import { useValidationUserAbility } from '../../../hooks/validation/useValidation';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
-import useSearch, { OMNIBAR_MIN_QUERY_LENGTH } from '../hooks/useSearch';
+import useSearch, { hasMinQueryLength } from '../hooks/useSearch';
 import {
     allSearchItemTypes,
     type FocusedItemIndex,
@@ -165,7 +165,7 @@ const Omnibar: FC<Props> = ({ projectUuid }) => {
 
     const hasEnteredQuery = query !== undefined && query !== '';
     const hasEnteredMinQueryLength =
-        hasEnteredQuery && query.length >= OMNIBAR_MIN_QUERY_LENGTH;
+        hasEnteredQuery && hasMinQueryLength(query);
     const hasSearchResults =
         searchResults && !isSearchResultEmpty(searchResults);
 

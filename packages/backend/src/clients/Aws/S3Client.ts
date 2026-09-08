@@ -218,6 +218,17 @@ export class S3Client {
         return this.uploadFile(zipName, zip, 'application/zip');
     }
 
+    async uploadExcel(
+        excel: PutObjectCommandInput['Body'],
+        excelName: string,
+    ): Promise<string> {
+        return this.uploadFile(
+            excelName,
+            excel,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+    }
+
     /*
     This method streams the results into an s3 object
     It returns a function to call when the streaming ends,then it returns the signed url of the object uploaded

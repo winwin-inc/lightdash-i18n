@@ -534,7 +534,8 @@
             "edit": "编辑表计算",
             "add": "添加表计算",
             "empty": "SQL 不能为空",
-            "name": "名称不能为空"
+            "name": "名称不能为空",
+            "no_sql_permission": "您没有权限创建或编辑 SQL 表计算"
         },
         "edit": "编辑表计算",
         "create": "创建表计算",
@@ -543,9 +544,19 @@
                 "label": "名称",
                 "placeholder": "例如: 累计订单数"
             },
+            "calculation_mode": {
+                "label": "计算模式",
+                "placeholder": "选择",
+                "dropdown": {
+                    "raw_sql": "原始 SQL",
+                    "template": "预定义模板",
+                    "formula": "公式"
+                }
+            },
             "tabs": {
+                "template": "模板",
                 "sql": "SQL",
-                "format": "Format"
+                "format": "格式"
             },
             "tooltip": {
                 "label": "手动选择此SQL表计算的结果类型，这将帮助我们在过滤器或结果中正确处理该字段。",
@@ -1218,7 +1229,10 @@
         },
         "validate_tips": {
             "name": "姓名为必填项",
-            "custom_limit": "自定义限制必须是整数"
+            "custom_limit": "自定义限制必须是整数",
+            "required_filters": "必填筛选器必须有值",
+            "requirement_group": "请为每个需求组中的至少一个筛选器设置值",
+            "required_filters_missing": "部分必填筛选器尚未设置值"
         },
         "form": {
             "tabs_list": {
@@ -1245,6 +1259,7 @@
                 "threshold_alert": "这是 马上赢X 查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "default_project": "项目默认",
                 "format": "格式",
+                "format_image": "图片",
                 "image_disabled": {
                     "part_1": "您必须启用",
                     "part_2": "无头浏览器",
@@ -1260,6 +1275,10 @@
                 "all_results": "全部结果",
                 "custom": "自定义...",
                 "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
+                "xlsx_output": "XLSX 输出",
+                "xlsx_output_help": "「分文件 ZIP」将每个看板磁贴导出为独立 XLSX；「单个工作簿」将每个磁贴放到同一 XLSX 的不同工作表。",
+                "xlsx_zip": "分文件（ZIP）",
+                "xlsx_workbook": "单个工作簿",
                 "tabs": {
                     "title": "选项卡",
                     "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",
@@ -1277,6 +1296,11 @@
                     "part_4": "到您的 马上赢X 实例"
                 },
                 "search_slack_channels": "搜索 Slack 频道",
+                "slack_group": {
+                    "channels": "频道",
+                    "users": "用户",
+                    "private_channels": "私有频道"
+                },
                 "send_to_private_channel": "发送到私有频道 #{{query}}",
                 "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 马上赢X Slackbot 加入该频道。"
             },
@@ -3098,6 +3122,11 @@
             "label": "上游项目"
         },
         "select_project": "选择项目",
+        "group": {
+            "production": "生产项目",
+            "preview": "预览项目"
+        },
+        "current_suffix": "{{name}}（当前）",
         "update": "更新",
         "toast_success": {
             "title": "项目已更新",
@@ -4071,8 +4100,10 @@
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
-            "button": "导出 CSV"
+            "button": "导出 CSV",
+            "button_xlsx": "导出 XLSX"
         },
+        "tabs_label": "选项卡",
         "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
         "include_all_tabs": "包含所有选项卡",
         "select_tabs": "选择要包含的选项卡",
@@ -4081,7 +4112,8 @@
         "export_dashboard": "导出看板",
         "tabs": {
             "image": "图片",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {

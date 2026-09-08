@@ -48,6 +48,10 @@ import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import {
+    assertDashboardSchedulerFilterRequirementsMet,
+    getSchedulerFiltersFromUpdate,
+} from '../../utils/schedulerFilterRequirements';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { getAdjustedCronByOffset } from '../../utils/cronUtils';
 import { BaseService } from '../BaseService';
@@ -319,6 +323,25 @@ export class SchedulerService extends BaseService {
         const {
             resource: { organizationUuid, projectUuid },
         } = await this.checkUserCanUpdateSchedulerResource(user, schedulerUuid);
+
+        const existingScheduler = await this.schedulerModel.getScheduler(
+            schedulerUuid,
+        );
+        if (existingScheduler.dashboardUuid) {
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                existingScheduler.dashboardUuid,
+            );
+            const filtersFromUpdate =
+                getSchedulerFiltersFromUpdate(updatedScheduler);
+            assertDashboardSchedulerFilterRequirementsMet({
+                savedDashboardFilters: dashboard.filters,
+                schedulerFilters:
+                    filtersFromUpdate ??
+                    (isDashboardScheduler(existingScheduler)
+                        ? existingScheduler.filters
+                        : undefined),
+            });
+        }
 
         await this.schedulerClient.deleteScheduledJobs(schedulerUuid);
         await this.schedulerModel.deleteScheduledLogs(schedulerUuid);
