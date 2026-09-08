@@ -895,9 +895,9 @@ describe('ExcelService', () => {
                 const sheet = readWorkbook.worksheets[0];
                 expect(sheet.getRow(2).getCell(1).value).toBe(0.25);
                 expect(sheet.getRow(3).getCell(1).value).not.toBeNull();
-                expect(String(sheet.getRow(3).getCell(1).value).length).toBeGreaterThan(
-                    0,
-                );
+                expect(
+                    String(sheet.getRow(3).getCell(1).value).length,
+                ).toBeGreaterThan(0);
             } finally {
                 await fs.unlink(tempFile).catch(() => undefined);
             }

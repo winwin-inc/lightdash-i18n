@@ -270,7 +270,10 @@ export class ExcelService {
                     return String(rawValue);
                 }
                 // Hardening: exceljs drops NaN/Infinity as empty cells — stringify instead.
-                if (typeof rawValue === 'number' && !Number.isFinite(rawValue)) {
+                if (
+                    typeof rawValue === 'number' &&
+                    !Number.isFinite(rawValue)
+                ) {
                     return String(rawValue);
                 }
                 return rawValue;
