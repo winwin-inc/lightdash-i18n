@@ -1,0 +1,20 @@
+/* CJK font selection for headless browser screenshots/PDFs.
+   Chromium on Linux ignores fontconfig, so we use :lang() CSS
+   selectors to explicitly pick the correct Noto Sans CJK variant. */
+:lang(ja) {
+    font-family: 'Noto Sans CJK JP', var(--mantine-font-family);
+}
+
+:lang(zh-CN),
+:lang(zh-Hans) {
+    font-family: 'Noto Sans CJK SC', var(--mantine-font-family);
+}
+
+:lang(zh-TW),
+:lang(zh-Hant) {
+    font-family: 'Noto Sans CJK TC', var(--mantine-font-family);
+}
+
+:lang(ko) {
+    font-family: 'Noto Sans CJK KR', var(--mantine-font-family);
+}

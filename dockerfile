@@ -26,6 +26,7 @@
     libcairo2-dev \
     libpango1.0-dev \
     librsvg2-dev \
+    fonts-noto-cjk \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
   
@@ -193,6 +194,7 @@
     libpango1.0-dev \
     librsvg2-dev \
     dumb-init \
+    fonts-noto-cjk \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
   

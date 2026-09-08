@@ -87,8 +87,11 @@ import {
     pivotResultsAsCsv,
     setUuidParam,
 } from '@lightdash/common';
+import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
+import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
+import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import slackifyMarkdown from 'slackify-markdown';
 import {
     DownloadCsv,
@@ -675,6 +678,13 @@ export default class SchedulerTask {
                             ...csvForChartPromises,
                             ...csvForSqlChartPromises,
                         ]).then(getFulfilledValues);
+
+                        if (csvOptions?.xlsxFileLayout === 'workbook') {
+                            csvUrls = await this.buildWorkbookCsvUrls({
+                                files: csvUrls,
+                                workbookNameBase: dashboard.name,
+                            });
+                        }
 
                         this.analytics.trackAccount(account, {
                             event: 'download_results.completed',
@@ -1707,6 +1717,70 @@ export default class SchedulerTask {
                 },
             });
             throw e;
+        }
+    }
+
+    /**
+     * Collapses per-tile XLSX files into one multi-sheet workbook for delivery.
+     * Default layout remains a zip of separate files when xlsxFileLayout !== 'workbook'.
+     */
+    private async buildWorkbookCsvUrls({
+        files,
+        workbookNameBase,
+    }: {
+        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
+        workbookNameBase: string;
+    }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
+        if (!this.s3Client.isEnabled()) {
+            throw new MissingConfigError('Cloud storage is not enabled');
+        }
+        if (files.length === 0) {
+            throw new UnexpectedServerError('No files to include in workbook');
+        }
+
+        const workbookPath = `/tmp/${nanoid()}.xlsx`;
+        try {
+            const workbookResult = await WorkbookExportHelper.createWorkbookFile(
+                {
+                    files: files.map((file) => ({
+                        filename: file.filename,
+                        sheetName: file.filename,
+                        localPath: file.localPath,
+                    })),
+                    outputPath: workbookPath,
+                    onFileError: (filename, error) => {
+                        Logger.warn(
+                            `Failed to add XLSX file "${filename}" to workbook: ${error}`,
+                        );
+                    },
+                },
+            );
+
+            if (workbookResult.worksheetCount === 0) {
+                throw new UnexpectedServerError(
+                    'All XLSX downloads failed — no files to include in workbook',
+                );
+            }
+
+            const workbookFileName = `${sanitizeGenericFileName(
+                workbookNameBase,
+            )}-${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+
+            const url = await this.s3Client.uploadExcel(
+                fsSync.createReadStream(workbookPath),
+                workbookFileName,
+            );
+
+            return [
+                {
+                    filename: workbookNameBase,
+                    path: url,
+                    localPath: url,
+                    truncated: false,
+                },
+            ];
+        } finally {
+            await fs.unlink(workbookPath).catch(() => undefined);
         }
     }
 

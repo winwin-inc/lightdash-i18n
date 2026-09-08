@@ -23,6 +23,7 @@ import {
     type ParametersValuesMap,
     type SchedulerAndTargets,
 } from '@lightdash/common';
+import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
     Anchor,
     Box,
@@ -103,6 +104,7 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
+        xlsxFileLayout: 'zip' as const,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -167,6 +169,7 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             formOptions.customLimit = options.limit as number;
         }
         formOptions.asAttachment = options.asAttachment || false;
+        formOptions.xlsxFileLayout = options.xlsxFileLayout ?? 'zip';
     } else if (isSchedulerImageOptions(options)) {
         formOptions.withPdf = options.withPdf || false;
     }
@@ -421,19 +424,39 @@ const SchedulerForm: FC<Props> = ({
                         : null;
                 },
             },
-            filters: (value: DashboardFilterRule[] | null) => {
-                if (!value) {
-                    // Dashboard filters are null for charts
+            filters: (value: DashboardFilterRule[] | null, values) => {
+                if (!isDashboard) {
                     return null;
                 }
-                const requiredFiltersWithoutValues = value.filter(
-                    (filter) =>
-                        filter.required &&
-                        (!filter.values || filter.values.length === 0),
-                );
+                // Tab-scoped requirements: filters that only apply to tabs left
+                // out of the delivery must not block it. Without per-tile
+                // filterable fields we still evaluate against the full dashboard.
+                const { unmetRequirements, filtersWithUnmetRequirements } =
+                    getSchedulerFilterRequirements(
+                        dashboard?.filters,
+                        value ?? undefined,
+                        dashboard
+                            ? {
+                                  tiles: dashboard.tiles,
+                                  tabUuids: dashboard.tabs.map(
+                                      (tab) => tab.uuid,
+                                  ),
+                                  filterableFieldsByTileUuid: undefined,
+                                  selectedTabs: values.selectedTabs ?? null,
+                              }
+                            : undefined,
+                    );
 
-                if (requiredFiltersWithoutValues.length > 0) {
-                    return `Required filters must have values`;
+                if (filtersWithUnmetRequirements.length > 0) {
+                    return unmetRequirements.every(
+                        (requirement) => requirement.type === 'group',
+                    )
+                        ? t(
+                              'features_scheduler_form.validate_tips.requirement_group',
+                          )
+                        : t(
+                              'features_scheduler_form.validate_tips.required_filters',
+                          );
                 }
                 return null;
             },
@@ -469,6 +492,11 @@ const SchedulerForm: FC<Props> = ({
                         values.emailTargets.length > 0
                             ? values.options.asAttachment
                             : false,
+                    xlsxFileLayout:
+                        values.format === SchedulerFormat.XLSX &&
+                        resource?.type === 'dashboard'
+                            ? values.options.xlsxFileLayout
+                            : undefined,
                 };
             } else if (values.format === SchedulerFormat.IMAGE) {
                 options = {
@@ -1124,6 +1152,40 @@ const SchedulerForm: FC<Props> = ({
                                                     )}
                                                 </Stack>
                                             </Group>
+                                            {form.values.format ===
+                                                SchedulerFormat.XLSX &&
+                                                isDashboard && (
+                                                    <Radio.Group
+                                                        mt="sm"
+                                                        label={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
+                                                        )}
+                                                        description={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
+                                                        )}
+                                                        {...form.getInputProps(
+                                                            'options.xlsxFileLayout',
+                                                        )}
+                                                    >
+                                                        <Stack
+                                                            spacing="xxs"
+                                                            pt="xs"
+                                                        >
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
+                                                                )}
+                                                                value="zip"
+                                                            />
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
+                                                                )}
+                                                                value="workbook"
+                                                            />
+                                                        </Stack>
+                                                    </Radio.Group>
+                                                )}
                                         </Collapse>
                                     </Stack>
                                 )}

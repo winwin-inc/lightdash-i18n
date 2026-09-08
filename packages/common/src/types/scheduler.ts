@@ -15,6 +15,8 @@ export type SchedulerCsvOptions = {
     formatted: boolean;
     limit: 'table' | 'all' | number;
     asAttachment?: boolean;
+    /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
+    xlsxFileLayout?: 'zip' | 'workbook';
 };
 
 export type SchedulerImageOptions = {

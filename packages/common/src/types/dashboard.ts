@@ -186,6 +186,8 @@ export type DashboardConfig = {
     colorPalette?: string[];
     /** 记录需要同步颜色的图表 tile uuid 列表 */
     syncChartTileUuids?: string[];
+    /** Editor-authored note shown to viewers while filter rules are unmet */
+    requiredFiltersNote?: string;
 };
 
 export type Dashboard = {

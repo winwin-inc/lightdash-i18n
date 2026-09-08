@@ -533,7 +533,8 @@
             "edit": "Edit table calculation",
             "add": "Add table calculation",
             "empty": "SQL cannot be empty",
-            "name": "Name cannot be empty"
+            "name": "Name cannot be empty",
+            "no_sql_permission": "You do not have permission to create or edit SQL table calculations"
         },
         "edit": "Edit table calculation",
         "create": "Create table calculation",
@@ -547,7 +548,8 @@
                 "placeholder": "Select",
                 "dropdown": {
                     "raw_sql": "Raw SQL",
-                    "template": "Predefined Template"
+                    "template": "Predefined Template",
+                    "formula": "Formula"
                 }
             },
             "tabs": {
@@ -1213,7 +1215,9 @@
         },
         "validate_tips": {
             "name": "Name is required",
-            "custom_limit": "Custom limit must be an integer"
+            "custom_limit": "Custom limit must be an integer",
+            "required_filters": "Required filters must have values",
+            "requirement_group": "Set a value for at least one filter in each requirement group"
         },
         "form": {
             "tabs_list": {
@@ -1255,6 +1259,10 @@
                 "all_results": "All results",
                 "custom": "Custom...",
                 "results_are_limited": "Results are limited to {{limit}} cells for each file",
+                "xlsx_output": "XLSX output",
+                "xlsx_output_help": "Separate files puts each dashboard tile in its own XLSX file inside a ZIP. Single workbook puts each tile on its own sheet in one XLSX file.",
+                "xlsx_zip": "Separate files (ZIP)",
+                "xlsx_workbook": "Single workbook",
                 "tabs": {
                     "title": "Tabs",
                     "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",
@@ -3071,6 +3079,11 @@
             "label": "Upstream project"
         },
         "select_project": "Select project",
+        "group": {
+            "production": "Production projects",
+            "preview": "Preview projects"
+        },
+        "current_suffix": "{{name}} (Current)",
         "update": "Update",
         "toast_success": {
             "title": "Project updated",

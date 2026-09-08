@@ -7,6 +7,7 @@ import {
     DateGranularity,
     getActiveTabForTabs,
     getItemId,
+    getUnmetFilterRequirements,
     isDashboardChartTileType,
     isFilterLockedOnTab,
     stripOverridesForLockedFiltersOnTab,
@@ -1460,43 +1461,37 @@ const DashboardProvider: React.FC<
         [resultsCacheTimes],
     );
 
-    // Filters that are required to have a value set
-    const requiredDashboardFilters = useMemo(
-        () =>
-            dashboardFilters.dimensions
-                // Get filters that are required to have a value set (required) and that have no default value set (disabled)
-                .filter((f) => f.required && f.disabled)
-                .reduce<Pick<DashboardFilterRule, 'id' | 'label'>[]>(
-                    (acc, f) => {
-                        const field = allFilterableFieldsMap[f.target.fieldId];
-
-                        let label = '';
-
-                        if (f.label) {
-                            label = f.label;
-                        } else if (field) {
-                            label = getConditionalRuleLabelFromItem(
-                                f,
-                                field,
-                            ).field;
-                        }
-
-                        return [
-                            ...acc,
-                            {
-                                id: f.id,
-                                label,
-                            },
-                        ];
-                    },
-                    [],
-                ),
-        [
-            dashboardFilters.dimensions,
-            allFilterableFieldsMap,
-            getConditionalRuleLabelFromItem,
-        ],
-    );
+    // Filters that are required to have a value set (single required + any-of groups)
+    const requiredDashboardFilters = useMemo(() => {
+        const unmet = getUnmetFilterRequirements(dashboardFilters);
+        return unmet.reduce<Pick<DashboardFilterRule, 'id' | 'label'>[]>(
+            (acc, requirement) => {
+                const filters =
+                    requirement.type === 'single'
+                        ? [requirement.filter]
+                        : requirement.filters;
+                filters.forEach((f) => {
+                    if (acc.some((existing) => existing.id === f.id)) {
+                        return;
+                    }
+                    const field = allFilterableFieldsMap[f.target.fieldId];
+                    let label = '';
+                    if (f.label) {
+                        label = f.label;
+                    } else if (field) {
+                        label = getConditionalRuleLabelFromItem(f, field).field;
+                    }
+                    acc.push({ id: f.id, label });
+                });
+                return acc;
+            },
+            [],
+        );
+    }, [
+        dashboardFilters,
+        allFilterableFieldsMap,
+        getConditionalRuleLabelFromItem,
+    ]);
 
     // Memoized mapping of tile UUIDs to their display names
     const tileNamesById = useMemo(() => {

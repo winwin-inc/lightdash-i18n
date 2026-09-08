@@ -52,6 +52,7 @@ import {
 import { useExplore } from '../../../hooks/useExplore';
 import { useProject } from '../../../hooks/useProject';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
+import { useCannotAuthorCustomSqlTableCalculations } from '../../../hooks/user/useCannotAuthorCustomSqlTableCalculations';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { getUniqueTableCalculationName } from '../utils';
 import { FormulaForm } from './FormulaForm/FormulaForm';
@@ -148,6 +149,8 @@ const TableCalculationModal: FC<Props> = ({
 
     const { t } = useTranslation();
     const { addToastError } = useToaster();
+    const cannotAuthorSqlTcs =
+        useCannotAuthorCustomSqlTableCalculations(projectUuid) === true;
 
     const form = useForm<TableCalculationFormInputs>({
         initialValues: {
@@ -206,6 +209,15 @@ const TableCalculationModal: FC<Props> = ({
 
     const handleSubmit = form.onSubmit((data) => {
         const { name, sql, formula } = data;
+        if (editMode === EditMode.SQL && cannotAuthorSqlTcs) {
+            addToastError({
+                title: t(
+                    'features_table_calculation_modal.tips.no_sql_permission',
+                ),
+                key: 'table-calculation-modal',
+            });
+            return;
+        }
         if (sql.length === 0 && editMode === EditMode.SQL) {
             addToastError({
                 title: t('features_table_calculation_modal.tips.empty'),
@@ -393,7 +405,9 @@ const TableCalculationModal: FC<Props> = ({
                                             ? [
                                                   {
                                                       value: EditMode.FORMULA,
-                                                      label: 'Formula',
+                                                      label: t(
+                                                          'features_table_calculation_modal.form.calculation_mode.dropdown.formula',
+                                                      ),
                                                   },
                                               ]
                                             : []),
@@ -402,6 +416,7 @@ const TableCalculationModal: FC<Props> = ({
                                             label: t(
                                                 'features_table_calculation_modal.form.calculation_mode.dropdown.raw_sql',
                                             ),
+                                            disabled: cannotAuthorSqlTcs,
                                         },
                                         ...(hasTemplate
                                             ? [

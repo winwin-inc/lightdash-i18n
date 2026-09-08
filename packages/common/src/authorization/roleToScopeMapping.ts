@@ -67,6 +67,7 @@ const BASE_ROLE_SCOPES = {
         // Developer-specific permissions
         'manage:VirtualView',
         'manage:CustomSql',
+        'manage:CustomSqlTableCalculations',
         'manage:SqlRunner',
         'manage:Validation',
         'manage:CompileProject',

@@ -271,6 +271,9 @@ const applyOrganizationMemberStaticAbilities: Record<
         can('manage', 'CustomSql', {
             organizationUuid: member.organizationUuid,
         });
+        can('manage', 'CustomSqlTableCalculations', {
+            organizationUuid: member.organizationUuid,
+        });
         can('manage', 'SqlRunner', {
             organizationUuid: member.organizationUuid,
         });

@@ -180,6 +180,19 @@ pnpm -F backend migrate
 
 > **CHANGELOG 增量高价值候选**（CJK 检索、Filter Requirements、导出/XLSX、Embed、Role Sets 等，不阻塞本清单发布）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
 
+### 增量 P0 手测（本轮移植，不阻塞主清单）
+
+| # | 项 | 预期 |
+|---|----|------|
+| P0-1 | 表计算 Modal | 「公式」选项与 Tab「模板 / 格式」为中文 |
+| P0-2 | Data Ops 项目分组 | 「生产项目 / 预览项目 /（当前）」为中文 |
+| P0-3 | Omnibar | 中文 1 字可出结果（不必凑满 3 字符） |
+| P0-4 | 定时推送截图 | 中文看板截图字体可读（CJK 字体） |
+| P0-5 | CustomSql 表计算 | 无 `manage:CustomSqlTableCalculations` 时 SQL 模式禁用并 toast |
+| P0-6 | 看板锁筛 / 必填 | 必填筛选未填值时 `requiredDashboardFilters` 阻塞（含 any-of 组语义） |
+| P0-7 | 定时交付筛选 | 必填/需求组未满足时 Scheduler 表单无法保存 |
+| P0-8 | 看板定时 XLSX | 格式选项可选「分文件 ZIP」或「单个工作簿」；workbook 交付为一份多 sheet XLSX |
+
 ## 十、本轮 agent 完成项 vs 待预发手测
 
 | 已完成 | 待预发（库 + 服务起来后） |
