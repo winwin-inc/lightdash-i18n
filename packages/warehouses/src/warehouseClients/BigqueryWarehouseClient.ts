@@ -214,7 +214,7 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                           // In this case we should rely on ADC at runtime and not pass explicit credentials.
                       }
                     : { credentials: credentials.keyfileContents }),
-            });
+            } as ConstructorParameters<typeof BigQuery>[0]);
         } catch (e: unknown) {
             throw new WarehouseConnectionError(
                 `Failed connection to ${credentials.project} in ${
@@ -701,7 +701,7 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                 client_secret: process.env.AUTH_GOOGLE_OAUTH2_CLIENT_SECRET,
                 refresh_token,
             },
-        });
+        } as ConstructorParameters<typeof BigQuery>[0]);
 
         const datasets = await bigqueryClient.getDatasets();
         const databases = datasets[0].map((d) => ({
