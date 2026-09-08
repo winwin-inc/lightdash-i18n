@@ -49,12 +49,13 @@ const supportedDialectsAreExhaustive: MissingSupportedDialect extends never
     : MissingSupportedDialect = true;
 void supportedDialectsAreExhaustive;
 
-export function compile(formula: string, options: CompileOptions): string {
+// Use `const` assignments (not `export function`) so Vite/Rollup CJS interop
+// can statically detect named exports from packages/formula/dist/index.js.
+export const compile = (formula: string, options: CompileOptions): string => {
     const ast = parse(formula);
     const generator = createGenerator(options);
     return generator.generate(ast);
-}
+};
 
-export function listFunctions(): readonly FunctionDefinitionEntry[] {
-    return FUNCTION_DEFINITIONS;
-}
+export const listFunctions = (): readonly FunctionDefinitionEntry[] =>
+    FUNCTION_DEFINITIONS;

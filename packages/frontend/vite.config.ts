@@ -118,9 +118,9 @@ export default defineConfig({
             },
         }),
     ],
-    css: {
-        transformer: 'lightningcss',
-    },
+    // Use default PostCSS pipeline (postcss.config.cjs + postcss-preset-mantine)
+    // so @mixin light/dark expand correctly. lightningcss does not understand
+    // those mixins and silently breaks dark-mode CSS Modules.
     optimizeDeps: {
         exclude: ['@lightdash/common'],
         esbuildOptions: {
@@ -133,8 +133,15 @@ export default defineConfig({
         target: 'es2017',
     },
     resolve: {
-        alias:
-            process.env.NODE_ENV === 'development'
+        alias: {
+            // Always bundle formula from source: its CJS dist is not reliably
+            // tree-shaken/named-exported by Rollup in production vite builds
+            // ("listFunctions is not exported by ../formula/dist/index.js").
+            '@lightdash/formula': path.resolve(
+                __dirname,
+                '../formula/src/index.ts',
+            ),
+            ...(process.env.NODE_ENV === 'development'
                 ? {
                       '@lightdash/common/src': path.resolve(
                           __dirname,
@@ -144,10 +151,6 @@ export default defineConfig({
                           __dirname,
                           '../common/src/index.ts',
                       ),
-                      '@lightdash/formula': path.resolve(
-                          __dirname,
-                          '../formula/src/index.ts',
-                      ),
                       // Dev 默认走 echarts/lib（含 __DEV__ assert），数据异步更新时会触发
                       // cartesianAxisHelper 断言导致图表崩溃；线上 prod bundle 无此问题。
                       echarts: path.resolve(
@@ -155,7 +158,8 @@ export default defineConfig({
                           'node_modules/echarts/dist/echarts.min.js',
                       ),
                   }
-                : undefined,
+                : {}),
+        },
     },
     build: {
         outDir: 'build',
