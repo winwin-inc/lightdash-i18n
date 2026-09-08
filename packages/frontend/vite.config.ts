@@ -168,7 +168,9 @@ export default defineConfig({
         // legacy 插件继续为更老的环境注入 polyfill
         target: 'es2017',
         minify: true,
-        sourcemap: true,
+        // Sourcemaps roughly double peak RSS during Rollup; only emit when Sentry
+        // upload is configured (Docker/CI already passes SENTRY_AUTH_TOKEN then).
+        sourcemap: Boolean(process.env.SENTRY_AUTH_TOKEN),
 
         rollupOptions: {
             output: {
