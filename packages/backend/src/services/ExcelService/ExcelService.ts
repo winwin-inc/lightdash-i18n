@@ -10,10 +10,12 @@ import {
     getErrorMessage,
     getFormatExpression,
     hasFormatOptions,
+    isDimension,
     ItemsMap,
     MetricQuery,
     PivotConfig,
     pivotResultsAsCsv,
+    TimeFrames,
     type ReadyQueryResultsPage,
 } from '@lightdash/common';
 import * as Excel from 'exceljs';
@@ -163,9 +165,41 @@ export class ExcelService {
         return moment(value).format(pattern);
     }
 
-    // Helper method for date/timestamp conversion
+    /**
+     * Excel formatted month period: 2026-08 → 202608.
+     * Keep as text so Excel does not parse it as a date or add thousand separators.
+     */
+    private static toExcelMonthPeriod(value: string): string {
+        const match = /^(\d{4})-(\d{2})$/.exec(value);
+        return match ? `${match[1]}${match[2]}` : value;
+    }
+
+    /**
+     * Calendar-only display strings that must stay text.
+     * YYYYMM is ISO-8601 basic year-month and would otherwise become a Date.
+     */
+    private static isCalendarDateDisplayValue(value: string): boolean {
+        return (
+            /^\d{4}$/.test(value) ||
+            /^\d{6}$/.test(value) ||
+            /^\d{4}-\d{2}$/.test(value) ||
+            /^\d{4}-\d{2}-\d{2}$/.test(value) ||
+            /^\d{4}-Q[1-4]$/.test(value)
+        );
+    }
+
+    /**
+     * Convert full ISO datetimes to Date. Month periods become YYYYMM text
+     * (202608) so Excel does not shift timezone (2026/7/31 16:00 in UTC+8).
+     */
     static convertToExcelDate(value: unknown): Date | unknown {
         if (typeof value === 'string') {
+            if (/^\d{4}-\d{2}$/.test(value)) {
+                return ExcelService.toExcelMonthPeriod(value);
+            }
+            if (ExcelService.isCalendarDateDisplayValue(value)) {
+                return value;
+            }
             const dateValue = moment(value, moment.ISO_8601, true);
             if (dateValue.isValid()) {
                 return dateValue.toDate();
@@ -244,7 +278,14 @@ export class ExcelService {
 
             // Formatted mode: preserve existing formatter behavior, using timezone-normalized temporal value.
             if (isTemporalField) {
-                return formatItemValue(item, rawValue);
+                const formatted = formatItemValue(item, rawValue);
+                if (
+                    isDimension(item) &&
+                    item.timeInterval === TimeFrames.MONTH
+                ) {
+                    return ExcelService.toExcelMonthPeriod(formatted);
+                }
+                return formatted;
             }
 
             const formatExpression = getFormatExpression(item);
