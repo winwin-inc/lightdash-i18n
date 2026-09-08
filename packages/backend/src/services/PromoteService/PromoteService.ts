@@ -1536,4 +1536,14 @@ export class PromoteService extends BaseService {
             throw e;
         }
     }
+    // STUB: port from upstream PromoteService
+    async getOrCreateUpstreamSpace(
+        _user: SessionUser,
+        _sourceSpaceUuid: string,
+        _upstreamProjectUuid: string,
+    ): Promise<string> {
+        throw new Error(
+            'getOrCreateUpstreamSpace is not available in this build',
+        );
+    }
 }

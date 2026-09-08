@@ -25,6 +25,66 @@
         "download_as": "下载为",
         "results": "结果"
     },
+    "features_mergeQuery": {
+        "join_type": "关联类型",
+        "join_inner": "内连接",
+        "join_left": "左连接",
+        "join_full_outer": "全外连接",
+        "join_inner_help": "内连接 · 仅保留两边都有的 {{joinField}} 值，未匹配的行会被丢弃。",
+        "join_left_help": "左连接 · 保留 {{thisQuery}} 中的 {{joinField}} 值，仅在 {{otherQuery}} 中出现的行会被丢弃。",
+        "join_full_help": "全外连接 · 保留任一侧的 {{joinField}}，无匹配时另一侧列为空。",
+        "this_query": "当前查询",
+        "other_query": "另一查询",
+        "done": "完成",
+        "edit": "编辑",
+        "choose_field": "选择或添加字段",
+        "something_went_wrong": "出错了",
+        "matched_on": "匹配字段",
+        "matches_only": "仅匹配行",
+        "keep_all_rows": "保留全部行",
+        "keep_query": "保留 {{label}}",
+        "merge_failed": "合并查询运行失败",
+        "first_data": "第一份数据",
+        "combined_data": "合并数据",
+        "choose_data_to_combine": "选择要合并的数据",
+        "select_data_and_fields": "选择数据与字段",
+        "choose_fields": "选择字段",
+        "remove_combined_data": "移除合并数据",
+        "filters": "筛选",
+        "no_filters": "无筛选",
+        "active_filters": "{{count}} 个生效",
+        "first_table": "第一张表",
+        "second_table": "第二张表",
+        "back_to_fields": "返回字段",
+        "change_table": "更换表",
+        "join_conditions": "关联条件",
+        "add_join_condition": "添加关联条件",
+        "use_suggestion": "使用建议",
+        "remove_join_condition": "移除关联条件 {{index}}",
+        "choose_table": "选择表",
+        "choose_table_desc": "选择要与当前查询合并的数据。",
+        "select_fields": "选择字段",
+        "select_fields_metric_dimension": "添加一个指标和一个用于匹配的维度。",
+        "select_fields_dimension": "添加一个用于匹配的维度。",
+        "select_fields_metric": "至少添加一个指标。",
+        "match_queries": "匹配查询",
+        "match_queries_desc": "在关联关系中选择对应字段。",
+        "review_relationship": "检查关联关系",
+        "review_relationship_desc": "确认保留规则后运行合并查询。",
+        "add_metric_from_table": "请从 {{table}} 至少添加一个指标",
+        "pick_join_field": "请在两侧各选一个用于关联的字段",
+        "cannot_join_on_field": "无法使用该字段关联这两个查询",
+        "field_only_in_one_query": "该字段仅存在于其中一个查询",
+        "relationship": "关联关系",
+        "data_sources": "数据源",
+        "selected_count": "已选 {{count}} 项",
+        "active_filters_badge": "{{count}} 个生效筛选",
+        "active_filters_badge_plural": "{{count}} 个生效筛选",
+        "filters_join_hint": "匹配字段上的筛选会同时作用于两个查询，其余筛选仅作用于各自查询。",
+        "selected_for_result": "结果字段 · {{count}}",
+        "source_order_first": "第一份",
+        "source_order_second": "第二份"
+    },
     "about_footer": {
         "about_msy_x": "关于 马上赢X"
     },
@@ -307,6 +367,10 @@
     "hooks_project_tables_configuration": {
         "save_success": "项目配置已保存",
         "save_error": "保存表配置失败"
+    },
+    "hooks_project_results_cache_settings": {
+        "save_success": "缓存时长已更新",
+        "save_error": "更新缓存时长失败"
     },
     "hooks_project": {
         "update_error": "更新项目失败",
@@ -2368,6 +2432,7 @@
             "end_date": "结束日期"
         },
         "utc_time": "UTC 时间",
+        "local_time": "本地时间",
         "filters_error": "FiltersProvider 中需要 projectUuid",
         "add": "添加",
         "add_filter_tip": "请输入以添加筛选器值",
@@ -2725,7 +2790,13 @@
             "tables": "表格",
             "filter_rules": {
                 "part_1": "是任何值"
-            }
+            },
+            "lock": "锁定筛选器",
+            "lock_on_tab": "在此标签页锁定筛选器",
+            "lock_unlock": "解锁筛选器",
+            "lock_unlock_tab": "在此标签页解锁筛选器",
+            "locked": "已由看板编辑者锁定",
+            "locked_on_tab": "已在此标签页锁定"
         },
         "filter_dashboard": {
             "title": "筛选看板为...",
@@ -2739,7 +2810,15 @@
             "reset_all_filters": "重置所有筛选器"
         },
         "enable_filter": "启用筛选器",
-        "show_add_filter_button": "显示筛选器"
+        "show_add_filter_button": "显示筛选器",
+        "filter_locked_toast": {
+            "title": "筛选器已锁定",
+            "override_single": "已忽略一条筛选覆盖，因为看板编辑者锁定了该筛选器。",
+            "override_many": "已忽略 {{count}} 条筛选覆盖，因为看板编辑者锁定了这些筛选器。",
+            "temp_single": "已忽略一条临时筛选，因为看板编辑者锁定了它{{scope}}。",
+            "temp_many": "已忽略 {{count}} 条临时筛选，因为看板编辑者锁定了它们{{scope}}。",
+            "scope_tab": "（当前标签页）"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {
@@ -2808,7 +2887,9 @@
             "rename_tab": "重命名标签页",
             "remove_tabs_component": "移除标签页组件",
             "remove_tab": "移除标签页",
-            "safely_remove_tab": "安全移除标签页"
+            "safely_remove_tab": "安全移除标签页",
+            "hide_tab": "隐藏标签页",
+            "show_tab": "显示标签页"
         }
     },
     "components_dbt_cloud_settings": {
@@ -2917,6 +2998,22 @@
                     "part_2": "项目定时交付的默认时区"
                 }
             },
+            "update": "更新"
+        }
+    },
+    "components_settings_query_timezone": {
+        "tips": {
+            "success": "成功更新项目的查询时区设置",
+            "failed": "更新项目的查询时区设置失败"
+        },
+        "title": "时区行为",
+        "description_enabled": "用于日期筛选、时间分组，以及图表与表格中日期展示的时区。这不会改变数据库会话时区。",
+        "description_disabled": "控制「今天」「本周」等相对日期筛选的含义。例如设为 US/Eastern 时，「今天」表示纽约时间的午夜到午夜，而不是 UTC。这不会改变数据库会话时区。",
+        "form": {
+            "timezone_label": "默认时区",
+            "timezone_placeholder": "服务器默认（UTC）",
+            "filter_toggle_label": "筛选输入使用项目时区",
+            "filter_toggle_description": "将绝对日期按项目时区解释，而不是用户浏览器时区。需开启 ENABLE_TIMEZONE_SUPPORT 后生效。",
             "update": "更新"
         }
     },
@@ -3670,6 +3767,14 @@
         "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误",
         "validation_errors": "验证错误"
     },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} 在看板「{{dashboardName}}」中提到了你",
+            "tagged_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中提到了你",
+            "commented": "{{author}} 在看板「{{dashboardName}}」中发表了评论",
+            "commented_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中发表了评论"
+        }
+    },
     "components_navbar_headway_menu": {
         "tooltip": {
             "label": "有什么新闻吗?"
@@ -4257,6 +4362,11 @@
                     "part_1": "此电子邮件尚未验证.",
                     "part_2": "单击此处验证"
                 }
+            },
+            "timezone": {
+                "label": "默认时区",
+                "description": "用于按「用户时区」渲染查询结果；留空则回退到项目时区。",
+                "placeholder": "项目默认"
             }
         },
         "cancel": "取消",
@@ -5847,7 +5957,22 @@
         "edit_dimension": "编辑自定义维度",
         "eidt_calculation": "编辑计算",
         "sort": "排序",
-        "sorting": "排序方式"
+        "sorting": "排序方式",
+        "add_period_comparison": "添加同期对比"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "添加同期对比",
+        "confirm": "添加对比",
+        "cancel": "取消",
+        "already_exists_title": "该对比已存在",
+        "already_exists_body": "该指标已存在相同时间维度和偏移量的同期对比。请选择其他时间维度或偏移量。",
+        "time_dimension": "时间维度",
+        "time_dimension_placeholder": "选择时间维度",
+        "time_dimension_placeholder_disabled": "请先添加时间维度以启用对比",
+        "offset": "偏移量",
+        "granularity_label": "{{label}} 粒度",
+        "granularity_from_dimension": "粒度由所选维度决定",
+        "will_create": "将创建："
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "已复制到剪贴板",
@@ -6208,7 +6333,8 @@
         "resource_view_labels": {
             "chart": "图表",
             "dashboard": "看板",
-            "space": "空间"
+            "space": "空间",
+            "data_app": "数据应用"
         },
         "resource_view_chart_labels": {
             "bar": "柱状图",
@@ -6287,6 +6413,8 @@
             "table": "表格",
             "big_number": "大数值",
             "custom_visualization": "自定义可视化",
+            "data_app": "数据应用",
+            "custom_chart": "自定义图表",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
     },
@@ -6294,7 +6422,8 @@
         "all": "全部",
         "dashboards": "看板",
         "charts": "图表",
-        "spaces": "空间"
+        "spaces": "空间",
+        "data_apps": "数据应用"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "只有你可见",
@@ -6637,10 +6766,12 @@
                 "dbt_semantic_layer": "dbt 语义层",
                 "usage_analytics": "使用分析",
                 "syncs_scheduled_deliveries": "同步与定时交付",
+                "query_timezone": "查询时区",
                 "validator": "验证器",
                 "data_ops": "数据操作",
                 "changesets": "变更集",
                 "parameters": "参数",
+                "results_caching": "结果缓存",
                 "custom_sql": "自定义 SQL",
                 "semantic_layer_integration": "语义层集成"
             }
@@ -7790,6 +7921,24 @@
             "source": "来源",
             "no_parameters_found": "没有找到匹配的参数",
             "no_parameters_configured": "没有为这个项目配置参数"
+        }
+    },
+    "components_project_results_cache": {
+        "title": "缓存时长",
+        "description": "缓存结果保留多久后，马上赢X 会再次查询数据仓库。",
+        "use_default": "使用默认缓存时长",
+        "default_expires": "缓存结果将在 {{duration}} 后过期。",
+        "ttl_label": "缓存时长（分钟）",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "请输入 {{min}} 到 {{max}}（30 天）之间的整数分钟数",
+        "save": "保存",
+        "units": {
+            "minute": "分钟",
+            "minutes": "分钟",
+            "hour": "小时",
+            "hours": "小时",
+            "day": "天",
+            "days": "天"
         }
     },
     "components_limit_button": {

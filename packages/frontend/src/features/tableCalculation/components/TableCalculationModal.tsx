@@ -2,13 +2,16 @@ import {
     CustomFormatType,
     getErrorMessage,
     getItemId,
+    isFormulaTableCalculation,
     isSqlTableCalculation,
     isTemplateTableCalculation,
     NumberSeparator,
+    TableCalculationTotalMode,
     TableCalculationType,
     type CustomFormat,
     type TableCalculation,
 } from '@lightdash/common';
+import { SUPPORTED_DIALECTS } from '@lightdash/formula';
 import {
     ActionIcon,
     Box,
@@ -32,7 +35,7 @@ import {
     IconMaximize,
     IconMinimize,
 } from '@tabler/icons-react';
-import { useRef, useState, type FC } from 'react';
+import { useMemo, useRef, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToggle } from 'react-use';
 import { type ValueOf } from 'type-fest';
@@ -41,11 +44,17 @@ import { FormatForm } from '../../../components/Explorer/FormatForm';
 import MantineIcon from '../../../components/common/MantineIcon';
 import {
     selectCustomDimensions,
+    selectMetricQuery,
     selectTableCalculations,
+    selectTableName,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { useExplore } from '../../../hooks/useExplore';
+import { useProject } from '../../../hooks/useProject';
+import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import useToaster from '../../../hooks/toaster/useToaster';
 import { getUniqueTableCalculationName } from '../utils';
+import { FormulaForm } from './FormulaForm/FormulaForm';
 import { SqlForm } from './SqlForm';
 import { TemplateViewer } from './TemplateViewer/TemplateViewer';
 
@@ -57,13 +66,16 @@ type Props = ModalProps & {
 type TableCalculationFormInputs = {
     name: string;
     sql: string;
+    formula: string;
     format: CustomFormat;
     type?: TableCalculationType;
+    totalMode?: TableCalculationTotalMode;
 };
 
 enum EditMode {
     SQL = 'sql',
     TEMPLATE = 'template',
+    FORMULA = 'formula',
 }
 
 const useTableCalculationTypeLabels = () => {
@@ -98,21 +110,44 @@ const TableCalculationModal: FC<Props> = ({
     const { colors } = theme;
     const [isExpanded, toggleExpanded] = useToggle(false);
 
-    // Default to Raw SQL, but show Template if it exists
+    const tableCalculations = useExplorerSelector(selectTableCalculations);
+    const customDimensions = useExplorerSelector(selectCustomDimensions);
+    const metricQuery = useExplorerSelector(selectMetricQuery);
+    const tableName = useExplorerSelector(selectTableName);
+    const projectUuid = useProjectUuid();
+    const { data: project } = useProject(projectUuid);
+    const { data: explore } = useExplore(tableName);
+
+    const formulaSupported = useMemo(() => {
+        const warehouseType = project?.warehouseConnection?.type;
+        return (
+            !!warehouseType &&
+            (SUPPORTED_DIALECTS as readonly string[]).includes(warehouseType)
+        );
+    }, [project?.warehouseConnection?.type]);
+
+    const tableCalculationTypeLabels = useTableCalculationTypeLabels();
+
+    // Default mode: formula if editing formula calc; template if template; else sql
     const hasTemplate = tableCalculation
         ? isTemplateTableCalculation(tableCalculation)
         : false;
-    const defaultMode = hasTemplate ? EditMode.TEMPLATE : EditMode.SQL;
+    const hasFormula = tableCalculation
+        ? isFormulaTableCalculation(tableCalculation)
+        : false;
+    const defaultMode = hasFormula
+        ? EditMode.FORMULA
+        : hasTemplate
+          ? EditMode.TEMPLATE
+          : formulaSupported
+            ? EditMode.FORMULA
+            : EditMode.SQL;
     const [editMode, setEditMode] = useState<EditMode>(defaultMode);
+    const [formulaError, setFormulaError] = useState<string | null>(null);
     const submitButtonRef = useRef<HTMLButtonElement>(null);
 
     const { t } = useTranslation();
     const { addToastError } = useToaster();
-
-    const tableCalculations = useExplorerSelector(selectTableCalculations);
-    const customDimensions = useExplorerSelector(selectCustomDimensions);
-
-    const tableCalculationTypeLabels = useTableCalculationTypeLabels();
 
     const form = useForm<TableCalculationFormInputs>({
         initialValues: {
@@ -121,7 +156,13 @@ const TableCalculationModal: FC<Props> = ({
                 tableCalculation && isSqlTableCalculation(tableCalculation)
                     ? tableCalculation.sql
                     : '',
+            formula:
+                tableCalculation && isFormulaTableCalculation(tableCalculation)
+                    ? tableCalculation.formula
+                    : '=',
             type: tableCalculation?.type || TableCalculationType.NUMBER,
+            totalMode:
+                tableCalculation?.totalMode || TableCalculationTotalMode.FORMULA,
             format: {
                 type:
                     tableCalculation?.format?.type || CustomFormatType.DEFAULT,
@@ -164,8 +205,7 @@ const TableCalculationModal: FC<Props> = ({
     });
 
     const handleSubmit = form.onSubmit((data) => {
-        const { name, sql } = data;
-        // throw error if sql is empty
+        const { name, sql, formula } = data;
         if (sql.length === 0 && editMode === EditMode.SQL) {
             addToastError({
                 title: t('features_table_calculation_modal.tips.empty'),
@@ -173,7 +213,23 @@ const TableCalculationModal: FC<Props> = ({
             });
             return;
         }
-        // throw error if name is empty
+        if (
+            editMode === EditMode.FORMULA &&
+            (formula.trim().length === 0 || formula.trim() === '=')
+        ) {
+            addToastError({
+                title: t('features_table_calculation_modal.tips.empty'),
+                key: 'table-calculation-modal',
+            });
+            return;
+        }
+        if (editMode === EditMode.FORMULA && formulaError) {
+            addToastError({
+                title: formulaError,
+                key: 'table-calculation-modal',
+            });
+            return;
+        }
         if (name.length === 0) {
             addToastError({
                 title: t('features_table_calculation_modal.tips.name'),
@@ -182,7 +238,6 @@ const TableCalculationModal: FC<Props> = ({
             return;
         }
         try {
-            // Determine the final name - only run uniqueness check if name changed or it's a new calculation
             const isNewCalculation = !tableCalculation;
             const nameChanged =
                 tableCalculation && tableCalculation.displayName !== name;
@@ -195,7 +250,6 @@ const TableCalculationModal: FC<Props> = ({
                     tableCalculation,
                 );
             } else {
-                // Name unchanged - keep the original name
                 finalName = tableCalculation.name;
             }
 
@@ -209,7 +263,20 @@ const TableCalculationModal: FC<Props> = ({
                     displayName: name,
                     format: data.format,
                     type: data.type,
+                    totalMode: data.totalMode,
                     template: tableCalculation.template,
+                });
+            } else if (editMode === EditMode.FORMULA) {
+                const normalized = formula.trim().startsWith('=')
+                    ? formula.trim()
+                    : `=${formula.trim()}`;
+                onSave({
+                    name: finalName,
+                    displayName: name,
+                    format: data.format,
+                    type: data.type,
+                    totalMode: data.totalMode,
+                    formula: normalized,
                 });
             } else {
                 onSave({
@@ -217,6 +284,7 @@ const TableCalculationModal: FC<Props> = ({
                     displayName: name,
                     format: data.format,
                     type: data.type,
+                    totalMode: data.totalMode,
                     sql,
                 });
             }
@@ -311,7 +379,7 @@ const TableCalculationModal: FC<Props> = ({
                                 {...form.getInputProps('name')}
                             />
 
-                            {hasTemplate && (
+                            {(hasTemplate || formulaSupported || hasFormula) && (
                                 <Select
                                     label={t(
                                         'features_table_calculation_modal.form.calculation_mode.label',
@@ -321,24 +389,100 @@ const TableCalculationModal: FC<Props> = ({
                                         setEditMode(value as EditMode)
                                     }
                                     data={[
+                                        ...(formulaSupported || hasFormula
+                                            ? [
+                                                  {
+                                                      value: EditMode.FORMULA,
+                                                      label: 'Formula',
+                                                  },
+                                              ]
+                                            : []),
                                         {
                                             value: EditMode.SQL,
                                             label: t(
                                                 'features_table_calculation_modal.form.calculation_mode.dropdown.raw_sql',
                                             ),
                                         },
-                                        {
-                                            value: EditMode.TEMPLATE,
-                                            label: t(
-                                                'features_table_calculation_modal.form.calculation_mode.dropdown.template',
-                                            ),
-                                        },
+                                        ...(hasTemplate
+                                            ? [
+                                                  {
+                                                      value: EditMode.TEMPLATE,
+                                                      label: t(
+                                                          'features_table_calculation_modal.form.calculation_mode.dropdown.template',
+                                                      ),
+                                                  },
+                                              ]
+                                            : []),
                                     ]}
                                     mb="md"
                                 />
                             )}
 
-                            {editMode === EditMode.TEMPLATE ? (
+                            {editMode === EditMode.FORMULA ? (
+                                <Tabs
+                                    key="formula"
+                                    defaultValue="formula"
+                                    color="indigo"
+                                    variant="outline"
+                                    radius="xs"
+                                    styles={{
+                                        panel: {
+                                            borderColor: colors.gray[2],
+                                            borderWidth: 1,
+                                            borderStyle: 'solid',
+                                            borderTop: 'none',
+                                            height: isExpanded
+                                                ? 'calc(90vh - 400px)'
+                                                : 'auto',
+                                        },
+                                    }}
+                                >
+                                    <Tabs.List>
+                                        <Tabs.Tab value="formula">
+                                            Formula
+                                        </Tabs.Tab>
+                                        <Tabs.Tab value="format">
+                                            {t(
+                                                'features_table_calculation_modal.form.tabs.format',
+                                            )}
+                                        </Tabs.Tab>
+                                    </Tabs.List>
+                                    <Tabs.Panel value="formula" p="sm">
+                                        <FormulaForm
+                                            explore={explore}
+                                            metricQuery={metricQuery}
+                                            formula={form.values.formula}
+                                            initialFormula={
+                                                form.values.formula
+                                            }
+                                            onChange={(value) =>
+                                                form.setFieldValue(
+                                                    'formula',
+                                                    value,
+                                                )
+                                            }
+                                            onValidationChange={setFormulaError}
+                                            isFullScreen={isExpanded}
+                                        />
+                                        {formulaError ? (
+                                            <Text color="red" size="sm" mt="xs">
+                                                {formulaError}
+                                            </Text>
+                                        ) : null}
+                                    </Tabs.Panel>
+                                    <Tabs.Panel value="format" p="sm">
+                                        <FormatForm
+                                            formatInputProps={
+                                                getFormatInputProps
+                                            }
+                                            setFormatFieldValue={
+                                                setFormatFieldValue
+                                            }
+                                            format={form.values.format}
+                                        />
+                                    </Tabs.Panel>
+                                </Tabs>
+                            ) : editMode === EditMode.TEMPLATE ? (
                                 <Tabs
                                     key="template"
                                     defaultValue="template"

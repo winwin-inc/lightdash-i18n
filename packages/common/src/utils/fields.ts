@@ -270,3 +270,16 @@ export function convertReplaceableFieldMatchMapToReplaceCustomFields(
         {},
     );
 }
+
+// STUB for dataReferenceChecker
+export function getDimensionMapFromTables(
+    ..._args: unknown[]
+): Record<string, unknown> {
+    return {};
+}
+
+export function getMetricsMapFromTables(
+    ..._args: unknown[]
+): Record<string, unknown> {
+    return {};
+}

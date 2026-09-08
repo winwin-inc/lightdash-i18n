@@ -136,6 +136,8 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
                         className={className}
                     />
                 );
+            case ChartType.DATA_APP_VIZ:
+                return null;
 
             default:
                 return assertUnreachable(

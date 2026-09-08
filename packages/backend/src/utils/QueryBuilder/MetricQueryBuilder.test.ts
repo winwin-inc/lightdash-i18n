@@ -10,6 +10,8 @@ import {
     JoinRelationship,
     MetricType,
     SortByDirection,
+    TableCalculationTotalMode,
+    TableCalculationType,
     TimeFrames,
     VizAggregationOptions,
     VizIndexType,
@@ -2472,5 +2474,101 @@ describe('Query Structure Tests', () => {
         expect(metricsIndex).toBeLessThan(metricFiltersIndex);
         expect(metricFiltersIndex).toBeLessThan(tcAIndex);
         expect(tcAIndex).toBeLessThan(tcBIndex);
+    });
+});
+
+describe('MetricQueryBuilder totalConfiguration', () => {
+    it('collapses to a simple grand total without embedding source_rows', () => {
+        const result = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY,
+                tableCalculations: [],
+                compiledTableCalculations: [],
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+            totalConfiguration: {
+                kind: 'grandTotal',
+                subtotalDimensions: undefined,
+            },
+        });
+
+        expect(result.query).not.toContain('source_rows');
+        expect(result.query).toContain(
+            'MAX("table1".number_column) AS "table1_metric1"',
+        );
+        expect(result.query).not.toContain('table1_dim1');
+        expect(result.query).toContain('LIMIT 1');
+    });
+
+    it('embeds source_rows and semi-joins filtered dimension groups for metric filters', () => {
+        const result = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY_WITH_METRIC_FILTER,
+                tableCalculations: [],
+                compiledTableCalculations: [],
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+            totalConfiguration: {
+                kind: 'grandTotal',
+                subtotalDimensions: undefined,
+            },
+        });
+
+        expect(result.query).toContain('source_rows AS (');
+        expect(result.query).toContain('source_dimension_groups');
+        expect(result.query).toContain('INNER JOIN source_dimension_groups');
+        // Metric filter is applied inside the embedded source, not on the totals grain.
+        expect(result.query.match(/source_rows AS \(/g)).toHaveLength(1);
+        expect(result.query).toContain('("table1_metric1")');
+        expect(result.query).toContain('IN (0)');
+    });
+
+    it('sums sum-of-rows table calcs over a shared source_rows CTE', () => {
+        const result = buildQuery({
+            explore: EXPLORE,
+            compiledMetricQuery: {
+                ...METRIC_QUERY_WITH_METRIC_FILTER,
+                tableCalculations: [
+                    {
+                        name: 'metric_plus_two',
+                        displayName: 'Metric plus two',
+                        sql: '${table1.metric1} + 2',
+                        type: TableCalculationType.NUMBER,
+                        totalMode: TableCalculationTotalMode.SUM_OF_ROWS,
+                    },
+                ],
+                compiledTableCalculations: [
+                    {
+                        name: 'metric_plus_two',
+                        displayName: 'Metric plus two',
+                        sql: '${table1.metric1} + 2',
+                        compiledSql: '"table1_metric1" + 2',
+                        type: TableCalculationType.NUMBER,
+                        totalMode: TableCalculationTotalMode.SUM_OF_ROWS,
+                        dependsOn: [],
+                    },
+                ],
+            },
+            warehouseSqlBuilder: warehouseClientMock,
+            intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+            timezone: QUERY_BUILDER_UTC_TIMEZONE,
+            totalConfiguration: {
+                kind: 'grandTotal',
+                subtotalDimensions: undefined,
+            },
+        });
+
+        expect(result.query).toContain('source_aggregations');
+        expect(result.query.match(/source_rows AS \(/g)).toHaveLength(1);
+        expect(result.query).toContain('CROSS JOIN source_aggregations');
+        expect(result.query).toContain(
+            'SUM("metric_plus_two") AS "metric_plus_two"',
+        );
     });
 });

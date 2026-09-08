@@ -23,6 +23,10 @@ export const useResourceTypeName = () => {
                 return t(
                     'components_common_resource_view_utils.resource_type_names.space',
                 );
+            case ResourceViewItemType.DATA_APP:
+                return t(
+                    'components_common_resource_view_utils.resource_type_names.data_app',
+                );
             case ResourceViewItemType.CHART:
                 switch (item.data.chartKind) {
                     case undefined:
@@ -74,6 +78,10 @@ export const useResourceTypeName = () => {
                         return t(
                             'components_common_resource_view_utils.resource_type_names.custom_visualization',
                         );
+                    case ChartKind.DATA_APP_VIZ:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.custom_chart',
+                        );
                     default:
                         return assertUnreachable(
                             item.data.chartKind,
@@ -118,6 +126,8 @@ export const getResourceUrl = (projectUuid: string, item: ResourceViewItem) => {
             return getChartResourceUrl(projectUuid, item);
         case ResourceViewItemType.SPACE:
             return `/projects/${projectUuid}/spaces/${item.data.uuid}`;
+        case ResourceViewItemType.DATA_APP:
+            return `/projects/${projectUuid}/apps/${item.data.uuid}/view`;
         default:
             return assertUnreachable(item, `Can't get URL for ${itemType}`);
     }
@@ -131,6 +141,8 @@ export const getResourceName = (type: ResourceViewItemType) => {
             return 'Chart';
         case ResourceViewItemType.SPACE:
             return 'Space';
+        case ResourceViewItemType.DATA_APP:
+            return 'Data app';
         default:
             return assertUnreachable(type, 'Resource type not supported');
     }
@@ -155,6 +167,10 @@ export const useResourceGroupTitle = () => {
                     case ResourceViewItemType.SPACE:
                         return t(
                             'components_common_resource_view_content_type.spaces',
+                        );
+                    case ResourceViewItemType.DATA_APP:
+                        return t(
+                            'components_common_resource_view_content_type.data_apps',
                         );
                     default:
                         return assertUnreachable(
@@ -218,9 +234,10 @@ export const getResourceViewsSinceWhenDescription = (
 ) => {
     if (
         item.type !== ResourceViewItemType.CHART &&
-        item.type !== ResourceViewItemType.DASHBOARD
+        item.type !== ResourceViewItemType.DASHBOARD &&
+        item.type !== ResourceViewItemType.DATA_APP
     ) {
-        throw new Error('Only supported for charts and dashboards');
+        throw new Error('Only supported for charts, dashboards and data apps');
     }
 
     return item.data.firstViewedAt

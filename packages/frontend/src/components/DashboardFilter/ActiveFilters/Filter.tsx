@@ -1,22 +1,26 @@
 import {
     applyDefaultTileTargets,
     DimensionType,
+    FeatureFlags,
     getFilterTypeFromItemType,
+    isFilterLockedOnTab,
     type DashboardFilterableField,
     type DashboardFilterRule,
 } from '@lightdash/common';
 import {
+    ActionIcon,
     Box,
     Button,
     CloseButton,
     createStyles,
+    Group,
     Indicator,
     Popover,
     Text,
     Tooltip,
 } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
-import { IconGripVertical } from '@tabler/icons-react';
+import { IconGripVertical, IconLock, IconLockOpen } from '@tabler/icons-react';
 import {
     useCallback,
     useEffect,
@@ -24,10 +28,12 @@ import {
     useRef,
     useState,
     type FC,
+    type MouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import {
     getFilterRuleTables,
@@ -54,6 +60,22 @@ const useDashboardFilterStyles = createStyles((theme) => ({
         borderWidth: '1px',
         borderColor: theme.fn.rgba(theme.colors.gray[5], 0.7),
         backgroundColor: theme.fn.rgba(theme.white, 0.7),
+    },
+    lockSlot: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        maxWidth: 0,
+        opacity: 0,
+        overflow: 'hidden',
+        transition: 'max-width 200ms ease, opacity 150ms ease 50ms',
+    },
+    lockSlotVisible: {
+        maxWidth: 24,
+        opacity: 1,
+    },
+    lockSlotActive: {
+        display: 'inline-flex',
+        alignItems: 'center',
     },
 }));
 
@@ -100,6 +122,37 @@ const Filter: FC<Props> = ({
     const dashboard = useDashboardContext((c) => c.dashboard);
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const { data: lockDashboardFiltersFlag } = useServerFeatureFlag(
+        FeatureFlags.LockDashboardFilters,
+    );
+    const isLockFilterEnabled =
+        lockDashboardFiltersFlag?.enabled ?? import.meta.env.DEV;
+    const hasTabs = (dashboardTabs?.length ?? 0) > 0;
+    const isLocked = isFilterLockedOnTab(filterRule, activeTabUuid, hasTabs);
+    const handleLockToggle = useCallback(
+        (e: MouseEvent) => {
+            e.stopPropagation();
+            const lockKey = hasTabs ? activeTabUuid : dashboard?.uuid;
+            if (!lockKey) return;
+            const existing = filterRule.lockedTabUuids ?? [];
+            const nextTabUuids = isLocked
+                ? existing.filter((uuid) => uuid !== lockKey)
+                : [...existing, lockKey];
+            onUpdate({
+                ...filterRule,
+                lockedTabUuids:
+                    nextTabUuids.length > 0 ? nextTabUuids : undefined,
+            });
+        },
+        [
+            activeTabUuid,
+            dashboard?.uuid,
+            filterRule,
+            hasTabs,
+            isLocked,
+            onUpdate,
+        ],
+    );
     const allFilterableFields = useDashboardContext(
         (c) => c.allFilterableFields,
     );
@@ -112,6 +165,15 @@ const Filter: FC<Props> = ({
     }, [allFilterableFields, filterRule]);
 
     const isFilterReadOnly = filterRule.readOnly ?? false;
+    const isReadOnlyLocked = isLocked && !isEditMode && !isTemporary;
+
+    const lockTooltipLabel = isLocked
+        ? hasTabs
+            ? t('components_dashboard_filter.filter.lock_unlock_tab')
+            : t('components_dashboard_filter.filter.lock_unlock')
+        : hasTabs
+          ? t('components_dashboard_filter.filter.lock_on_tab')
+          : t('components_dashboard_filter.filter.lock');
 
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
@@ -386,7 +448,7 @@ const Filter: FC<Props> = ({
                     isTilesConfigTab ? false : !isSubPopoverOpen
                 }
                 onClose={handleClose}
-                disabled={disabled || (isFilterReadOnly && !isEditMode)}
+                disabled={disabled || (isFilterReadOnly && !isEditMode) || isReadOnlyLocked}
                 transitionProps={{ transition: 'pop-top-left' }}
                 withArrow
                 shadow="md"
@@ -427,8 +489,18 @@ const Filter: FC<Props> = ({
                     >
                         <Tooltip
                             fz="xs"
-                            label={inactiveFilterInfo}
-                            disabled={!inactiveFilterInfo}
+                            label={
+                                isReadOnlyLocked
+                                    ? hasTabs
+                                        ? t(
+                                              'components_dashboard_filter.filter.locked_on_tab',
+                                          )
+                                        : t(
+                                              'components_dashboard_filter.filter.locked',
+                                          )
+                                    : inactiveFilterInfo
+                            }
+                            disabled={!inactiveFilterInfo && !isReadOnlyLocked}
                             withinPortal
                         >
                             <Button
@@ -451,6 +523,13 @@ const Filter: FC<Props> = ({
                                         ? classes.inactiveFilter
                                         : ''
                                 }`}
+                                sx={{
+                                    '&:hover .lock-slot, &:focus-within .lock-slot':
+                                        {
+                                            maxWidth: 24,
+                                            opacity: 1,
+                                        },
+                                }}
                                 leftIcon={
                                     isDraggable && (
                                         <MantineIcon
@@ -463,10 +542,58 @@ const Filter: FC<Props> = ({
                                 }
                                 rightIcon={
                                     (isEditMode || isTemporary) && (
-                                        <CloseButton
-                                            size="sm"
-                                            onClick={onRemove}
-                                        />
+                                        <Group spacing={2} noWrap>
+                                            {isLockFilterEnabled &&
+                                                isEditMode &&
+                                                !isTemporary &&
+                                                (hasTabs
+                                                    ? activeTabUuid
+                                                    : !!dashboard?.uuid) && (
+                                                    <span
+                                                        className={`lock-slot ${
+                                                            isLocked
+                                                                ? classes.lockSlotActive
+                                                                : classes.lockSlot
+                                                        }`}
+                                                    >
+                                                        <Tooltip
+                                                            fz="xs"
+                                                            label={
+                                                                lockTooltipLabel
+                                                            }
+                                                            withinPortal
+                                                        >
+                                                            <ActionIcon
+                                                                onClick={
+                                                                    handleLockToggle
+                                                                }
+                                                                size="xs"
+                                                                color="dark"
+                                                                radius="xl"
+                                                                variant="subtle"
+                                                                aria-label={
+                                                                    lockTooltipLabel
+                                                                }
+                                                            >
+                                                                <MantineIcon
+                                                                    size="sm"
+                                                                    icon={
+                                                                        isLocked
+                                                                            ? IconLock
+                                                                            : IconLockOpen
+                                                                    }
+                                                                />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </span>
+                                                )}
+                                            {!isReadOnlyLocked && (
+                                                <CloseButton
+                                                    size="sm"
+                                                    onClick={onRemove}
+                                                />
+                                            )}
+                                        </Group>
                                     )
                                 }
                                 styles={{
@@ -489,11 +616,11 @@ const Filter: FC<Props> = ({
                                         overflow: 'hidden',
                                     },
                                 }}
-                                onClick={() =>
-                                    isPopoverOpen
-                                        ? handleClose()
-                                        : onPopoverOpen(popoverId)
-                                }
+                                onClick={() => {
+                                    if (isReadOnlyLocked) return;
+                                    if (isPopoverOpen) handleClose();
+                                    else onPopoverOpen(popoverId);
+                                }}
                             >
                                 <Box
                                     sx={{

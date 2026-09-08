@@ -15,6 +15,11 @@ export enum FeatureFlags {
     EnableUserTimezones = 'enable-user-timezones',
 
     /**
+     * Enable query timezone selection / display gating (project + chart settings).
+     */
+    EnableTimezoneSupport = 'enable-timezone-support',
+
+    /**
      * Enable dashboard comments
      */
     DashboardComments = 'dashboard-comments-enabled',
@@ -54,9 +59,29 @@ export enum FeatureFlags {
     WorkerQueryExecution = 'worker-query-execution',
 
     /**
-     * Enable SQL pivot results conversion to PivotData format
+     * Use SQL pivot results conversion to PivotData format
      */
     UseSqlPivotResults = 'use-sql-pivot-results',
+
+    /**
+     * Enable project-level results cache TTL configuration and cache lookups
+     */
+    ResultsCacheEnabled = 'results-cache-enabled',
+
+    /**
+     * Enable warehouse-native merge queries (JOIN multiple explores)
+     */
+    MergeQueries = 'merge-queries',
+
+    /**
+     * Keep visited dashboard tabs mounted in memory for faster tab switching.
+     */
+    DashboardTabsInMemory = 'dashboard-tabs-in-memory',
+
+    /**
+     * Allow dashboard editors to lock filters on specific tabs (or dashboard-wide).
+     */
+    LockDashboardFilters = 'lock-dashboard-filters',
 
     /**
      * Enable the unused content dashboard showing least viewed charts and dashboards
@@ -67,6 +92,12 @@ export enum FeatureFlags {
      * Enable experimental explorer improvements
      */
     ExperimentalExplorerImprovements = 'experimental-explorer-improvements',
+
+    /**
+     * Enable Data Apps (custom apps against the semantic layer)
+     */
+    EnableDataApps = 'enable-data-apps',
+    EnableDataAppCustomDependencies = 'enable-data-app-custom-dependencies',
 }
 
 export type FeatureFlag = {

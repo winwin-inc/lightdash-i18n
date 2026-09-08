@@ -140,6 +140,15 @@ const applyOrganizationMemberStaticAbilities: Record<
                 },
             },
         });
+        can('manage', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            access: {
+                $elemMatch: {
+                    userUuid: member.userUuid,
+                    role: SpaceMemberRole.EDITOR,
+                },
+            },
+        });
 
         can('manage', 'SemanticViewer', {
             organizationUuid: member.organizationUuid,
@@ -168,6 +177,15 @@ const applyOrganizationMemberStaticAbilities: Record<
                 },
             },
         });
+        can('manage', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            access: {
+                $elemMatch: {
+                    userUuid: member.userUuid,
+                    role: SpaceMemberRole.ADMIN,
+                },
+            },
+        });
 
         can('manage', 'Space', {
             organizationUuid: member.organizationUuid,
@@ -177,6 +195,31 @@ const applyOrganizationMemberStaticAbilities: Record<
                     role: SpaceMemberRole.ADMIN,
                 },
             },
+        });
+
+        // Data apps: interactive viewers can view/manage their own and
+        // space-shared apps. Create stays editor+.
+        can('view', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            inheritsFromOrgOrProject: true,
+        });
+        can('view', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            access: {
+                $elemMatch: { userUuid: member.userUuid },
+            },
+        });
+        can('view', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            createdByUserUuid: member.userUuid,
+        });
+        can('manage', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            createdByUserUuid: member.userUuid,
+        });
+        can('view', 'ExternalConnection', {
+            organizationUuid: member.organizationUuid,
+            allowDataAppBuilderLinking: true,
         });
 
         can('view', 'AiAgent', {
@@ -189,6 +232,9 @@ const applyOrganizationMemberStaticAbilities: Record<
     editor(member, { can }) {
         applyOrganizationMemberStaticAbilities.interactive_viewer(member, {
             can,
+        });
+        can('create', 'DataApp', {
+            organizationUuid: member.organizationUuid,
         });
         can('manage', 'Space', {
             organizationUuid: member.organizationUuid,
@@ -279,6 +325,16 @@ const applyOrganizationMemberStaticAbilities: Record<
             organizationUuid: member.organizationUuid,
             userUuid: member.userUuid,
         });
+        can('create', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            projectType: ProjectType.PREVIEW,
+            projectCreatedByUserUuid: member.userUuid,
+        });
+        can('manage', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+            projectType: ProjectType.PREVIEW,
+            projectCreatedByUserUuid: member.userUuid,
+        });
     },
     admin(member, { can }) {
         applyOrganizationMemberStaticAbilities.developer(member, { can });
@@ -289,6 +345,15 @@ const applyOrganizationMemberStaticAbilities: Record<
             organizationUuid: member.organizationUuid,
         });
         can('manage', 'SavedChart', {
+            organizationUuid: member.organizationUuid,
+        });
+        can('manage', 'DataApp', {
+            organizationUuid: member.organizationUuid,
+        });
+        can('manage', 'DataAppDependency', {
+            organizationUuid: member.organizationUuid,
+        });
+        can('manage', 'ExternalConnection', {
             organizationUuid: member.organizationUuid,
         });
         can('create', 'Project', {

@@ -1117,6 +1117,25 @@ export class CatalogModel {
         }));
     }
 
+    async getChartUsageByTable(
+        projectUuid: string,
+    ): Promise<Map<string, number>> {
+        const rows = await this.database(CatalogTableName)
+            .where(`${CatalogTableName}.project_uuid`, projectUuid)
+            .where(`${CatalogTableName}.type`, CatalogType.Field)
+            .groupBy(`${CatalogTableName}.table_name`)
+            .select<{ table_name: string; chart_usage: string }[]>(
+                `${CatalogTableName}.table_name`,
+                this.database.raw(
+                    `COALESCE(SUM(${CatalogTableName}.chart_usage), 0) as chart_usage`,
+                ),
+            );
+
+        return new Map(
+            rows.map((row) => [row.table_name, Number(row.chart_usage)]),
+        );
+    }
+
     async getCatalogItemsWithTags(
         projectUuid: string,
         opts?: {

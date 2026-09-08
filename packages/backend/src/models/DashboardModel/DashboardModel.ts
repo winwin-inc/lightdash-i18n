@@ -1,11 +1,13 @@
 import {
     CreateDashboard,
     CreateDashboardChartTile,
+    CreateDashboardDataAppTile,
     CreateDashboardLoomTile,
     CreateDashboardMarkdownTile,
     CreateDashboardSqlChartTile,
     DashboardChartTile,
     DashboardDAO,
+    DashboardDataAppTile,
     DashboardLoomTile,
     DashboardMarkdownTile,
     DashboardSqlChartTile,
@@ -22,6 +24,7 @@ import {
     UpdateMultipleDashboards,
     assertUnreachable,
     isDashboardChartTileType,
+    isDashboardDataAppTileType,
     isDashboardLoomTileType,
     isDashboardMarkdownTileType,
     isDashboardSqlChartTile,
@@ -37,6 +40,7 @@ import {
     DashboardTabsTableName,
     DashboardTileChartTable,
     DashboardTileChartTableName,
+    DashboardTileDataAppsTableName,
     DashboardTileLoomsTableName,
     DashboardTileMarkdownsTableName,
     DashboardTileSqlChartTableName,
@@ -172,6 +176,7 @@ export class DashboardModel {
             | (CreateDashboardMarkdownTile & { uuid: string })
             | (CreateDashboardLoomTile & { uuid: string })
             | (CreateDashboardSqlChartTile & { uuid: string })
+            | (CreateDashboardDataAppTile & { uuid: string })
         > = version.tiles.map((tile) => ({
             ...tile,
             uuid: tile.uuid || uuidv4(),
@@ -267,6 +272,19 @@ export class DashboardModel {
                     saved_sql_uuid: properties.savedSqlUuid,
                     hide_title: properties.hideTitle,
                     title: properties.title,
+                })),
+            );
+        }
+
+        const dataAppTiles = tilesWithUuids.filter(isDashboardDataAppTileType);
+        if (dataAppTiles.length > 0) {
+            await trx(DashboardTileDataAppsTableName).insert(
+                dataAppTiles.map(({ uuid, properties }) => ({
+                    dashboard_version_id: versionId.dashboard_version_id,
+                    dashboard_tile_uuid: uuid,
+                    app_uuid: properties.appUuid,
+                    title: properties.title ?? null,
+                    hide_title: properties.hideTitle ?? false,
                 })),
             );
         }
@@ -1138,6 +1156,21 @@ export class DashboardModel {
                                     chartSlug: chart_slug,
                                 },
                             };
+                        case DashboardTileTypes.DATA_APP:
+                            return <DashboardDataAppTile>{
+                                ...base,
+                                type: DashboardTileTypes.DATA_APP,
+                                properties: {
+                                    ...commonProperties,
+                                    appUuid: '', // STUB: join app uuid when tile read path is fully ported
+                                    appSlug: null,
+                                    appDeletedAt: null,
+                                },
+                            };
+                        case DashboardTileTypes.HEADING:
+                            throw new UnexpectedServerError(
+                                'Heading dashboard tiles are not supported in this build',
+                            );
                         default: {
                             return assertUnreachable(
                                 type,

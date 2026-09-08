@@ -12,6 +12,7 @@ export type DbUser = {
     is_active: boolean;
     is_trial_account: boolean;
     updated_at: Date;
+    timezone: string | null;
 };
 
 export type DbUserIn = Pick<
@@ -24,7 +25,7 @@ export type DbUserIn = Pick<
     | 'is_active'
     | 'is_trial_account'
 > &
-    Partial<Pick<DbUser, 'user_uuid'>>;
+    Partial<Pick<DbUser, 'user_uuid' | 'timezone'>>;
 export type DbUserUpdate = Partial<
     Pick<
         DbUser,
@@ -36,6 +37,7 @@ export type DbUserUpdate = Partial<
         | 'is_active'
         | 'is_trial_account'
         | 'updated_at'
+        | 'timezone'
     >
 >;
 

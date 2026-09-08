@@ -67,6 +67,7 @@ import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import { useProject } from '../../../hooks/useProject';
 import { useUpdateMutation } from '../../../hooks/useSavedQuery';
 import useSearchParams from '../../../hooks/useSearchParams';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import { useSpaceSummaries } from '../../../hooks/useSpaces';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
@@ -93,6 +94,13 @@ const SavedChartsHeader: FC = () => {
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
     );
+    const { data: timezoneSupportFlag } = useServerFeatureFlag(
+        FeatureFlags.EnableTimezoneSupport,
+    );
+    // EnableTimezoneSupport moves timezone UX to RunQuerySettings; keep legacy
+    // Header timezone label only for the PostHog EnableUserTimezones path.
+    const showTimezoneInfo =
+        !!userTimeZonesEnabled && timezoneSupportFlag?.enabled !== true;
 
     const { search } = useLocation();
     const { projectUuid } = useParams<{
@@ -403,7 +411,7 @@ const SavedChartsHeader: FC = () => {
                     )}
                 </div>
 
-                {userTimeZonesEnabled &&
+                {showTimezoneInfo &&
                     savedChart?.metricQuery.timezone &&
                     !isEditMode && (
                         <Text color="gray" mr="sm" fz="xs">

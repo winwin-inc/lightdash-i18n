@@ -1,4 +1,8 @@
-import { DashboardTileTypes, type Dashboard } from '@lightdash/common';
+import {
+    DashboardTileTypes,
+    FeatureFlags,
+    type Dashboard,
+} from '@lightdash/common';
 import {
     Button,
     Group,
@@ -8,6 +12,7 @@ import {
     type ButtonProps,
 } from '@mantine/core';
 import {
+    IconAppWindow,
     IconChartBar,
     IconInfoCircle,
     IconMarkdown,
@@ -20,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import AddChartTilesModal from './TileForms/AddChartTilesModal';
@@ -40,6 +46,8 @@ const AddTileButton: FC<Props> = ({
     dashboardTabs,
 }) => {
     const { t } = useTranslation();
+    const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
+    const showDataApps = dataAppsFlag.data?.enabled === true;
 
     const [addTileType, setAddTileType] = useState<DashboardTileTypes>();
     const [isAddChartTilesModalOpen, setIsAddChartTilesModalOpen] =
@@ -149,6 +157,17 @@ const AddTileButton: FC<Props> = ({
                         )}
                     </Menu.Item>
 
+                    {showDataApps && (
+                        <Menu.Item
+                            onClick={() =>
+                                setAddTileType(DashboardTileTypes.DATA_APP)
+                            }
+                            icon={<MantineIcon icon={IconAppWindow} />}
+                        >
+                            Data app
+                        </Menu.Item>
+                    )}
+
                     <Menu.Item
                         onClick={() => setAddingTab(true)}
                         icon={<MantineIcon icon={IconNewSection} />}
@@ -168,7 +187,8 @@ const AddTileButton: FC<Props> = ({
             )}
 
             {addTileType === DashboardTileTypes.MARKDOWN ||
-            addTileType === DashboardTileTypes.LOOM ? (
+            addTileType === DashboardTileTypes.LOOM ||
+            addTileType === DashboardTileTypes.DATA_APP ? (
                 <TileAddModal
                     opened={!!addTileType}
                     type={addTileType}

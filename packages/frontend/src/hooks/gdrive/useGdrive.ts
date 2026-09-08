@@ -19,6 +19,8 @@ const getGdriveAccessToken = async () =>
         body: undefined,
     });
 
+export { getGdriveAccessToken };
+
 const triggerGdriveLogin = async (
     loginPath: 'gdrive' | 'bigquery',
     siteUrl: string,
@@ -67,6 +69,8 @@ const triggerGdriveLogin = async (
         }, 1000);*/
     });
 };
+
+export { triggerGdriveLogin };
 
 export const useGoogleLoginPopup = (
     loginPath: 'gdrive' | 'bigquery',

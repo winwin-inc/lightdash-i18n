@@ -12,6 +12,7 @@ import {
     MetricOverrides,
     MetricType,
     TableCalculationTemplate,
+    TableCalculationTotalMode,
     TableCalculationType,
 } from '@lightdash/common';
 import { Knex } from 'knex';
@@ -173,6 +174,8 @@ export type DbSavedChartTableCalculation = {
     format?: CustomFormat;
     type?: TableCalculationType;
     template?: TableCalculationTemplate;
+    formula?: string;
+    total_mode?: TableCalculationTotalMode;
 };
 
 export type DbSavedChartTableCalculationInsert = Omit<
@@ -231,6 +234,12 @@ export type DbSavedChartAdditionalMetric = {
     base_dimension_name: string | null;
     uuid: string;
     format_options?: CustomFormat | null; // JSONB
+    // PoP metadata (optional)
+    generation_type?: string | null;
+    base_metric_id?: string | null;
+    time_dimension_id?: string | null;
+    granularity?: string | null;
+    period_offset?: number | null;
 };
 export type DbSavedChartAdditionalMetricInsert = Omit<
     DbSavedChartAdditionalMetric,
@@ -270,6 +279,11 @@ export type DBFilteredAdditionalMetrics = Pick<
             | 'filters'
             | 'base_dimension_name'
             | 'format_options'
+            | 'generation_type'
+            | 'base_metric_id'
+            | 'time_dimension_id'
+            | 'granularity'
+            | 'period_offset'
         >
     >;
 

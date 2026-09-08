@@ -28,7 +28,7 @@ import useToaster from '../toaster/useToaster';
 import useQueryError from '../useQueryError';
 import useDashboardStorage from './useDashboardStorage';
 
-const getDashboard = async (id: string) =>
+export const getDashboard = async (id: string) =>
     lightdashApi<Dashboard>({
         url: `/dashboards/${id}`,
         method: 'GET',

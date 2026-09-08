@@ -105,6 +105,8 @@ export const expectedProject: Project = {
     dbtVersion: DefaultSupportedDbtVersion,
     schedulerTimezone: 'UTC',
     createdByUserUuid: null,
+    queryTimezone: null,
+    useProjectTimezoneInFilters: false,
 };
 
 const metricFilter: MetricFilterRule = {

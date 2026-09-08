@@ -25,7 +25,10 @@ export const AuditResourceSchema = z.object({
     projectUuid: z.string().optional(),
 });
 
-export type AuditResource = z.infer<typeof AuditResourceSchema>;
+export type AuditResource = z.infer<typeof AuditResourceSchema> & {
+    /** STUB: upstream audit resources carry arbitrary metadata */
+    metadata?: Record<string, unknown>;
+};
 
 export const AuditContextSchema = z.object({
     ip: z.string().optional(),

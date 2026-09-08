@@ -20,6 +20,8 @@ export type FiltersContext<T extends DefaultFieldsMap = DefaultFieldsMap> = {
     itemsMap: T;
     baseTable?: string;
     startOfWeek?: WeekDay;
+    /** Chart/explore session timezone override for filter datetime display */
+    metricQueryTimezone?: string;
     getField: (filterRule: FilterRule) => T[keyof T] | undefined;
     getAutocompleteFilterGroup: (
         filterId: string,

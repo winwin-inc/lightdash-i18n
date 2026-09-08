@@ -1,4 +1,4 @@
-import { getItemId, getMetrics } from '@lightdash/common';
+import { deepEqual, getItemId, getMetrics } from '@lightdash/common';
 import { Button, Tooltip } from '@mantine-8/core';
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
@@ -8,6 +8,7 @@ import {
     selectIsValidQuery,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { useSavedMerge } from '../../../features/mergeQuery/hooks/useSavedMerge';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { useAddVersionMutation } from '../../../hooks/useSavedQuery';
@@ -35,10 +36,28 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     const spaceUuid = useSearchParams('fromSpace');
     const { t } = useTranslation();
 
+    // Merge state lives outside the explorer store, so it is attached at save
+    // time rather than arriving with the chart version — and its changes are
+    // tracked here too, or editing only the merge would leave Save inert.
+    const { merge, isValid: isMergeValid } = useSavedMerge();
+    const hasMergeChanges = useMemo(() => {
+        const saved = savedChart?.merge ?? null;
+        if (merge === null || saved === null) return merge !== saved;
+        return !deepEqual(merge, saved);
+    }, [merge, savedChart?.merge]);
+
+    const unsavedChartVersionWithMerge = useMemo(
+        () => ({
+            ...unsavedChartVersion,
+            merge,
+        }),
+        [unsavedChartVersion, merge],
+    );
+
     // For new charts, button is enabled when query is valid
     // For existing charts, button is enabled when there are unsaved changes
     const hasUnsavedChanges = savedChart
-        ? isUnsavedChartChanged(unsavedChartVersion)
+        ? isUnsavedChartChanged(unsavedChartVersion) || hasMergeChanges
         : isValidQuery;
 
     const { missingRequiredParameters } = useExplorerQuery();
@@ -47,10 +66,10 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
 
     const update = useAddVersionMutation();
     const handleSavedQueryUpdate = () => {
-        if (savedChart?.uuid && unsavedChartVersion) {
+        if (savedChart?.uuid && unsavedChartVersionWithMerge) {
             update.mutate({
                 uuid: savedChart.uuid,
-                payload: unsavedChartVersion,
+                payload: unsavedChartVersionWithMerge,
             });
         }
     };
@@ -68,7 +87,8 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
         !unsavedChartVersion.tableName ||
         !hasUnsavedChanges ||
         foundCustomMetricWithDuplicateId ||
-        !!missingRequiredParameters?.length;
+        !!missingRequiredParameters?.length ||
+        !isMergeValid;
 
     const handleSaveChart = () => {
         return savedChart
@@ -79,8 +99,12 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
     return (
         <>
             <Tooltip
-                label={t('components_explorer_save_chart_button.title')}
-                disabled={!foundCustomMetricWithDuplicateId}
+                label={
+                    !isMergeValid
+                        ? 'Finish configuring the merge before saving.'
+                        : t('components_explorer_save_chart_button.title')
+                }
+                disabled={isMergeValid && !foundCustomMetricWithDuplicateId}
                 withinPortal
                 multiline
                 position={'bottom'}
@@ -115,10 +139,10 @@ const SaveChartButton: FC<{ isExplorer?: boolean }> = ({ isExplorer }) => {
                 </Button>
             </Tooltip>
 
-            {unsavedChartVersion && (
+            {unsavedChartVersionWithMerge && (
                 <ChartCreateModal
                     isOpen={isQueryModalOpen}
-                    savedData={unsavedChartVersion}
+                    savedData={unsavedChartVersionWithMerge}
                     onClose={() => setIsQueryModalOpen(false)}
                     onConfirm={() => setIsQueryModalOpen(false)}
                     defaultSpaceUuid={spaceUuid ?? undefined}

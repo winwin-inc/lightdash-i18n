@@ -105,6 +105,17 @@ export const getValidChartConfig = (
                         : {},
             };
         }
+        case ChartType.DATA_APP_VIZ: {
+            const cachedConfig = cachedConfigs?.[chartType];
+
+            return {
+                type: chartType,
+                config:
+                    chartConfig && chartConfig.type === ChartType.DATA_APP_VIZ
+                        ? chartConfig.config
+                        : cachedConfig,
+            };
+        }
         default:
             return assertUnreachable(
                 chartType,

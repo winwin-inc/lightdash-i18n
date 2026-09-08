@@ -1,6 +1,8 @@
 import { subject } from '@casl/ability';
+import { FeatureFlags } from '@lightdash/common';
 import { Button, Menu } from '@mantine/core';
 import {
+    IconAppWindow,
     IconFolder,
     IconFolderPlus,
     IconLayoutDashboard,
@@ -12,6 +14,7 @@ import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
 import useCreateInAnySpaceAccess from '../../hooks/user/useCreateInAnySpaceAccess';
+import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
 import LargeMenuItem from '../common/LargeMenuItem';
@@ -31,6 +34,7 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
     const location = useLocation();
 
     const { user } = useApp();
+    const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
 
     const userCanCreateDashboards = useCreateInAnySpaceAccess(
         projectUuid,
@@ -136,6 +140,25 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                 icon={IconLayoutDashboard}
                                 data-testid="ExploreMenu/NewDashboardButton"
                             />
+                        )}
+
+                        {dataAppsFlag.data?.enabled && (
+                            <Can
+                                I="create"
+                                this={subject('DataApp', {
+                                    organizationUuid:
+                                        user.data?.organizationUuid,
+                                    projectUuid,
+                                })}
+                            >
+                                <LargeMenuItem
+                                    component={Link}
+                                    title="Data App"
+                                    description="Build an interactive app powered by your data."
+                                    to={`/projects/${projectUuid}/apps/generate`}
+                                    icon={IconAppWindow}
+                                />
+                            </Can>
                         )}
 
                         <Can

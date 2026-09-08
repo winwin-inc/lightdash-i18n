@@ -1,7 +1,4 @@
-import {
-    CommercialFeatureFlags,
-    type SlackAppCustomSettings,
-} from '@lightdash/common';
+import { type SlackAppCustomSettings } from '@lightdash/common';
 import {
     ActionIcon,
     Alert,
@@ -42,7 +39,6 @@ import {
     useUpdateSlackAppCustomSettingsMutation,
 } from '../../../hooks/slack/useSlack';
 import { useActiveProjectUuid } from '../../../hooks/useActiveProject';
-import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import slackSvg from '../../../svgs/slack.svg';
 import MantineIcon from '../../common/MantineIcon';
 import { SettingsGridCard } from '../../common/Settings/SettingsCard';
@@ -53,9 +49,8 @@ const SlackSettingsPanel: FC = () => {
     const { t } = useTranslation();
 
     const { activeProjectUuid } = useActiveProjectUuid();
-    const { data: aiCopilotFlag } = useFeatureFlag(
-        CommercialFeatureFlags.AiCopilot,
-    );
+    // 免费版不启用商业功能，不请求 CommercialFeatureFlags.AiCopilot（无 LICENSE 时会 404）
+    const aiCopilotEnabled = false;
     const { data: slackInstallation, isInitialLoading } = useGetSlack();
     const organizationHasSlack = !!slackInstallation?.organizationUuid;
 
@@ -294,7 +289,7 @@ const SlackSettingsPanel: FC = () => {
                                     }
                                 />
                             </Group>
-                            {aiCopilotFlag?.enabled && (
+                            {aiCopilotEnabled && (
                                 <Stack spacing="sm">
                                     <Group spacing="two">
                                         <Title order={6} fw={500}>

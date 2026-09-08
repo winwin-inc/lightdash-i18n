@@ -295,6 +295,9 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                         itemDetail: {
                             isOpen: false,
                         },
+                        periodOverPeriodComparison: {
+                            isOpen: false,
+                        },
                     },
                     parameters: {},
                     fromDashboard: fromDashboard ?? undefined,

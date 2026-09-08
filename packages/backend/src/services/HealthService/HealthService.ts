@@ -190,6 +190,11 @@ export class HealthService extends BaseService {
                 analyticsDashboardUuid:
                     this.lightdashConfig.ai.analyticsDashboardUuid,
             },
+            dataApps: {
+                previewOrigin: this.lightdashConfig.appRuntime.previewOrigin,
+                sampleDataEnabled:
+                    this.lightdashConfig.appRuntime.sampleDataEnabled,
+            },
         };
     }
 

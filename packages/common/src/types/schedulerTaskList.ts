@@ -1,6 +1,13 @@
 import includes from 'lodash/includes';
 import {
     type AiAgentEvalRunJobPayload,
+    type ChartReference,
+    type DashboardBlueprint,
+    type DataAppClaudeEffort,
+    type DataAppClaudeModel,
+    type DataAppCodexModel,
+    type DataAppCreationExperience,
+    type DataAppTemplate,
     type SlackPromptJobPayload,
 } from '../ee';
 import { type SchedulerIndexCatalogJobPayload } from './catalog';
@@ -26,9 +33,35 @@ import {
     type SqlRunnerPivotQueryPayload,
 } from './sqlRunner';
 
+export type AppGeneratePipelineJobPayload = TraceTaskBase & {
+    appUuid: string;
+    version: number;
+    prompt: string;
+    creationExperience?: DataAppCreationExperience;
+    template?: DataAppTemplate;
+    imageIds?: string[];
+    fileIds?: string[];
+    isIteration: boolean;
+    isUpgrade?: boolean;
+    upgradeStatusMessage?: string;
+    chartReferences?: ChartReference[];
+    dashboardBlueprint?: DashboardBlueprint;
+    claudeModel?: DataAppClaudeModel;
+    codexModel?: DataAppCodexModel;
+    claudeEffort?: DataAppClaudeEffort;
+    designUuid?: string | null;
+};
+
+export type AppBuildFromSourceJobPayload = TraceTaskBase & {
+    appUuid: string;
+    version: number;
+};
+
 export const EE_SCHEDULER_TASKS = {
     SLACK_AI_PROMPT: 'slackAiPrompt',
     AI_AGENT_EVAL_RESULT: 'aiAgentEvalResult',
+    APP_GENERATE_PIPELINE: 'appGeneratePipeline',
+    APP_BUILD_FROM_SOURCE: 'appBuildFromSource',
 } as const;
 
 export const SCHEDULER_TASKS = {
@@ -82,11 +115,15 @@ export interface TaskPayloadMap {
     [SCHEDULER_TASKS.CLEAN_QUERY_HISTORY]: TraceTaskBase;
     [SCHEDULER_TASKS.DOWNLOAD_ASYNC_QUERY_RESULTS]: DownloadAsyncQueryResultsPayload;
     [SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT]: AiAgentEvalRunJobPayload;
+    [SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: AppGeneratePipelineJobPayload;
+    [SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: AppBuildFromSourceJobPayload;
 }
 
 export interface EETaskPayloadMap {
     [EE_SCHEDULER_TASKS.SLACK_AI_PROMPT]: SlackPromptJobPayload;
     [EE_SCHEDULER_TASKS.AI_AGENT_EVAL_RESULT]: AiAgentEvalRunJobPayload;
+    [EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: AppGeneratePipelineJobPayload;
+    [EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: AppBuildFromSourceJobPayload;
 }
 
 export type SchedulerTaskName =

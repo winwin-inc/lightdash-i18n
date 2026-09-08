@@ -48,8 +48,10 @@ import { useConditionalRuleLabelFromItem } from '../../common/Filters/FilterInpu
 import FiltersProvider from '../../common/Filters/FiltersProvider';
 import DashboardContextFilters from './DashboardContextFilters';
 import { useFieldsWithSuggestions } from './useFieldsWithSuggestions';
+import { MergeFiltersCard } from '../../../features/mergeQuery/components/MergeFiltersCard';
+import { useMergeSafe } from '../../../features/mergeQuery/context/useMerge';
 
-const FiltersCard: FC = memo(() => {
+const QueryAFiltersCard: FC = memo(() => {
     const { t } = useTranslation();
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
@@ -381,6 +383,7 @@ const FiltersCard: FC = memo(() => {
                         project.data?.warehouseConnection?.startOfWeek ??
                         undefined
                     }
+                    metricQueryTimezone={metricQuery.timezone}
                     popoverProps={{
                         withinPortal: true,
                     }}
@@ -395,6 +398,19 @@ const FiltersCard: FC = memo(() => {
             </CollapsableCard>
         </>
     );
+});
+
+/**
+ * A merge shows both source filters together. The relationship is one query;
+ * hiding half its filters behind the active sidebar tab makes it impossible
+ * to read as a whole.
+ */
+const FiltersCard: FC = memo(() => {
+    const merge = useMergeSafe();
+    if (merge?.isMerging && merge.additionalSources[0]?.exploreName) {
+        return <MergeFiltersCard />;
+    }
+    return <QueryAFiltersCard />;
 });
 
 export default FiltersCard;

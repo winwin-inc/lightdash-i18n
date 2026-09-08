@@ -123,6 +123,9 @@ export const warehouseClientMock: WarehouseClient = {
             .replace(/--.*$/gm, '')
             .replace(/\/\*[\s\S]*?\*\//g, '');
     },
+    castToTimestamp: (value) => `TIMESTAMP '${value.toISOString()}'`,
+    castToDate: (value) => `DATE '${value.toISOString().slice(0, 10)}'`,
+    castToNaiveTimestamp: (value) => `DATETIME '${value.toISOString()}'`,
 };
 
 export const bigqueryClientMock: WarehouseClient = {
@@ -198,6 +201,9 @@ export const bigqueryClientMock: WarehouseClient = {
         throw error;
     },
     escapeString: (value) => value,
+    castToTimestamp: (value) => `TIMESTAMP '${value.toISOString()}'`,
+    castToDate: (value) => `DATE '${value.toISOString().slice(0, 10)}'`,
+    castToNaiveTimestamp: (value) => `DATETIME '${value.toISOString()}'`,
 };
 
 export const emptyTable = (name: string): CompiledTable => ({

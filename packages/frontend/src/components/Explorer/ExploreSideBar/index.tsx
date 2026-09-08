@@ -2,10 +2,8 @@ import { subject } from '@casl/ability';
 import { ExploreType, type SummaryExplore } from '@lightdash/common';
 import {
     ActionIcon,
-    Divider,
     Skeleton,
     Stack,
-    Text,
     TextInput,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -29,6 +27,7 @@ import {
 } from '../../../features/explorer/store';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import { useExplores } from '../../../hooks/useExplores';
+import { useProjectTableGroups } from '../../../hooks/useProjectTableGroups';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import useSearchParams from '../../../hooks/useSearchParams';
 import { Can } from '../../../providers/Ability';
@@ -41,8 +40,8 @@ import PageBreadcrumbs from '../../common/PageBreadcrumbs';
 import SuboptimalState from '../../common/SuboptimalState/SuboptimalState';
 import ExplorePanel from '../ExplorePanel';
 import { ItemDetailProvider } from '../ExploreTree/TableTree/ItemDetailProvider';
-import ExploreGroup from './ExploreGroup';
-import ExploreNavLink from './ExploreNavLink';
+import { buildExploreTree, sortExploreTree } from './exploreTree';
+import VirtualizedExploreList from './VirtualizedExploreList';
 
 const LoadingSkeleton = () => (
     <Stack>
@@ -58,6 +57,9 @@ const LoadingSkeleton = () => (
     </Stack>
 );
 
+const exploreHasGroups = (explore: SummaryExplore): boolean =>
+    !!(explore.groups && explore.groups.length > 0) || !!explore.groupLabel;
+
 const BasePanel = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -66,6 +68,7 @@ const BasePanel = () => {
     const [search, setSearch] = useState(searchFromUrl);
     const [debouncedSearch] = useDebouncedValue(search, 300);
     const exploresResult = useExplores(projectUuid, true);
+    const tableGroupsResult = useProjectTableGroups(projectUuid);
     const { data: org } = useOrganization();
 
     const { t } = useTranslation();
@@ -97,7 +100,7 @@ const BasePanel = () => {
     }, [debouncedSearch, location.pathname, location.search, navigate]);
 
     const navigateToTable = useCallback(
-        (tableName: string) => {
+        (explore: SummaryExplore) => {
             const params = new URLSearchParams(location.search);
             if (search) {
                 params.set('search', search);
@@ -105,63 +108,76 @@ const BasePanel = () => {
                 params.delete('search');
             }
             void navigate({
-                pathname: `/projects/${projectUuid}/tables/${tableName}`,
+                pathname: `/projects/${projectUuid}/tables/${explore.name}`,
                 search: params.toString(),
             });
         },
         [location.search, navigate, projectUuid, search],
     );
 
-    const [exploreGroupMap, defaultUngroupedExplores, customUngroupedExplores] =
-        useMemo(() => {
-            const validSearch = search ? search.toLowerCase() : '';
-            if (exploresResult.data) {
-                let explores = Object.values(exploresResult.data);
-                if (validSearch !== '') {
-                    explores = new Fuse(Object.values(exploresResult.data), {
-                        keys: ['label'],
-                        ignoreLocation: true,
-                        threshold: 0.3,
-                    })
-                        .search(validSearch)
-                        .map((res) => res.item);
-                }
-
-                return explores.reduce<
-                    [
-                        Record<string, SummaryExplore[]>,
-                        SummaryExplore[],
-                        SummaryExplore[],
-                    ]
-                >(
-                    (acc, explore) => {
-                        if (explore.groupLabel) {
-                            return [
-                                {
-                                    ...acc[0],
-                                    [explore.groupLabel]: acc[0][
-                                        explore.groupLabel
-                                    ]
-                                        ? [
-                                              ...acc[0][explore.groupLabel],
-                                              explore,
-                                          ]
-                                        : [explore],
-                                },
-                                acc[1],
-                                acc[2],
-                            ];
-                        }
-                        if (explore.type === ExploreType.VIRTUAL) {
-                            return [acc[0], acc[1], [...acc[2], explore]];
-                        }
-                        return [acc[0], [...acc[1], explore], acc[2]];
-                    },
-                    [{}, [], []],
-                );
+    const filteredExplores = useMemo(() => {
+        const validSearch = debouncedSearch
+            ? debouncedSearch.toLowerCase()
+            : '';
+        if (exploresResult.data) {
+            let explores = Object.values(exploresResult.data);
+            if (validSearch !== '') {
+                explores = new Fuse(Object.values(exploresResult.data), {
+                    keys: [
+                        { name: 'label', weight: 2 },
+                        { name: 'name', weight: 2 },
+                        { name: 'groupLabel', weight: 1 },
+                        { name: 'groups', weight: 1 },
+                    ],
+                    ignoreLocation: true,
+                    threshold: 0.3,
+                })
+                    .search(validSearch)
+                    .map((res) => res.item);
             }
-            return [{}, [], []];
-        }, [exploresResult.data, search]);
+            return explores;
+        }
+        return undefined;
+    }, [exploresResult.data, debouncedSearch]);
+
+    const tableGroupDetails = useMemo(
+        () => tableGroupsResult.data ?? {},
+        [tableGroupsResult.data],
+    );
+
+    const [groupedExploreTree, defaultUngroupedExplores, customUngroupedExplores] =
+        useMemo(() => {
+            if (!filteredExplores) {
+                return [[], [] as SummaryExplore[], [] as SummaryExplore[]];
+            }
+
+            const groupedExplores: SummaryExplore[] = [];
+            const defaultExplores: SummaryExplore[] = [];
+            const customExplores: SummaryExplore[] = [];
+
+            for (const explore of filteredExplores) {
+                if (exploreHasGroups(explore)) {
+                    groupedExplores.push(explore);
+                } else if (explore.type === ExploreType.VIRTUAL) {
+                    customExplores.push(explore);
+                } else {
+                    defaultExplores.push(explore);
+                }
+            }
+
+            const tree = sortExploreTree(
+                buildExploreTree(groupedExplores, tableGroupDetails),
+            );
+
+            defaultExplores.sort((a, b) => a.label.localeCompare(b.label));
+            customExplores.sort((a, b) => a.label.localeCompare(b.label));
+
+            return [tree, defaultExplores, customExplores];
+        }, [filteredExplores, tableGroupDetails]);
+
+    const virtualViewsSectionLabel = t(
+        'components_explorer_sider_bar.virtual_views',
+    );
 
     if (exploresResult.status === 'loading') {
         return <LoadingSkeleton />;
@@ -217,73 +233,14 @@ const BasePanel = () => {
                             onChange={(e) => setSearch(e.target.value)}
                         />
 
-                        <Stack
-                            spacing="xxs"
-                            sx={{ flexGrow: 1, overflowY: 'auto' }}
-                        >
-                            {Object.keys(exploreGroupMap)
-                                .sort((a, b) => a.localeCompare(b))
-                                .map((groupLabel) => (
-                                    <ExploreGroup
-                                        label={groupLabel}
-                                        key={groupLabel}
-                                    >
-                                        {exploreGroupMap[groupLabel]
-                                            .sort((a, b) =>
-                                                a.label.localeCompare(b.label),
-                                            )
-                                            .map((explore) => (
-                                                <ExploreNavLink
-                                                    key={explore.name}
-                                                    explore={explore}
-                                                    query={search}
-                                                    onClick={() => {
-                                                        navigateToTable(
-                                                            explore.name,
-                                                        );
-                                                    }}
-                                                />
-                                            ))}
-                                    </ExploreGroup>
-                                ))}
-                            {defaultUngroupedExplores
-                                .sort((a, b) => a.label.localeCompare(b.label))
-                                .map((explore) => (
-                                    <ExploreNavLink
-                                        key={explore.name}
-                                        explore={explore}
-                                        query={search}
-                                        onClick={() => {
-                                            navigateToTable(explore.name);
-                                        }}
-                                    />
-                                ))}
-
-                            {customUngroupedExplores.length ? (
-                                <>
-                                    <Divider size={0.5} c="gray.5" my="xs" />
-
-                                    <Text fw={500} fz="xs" c="gray.6" mb="xs">
-                                        {t(
-                                            'components_explorer_sider_bar.virtual_views',
-                                        )}
-                                    </Text>
-                                </>
-                            ) : null}
-
-                            {customUngroupedExplores
-                                .sort((a, b) => a.label.localeCompare(b.label))
-                                .map((explore) => (
-                                    <ExploreNavLink
-                                        key={explore.name}
-                                        explore={explore}
-                                        query={search}
-                                        onClick={() => {
-                                            navigateToTable(explore.name);
-                                        }}
-                                    />
-                                ))}
-                        </Stack>
+                        <VirtualizedExploreList
+                            groupedExploreTree={groupedExploreTree}
+                            defaultUngroupedExplores={defaultUngroupedExplores}
+                            customUngroupedExplores={customUngroupedExplores}
+                            virtualViewsSectionLabel={virtualViewsSectionLabel}
+                            searchQuery={debouncedSearch}
+                            onExploreClick={navigateToTable}
+                        />
                     </Stack>
                 </ItemDetailProvider>
             </>

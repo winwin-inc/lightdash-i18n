@@ -14,6 +14,7 @@ import {
     Explore,
     FieldId,
     FieldReferenceError,
+    flattenFilterGroup,
     ForbiddenError,
     getCustomRangeSelectSql,
     getDateDimension,
@@ -26,11 +27,15 @@ import {
     IntrinsicUserAttributes,
     isCompiledCustomSqlDimension,
     JoinRelationship,
+    MetricQuery,
     MetricType,
     parseAllReferences,
     QueryWarning,
     SortField,
     SupportedDbtAdapter,
+    TableCalculation,
+    TableCalculationTotalMode,
+    TableCalculationType,
     UserAttributeValueMap,
     WarehouseClient,
     WeekDay,
@@ -39,12 +44,46 @@ import {
 import { intersection, isArray } from 'lodash';
 import { hasUserAttribute } from '../../services/UserAttributesService/UserAttributeUtils';
 
+export type TotalQueryKind =
+    | 'grandTotal'
+    | 'columnTotal'
+    | 'rowTotal'
+    | 'columnSubtotal'
+    | 'rowSubtotal';
+
+export type TotalConfiguration = {
+    kind: TotalQueryKind;
+    subtotalDimensions: string[] | undefined;
+};
+
+export const hasBlockingTotalFilters = (metricQuery: MetricQuery): boolean => {
+    const hasMetricFilters =
+        !!metricQuery.filters.metrics &&
+        flattenFilterGroup(metricQuery.filters.metrics).length > 0;
+    const hasTableCalculationFilters =
+        !!metricQuery.filters.tableCalculations &&
+        flattenFilterGroup(metricQuery.filters.tableCalculations).length > 0;
+
+    return hasMetricFilters || hasTableCalculationFilters;
+};
+
+export const getSumOfRowsTableCalculations = (
+    metricQuery: MetricQuery,
+): TableCalculation[] =>
+    metricQuery.tableCalculations.filter(
+        (calc) =>
+            calc.totalMode === TableCalculationTotalMode.SUM_OF_ROWS &&
+            (!calc.type || calc.type === TableCalculationType.NUMBER),
+    );
+
 export const getDimensionFromId = (
     dimId: FieldId,
     explore: Explore,
     adapterType: SupportedDbtAdapter,
     startOfWeek: WeekDay | null | undefined,
     checkUnfilteredTables: boolean = true,
+    timezone?: string,
+    columnTimezone?: string,
 ): CompiledDimension => {
     const dimensions = getDimensions(explore);
     const dimension = dimensions.find((d) => getItemId(d) === dimId);
@@ -59,8 +98,13 @@ export const getDimensionFromId = (
                 adapterType,
                 startOfWeek,
                 checkUnfilteredTables,
+                timezone,
+                columnTimezone,
             );
-            if (baseField && newTimeFrame)
+            if (baseField && newTimeFrame) {
+                const effectiveTimezone = baseField.skipTimezoneConversion
+                    ? undefined
+                    : timezone;
                 return {
                     ...baseField,
                     compiledSql: getSqlForTruncatedDate(
@@ -69,9 +113,13 @@ export const getDimensionFromId = (
                         baseField.compiledSql,
                         baseField.type,
                         startOfWeek,
+                        effectiveTimezone,
+                        columnTimezone,
+                        baseField.timestampDomain,
                     ),
                     timeInterval: newTimeFrame,
                 };
+            }
         }
 
         // At this point, we couldn't find the dimension with the given id in the explore
@@ -86,6 +134,8 @@ export const getDimensionFromId = (
                 adapterType,
                 startOfWeek,
                 false,
+                timezone,
+                columnTimezone,
             )
         ) {
             throw new AuthorizationError(

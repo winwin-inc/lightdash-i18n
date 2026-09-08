@@ -55,7 +55,10 @@ export type CaslSubjectNames =
     | 'Tags'
     | 'UnderlyingData'
     | 'Validation'
-    | 'VirtualView';
+    | 'VirtualView'
+    | 'DataApp'
+    | 'DataAppDependency'
+    | 'ExternalConnection';
 
 export type Subject =
     | CaslSubjectNames

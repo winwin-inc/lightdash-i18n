@@ -114,6 +114,15 @@ export const projectMemberAbilities: Record<
                 },
             },
         });
+        can('manage', 'DataApp', {
+            projectUuid: member.projectUuid,
+            access: {
+                $elemMatch: {
+                    userUuid: member.userUuid,
+                    role: SpaceMemberRole.EDITOR,
+                },
+            },
+        });
         can('manage', 'Dashboard', {
             projectUuid: member.projectUuid,
             access: {
@@ -131,6 +140,41 @@ export const projectMemberAbilities: Record<
                     role: SpaceMemberRole.ADMIN,
                 },
             },
+        });
+        can('manage', 'DataApp', {
+            projectUuid: member.projectUuid,
+            access: {
+                $elemMatch: {
+                    userUuid: member.userUuid,
+                    role: SpaceMemberRole.ADMIN,
+                },
+            },
+        });
+
+        // Data apps: interactive viewers can view/manage their own and
+        // space-shared apps. Create stays editor+.
+        can('view', 'DataApp', {
+            projectUuid: member.projectUuid,
+            inheritsFromOrgOrProject: true,
+        });
+        can('view', 'DataApp', {
+            projectUuid: member.projectUuid,
+            access: {
+                $elemMatch: { userUuid: member.userUuid },
+            },
+        });
+        can('view', 'DataApp', {
+            projectUuid: member.projectUuid,
+            createdByUserUuid: member.userUuid,
+        });
+        can('manage', 'DataApp', {
+            projectUuid: member.projectUuid,
+            createdByUserUuid: member.userUuid,
+        });
+        // View admin-enabled external connections when building a data app.
+        can('view', 'ExternalConnection', {
+            projectUuid: member.projectUuid,
+            allowDataAppBuilderLinking: true,
         });
 
         can('manage', 'Space', {
@@ -152,6 +196,9 @@ export const projectMemberAbilities: Record<
     },
     editor(member, { can }) {
         projectMemberAbilities.interactive_viewer(member, { can });
+        can('create', 'DataApp', {
+            projectUuid: member.projectUuid,
+        });
         can('create', 'Space', {
             projectUuid: member.projectUuid,
         });
@@ -226,6 +273,16 @@ export const projectMemberAbilities: Record<
         can('manage', 'AiAgent', {
             projectUuid: member.projectUuid,
         });
+        can('create', 'DataApp', {
+            projectUuid: member.projectUuid,
+            projectType: ProjectType.PREVIEW,
+            projectCreatedByUserUuid: member.userUuid,
+        });
+        can('manage', 'DataApp', {
+            projectUuid: member.projectUuid,
+            projectType: ProjectType.PREVIEW,
+            projectCreatedByUserUuid: member.userUuid,
+        });
     },
     admin(member, { can }) {
         projectMemberAbilities.developer(member, { can });
@@ -251,6 +308,16 @@ export const projectMemberAbilities: Record<
         });
 
         can('manage', 'SavedChart', {
+            projectUuid: member.projectUuid,
+        });
+        can('manage', 'DataApp', {
+            projectUuid: member.projectUuid,
+        });
+        // Custom npm deps for data apps — admin-only by default.
+        can('manage', 'DataAppDependency', {
+            projectUuid: member.projectUuid,
+        });
+        can('manage', 'ExternalConnection', {
             projectUuid: member.projectUuid,
         });
         can('view', 'AiAgentThread', {

@@ -1,0 +1,75 @@
+import { Alert, type AlertProps, type MantineColor } from '@mantine-8/core';
+import {
+    IconAlertCircle,
+    IconAlertTriangle,
+    IconCheck,
+    IconInfoCircle,
+} from '@tabler/icons-react';
+import { type FC, type ReactNode } from 'react';
+import MantineIcon from './MantineIcon';
+
+type CalloutVariant = 'danger' | 'warning' | 'info' | 'success';
+
+const CALLOUT_CONFIG: Record<
+    CalloutVariant,
+    {
+        color: MantineColor;
+        icon: typeof IconAlertCircle;
+    }
+> = {
+    danger: {
+        color: 'red',
+        icon: IconAlertCircle,
+    },
+    warning: {
+        color: 'yellow',
+        icon: IconAlertTriangle,
+    },
+    info: {
+        color: 'blue',
+        icon: IconInfoCircle,
+    },
+    success: {
+        color: 'green',
+        icon: IconCheck,
+    },
+};
+
+interface CalloutProps extends Omit<AlertProps, 'title' | 'icon'> {
+    variant: CalloutVariant;
+    title?: ReactNode;
+    children?: ReactNode;
+    hideIcon?: boolean;
+    icon?: ReactNode;
+}
+
+/**
+ * Reusable callout component with predefined variants for consistent styling.
+ */
+const Callout: FC<CalloutProps> = ({
+    variant,
+    title,
+    children,
+    hideIcon,
+    icon,
+    ...alertProps
+}) => {
+    const config = CALLOUT_CONFIG[variant];
+    const IconComponent = config.icon;
+    const resolvedIcon = icon ?? <MantineIcon icon={IconComponent} size="lg" />;
+
+    return (
+        <Alert
+            color={config.color}
+            variant="light"
+            radius="md"
+            icon={!hideIcon ? resolvedIcon : undefined}
+            title={title}
+            {...alertProps}
+        >
+            {children ? children : null}
+        </Alert>
+    );
+};
+
+export default Callout;

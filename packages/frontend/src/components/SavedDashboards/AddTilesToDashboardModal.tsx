@@ -133,6 +133,8 @@ const AddTilesToDashboardModal: FC<AddTilesToDashboardModalProps> = ({
 
             case DashboardTileTypes.LOOM:
             case DashboardTileTypes.MARKDOWN:
+            case DashboardTileTypes.DATA_APP:
+            case DashboardTileTypes.HEADING:
                 throw new Error(
                     `not implemented for chart tile type: ${dashboardTileType}`,
                 );

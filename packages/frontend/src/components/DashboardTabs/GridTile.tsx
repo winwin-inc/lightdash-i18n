@@ -8,6 +8,7 @@ import { Box } from '@mantine/core';
 import { useProfiler } from '@sentry/react';
 import { memo, type FC } from 'react';
 import ChartTile from '../DashboardTiles/DashboardChartTile';
+import DataAppTile from '../DashboardTiles/DashboardDataAppTile';
 import LoomTile from '../DashboardTiles/DashboardLoomTile';
 import MarkdownTile from '../DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../DashboardTiles/DashboardSqlChartTile';
@@ -44,6 +45,8 @@ const GridTile: FC<
             return <LoomTile {...props} tile={tile} />;
         case DashboardTileTypes.SQL_CHART:
             return <SqlChartTile {...props} tile={tile} />;
+        case DashboardTileTypes.DATA_APP:
+            return <DataAppTile {...props} tile={tile} />;
         default: {
             return assertUnreachable(
                 tile,

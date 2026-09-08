@@ -864,6 +864,11 @@ const InfiniteResourceTable = ({
                                 uuid: item.data.uuid,
                                 contentType: ContentType.SPACE,
                             };
+                        case ContentType.DATA_APP:
+                            return {
+                                uuid: item.data.uuid,
+                                contentType: ContentType.DATA_APP,
+                            };
                         default:
                             return assertUnreachable(
                                 item,

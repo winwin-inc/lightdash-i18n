@@ -1,7 +1,19 @@
 import { SupportedDbtAdapter } from '../types/dbt';
 import { ParseError } from '../types/errors';
-import { DimensionType } from '../types/field';
+import { DimensionType, type TimestampDomain } from '../types/field';
 import { DateGranularity, TimeFrames } from '../types/timeFrames';
+import {
+    getExtractInputTzSql,
+    resolveTimezoneWrap,
+    wrapTruncatedDateWithTimezone,
+} from './dateTruncTimezone';
+
+export {
+    dateTruncTimezoneConversions,
+    getExtractInputTzSql,
+    isTimezoneRoundTripNoOp,
+    resolveTimezoneWrap,
+} from './dateTruncTimezone';
 
 export enum WeekDay {
     MONDAY,
@@ -400,43 +412,158 @@ const warehouseConfigs: Record<SupportedDbtAdapter, WarehouseConfig> = {
     [SupportedDbtAdapter.CLICKHOUSE]: clickhouseConfig,
 };
 
-export const getSqlForTruncatedDate: TimeFrameConfig['getSql'] = (
-    adapterType,
-    timeFrame,
-    originalSql,
-    type,
-    startOfWeek,
-) =>
-    warehouseConfigs[adapterType].getSqlForTruncatedDate(
-        timeFrame,
-        originalSql,
+export const SUB_DAY_TIME_FRAMES: ReadonlySet<TimeFrames> = new Set([
+    TimeFrames.MILLISECOND,
+    TimeFrames.SECOND,
+    TimeFrames.MINUTE,
+    TimeFrames.HOUR,
+]);
+
+export const isSubDayTimeFrame = (tf: TimeFrames): boolean =>
+    SUB_DAY_TIME_FRAMES.has(tf);
+
+/** Time frames that use DATE_TRUNC (not EXTRACT/DATE_PART). */
+export const truncatableTimeFrames: ReadonlySet<TimeFrames> = new Set([
+    TimeFrames.MILLISECOND,
+    TimeFrames.SECOND,
+    TimeFrames.MINUTE,
+    TimeFrames.HOUR,
+    TimeFrames.DAY,
+    TimeFrames.WEEK,
+    TimeFrames.MONTH,
+    TimeFrames.QUARTER,
+    TimeFrames.YEAR,
+]);
+
+/** Time frames that use EXTRACT/DATE_PART or format/name functions. */
+export const extractableTimeFrames: ReadonlySet<TimeFrames> = new Set([
+    TimeFrames.DAY_OF_WEEK_INDEX,
+    TimeFrames.DAY_OF_MONTH_NUM,
+    TimeFrames.DAY_OF_YEAR_NUM,
+    TimeFrames.WEEK_NUM,
+    TimeFrames.MONTH_NUM,
+    TimeFrames.QUARTER_NUM,
+    TimeFrames.YEAR_NUM,
+    TimeFrames.HOUR_OF_DAY_NUM,
+    TimeFrames.MINUTE_OF_HOUR_NUM,
+    TimeFrames.DAY_OF_WEEK_NAME,
+    TimeFrames.MONTH_NAME,
+    TimeFrames.QUARTER_NAME,
+]);
+
+/**
+ * Generates DATE_TRUNC SQL. When a timezone is provided, truncation runs in
+ * the project TZ and the result is converted back to a UTC instant.
+ */
+export const getSqlForTruncatedDate = (
+    adapterType: SupportedDbtAdapter,
+    timeFrame: TimeFrames,
+    originalSql: string,
+    type: DimensionType,
+    startOfWeek?: WeekDay | null,
+    timezone?: string,
+    sourceTimezone?: string,
+    timestampDomain?: TimestampDomain,
+    castDayOrCoarserToDate: boolean = false,
+): string => {
+    const wrap = resolveTimezoneWrap(
+        adapterType,
         type,
-        startOfWeek,
+        timezone,
+        sourceTimezone,
+        timestampDomain,
     );
+    const castToDate = castDayOrCoarserToDate && !isSubDayTimeFrame(timeFrame);
+    const truncateBase = (sql: string) =>
+        warehouseConfigs[adapterType].getSqlForTruncatedDate(
+            timeFrame,
+            sql,
+            type,
+            startOfWeek,
+        );
+
+    if (!wrap) {
+        if (castToDate) {
+            return `CAST(${truncateBase(originalSql)} AS DATE)`;
+        }
+        return truncateBase(originalSql);
+    }
+
+    return wrapTruncatedDateWithTimezone({
+        adapterType,
+        originalSql,
+        timezone: wrap.timezone,
+        sourceTimezone: wrap.sourceTimezone,
+        timestampDomain: wrap.timestampDomain,
+        truncate: truncateBase,
+        castDayOrCoarserToDate: castToDate,
+    });
+};
 const getSqlForDatePart: TimeFrameConfig['getSql'] = (
     adapterType,
     timeFrame,
     originalSql,
     type,
     startOfWeek,
-) =>
-    warehouseConfigs[adapterType].getSqlForDatePart(
+    timezone,
+    sourceTimezone,
+    timestampDomain,
+) => {
+    const wrap = resolveTimezoneWrap(
+        adapterType,
+        type,
+        timezone,
+        sourceTimezone,
+        timestampDomain,
+    );
+    const wrappedSql = wrap
+        ? getExtractInputTzSql(
+              adapterType,
+              originalSql,
+              wrap.timezone,
+              wrap.sourceTimezone,
+              wrap.timestampDomain,
+          )
+        : originalSql;
+    return warehouseConfigs[adapterType].getSqlForDatePart(
         timeFrame,
-        originalSql,
+        wrappedSql,
         type,
         startOfWeek,
     );
+};
 const getSqlForDatePartName: TimeFrameConfig['getSql'] = (
     adapterType,
     timeFrame,
     originalSql,
     type,
-) =>
-    warehouseConfigs[adapterType].getSqlForDatePartName(
+    _startOfWeek,
+    timezone,
+    sourceTimezone,
+    timestampDomain,
+) => {
+    const wrap = resolveTimezoneWrap(
+        adapterType,
+        type,
+        timezone,
+        sourceTimezone,
+        timestampDomain,
+    );
+    const wrappedSql = wrap
+        ? getExtractInputTzSql(
+              adapterType,
+              originalSql,
+              wrap.timezone,
+              wrap.sourceTimezone,
+              wrap.timestampDomain,
+          )
+        : originalSql;
+    return warehouseConfigs[adapterType].getSqlForDatePartName(
         timeFrame,
-        originalSql,
+        wrappedSql,
         type,
     );
+};
 
 type TimeFrameConfig = {
     getLabel: () => string;
@@ -447,6 +574,9 @@ type TimeFrameConfig = {
         originalSql: string,
         type: DimensionType,
         startOfWeek?: WeekDay | null,
+        timezone?: string,
+        sourceTimezone?: string,
+        timestampDomain?: TimestampDomain,
     ) => string;
     getAxisMinInterval: () => number | null;
     getAxisLabelFormatter: () => Record<string, string> | null;

@@ -25,6 +25,66 @@
         "download_as": "Download as",
         "results": "Results"
     },
+    "features_mergeQuery": {
+        "join_type": "Join type",
+        "join_inner": "Inner",
+        "join_left": "Left",
+        "join_full_outer": "Full outer",
+        "join_inner_help": "Inner join · Only the {{joinField}} values in both {{thisQuery}} and {{otherQuery}}. Everything unmatched is dropped.",
+        "join_left_help": "Left join · Only the {{joinField}} values in {{thisQuery}}. Anything found solely in {{otherQuery}} is dropped.",
+        "join_full_help": "Full outer join · Every {{joinField}} from either query. Where one side has no match, its columns are blank.",
+        "this_query": "this query",
+        "other_query": "the other query",
+        "done": "Done",
+        "edit": "Edit",
+        "choose_field": "Choose or add a field",
+        "something_went_wrong": "Something went wrong",
+        "matched_on": "Matched on",
+        "matches_only": "Matches only",
+        "keep_all_rows": "Keep all rows",
+        "keep_query": "Keep {{label}}",
+        "merge_failed": "The merge failed to run",
+        "first_data": "First data",
+        "combined_data": "Combined data",
+        "choose_data_to_combine": "Choose data to combine",
+        "select_data_and_fields": "Select data and fields",
+        "choose_fields": "Choose fields",
+        "remove_combined_data": "Remove combined data",
+        "filters": "Filters",
+        "no_filters": "No filters",
+        "active_filters": "{{count}} active",
+        "first_table": "First table",
+        "second_table": "Second table",
+        "back_to_fields": "Back to fields",
+        "change_table": "Change table",
+        "join_conditions": "Join conditions",
+        "add_join_condition": "Add join condition",
+        "use_suggestion": "Use suggestion",
+        "remove_join_condition": "Remove join condition {{index}}",
+        "choose_table": "Choose a table",
+        "choose_table_desc": "Pick the data you want to combine with this query.",
+        "select_fields": "Select fields",
+        "select_fields_metric_dimension": "Add a metric and a dimension to match on.",
+        "select_fields_dimension": "Add a dimension to match on.",
+        "select_fields_metric": "Add at least one metric.",
+        "match_queries": "Match the queries",
+        "match_queries_desc": "Choose corresponding fields in the relationship.",
+        "review_relationship": "Review the relationship",
+        "review_relationship_desc": "Check what to keep, then run the merged query.",
+        "add_metric_from_table": "Add at least one metric from {{table}}",
+        "pick_join_field": "Pick a field from each query to join on",
+        "cannot_join_on_field": "These queries cannot be joined on that field",
+        "field_only_in_one_query": "A field is only in one of the queries",
+        "relationship": "Relationship",
+        "data_sources": "Data sources",
+        "selected_count": "{{count}} selected",
+        "active_filters_badge": "{{count}} active filter",
+        "active_filters_badge_plural": "{{count}} active filters",
+        "filters_join_hint": "Filters on a matching field apply to both queries. Other filters stay with their query.",
+        "selected_for_result": "Selected for result · {{count}}",
+        "source_order_first": "First",
+        "source_order_second": "Second"
+    },
     "about_footer": {
         "about_msy_x": "About MSY X"
     },
@@ -307,6 +367,10 @@
     "hooks_project_tables_configuration": {
         "save_success": "Saved project configuration",
         "save_error": "Failed to save tables configuration"
+    },
+    "hooks_project_results_cache_settings": {
+        "save_success": "Cache duration updated",
+        "save_error": "Failed to update cache duration"
     },
     "hooks_project": {
         "update_error": "Failed to update project",
@@ -2371,6 +2435,7 @@
             "end_date": "End date"
         },
         "utc_time": "UTC time",
+        "local_time": "Local time",
         "filters_error": "projectUuid is required in FiltersProvider",
         "add": "Add",
         "add_filter_tip": "Please type to add the filter value",
@@ -2714,7 +2779,13 @@
             "tables": "Tables: ",
             "filter_rules": {
                 "part_1": "is any value"
-            }
+            },
+            "lock": "Lock filter",
+            "lock_on_tab": "Lock filter on this tab",
+            "lock_unlock": "Unlock filter",
+            "lock_unlock_tab": "Unlock filter on this tab",
+            "locked": "Locked by the dashboard editor",
+            "locked_on_tab": "Locked on this tab"
         },
         "filter_dashboard": {
             "title": "Filter dashboard to...",
@@ -2728,7 +2799,15 @@
             "reset_all_filters": "Reset all filters"
         },
         "enable_filter": "Enable filter",
-        "show_add_filter_button": "Show add filter"
+        "show_add_filter_button": "Show add filter",
+        "filter_locked_toast": {
+            "title": "Locked dashboard filter",
+            "override_single": "A filter override was ignored because the dashboard editor locked that filter.",
+            "override_many": "{{count}} filter overrides were ignored because the dashboard editor locked those filters.",
+            "temp_single": "A temporary filter was ignored because the dashboard editor locked it{{scope}}.",
+            "temp_many": "{{count}} temporary filters were ignored because the dashboard editor locked them{{scope}}.",
+            "scope_tab": " on this tab"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {
@@ -2797,7 +2876,9 @@
             "rename_tab": "Rename tab",
             "remove_tabs_component": "Remove tabs component",
             "remove_tab": "Remove tab",
-            "safely_remove_tab": "Safely remove tab"
+            "safely_remove_tab": "Safely remove tab",
+            "hide_tab": "Hide tab",
+            "show_tab": "Show tab"
         }
     },
     "components_dbt_cloud_settings": {
@@ -3658,6 +3739,14 @@
         "no_notifications_tip": "No notifications",
         "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors",
         "validation_errors": "Validation errors"
+    },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} tagged you in dashboard \"{{dashboardName}}\"",
+            "tagged_in_tile": "{{author}} tagged you in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\"",
+            "commented": "{{author}} commented in dashboard \"{{dashboardName}}\"",
+            "commented_in_tile": "{{author}} commented in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\""
+        }
     },
     "components_navbar_headway_menu": {
         "tooltip": {
@@ -5839,7 +5928,22 @@
         "edit_dimension": " Edit custom dimension",
         "eidt_calculation": "Edit calculation",
         "sort": "Sort",
-        "sorting": "Sorting"
+        "sorting": "Sorting",
+        "add_period_comparison": "Add period comparison"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "Add period comparison",
+        "confirm": "Add comparison",
+        "cancel": "Cancel",
+        "already_exists_title": "This comparison already exists",
+        "already_exists_body": "A period comparison with the same time dimension and offset already exists for this metric. Choose a different time dimension or offset.",
+        "time_dimension": "Time dimension",
+        "time_dimension_placeholder": "Select time dimension",
+        "time_dimension_placeholder_disabled": "Add a time dimension to enable comparison",
+        "offset": "Offset",
+        "granularity_label": "{{label}} granularity",
+        "granularity_from_dimension": "Granularity derived from dimension",
+        "will_create": "This will create:"
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "Copied to clipboard",
@@ -6202,7 +6306,8 @@
         "resource_view_labels": {
             "chart": "chart",
             "dashboard": "dashboard",
-            "space": "space"
+            "space": "space",
+            "data_app": "data app"
         },
         "resource_view_chart_labels": {
             "bar": "Bar chart",
@@ -6281,6 +6386,8 @@
             "table": "Table",
             "big_number": "Big number",
             "custom_visualization": "Custom visualization",
+            "data_app": "Data app",
+            "custom_chart": "Custom chart",
             "not_supported": "Chart type {{chartKind}} not supported"
         }
     },
@@ -6288,7 +6395,8 @@
         "all": "All",
         "dashboards": "Dashboards",
         "charts": "Charts",
-        "spaces": "Spaces"
+        "spaces": "Spaces",
+        "data_apps": "Data apps"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "Only visible to you",
@@ -6633,6 +6741,7 @@
                 "custom_sql": "Custom SQL",
                 "changesets": "Changesets",
                 "parameters": "Parameters",
+                "results_caching": "Results caching",
                 "project_access": "Project access",
                 "semantic_layer_integration": "Semantic Layer Integration"
             }
@@ -7775,6 +7884,24 @@
             "source": "Source",
             "no_parameters_found": "No parameters found matching your search",
             "no_parameters_configured": "No parameters configured for this project"
+        }
+    },
+    "components_project_results_cache": {
+        "title": "Cache duration",
+        "description": "How long cached results are kept before MSY X queries the warehouse again.",
+        "use_default": "Use the default cache duration",
+        "default_expires": "Cached results expire after {{duration}}.",
+        "ttl_label": "Cache duration (minutes)",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "Enter a whole number of minutes between {{min}} and {{max}} (30 days)",
+        "save": "Save",
+        "units": {
+            "minute": "minute",
+            "minutes": "minutes",
+            "hour": "hour",
+            "hours": "hours",
+            "day": "day",
+            "days": "days"
         }
     },
     "components_limit_button": {

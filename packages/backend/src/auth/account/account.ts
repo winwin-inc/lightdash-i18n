@@ -109,6 +109,12 @@ export const fromJwt = ({
             dashboardId: dashboardUuid,
             filtering: decodedToken.content.dashboardFiltersInteractivity,
             controls: userAttributes,
+            content: {
+                type: 'dashboard',
+                dashboardUuid,
+                chartUuids: [],
+                explores: [],
+            },
         },
         // Create the fields we're able to set from the JWT
         user: {

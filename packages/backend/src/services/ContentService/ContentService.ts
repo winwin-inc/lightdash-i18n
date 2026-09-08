@@ -265,6 +265,11 @@ export class ContentService extends BaseService {
                             moveToSpaceArgs,
                             moveToSpaceOptions,
                         );
+                    case ContentType.DATA_APP:
+                        // STUB: wire AppGenerateService.moveToSpace when EE DI is complete
+                        throw new NotExistsError(
+                            'Moving data apps is not available in this build',
+                        );
                     default:
                         return assertUnreachable(c, 'Unknown content type');
                 }
@@ -350,6 +355,11 @@ export class ContentService extends BaseService {
                     user,
                     moveToSpaceArgs,
                     moveToSpaceOptions,
+                );
+            case ContentType.DATA_APP:
+                // STUB: wire AppGenerateService.moveToSpace when EE DI is complete
+                throw new NotExistsError(
+                    'Moving data apps is not available in this build',
                 );
             default:
                 return assertUnreachable(item, 'Unknown content type');

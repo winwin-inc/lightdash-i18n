@@ -1,5 +1,11 @@
 import { type TraceTaskBase } from '../../types/scheduler';
 
+export type AiAgentModelConfig = {
+    modelName: string;
+    modelProvider: string;
+    reasoning?: boolean;
+};
+
 export type AiThread = {
     aiThreadUuid: string;
     organizationUuid: string;

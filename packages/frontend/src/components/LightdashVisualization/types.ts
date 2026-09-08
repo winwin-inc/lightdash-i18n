@@ -196,6 +196,19 @@ export type VisualizationCustomConfigProps =
         itemsMap?: ItemsMap | undefined;
     };
 
+export type VisualizationConfigDataAppViz = {
+    chartType: ChartType.DATA_APP_VIZ;
+    chartConfig: {
+        validConfig: null;
+    };
+};
+
+export const isDataAppVizVisualizationConfig = (
+    visualizationConfig: VisualizationConfig | undefined,
+): visualizationConfig is VisualizationConfigDataAppViz => {
+    return visualizationConfig?.chartType === ChartType.DATA_APP_VIZ;
+};
+
 // Union of all visualization configs
 
 export type VisualizationConfig =
@@ -205,4 +218,5 @@ export type VisualizationConfig =
     | VisualizationConfigFunnelType
     | VisualizationConfigTable
     | VisualizationConfigTreemap
-    | VisualizationCustomConfigType;
+    | VisualizationCustomConfigType
+    | VisualizationConfigDataAppViz;

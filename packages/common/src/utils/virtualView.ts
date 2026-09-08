@@ -120,6 +120,11 @@ export const createTemporaryVirtualView = (
         parseWarehouseCatalog: () => ({}),
         parseError: (error) => error,
         escapeString: (value) => value,
+        castToTimestamp: (value) => `TIMESTAMP '${value.toISOString()}'`,
+        castToDate: (value) =>
+            `DATE '${value.toISOString().slice(0, 10)}'`,
+        castToNaiveTimestamp: (value) =>
+            `DATETIME '${value.toISOString()}'`,
     };
 
     return createVirtualView(

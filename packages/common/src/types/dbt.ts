@@ -78,7 +78,14 @@ export type DbtModelMetadata = DbtModelLightdashConfig & {};
 type ExploreConfig = {
     label?: string;
     description?: string;
+    /** @deprecated Use groups instead */
     group_label?: string;
+    /**
+     * Nested groups for tables in the sidebar (max 5 levels). Group keys
+     * resolve to labels via `table_groups` in lightdash.config.yml; missing
+     * keys fall back to using the key as the label.
+     */
+    groups?: string[];
     joins?: DbtModelJoin[];
 };
 
@@ -460,6 +467,21 @@ export const convertToAiHints = (
         return [aiHint];
     }
     return aiHint;
+};
+
+export const getEffectiveFieldAiHints = (
+    field: Pick<{ aiHint?: string | string[]; groups?: string[] }, 'aiHint' | 'groups'>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    table: { groupDetails?: Record<string, any> } | undefined,
+): string[] | undefined => {
+    const hints = [
+        ...(convertToAiHints(field.aiHint) ?? []),
+        ...(field.groups ?? []).flatMap(
+            (group) =>
+                convertToAiHints(table?.groupDetails?.[group]?.aiHint) ?? [],
+        ),
+    ];
+    return hints.length > 0 ? [...new Set(hints)] : undefined;
 };
 
 export const isDbtRpcRunSqlResults = (

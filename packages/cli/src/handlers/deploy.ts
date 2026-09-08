@@ -73,6 +73,20 @@ const replaceProjectParameters = async (
     });
 };
 
+const replaceProjectTableGroups = async (
+    projectUuid: string,
+    lightdashProjectConfig: LightdashProjectConfig,
+) => {
+    if (!lightdashProjectConfig.table_groups) {
+        return;
+    }
+    await lightdashApi<null>({
+        method: 'PUT',
+        url: `/api/v1/projects/${projectUuid}/table-groups`,
+        body: JSON.stringify(lightdashProjectConfig.table_groups),
+    });
+};
+
 export const deploy = async (
     explores: (Explore | ExploreError)[],
     options: DeployArgs,
@@ -107,6 +121,7 @@ export const deploy = async (
 
     await replaceProjectYamlTags(options.projectUuid, lightdashProjectConfig);
     await replaceProjectParameters(options.projectUuid, lightdashProjectConfig);
+    await replaceProjectTableGroups(options.projectUuid, lightdashProjectConfig);
 
     await lightdashApi<null>({
         method: 'PUT',

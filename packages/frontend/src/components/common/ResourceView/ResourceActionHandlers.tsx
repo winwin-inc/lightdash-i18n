@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
+import { useAppPinningMutation } from '../../../features/apps/hooks/useAppPinningMutation';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
 import { useDashboardPinningMutation } from '../../../hooks/pinning/useDashboardPinningMutation';
 import { useSpacePinningMutation } from '../../../hooks/pinning/useSpaceMutation';
@@ -26,6 +27,8 @@ import AddTilesToDashboardModal from '../../SavedDashboards/AddTilesToDashboardM
 import SpaceActionModal from '../SpaceActionModal';
 import { ActionType } from '../SpaceActionModal/types';
 import TransferItemsModal from '../TransferItemsModal/TransferItemsModal';
+import AppDeleteModal from '../modal/AppDeleteModal';
+import AppUpdateModal from '../modal/AppUpdateModal';
 import ChartDeleteModal from '../modal/ChartDeleteModal';
 import ChartDuplicateModal from '../modal/ChartDuplicateModal';
 import ChartUpdateModal from '../modal/ChartUpdateModal';
@@ -56,6 +59,7 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
     const { mutate: pinChart } = useChartPinningMutation();
     const { mutate: pinDashboard } = useDashboardPinningMutation();
     const { mutate: pinSpace } = useSpacePinningMutation(projectUuid);
+    const { mutate: pinApp } = useAppPinningMutation();
 
     const handleReset = useCallback(() => {
         onAction({ type: ResourceViewItemAction.CLOSE });
@@ -99,6 +103,17 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             contentType: ContentType.SPACE,
                         },
                     });
+                case ResourceViewItemType.DATA_APP:
+                    return contentAction({
+                        action: {
+                            type: 'move',
+                            targetSpaceUuid: spaceUuid,
+                        },
+                        item: {
+                            uuid: item.data.uuid,
+                            contentType: ContentType.DATA_APP,
+                        },
+                    });
                 default:
                     return assertUnreachable(
                         item,
@@ -129,13 +144,19 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                 return pinDashboard({ uuid: action.item.data.uuid });
             case ResourceViewItemType.SPACE:
                 return pinSpace(action.item.data.uuid);
+            case ResourceViewItemType.DATA_APP:
+                if (!projectUuid) return undefined;
+                return pinApp({
+                    projectUuid,
+                    appUuid: action.item.data.uuid,
+                });
             default:
                 return assertUnreachable(
                     action.item,
                     'Resource type not supported',
                 );
         }
-    }, [action, pinChart, pinDashboard, pinSpace]);
+    }, [action, pinChart, pinDashboard, pinSpace, pinApp, projectUuid]);
 
     useEffect(() => {
         if (action.type === ResourceViewItemAction.PIN_TO_HOMEPAGE) {
@@ -185,6 +206,20 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             onClose={handleReset}
                             onSubmitForm={handleReset}
                             parentSpaceUuid={action.item.data.parentSpaceUuid}
+                        />
+                    );
+                case ResourceViewItemType.DATA_APP:
+                    return (
+                        <AppUpdateModal
+                            opened
+                            projectUuid={projectUuid}
+                            uuid={action.item.data.uuid}
+                            initialName={action.item.data.name}
+                            initialDescription={
+                                action.item.data.description ?? ''
+                            }
+                            onClose={handleReset}
+                            onConfirm={handleReset}
                         />
                     );
                 default:
@@ -242,6 +277,17 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                             onClose={handleReset}
                             onSubmitForm={handleReset}
                             parentSpaceUuid={null}
+                        />
+                    );
+                case ResourceViewItemType.DATA_APP:
+                    return (
+                        <AppDeleteModal
+                            opened
+                            projectUuid={projectUuid}
+                            uuid={action.item.data.uuid}
+                            name={action.item.data.name}
+                            onClose={handleReset}
+                            onConfirm={handleReset}
                         />
                     );
 

@@ -688,4 +688,23 @@ export class SchedulerService extends BaseService {
 
         await this.schedulerModel.bulkUpdateSchedulersCron(schedulerUpdates);
     }
+    // STUB: port from upstream SchedulerService when app deliveries are wired
+    async getAppSchedulers(
+        _user: SessionUser,
+        _appUuid: string,
+        _includeLatestRun?: boolean,
+    ): Promise<SchedulerAndTargets[]> {
+        return [];
+    }
+
+    async createAppScheduler(
+        _user: SessionUser,
+        _appUuid: string,
+        _newScheduler: unknown,
+        _opts?: unknown,
+    ): Promise<SchedulerAndTargets> {
+        throw new NotExistsError(
+            'App schedulers are not available in this build',
+        );
+    }
 }

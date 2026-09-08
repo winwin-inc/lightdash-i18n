@@ -1,4 +1,5 @@
 import {
+    assertUnreachable,
     CompiledDimension,
     CompiledMetric,
     CompiledMetricQuery,
@@ -11,6 +12,7 @@ import {
     FieldReferenceError,
     FieldType,
     FilterGroup,
+    FilterGroupItem,
     FilterOperator,
     FilterRule,
     getCustomMetricDimensionId,
@@ -19,6 +21,8 @@ import {
     getFilterRulesFromGroup,
     getItemId,
     getParsedReference,
+    getPopComparisonConfigKey,
+    hashPopComparisonConfigKeyToSuffix,
     IntrinsicUserAttributes,
     isAndFilterGroup,
     isCompiledCustomSqlDimension,
@@ -27,30 +31,46 @@ import {
     isFilterRuleInQuery,
     isJoinModelRequiredFilter,
     isNonAggregateMetric,
+    isPeriodOverPeriodAdditionalMetric,
     isPostCalculationMetric,
     ItemsMap,
     lightdashVariablePattern,
     MetricFilterRule,
+    MetricQuery,
     parseAllReferences,
     PivotConfiguration,
     QueryWarning,
     renderFilterRuleSqlFromField,
     renderTableCalculationFilterRuleSql,
+    resolveTimestampFilterContext,
     snakeCaseName,
     SortField,
     SupportedDbtAdapter,
     TimeFrames,
+    truncatableTimeFrames,
+    extractableTimeFrames,
+    getSqlForTruncatedDate,
+    isTimezoneRoundTripNoOp,
+    timeFrameConfigs,
     UserAttributeValueMap,
+    DimensionType,
+    type TimestampDomain,
+    type TimestampFilterLhsMode,
+    type WeekDay,
     type ParameterDefinitions,
     type ParametersValuesMap,
     type WarehouseSqlBuilder,
 } from '@lightdash/common';
 import Logger from '../../logging/logger';
-import { compilePostCalculationMetric } from '../../queryCompiler';
+import {
+    compileMetricQuery,
+    compilePostCalculationMetric,
+} from '../../queryCompiler';
 import {
     safeReplaceParametersWithTypes,
     unsafeReplaceParametersAsRaw,
 } from './parameters';
+import { TotalQueryBuilder } from './TotalQueryBuilder';
 import {
     assertValidDimensionRequiredAttribute,
     findMetricInflationWarnings,
@@ -62,12 +82,17 @@ import {
     getJoinedTables,
     getJoinType,
     getMetricFromId,
+    getSumOfRowsTableCalculations,
+    hasBlockingTotalFilters,
     isInflationProofMetric,
     replaceUserAttributesAsStrings,
     replaceUserAttributesRaw,
     sortDayOfWeekName,
     sortMonthName,
+    type TotalConfiguration,
 } from './utils';
+
+export type { TotalConfiguration } from './utils';
 
 export type CompiledQuery = {
     query: string;
@@ -88,10 +113,485 @@ export type BuildQueryProps = {
     intrinsicUserAttributes: IntrinsicUserAttributes;
     pivotConfiguration?: PivotConfiguration;
     timezone: string;
+    /** Wrap DATE_TRUNC with timezone conversion. Gated behind EnableTimezoneSupport. */
+    useTimezoneAwareDateTrunc?: boolean;
+    /** Timezone the column data is in — source for the timezone-aware wrap. */
+    columnTimezone?: string;
+    /**
+     * Turns this into a totals query: collapse via TotalQueryBuilder, keep the
+     * original as an embedded `source_rows` CTE when filters / sum-of-rows need it.
+     */
+    totalConfiguration?: TotalConfiguration;
 };
 
+/**
+ * Semi-joins every raw scan of this query to the distinct dimension groups of
+ * the embedded source rows (null-safe, cannot fan out).
+ */
+type SourceQueryGroupRestriction = {
+    joinDimensions: string[];
+    scope: 'results' | 'visiblePage';
+};
+
+type SourceQueryAggregationFunction = 'sum';
+
+/**
+ * Aggregations computed over the embedded source rows at a grain and joined
+ * onto this query's final select ([] grain = one global row, CROSS JOINed).
+ */
+type SourceQueryAggregations = {
+    grainDimensions: string[];
+    columns: Array<{
+        reference: string;
+        aggregation: SourceQueryAggregationFunction;
+    }>;
+};
+
+const SOURCE_ROWS_CTE_NAME = 'source_rows';
+const SOURCE_GROUPS_CTE_NAME = 'source_dimension_groups';
+const VISIBLE_PAGE_ROWS_CTE_NAME = 'visible_page_rows';
+const VISIBLE_GROUPS_CTE_NAME = 'visible_dimension_groups';
+const SOURCE_AGGREGATIONS_CTE_NAME = 'source_aggregations';
+const SOURCE_AGGREGATIONS_GRAIN_PREFIX = 'sa_';
+
+const getSourceAggregationSql = (
+    aggregation: SourceQueryAggregationFunction,
+    quotedReference: string,
+): string => {
+    switch (aggregation) {
+        case 'sum':
+            return `SUM(${quotedReference})`;
+        default:
+            return assertUnreachable(
+                aggregation,
+                `Unknown source aggregation "${aggregation}"`,
+            );
+    }
+};
+
+function normalizeIntervalGranularity(
+    value: number,
+    granularity: string,
+    convertWeeks: boolean = false,
+): [number, string] {
+    const upperGranularity = granularity.toUpperCase();
+
+    if (upperGranularity === 'QUARTER') {
+        return [value * 3, 'MONTH'];
+    }
+
+    if (convertWeeks && upperGranularity === 'WEEK') {
+        return [value * 7, 'DAY'];
+    }
+
+    return [value, granularity];
+}
+
+export function getIntervalSyntax(
+    adapterType: SupportedDbtAdapter,
+    column: string,
+    columnWithInterval: string,
+    operator: '=' | '>=' | '<=',
+    value: number,
+    granularity: string,
+    isAdd: boolean = true,
+): string {
+    const operation = isAdd ? 'ADD' : 'SUB';
+
+    let intervalExpression: string;
+
+    switch (adapterType) {
+        case SupportedDbtAdapter.BIGQUERY:
+            // BigQuery always uses DATE_ADD/DATE_SUB
+            intervalExpression = `DATE_${operation}(DATE(${columnWithInterval}), INTERVAL ${value} ${granularity})`;
+            break;
+        case SupportedDbtAdapter.DATABRICKS: {
+            // Databricks uses interval arithmetic with quoted values
+            // Doesn't support QUARTER interval, convert to months
+            const [dbValue, dbGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${dbValue}' ${dbGranularity}`;
+            break;
+        }
+        case SupportedDbtAdapter.SNOWFLAKE:
+            // Snowflake uses DATEADD function
+            intervalExpression = `DATEADD(${granularity}, ${
+                isAdd ? value : -value
+            }, ${columnWithInterval})`;
+            break;
+        case SupportedDbtAdapter.REDSHIFT: {
+            // Redshift uses DATEADD and doesn't support QUARTER directly
+            const [redshiftValue, redshiftGranularity] =
+                normalizeIntervalGranularity(value, granularity);
+            intervalExpression = `DATEADD(${redshiftGranularity}, ${
+                isAdd ? redshiftValue : -redshiftValue
+            }, ${columnWithInterval})`;
+            break;
+        }
+        case SupportedDbtAdapter.POSTGRES: {
+            // Postgres uses standard interval arithmetic
+            // Postgres doesn't support QUARTER interval, convert to months
+            const [pgValue, pgGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${pgValue} ${pgGranularity}'`;
+            break;
+        }
+        case SupportedDbtAdapter.TRINO: {
+            // Trino uses standard interval arithmetic
+            const [trinoValue, trinoGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL '${trinoValue}' ${trinoGranularity}`;
+            break;
+        }
+        case SupportedDbtAdapter.CLICKHOUSE: {
+            // ClickHouse uses date arithmetic functions
+            // ClickHouse doesn't support QUARTER interval, convert to months
+            const [chValue, chGranularity] = normalizeIntervalGranularity(
+                value,
+                granularity,
+            );
+            const func = isAdd ? 'date_add' : 'date_sub';
+            intervalExpression = `${func}(${columnWithInterval}, INTERVAL ${chValue} ${chGranularity})`;
+            break;
+        }
+        default:
+            // Default to standard SQL interval syntax
+            intervalExpression = `${columnWithInterval} ${
+                isAdd ? '+' : '-'
+            } INTERVAL ${value} ${granularity}`;
+            break;
+    }
+
+    return `${
+        adapterType === SupportedDbtAdapter.BIGQUERY
+            ? `DATE(${column})`
+            : column
+    } ${operator} ${intervalExpression}`;
+}
+
 export class MetricQueryBuilder {
-    constructor(private args: BuildQueryProps) {}
+    private readonly baseMetricIdByPopMetricId: Record<string, string> = {};
+
+    private popComparisonConfigs: Array<{
+        timeDimensionId: string;
+        granularity: TimeFrames;
+        periodOffset: number;
+        configKey: string;
+        cteSuffix: string;
+    }> = [];
+
+    private readonly popMetricEntriesByConfigKey: Record<
+        string,
+        Array<{ popMetricId: string; baseMetricId: string }>
+    > = {};
+
+    private readonly exploreDimensions: Record<string, CompiledDimension>;
+
+    /** Totals mode: the original (source) query kept for the `source_rows` embed. */
+    private sourceQuery:
+        | {
+              compiledMetricQuery: CompiledMetricQuery;
+              pivotConfiguration?: PivotConfiguration;
+          }
+        | undefined;
+
+    /** Totals mode: the uncompiled collapsed query, for request echo / routing. */
+    private effectiveMetricQuery: MetricQuery | undefined;
+
+    private isPopMetricId(metricId: string): boolean {
+        return metricId in this.baseMetricIdByPopMetricId;
+    }
+
+    /** Query timezone when timezone-aware DATE_TRUNC is active, undefined otherwise. */
+    private get timezoneForDateTrunc(): string | undefined {
+        return this.args.useTimezoneAwareDateTrunc
+            ? this.args.timezone
+            : undefined;
+    }
+
+    private get columnTimezone(): string {
+        return this.args.columnTimezone ?? 'UTC';
+    }
+
+    /**
+     * Recompute time-interval dimension SQL with timezone-aware DATE_TRUNC when
+     * EnableTimezoneSupport is on. Falls back to explore-compiled SQL otherwise.
+     * Also returns the LHS mode used by timestamp filter literal casting.
+     */
+    private resolveTimezoneAwareDimensionSql(
+        dimension: CompiledDimension,
+        adapterType: SupportedDbtAdapter,
+        startOfWeek: WeekDay | null | undefined,
+        respectConvertTimezone: boolean = true,
+    ): { sql: string; lhsMode: TimestampFilterLhsMode } {
+        const { timezone, useTimezoneAwareDateTrunc } = this.args;
+
+        if (!useTimezoneAwareDateTrunc || !dimension.timeInterval) {
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
+        }
+
+        const isRaw = dimension.timeInterval === TimeFrames.RAW;
+        const isTruncatable = truncatableTimeFrames.has(dimension.timeInterval);
+        const isExtractable = extractableTimeFrames.has(dimension.timeInterval);
+        if (!isRaw && !isTruncatable && !isExtractable) {
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
+        }
+
+        const baseDimensionId = dimension.timeIntervalBaseDimensionName
+            ? `${dimension.table}_${dimension.timeIntervalBaseDimensionName}`
+            : undefined;
+
+        const baseDimension = baseDimensionId
+            ? this.exploreDimensions[baseDimensionId]
+            : undefined;
+
+        if (
+            !baseDimension?.compiledSql ||
+            baseDimension.type !== DimensionType.TIMESTAMP
+        ) {
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
+        }
+
+        if (respectConvertTimezone && baseDimension.skipTimezoneConversion) {
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
+        }
+
+        const timestampDomain =
+            dimension.timestampDomain ?? baseDimension.timestampDomain;
+
+        if (isRaw) {
+            return { sql: dimension.compiledSql, lhsMode: 'legacy' };
+        }
+
+        if (isTruncatable) {
+            return {
+                sql: getSqlForTruncatedDate(
+                    adapterType,
+                    dimension.timeInterval,
+                    baseDimension.compiledSql,
+                    baseDimension.type,
+                    startOfWeek,
+                    timezone,
+                    this.columnTimezone,
+                    timestampDomain,
+                    true,
+                ),
+                lhsMode: isTimezoneRoundTripNoOp(
+                    adapterType,
+                    timezone ?? 'UTC',
+                    this.columnTimezone,
+                    timestampDomain,
+                )
+                    ? 'legacy'
+                    : 'wrapped',
+            };
+        }
+
+        return {
+            sql: timeFrameConfigs[dimension.timeInterval].getSql(
+                adapterType,
+                dimension.timeInterval,
+                baseDimension.compiledSql,
+                baseDimension.type,
+                startOfWeek,
+                timezone,
+                this.columnTimezone,
+                timestampDomain,
+            ),
+            lhsMode: 'legacy',
+        };
+    }
+
+    private getTimezoneAwareDimensionSql(
+        dimension: CompiledDimension,
+        adapterType: SupportedDbtAdapter,
+        startOfWeek: WeekDay | null | undefined,
+        respectConvertTimezone: boolean = true,
+    ): string {
+        return this.resolveTimezoneAwareDimensionSql(
+            dimension,
+            adapterType,
+            startOfWeek,
+            respectConvertTimezone,
+        ).sql;
+    }
+
+    private resolveFilterTimestampDomain(
+        dimension: CompiledDimension,
+    ): TimestampDomain | undefined {
+        if (!dimension.timeInterval) {
+            return dimension.type === DimensionType.TIMESTAMP &&
+                !dimension.skipTimezoneConversion
+                ? dimension.timestampDomain
+                : undefined;
+        }
+        const baseDimensionId = dimension.timeIntervalBaseDimensionName
+            ? `${dimension.table}_${dimension.timeIntervalBaseDimensionName}`
+            : undefined;
+        const baseDimension = baseDimensionId
+            ? this.exploreDimensions[baseDimensionId]
+            : undefined;
+        if (
+            !baseDimension?.compiledSql ||
+            baseDimension.type !== DimensionType.TIMESTAMP
+        ) {
+            return undefined;
+        }
+        if (
+            dimension.timeInterval === TimeFrames.RAW &&
+            baseDimension.skipTimezoneConversion
+        ) {
+            return undefined;
+        }
+        return dimension.timestampDomain ?? baseDimension.timestampDomain;
+    }
+
+    constructor(private args: BuildQueryProps) {
+        this.exploreDimensions = Object.fromEntries(
+            getDimensions(args.explore).map((d) => [getItemId(d), d]),
+        );
+
+        // Totals mode: collapse the query to the requested grain up front, so
+        // the rest of the builder sees the collapsed query as "the query" and
+        // the original one only survives as the embedded source.
+        if (args.totalConfiguration) {
+            const collapsed = new TotalQueryBuilder({
+                metricQuery: {
+                    ...args.compiledMetricQuery,
+                    // CompiledMetricQuery omits the uncompiled custom
+                    // dimensions; restore them so the collapsed query
+                    // re-compiles with its custom dimensions intact.
+                    customDimensions:
+                        args.compiledMetricQuery.compiledCustomDimensions,
+                },
+                pivotConfiguration: args.pivotConfiguration ?? null,
+                kind: args.totalConfiguration.kind,
+                subtotalDimensions: args.totalConfiguration.subtotalDimensions,
+            }).compileQuery();
+            this.sourceQuery = collapsed.sourceQuery
+                ? {
+                      compiledMetricQuery: args.compiledMetricQuery,
+                      pivotConfiguration: args.pivotConfiguration,
+                  }
+                : undefined;
+            this.effectiveMetricQuery = collapsed.metricQuery;
+            this.args = {
+                ...args,
+                compiledMetricQuery: compileMetricQuery({
+                    explore: args.explore,
+                    metricQuery: collapsed.metricQuery,
+                    warehouseSqlBuilder: args.warehouseSqlBuilder,
+                    availableParameters: Object.keys(args.parameterDefinitions),
+                }),
+                pivotConfiguration: collapsed.pivotConfiguration,
+            };
+        }
+
+        const { compiledMetricQuery } = this.args;
+
+        const metricFilterIds = new Set(
+            getFilterRulesFromGroup(compiledMetricQuery.filters.metrics).map(
+                (filter) => filter.target.fieldId,
+            ),
+        );
+        const selectedOrFilteredPopAdditionalMetrics = (
+            compiledMetricQuery.additionalMetrics ?? []
+        )
+            .filter(isPeriodOverPeriodAdditionalMetric)
+            .filter((am) => {
+                const popMetricId = getItemId(am);
+                return (
+                    compiledMetricQuery.metrics.includes(popMetricId) ||
+                    metricFilterIds.has(popMetricId)
+                );
+            });
+
+        if (selectedOrFilteredPopAdditionalMetrics.length > 0) {
+            const configsByKey = new Map<
+                string,
+                {
+                    timeDimensionId: string;
+                    granularity: TimeFrames;
+                    periodOffset: number;
+                    cteSuffix: string;
+                }
+            >();
+
+            selectedOrFilteredPopAdditionalMetrics.forEach((am) => {
+                const configKey = getPopComparisonConfigKey({
+                    timeDimensionId: am.timeDimensionId,
+                    granularity: am.granularity,
+                    periodOffset: am.periodOffset,
+                });
+                const cteSuffixHash =
+                    hashPopComparisonConfigKeyToSuffix(configKey);
+                const granularityLabel = String(am.granularity).toLowerCase();
+                // Keep CTE suffix short to avoid identifier truncation (e.g. Postgres 63-char limit).
+                // Uniqueness comes from hashing the full config key.
+                const cteSuffix = `${granularityLabel}_${am.periodOffset}__${cteSuffixHash}`;
+                configsByKey.set(configKey, {
+                    timeDimensionId: am.timeDimensionId,
+                    granularity: am.granularity,
+                    periodOffset: am.periodOffset,
+                    cteSuffix,
+                });
+
+                const popMetricId = getItemId(am);
+                this.baseMetricIdByPopMetricId[popMetricId] = am.baseMetricId;
+
+                if (!this.popMetricEntriesByConfigKey[configKey]) {
+                    this.popMetricEntriesByConfigKey[configKey] = [];
+                }
+                this.popMetricEntriesByConfigKey[configKey].push({
+                    popMetricId,
+                    baseMetricId: am.baseMetricId,
+                });
+            });
+
+            this.popComparisonConfigs = Array.from(configsByKey.entries()).map(
+                ([configKey, config]) => ({
+                    ...config,
+                    configKey,
+                }),
+            );
+
+            // Ensure each comparison time dimension is selected in the query (required for joins)
+            this.popComparisonConfigs.forEach((cfg) => {
+                if (
+                    !compiledMetricQuery.dimensions.includes(
+                        cfg.timeDimensionId,
+                    )
+                ) {
+                    throw new CompileError(
+                        `Period comparison time dimension "${cfg.timeDimensionId}" must be selected in the query`,
+                        {},
+                    );
+                }
+            });
+        }
+    }
+
+    /** The effective (totals-collapsed) metric query this builder compiles. */
+    public getEffectiveMetricQuery(): MetricQuery {
+        return this.effectiveMetricQuery ?? this.args.compiledMetricQuery;
+    }
+
+    /** The effective (totals-collapsed) pivot configuration, if any. */
+    public getEffectivePivotConfiguration(): PivotConfiguration | undefined {
+        return this.args.pivotConfiguration;
+    }
 
     static buildCtesSQL(ctes: string[]) {
         return ctes.length > 0 ? `WITH ${ctes.join(',\n')}` : undefined;
@@ -101,20 +601,145 @@ export class MetricQueryBuilder {
         return parts.filter((l) => l !== undefined).join('\n');
     }
 
+    private static combineWhereClauses(
+        ...clauses: Array<string | undefined>
+    ): string | undefined {
+        const conditions = clauses
+            .filter((clause): clause is string => clause !== undefined)
+            .map((clause) => clause.replace(/^WHERE\s+/i, '').trim())
+            .filter((clause) => clause.length > 0);
+
+        return conditions.length > 0
+            ? `WHERE ${conditions.join(' AND ')}`
+            : undefined;
+    }
+
+    /** NULL-safe equality for JOIN conditions (fork lacks WarehouseSqlBuilder helper). */
+    private static nullSafeEqualJoinSql(left: string, right: string): string {
+        return `(${left} = ${right} OR (${left} IS NULL AND ${right} IS NULL))`;
+    }
+
+    private isFilterOnPopComparisonTimeDimension(
+        filter: FilterRule,
+        timeDimensionId: string,
+    ): boolean {
+        if (filter.target.fieldId === timeDimensionId) {
+            return true;
+        }
+
+        const { explore, compiledMetricQuery, warehouseSqlBuilder } = this.args;
+        const adapterType: SupportedDbtAdapter =
+            warehouseSqlBuilder.getAdapterType();
+        const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
+
+        const popDimension = getDimensionFromId(
+            timeDimensionId,
+            explore,
+            adapterType,
+            startOfWeek,
+        );
+        const popDimensionBaseId = `${popDimension.table}_${
+            popDimension.timeIntervalBaseDimensionName ?? popDimension.name
+        }`;
+
+        const filterDimension = getDimensionFromFilterTargetId(
+            filter.target.fieldId,
+            explore,
+            compiledMetricQuery.compiledCustomDimensions.filter(
+                isCompiledCustomSqlDimension,
+            ),
+            adapterType,
+            startOfWeek,
+        );
+
+        if (isCompiledCustomSqlDimension(filterDimension)) {
+            return false;
+        }
+
+        return (
+            `${filterDimension.table}_${
+                filterDimension.timeIntervalBaseDimensionName ??
+                filterDimension.name
+            }` === popDimensionBaseId
+        );
+    }
+
+    private getDimensionsFilterGroupWithoutPopTimeFilters(
+        timeDimensionId: string,
+        filterGroup: FilterGroup | undefined,
+    ): FilterGroup | undefined {
+        if (!filterGroup) {
+            return undefined;
+        }
+
+        const items = isAndFilterGroup(filterGroup)
+            ? filterGroup.and
+            : filterGroup.or;
+
+        const filteredItems = items.reduce<FilterGroupItem[]>((acc, item) => {
+            if (isFilterGroup(item)) {
+                const nestedGroup =
+                    this.getDimensionsFilterGroupWithoutPopTimeFilters(
+                        timeDimensionId,
+                        item,
+                    );
+                return nestedGroup ? [...acc, nestedGroup] : acc;
+            }
+
+            return this.isFilterOnPopComparisonTimeDimension(
+                item,
+                timeDimensionId,
+            )
+                ? acc
+                : [...acc, item];
+        }, []);
+
+        if (filteredItems.length === 0) {
+            return undefined;
+        }
+
+        return isAndFilterGroup(filterGroup)
+            ? {
+                  ...filterGroup,
+                  and: filteredItems,
+              }
+            : {
+                  ...filterGroup,
+                  or: filteredItems,
+              };
+    }
+
+    private getPopDimensionsFilterSQL(
+        timeDimensionId: string,
+    ): string | undefined {
+        const strippedGroup =
+            this.getDimensionsFilterGroupWithoutPopTimeFilters(
+                timeDimensionId,
+                this.args.compiledMetricQuery.filters.dimensions,
+            );
+        return this.buildDimensionsWhereClause(strippedGroup);
+    }
+
     private getDimensionsFilterSQL() {
+        return this.buildDimensionsWhereClause(
+            this.args.compiledMetricQuery.filters.dimensions,
+        );
+    }
+
+    private buildDimensionsWhereClause(
+        dimensionsFilterGroup?: FilterGroup,
+    ): string | undefined {
         const {
             explore,
-            compiledMetricQuery,
             warehouseSqlBuilder,
             userAttributes = {},
             intrinsicUserAttributes,
         } = this.args;
-        const { filters } = compiledMetricQuery;
 
         const requiredDimensionFilterSql =
             this.getNestedDimensionFilterSQLFromModelFilters(
                 explore.tables[explore.baseTable],
-                filters.dimensions,
+                dimensionsFilterGroup,
             );
         const tableCompiledSqlWhere =
             explore.tables[explore.baseTable].sqlWhere;
@@ -131,7 +756,7 @@ export class MetricQueryBuilder {
             : [];
 
         const nestedFilterSql = this.getNestedFilterSQLFromGroup(
-            filters.dimensions,
+            dimensionsFilterGroup,
             FieldType.DIMENSION,
         );
         const requiredFiltersWhere = requiredDimensionFilterSql
@@ -181,6 +806,9 @@ export class MetricQueryBuilder {
                     explore,
                     adapterType,
                     startOfWeek,
+                    true,
+                    this.timezoneForDateTrunc,
+                    this.columnTimezone,
                 );
 
                 assertValidDimensionRequiredAttribute(
@@ -256,7 +884,12 @@ export class MetricQueryBuilder {
         dimensionsObjects.forEach((dimension) => {
             const id = getItemId(dimension);
             const quotedAlias = `${fieldQuoteChar}${id}${fieldQuoteChar}`;
-            selects[id] = `  ${dimension.compiledSql} AS ${quotedAlias}`;
+            const dimensionSql = this.getTimezoneAwareDimensionSql(
+                dimension,
+                adapterType,
+                startOfWeek,
+            );
+            selects[id] = `  ${dimensionSql} AS ${quotedAlias}`;
         });
 
         if (customBinDimensionSql?.selects) {
@@ -353,13 +986,18 @@ export class MetricQueryBuilder {
         const { explore, compiledMetricQuery } = this.args;
         const { metrics, filters } = compiledMetricQuery;
 
-        // Regular metrics
-        const referencedMetricIds = new Set<string>(metrics);
-
-        // Add metrics from filters
-        getFilterRulesFromGroup(filters.metrics).forEach((filter) =>
-            referencedMetricIds.add(filter.target.fieldId),
+        // Regular metrics. PoP metrics are materialized by shifted comparison CTEs.
+        const referencedMetricIds = new Set<string>(
+            metrics.filter((metricId) => !this.isPopMetricId(metricId)),
         );
+
+        // Add metrics from filters. PoP filter metrics are materialized
+        // by shifted comparison CTEs instead of the raw metric SELECT.
+        getFilterRulesFromGroup(filters.metrics).forEach((filter) => {
+            if (!this.isPopMetricId(filter.target.fieldId)) {
+                referencedMetricIds.add(filter.target.fieldId);
+            }
+        });
 
         // Add metrics referenced in PostCalculation metrics
         this.getPostCalculationMetricReferences(
@@ -432,6 +1070,21 @@ export class MetricQueryBuilder {
                 `  ${metric.compiledSql} AS ${fieldQuoteChar}${alias}${fieldQuoteChar}`,
             );
             // Add tables
+            (metric.tablesReferences || [metric.table]).forEach((table) =>
+                tables.add(table),
+            );
+        });
+
+        // PoP base metrics are computed in shifted CTEs; still need their tables joined.
+        Object.values(this.baseMetricIdByPopMetricId).forEach((baseMetricId) => {
+            if (metrics.includes(baseMetricId)) {
+                return;
+            }
+            const metric = getMetricFromId(
+                baseMetricId,
+                explore,
+                compiledMetricQuery,
+            );
             (metric.tablesReferences || [metric.table]).forEach((table) =>
                 tables.add(table),
             );
@@ -654,6 +1307,43 @@ export class MetricQueryBuilder {
             );
         }
 
+        let timestampFilterLhsMode: TimestampFilterLhsMode = 'legacy';
+        const filterField =
+            fieldType === FieldType.DIMENSION &&
+            !isCompiledCustomSqlDimension(field)
+                ? (() => {
+                      const dimensionField = field as CompiledDimension;
+                      const resolved = this.resolveTimezoneAwareDimensionSql(
+                          dimensionField,
+                          adapterType,
+                          startOfWeek,
+                          false,
+                      );
+                      timestampFilterLhsMode = resolved.lhsMode;
+                      return {
+                          ...dimensionField,
+                          compiledSql: resolved.sql,
+                      };
+                  })()
+                : field;
+
+        const timestampFilterContext =
+            fieldType === FieldType.DIMENSION &&
+            !isCompiledCustomSqlDimension(field) &&
+            (field as CompiledDimension).type === DimensionType.TIMESTAMP
+                ? resolveTimestampFilterContext({
+                      adapterType,
+                      useTimezoneAwareDateTrunc:
+                          this.args.useTimezoneAwareDateTrunc,
+                      sourceTimezone: this.columnTimezone,
+                      timestampDomain: this.resolveFilterTimestampDomain(
+                          field as CompiledDimension,
+                      ),
+                      timeInterval: (field as CompiledDimension).timeInterval,
+                      lhsMode: timestampFilterLhsMode,
+                  })
+                : undefined;
+
         let latestDataMonthMaxSql: string | undefined;
         if (
             filterRuleWithParamReplacedValues.operator ===
@@ -664,15 +1354,15 @@ export class MetricQueryBuilder {
                     'Filter "fromStartToLatestMonth" is only supported on date dimensions',
                 );
             }
-            if (isCompiledCustomSqlDimension(field)) {
+            if (isCompiledCustomSqlDimension(filterField)) {
                 throw new CompileError(
                     'Filter "fromStartToLatestMonth" is not supported on custom SQL dimensions',
                 );
             }
 
             const tableName =
-                'table' in field && typeof field.table === 'string'
-                    ? field.table
+                'table' in filterField && typeof filterField.table === 'string'
+                    ? filterField.table
                     : undefined;
             const compiledTable =
                 tableName !== undefined ? explore.tables[tableName] : undefined;
@@ -690,12 +1380,12 @@ export class MetricQueryBuilder {
             );
             const tableAlias = `${fieldQuoteChar}${tableName}${fieldQuoteChar}`;
             // field.compiledSql already references this table alias
-            latestDataMonthMaxSql = `SELECT MAX(${field.compiledSql}) FROM ${sqlTable} AS ${tableAlias}`;
+            latestDataMonthMaxSql = `SELECT MAX(${filterField.compiledSql}) FROM ${sqlTable} AS ${tableAlias}`;
         }
 
         return renderFilterRuleSqlFromField(
             filterRuleWithParamReplacedValues,
-            field,
+            filterField,
             fieldQuoteChar,
             stringQuoteChar,
             escapeString,
@@ -703,6 +1393,7 @@ export class MetricQueryBuilder {
             adapterType,
             timezone,
             latestDataMonthMaxSql,
+            timestampFilterContext,
         );
     }
 
@@ -1007,9 +1698,18 @@ export class MetricQueryBuilder {
                 joinedTables,
             });
 
-        const metricsObjects = metrics.map((field) =>
-            getMetricFromId(field, explore, compiledMetricQuery),
+        const popMetricIds = new Set(
+            Object.keys(this.baseMetricIdByPopMetricId),
         );
+        const popBaseMetricIds = Array.from(
+            new Set(Object.values(this.baseMetricIdByPopMetricId)),
+        );
+        // Include PoP base metrics so shifted comparison CTEs can materialize them
+        // even when the base metric is not selected for display.
+        const metricsObjects = Array.from(
+            new Set([...metrics, ...popBaseMetricIds]),
+        ).map((field) => getMetricFromId(field, explore, compiledMetricQuery));
+        const selectedMetricIds = new Set(metrics);
         const metricsWithCteReferences: Array<CompiledMetric> = [];
         const referencedMetricObjects = metricsObjects.reduce<CompiledMetric[]>(
             (acc, metricObject) => {
@@ -1072,7 +1772,22 @@ export class MetricQueryBuilder {
         const warnings: QueryWarning[] = [];
         const ctes: string[] = [];
         const metricCtes: Array<{ name: string; metrics: string[] }> = [];
+        const popMetricCtes: Array<{
+            name: string;
+            metrics: string[];
+            popConfig: {
+                timeDimensionId: string;
+                granularity: TimeFrames;
+                periodOffset: number;
+                configKey: string;
+                cteSuffix: string;
+            };
+        }> = [];
         let finalSelectParts: Array<string | undefined> | undefined;
+
+        const adapterType: SupportedDbtAdapter =
+            warehouseSqlBuilder.getAdapterType();
+        const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
 
         // We can't handle deduplication for joins without relationship type
         joinWithoutRelationship.forEach((tableName) => {
@@ -1123,6 +1838,10 @@ export class MetricQueryBuilder {
             }
 
             metricsFromTable.forEach((metric) => {
+                // PoP metrics are materialized via shifted comparison CTEs
+                if (popMetricIds.has(getItemId(metric))) {
+                    return;
+                }
                 // Inflation proof metrics don't need CTE
                 if (isInflationProofMetric(metric.type)) {
                     return;
@@ -1229,6 +1948,149 @@ export class MetricQueryBuilder {
                     name: metricsCteName,
                     metrics: metricsInCte.map((metric) => getItemId(metric)),
                 });
+
+                if (this.popComparisonConfigs.length > 0) {
+                    const metricsInCteById = new Map(
+                        metricsInCte.map((m) => [getItemId(m), m]),
+                    );
+                    const primaryKey = table.primaryKey;
+
+                    this.popComparisonConfigs.forEach((cfg) => {
+                        const popEntries =
+                            this.popMetricEntriesByConfigKey[
+                                cfg.configKey
+                            ]?.filter((e) =>
+                                metricsInCteById.has(e.baseMetricId),
+                            ) ?? [];
+
+                        if (popEntries.length === 0) return;
+
+                        const popFieldId = cfg.timeDimensionId;
+                        const popConfigSuffix = cfg.cteSuffix;
+                        const popCteTablePart = snakeCaseName(tableName).slice(
+                            0,
+                            16,
+                        );
+                        const popMinMaxCteName = `cte_pop_min_max_${popCteTablePart}__${popConfigSuffix}`;
+                        ctes.push(
+                            `${popMinMaxCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                                [
+                                    `SELECT`,
+                                    [
+                                        `MIN(${keysCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as min_date`,
+                                        `MAX(${keysCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as max_date`,
+                                    ].join(',\n'),
+                                    `FROM ${keysCteName}`,
+                                ],
+                            )}\n)`,
+                        );
+
+                        const popKeysCteName = `cte_pop_keys_${popCteTablePart}__${popConfigSuffix}`;
+                        const popField = getDimensionFromId(
+                            popFieldId,
+                            explore,
+                            adapterType,
+                            startOfWeek,
+                        );
+                        const popFieldSql = popField.compiledSql;
+                        const popDimensionFilters =
+                            this.getPopDimensionsFilterSQL(popFieldId);
+                        ctes.push(
+                            `${popKeysCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                                [
+                                    `SELECT DISTINCT`,
+                                    [
+                                        ...Object.values(dimensionSelects),
+                                        ...primaryKey.map(
+                                            (pk) =>
+                                                `  ${fieldQuoteChar}${table.name}${fieldQuoteChar}.${pk} AS ${fieldQuoteChar}pk_${pk}${fieldQuoteChar}`,
+                                        ),
+                                    ].join(',\n'),
+                                    sqlFrom,
+                                    ...[
+                                        ...joins,
+                                        `LEFT JOIN ${popMinMaxCteName} ON TRUE`,
+                                    ],
+                                    MetricQueryBuilder.combineWhereClauses(
+                                        popDimensionFilters,
+                                        `WHERE ${getIntervalSyntax(
+                                            adapterType,
+                                            popFieldSql,
+                                            `${popMinMaxCteName}.min_date`,
+                                            '>=',
+                                            cfg.periodOffset,
+                                            cfg.granularity,
+                                            false,
+                                        )} AND ${getIntervalSyntax(
+                                            adapterType,
+                                            popFieldSql,
+                                            `${popMinMaxCteName}.max_date`,
+                                            '<=',
+                                            cfg.periodOffset,
+                                            cfg.granularity,
+                                            false,
+                                        )}`,
+                                    ),
+                                ],
+                            )}\n)`,
+                        );
+
+                        const popJoinTable = replaceUserAttributesRaw(
+                            table.sqlTable,
+                            intrinsicUserAttributes,
+                            userAttributes,
+                        );
+                        const popMetricsCteName = `cte_pop_metrics_${snakeCaseName(
+                            table.name,
+                        ).slice(0, 16)}__${popConfigSuffix}`;
+                        ctes.push(
+                            `${popMetricsCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                                [
+                                    `SELECT`,
+                                    [
+                                        ...dimensionAlias.map(
+                                            (alias) =>
+                                                `  ${popKeysCteName}.${alias}`,
+                                        ),
+                                        ...popEntries.map((entry) => {
+                                            const baseMetric =
+                                                metricsInCteById.get(
+                                                    entry.baseMetricId,
+                                                );
+                                            if (!baseMetric) return undefined;
+                                            return `  ${
+                                                baseMetric.compiledSql
+                                            } AS ${fieldQuoteChar}${
+                                                entry.popMetricId
+                                            }${fieldQuoteChar}`;
+                                        }),
+                                    ]
+                                        .filter((v) => v !== undefined)
+                                        .join(',\n'),
+                                    `FROM ${popKeysCteName}`,
+                                    `LEFT JOIN ${popJoinTable} AS ${fieldQuoteChar}${
+                                        table.name
+                                    }${fieldQuoteChar} ON ${primaryKey
+                                        .map(
+                                            (pk) =>
+                                                `${popKeysCteName}.${fieldQuoteChar}pk_${pk}${fieldQuoteChar} = ${fieldQuoteChar}${table.name}${fieldQuoteChar}.${pk}`,
+                                        )
+                                        .join(' AND ')}\n`,
+                                    dimensionAlias.length > 0
+                                        ? `GROUP BY ${dimensionAlias
+                                              .map((val, i) => i + 1)
+                                              .join(',')}`
+                                        : undefined,
+                                ],
+                            )}\n)`,
+                        );
+                        popMetricCtes.push({
+                            name: popMetricsCteName,
+                            metrics: popEntries.map((e) => e.popMetricId),
+                            popConfig: cfg,
+                        });
+                    });
+                }
             }
         });
         if (ctes.length > 0) {
@@ -1243,7 +2105,11 @@ export class MetricQueryBuilder {
                     !metricsWithCteReferences.find(
                         (m) => getItemId(metric) === getItemId(m),
                     );
-                return notInMetricCtes && notMetricWithCteReferences;
+                return (
+                    notInMetricCtes &&
+                    notMetricWithCteReferences &&
+                    !popMetricIds.has(getItemId(metric))
+                );
             });
             /**
              * CTE with all dimensions and metrics that aren't affected by fanouts
@@ -1297,10 +2163,16 @@ export class MetricQueryBuilder {
                 }),
                 ...metricCtes.flatMap<string>((metricCte) =>
                     metricCte.metrics
-                        // excludes metrics only used for references
-                        .filter((metric) =>
-                            metricsObjects.find((m) => metric === getItemId(m)),
-                        )
+                        // excludes metrics only used for references / PoP bases
+                        .filter((metric) => selectedMetricIds.has(metric))
+                        .map(
+                            (metricName) =>
+                                `  ${metricCte.name}.${fieldQuoteChar}${metricName}${fieldQuoteChar} AS ${fieldQuoteChar}${metricName}${fieldQuoteChar}`,
+                        ),
+                ),
+                ...popMetricCtes.flatMap<string>((metricCte) =>
+                    metricCte.metrics
+                        .filter((metricId) => selectedMetricIds.has(metricId))
                         .map(
                             (metricName) =>
                                 `  ${metricCte.name}.${fieldQuoteChar}${metricName}${fieldQuoteChar} AS ${fieldQuoteChar}${metricName}${fieldQuoteChar}`,
@@ -1315,6 +2187,7 @@ export class MetricQueryBuilder {
              * - Join metric tables:
              *   - when there are no dimensions, use CROSS JOIN
              *   - when there are dimensions, use INNER JOIN on all dimensions (+ or null)
+             *   - PoP metric CTEs use LEFT JOIN to preserve base rows
              */
             if (hasUnaffectedCte) {
                 ctes.push(
@@ -1322,11 +2195,125 @@ export class MetricQueryBuilder {
                         unaffectedMetricsCteParts,
                     )}\n)`,
                 );
+
+                if (this.popComparisonConfigs.length > 0) {
+                    const unaffectedById = new Map(
+                        unaffectedMetrics.map((m) => [getItemId(m), m]),
+                    );
+
+                    this.popComparisonConfigs.forEach((cfg) => {
+                        const popEntries =
+                            this.popMetricEntriesByConfigKey[
+                                cfg.configKey
+                            ]?.filter((e) =>
+                                unaffectedById.has(e.baseMetricId),
+                            ) ?? [];
+
+                        if (popEntries.length === 0) return;
+
+                        const popFieldId = cfg.timeDimensionId;
+                        const popConfigSuffix = cfg.cteSuffix;
+                        const popUnaffectedMinMaxCteName = `cte_pop_unaffected_min_max_${popConfigSuffix}`;
+                        ctes.push(
+                            `${popUnaffectedMinMaxCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                                [
+                                    `SELECT`,
+                                    [
+                                        `MIN(${unaffectedMetricsCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as min_date`,
+                                        `MAX(${unaffectedMetricsCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as max_date`,
+                                    ].join(',\n'),
+                                    `FROM ${unaffectedMetricsCteName}`,
+                                ],
+                            )}\n)`,
+                        );
+
+                        const popField = getDimensionFromId(
+                            popFieldId,
+                            explore,
+                            adapterType,
+                            startOfWeek,
+                        );
+                        const popFieldSql = popField.compiledSql;
+                        const popDimensionFilters =
+                            this.getPopDimensionsFilterSQL(popFieldId);
+                        const popUnaffectedMetricsCteName = `cte_pop_unaffected_${popConfigSuffix}`;
+                        ctes.push(
+                            `${popUnaffectedMetricsCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                                [
+                                    'SELECT',
+                                    [
+                                        ...Object.values(dimensionSelects),
+                                        ...popEntries.map((entry) => {
+                                            const baseMetric =
+                                                unaffectedById.get(
+                                                    entry.baseMetricId,
+                                                );
+                                            if (!baseMetric) return undefined;
+                                            return `  ${
+                                                baseMetric.compiledSql
+                                            } AS ${fieldQuoteChar}${
+                                                entry.popMetricId
+                                            }${fieldQuoteChar}`;
+                                        }),
+                                    ]
+                                        .filter((v) => v !== undefined)
+                                        .join(',\n'),
+                                    sqlFrom,
+                                    ...[
+                                        ...joins,
+                                        `LEFT JOIN ${popUnaffectedMinMaxCteName} ON TRUE`,
+                                    ],
+                                    MetricQueryBuilder.combineWhereClauses(
+                                        popDimensionFilters,
+                                        `WHERE ${getIntervalSyntax(
+                                            adapterType,
+                                            popFieldSql,
+                                            `${popUnaffectedMinMaxCteName}.min_date`,
+                                            '>=',
+                                            cfg.periodOffset,
+                                            cfg.granularity,
+                                            false,
+                                        )} AND ${getIntervalSyntax(
+                                            adapterType,
+                                            popFieldSql,
+                                            `${popUnaffectedMinMaxCteName}.max_date`,
+                                            '<=',
+                                            cfg.periodOffset,
+                                            cfg.granularity,
+                                            false,
+                                        )}`,
+                                    ),
+                                    dimensionGroupBy,
+                                ],
+                            )}\n)`,
+                        );
+                        popMetricCtes.push({
+                            name: popUnaffectedMetricsCteName,
+                            metrics: popEntries.map((e) => e.popMetricId),
+                            popConfig: cfg,
+                        });
+                    });
+                }
+
+                // Rebuild selects after unaffected PoP CTEs were appended
+                const popSelects = popMetricCtes.flatMap<string>((metricCte) =>
+                    metricCte.metrics
+                        .filter((metricId) => selectedMetricIds.has(metricId))
+                        .map(
+                            (metricName) =>
+                                `  ${metricCte.name}.${fieldQuoteChar}${metricName}${fieldQuoteChar} AS ${fieldQuoteChar}${metricName}${fieldQuoteChar}`,
+                        ),
+                );
+                const metricSelectsWithoutPop = finalMetricSelects.filter(
+                    (sel) => !sel.includes('cte_pop_'),
+                );
+
                 finalSelectParts = [
                     `SELECT`,
                     [
                         `  ${unaffectedMetricsCteName}.*`,
-                        ...finalMetricSelects,
+                        ...metricSelectsWithoutPop,
+                        ...popSelects,
                     ].join(',\n'),
                     `FROM ${unaffectedMetricsCteName}`,
                     ...metricCtes.map((metricCte) => {
@@ -1334,10 +2321,45 @@ export class MetricQueryBuilder {
                             return `CROSS JOIN ${metricCte.name}`;
                         }
                         return `INNER JOIN ${metricCte.name} ON ${dimensionAlias
-                            .map(
-                                (alias) =>
-                                    `( ${unaffectedMetricsCteName}.${alias} = ${metricCte.name}.${alias} OR ( ${unaffectedMetricsCteName}.${alias} IS NULL AND ${metricCte.name}.${alias} IS NULL ) )`,
+                            .map((alias) =>
+                                MetricQueryBuilder.nullSafeEqualJoinSql(
+                                    `${unaffectedMetricsCteName}.${alias}`,
+                                    `${metricCte.name}.${alias}`,
+                                ),
                             )
+                            .join(' AND ')}`;
+                    }),
+                    ...popMetricCtes.map((popMetricCte) => {
+                        if (Object.keys(dimensionSelects).length === 0) {
+                            return `CROSS JOIN ${popMetricCte.name}`;
+                        }
+                        const popFieldId =
+                            popMetricCte.popConfig.timeDimensionId;
+                        const { periodOffset, granularity } =
+                            popMetricCte.popConfig;
+                        return `LEFT JOIN ${
+                            popMetricCte.name
+                        } ON ${dimensionAlias
+                            .map((alias) => {
+                                if (
+                                    alias ===
+                                    `${fieldQuoteChar}${popFieldId}${fieldQuoteChar}`
+                                ) {
+                                    return `( ${getIntervalSyntax(
+                                        adapterType,
+                                        `${unaffectedMetricsCteName}.${alias}`,
+                                        `${popMetricCte.name}.${alias}`,
+                                        '=',
+                                        periodOffset,
+                                        granularity,
+                                        true,
+                                    )})`;
+                                }
+                                return MetricQueryBuilder.nullSafeEqualJoinSql(
+                                    `${unaffectedMetricsCteName}.${alias}`,
+                                    `${popMetricCte.name}.${alias}`,
+                                );
+                            })
                             .join(' AND ')}`;
                     }),
                 ];
@@ -1350,6 +2372,9 @@ export class MetricQueryBuilder {
                     ...metricCtes
                         .slice(1, metricCtes.length)
                         .map((metricCte) => `CROSS JOIN ${metricCte.name}`),
+                    ...popMetricCtes.map(
+                        (popMetricCte) => `CROSS JOIN ${popMetricCte.name}`,
+                    ),
                 ];
             }
         }
@@ -1692,21 +2717,338 @@ export class MetricQueryBuilder {
         };
     }
 
+    /** Compiles the source query for embedding as a CTE body of this query. */
+    private compileEmbeddedSource(source: {
+        compiledMetricQuery: CompiledMetricQuery;
+        pivotConfiguration?: PivotConfiguration;
+    }): ReturnType<MetricQueryBuilder['compileQueryAsCteBody']> {
+        return new MetricQueryBuilder({
+            ...this.args,
+            compiledMetricQuery: source.compiledMetricQuery,
+            pivotConfiguration: source.pivotConfiguration,
+            totalConfiguration: undefined,
+        }).compileQueryAsCteBody();
+    }
+
     /**
-     * Compiles a database query based on the provided metric query, explores, user attributes, and warehouse-specific configurations.
-     *
-     * This method processes dimensions, metrics, filters, and joins across multiple dataset definitions to generate
-     * a complete SQL query string tailored for the specific warehouse type and environment. Additionally, it ensures
-     * field validation and substitution of user-specific attributes for dynamic query generation.
-     *
-     * @return {CompiledQuery} The compiled query object containing the SQL string and meta information ready for execution.
+     * Derives what this query computes on top of the embedded source rows:
+     * metric/table-calc filter group restrictions, visible-page pinning for
+     * subtotals, and sum-of-rows aggregations.
      */
-    public compileQuery(): CompiledQuery {
+    private deriveSourceQueryUses(sourceMetricQuery: CompiledMetricQuery): {
+        groupRestrictions: SourceQueryGroupRestriction[];
+        aggregations: SourceQueryAggregations | undefined;
+    } {
+        const grainDimensions = this.args.compiledMetricQuery.dimensions;
+
+        const groupRestrictions: SourceQueryGroupRestriction[] = [];
+        if (hasBlockingTotalFilters(sourceMetricQuery)) {
+            groupRestrictions.push({
+                joinDimensions: sourceMetricQuery.dimensions,
+                scope: 'results',
+            });
+        }
+        if (
+            this.args.totalConfiguration?.kind === 'columnSubtotal' ||
+            this.args.totalConfiguration?.kind === 'rowSubtotal'
+        ) {
+            groupRestrictions.push({
+                joinDimensions: grainDimensions,
+                scope: 'visiblePage',
+            });
+        }
+
+        const sumOfRowsColumns = getSumOfRowsTableCalculations(
+            sourceMetricQuery,
+        ).map((calc) => ({
+            reference: calc.name,
+            aggregation: 'sum' as const,
+        }));
+        const aggregations: SourceQueryAggregations | undefined =
+            sumOfRowsColumns.length > 0
+                ? { grainDimensions, columns: sumOfRowsColumns }
+                : undefined;
+
+        return { groupRestrictions, aggregations };
+    }
+
+    /**
+     * Compiles the `sourceQuery` embed: source becomes `source_rows` once;
+     * group-restriction CTEs and sum-of-rows aggregations derive from it.
+     */
+    private buildSourceQuerySQL():
+        | {
+              leadingCtes: string[];
+              binCtes: string[];
+              joins: string[];
+              tables: string[];
+              aggregations: SourceQueryAggregations | undefined;
+              aggregationFields: ItemsMap;
+              warnings: QueryWarning[];
+          }
+        | undefined {
+        const { sourceQuery } = this;
+        if (!sourceQuery) {
+            return undefined;
+        }
+        const { groupRestrictions, aggregations } = this.deriveSourceQueryUses(
+            sourceQuery.compiledMetricQuery,
+        );
+
+        const {
+            explore,
+            warehouseSqlBuilder,
+            intrinsicUserAttributes,
+            userAttributes = {},
+        } = this.args;
+        const fieldQuoteChar = warehouseSqlBuilder.getFieldQuoteChar();
+        const adapterType = warehouseSqlBuilder.getAdapterType();
+        const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
+        const { compiledCustomDimensions, dimensions: selectedDimensions } =
+            this.args.compiledMetricQuery;
+
+        const body = this.compileEmbeddedSource(sourceQuery);
+        const leadingCtes = [`${SOURCE_ROWS_CTE_NAME} AS (\n${body.sql}\n)`];
+        const warnings: QueryWarning[] = [...body.warnings];
+
+        const allJoinDimensions = new Set(
+            groupRestrictions.flatMap(
+                (restriction) => restriction.joinDimensions,
+            ),
+        );
+        const binJoinDimensions = compiledCustomDimensions
+            .filter(isCustomBinDimension)
+            .filter((cd) => allJoinDimensions.has(cd.id));
+        const binJoinDimensionSql = getCustomBinDimensionSql({
+            warehouseSqlBuilder,
+            explore,
+            customDimensions: binJoinDimensions,
+            intrinsicUserAttributes,
+            userAttributes,
+            sorts: [],
+        });
+        // Fork getCustomBinDimensionSql has no `exprs`; strip `AS "alias"` from selects.
+        const binExprs: Record<string, string> = {};
+        for (const cd of binJoinDimensions) {
+            const selectSql = binJoinDimensionSql?.selects[cd.id];
+            if (!selectSql) {
+                continue;
+            }
+            const quotedAlias = `${fieldQuoteChar}${cd.id}${fieldQuoteChar}`;
+            binExprs[cd.id] = selectSql
+                .replace(
+                    new RegExp(
+                        `\\s+AS\\s+${quotedAlias.replace(
+                            /[.*+?^${}()|[\]\\]/g,
+                            '\\$&',
+                        )}\\s*$`,
+                        'i',
+                    ),
+                    '',
+                )
+                .trim();
+        }
+        const unselectedBinSql = getCustomBinDimensionSql({
+            warehouseSqlBuilder,
+            explore,
+            customDimensions: binJoinDimensions.filter(
+                (cd) => !selectedDimensions.includes(cd.id),
+            ),
+            intrinsicUserAttributes,
+            userAttributes,
+            sorts: [],
+        });
+        const customDimensionIds = new Set(
+            compiledCustomDimensions.map((dimension) => dimension.id),
+        );
+        const tables = [
+            ...[...allJoinDimensions]
+                .filter((dimensionId) => !customDimensionIds.has(dimensionId))
+                .flatMap((dimensionId) => {
+                    const dimension = getDimensionFromId(
+                        dimensionId,
+                        explore,
+                        adapterType,
+                        startOfWeek,
+                    );
+                    return dimension.tablesReferences || [dimension.table];
+                }),
+            ...compiledCustomDimensions
+                .filter(isCompiledCustomSqlDimension)
+                .filter((dimension) => allJoinDimensions.has(dimension.id))
+                .flatMap((dimension) => dimension.tablesReferences),
+            ...(binJoinDimensionSql?.tables ?? []),
+        ];
+
+        const getJoinDimensionExpr = (dimId: string): string => {
+            const customDimension = compiledCustomDimensions.find(
+                (cd) => cd.id === dimId,
+            );
+            if (customDimension) {
+                if (isCompiledCustomSqlDimension(customDimension)) {
+                    return `(${customDimension.compiledSql})`;
+                }
+                const binExpr = binExprs[dimId];
+                if (binExpr === undefined) {
+                    throw new CompileError(
+                        `Missing bin expression for custom dimension "${dimId}" in totals query`,
+                    );
+                }
+                return `(${binExpr})`;
+            }
+            const dimension = getDimensionFromId(
+                dimId,
+                explore,
+                adapterType,
+                startOfWeek,
+            );
+            return `(${replaceUserAttributesAsStrings(
+                dimension.compiledSql,
+                intrinsicUserAttributes,
+                userAttributes,
+                warehouseSqlBuilder,
+            )})`;
+        };
+
+        const buildJoinConditions = (
+            joinDimensions: string[],
+            targetCteName: string,
+        ): string =>
+            joinDimensions.length > 0
+                ? joinDimensions
+                      .map((dimId) =>
+                          MetricQueryBuilder.nullSafeEqualJoinSql(
+                              getJoinDimensionExpr(dimId),
+                              `${targetCteName}.${fieldQuoteChar}${dimId}${fieldQuoteChar}`,
+                          ),
+                      )
+                      .join('\n  AND ')
+                : '1 = 1';
+
+        const joins: string[] = unselectedBinSql?.join
+            ? [unselectedBinSql.join]
+            : [];
+
+        const needsVisiblePage = groupRestrictions.some(
+            (restriction) => restriction.scope === 'visiblePage',
+        );
+        if (needsVisiblePage) {
+            leadingCtes.push(
+                `${VISIBLE_PAGE_ROWS_CTE_NAME} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                    [
+                        'SELECT\n  *',
+                        `FROM ${SOURCE_ROWS_CTE_NAME}`,
+                        body.sqlOrderBy,
+                        body.sqlLimit,
+                    ],
+                )}\n)`,
+            );
+        }
+
+        const cteNameCounts: Record<string, number> = {};
+        groupRestrictions.forEach((restriction) => {
+            const baseCteName =
+                restriction.scope === 'visiblePage'
+                    ? VISIBLE_GROUPS_CTE_NAME
+                    : SOURCE_GROUPS_CTE_NAME;
+            cteNameCounts[baseCteName] = (cteNameCounts[baseCteName] ?? 0) + 1;
+            const cteName =
+                cteNameCounts[baseCteName] > 1
+                    ? `${baseCteName}_${cteNameCounts[baseCteName]}`
+                    : baseCteName;
+            const fromCteName =
+                restriction.scope === 'visiblePage'
+                    ? VISIBLE_PAGE_ROWS_CTE_NAME
+                    : SOURCE_ROWS_CTE_NAME;
+            const distinctColumns = restriction.joinDimensions.map(
+                (dimId) => `  ${fieldQuoteChar}${dimId}${fieldQuoteChar}`,
+            );
+            leadingCtes.push(
+                `${cteName} AS (\nSELECT DISTINCT\n${distinctColumns.join(
+                    ',\n',
+                )}\nFROM ${fromCteName}\n)`,
+            );
+            joins.push(
+                `INNER JOIN ${cteName} ON ${buildJoinConditions(
+                    restriction.joinDimensions,
+                    cteName,
+                )}`,
+            );
+        });
+
+        let aggregationFields: ItemsMap = {};
+        if (aggregations) {
+            const grainSelects = aggregations.grainDimensions.map(
+                (dimId) =>
+                    `  ${fieldQuoteChar}${dimId}${fieldQuoteChar} AS ${fieldQuoteChar}${SOURCE_AGGREGATIONS_GRAIN_PREFIX}${dimId}${fieldQuoteChar}`,
+            );
+            const aggregationSelects = aggregations.columns.map((column) => {
+                const quotedReference = `${fieldQuoteChar}${column.reference}${fieldQuoteChar}`;
+                return `  ${getSourceAggregationSql(
+                    column.aggregation,
+                    quotedReference,
+                )} AS ${quotedReference}`;
+            });
+            leadingCtes.push(
+                `${SOURCE_AGGREGATIONS_CTE_NAME} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                    [
+                        `SELECT\n${[
+                            ...grainSelects,
+                            ...aggregationSelects,
+                        ].join(',\n')}`,
+                        `FROM ${SOURCE_ROWS_CTE_NAME}`,
+                        aggregations.grainDimensions.length > 0
+                            ? `GROUP BY ${aggregations.grainDimensions
+                                  .map((_, index) => index + 1)
+                                  .join(',')}`
+                            : undefined,
+                    ],
+                )}\n)`,
+            );
+            aggregationFields = Object.fromEntries(
+                aggregations.columns.flatMap(({ reference }) =>
+                    body.fields[reference]
+                        ? [[reference, body.fields[reference]]]
+                        : [],
+                ),
+            );
+        }
+
+        return {
+            leadingCtes,
+            binCtes: unselectedBinSql?.ctes ?? [],
+            joins,
+            tables,
+            aggregations,
+            aggregationFields,
+            warnings,
+        };
+    }
+
+    private buildQueryParts(): {
+        ctes: string[];
+        finalSelectParts: Array<string | undefined>;
+        sqlOrderBy: string | undefined;
+        sqlLimit: string | undefined;
+        fields: ItemsMap;
+        warnings: QueryWarning[];
+    } {
         const { explore, compiledMetricQuery } = this.args;
         const fields = getFieldsFromMetricQuery(compiledMetricQuery, explore);
 
         const dimensionsSQL = this.getDimensionsSQL();
         const metricsSQL = this.getMetricsSQL();
+
+        // Mutate dimensionsSQL before consumers read it so source-query
+        // restriction joins reach every raw scan.
+        const sourceQuerySQL = this.buildSourceQuerySQL();
+        if (sourceQuerySQL) {
+            dimensionsSQL.ctes.unshift(...sourceQuerySQL.leadingCtes);
+            dimensionsSQL.ctes.push(...sourceQuerySQL.binCtes);
+            dimensionsSQL.joins.push(...sourceQuerySQL.joins);
+            dimensionsSQL.tables.push(...sourceQuerySQL.tables);
+            Object.assign(fields, sourceQuerySQL.aggregationFields);
+        }
 
         const joins = this.getJoinsSQL({
             tablesReferencedInDimensions: dimensionsSQL.tables,
@@ -1718,7 +3060,9 @@ export class MetricQueryBuilder {
         ].join(',\n')}`;
         const sqlFrom = this.getBaseTableFromSQL();
         const sqlLimit = this.getLimitSQL();
-        const { sqlOrderBy, requiresQueryInCTE } = this.getSortSQL();
+        const sortSQL = this.getSortSQL();
+        const sqlOrderBy = sortSQL.sqlOrderBy;
+        let { requiresQueryInCTE } = sortSQL;
         const ctes = [...dimensionsSQL.ctes];
         let finalSelectParts: Array<string | undefined> = [
             sqlSelect,
@@ -1730,6 +3074,9 @@ export class MetricQueryBuilder {
         ];
 
         const warnings: QueryWarning[] = [];
+        if (sourceQuerySQL) {
+            warnings.push(...sourceQuerySQL.warnings);
+        }
         const experimentalMetricsCteSQL = this.getExperimentalMetricsCteSQL({
             joinedTables: joins.tables,
             dimensionSelects: dimensionsSQL.selects,
@@ -1741,6 +3088,155 @@ export class MetricQueryBuilder {
         if (experimentalMetricsCteSQL.finalSelectParts) {
             finalSelectParts = experimentalMetricsCteSQL.finalSelectParts;
             ctes.push(...experimentalMetricsCteSQL.ctes);
+        } else if (this.popComparisonConfigs.length > 0) {
+            // Support multiple PoP configs (e.g. Previous month + 2 months ago) in the same query
+            const fieldQuoteChar =
+                this.args.warehouseSqlBuilder.getFieldQuoteChar();
+            const adapterType: SupportedDbtAdapter =
+                this.args.warehouseSqlBuilder.getAdapterType();
+            const startOfWeek = this.args.warehouseSqlBuilder.getStartOfWeek();
+
+            const baseCteName = 'base_metrics';
+            ctes.push(
+                MetricQueryBuilder.wrapAsCte(baseCteName, finalSelectParts),
+            );
+
+            const dimensionAlias = Object.keys(dimensionsSQL.selects).map(
+                (alias) => `${fieldQuoteChar}${alias}${fieldQuoteChar}`,
+            );
+
+            const popJoins: string[] = [];
+            const popMetricSelects: string[] = [];
+
+            this.popComparisonConfigs.forEach((cfg) => {
+                const popEntries =
+                    this.popMetricEntriesByConfigKey[cfg.configKey] ?? [];
+                if (popEntries.length === 0) return;
+
+                const popConfigSuffix = cfg.cteSuffix;
+                const popFieldId = cfg.timeDimensionId;
+
+                const popMinMaxCteName = `pop_min_max_${popConfigSuffix}`;
+                const popMinMaxCteParts = [
+                    `SELECT`,
+                    [
+                        `MIN(${baseCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as min_date`,
+                        `MAX(${baseCteName}.${fieldQuoteChar}${popFieldId}${fieldQuoteChar}) as max_date`,
+                    ].join(',\n'),
+                    `FROM ${baseCteName}`,
+                ];
+                ctes.push(
+                    `${popMinMaxCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                        popMinMaxCteParts,
+                    )}\n)`,
+                );
+
+                const popCteName = `pop_metrics_${popConfigSuffix}`;
+                const popField = getDimensionFromId(
+                    popFieldId,
+                    explore,
+                    adapterType,
+                    startOfWeek,
+                );
+                const popFieldSql = popField.compiledSql;
+                const popDimensionFilters =
+                    this.getPopDimensionsFilterSQL(popFieldId);
+
+                const popMetricSelectsInPopCte = popEntries.map((entry) => {
+                    const metric = getMetricFromId(
+                        entry.baseMetricId,
+                        explore,
+                        compiledMetricQuery,
+                    );
+                    return `  ${metric.compiledSql} AS ${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar}`;
+                });
+
+                const popCteParts = [
+                    `SELECT\n${[
+                        ...Object.values(dimensionsSQL.selects),
+                        ...popMetricSelectsInPopCte,
+                    ].join(',\n')}`,
+                    sqlFrom,
+                    joins.joinSQL,
+                    ...dimensionsSQL.joins,
+                    ...[`LEFT JOIN ${popMinMaxCteName} ON TRUE`],
+                    MetricQueryBuilder.combineWhereClauses(
+                        popDimensionFilters,
+                        `WHERE ${getIntervalSyntax(
+                            adapterType,
+                            popFieldSql,
+                            `${popMinMaxCteName}.min_date`,
+                            '>=',
+                            cfg.periodOffset,
+                            cfg.granularity,
+                            false,
+                        )} AND ${getIntervalSyntax(
+                            adapterType,
+                            popFieldSql,
+                            `${popMinMaxCteName}.max_date`,
+                            '<=',
+                            cfg.periodOffset,
+                            cfg.granularity,
+                            false,
+                        )}`,
+                    ),
+                    dimensionsSQL.groupBySQL,
+                ];
+
+                ctes.push(
+                    `${popCteName} AS (\n${MetricQueryBuilder.assembleSqlParts(
+                        popCteParts,
+                    )}\n)`,
+                );
+
+                popMetricSelects.push(
+                    ...popEntries.map(
+                        (entry) =>
+                            `  ${popCteName}.${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar} AS ${fieldQuoteChar}${entry.popMetricId}${fieldQuoteChar}`,
+                    ),
+                );
+
+                if (dimensionAlias.length === 0) {
+                    popJoins.push(`CROSS JOIN ${popCteName}`);
+                    return;
+                }
+
+                popJoins.push(
+                    `LEFT JOIN ${popCteName} ON ${dimensionAlias
+                        .map((alias) => {
+                            if (
+                                alias ===
+                                `${fieldQuoteChar}${popFieldId}${fieldQuoteChar}`
+                            ) {
+                                return `( ${getIntervalSyntax(
+                                    adapterType,
+                                    `${baseCteName}.${alias}`,
+                                    `${popCteName}.${alias}`,
+                                    '=',
+                                    cfg.periodOffset,
+                                    cfg.granularity,
+                                    true,
+                                )})`;
+                            }
+                            return MetricQueryBuilder.nullSafeEqualJoinSql(
+                                `${baseCteName}.${alias}`,
+                                `${popCteName}.${alias}`,
+                            );
+                        })
+                        .join(' AND ')}`,
+                );
+            });
+
+            if (popMetricSelects.length > 0) {
+                finalSelectParts = [
+                    `SELECT`,
+                    [`  ${baseCteName}.*`, ...popMetricSelects].join(',\n'),
+                    `FROM ${baseCteName}`,
+                    ...popJoins,
+                ];
+                // Sorting by a shared dimension alias can become ambiguous with joins.
+                requiresQueryInCTE = true;
+            }
         }
         warnings.push(...experimentalMetricsCteSQL.warnings);
 
@@ -1751,15 +3247,18 @@ export class MetricQueryBuilder {
             this.createSimpleTableCalculationSelects(simpleTableCalcs);
         const tableCalculationFilters = this.createTableCalculationFilters();
 
-        const needsPostAgg = this.needsPostAggCte({
-            requiresQueryInCTE,
-            metricsSQL,
-        });
+        const needsPostAgg =
+            this.needsPostAggCte({
+                requiresQueryInCTE,
+                metricsSQL,
+            }) || sourceQuerySQL?.aggregations !== undefined;
 
         const needsMetricFiltersCte =
             interdependentTableCalcs.length > 0 && !!metricsSQL.filtersSQL;
 
         if (needsPostAgg) {
+            const fieldQuoteChar =
+                this.args.warehouseSqlBuilder.getFieldQuoteChar();
             const ctesToAdd: string[] = [];
 
             // base metrics CTE = dimensions + metrics only (no filters, no table calcs)
@@ -1827,13 +3326,113 @@ export class MetricQueryBuilder {
                     : metricsSQL.filtersSQL;
 
             const finalFromName = currentCteName; // last dependent CTE if any, otherwise `current`
-            finalSelectParts = [
-                `SELECT\n${finalSelectColumns.join(',\n')}`,
-                `FROM ${finalFromName}`,
-                whereClause,
-            ];
+            const aggregations = sourceQuerySQL?.aggregations;
+            if (aggregations) {
+                const qualifiedColumns = finalSelectColumns.map((column) => {
+                    const trimmed = column.trimStart();
+                    if (trimmed === '*') {
+                        return `  ${finalFromName}.*`;
+                    }
+                    if (trimmed.startsWith(fieldQuoteChar)) {
+                        return `  ${finalFromName}.${trimmed}`;
+                    }
+                    return column;
+                });
+                const aggregationColumns = aggregations.columns.map(
+                    ({ reference }) => {
+                        const quotedReference = `${fieldQuoteChar}${reference}${fieldQuoteChar}`;
+                        return `  ${SOURCE_AGGREGATIONS_CTE_NAME}.${quotedReference} AS ${quotedReference}`;
+                    },
+                );
+                const aggregationsJoin =
+                    aggregations.grainDimensions.length > 0
+                        ? `LEFT JOIN ${SOURCE_AGGREGATIONS_CTE_NAME} ON ${aggregations.grainDimensions
+                              .map((dimId) =>
+                                  MetricQueryBuilder.nullSafeEqualJoinSql(
+                                      `${finalFromName}.${fieldQuoteChar}${dimId}${fieldQuoteChar}`,
+                                      `${SOURCE_AGGREGATIONS_CTE_NAME}.${fieldQuoteChar}${SOURCE_AGGREGATIONS_GRAIN_PREFIX}${dimId}${fieldQuoteChar}`,
+                                  ),
+                              )
+                              .join('\n  AND ')}`
+                        : `CROSS JOIN ${SOURCE_AGGREGATIONS_CTE_NAME}`;
+                finalSelectParts = [
+                    `SELECT\n${[
+                        ...qualifiedColumns,
+                        ...aggregationColumns,
+                    ].join(',\n')}`,
+                    `FROM ${finalFromName}`,
+                    aggregationsJoin,
+                    whereClause,
+                ];
+            } else {
+                finalSelectParts = [
+                    `SELECT\n${finalSelectColumns.join(',\n')}`,
+                    `FROM ${finalFromName}`,
+                    whereClause,
+                ];
+            }
             ctes.push(...ctesToAdd);
         }
+
+        return {
+            ctes,
+            finalSelectParts,
+            sqlOrderBy,
+            sqlLimit,
+            fields,
+            warnings,
+        };
+    }
+
+    /**
+     * Compiles the query without ORDER BY / LIMIT and without parameter
+     * replacement, for embedding as the body of a CTE in an outer query.
+     */
+    public compileQueryAsCteBody(): {
+        sql: string;
+        sqlOrderBy: string | undefined;
+        sqlLimit: string | undefined;
+        fields: ItemsMap;
+        warnings: QueryWarning[];
+    } {
+        const {
+            ctes,
+            finalSelectParts,
+            sqlOrderBy,
+            sqlLimit,
+            fields,
+            warnings,
+        } = this.buildQueryParts();
+        return {
+            sql: MetricQueryBuilder.assembleSqlParts([
+                MetricQueryBuilder.buildCtesSQL(ctes),
+                ...finalSelectParts,
+            ]),
+            sqlOrderBy,
+            sqlLimit,
+            fields,
+            warnings,
+        };
+    }
+
+    /**
+     * Compiles a database query based on the provided metric query, explores, user attributes, and warehouse-specific configurations.
+     *
+     * This method processes dimensions, metrics, filters, and joins across multiple dataset definitions to generate
+     * a complete SQL query string tailored for the specific warehouse type and environment. Additionally, it ensures
+     * field validation and substitution of user-specific attributes for dynamic query generation.
+     *
+     * @return {CompiledQuery} The compiled query object containing the SQL string and meta information ready for execution.
+     */
+    public compileQuery(): CompiledQuery {
+        const {
+            fields,
+            warnings,
+            ctes,
+            finalSelectParts,
+            sqlOrderBy,
+            sqlLimit,
+        } = this.buildQueryParts();
 
         const query = MetricQueryBuilder.assembleSqlParts([
             MetricQueryBuilder.buildCtesSQL(ctes),

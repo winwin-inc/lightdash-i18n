@@ -3,6 +3,7 @@ import {
     assertUnreachable,
     defaultTileSize,
     type Dashboard,
+    type DashboardDataAppTileProperties,
     type DashboardLoomTileProperties,
     type DashboardMarkdownTile,
     type DashboardMarkdownTileProperties,
@@ -16,12 +17,13 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import { useForm, type UseFormReturnType } from '@mantine/form';
-import { IconMarkdown, IconVideo } from '@tabler/icons-react';
+import { IconAppWindow, IconMarkdown, IconVideo } from '@tabler/icons-react';
 import { useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid4 } from 'uuid';
 
 import MantineIcon from '../../common/MantineIcon';
+import DataAppTileForm from './DataAppTileForm';
 import LoomTileForm from './LoomTileForm';
 import MarkdownTileForm from './MarkdownTileForm';
 import { getLoomId, markdownTileContentTransform } from './utils';
@@ -30,7 +32,10 @@ type Tile = Dashboard['tiles'][number];
 type TileProperties = Tile['properties'];
 
 type AddProps = ModalProps & {
-    type: DashboardTileTypes.LOOM | DashboardTileTypes.MARKDOWN;
+    type:
+        | DashboardTileTypes.LOOM
+        | DashboardTileTypes.MARKDOWN
+        | DashboardTileTypes.DATA_APP;
     onConfirm: (tile: Tile) => void;
 };
 
@@ -60,13 +65,23 @@ export const TileAddModal: FC<AddProps> = ({
                       )
                     : null,
         };
+        const appUuidValidator = {
+            appUuid: (value: string | undefined) =>
+                !value || !value.length
+                    ? t(
+                          'components_dashboard_tiles_forms_add_tile.validator.title',
+                      )
+                    : null,
+        };
         if (type === DashboardTileTypes.LOOM)
             return { ...urlValidator, ...titleValidator };
+        if (type === DashboardTileTypes.DATA_APP)
+            return { ...titleValidator, ...appUuidValidator };
     };
 
     const form = useForm<TileProperties>({
         validate: getValidators(),
-        validateInputOnChange: ['title', 'url', 'content'],
+        validateInputOnChange: ['title', 'url', 'content', 'appUuid'],
         transformValues(values) {
             if (type === DashboardTileTypes.MARKDOWN) {
                 return markdownTileContentTransform(
@@ -118,7 +133,9 @@ export const TileAddModal: FC<AddProps> = ({
                         icon={
                             type === DashboardTileTypes.MARKDOWN
                                 ? IconMarkdown
-                                : IconVideo
+                                : type === DashboardTileTypes.DATA_APP
+                                  ? IconAppWindow
+                                  : IconVideo
                         }
                     />
                     <Title order={4}>
@@ -153,6 +170,14 @@ export const TileAddModal: FC<AddProps> = ({
                                 >
                             }
                             withHideTitle={false}
+                        />
+                    ) : type === DashboardTileTypes.DATA_APP ? (
+                        <DataAppTileForm
+                            form={
+                                form as UseFormReturnType<
+                                    DashboardDataAppTileProperties['properties']
+                                >
+                            }
                         />
                     ) : (
                         assertUnreachable(type, 'Tile type not supported')

@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/frontend",
-    "version": "0.2112.3",
+    "version": "2.0.1-test.1",
     "private": true,
     "scripts": {
         "typecheck": "tsc --project tsconfig.json --noEmit --skipLibCheck",
@@ -33,6 +33,7 @@
         "@hello-pangea/dnd": "^16.5.0",
         "@hookform/error-message": "^2.0.0",
         "@lightdash/common": "workspace:*",
+        "@lightdash/formula": "workspace:*",
         "@mantine-8/core": "npm:@mantine/core@8.0.0",
         "@mantine-8/hooks": "npm:@mantine/hooks@8.0.0",
         "@mantine/core": "^6.0.21",

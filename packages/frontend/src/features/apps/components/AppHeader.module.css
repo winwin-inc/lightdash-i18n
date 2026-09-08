@@ -1,0 +1,5 @@
+/* The header sits at the top of a flex column (viewer page / builder preview
+   panel) and must keep its fixed height when the content below grows. */
+.header {
+    flex-shrink: 0;
+}

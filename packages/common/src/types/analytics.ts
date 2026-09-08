@@ -99,4 +99,5 @@ export enum QueryExecutionContext {
     API = 'api',
     CLI = 'cli',
     METRICS_EXPLORER = 'metricsExplorer',
+    DATA_APP_SAMPLE = 'dataAppSample',
 }

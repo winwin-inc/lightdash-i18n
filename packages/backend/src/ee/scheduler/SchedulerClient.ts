@@ -1,5 +1,7 @@
 import {
     AiAgentEvalRunJobPayload,
+    AppBuildFromSourceJobPayload,
+    AppGeneratePipelineJobPayload,
     EE_SCHEDULER_TASKS,
     SlackPromptJobPayload,
 } from '@lightdash/common';
@@ -29,6 +31,34 @@ export class CommercialSchedulerClient extends SchedulerClient {
             {
                 runAt: now, // now
                 maxAttempts: 1,
+            },
+        );
+        return { jobId };
+    }
+
+    async appGeneratePipeline(payload: AppGeneratePipelineJobPayload) {
+        const graphileClient = await this.graphileUtils;
+        const { id: jobId } = await graphileClient.addJob(
+            EE_SCHEDULER_TASKS.APP_GENERATE_PIPELINE,
+            payload,
+            {
+                runAt: new Date(),
+                maxAttempts: 2,
+                jobKey: `app-generate:${payload.appUuid}:${payload.version}`,
+            },
+        );
+        return { jobId };
+    }
+
+    async appBuildFromSource(payload: AppBuildFromSourceJobPayload) {
+        const graphileClient = await this.graphileUtils;
+        const { id: jobId } = await graphileClient.addJob(
+            EE_SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE,
+            payload,
+            {
+                runAt: new Date(),
+                maxAttempts: 2,
+                jobKey: `app-build:${payload.appUuid}:${payload.version}`,
             },
         );
         return { jobId };

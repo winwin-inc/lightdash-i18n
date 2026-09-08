@@ -1,0 +1,47 @@
+{
+    "name": "@lightdash/query-sdk",
+    "version": "2.0.1-test.1",
+    "private": true,
+    "type": "module",
+    "description": "SDK for building custom data apps against the Lightdash semantic layer",
+    "license": "MIT",
+    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./features": {
+            "types": "./dist/features.d.ts",
+            "import": "./dist/features.js"
+        }
+    },
+    "scripts": {
+        "prebuild": "node ./scripts/generateSdkVersion.mjs",
+        "build": "tsc --project tsconfig.build.json",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint -c ./.eslintrc.cjs --ext .ts,.tsx src/",
+        "fix-lint": "eslint -c ./.eslintrc.cjs --ext .ts,.tsx --fix src/",
+        "format": "prettier --check ./src --ignore-unknown",
+        "fix-format": "prettier --write ./src --ignore-unknown",
+        "pretest": "node ./scripts/generateSdkVersion.mjs",
+        "test": "vitest run"
+    },
+    "peerDependencies": {
+        "react": "^18.x || ^19.x"
+    },
+    "devDependencies": {
+        "@lightdash/common": "workspace:*",
+        "@types/node": "^22.13.1",
+        "@types/react": "19.0.2",
+        "jsdom": "26.1.0",
+        "react": "19.0.0",
+        "typescript": "5.5.4",
+        "vitest": "^2.1.9"
+    }
+}

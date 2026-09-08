@@ -38,6 +38,17 @@ export class FeatureFlagModel {
                 this.getUseSqlPivotResults.bind(this),
             [FeatureFlags.ExperimentalExplorerImprovements]:
                 this.getExperimentalExplorerImprovements.bind(this),
+            [FeatureFlags.ResultsCacheEnabled]:
+                this.getResultsCacheEnabled.bind(this),
+            [FeatureFlags.DashboardTabsInMemory]:
+                this.getDashboardTabsInMemory.bind(this),
+            [FeatureFlags.MergeQueries]: this.getMergeQueriesEnabled.bind(this),
+            [FeatureFlags.LockDashboardFilters]:
+                this.getLockDashboardFiltersEnabled.bind(this),
+            [FeatureFlags.EnableDataApps]:
+                this.getEnableDataAppsEnabled.bind(this),
+            [FeatureFlags.EnableTimezoneSupport]:
+                this.getEnableTimezoneSupportEnabled.bind(this),
         };
     }
 
@@ -146,5 +157,59 @@ export class FeatureFlagModel {
             id: featureFlagId,
             enabled,
         };
+    }
+
+    private getResultsCacheEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: this.lightdashConfig.results.cacheEnabled,
+        });
+    }
+
+    private getDashboardTabsInMemory({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.DASHBOARD_TABS_IN_MEMORY === 'true',
+        });
+    }
+
+    private getMergeQueriesEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.MERGE_QUERIES_ENABLED === 'true',
+        });
+    }
+
+    private getLockDashboardFiltersEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.LOCK_DASHBOARD_FILTERS_ENABLED === 'true',
+        });
+    }
+
+    private async getEnableDataAppsEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        if (this.lightdashConfig.appRuntime.enabled) {
+            return { id: featureFlagId, enabled: true };
+        }
+        return { id: featureFlagId, enabled: false };
+    }
+
+    private getEnableTimezoneSupportEnabled({
+        featureFlagId,
+    }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
+        return Promise.resolve({
+            id: featureFlagId,
+            enabled: process.env.ENABLE_TIMEZONE_SUPPORT === 'true',
+        });
     }
 }

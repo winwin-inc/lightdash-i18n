@@ -99,6 +99,10 @@ export const BaseResponse: HealthState = {
         analyticsProjectUuid: undefined,
         analyticsDashboardUuid: undefined,
     },
+    dataApps: {
+        previewOrigin: null,
+        sampleDataEnabled: true,
+    },
 };
 
 export const userMock = {

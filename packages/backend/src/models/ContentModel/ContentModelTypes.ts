@@ -13,9 +13,16 @@ export enum ContentTypePriority {
     SPACE = 1,
     DASHBOARD = 2,
     CHART = 3,
+    DATA_APP = 4,
 }
 
 export type ContentFilters = {
+    ownerUserUuids?: string[];
+    deleted?: boolean;
+    deletedByUserUuids?: string[];
+    sharedWithMe?: boolean;
+    uuids?: string[];
+
     projectUuids?: string[];
     spaceUuids?: string[];
     contentTypes?: ContentType[];
@@ -25,6 +32,21 @@ export type ContentFilters = {
     search?: string;
     space?: {
         rootSpaces: boolean;
+    };
+    // Client opt-in (set by the "All data apps" browse) to surface personal
+    // (space-less) apps. The service resolves it into `dataApps` below.
+    includePersonalDataApps?: boolean;
+    // Split the app listing surfaces: 'exclude' hides data app vizs (the
+    // "All data apps" browse), 'only' returns just them (the "Custom chart
+    // types" listing; vizs are spaceless and project-global, so space and
+    // personal-draft scoping don't apply).
+    dataAppVizsFilter?: 'exclude' | 'only';
+    // Resolved by the service: which personal apps the caller may see.
+    // `personalForUserUuid` is always the caller (their own apps);
+    // `personalAdminProjectUuids` are projects where they can see everyone's.
+    dataApps?: {
+        personalForUserUuid: string;
+        personalAdminProjectUuids: string[];
     };
 };
 

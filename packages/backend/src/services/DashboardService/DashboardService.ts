@@ -526,6 +526,8 @@ export class DashboardService
     async getByIdOrSlug(
         user: SessionUser,
         dashboardUuidOrSlug: string,
+        // Optional project scoping (upstream); ignored until model supports it.
+        _options?: { projectUuid?: string },
     ): Promise<Dashboard> {
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             dashboardUuidOrSlug,

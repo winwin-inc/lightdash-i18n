@@ -17,6 +17,7 @@ type Props<T extends DefaultFieldsMap> = {
     itemsMap?: T;
     baseTable?: string;
     startOfWeek?: WeekDay;
+    metricQueryTimezone?: string;
     dashboardFilters?: DashboardFilters;
     popoverProps?: Omit<PopoverProps, 'children'>;
     children?: ReactNode;
@@ -29,6 +30,7 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     itemsMap = {} as T,
     baseTable,
     startOfWeek,
+    metricQueryTimezone,
     dashboardFilters,
     popoverProps,
     children,
@@ -81,6 +83,7 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
                 itemsMap,
                 startOfWeek,
                 baseTable,
+                metricQueryTimezone,
                 getField,
                 getAutocompleteFilterGroup,
                 popoverProps,

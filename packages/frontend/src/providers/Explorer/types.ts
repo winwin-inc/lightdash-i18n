@@ -12,6 +12,7 @@ import {
     type FieldId,
     type FunnelChartConfig,
     type Item,
+    type ItemsMap,
     type Metric,
     type MetricQuery,
     type MetricType,
@@ -22,8 +23,9 @@ import {
     type TableCalculation,
     type TableCalculationMetadata,
     type TableChartConfig,
-    type TimeZone,
+    type TimezoneSetting,
     type TreemapChartConfig,
+    type DataAppVizChartConfig,
 } from '@lightdash/common';
 import { type QueryResultsProps } from '../../hooks/useQueryResults';
 
@@ -74,6 +76,7 @@ export type ConfigCacheMap = {
     [ChartType.CARTESIAN]: CartesianChartConfig['config'];
     [ChartType.TREEMAP]: TreemapChartConfig['config'];
     [ChartType.CUSTOM]: CustomVisConfig['config'];
+    [ChartType.DATA_APP_VIZ]: DataAppVizChartConfig['config'];
 };
 
 export type Action =
@@ -91,7 +94,7 @@ export type Action =
       }
     | {
           type: ActionType.SET_TIME_ZONE;
-          payload: TimeZone;
+          payload: TimezoneSetting;
       }
     | {
           type: ActionType.ADD_TABLE_CALCULATION;
@@ -240,6 +243,11 @@ export interface ExplorerReduceState {
             description?: string;
             fieldItem?: Item | AdditionalMetric;
         };
+        periodOverPeriodComparison: {
+            isOpen: boolean;
+            metric?: Metric;
+            itemsMap?: ItemsMap;
+        };
     };
 
     // Query execution state - manages TanStack Query arguments and history
@@ -278,7 +286,7 @@ export interface ExplorerContextType {
         reset: () => void;
         setTableName: (tableName: string) => void;
         setRowLimit: (limit: number) => void;
-        setTimeZone: (timezone: string | null) => void;
+        setTimeZone: (timezone: TimezoneSetting) => void;
         setFilters: (filters: MetricQuery['filters']) => void;
         addAdditionalMetric: (metric: AdditionalMetric) => void;
         editAdditionalMetric: (

@@ -10,11 +10,8 @@ import {
 } from '@lightdash/common';
 import { Button } from '@mantine/core';
 import { memo, useMemo, useState, type FC } from 'react';
-import {
-    selectActiveFields,
-    useExplorerSelector,
-} from '../../../../../features/explorer/store';
 import { useFeatureFlag } from '../../../../../hooks/useFeatureFlagEnabled';
+import { useActiveFields } from '../../ActiveFieldsOverride';
 import TreeGroupNode from './TreeGroupNode';
 import TreeSingleNode from './TreeSingleNode';
 import { isGroupNode, type Node, type NodeMap } from './types';
@@ -82,7 +79,7 @@ const TreeNodes: FC<TreeNodesProps> = ({ nodeMap, isNested = false }) => {
     const itemsMap = useTableTree((context) => context.itemsMap);
     const orderFieldsBy = useTableTree((context) => context.orderFieldsBy);
     const isSearching = useTableTree((context) => context.isSearching);
-    const activeFields = useExplorerSelector(selectActiveFields);
+    const activeFields = useActiveFields();
     const [itemsToShow, setItemsToShow] = useState(INITIAL_ITEMS_SHOWN);
 
     const { data: experimentalExplorerImprovements } = useFeatureFlag(

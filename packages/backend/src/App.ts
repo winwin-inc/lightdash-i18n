@@ -62,6 +62,7 @@ import {
 import { ModelProviderMap, ModelRepository } from './models/ModelRepository';
 import { postHogClient } from './postHog';
 import { apiV1Router } from './routers/apiV1Router';
+import { createAppPreviewRouter } from './routers/appPreviewRouter';
 import {
     oauthAuthorizationServerHandler,
     oauthProtectedResourceHandler,
@@ -817,6 +818,39 @@ export default class App {
         );
 
         // handling api 404s before frontend catch all
+        
+        // Data Apps preview bundles (token-gated). Same-origin when previewOrigin is null.
+        if (this.lightdashConfig.appRuntime) {
+            const previewFrameAncestors = [
+                "'self'",
+                'https://*',
+                ...this.lightdashConfig.security.contentSecurityPolicy
+                    .frameAncestors,
+            ];
+            expressApp.use(
+                '/api/apps',
+                createAppPreviewRouter(
+                    this.lightdashConfig.appRuntime,
+                    this.lightdashConfig.lightdashSecrets,
+                    previewFrameAncestors,
+                    (p) => {
+                        void this.models
+                            .getAnalyticsModel()
+                            .addAppViewEvent(p.appUuid, p.userUuid);
+                        this.analytics.track({
+                            event: 'data_app.view' as any,
+                            userId: p.userUuid,
+                            properties: {
+                                organizationId: p.organizationUuid,
+                                projectId: p.projectUuid,
+                                appUuid: p.appUuid,
+                            },
+                        });
+                    },
+                ),
+            );
+        }
+
         expressApp.use('/api/*', (req, res) => {
             const apiErrorResponse = {
                 status: 'error',

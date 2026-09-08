@@ -2,7 +2,7 @@ import { Draggable } from '@hello-pangea/dnd';
 import type { DashboardTab } from '@lightdash/common';
 import { ActionIcon, Box, Menu, Tabs, Title, Tooltip } from '@mantine/core';
 import { mergeRefs, useHover } from '@mantine/hooks';
-import { IconGripVertical, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconEye, IconEyeOff, IconGripVertical, IconPencil, IconTrash } from '@tabler/icons-react';
 import { type Dispatch, type FC, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +19,7 @@ type DraggableTabProps = {
     setEditingTab: Dispatch<SetStateAction<boolean>>;
     setDeletingTab: Dispatch<SetStateAction<boolean>>;
     handleDeleteTab: (tabUuid: string) => void;
+    handleToggleTabHidden: (tabUuid: string) => void;
 };
 
 const DraggableTab: FC<DraggableTabProps> = ({
@@ -30,6 +31,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
     isActive,
     setEditingTab,
     handleDeleteTab,
+    handleToggleTabHidden,
     setDeletingTab,
 }) => {
     const { t } = useTranslation();
@@ -48,6 +50,7 @@ const DraggableTab: FC<DraggableTabProps> = ({
                         key={idx}
                         value={tab.uuid}
                         bg={isActive ? 'white' : 'gray.0'}
+                        opacity={isEditMode && tab.hidden ? 0.55 : 1}
                         icon={
                             isEditMode ? (
                                 <Box {...provided.dragHandleProps} w={'sm'}>
@@ -86,6 +89,26 @@ const DraggableTab: FC<DraggableTabProps> = ({
                                             {t(
                                                 'components_dashboard_tabs.tab_menus.rename_tab',
                                             )}
+                                        </Menu.Item>
+                                        <Menu.Item
+                                            onClick={() =>
+                                                handleToggleTabHidden(tab.uuid)
+                                            }
+                                            icon={
+                                                tab.hidden ? (
+                                                    <IconEye size={14} />
+                                                ) : (
+                                                    <IconEyeOff size={14} />
+                                                )
+                                            }
+                                        >
+                                            {tab.hidden
+                                                ? t(
+                                                      'components_dashboard_tabs.tab_menus.show_tab',
+                                                  )
+                                                : t(
+                                                      'components_dashboard_tabs.tab_menus.hide_tab',
+                                                  )}
                                         </Menu.Item>
                                         {sortedTabs.length === 1 ||
                                         !currentTabHasTiles ? (

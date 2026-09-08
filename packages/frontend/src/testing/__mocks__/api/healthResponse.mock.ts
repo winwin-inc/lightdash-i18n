@@ -100,6 +100,10 @@ export default function mockHealthResponse(
             analyticsProjectUuid: undefined,
             analyticsDashboardUuid: undefined,
         },
+        dataApps: {
+            previewOrigin: null,
+            sampleDataEnabled: false,
+        },
         ...overrides,
     };
 }

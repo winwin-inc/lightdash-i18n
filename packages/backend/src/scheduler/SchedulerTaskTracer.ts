@@ -136,6 +136,18 @@ const getTagsForTask: {
         'user.uuid': payload.userUuid,
         'project.uuid': payload.projectUuid,
     }),
+    [SCHEDULER_TASKS.APP_GENERATE_PIPELINE]: (payload) => ({
+        'organization.uuid': payload.organizationUuid,
+        'user.uuid': payload.userUuid,
+        'project.uuid': payload.projectUuid,
+        'app.uuid': payload.appUuid,
+    }),
+    [SCHEDULER_TASKS.APP_BUILD_FROM_SOURCE]: (payload) => ({
+        'organization.uuid': payload.organizationUuid,
+        'user.uuid': payload.userUuid,
+        'project.uuid': payload.projectUuid,
+        'app.uuid': payload.appUuid,
+    }),
 } as const;
 
 // Generic accessor function

@@ -1,11 +1,13 @@
 import {
     getItemId,
     getItemLabelWithoutTableName,
+    getItemMap,
     isCustomDimension,
     isField,
     isFilterableField,
     isMetric,
     isNumericItem,
+    isPeriodOverPeriodAdditionalMetric,
     isTableCalculation,
     type TableCalculation,
 } from '@lightdash/common';
@@ -14,6 +16,7 @@ import {
     IconChevronDown,
     IconFilter,
     IconPencil,
+    IconTimelineEvent,
     IconTrash,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
@@ -22,6 +25,8 @@ import { useTranslation } from 'react-i18next';
 import {
     explorerActions,
     selectAdditionalMetrics,
+    selectTableCalculations,
+    selectTableName,
     useExplorerDispatch,
     useExplorerSelector,
 } from '../../../features/explorer/store';
@@ -29,6 +34,7 @@ import {
     DeleteTableCalculationModal,
     UpdateTableCalculationModal,
 } from '../../../features/tableCalculation';
+import { useExplore } from '../../../hooks/useExplore';
 import { useFilters } from '../../../hooks/useFilters';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
@@ -57,7 +63,22 @@ const ContextMenu: FC<ContextMenuProps> = ({
     const sort = meta?.sort?.sort;
 
     const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+    const tableCalculations = useExplorerSelector(selectTableCalculations);
+    const tableName = useExplorerSelector(selectTableName);
     const dispatch = useExplorerDispatch();
+
+    const { data: exploreData } = useExplore(tableName);
+
+    const itemsMap = useMemo(() => {
+        if (exploreData) {
+            return getItemMap(
+                exploreData,
+                additionalMetrics,
+                tableCalculations,
+            );
+        }
+        return undefined;
+    }, [exploreData, additionalMetrics, tableCalculations]);
 
     const additionalMetric = useMemo(
         () =>
@@ -68,6 +89,8 @@ const ContextMenu: FC<ContextMenuProps> = ({
     );
 
     const isItemAdditionalMetric = !!additionalMetric;
+    const isPopAdditionalMetric =
+        isPeriodOverPeriodAdditionalMetric(additionalMetric);
 
     if (item && isField(item)) {
         const itemFieldId = getItemId(item);
@@ -97,7 +120,29 @@ const ContextMenu: FC<ContextMenuProps> = ({
                 <ColumnHeaderSortMenuOptions item={item} sort={sort} />
 
                 <Menu.Divider />
-                {isMetric(item) && (
+                {isMetric(item) && !isPopAdditionalMetric && (
+                    <>
+                        <Menu.Item
+                            icon={<MantineIcon icon={IconTimelineEvent} />}
+                            onClick={() => {
+                                dispatch(
+                                    explorerActions.togglePeriodOverPeriodComparisonModal(
+                                        {
+                                            metric: item,
+                                            itemsMap,
+                                        },
+                                    ),
+                                );
+                            }}
+                        >
+                            {t(
+                                'components_explorer_results_card_column_context_menu.add_period_comparison',
+                            )}
+                        </Menu.Item>
+                        <Menu.Divider />
+                    </>
+                )}
+                {isMetric(item) && !isPopAdditionalMetric && (
                     <>
                         {!isItemAdditionalMetric && isNumericItem(item) && (
                             <>
@@ -111,7 +156,7 @@ const ContextMenu: FC<ContextMenuProps> = ({
                     </>
                 )}
 
-                {isItemAdditionalMetric ? (
+                {isItemAdditionalMetric && !isPopAdditionalMetric ? (
                     <Menu.Item
                         icon={<MantineIcon icon={IconPencil} />}
                         onClick={() => {

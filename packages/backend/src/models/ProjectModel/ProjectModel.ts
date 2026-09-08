@@ -18,6 +18,7 @@ import {
     ExploreError,
     ExploreType,
     ForbiddenError,
+    GroupType,
     NotExistsError,
     NotFoundError,
     NotImplementedError,
@@ -37,6 +38,7 @@ import {
     UnexpectedServerError,
     UpdateMetadata,
     UpdateProject,
+    UpdateQueryTimezoneSettings,
     UpdateVirtualViewPayload,
     WarehouseClient,
     WarehouseCredentials,
@@ -124,6 +126,7 @@ type RawSummaryRow = {
     label: Explore['label'];
     tags: Explore['tags'];
     groupLabel: Explore['groupLabel'] | null;
+    groups: Explore['groups'] | null;
     type: Explore['type'] | null;
     errors: ExploreError['errors'] | null;
     baseTable: Explore['baseTable'];
@@ -628,6 +631,8 @@ export class ProjectModel {
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
                   is_customer_use: boolean;
+                  query_timezone: string | null;
+                  use_project_timezone_in_filters: boolean;
               }
             | {
                   name: string;
@@ -643,6 +648,8 @@ export class ProjectModel {
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
                   is_customer_use: boolean;
+                  query_timezone: string | null;
+                  use_project_timezone_in_filters: boolean;
               }
         )[];
         return wrapSentryTransaction(
@@ -703,6 +710,12 @@ export class ProjectModel {
                         this.database
                             .ref('is_customer_use')
                             .withSchema(ProjectTableName),
+                        this.database
+                            .ref('query_timezone')
+                            .withSchema(ProjectTableName),
+                        this.database
+                            .ref('use_project_timezone_in_filters')
+                            .withSchema(ProjectTableName),
                     ])
                     .select<QueryResult>()
                     .where('projects.project_uuid', projectUuid);
@@ -743,6 +756,9 @@ export class ProjectModel {
                         project.organization_warehouse_credentials_uuid ??
                         undefined,
                     isCustomerUse: project.is_customer_use ?? false,
+                    queryTimezone: project.query_timezone ?? null,
+                    useProjectTimezoneInFilters:
+                        project.use_project_timezone_in_filters ?? false,
                 };
 
                 // If project uses organization warehouse credentials, load them
@@ -819,6 +835,71 @@ export class ProjectModel {
             type: project.project_type,
             upstreamProjectUuid: project.copied_from_project_uuid || undefined,
         };
+    }
+
+    async getTableGroups(
+        projectUuid: string,
+    ): Promise<Record<string, GroupType>> {
+        const [row] = await this.database(ProjectTableName)
+            .select('table_groups')
+            .where('project_uuid', projectUuid);
+        return row?.table_groups ?? {};
+    }
+
+    async setTableGroups(
+        projectUuid: string,
+        tableGroups: Record<string, GroupType> | undefined,
+    ): Promise<void> {
+        await this.database(ProjectTableName)
+            .update({
+                table_groups:
+                    tableGroups && Object.keys(tableGroups).length > 0
+                        ? tableGroups
+                        : null,
+            })
+            .where('project_uuid', projectUuid);
+    }
+
+    async getResultsCacheSettings(
+        projectUuid: string,
+    ): Promise<{ cacheTtlSeconds: number | null }> {
+        const row = await this.database(ProjectTableName)
+            .where('project_uuid', projectUuid)
+            .select('results_cache_ttl_seconds')
+            .first();
+
+        if (!row) {
+            throw new NotFoundError(
+                `Cannot find project with id: ${projectUuid}`,
+            );
+        }
+
+        return { cacheTtlSeconds: row.results_cache_ttl_seconds };
+    }
+
+    async updateResultsCacheSettings(
+        projectUuid: string,
+        settings: { cacheTtlSeconds: number | null },
+    ): Promise<void> {
+        const affectedRows = await this.database(ProjectTableName)
+            .where('project_uuid', projectUuid)
+            .update({ results_cache_ttl_seconds: settings.cacheTtlSeconds });
+        if (affectedRows === 0) {
+            throw new NotFoundError(
+                `Cannot find project with id: ${projectUuid}`,
+            );
+        }
+    }
+
+    async getEffectiveResultsCacheTtlSeconds(
+        projectUuid: string,
+    ): Promise<number> {
+        const { cacheTtlSeconds } =
+            await this.getResultsCacheSettings(projectUuid);
+        return (
+            cacheTtlSeconds ??
+            this.lightdashConfig.results.cacheStateTimeSeconds
+        );
     }
 
     /*
@@ -943,6 +1024,9 @@ export class ProjectModel {
             createdByUserUuid: project.createdByUserUuid ?? null,
             organizationWarehouseCredentialsUuid:
                 project.organizationWarehouseCredentialsUuid,
+            queryTimezone: project.queryTimezone ?? null,
+            useProjectTimezoneInFilters:
+                project.useProjectTimezoneInFilters ?? false,
         };
     }
 
@@ -1146,6 +1230,7 @@ export class ProjectModel {
                     explore->'label' as label,
                     explore->'tags' as tags,
                     explore->'groupLabel' as "groupLabel",
+                    explore->'groups' as "groups",
                     explore->'type' as type,
                     explore->'errors' as errors,
                     explore->'baseTable' as "baseTable",
@@ -1163,6 +1248,7 @@ export class ProjectModel {
             label: row.label,
             tags: row.tags,
             groupLabel: row.groupLabel ?? undefined,
+            groups: row.groups ?? undefined,
             databaseName: row.baseTableDatabase,
             schemaName: row.baseTableSchema,
             description: row.baseTableDescription ?? undefined,
@@ -2778,5 +2864,72 @@ export class ProjectModel {
             .returning('*');
 
         return updatedProject;
+    }
+
+    async getQueryTimezone(projectUuid: string): Promise<string | null> {
+        const [project] = await this.database(ProjectTableName)
+            .select('query_timezone')
+            .where('project_uuid', projectUuid);
+
+        if (!project) {
+            throw new NotFoundError(
+                `Cannot find project with id: ${projectUuid}`,
+            );
+        }
+
+        return project.query_timezone;
+    }
+
+    async updateQueryTimezone(
+        projectUuid: string,
+        settings: UpdateQueryTimezoneSettings,
+    ): Promise<DbProject> {
+        const { queryTimezone, useProjectTimezoneInFilters } = settings;
+
+        return this.database.transaction(async (trx) => {
+            const [current] = await trx(ProjectTableName)
+                .select('query_timezone', 'use_project_timezone_in_filters')
+                .where('project_uuid', projectUuid)
+                .forUpdate();
+
+            if (!current) {
+                throw new NotFoundError(
+                    `Cannot find project with id: ${projectUuid}`,
+                );
+            }
+
+            const resultingTimezone =
+                queryTimezone !== undefined
+                    ? queryTimezone
+                    : current.query_timezone;
+            const resultingUseProjectTimezoneInFilters =
+                useProjectTimezoneInFilters !== undefined
+                    ? useProjectTimezoneInFilters
+                    : current.use_project_timezone_in_filters;
+
+            if (
+                resultingUseProjectTimezoneInFilters &&
+                resultingTimezone === null
+            ) {
+                throw new ParameterError(
+                    'Cannot enable useProjectTimezoneInFilters without a project query timezone',
+                );
+            }
+
+            const [updatedProject] = await trx(ProjectTableName)
+                .update({
+                    ...(queryTimezone !== undefined && {
+                        query_timezone: queryTimezone,
+                    }),
+                    ...(useProjectTimezoneInFilters !== undefined && {
+                        use_project_timezone_in_filters:
+                            useProjectTimezoneInFilters,
+                    }),
+                })
+                .where('project_uuid', projectUuid)
+                .returning('*');
+
+            return updatedProject;
+        });
     }
 }
