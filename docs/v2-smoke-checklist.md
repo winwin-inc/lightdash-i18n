@@ -178,6 +178,8 @@ pnpm -F backend migrate
 | ~~MQB totalConfiguration~~ | **已移植** |
 | ~~ChartTimezoneSelect / 用户时区哨兵~~ | **已移植** |
 
+> **CHANGELOG 增量高价值候选**（CJK 检索、Filter Requirements、导出/XLSX、Embed、Role Sets 等，不阻塞本清单发布）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
+
 ## 十、本轮 agent 完成项 vs 待预发手测
 
 | 已完成 | 待预发（库 + 服务起来后） |

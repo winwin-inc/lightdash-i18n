@@ -4,7 +4,8 @@
 >
 > **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
 >
-> **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。
+> **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。  
+> **CHANGELOG 增量高价值候选**（未进 §二评估表、不阻塞试跑）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
 
 ---
 
@@ -297,6 +298,7 @@ flowchart TB
 | Direct Access（EE 解绑） | chart/dashboard/sql/app access 等多表 | **中~大** | 权限模型扩展，需专项评审 |
 | Homepage / Autopilot 等 EE | 视引入范围而定 | 中 | 主迁移不做解绑，库变更随专项走 |
 | 整仓对齐上游 2.57 | 上游近几个月大量新 migration + 历史存量 | **很大** | **明确不做**；那是另一种升级路径 |
+| CHANGELOG 增量候选（CJK/Filter Requirements/导出/Embed/Role Sets 等） | 视单项而定 | 中 | **不阻塞试跑**；清单见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md) |
 
 #### 发布与回滚注意
 
