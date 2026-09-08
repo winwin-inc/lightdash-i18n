@@ -1,4 +1,8 @@
-import { type Dashboard } from '@lightdash/common';
+import {
+    SchedulerFormat,
+    type Dashboard,
+    type SchedulerCsvOptions,
+} from '@lightdash/common';
 import {
     Alert,
     Box,
@@ -9,6 +13,7 @@ import {
     Modal,
     MultiSelect,
     Paper,
+    Radio,
     SegmentedControl,
     Stack,
     Text,
@@ -18,6 +23,7 @@ import {
 import {
     IconCsv,
     IconFileExport,
+    IconFileTypeXls,
     IconHelpCircle,
     IconLayoutDashboard,
     IconScreenshot,
@@ -31,6 +37,7 @@ import { useCustomWidthOptions } from '../../../features/scheduler/constants';
 import {
     useExportCsvDashboard,
     useExportDashboard,
+    useExportDashboardContent,
 } from '../../../hooks/dashboard/useDashboard';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../MantineIcon';
@@ -41,6 +48,10 @@ type Props = {
 };
 
 type CsvExportProps = {
+    dashboard: Dashboard;
+};
+
+type XlsxExportProps = {
     dashboard: Dashboard;
 };
 
@@ -103,6 +114,185 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     );
 };
 
+const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
+    dashboard,
+    onClose,
+}) => {
+    const { t } = useTranslation();
+    const exportContentMutation = useExportDashboardContent();
+    const dashboardFilters = useDashboardContext((c) => c.allFilters);
+    const dateZoomGranularity = useDashboardContext(
+        (c) => c.dateZoomGranularity,
+    );
+    const parameterValues = useDashboardContext((c) => c.parameterValues);
+
+    const isDashboardTabsAvailable =
+        dashboard?.tabs !== undefined && dashboard.tabs.length > 0;
+    const [allTabsSelected, setAllTabsSelected] = useState(true);
+    const [selectedTabs, setSelectedTabs] = useState<string[]>(
+        dashboard?.tabs?.map((tab) => tab.uuid) || [],
+    );
+    const [xlsxFileLayout, setXlsxFileLayout] =
+        useState<NonNullable<SchedulerCsvOptions['xlsxFileLayout']>>('zip');
+
+    const hasTilesInSelectedTabs = useCallback(() => {
+        if (allTabsSelected) {
+            return dashboard.tiles.length > 0;
+        }
+        return dashboard.tiles.some((tile) =>
+            selectedTabs.includes(tile.tabUuid || ''),
+        );
+    }, [allTabsSelected, dashboard.tiles, selectedTabs]);
+
+    const handleExport = () => {
+        exportContentMutation.mutate({
+            dashboard,
+            request: {
+                format: SchedulerFormat.XLSX,
+                options: {
+                    formatted: true,
+                    limit: 'table',
+                    xlsxFileLayout,
+                },
+                dashboardFilters,
+                dateZoomGranularity,
+                selectedTabs:
+                    isDashboardTabsAvailable &&
+                    !allTabsSelected &&
+                    selectedTabs.length > 0
+                        ? selectedTabs
+                        : null,
+                parameters: parameterValues,
+            },
+        });
+        onClose();
+    };
+
+    return (
+        <Stack p="md" spacing="md">
+            {isDashboardTabsAvailable && (
+                <Stack spacing="xs">
+                    <Input.Label>
+                        <Group spacing="xs">
+                            {t(
+                                'components_common_modal_dashboard_export.tabs_label',
+                            )}
+                            <Tooltip
+                                withinPortal={true}
+                                maw={400}
+                                variant="xs"
+                                multiline
+                                label={t(
+                                    'components_common_modal_dashboard_export.select_all_tabs_tooltip',
+                                )}
+                            >
+                                <MantineIcon
+                                    icon={IconHelpCircle}
+                                    size="md"
+                                    display="inline"
+                                    color="gray"
+                                />
+                            </Tooltip>
+                        </Group>
+                    </Input.Label>
+                    <Checkbox
+                        size="sm"
+                        label={t(
+                            'components_common_modal_dashboard_export.include_all_tabs',
+                        )}
+                        labelPosition="right"
+                        checked={allTabsSelected}
+                        onChange={(e) => {
+                            setAllTabsSelected(e.target.checked);
+                            if (e.target.checked) {
+                                setSelectedTabs(
+                                    dashboard?.tabs?.map((tab) => tab.uuid) ||
+                                        [],
+                                );
+                            } else {
+                                const firstTabUuid = dashboard?.tabs?.[0]?.uuid;
+                                setSelectedTabs(
+                                    firstTabUuid ? [firstTabUuid] : [],
+                                );
+                            }
+                        }}
+                    />
+                    {!allTabsSelected && (
+                        <MultiSelect
+                            placeholder={t(
+                                'components_common_modal_dashboard_export.select_tabs',
+                            )}
+                            value={selectedTabs}
+                            data={(dashboard?.tabs || []).map((tab) => ({
+                                value: tab.uuid,
+                                label: tab.name,
+                            }))}
+                            clearable={selectedTabs.length > 1}
+                            searchable
+                            onChange={setSelectedTabs}
+                            required
+                            error={
+                                !hasTilesInSelectedTabs()
+                                    ? t(
+                                          'components_common_modal_dashboard_export.no_tiles_in_selected_tabs',
+                                      )
+                                    : undefined
+                            }
+                        />
+                    )}
+                </Stack>
+            )}
+
+            <Radio.Group
+                label={t(
+                    'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
+                )}
+                description={t(
+                    'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
+                )}
+                value={xlsxFileLayout}
+                onChange={(value) =>
+                    setXlsxFileLayout(
+                        value as NonNullable<
+                            SchedulerCsvOptions['xlsxFileLayout']
+                        >,
+                    )
+                }
+            >
+                <Stack spacing="xxs" pt="xs">
+                    <Radio
+                        label={t(
+                            'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
+                        )}
+                        value="zip"
+                    />
+                    <Radio
+                        label={t(
+                            'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
+                        )}
+                        value="workbook"
+                    />
+                </Stack>
+            </Radio.Group>
+
+            <Group position="right" spacing="lg">
+                <Button variant="outline" onClick={onClose}>
+                    {t('components_common_modal_dashboard_export.cancel')}
+                </Button>
+                <Button
+                    onClick={handleExport}
+                    disabled={!hasTilesInSelectedTabs()}
+                    leftIcon={<MantineIcon icon={IconFileTypeXls} />}
+                >
+                    {t(
+                        'components_common_modal_dashboard_export.tooltip.button_xlsx',
+                    )}
+                </Button>
+            </Group>
+        </Stack>
+    );
+};
+
 const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
     onClose,
     gridWidth,
@@ -113,7 +303,7 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
 
     const [previews, setPreviews] = useState<Record<string, string>>({});
     const [previewChoice, setPreviewChoice] = useState<
-        typeof customWidthOptions[number]['value'] | undefined
+        (typeof customWidthOptions)[number]['value'] | undefined
     >(customWidthOptions[1].value);
     const location = useLocation();
     const exportDashboardMutation = useExportDashboard();
@@ -126,7 +316,6 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
         dashboard?.tabs?.map((tab) => tab.uuid) || [],
     );
 
-    // Check if the selected tabs have tiles so we can disable the export button if not
     const hasTilesInSelectedTabs = useCallback(() => {
         if (allTabsSelected) {
             return dashboard.tiles.length > 0;
@@ -136,7 +325,6 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
         );
     }, [allTabsSelected, dashboard.tiles, selectedTabs]);
 
-    // Helper function to create consistent cache keys
     const getPreviewKey = useCallback(
         (width: string) => {
             return `${width}-${selectedTabs.join('-')}`;
@@ -144,7 +332,6 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
         [selectedTabs],
     );
 
-    // Get the current preview based on the key
     const currentPreview = previewChoice
         ? previews[getPreviewKey(previewChoice)]
         : undefined;
@@ -198,7 +385,6 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
                     : null,
         });
 
-        // Store the preview with the proper key
         if (previewChoice) {
             const key = getPreviewKey(previewChoice);
             setPreviews((prev) => ({
@@ -224,7 +410,9 @@ const ImageExport: FC<Props & Pick<ModalProps, 'onClose'>> = ({
                     <Stack spacing="xs">
                         <Input.Label>
                             <Group spacing="xs">
-                                Tabs
+                                {t(
+                                    'components_common_modal_dashboard_export.tabs_label',
+                                )}
                                 <Tooltip
                                     withinPortal={true}
                                     maw={400}
@@ -386,7 +574,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         </Paper>
                         <Text color="dark.7" fw={700} fz="md">
                             {t(
-                                'components_common_modal_dashboard_export.tabs.image',
+                                'components_common_modal_dashboard_export.export_dashboard',
                             )}
                         </Text>
                     </Group>
@@ -409,6 +597,12 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                             ),
                             value: 'csv',
                         },
+                        {
+                            label: t(
+                                'components_common_modal_dashboard_export.tabs.xlsx',
+                            ),
+                            value: 'xlsx',
+                        },
                     ]}
                     w="min-content"
                     mb="xs"
@@ -418,7 +612,9 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                 {exportType === 'csv' && (
                     <CsvExport dashboard={dashboard} onClose={onClose} />
                 )}
-
+                {exportType === 'xlsx' && (
+                    <XlsxExport dashboard={dashboard} onClose={onClose} />
+                )}
                 {exportType === 'image' && (
                     <ImageExport
                         dashboard={dashboard}

@@ -216,3 +216,27 @@ dashboardRouter.post(
         }
     },
 );
+
+dashboardRouter.post(
+    '/:dashboardUuid/exports',
+    allowApiKeyAuthentication,
+    isAuthenticated,
+    async (req, res, next) => {
+        try {
+            const results = await req.services
+                .getDashboardService()
+                .scheduleExportContent(
+                    req.user!,
+                    req.params.dashboardUuid,
+                    req.body,
+                );
+
+            res.json({
+                status: 'ok',
+                results,
+            });
+        } catch (e) {
+            next(e);
+        }
+    },
+);

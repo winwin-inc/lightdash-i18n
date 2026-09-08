@@ -467,7 +467,9 @@ const SchedulerForm: FC<Props> = ({
             },
             selectedTabs: (value: string[] | null) => {
                 if (value && value.length === 0) {
-                    return 'Selected tabs should not be empty';
+                    return t(
+                        'features_scheduler_form.form.tabs_panel_setup.tabs.error',
+                    );
                 }
                 return null;
             },

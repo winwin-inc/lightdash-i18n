@@ -13,6 +13,7 @@ import {
     DownloadFileType,
     EmailNotificationPayload,
     ExportCsvDashboardPayload,
+    type ExportContentPayload,
     FeatureFlags,
     FieldReferenceError,
     ForbiddenError,
@@ -24,6 +25,7 @@ import {
     NotEnoughResults,
     NotificationFrequency,
     NotificationPayloadBase,
+    ParameterError,
     ParametersValuesMap,
     QueryExecutionContext,
     ReadFileError,
@@ -86,10 +88,13 @@ import {
     operatorActionValue,
     pivotResultsAsCsv,
     setUuidParam,
+    type DateGranularity,
 } from '@lightdash/common';
+import archiver from 'archiver';
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
+import { Readable } from 'stream';
 import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
 import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import slackifyMarkdown from 'slackify-markdown';
@@ -3245,6 +3250,230 @@ export default class SchedulerTask {
                 return { url };
             },
         );
+    }
+
+    /**
+     * One-click dashboard CSV/XLSX export. Reuses scheduled-delivery generation
+     * for XLSX (including workbook collapse) and CsvService for CSV zip.
+     */
+    protected async exportContent(
+        jobId: string,
+        scheduledTime: Date,
+        payload: ExportContentPayload,
+    ) {
+        await this.logWrapper(
+            {
+                task: SCHEDULER_TASKS.EXPORT_CONTENT,
+                jobId,
+                scheduledTime,
+                details: {
+                    createdByUserUuid: payload.userUuid,
+                    projectUuid: payload.projectUuid,
+                    organizationUuid: payload.organizationUuid,
+                },
+            },
+            async () => {
+                if (payload.resourceType !== 'dashboard') {
+                    throw new ParameterError(
+                        'Only dashboard export is supported',
+                    );
+                }
+                if (!this.s3Client.isEnabled()) {
+                    throw new MissingConfigError('Cloud storage is not enabled');
+                }
+
+                if (payload.format === SchedulerFormat.CSV) {
+                    const user = await this.userService.getSessionByUserUuid(
+                        payload.userUuid,
+                    );
+                    const options = isSchedulerCsvOptions(payload.options)
+                        ? payload.options
+                        : { formatted: true, limit: 'table' as const };
+
+                    const csvFiles = await this.csvService
+                        .getCsvsForDashboard({
+                            jobId,
+                            user,
+                            dashboardUuid: payload.resourceUuid,
+                            options,
+                            overrideDashboardFilters: payload.dashboardFilters,
+                            dateZoomGranularity:
+                                payload.dateZoomGranularity as
+                                    | DateGranularity
+                                    | undefined,
+                            selectedTabs: payload.selectedTabs ?? null,
+                            invalidateCache: true,
+                            schedulerParameters: payload.parameters,
+                        })
+                        .then((urls) =>
+                            urls.filter((url) => url.path !== '#no-results'),
+                        );
+
+                    const dashboard =
+                        await this.schedulerService.dashboardModel.getByIdOrSlug(
+                            payload.resourceUuid,
+                        );
+
+                    const url = await this.createExportZipDownloadUrl({
+                        files: csvFiles.map((file) => ({
+                            entryNameBase: file.filename,
+                            localPath: file.localPath,
+                        })),
+                        fileExtension: 'csv',
+                        zipNameBase: dashboard.name,
+                    });
+                    return { url, fileType: 'zip' };
+                }
+
+                if (payload.format === SchedulerFormat.XLSX) {
+                    const scheduler = {
+                        name: 'Content export',
+                        createdBy: payload.userUuid,
+                        format: SchedulerFormat.XLSX,
+                        options: payload.options,
+                        cron: '* * * * *',
+                        timezone: 'UTC',
+                        savedChartUuid: null,
+                        dashboardUuid: payload.resourceUuid,
+                        enabled: true,
+                        includeLinks: false,
+                        targets: [],
+                        customViewportWidth: payload.customViewportWidth,
+                        selectedTabs: payload.selectedTabs ?? null,
+                        filters: payload.dashboardFilters?.dimensions,
+                        parameters: payload.parameters,
+                    } satisfies CreateSchedulerAndTargets & {
+                        dashboardUuid: string;
+                        selectedTabs: string[] | null;
+                        filters?: DashboardFilterRule[];
+                        parameters?: ParametersValuesMap;
+                        customViewportWidth?: number;
+                    };
+
+                    const page = await this.getNotificationPageData(
+                        scheduler,
+                        jobId,
+                    );
+
+                    if (!page.csvUrls || page.csvUrls.length === 0) {
+                        throw new UnexpectedServerError(
+                            'Dashboard data export failed',
+                        );
+                    }
+
+                    const shouldCreateWorkbook =
+                        isSchedulerCsvOptions(payload.options) &&
+                        payload.options.xlsxFileLayout === 'workbook';
+
+                    if (shouldCreateWorkbook) {
+                        const workbookUrl = page.csvUrls[0]?.path;
+                        if (!workbookUrl) {
+                            throw new UnexpectedServerError(
+                                'Dashboard workbook export failed',
+                            );
+                        }
+                        return {
+                            url: workbookUrl,
+                            fileType: DownloadFileType.XLSX,
+                        };
+                    }
+
+                    const url = await this.createExportZipDownloadUrl({
+                        files: page.csvUrls.map((file) => ({
+                            entryNameBase: file.filename,
+                            localPath: file.localPath,
+                        })),
+                        fileExtension: 'xlsx',
+                        zipNameBase: page.details.name,
+                    });
+                    return { url, fileType: 'zip' };
+                }
+
+                return assertUnreachable(
+                    payload.format,
+                    `Format ${payload.format} is not supported for export`,
+                );
+            },
+        );
+    }
+
+    private async createExportZipDownloadUrl({
+        files,
+        fileExtension,
+        zipNameBase,
+    }: {
+        files: Array<{ entryNameBase: string; localPath: string }>;
+        fileExtension: 'csv' | 'xlsx';
+        zipNameBase: string;
+    }): Promise<string> {
+        if (files.length === 0) {
+            throw new UnexpectedServerError('No files to include in zip');
+        }
+
+        const zipPath = `/tmp/${nanoid()}.zip`;
+        try {
+            const output = fsSync.createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            const zipDone = new Promise<void>((resolve, reject) => {
+                output.on('close', () => resolve());
+                archive.on('error', reject);
+            });
+            archive.pipe(output);
+
+            const usedNames = new Set<string>();
+            const dedupeName = (baseName: string) => {
+                const extension = `.${fileExtension}`;
+                const base = sanitizeGenericFileName(baseName);
+                let name = `${base}${extension}`;
+                if (usedNames.has(name)) {
+                    let suffix = 2;
+                    while (usedNames.has(`${base}_${suffix}${extension}`)) {
+                        suffix += 1;
+                    }
+                    name = `${base}_${suffix}${extension}`;
+                }
+                usedNames.add(name);
+                return name;
+            };
+
+            await Promise.all(
+                files.map(async (file) => {
+                    const entryName = dedupeName(file.entryNameBase);
+                    if (
+                        file.localPath.startsWith('http://') ||
+                        file.localPath.startsWith('https://')
+                    ) {
+                        const response = await fetch(file.localPath);
+                        if (!response.ok || !response.body) {
+                            throw new UnexpectedServerError(
+                                `Failed to download export file "${file.entryNameBase}"`,
+                            );
+                        }
+                        const buffer = Buffer.from(
+                            await response.arrayBuffer(),
+                        );
+                        archive.append(Readable.from(buffer), {
+                            name: entryName,
+                        });
+                    } else {
+                        archive.file(file.localPath, { name: entryName });
+                    }
+                }),
+            );
+
+            await archive.finalize();
+            await zipDone;
+
+            const zipFileName = `${sanitizeGenericFileName(
+                zipNameBase,
+            )}-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+            return this.s3Client.uploadZip(
+                fsSync.createReadStream(zipPath),
+                zipFileName,
+            );
+        } finally {
+            await fs.unlink(zipPath).catch(() => undefined);
+        }
     }
 
     protected async replaceCustomFields(

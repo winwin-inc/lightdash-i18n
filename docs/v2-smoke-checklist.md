@@ -192,6 +192,7 @@ pnpm -F backend migrate
 | P0-6 | 看板锁筛 / 必填 | 必填筛选未填值时 `requiredDashboardFilters` 阻塞（含 any-of 组语义） |
 | P0-7 | 定时交付筛选 | 必填/需求组未满足时 Scheduler 表单无法保存 |
 | P0-8 | 看板定时 XLSX | 格式选项可选「分文件 ZIP」或「单个工作簿」；workbook 交付为一份多 sheet XLSX |
+| P0-9 | 看板导出 Modal XLSX | 导出弹窗可选 `.xlsx`；「分文件 ZIP」与「单个工作簿」均可下载 |
 
 ## 十、本轮 agent 完成项 vs 待预发手测
 

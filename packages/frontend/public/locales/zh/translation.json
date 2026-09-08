@@ -4093,8 +4093,10 @@
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
-            "button": "导出 CSV"
+            "button": "导出 CSV",
+            "button_xlsx": "导出 XLSX"
         },
+        "tabs_label": "选项卡",
         "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
         "include_all_tabs": "包含所有选项卡",
         "select_tabs": "选择要包含的选项卡",
@@ -4103,7 +4105,8 @@
         "export_dashboard": "导出看板",
         "tabs": {
             "image": "图片",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {

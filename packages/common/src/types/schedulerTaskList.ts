@@ -18,6 +18,7 @@ import {
     type DownloadAsyncQueryResultsPayload,
     type DownloadCsvPayload,
     type EmailNotificationPayload,
+    type ExportContentPayload,
     type ExportCsvDashboardPayload,
     type GsheetsNotificationPayload,
     type MsTeamsNotificationPayload,
@@ -82,6 +83,7 @@ export const SCHEDULER_TASKS = {
     INDEX_CATALOG: 'indexCatalog',
     GENERATE_DAILY_JOBS: 'generateDailyJobs',
     EXPORT_CSV_DASHBOARD: 'exportCsvDashboard',
+    EXPORT_CONTENT: 'exportContent',
     RENAME_RESOURCES: 'renameResources',
     CLEAN_QUERY_HISTORY: 'cleanQueryHistory',
     DOWNLOAD_ASYNC_QUERY_RESULTS: 'downloadAsyncQueryResults',
@@ -110,6 +112,7 @@ export interface TaskPayloadMap {
     [SCHEDULER_TASKS.INDEX_CATALOG]: SchedulerIndexCatalogJobPayload;
     [SCHEDULER_TASKS.GENERATE_DAILY_JOBS]: TraceTaskBase;
     [SCHEDULER_TASKS.EXPORT_CSV_DASHBOARD]: ExportCsvDashboardPayload;
+    [SCHEDULER_TASKS.EXPORT_CONTENT]: ExportContentPayload;
     [SCHEDULER_TASKS.SLACK_AI_PROMPT]: SlackPromptJobPayload;
     [SCHEDULER_TASKS.RENAME_RESOURCES]: RenameResourcesPayload;
     [SCHEDULER_TASKS.CLEAN_QUERY_HISTORY]: TraceTaskBase;

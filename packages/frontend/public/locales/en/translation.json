@@ -4058,8 +4058,10 @@
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
         "tooltip": {
             "label": "Export results in table for all charts in a zip file",
-            "button": "Export CSV"
+            "button": "Export CSV",
+            "button_xlsx": "Export XLSX"
         },
+        "tabs_label": "Tabs",
         "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
         "include_all_tabs": "Include all tabs",
         "select_tabs": "Select tabs to include in the export",
@@ -4068,7 +4070,8 @@
         "export_dashboard": "Export dashboard",
         "tabs": {
             "image": "Image",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {

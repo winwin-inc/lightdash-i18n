@@ -95,7 +95,8 @@ CHANGELOG 体量大、但对当前试跑 / 主闭环 ROI 低或冲突大：
 | Batch 0 | 表计算 Modal / Data Ops 预发 i18n | ✅ |
 | Batch 1 | CJK 截图字体、Omnibar CJK 最短 1 字、CustomSql Table Calculations | ✅ |
 | Batch 2 | Filter Requirements 语义核 + 调度校验；GuidedSetup UI **延期** | ✅（UI 延期） |
-| Batch 3 | `xlsxFileLayout=workbook` + WorkbookExportHelper + 调度表单选项 | ✅ |
+| Batch 3 | `xlsxFileLayout=workbook` + WorkbookExportHelper + 调度表单选项 + 看板导出 Modal XLSX（EXPORT_CONTENT） | ✅ |
+| 补齐 | 调度 create/update 后端必填筛选硬门禁；tabs 校验 i18n | ✅ |
 
 ---
 
