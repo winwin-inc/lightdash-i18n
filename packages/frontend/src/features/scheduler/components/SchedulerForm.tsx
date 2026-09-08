@@ -22,6 +22,7 @@ import {
     type ParameterDefinitions,
     type ParametersValuesMap,
     type SchedulerAndTargets,
+    type SchedulerCsvOptions,
 } from '@lightdash/common';
 import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
@@ -104,7 +105,9 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
-        xlsxFileLayout: 'zip' as const,
+        xlsxFileLayout: 'zip' as NonNullable<
+            SchedulerCsvOptions['xlsxFileLayout']
+        >,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -424,7 +427,7 @@ const SchedulerForm: FC<Props> = ({
                         : null;
                 },
             },
-            filters: (value: DashboardFilterRule[] | null, values) => {
+            filters: (value: DashboardFilterRule[] | null, values: any) => {
                 if (!isDashboard) {
                     return null;
                 }
@@ -566,7 +569,7 @@ const SchedulerForm: FC<Props> = ({
         Array<{
             label: string;
             value: string;
-            group: 'Private channels';
+            group: string;
         }>
     >([]);
 
@@ -608,14 +611,20 @@ const SchedulerForm: FC<Props> = ({
                     label: channel.name,
                     group:
                         channelPrefix === '#'
-                            ? 'Channels'
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.channels',
+                              )
                             : channelPrefix === '@'
-                            ? 'Users'
-                            : 'Private channels',
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.users',
+                              )
+                            : t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                              ),
                 };
             })
             .concat(privateChannels);
-    }, [slackChannelsQuery?.data, privateChannels]);
+    }, [slackChannelsQuery?.data, privateChannels, t]);
 
     let responsiveChannelsSearchEnabled =
         slackChannels.length >= MAX_SLACK_CHANNELS || search.length > 0; // enable responvive channel search if there are more than MAX_SLACK_CHANNELS defined channels
@@ -674,7 +683,11 @@ const SchedulerForm: FC<Props> = ({
                                     </Text>
                                 )}
                             </Tabs.Tab>
-                            <Tabs.Tab value="parameters">Parameters</Tabs.Tab>
+                            <Tabs.Tab value="parameters">
+                                {t(
+                                    'features_scheduler_form.form.tabs_list.parameters',
+                                )}
+                            </Tabs.Tab>
                         </>
                     ) : null}
 
@@ -907,9 +920,11 @@ const SchedulerForm: FC<Props> = ({
                                     <TimeZonePicker
                                         size="sm"
                                         style={{ flexGrow: 1 }}
-                                        placeholder={`Project Default ${
+                                        placeholder={`${t(
+                                            'features_scheduler_form.form.tabs_panel_setup.default_project',
+                                        )}${
                                             projectDefaultOffsetString
-                                                ? `(UTC ${projectDefaultOffsetString})`
+                                                ? ` (UTC ${projectDefaultOffsetString})`
                                                 : ''
                                         }`}
                                         maw={350}
@@ -940,7 +955,9 @@ const SchedulerForm: FC<Props> = ({
                                                 value: SchedulerFormat.XLSX,
                                             },
                                             {
-                                                label: 'Image',
+                                                label: t(
+                                                    'features_scheduler_form.form.tabs_panel_setup.format_image',
+                                                ),
                                                 value: SchedulerFormat.IMAGE,
                                                 disabled: isImageDisabled,
                                             },
@@ -1197,7 +1214,9 @@ const SchedulerForm: FC<Props> = ({
                         {isDashboardTabsAvailable && !isThresholdAlert && (
                             <Stack spacing={10}>
                                 <Input.Label>
-                                    Tabs
+                                    {t(
+                                        'features_scheduler_form.form.tabs_panel_setup.tabs.title',
+                                    )}
                                     <Tooltip
                                         withinPortal={true}
                                         maw={400}
@@ -1418,7 +1437,9 @@ const SchedulerForm: FC<Props> = ({
                                                                     {
                                                                         label: newItem,
                                                                         value: newItem,
-                                                                        group: 'Private channels',
+                                                                        group: t(
+                                                                            'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                                                                        ),
                                                                     },
                                                                 ],
                                                             );
@@ -1600,7 +1621,9 @@ const SchedulerForm: FC<Props> = ({
                 }
                 disabledMessage={
                     requiredFiltersWithoutValues.length > 0
-                        ? 'Some required filters are missing values'
+                        ? t(
+                              'features_scheduler_form.validate_tips.required_filters_missing',
+                          )
                         : undefined
                 }
                 onBack={onBack}

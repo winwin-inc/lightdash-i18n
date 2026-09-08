@@ -1217,7 +1217,8 @@
             "name": "Name is required",
             "custom_limit": "Custom limit must be an integer",
             "required_filters": "Required filters must have values",
-            "requirement_group": "Set a value for at least one filter in each requirement group"
+            "requirement_group": "Set a value for at least one filter in each requirement group",
+            "required_filters_missing": "Some required filters are missing values"
         },
         "form": {
             "tabs_list": {
@@ -1244,6 +1245,7 @@
                 "threshold_alert": " This is the frequency at which MSY X runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
                 "default_project": "Project Default",
                 "format": "Format",
+                "format_image": "Image",
                 "image_disabled": {
                     "part_1": "You must enable the",
                     "part_2": "headless browser",
@@ -1280,6 +1282,11 @@
                     "part_4": "for your MSY X instance"
                 },
                 "search_slack_channels": "Search Slack channels",
+                "slack_group": {
+                    "channels": "Channels",
+                    "users": "Users",
+                    "private_channels": "Private channels"
+                },
                 "send_to_private_channel": "Send to private channel #{{query}}",
                 "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the MSY X Slackbot into that channel."
             },

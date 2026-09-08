@@ -1231,7 +1231,8 @@
             "name": "姓名为必填项",
             "custom_limit": "自定义限制必须是整数",
             "required_filters": "必填筛选器必须有值",
-            "requirement_group": "请为每个需求组中的至少一个筛选器设置值"
+            "requirement_group": "请为每个需求组中的至少一个筛选器设置值",
+            "required_filters_missing": "部分必填筛选器尚未设置值"
         },
         "form": {
             "tabs_list": {
@@ -1258,6 +1259,7 @@
                 "threshold_alert": "这是 马上赢X 查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "default_project": "项目默认",
                 "format": "格式",
+                "format_image": "图片",
                 "image_disabled": {
                     "part_1": "您必须启用",
                     "part_2": "无头浏览器",
@@ -1294,6 +1296,11 @@
                     "part_4": "到您的 马上赢X 实例"
                 },
                 "search_slack_channels": "搜索 Slack 频道",
+                "slack_group": {
+                    "channels": "频道",
+                    "users": "用户",
+                    "private_channels": "私有频道"
+                },
                 "send_to_private_channel": "发送到私有频道 #{{query}}",
                 "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 马上赢X Slackbot 加入该频道。"
             },
