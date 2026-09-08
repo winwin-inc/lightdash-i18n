@@ -4,6 +4,7 @@ import {
     DimensionType,
     FieldType,
     ItemsMap,
+    TimeFrames,
     getFormatExpression,
 } from '@lightdash/common';
 import { ExcelService } from './ExcelService';
@@ -303,6 +304,26 @@ describe('ExcelService', () => {
             expect(typeof result[1]).toBe('string');
             expect(result[1]).toContain('2023');
             expect(result[2]).toBe('test');
+        });
+
+        it('should format month-interval dates as YYYYMM text', () => {
+            const monthColumn = {
+                ...mockItemMapWithFormats.date_column,
+                timeInterval: TimeFrames.MONTH,
+            };
+            const itemMap: ItemsMap = {
+                month_column: monthColumn,
+            };
+
+            const result = ExcelService.convertRowToExcel(
+                { month_column: '2026-08-01' },
+                itemMap,
+                false,
+                ['month_column'],
+            );
+
+            expect(result[0]).toBe('202608');
+            expect(typeof result[0]).toBe('string');
         });
 
         it('should handle non-numeric strings with format expressions', () => {
@@ -874,9 +895,9 @@ describe('ExcelService', () => {
                 const sheet = readWorkbook.worksheets[0];
                 expect(sheet.getRow(2).getCell(1).value).toBe(0.25);
                 expect(sheet.getRow(3).getCell(1).value).not.toBeNull();
-                expect(String(sheet.getRow(3).getCell(1).value).length).toBeGreaterThan(
-                    0,
-                );
+                expect(
+                    String(sheet.getRow(3).getCell(1).value).length,
+                ).toBeGreaterThan(0);
             } finally {
                 await fs.unlink(tempFile).catch(() => undefined);
             }
@@ -911,6 +932,19 @@ describe('ExcelService', () => {
             const result = ExcelService.convertToExcelDate(dateString);
 
             expect(result).toBeInstanceOf(Date);
+        });
+
+        it('should keep formatted calendar values as text', () => {
+            // Pivot XLSX runs formatted CSV cells through convertToExcelDate.
+            // YYYY-MM becomes YYYYMM text so Excel does not parse a date
+            // (2026-08 → 2026/7/31 16:00 in UTC+8).
+            expect(ExcelService.convertToExcelDate('2026-08')).toBe('202608');
+            expect(ExcelService.convertToExcelDate('202608')).toBe('202608');
+            expect(ExcelService.convertToExcelDate('2026')).toBe('2026');
+            expect(ExcelService.convertToExcelDate('2026-08-01')).toBe(
+                '2026-08-01',
+            );
+            expect(ExcelService.convertToExcelDate('2026-Q3')).toBe('2026-Q3');
         });
 
         it('should return non-date values unchanged', () => {
