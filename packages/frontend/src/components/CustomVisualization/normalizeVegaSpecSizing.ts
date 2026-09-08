@@ -421,6 +421,7 @@ export function needsLeftYAxisLabelReserve(spec: VegaSpec): boolean {
 }
 
 function needsXAxisLabelReserve(spec: VegaSpec): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- defined later in file
     if (collectMaxXAxisLabelAngle(spec) > 0) {
         return true;
     }
@@ -430,10 +431,7 @@ function needsXAxisLabelReserve(spec: VegaSpec): boolean {
             return;
         }
         const enc = encoding as VegaSpec;
-        if (
-            channelShowsXAxisLabels(enc.x) ||
-            channelShowsXAxisLabels(enc.x2)
-        ) {
+        if (channelShowsXAxisLabels(enc.x) || channelShowsXAxisLabels(enc.x2)) {
             needed = true;
         }
     });
@@ -476,13 +474,12 @@ function labelAngleSideExtras(maxLabelAngle: number): {
 function buildNarrowDefaultPadding(spec: VegaSpec): PaddingInsets {
     const needLeft = needsLeftYAxisLabelReserve(spec);
     const needX = needsXAxisLabelReserve(spec);
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- defined later in file
     const maxAngle = collectMaxXAxisLabelAngle(spec);
-    const { right: angleRight, bottom: angleBottom } = labelAngleSideExtras(
-        maxAngle,
-    );
+    const { right: angleRight, bottom: angleBottom } =
+        labelAngleSideExtras(maxAngle);
     // |angle|≥60: only tiny right (≤8); do not stack base 8 + angleRight
-    const right =
-        maxAngle >= 60 ? angleRight : (needX ? 8 : 0) + angleRight;
+    const right = maxAngle >= 60 ? angleRight : (needX ? 8 : 0) + angleRight;
     return {
         top: needLeft || needX ? 8 : 0,
         right,
@@ -539,10 +536,12 @@ function parsePixelOffset(raw: unknown): PixelOffset | null {
     if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
         const expr = (raw as VegaSpec).expr;
         if (typeof expr === 'string') {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define -- defined below
             return parsePixelOffsetExpr(expr);
         }
     }
     if (typeof raw === 'string') {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define -- defined below
         return parsePixelOffsetExpr(raw);
     }
     return null;
@@ -669,7 +668,11 @@ export function collectOutOfPlotChromeReserve(spec: VegaSpec): PaddingInsets {
         const extent = markExtentFor(mark);
 
         const color = enc.color;
-        if (color !== undefined && typeof color === 'object' && color !== null) {
+        if (
+            color !== undefined &&
+            typeof color === 'object' &&
+            color !== null
+        ) {
             const legend = (color as VegaSpec).legend;
             if (
                 legend !== undefined &&
@@ -722,10 +725,7 @@ export function collectOutOfPlotChromeReserve(spec: VegaSpec): PaddingInsets {
         }
 
         if (channelHasAxisTitle(enc.x) || channelHasAxisTitle(enc.x2)) {
-            sides.bottom = Math.max(
-                sides.bottom,
-                OUT_OF_PLOT_AXIS_TITLE_EXTRA,
-            );
+            sides.bottom = Math.max(sides.bottom, OUT_OF_PLOT_AXIS_TITLE_EXTRA);
         }
         if (channelHasAxisTitle(enc.y) || channelHasAxisTitle(enc.y2)) {
             sides.left = Math.max(sides.left, OUT_OF_PLOT_AXIS_TITLE_EXTRA);
@@ -811,7 +811,10 @@ export function getNarrowSingleViewPadding(
         // Floors: author + out-of-plot marks (legendY / overhang text). Axis-angle
         // clamp must not eat these — desktop pad used to absorb them.
         const floors = maxPaddingSides(author, chrome);
-        const desired = maxPaddingSides(floors, buildNarrowDefaultPadding(spec));
+        const desired = maxPaddingSides(
+            floors,
+            buildNarrowDefaultPadding(spec),
+        );
         const clamped = maybeClampPadding(desired, containerSize);
         return maxPaddingSides(clamped, floors);
     }
@@ -948,9 +951,8 @@ function getCompositeAxisReserve(spec: VegaSpec): PaddingInsets {
     const needLeft = needsLeftYAxisLabelReserve(spec);
     const needX = needsXAxisLabelReserve(spec);
     const maxAngle = collectMaxXAxisLabelAngle(spec);
-    const { right: angleRight, bottom: angleBottom } = labelAngleSideExtras(
-        maxAngle,
-    );
+    const { right: angleRight, bottom: angleBottom } =
+        labelAngleSideExtras(maxAngle);
     const rightOrientExtra = hasRightOrientedAxis(spec)
         ? COMPOSITE_RIGHT_AXIS_EXTRA
         : 0;
@@ -963,8 +965,7 @@ function getCompositeAxisReserve(spec: VegaSpec): PaddingInsets {
     return {
         top: needLeft || needX ? COMPOSITE_AXIS_RESERVE.top : 0,
         right,
-        bottom:
-            (needX ? COMPOSITE_AXIS_RESERVE.bottom : 0) + angleBottom,
+        bottom: (needX ? COMPOSITE_AXIS_RESERVE.bottom : 0) + angleBottom,
         left: needLeft ? COMPOSITE_AXIS_RESERVE.left : 0,
     };
 }
@@ -1249,7 +1250,9 @@ export function normalizeVegaSpecSizing(
                 width,
                 height: pinnedHeight,
                 padding,
-                ...(authorAutosize !== null ? { autosize: authorAutosize } : {}),
+                ...(authorAutosize !== null
+                    ? { autosize: authorAutosize }
+                    : {}),
             };
         }
         if (useExplicitPixelSize) {

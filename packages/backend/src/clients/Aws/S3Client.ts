@@ -20,6 +20,7 @@ import { PassThrough, Readable } from 'stream';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { buildPublicDownloadUrl } from './buildPublicDownloadUrl';
 
 type S3ClientArguments = {
     lightdashConfig: LightdashConfig;
@@ -41,7 +42,9 @@ export class S3Client {
                 1800000; // 30 分钟
 
             Logger.info(
-                `S3 request timeout configured: ${requestTimeout}ms (${requestTimeout / 1000 / 60} minutes)${
+                `S3 request timeout configured: ${requestTimeout}ms (${
+                    requestTimeout / 1000 / 60
+                } minutes)${
                     process.env.S3_REQUEST_TIMEOUT
                         ? ` (from S3_REQUEST_TIMEOUT env)`
                         : ' (default)'
@@ -71,6 +74,11 @@ export class S3Client {
             }
 
             this.s3 = new S3(s3Config);
+            if (lightdashConfig.s3.publicEndpoint?.trim()) {
+                Logger.info(
+                    `S3 browser downloads use unsigned public endpoint: ${lightdashConfig.s3.publicEndpoint}`,
+                );
+            }
         } else {
             Logger.debug('Missing S3 bucket configuration');
         }
@@ -88,6 +96,39 @@ export class S3Client {
         if (!normalizedPrefix) return normalizedFileId;
 
         return `${normalizedPrefix}/${normalizedFileId}`;
+    }
+
+    /**
+     * Browser download URL after a successful upload.
+     * With `S3_PUBLIC_ENDPOINT`, returns an unsigned CDN URL (CDN private-bucket
+     * origin handles auth). Otherwise returns an AWS SigV4 pre-signed URL.
+     */
+    private async getDownloadUrl(
+        prefixedKey: string,
+        urlOptions?: { expiresIn: number },
+    ): Promise<string> {
+        if (!this.lightdashConfig.s3?.bucket || this.s3 === undefined) {
+            throw new MissingConfigError(
+                "Missing S3 bucket configuration, can't generate download URL",
+            );
+        }
+
+        const publicEndpoint = this.lightdashConfig.s3.publicEndpoint?.trim();
+        if (publicEndpoint) {
+            return buildPublicDownloadUrl(publicEndpoint, prefixedKey);
+        }
+
+        return getSignedUrl(
+            this.s3,
+            new GetObjectCommand({
+                Bucket: this.lightdashConfig.s3.bucket,
+                Key: prefixedKey,
+            }),
+            {
+                expiresIn: this.lightdashConfig.s3.expirationTime,
+                ...urlOptions,
+            },
+        );
     }
 
     private async uploadFile(
@@ -115,18 +156,7 @@ export class S3Client {
         });
         try {
             await upload.done();
-            const url = await getSignedUrl(
-                this.s3,
-                new GetObjectCommand({
-                    Bucket: this.lightdashConfig.s3.bucket,
-                    Key: prefixedKey,
-                }),
-                {
-                    expiresIn: this.lightdashConfig.s3.expirationTime,
-                    ...urlOptions,
-                },
-            );
-            return url;
+            return await this.getDownloadUrl(prefixedKey, urlOptions);
         } catch (error) {
             if (error instanceof S3ServiceException) {
                 Logger.error(
@@ -328,13 +358,17 @@ export class S3Client {
                 );
             } else {
                 Logger.error(
-                    `Failed to generate upload presigned URL: ${getErrorMessage(error)}`,
+                    `Failed to generate upload presigned URL: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
             }
 
             Sentry.captureException(
                 new S3Error(
-                    `Failed to generate upload presigned URL: ${getErrorMessage(error)}`,
+                    `Failed to generate upload presigned URL: ${getErrorMessage(
+                        error,
+                    )}`,
                     {
                         fileId,
                     },

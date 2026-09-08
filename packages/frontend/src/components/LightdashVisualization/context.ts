@@ -15,15 +15,20 @@ import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import { type VisualizationConfig } from './types';
 
+/**
+ * Warehouse row-count / pagination for TABLE charts.
+ * - enabled: true → OFFSET/LIMIT pager + optional total from calculate-count
+ * - enabled: false → count-only (showResultsTotal without pagination); page* fields omitted
+ */
 export type TablePaginationState = {
     enabled: boolean;
-    pageIndex: number;
-    pageSize: number;
     totalRowCount: number | undefined;
     isCountLoading: boolean;
     isCountError: boolean;
-    onPageChange: (pageIndex: number) => void;
-    onPageSizeChange: (pageSize: number) => void;
+    pageIndex?: number;
+    pageSize?: number;
+    onPageChange?: (pageIndex: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
 };
 
 type VisualizationContext = {

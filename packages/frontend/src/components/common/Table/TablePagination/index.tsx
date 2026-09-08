@@ -1,15 +1,10 @@
-import { Group, Loader, Select, SegmentedControl, Text } from '@mantine/core';
+import { Group, Loader, SegmentedControl, Select, Text } from '@mantine/core';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import PaginateControl from '../../PaginateControl';
 import { TableFooter } from '../Table.styles';
-import {
-    DEFAULT_PAGE_SIZE,
-    TABLE_PAGINATION_PAGE_SIZES,
-} from '../constants';
-import {
-    compactSelectStyles,
-} from '../paginationCompactStyles';
+import { DEFAULT_PAGE_SIZE, TABLE_PAGINATION_PAGE_SIZES } from '../constants';
+import { compactSelectStyles } from '../paginationCompactStyles';
 import { useTableContext } from '../useTableContext';
 
 interface ResultCountProps {
@@ -30,11 +25,12 @@ export const ResultCount: FC<ResultCountProps> = ({
     isError = false,
 }) => {
     const { t } = useTranslation();
+    const style = alignEnd ? { marginLeft: 'auto' } : undefined;
 
     if (variant === 'warehouse') {
         if (isLoading) {
             return (
-                <Group spacing={6} align="center" noWrap>
+                <Group spacing={6} align="center" noWrap style={style}>
                     <Loader size="xs" />
                     <Text fz="xs" c="dimmed" m={0} lh={1}>
                         {t('components_common_table.pagination.loading_count')}
@@ -45,14 +41,14 @@ export const ResultCount: FC<ResultCountProps> = ({
 
         if (isError) {
             return (
-                <Text fz="xs" c="dimmed" m={0} lh={1}>
+                <Text style={style} fz="xs" c="dimmed" m={0} lh={1}>
                     {t('components_common_table.pagination.count_error')}
                 </Text>
             );
         }
 
         return (
-            <Text fz="xs" c="dimmed" m={0} lh={1}>
+            <Text style={style} fz="xs" c="dimmed" m={0} lh={1}>
                 {t('components_common_table.pagination.total_data_prefix')}
                 <Text span fw={600}>
                     {count.toLocaleString()}
@@ -65,8 +61,6 @@ export const ResultCount: FC<ResultCountProps> = ({
     if (count === 0) {
         return null;
     }
-
-    const style = alignEnd ? { marginLeft: 'auto' } : undefined;
 
     if (shown !== undefined && shown !== count) {
         return (
@@ -180,17 +174,13 @@ const TablePagination: FC = () => {
                     ) : null}
                     <PaginateControl
                         compact
-                        currentPage={
-                            table.getState().pagination.pageIndex + 1
-                        }
+                        currentPage={table.getState().pagination.pageIndex + 1}
                         totalPages={Math.max(pageCount, 1)}
                         onPreviousPage={table.previousPage}
                         onNextPage={table.nextPage}
                         hasPreviousPage={table.getCanPreviousPage()}
                         hasNextPage={table.getCanNextPage()}
-                        onPageChange={(page) =>
-                            table.setPageIndex(page - 1)
-                        }
+                        onPageChange={(page) => table.setPageIndex(page - 1)}
                     />
                 </Group>
             </TableFooter>
@@ -212,7 +202,12 @@ const TablePagination: FC = () => {
         !showClientPageSize &&
         Boolean(pagination?.showResultsTotal);
 
-    if (!showScrollToggle && !showClientPager && !showClientPageSize && !showResultCountOnly) {
+    if (
+        !showScrollToggle &&
+        !showClientPager &&
+        !showClientPageSize &&
+        !showResultCountOnly
+    ) {
         return null;
     }
 
@@ -317,7 +312,17 @@ const TablePagination: FC = () => {
                     ) : null}
                 </Group>
             ) : showResultCountOnly ? (
-                <ResultCount count={totalRowsCount} alignEnd />
+                <ResultCount
+                    count={totalRowsCount}
+                    alignEnd
+                    variant={
+                        pagination?.useWarehouseResultsCount
+                            ? 'warehouse'
+                            : 'default'
+                    }
+                    isLoading={Boolean(pagination?.isCountLoading)}
+                    isError={Boolean(pagination?.isCountError)}
+                />
             ) : null}
         </TableFooter>
     );

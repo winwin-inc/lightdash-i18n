@@ -37,12 +37,15 @@ test('Should default results S3 config to S3 config', () => {
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'mock_bucket',
         region: 'mock_region',
         accessKey: 'mock_access_key',
         secretKey: 'mock_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
     });
+    expect(config.s3?.publicEndpoint).toBeUndefined();
 });
 
 test('Should use explicit results S3 config when set', () => {
@@ -53,11 +56,13 @@ test('Should use explicit results S3 config when set', () => {
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'new_bucket',
         region: 'new_region',
         accessKey: 'new_access_key',
         secretKey: 'new_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
     });
 });
 
@@ -75,11 +80,31 @@ test('Should prioritize new results S3 config over deprecated config when both a
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'new_bucket',
         region: 'new_region',
         accessKey: 'new_access_key',
         secretKey: 'new_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
+    });
+});
+
+test('Should parse S3_PUBLIC_ENDPOINT into s3 and results.s3', () => {
+    process.env.S3_ACCESS_KEY = 'mock_access_key';
+    process.env.S3_SECRET_KEY = 'mock_secret_key';
+    process.env.S3_PUBLIC_ENDPOINT = 'https://report.example.com';
+    const config = parseConfig();
+    expect(config.s3?.publicEndpoint).toBe('https://report.example.com');
+    expect(config.results.s3).toEqual({
+        endpoint: 'mock_endpoint',
+        publicEndpoint: 'https://report.example.com',
+        bucket: 'mock_bucket',
+        region: 'mock_region',
+        accessKey: 'mock_access_key',
+        secretKey: 'mock_secret_key',
+        forcePathStyle: false,
+        pathPrefix: undefined,
     });
 });
 

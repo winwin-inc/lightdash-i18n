@@ -88,6 +88,7 @@ import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig
 import { uploadGsheet } from '../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../hooks/organization/useOrganization';
 import useToaster from '../../hooks/toaster/useToaster';
+import { useCalculateCount } from '../../hooks/useCalculateCount';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../hooks/useExplorerRoute';
 import { useFeatureFlagEnabled } from '../../hooks/useFeatureFlagEnabled';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
@@ -109,7 +110,6 @@ import { FilterDashboardTo } from '../DashboardFilter/FilterDashboardTo';
 import LightdashVisualization from '../LightdashVisualization';
 import VisualizationProvider from '../LightdashVisualization/VisualizationProvider';
 import { type TablePaginationState } from '../LightdashVisualization/context';
-import { useCalculateCount } from '../../hooks/useCalculateCount';
 import DrillDownMenuItem from '../MetricQueryData/DrillDownMenuItem';
 import { DrillDownModal } from '../MetricQueryData/DrillDownModal';
 import MetricQueryDataProvider from '../MetricQueryData/MetricQueryDataProvider';
@@ -303,6 +303,23 @@ const ValidDashboardChartTile: FC<{
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const syncChartColors = dashboardConfig?.syncChartColors;
     const syncChartTileUuids = dashboardConfig?.syncChartTileUuids;
+    const showResultsTotalWithoutPagination = useMemo(() => {
+        if (tablePagination?.enabled) {
+            return false;
+        }
+        if (chart.chartConfig.type !== ChartType.TABLE) {
+            return false;
+        }
+        if (
+            chart.pivotConfig?.columns &&
+            chart.pivotConfig.columns.length > 0
+        ) {
+            return false;
+        }
+        const config = chart.chartConfig.config;
+        return isTableChartConfig(config) && Boolean(config.showResultsTotal);
+    }, [chart.chartConfig, chart.pivotConfig, tablePagination?.enabled]);
+
     const { data: countData, isError: isCountError } = useCalculateCount({
         savedChartUuid: chart.uuid,
         dashboardFilters: countDashboardFilters,
@@ -313,22 +330,36 @@ const ValidDashboardChartTile: FC<{
             dashboardSlug,
             dashboardName,
         },
-        enabled: Boolean(tablePagination?.enabled),
+        enabled:
+            Boolean(tablePagination?.enabled) ||
+            showResultsTotalWithoutPagination,
     });
     const resolvedTablePagination = useMemo(():
         | TablePaginationState
         | undefined => {
-        if (!tablePagination?.enabled) {
+        if (tablePagination?.enabled) {
+            return {
+                ...tablePagination,
+                totalRowCount: countData?.rowCount,
+                isCountLoading: countData === undefined && !isCountError,
+                isCountError: Boolean(isCountError),
+            };
+        }
+        if (!showResultsTotalWithoutPagination) {
             return undefined;
         }
         return {
-            ...tablePagination,
+            enabled: false,
             totalRowCount: countData?.rowCount,
-            isCountLoading:
-                countData === undefined && !isCountError,
+            isCountLoading: countData === undefined && !isCountError,
             isCountError: Boolean(isCountError),
         };
-    }, [tablePagination, countData, isCountError]);
+    }, [
+        tablePagination,
+        countData,
+        isCountError,
+        showResultsTotalWithoutPagination,
+    ]);
 
     const { data: organization } = useOrganization();
 
@@ -841,8 +872,7 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
         useState<FilterDashboardToRule[]>([]);
 
     const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
-    const [isImageExportModalOpen, setIsImageExportModalOpen] =
-        useState(false);
+    const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
     const closeImageExportModal = useCallback(
         () => setIsImageExportModalOpen(false),
         [],
@@ -1587,8 +1617,7 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
         top: number;
     }>();
     const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
-    const [isImageExportModalOpen, setIsImageExportModalOpen] =
-        useState(false);
+    const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
     const closeImageExportModal = useCallback(
         () => setIsImageExportModalOpen(false),
         [],

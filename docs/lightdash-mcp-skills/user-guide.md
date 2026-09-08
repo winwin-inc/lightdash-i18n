@@ -7,7 +7,7 @@
 1. **PAT**（Personal Access Token / API Token）：权限和你在 Lightdash 网页端一致。
 2. **MCP 根 URL**：比如 `https://your-mcp-host/mcp`。
 
-多项目时，在对话里用 `list_projects` / `set_project` 切换就行。不需要在本机配一堆环境变量——那些端口、主站 URL，是跑 MCP 进程那一方在服务端配的。
+多项目时可用 `list_projects` / `set_project` 切换；自动化或跨副本场景更稳妥的做法是**每次查询显式传 `projectUuid`**（见 [标准客户端用法](../mcp/lightdash-mcp-client-usage.md)）。不需要在本机配一堆环境变量——那些端口、主站 URL，是跑 MCP 进程那一方在服务端配的。
 
 ## 连接 MCP
 
@@ -124,4 +124,4 @@ Skills 可以用两种方式挂：
 
 **422**：请求 JSON 格式不对。
 
-**会话丢了**：多副本部署或进程重启后，内存里的会话信息丢了。重新 `set_project` 或者配个默认项目 UUID 就行。
+**会话丢了**：多副本部署或进程重启后，内存里的 Session / `set_project` 会丢。重新连 MCP（标准客户端会自动 initialize），并在工具参数里带上 `projectUuid`（或再 `set_project` / 配环境默认项目）。

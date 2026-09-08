@@ -597,7 +597,7 @@ export class UserService extends BaseService {
                 throw new DeactivatedAccountError();
             }
 
-            const organization = this.loginToOrganization(
+            const organization = await this.loginToOrganization(
                 openIdSession?.userUuid,
                 openIdUser.openId.issuerType,
             );
@@ -1122,7 +1122,7 @@ export class UserService extends BaseService {
             if (!user.isActive) {
                 throw new DeactivatedAccountError();
             }
-            const userOrganization = this.loginToOrganization(
+            const userOrganization = await this.loginToOrganization(
                 user.userUuid,
                 LocalIssuerTypes.EMAIL,
             );
@@ -1348,7 +1348,7 @@ export class UserService extends BaseService {
                 'You do not have permission to login with personal access tokens',
             );
         }
-        const organization = this.loginToOrganization(
+        const organization = await this.loginToOrganization(
             user.userUuid,
             LocalIssuerTypes.API_TOKEN,
         );

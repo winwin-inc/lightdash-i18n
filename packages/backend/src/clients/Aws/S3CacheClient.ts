@@ -88,6 +88,11 @@ export class S3CacheClient {
         }
 
         this.s3 = new S3(s3Config);
+        if (this.configuration.publicEndpoint?.trim()) {
+            Logger.info(
+                `Results S3 browser downloads use unsigned public endpoint: ${this.configuration.publicEndpoint}`,
+            );
+        }
     }
 
     protected getPrefixedFileId(fileId: string): string {
