@@ -35,8 +35,14 @@ const sortByCategory = (
     });
 };
 
+type GenerateFunctionSuggestionOptions = {
+    groupLabels?: Record<string, string>;
+    emptyMessage?: string;
+};
+
 export const generateFunctionSuggestion = (
     functions: FunctionSuggestionItem[],
+    options?: GenerateFunctionSuggestionOptions,
 ): MentionOptions['suggestion'] => ({
     ...generateSuggestion({
         items: sortByCategory(functions),
@@ -50,7 +56,7 @@ export const generateFunctionSuggestion = (
         },
         getGroupKey: (item) =>
             (item as FunctionSuggestionItem).definition.category,
-        groupLabels: CATEGORY_LABELS,
+        groupLabels: options?.groupLabels ?? CATEGORY_LABELS,
         renderItem: (item, isSelected, onClick) => (
             <PolymorphicGroupButton
                 onClick={onClick}
@@ -77,7 +83,7 @@ export const generateFunctionSuggestion = (
                 </Group>
             </PolymorphicGroupButton>
         ),
-        emptyMessage: 'No functions found',
+        emptyMessage: options?.emptyMessage ?? 'No functions found',
     }),
     char: '#',
     allowedPrefixes: null,

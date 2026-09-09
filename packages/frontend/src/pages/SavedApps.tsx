@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import { ContentType, FeatureFlags } from '@lightdash/common';
 import { Group, Stack, Button } from '@mantine-8/core';
 import { IconPlus } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
@@ -13,6 +14,7 @@ import useApp from '../providers/App/useApp';
 import { FavoritesProvider } from '../providers/Favorites/FavoritesProvider';
 
 const SavedApps = () => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const { user } = useApp();
     const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
@@ -32,7 +34,7 @@ const SavedApps = () => {
     return (
         <FavoritesProvider projectUuid={projectUuid}>
             <Page
-                title="Data apps"
+                title={t('pages_saved_apps.title')}
                 withCenteredRoot
                 withCenteredContent
                 withXLargePaddedContent
@@ -42,8 +44,16 @@ const SavedApps = () => {
                     <Group justify="space-between">
                         <PageBreadcrumbs
                             items={[
-                                { title: 'Home', to: '/home' },
-                                { title: 'All data apps', active: true },
+                                {
+                                    title: t('pages_saved_apps.breadcrumb_home'),
+                                    to: '/home',
+                                },
+                                {
+                                    title: t(
+                                        'pages_saved_apps.breadcrumb_all',
+                                    ),
+                                    active: true,
+                                },
                             ]}
                         />
 
@@ -59,7 +69,7 @@ const SavedApps = () => {
                                 to={`/projects/${projectUuid}/apps/generate`}
                                 leftSection={<IconPlus size={18} />}
                             >
-                                Create data app
+                                {t('pages_saved_apps.create')}
                             </Button>
                         </Can>
                     </Group>

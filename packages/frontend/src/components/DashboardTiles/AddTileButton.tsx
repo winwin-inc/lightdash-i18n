@@ -164,7 +164,9 @@ const AddTileButton: FC<Props> = ({
                             }
                             icon={<MantineIcon icon={IconAppWindow} />}
                         >
-                            Data app
+                            {t(
+                                'components_dashboard_tiles_add_tile_button.data_app',
+                            )}
                         </Menu.Item>
                     )}
 

@@ -3,6 +3,7 @@ import {
     TimeZone,
     USER_TIMEZONE_SETTING,
 } from '@lightdash/common';
+import { type TFunction } from 'i18next';
 
 export type ChartTimezoneSelectGroup = {
     group: string;
@@ -14,25 +15,36 @@ export type ChartTimezoneSelectGroup = {
 // resolved project zone via the Select's renderOption.
 export const getChartTimezoneSelectData = (
     localTimezone: string | undefined,
+    t: TFunction,
 ): ChartTimezoneSelectGroup[] => {
+    const localSuffix = t('components_chart_timezone_select.local_suffix');
     const specificZones = Object.keys(TimeZone)
         .filter((key) => isNaN(Number(key)))
         .map((key) => {
             const name = key.replaceAll('_', ' ');
-            const label = key === localTimezone ? `${name} - Local` : name;
+            const label =
+                key === localTimezone ? `${name}${localSuffix}` : name;
             return { value: key, label };
         });
 
     return [
         {
-            group: 'Default',
+            group: t('components_chart_timezone_select.group_default'),
             items: [
-                { value: PROJECT_TIMEZONE_SETTING, label: 'Project timezone' },
-                { value: USER_TIMEZONE_SETTING, label: 'User timezone' },
+                {
+                    value: PROJECT_TIMEZONE_SETTING,
+                    label: t(
+                        'components_chart_timezone_select.project_timezone',
+                    ),
+                },
+                {
+                    value: USER_TIMEZONE_SETTING,
+                    label: t('components_chart_timezone_select.user_timezone'),
+                },
             ],
         },
         {
-            group: 'Specific timezone',
+            group: t('components_chart_timezone_select.group_specific'),
             items: specificZones,
         },
     ];

@@ -229,7 +229,9 @@ const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
                         to={`/projects/${projectUuid}/apps`}
                         icon={<MantineIcon icon={IconAppWindow} />}
                     >
-                        All data apps
+                        {t(
+                            'components_navbar_browse_menu.menus.data_apps.title',
+                        )}
                     </Menu.Item>
                 )}
 

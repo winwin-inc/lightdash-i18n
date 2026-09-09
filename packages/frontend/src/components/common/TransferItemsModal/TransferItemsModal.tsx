@@ -79,8 +79,31 @@ const TransferItemsModal = <
             name: `${itemsToProcess.length} ${t(
                 'components_common_transfer_items_modal.items',
             )}`,
-            type: 'items',
+            type: 'items' as const,
         };
+    };
+
+    const getTypeLabel = (
+        type: ResourceViewItemType | 'items' | string,
+    ): string => {
+        switch (type) {
+            case ResourceViewItemType.DASHBOARD:
+                return t(
+                    'components_common_transfer_items_modal.type_dashboard',
+                );
+            case ResourceViewItemType.CHART:
+                return t('components_common_transfer_items_modal.type_chart');
+            case ResourceViewItemType.SPACE:
+                return t('components_common_transfer_items_modal.type_space');
+            case ResourceViewItemType.DATA_APP:
+                return t(
+                    'components_common_transfer_items_modal.type_data_app',
+                );
+            case 'items':
+                return t('components_common_transfer_items_modal.items');
+            default:
+                return String(type);
+        }
     };
 
     const singleItemType = useMemo(() => {
@@ -134,9 +157,9 @@ const TransferItemsModal = <
 
     return (
         <MantineModal
-            title={`${t('components_common_transfer_items_modal.move')} ${
-                getItemsText(items).type
-            }`}
+            title={t('components_common_transfer_items_modal.move_title', {
+                type: getTypeLabel(getItemsText(items).type),
+            })}
             opened={opened}
             onClose={onClose}
             size="xl"
