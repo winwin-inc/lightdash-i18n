@@ -641,7 +641,9 @@ const GeneralSettings: FC = () => {
                                   'components_visualization_configs_table.settings.at_least_two_dimensions',
                                   {
                                       privoted: isPivotTableEnabled
-                                          ? 'un-pivoted'
+                                          ? t(
+                                                'components_visualization_configs_table.settings.un_pivoted',
+                                            )
                                           : '',
                                   },
                               )
@@ -685,7 +687,9 @@ const GeneralSettings: FC = () => {
                                   'components_visualization_configs_table.settings.row_grouping_at_least_two_dimensions',
                                   {
                                       privoted: isPivotTableEnabled
-                                          ? 'un-pivoted'
+                                          ? t(
+                                                'components_visualization_configs_table.settings.un_pivoted',
+                                            )
                                           : '',
                                   },
                               )

@@ -153,8 +153,12 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             >
                                 <LargeMenuItem
                                     component={Link}
-                                    title="Data App"
-                                    description="Build an interactive app powered by your data."
+                                    title={t(
+                                        'components_navbar_explore_menu.menus.data_app.title',
+                                    )}
+                                    description={t(
+                                        'components_navbar_explore_menu.menus.data_app.description',
+                                    )}
                                     to={`/projects/${projectUuid}/apps/generate`}
                                     icon={IconAppWindow}
                                 />

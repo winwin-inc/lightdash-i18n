@@ -578,7 +578,8 @@
             "tabs": {
                 "template": "模板",
                 "sql": "SQL",
-                "format": "格式"
+                "format": "格式",
+                "formula": "公式"
             },
             "tooltip": {
                 "label": "手动选择此SQL表计算的结果类型，这将帮助我们在过滤器或结果中正确处理该字段。",
@@ -608,6 +609,35 @@
         "orderBy": "排序",
         "window_function": "窗口函数",
         "partition_by": "分区"
+    },
+    "features_table_calculation_formula": {
+        "search_functions": "搜索函数",
+        "close_esc": "关闭 (Esc)",
+        "close_function_reference": "关闭函数参考",
+        "no_functions_match": "没有匹配「{{query}}」的函数",
+        "show_available_fields": "显示可用字段",
+        "fields_available_one": "1 个可用字段",
+        "fields_available_other": "{{count}} 个可用字段",
+        "available_fields": "可用字段",
+        "click_to_insert_prefix": "点击插入，或在公式中输入",
+        "click_to_insert_suffix": "",
+        "no_fields_selected": "尚未选择字段——请先在查询中添加维度或指标。",
+        "hint_field": "字段",
+        "hint_function": "函数",
+        "need_help": "需要帮助？",
+        "placeholder_formula": "输入 @ 引用字段，或 # 引用函数。示例：=IF(@销售额 > 1000, \"高\", \"低\")",
+        "placeholder_dual": "描述计算，或输入 @ 引用字段——例如 =SUM(@销售额)",
+        "no_functions_found": "未找到函数",
+        "categories": {
+            "aggregate": "聚合",
+            "logical": "逻辑",
+            "math": "数学",
+            "string": "文本",
+            "date": "日期",
+            "window": "窗口",
+            "null": "空值处理",
+            "type": "类型"
+        }
     },
     "features_omnibar": {
         "search_project": {
@@ -3063,6 +3093,14 @@
             "update": "更新"
         }
     },
+    "components_chart_timezone_select": {
+        "group_default": "默认",
+        "group_specific": "指定时区",
+        "project_timezone": "项目时区",
+        "user_timezone": "用户时区",
+        "local_suffix": " - 本地",
+        "user_timezone_tooltip": "每位查看者按自己的时区看数据；未设置时回退到项目时区。"
+    },
     "components_settings_semantic_layer": {
         "semantic_layer": {
             "dbt": "dbt 语义层",
@@ -3264,7 +3302,12 @@
         "tooltip_new_chart": "在此生成的图表仅适用于此看板",
         "markdown": "Markdown",
         "loom_video": "Loom 视频",
+        "data_app": "数据应用",
         "add_tab": "添加标签页"
+    },
+    "components_dashboard_tiles_data_app_tile_edit_form": {
+        "title": "标题",
+        "title_placeholder": "磁贴标题"
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "已复制到剪贴板!",
@@ -3775,6 +3818,10 @@
                 "title": "看板",
                 "description": "将多个图表排列到单一视图中"
             },
+            "data_app": {
+                "title": "数据应用",
+                "description": "基于你的数据构建交互式应用。"
+            },
             "space": {
                 "title": "空间",
                 "description": "组织您保存的图表和看板"
@@ -3796,6 +3843,9 @@
             },
             "charts": {
                 "title": "全部图表"
+            },
+            "data_apps": {
+                "title": "全部数据应用"
             },
             "metrics": {
                 "title": "指标目录"
@@ -4186,6 +4236,11 @@
         "items": "项",
         "new_space": "新空间",
         "move": "移动",
+        "move_title": "移动{{type}}",
+        "type_dashboard": "看板",
+        "type_chart": "图表",
+        "type_space": "空间",
+        "type_data_app": "数据应用",
         "cancel": "取消",
         "confirm": "确认",
         "create_space": "创建空间 & 移动",
@@ -5553,6 +5608,7 @@
             "page_size": "每页条数",
             "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
             "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
+            "un_pivoted": "非透视",
             "can_use_subtotals": "小计只能用于未透视的表",
             "show_subtotals": "显示小计",
             "group_repeated_row_values": "合并重复行值",
@@ -6467,6 +6523,7 @@
     "components_common_resource_view_utils": {
         "resource_type_names": {
             "dashboard": "看板",
+            "chart": "图表",
             "space": "空间",
             "bar_chart": "柱状图",
             "horizontal_bar_chart": "条形图",
@@ -8392,6 +8449,12 @@
         "toast_user_error": "创建用户失败",
         "or": "或",
         "sign_up": "注册"
+    },
+    "pages_saved_apps": {
+        "title": "数据应用",
+        "breadcrumb_home": "首页",
+        "breadcrumb_all": "全部数据应用",
+        "create": "创建数据应用"
     },
     "pages_saved_dashboards": {
         "dashboards": "看板",

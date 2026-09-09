@@ -15,6 +15,7 @@ import { useEditor, type Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
     generateFieldSuggestion,
@@ -23,6 +24,7 @@ import {
 } from '../../../../components/common/SuggestionList';
 import styles from './FormulaEditor.module.css';
 import { FormulaReferenceBar, FormulaReferencePanel } from './FormulaReference';
+import { getCategoryLabels } from './functionCategories';
 import {
     generateFunctionSuggestion,
     type FunctionSuggestionItem,
@@ -170,11 +172,6 @@ type Props = {
     onReferenceToggle: (next: boolean) => void;
 };
 
-const PLACEHOLDER_FORMULA =
-    'Type @ to use your selected fields or # for functions. Example: =IF(@Revenue > 1000, "high", "low")';
-const PLACEHOLDER_DUAL =
-    'Describe the calculation, or type @ to use your selected fields — e.g. =SUM(@Revenue)';
-
 export const FormulaEditor: FC<Props> = ({
     explore,
     metricQuery,
@@ -192,6 +189,8 @@ export const FormulaEditor: FC<Props> = ({
     referenceOpened,
     onReferenceToggle,
 }) => {
+    const { t } = useTranslation();
+    const categoryLabels = useMemo(() => getCategoryLabels(t), [t]);
     const [currentText, setCurrentText] = useState(initialContent ?? '');
     const mode = getInputMode(currentText);
 
@@ -252,7 +251,9 @@ export const FormulaEditor: FC<Props> = ({
         [],
     );
 
-    const placeholder = aiEnabled ? PLACEHOLDER_DUAL : PLACEHOLDER_FORMULA;
+    const placeholder = aiEnabled
+        ? t('features_table_calculation_formula.placeholder_dual')
+        : t('features_table_calculation_formula.placeholder_formula');
     const placeholderRef = useRef(placeholder);
     placeholderRef.current = placeholder;
 
@@ -315,7 +316,12 @@ export const FormulaEditor: FC<Props> = ({
             }),
             Mention.extend({ name: 'functionMention' }).configure({
                 suggestion: {
-                    ...generateFunctionSuggestion(functionSuggestions),
+                    ...generateFunctionSuggestion(functionSuggestions, {
+                        groupLabels: categoryLabels,
+                        emptyMessage: t(
+                            'features_table_calculation_formula.no_functions_found',
+                        ),
+                    }),
                     pluginKey: new PluginKey('functionMention'),
                 },
                 renderText: ({ node }) => node.attrs.id ?? '',

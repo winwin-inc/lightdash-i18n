@@ -133,16 +133,27 @@ export const getResourceUrl = (projectUuid: string, item: ResourceViewItem) => {
     }
 };
 
-export const getResourceName = (type: ResourceViewItemType) => {
+export const getResourceName = (
+    type: ResourceViewItemType,
+    t: (key: string) => string,
+) => {
     switch (type) {
         case ResourceViewItemType.DASHBOARD:
-            return 'Dashboard';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.dashboard',
+            );
         case ResourceViewItemType.CHART:
-            return 'Chart';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.chart',
+            );
         case ResourceViewItemType.SPACE:
-            return 'Space';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.space',
+            );
         case ResourceViewItemType.DATA_APP:
-            return 'Data app';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.data_app',
+            );
         default:
             return assertUnreachable(type, 'Resource type not supported');
     }

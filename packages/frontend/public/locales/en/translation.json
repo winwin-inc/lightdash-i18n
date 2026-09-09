@@ -583,7 +583,8 @@
             "tabs": {
                 "template": "Template",
                 "sql": "SQL",
-                "format": "Format"
+                "format": "Format",
+                "formula": "Formula"
             },
             "tooltip": {
                 "label": "'Manually select the type of the result of this SQL table calculation, this will help us to treat this field correctly in filters or results.",
@@ -613,6 +614,35 @@
         "orderBy": "Order By",
         "window_function": "Window Function",
         "partition_by": "Partition By"
+    },
+    "features_table_calculation_formula": {
+        "search_functions": "Search functions",
+        "close_esc": "Close (Esc)",
+        "close_function_reference": "Close function reference",
+        "no_functions_match": "No functions match \"{{query}}\"",
+        "show_available_fields": "Show available fields",
+        "fields_available_one": "1 field available",
+        "fields_available_other": "{{count}} fields available",
+        "available_fields": "Available fields",
+        "click_to_insert_prefix": "Click to insert, or type",
+        "click_to_insert_suffix": "in the formula.",
+        "no_fields_selected": "No fields selected yet — add dimensions or metrics to your query first.",
+        "hint_field": "field",
+        "hint_function": "function",
+        "need_help": "Need help?",
+        "placeholder_formula": "Type @ to use your selected fields or # for functions. Example: =IF(@Revenue > 1000, \"high\", \"low\")",
+        "placeholder_dual": "Describe the calculation, or type @ to use your selected fields — e.g. =SUM(@Revenue)",
+        "no_functions_found": "No functions found",
+        "categories": {
+            "aggregate": "Aggregate",
+            "logical": "Logic",
+            "math": "Math",
+            "string": "Text",
+            "date": "Date",
+            "window": "Window",
+            "null": "Null handling",
+            "type": "Type"
+        }
     },
     "features_omnibar": {
         "search_project": {
@@ -3234,7 +3264,12 @@
         "tooltip_new_chart": "Charts generated from here are exclusive to this dashboard",
         "markdown": "Markdown",
         "loom_video": "Loom video",
+        "data_app": "Data app",
         "add_tab": "Add tab"
+    },
+    "components_dashboard_tiles_data_app_tile_edit_form": {
+        "title": "Title",
+        "title_placeholder": "Tile title"
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "Copied to clipboard!",
@@ -3745,6 +3780,10 @@
                 "title": "Dashboard",
                 "description": "Arrange multiple charts into a single view."
             },
+            "data_app": {
+                "title": "Data App",
+                "description": "Build an interactive app powered by your data."
+            },
             "space": {
                 "title": "Space",
                 "description": "Organize your saved charts and dashboards."
@@ -3766,6 +3805,9 @@
             },
             "charts": {
                 "title": "All saved charts"
+            },
+            "data_apps": {
+                "title": "All data apps"
             },
             "metrics": {
                 "title": "Metric Catalog"
@@ -4157,6 +4199,11 @@
         "items": "items",
         "new_space": "New Space",
         "move": "Move",
+        "move_title": "Move {{type}}",
+        "type_dashboard": "dashboard",
+        "type_chart": "chart",
+        "type_space": "space",
+        "type_data_app": "data app",
         "cancel": "Cancel",
         "confirm": "Confirm",
         "create_space": "Create space & move",
@@ -5521,6 +5568,7 @@
             "page_size": "Rows per page",
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
+            "un_pivoted": "un-pivoted",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
             "show_subtotals": "Show subtotals",
             "group_repeated_row_values": "Group repeated row values",
@@ -6204,6 +6252,14 @@
         "source_pinned": "This chart is pinned to {{timezone}} and won't follow the project time zone.",
         "source_project": "This chart resolves in the project time zone ({{timezone}})."
     },
+    "components_chart_timezone_select": {
+        "group_default": "Default",
+        "group_specific": "Specific timezone",
+        "project_timezone": "Project timezone",
+        "user_timezone": "User timezone",
+        "local_suffix": " - Local",
+        "user_timezone_tooltip": "Each viewer sees data in their own timezone. Falls back to the project timezone if they haven't set one."
+    },
     "components_explorer_visualization_card_options": {
         "chart_types": {
             "mixed": "Mixed",
@@ -6437,6 +6493,7 @@
     "components_common_resource_view_utils": {
         "resource_type_names": {
             "dashboard": "Dashboard",
+            "chart": "Chart",
             "space": "Space",
             "bar_chart": "Bar chart",
             "horizontal_bar_chart": "Horizontal bar chart",
@@ -8361,6 +8418,12 @@
         "toast_user_error": "Failed to create user",
         "or": "OR",
         "sign_up": "Sign up"
+    },
+    "pages_saved_apps": {
+        "title": "Data apps",
+        "breadcrumb_home": "Home",
+        "breadcrumb_all": "All data apps",
+        "create": "Create data app"
     },
     "pages_saved_dashboards": {
         "dashboards": "Dashboards",

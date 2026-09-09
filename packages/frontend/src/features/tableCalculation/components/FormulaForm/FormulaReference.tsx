@@ -2,10 +2,8 @@ import { listFunctions } from '@lightdash/formula';
 import type { FunctionDefinition } from '@lightdash/formula';
 import {
     ActionIcon,
-    Anchor,
     Box,
     Button,
-    Divider,
     Group,
     HoverCard,
     ScrollArea,
@@ -15,7 +13,6 @@ import {
     UnstyledButton,
 } from '@mantine-8/core';
 import {
-    IconArrowUpRight,
     IconChevronDown,
     IconChevronRight,
     IconMathFunction,
@@ -23,21 +20,22 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import FieldIcon from '../../../../components/common/Filters/FieldIcon';
 import MantineIcon from '../../../../components/common/MantineIcon';
 import { type FieldSuggestionItem } from '../../../../components/common/SuggestionList';
 import TruncatedText from '../../../../components/common/TruncatedText';
 import classes from './FormulaReference.module.css';
 import {
-    CATEGORY_LABELS,
     CATEGORY_ORDER,
+    getCategoryLabels,
     type FunctionCategory,
 } from './functionCategories';
 
 // Mirrors `formatFunctionArgs` in packages/formula/src/functions.ts.
 const formatSignature = (fn: FunctionDefinition): string => {
     if (fn.maxArgs === 0) return '()';
-    if (fn.maxArgs === Infinity) return '(arg1, arg2, â€?';
+    if (fn.maxArgs === Infinity) return '(arg1, arg2, …)';
     const required = Array.from(
         { length: fn.minArgs },
         (_, i) => `arg${i + 1}`,
@@ -63,6 +61,8 @@ export const FormulaReferencePanel: FC<PanelProps> = ({
     onToggle,
     onInsert,
 }) => {
+    const { t } = useTranslation();
+    const categoryLabels = useMemo(() => getCategoryLabels(t), [t]);
     const [query, setQuery] = useState('');
     const [expandedCategories, setExpandedCategories] = useState<
         Set<FunctionCategory>
@@ -126,13 +126,15 @@ export const FormulaReferencePanel: FC<PanelProps> = ({
                             onToggle(false);
                         }
                     }}
-                    placeholder="Search functions"
+                    placeholder={t(
+                        'features_table_calculation_formula.search_functions',
+                    )}
                     leftSection={<MantineIcon icon={IconSearch} size="xs" />}
                     autoFocus={opened}
                     flex={1}
                 />
                 <Tooltip
-                    label="Close (Esc)"
+                    label={t('features_table_calculation_formula.close_esc')}
                     withArrow
                     position="top"
                     openDelay={300}
@@ -142,7 +144,9 @@ export const FormulaReferencePanel: FC<PanelProps> = ({
                         size="sm"
                         color="gray"
                         onClick={() => onToggle(false)}
-                        aria-label="Close function reference"
+                        aria-label={t(
+                            'features_table_calculation_formula.close_function_reference',
+                        )}
                     >
                         <MantineIcon icon={IconX} size="sm" />
                     </ActionIcon>
@@ -156,7 +160,10 @@ export const FormulaReferencePanel: FC<PanelProps> = ({
             >
                 {grouped.length === 0 ? (
                     <Text size="xs" className={classes.empty}>
-                        No functions match &ldquo;{query}&rdquo;
+                        {t(
+                            'features_table_calculation_formula.no_functions_match',
+                            { query },
+                        )}
                     </Text>
                 ) : (
                     grouped.map(({ category, functions }) => {
@@ -187,7 +194,7 @@ export const FormulaReferencePanel: FC<PanelProps> = ({
                                         className={classes.categoryLabel}
                                         span
                                     >
-                                        {CATEGORY_LABELS[category]}
+                                        {categoryLabels[category]}
                                     </Text>
                                     <Text
                                         size="xs"
@@ -244,15 +251,14 @@ type AvailableFieldsHintProps = {
 /**
  * Hoverable `N fields available` hint: surfaces every field the formula can
  * reference (selected dimensions, metrics, and other table calculations)
- * without having to type `@` first. Clicking a row inserts it. The list is
- * sorted dimensions â†?metrics â†?table calculations and each row's icon
- * carries the field type, so no group headers are needed â€?keeps the list
- * dense when many fields are selected.
+ * without having to type `@` first. Clicking a row inserts it.
  */
 const AvailableFieldsHint: FC<AvailableFieldsHintProps> = ({
     fields,
     onInsertField,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <HoverCard
             width={280}
@@ -265,23 +271,33 @@ const AvailableFieldsHint: FC<AvailableFieldsHintProps> = ({
             <HoverCard.Target>
                 <UnstyledButton
                     className={classes.availableFieldsTarget}
-                    aria-label="Show available fields"
+                    aria-label={t(
+                        'features_table_calculation_formula.show_available_fields',
+                    )}
                 >
                     <Text fz="xs" fw={500} ff="inherit">
-                        {fields.length === 1
-                            ? '1 field available'
-                            : `${fields.length} fields available`}
+                        {t(
+                            'features_table_calculation_formula.fields_available',
+                            { count: fields.length },
+                        )}
                     </Text>
                 </UnstyledButton>
             </HoverCard.Target>
             <HoverCard.Dropdown p={0}>
                 <Box className={classes.availableFieldsHeader}>
                     <Text size="xs" fw={600}>
-                        Available fields
+                        {t(
+                            'features_table_calculation_formula.available_fields',
+                        )}
                     </Text>
                     <Text size="xs" c="dimmed">
-                        Click to insert, or type{' '}
-                        <kbd className={classes.kbd}>@</kbd> in the formula.
+                        {t(
+                            'features_table_calculation_formula.click_to_insert_prefix',
+                        )}{' '}
+                        <kbd className={classes.kbd}>@</kbd>{' '}
+                        {t(
+                            'features_table_calculation_formula.click_to_insert_suffix',
+                        )}
                     </Text>
                 </Box>
                 <ScrollArea.Autosize
@@ -293,8 +309,9 @@ const AvailableFieldsHint: FC<AvailableFieldsHintProps> = ({
                 >
                     {fields.length === 0 ? (
                         <Text size="xs" c="dimmed" p="xs">
-                            No fields selected yet â€?add dimensions or metrics
-                            to your query first.
+                            {t(
+                                'features_table_calculation_formula.no_fields_selected',
+                            )}
                         </Text>
                     ) : (
                         fields.map((field) => (
@@ -329,6 +346,7 @@ export const FormulaReferenceBar: FC<BarProps> = ({
     fields,
     onInsertField,
 }) => {
+    const { t } = useTranslation();
     const toggle = () => onToggle(!opened);
 
     const kbdHints = (
@@ -336,13 +354,13 @@ export const FormulaReferenceBar: FC<BarProps> = ({
             <Group gap={6} wrap="nowrap">
                 <kbd className={classes.kbd}>@</kbd>
                 <Text size="xs" inherit>
-                    field
+                    {t('features_table_calculation_formula.hint_field')}
                 </Text>
             </Group>
             <Group gap={6} wrap="nowrap">
                 <kbd className={classes.kbd}>#</kbd>
                 <Text size="xs" inherit>
-                    function
+                    {t('features_table_calculation_formula.hint_function')}
                 </Text>
             </Group>
         </Group>
@@ -377,32 +395,13 @@ export const FormulaReferenceBar: FC<BarProps> = ({
                         className={classes.helperButton}
                         aria-expanded={opened}
                     >
-                        Need help?
+                        {t('features_table_calculation_formula.need_help')}
                     </Button>
                     {fieldsHint}
                 </Group>
             )}
 
-            {opened ? (
-                <Group gap="sm" wrap="nowrap">
-                    <Divider orientation="vertical" />
-                    <Anchor
-                        href="https://docs.lightdash.com/guides/formula-table-calculations"
-                        target="_blank"
-                        rel="noreferrer"
-                        size="xs"
-                        underline="hover"
-                        className={classes.docsLink}
-                    >
-                        <Group gap={2} wrap="nowrap">
-                            Docs
-                            <MantineIcon icon={IconArrowUpRight} size="xs" />
-                        </Group>
-                    </Anchor>
-                </Group>
-            ) : (
-                kbdHints
-            )}
+            {!opened ? kbdHints : null}
         </Group>
     );
 };

@@ -17,6 +17,7 @@ import {
 import { IconInfoCircle } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProject } from '../../../hooks/useProject';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import MantineIcon from '../MantineIcon';
@@ -31,10 +32,8 @@ interface Props extends Omit<
     onChange: (value: TimezoneSetting) => void;
 }
 
-const USER_TIMEZONE_TOOLTIP =
-    "Each viewer sees data in their own timezone. Falls back to the project timezone if they haven't set one.";
-
 const ChartTimezoneSelect: FC<Props> = ({ value, onChange, ...rest }) => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const { data: project } = useProject(projectUuid);
     const projectTimezone = project?.queryTimezone ?? undefined;
@@ -43,9 +42,11 @@ const ChartTimezoneSelect: FC<Props> = ({ value, onChange, ...rest }) => {
 
     const localTimezone = dayjs.tz.guess();
     const data = useMemo(
-        () => getChartTimezoneSelectData(localTimezone),
-        [localTimezone],
+        () => getChartTimezoneSelectData(localTimezone, t),
+        [localTimezone, t],
     );
+
+    const localSuffix = t('components_chart_timezone_select.local_suffix');
 
     // The closed control shows the compact label; specific zones gain their UTC
     // offset only here, in the open list.
@@ -53,7 +54,7 @@ const ChartTimezoneSelect: FC<Props> = ({ value, onChange, ...rest }) => {
         if (isTimeZone(option.value)) {
             const offset = getTimezoneLabel(option.value) ?? option.label;
             return option.value === localTimezone
-                ? `${offset} - Local`
+                ? `${offset}${localSuffix}`
                 : offset;
         }
         return option.label;
@@ -92,7 +93,9 @@ const ChartTimezoneSelect: FC<Props> = ({ value, onChange, ...rest }) => {
                             multiline
                             w={260}
                             withinPortal
-                            label={USER_TIMEZONE_TOOLTIP}
+                            label={t(
+                                'components_chart_timezone_select.user_timezone_tooltip',
+                            )}
                         >
                             <MantineIcon
                                 icon={IconInfoCircle}

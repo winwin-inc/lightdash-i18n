@@ -454,7 +454,9 @@ const TableCalculationModal: FC<Props> = ({
                                 >
                                     <Tabs.List>
                                         <Tabs.Tab value="formula">
-                                            Formula
+                                            {t(
+                                                'features_table_calculation_modal.form.tabs.formula',
+                                            )}
                                         </Tabs.Tab>
                                         <Tabs.Tab value="format">
                                             {t(

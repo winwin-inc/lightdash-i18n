@@ -258,22 +258,6 @@
     }
 }
 
-.docsLink {
-    color: var(--mantine-color-dimmed);
-
-    @mixin dark {
-        color: var(--mantine-color-ldGray-8);
-    }
-}
-
-.docsLink:hover {
-    color: var(--mantine-color-ldDark-9);
-
-    @mixin dark {
-        color: var(--mantine-color-ldGray-9);
-    }
-}
-
 .empty {
     padding: var(--mantine-spacing-md);
     color: var(--mantine-color-dimmed);
