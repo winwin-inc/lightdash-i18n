@@ -89,6 +89,7 @@ const startedResult = (
         cacheMetadata: { cacheHit: false },
         parameterReferences: [],
         usedParametersValues: {},
+        resolvedTimezone: null,
         metricQuery: {
             exploreName: 'merge',
             dimensions: ['merge_month', 'merge_status'],
@@ -177,6 +178,7 @@ describe('MergeProvider', () => {
                 usedParametersValues: {
                     'customers.customer_name': 'Ken',
                 },
+                resolvedTimezone: null,
                 metricQuery: {
                     exploreName: 'orders',
                     dimensions: [],
