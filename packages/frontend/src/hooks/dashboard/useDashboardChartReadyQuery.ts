@@ -100,6 +100,9 @@ export const useDashboardChartReadyQuery = (
     const setChartsWithDateZoomApplied = useDashboardContext(
         (c) => c.setChartsWithDateZoomApplied,
     );
+    const setChartsWithDateDimension = useDashboardContext(
+        (c) => c.setChartsWithDateDimension,
+    );
     const addParameterDefinitions = useDashboardContext(
         (c) => c.addParameterDefinitions,
     );
@@ -180,6 +183,29 @@ export const useDashboardChartReadyQuery = (
         () => JSON.stringify(chartParameterValues),
         [chartParameterValues],
     );
+
+    useEffect(() => {
+        if (!chartUuid) return;
+
+        setChartsWithDateDimension((prev) => {
+            const next = new Set(prev);
+            if (hasADateDimension) {
+                next.add(chartUuid);
+            } else {
+                next.delete(chartUuid);
+            }
+            return next;
+        });
+
+        return () => {
+            setChartsWithDateDimension((prev) => {
+                if (!prev.has(chartUuid)) return prev;
+                const next = new Set(prev);
+                next.delete(chartUuid);
+                return next;
+            });
+        };
+    }, [hasADateDimension, chartUuid, setChartsWithDateDimension]);
 
     useEffect(() => {
         setChartsWithDateZoomApplied((prev) => {

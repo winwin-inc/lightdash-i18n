@@ -17,10 +17,14 @@ export type SchedulerCsvOptions = {
     asAttachment?: boolean;
     /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
     xlsxFileLayout?: 'zip' | 'workbook';
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 
 export type SchedulerImageOptions = {
     withPdf?: boolean;
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 
 export type SchedulerGsheetsOptions = {
@@ -29,6 +33,8 @@ export type SchedulerGsheetsOptions = {
     gdriveOrganizationName: string;
     url: string;
     tabName?: string;
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 export type SchedulerOptions =
     | SchedulerCsvOptions

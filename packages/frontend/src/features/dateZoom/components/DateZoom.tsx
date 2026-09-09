@@ -34,11 +34,24 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
     const setIsDateZoomDisabled = useDashboardContext(
         (c) => c.setIsDateZoomDisabled,
     );
+    const chartsWithDateDimension = useDashboardContext(
+        (c) => c.chartsWithDateDimension,
+    );
     const { track } = useTracking();
+
+    // Align with upstream hideDefaultInView: no date-zoomable charts → hide in view mode
+    const isDefaultInert = chartsWithDateDimension.size === 0;
+    const hideInView = !isEditMode && isDefaultInert;
 
     useEffect(() => {
         if (isEditMode) setDateZoomGranularity(undefined);
     }, [isEditMode, setDateZoomGranularity]);
+
+    useEffect(() => {
+        if (hideInView && dateZoomGranularity !== undefined) {
+            setDateZoomGranularity(undefined);
+        }
+    }, [hideInView, dateZoomGranularity, setDateZoomGranularity]);
 
     if (isDateZoomDisabled) {
         if (isEditMode)
@@ -53,6 +66,10 @@ export const DateZoom: FC<Props> = ({ isEditMode }) => {
                     + {t('features_date_zoom.add_date_zoom')}
                 </Button>
             );
+        return null;
+    }
+
+    if (hideInView) {
         return null;
     }
 

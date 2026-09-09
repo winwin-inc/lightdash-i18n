@@ -634,7 +634,11 @@ export class SchedulerService extends BaseService {
         );
     }
 
-    async sendSchedulerByUuid(user: SessionUser, schedulerUuid: string) {
+    async sendSchedulerByUuid(
+        user: SessionUser,
+        schedulerUuid: string,
+        locale?: string,
+    ) {
         if (!isUserWithOrg(user)) {
             throw new ForbiddenError('User is not part of an organization');
         }
@@ -644,10 +648,16 @@ export class SchedulerService extends BaseService {
             resource: { organizationUuid, projectUuid },
         } = await this.checkUserCanUpdateSchedulerResource(user, schedulerUuid);
 
+        const options = {
+            ...scheduler.options,
+            ...(locale ? { locale } : {}),
+        };
+
         return this.schedulerClient.addScheduledDeliveryJob(
             new Date(),
             {
                 ...scheduler,
+                options,
                 organizationUuid,
                 projectUuid,
                 userUuid: user.userUuid,

@@ -18,6 +18,10 @@ import SMTPPool from 'nodemailer/lib/smtp-pool';
 import path from 'path';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
+import {
+    emailTemplateStrings,
+    getEmailCopy,
+} from './emailCopy';
 
 // Timeout configurations based on Nodemailer defaults, adjusted for scheduler compatibility
 export const SMTP_CONNECTION_CONFIG = {
@@ -152,6 +156,21 @@ export default class EmailClient {
         );
     }
 
+    /** Shared template strings + host/logo. Default locale zh when missing. */
+    private emailContext(
+        locale: string | null | undefined,
+        extra: EmailTemplate['context'] = {},
+    ): EmailTemplate['context'] {
+        const copy = getEmailCopy(locale);
+        return {
+            ...emailTemplateStrings(locale),
+            host: this.lightdashConfig.siteUrl,
+            // Keep historic public asset path (PNG); same as upstream email templates.
+            logoSrc: `${this.lightdashConfig.siteUrl}${copy.logoPath}`,
+            ...extra,
+        };
+    }
+
     private async sendEmail(
         options: Mail.Options & EmailTemplate,
     ): Promise<void> {
@@ -246,15 +265,18 @@ export default class EmailClient {
     }
 
     public async sendPasswordRecoveryEmail(link: PasswordResetLink) {
+        const copy = getEmailCopy('zh');
         return this.sendEmail({
             to: link.email,
-            subject: 'Reset your password',
+            subject: copy.resetSubject,
             template: 'recoverPassword',
-            context: {
+            context: this.emailContext('zh', {
                 url: link.url,
-                host: this.lightdashConfig.siteUrl,
-            },
-            text: `Forgotten your password? No worries! Just click on the link below within the next 24 hours to create a new one: ${link.url}`,
+                resetTitle: copy.resetTitle,
+                resetBody: copy.resetBody,
+                resetCta: copy.resetCta,
+            }),
+            text: copy.resetText(link.url),
         });
     }
 
@@ -262,18 +284,19 @@ export default class EmailClient {
         recipient: string,
         schedulerName: string,
         schedulerUrl: string,
+        locale?: string | null,
     ) {
+        const copy = getEmailCopy(locale);
         return this.sendEmail({
             to: recipient,
-            subject: `Google Sheets sync: "${schedulerName}" disabled due to error`,
+            subject: copy.gsheetsSubject(schedulerName),
             template: 'googleSheetsSyncDisabledNotification',
-            context: {
-                host: this.lightdashConfig.siteUrl,
-                subject: 'Google Sheets Sync disabled',
-                description: `There's an error with your Google Sheets "${schedulerName}" sync. We've disabled it to prevent further errors.`,
+            context: this.emailContext(locale, {
+                subject: copy.gsheetsTitle,
+                description: copy.gsheetsDescription(schedulerName),
                 schedulerUrl,
-            },
-            text: `Your Google Sheets ${schedulerName} sync has been disabled due to an error`,
+            }),
+            text: copy.gsheetsText(schedulerName),
         });
     }
 
@@ -282,6 +305,7 @@ export default class EmailClient {
         schedulerName: string,
         schedulerUrl: string,
         errorMessage: string,
+        locale?: string | null,
     ) {
         if (!this.canSendEmail()) {
             Logger.error(
@@ -294,27 +318,26 @@ export default class EmailClient {
             throw new Error('Email transporter not configured');
         }
 
-        const message = `
-            <p>Your scheduled delivery <strong>"${schedulerName}"</strong> failed to send.</p>
-            <br />
-            <br />
-            <br />
-            <p><strong>Error:</strong> ${sanitizeHtml(errorMessage)}</p>
-            <br />
-            <br />
-            <p>Please check your <a href="${schedulerUrl}">scheduled delivery settings</a> and try again.</p>
-        `;
+        const copy = getEmailCopy(locale);
+        const message = copy.deliveryFailMessage(
+            schedulerName,
+            sanitizeHtml(errorMessage),
+            schedulerUrl,
+        );
 
         return this.sendEmail({
             to: recipient,
-            subject: `Failed to send scheduled delivery - "${schedulerName}"`,
+            subject: copy.deliveryFailSubject(schedulerName),
             template: 'genericNotification',
-            context: {
-                host: this.lightdashConfig.siteUrl,
-                title: 'Scheduled delivery failure',
+            context: this.emailContext(locale, {
+                title: copy.deliveryFailTitle,
                 message,
-            },
-            text: `Warning: Your scheduled delivery "${schedulerName}" failed to send. Error: ${errorMessage}. Please check your settings at ${schedulerUrl}`,
+            }),
+            text: copy.deliveryFailText(
+                schedulerName,
+                errorMessage,
+                schedulerUrl,
+            ),
         });
     }
 
@@ -325,16 +348,22 @@ export default class EmailClient {
         >,
         invite: InviteLink,
     ) {
+        const copy = getEmailCopy('zh');
+        const inviteUrl = `${invite.inviteUrl}?from=email`;
+        const orgName = userThatInvited.organizationName || '';
         return this.sendEmail({
             to: invite.email,
-            subject: `You've been invited to join Lightdash`,
+            subject: copy.inviteSubject,
             template: 'invitation',
-            context: {
-                orgName: userThatInvited.organizationName,
-                inviteUrl: `${invite.inviteUrl}?from=email`,
-                host: this.lightdashConfig.siteUrl,
-            },
-            text: `Your teammates at ${userThatInvited.organizationName} are using Lightdash to discover and share data insights. Click on the link below within the next 72 hours to join your team and start exploring your data! ${invite.inviteUrl}?from=email`,
+            context: this.emailContext('zh', {
+                orgName,
+                inviteUrl,
+                inviteTitle: copy.inviteTitle,
+                inviteBody: copy.inviteBody(orgName),
+                inviteCtaHint: copy.inviteCtaHint,
+                inviteCta: copy.inviteCta,
+            }),
+            text: copy.inviteText(orgName, inviteUrl),
         });
     }
 
@@ -346,41 +375,48 @@ export default class EmailClient {
         projectName: string,
         projectUrl: string,
     ) {
-        let roleAction = '';
-        if ('customRoleName' in projectMember) {
-            roleAction = ``;
-        } else {
+        const copy = getEmailCopy('zh');
+        let roleKey: '' | 'view' | 'explore' | 'edit' | 'manage' = '';
+        if (!('customRoleName' in projectMember)) {
             switch (projectMember.role) {
                 case ProjectMemberRole.VIEWER:
-                    roleAction = 'view';
+                    roleKey = 'view';
                     break;
                 case ProjectMemberRole.INTERACTIVE_VIEWER:
-                    roleAction = 'explore';
+                    roleKey = 'explore';
                     break;
                 case ProjectMemberRole.EDITOR:
                 case ProjectMemberRole.DEVELOPER:
-                    roleAction = 'edit';
+                    roleKey = 'edit';
                     break;
                 case ProjectMemberRole.ADMIN:
-                    roleAction = 'manage';
+                    roleKey = 'manage';
                     break;
                 default:
                     const nope: never = projectMember.role;
+                    throw new Error(`Unknown project member role: ${nope}`);
             }
         }
+        const roleAction = copy.roleAction[roleKey];
+        const inviterName = `${userThatInvited.firstName} ${userThatInvited.lastName}`;
 
         return this.sendEmail({
             to: projectMember.email,
-            subject: `${userThatInvited.firstName} ${userThatInvited.lastName} invited you to ${projectName}`,
+            subject: copy.projectInviteSubject(inviterName, projectName),
             template: 'projectAccess',
-            context: {
-                inviterName: `${userThatInvited.firstName} ${userThatInvited.lastName}`,
+            context: this.emailContext('zh', {
+                inviterName,
                 projectUrl,
-                host: this.lightdashConfig.siteUrl,
                 projectName,
                 roleAction,
-            },
-            text: `${userThatInvited.firstName} ${userThatInvited.lastName} has invited you to ${roleAction} this project: ${projectUrl}`,
+                projectInviteTitle: copy.projectInviteTitle(projectName),
+                projectInviteBody: copy.projectInviteBody(
+                    inviterName,
+                    roleAction,
+                ),
+                projectOpenCta: copy.projectOpenCta,
+            }),
+            text: copy.projectInviteText(inviterName, roleAction, projectUrl),
         });
     }
 
@@ -398,13 +434,24 @@ export default class EmailClient {
         includeLinks: boolean,
         pdfFile?: string,
         expirationDays?: number,
-        deliveryType: string = 'Scheduled delivery',
+        deliveryType?: string,
+        locale?: string | null,
     ) {
+        const copy = getEmailCopy(locale);
+        const resolvedDeliveryType =
+            deliveryType ?? copy.scheduledDelivery;
+        const deliveredExpireText = copy.deliveredExpire
+            .replace('{{date}}', date)
+            .replace(
+                '{{expirationDays}}',
+                String(expirationDays ?? ''),
+            );
+
         return this.sendEmail({
             to: recipient,
             subject,
             template: 'imageNotification',
-            context: {
+            context: this.emailContext(locale, {
                 title,
                 hasMessage: !!message,
                 message: message && marked(message),
@@ -413,12 +460,14 @@ export default class EmailClient {
                 date,
                 frequency,
                 url,
-                host: this.lightdashConfig.siteUrl,
                 schedulerUrl,
                 expirationDays,
-                deliveryType,
+                deliveryType: resolvedDeliveryType,
                 includeLinks,
-            },
+                deliveredExpireText,
+                learnMore: copy.learnMore,
+                viewInApp: copy.viewInApp,
+            }),
             text: title,
             attachments: pdfFile
                 ? [
@@ -447,7 +496,10 @@ export default class EmailClient {
         expirationDays?: number,
         asAttachment?: boolean,
         format?: SchedulerFormat,
+        locale?: string | null,
     ) {
+        const copy = getEmailCopy(locale);
+        const maxCells = this.lightdashConfig.query.csvCellsLimit;
         const csvUrl = attachment.path;
         const attachments =
             asAttachment &&
@@ -460,7 +512,7 @@ export default class EmailClient {
             to: recipient,
             subject,
             template: 'chartCsvNotification',
-            context: {
+            context: this.emailContext(locale, {
                 title,
                 description,
                 hasMessage: !!message,
@@ -471,14 +523,25 @@ export default class EmailClient {
                 csvUrl,
                 truncated: attachment.truncated,
                 noResults: attachment.path === '#no-results',
-                maxCells: this.lightdashConfig.query.csvCellsLimit,
-                host: this.lightdashConfig.siteUrl,
+                maxCells,
                 schedulerUrl,
                 expirationDays,
                 includeLinks,
                 hasAttachment: attachments && attachments.length > 0,
                 attachmentCount: attachments?.length || 0,
-            },
+                chartReady: copy.chartReady,
+                downloadCsv: copy.downloadCsv,
+                truncatedTitle: copy.truncatedTitle,
+                truncatedChartBody: copy.truncatedChartBody.replace(
+                    '{{maxCells}}',
+                    String(maxCells),
+                ),
+                truncatedHint: copy.truncatedHint,
+                noResultsTitle: copy.noResultsTitle,
+                noResultsBody: copy.noResultsBody,
+                viewChart: copy.viewChart,
+                scheduledDeliveryLabel: copy.scheduledDelivery,
+            }),
             text: title,
             attachments,
         });
@@ -499,7 +562,10 @@ export default class EmailClient {
         expirationDays?: number,
         asAttachment?: boolean,
         format?: SchedulerFormat,
+        locale?: string | null,
     ) {
+        const copy = getEmailCopy(locale);
+        const maxCells = this.lightdashConfig.query.csvCellsLimit;
         const csvUrls = attachments.filter(
             (attachment) => !attachment.truncated,
         );
@@ -524,7 +590,7 @@ export default class EmailClient {
             to: recipient,
             subject,
             template: 'dashboardCsvNotification',
-            context: {
+            context: this.emailContext(locale, {
                 title,
                 description,
                 hasMessage: !!message,
@@ -534,15 +600,23 @@ export default class EmailClient {
                 csvUrls,
                 truncatedCsvUrls,
                 truncated: truncatedCsvUrls.length > 0,
-                maxCells: this.lightdashConfig.query.csvCellsLimit,
+                maxCells,
                 url,
-                host: this.lightdashConfig.siteUrl,
                 schedulerUrl,
                 expirationDays,
                 includeLinks,
                 hasAttachments: emailAttachments && emailAttachments.length > 0,
                 attachmentCount: emailAttachments?.length || 0,
-            },
+                dashboardReady: copy.dashboardReady,
+                truncatedTitle: copy.truncatedTitle,
+                truncatedDashboardBody: copy.truncatedDashboardBody.replace(
+                    '{{maxCells}}',
+                    String(maxCells),
+                ),
+                truncatedHint: copy.truncatedHint,
+                viewDashboard: copy.viewDashboard,
+                scheduledDeliveryLabel: copy.scheduledDelivery,
+            }),
             text: title,
             attachments: emailAttachments,
         });
@@ -555,20 +629,21 @@ export default class EmailClient {
         recipient: string;
         passcode: string;
     }): Promise<void> {
-        const subject = 'Verify your email address';
-        const text = `
-        Verify your email address by entering the following passcode in Lightdash: ${passcode}
-            `;
+        const copy = getEmailCopy('zh');
         return this.sendEmail({
             to: recipient,
-            subject,
+            subject: copy.otpSubject,
             template: 'oneTimePasscode',
-            context: {
+            context: this.emailContext('zh', {
                 passcode,
-                title: subject,
-                host: this.lightdashConfig.siteUrl,
-            },
-            text,
+                title: copy.otpSubject,
+                otpIntro: copy.otpIntro,
+                otpHint: copy.otpHint,
+                otpValid: copy.otpValid,
+                otpQuestions: copy.otpQuestions,
+                otpGlad: copy.otpGlad,
+            }),
+            text: copy.otpText(passcode),
         });
     }
 
@@ -583,11 +658,10 @@ export default class EmailClient {
             to,
             subject,
             template: 'genericNotification',
-            context: {
+            context: this.emailContext('zh', {
                 title,
                 message: marked(message),
-                host: this.lightdashConfig.siteUrl,
-            },
+            }),
             text: `${title}\n\n${message}`,
             attachments,
         });

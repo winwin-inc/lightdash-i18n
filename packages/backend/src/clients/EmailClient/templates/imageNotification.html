@@ -536,14 +536,13 @@
                                                                                                     style="
                                                                                                         display: block;
                                                                                                         border: 0;
-                                                                                                        height: auto;
-                                                                                                        width: 100%;
+                                                                                                        width: 36px;
+                                                                                                        height: 36px;
                                                                                                         margin: 0;
-                                                                                                        max-width: 100%;
                                                                                                     "
-                                                                                                    width="100"
-                                                                                                    height="20.859375"
-                                                                                                    src="{{host}}/lightdash-logo.png"
+                                                                                                    width="36"
+                                                                                                    height="36"
+                                                                                                    src="{{logoSrc}}"
                                                                                                 />
                                                                                             </div>
                                                                                         </td>
@@ -878,17 +877,7 @@
                                                                                                             color: #7c7c87;
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
-                                                                                                        >Delivered
-                                                                                                        {{date}}.
-                                                                                                        For
-                                                                                                        security
-                                                                                                        reasons,
-                                                                                                        delivered
-                                                                                                        files
-                                                                                                        expire
-                                                                                                        after
-                                                                                                        {{expirationDays}}
-                                                                                                        days.</span
+                                                                                                        >{{deliveredExpireText}}</span
                                                                                                     >
                                                                                                     <a
                                                                                                         class="t165"
@@ -915,8 +904,7 @@
                                                                                                             mso-text-raise: 2px;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Learn
-                                                                                                        more.</a
+                                                                                                        >{{learnMore}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>
@@ -999,9 +987,7 @@
                                                                                                         mso-text-raise: 8px;
                                                                                                     "
                                                                                                     target="_blank"
-                                                                                                    >View
-                                                                                                    in
-                                                                                                    Lightdash</a
+                                                                                                    >{{viewInApp}}</a
                                                                                                 >
                                                                                             </td>
                                                                                         </tr>
@@ -1440,7 +1426,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Lightdash</a
+                                                                                                        >{{brandName}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>
@@ -1507,8 +1493,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Privacy
-                                                                                                        policy</a
+                                                                                                        >{{privacyPolicy}}</a
                                                                                                     >
                                                                                                     •
                                                                                                     <a
@@ -1525,9 +1510,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Join
-                                                                                                        our
-                                                                                                        community</a
+                                                                                                        >{{joinCommunity}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>

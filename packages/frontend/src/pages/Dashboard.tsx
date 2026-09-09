@@ -1213,9 +1213,10 @@ const Dashboard: FC = () => {
                             />
                         )}
                     </Group>
-                    {/* DateZoom section will adjust width dynamically */}
-                    {hasDashboardTiles && isEditMode && (
+                    {/* DateZoom: visible in view mode; sync-colors controls stay edit-only */}
+                    {hasDashboardTiles && (
                         <Group gap="xs" style={{ marginLeft: 'auto' }}>
+                            {isEditMode && (
                             <Switch
                                 label={t(
                                     'features_date_zoom.sync_chart_colors',
@@ -1226,6 +1227,7 @@ const Dashboard: FC = () => {
                                     setSyncChartColors(e.currentTarget.checked)
                                 }
                             />
+                            )}
                             {syncChartColors && isEditMode && (
                                 <Popover width={300} position="bottom">
                                     <Popover.Target>

@@ -2164,6 +2164,15 @@ export default class SchedulerTask {
                     schedulerUuid,
                 );
 
+            const emailLocale =
+                (scheduler.options as { locale?: string } | undefined)
+                    ?.locale ?? 'zh';
+            const humanCron = getHumanReadableCronExpression(
+                scheduler.cron,
+                scheduler.timezone || defaultSchedulerTimezone,
+                emailLocale,
+            );
+
             if (thresholds !== undefined && thresholds.length > 0) {
                 // We assume the threshold is possitive , so we don't need to get results here
                 if (imageUrl === undefined) {
@@ -2190,23 +2199,27 @@ export default class SchedulerTask {
                 }** triggered the following alerts:\n${thresholdMessageList.join(
                     '\n',
                 )}`;
+                const alertCopy = (
+                    await import('../clients/EmailClient/emailCopy')
+                ).getEmailCopy(emailLocale);
                 await this.emailClient.sendImageNotificationEmail(
                     recipient,
-                    `Lightdash Data Alert`,
+                    alertCopy.dataAlertSubject,
                     name,
                     details.description || '',
                     thresholdMessage,
-                    new Date().toLocaleDateString('en-GB'),
-                    `For security reasons, delivered files expire after ${
-                        this.s3Client.getExpirationWarning()?.days || 3
-                    } days`,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
+                    ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     undefined, // expiration days
-                    'This is a data alert sent by Lightdash',
+                    alertCopy.dataAlertDeliveryType,
+                    emailLocale,
                 );
             } else if (format === SchedulerFormat.IMAGE) {
                 if (imageUrl === undefined) {
@@ -2218,17 +2231,18 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     this.s3Client.getExpirationWarning()?.days,
+                    undefined,
+                    emailLocale,
                 );
             } else if (savedChartUuid) {
                 if (csvUrl === undefined) {
@@ -2241,11 +2255,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrl,
                     url,
                     schedulerUrl,
@@ -2253,6 +2266,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else if (dashboardUuid) {
                 if (csvUrls === undefined) {
@@ -2266,11 +2280,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrls,
                     url,
                     schedulerUrl,
@@ -2278,6 +2291,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else {
                 throw new Error('Not implemented');

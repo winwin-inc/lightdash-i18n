@@ -343,7 +343,7 @@ const SchedulerForm: FC<Props> = ({
     currentParameterValues,
     availableParameters,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const thresholdOperatorOptions = [
         {
@@ -502,10 +502,24 @@ const SchedulerForm: FC<Props> = ({
                         resource?.type === 'dashboard'
                             ? values.options.xlsxFileLayout
                             : undefined,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             } else if (values.format === SchedulerFormat.IMAGE) {
                 options = {
                     withPdf: values.options.withPdf,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
+                };
+            } else {
+                // gsheets / other formats still carry UI locale for any email fallbacks
+                options = {
+                    ...options,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             }
 
@@ -943,7 +957,7 @@ const SchedulerForm: FC<Props> = ({
                                         'features_scheduler_form.form.tabs_panel_setup.format',
                                     )}
                                 </Input.Label>
-                                <Group spacing="xs" noWrap>
+                                <Group spacing="xs" noWrap align="center">
                                     <SegmentedControl
                                         data={[
                                             {
@@ -963,7 +977,6 @@ const SchedulerForm: FC<Props> = ({
                                             },
                                         ]}
                                         w="50%"
-                                        mb="xs"
                                         {...form.getInputProps('format')}
                                     />
                                     {isImageDisabled && (
@@ -971,7 +984,6 @@ const SchedulerForm: FC<Props> = ({
                                             size="xs"
                                             color="gray.6"
                                             w="30%"
-                                            sx={{ alignSelf: 'start' }}
                                         >
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
