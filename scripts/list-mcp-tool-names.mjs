@@ -4,6 +4,8 @@
  * in packages/lightdash-mcp/src. Use to keep docs (e.g. packages/lightdash-skills/README) in sync.
  *
  * Usage:
+ *   pnpm list-mcp-tools
+ *   pnpm list-mcp-tools -- --write
  *   node scripts/list-mcp-tool-names.mjs
  *   node scripts/list-mcp-tool-names.mjs --write
  *

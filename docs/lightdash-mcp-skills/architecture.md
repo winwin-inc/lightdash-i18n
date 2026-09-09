@@ -125,4 +125,4 @@ Skills 本身不监听端口，就是一些 Markdown 文件放在你的项目里
 
 `lightdash-metric-query` 是 `run_metric_query` 的补充说明，包括参数构造顺序、扁平参数约束、过滤/排序/维度规格说明，以及常见 422 报错排查。
 
-MCP 和 Skills 同版本号发，用 `pnpm bump-mcp-skills -- x.y.z` 一起升级。
+MCP 发版用 `pnpm bump-mcp -- x.y.z`（只升 MCP；Skills 文档不单独维护版本号）。

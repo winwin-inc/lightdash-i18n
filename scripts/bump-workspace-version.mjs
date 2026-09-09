@@ -34,7 +34,8 @@ function usage() {
   pnpm bump-version -- 0.2105.4 --no-commit
   pnpm bump-version -- 0.2105.4 --no-tag
 
-跳过目录: packages/lightdash-*（单独发版，请用 pnpm bump-mcp-skills）
+跳过目录: packages/lightdash-*（单独发版，请用 pnpm bump-mcp）
+CLI 工具镜像不走本脚本的 v* tag，请用: pnpm bump-cli -- <version>
 默认行为：写文件 -> 仅 add version 文件 -> git commit -> 打 v<ver> annotated tag。
 开关：--no-commit 仅写文件；--no-tag commit 后不打 tag。
 本地不 push；确认无误后：git push && git push origin v<版本号> 触发主站 Docker CI。
@@ -280,7 +281,7 @@ const willTag = !noCommit && !noTag;
 if (noCommit) {
     writeAllVersions(version);
     process.stdout.write(
-        '\n提示（--no-commit）：未执行 git；如需一条龙 commit + tag，请去掉 --no-commit 并在干净工作区重跑。\nMCP/skills 请用: pnpm bump-mcp-skills -- <version>\n',
+        '\n提示（--no-commit）：未执行 git；如需一条龙 commit + tag，请去掉 --no-commit 并在干净工作区重跑。\nMCP 请用: pnpm bump-mcp -- <version>\nCLI 工具镜像请用: pnpm bump-cli -- <version>\n',
     );
     process.exit(0);
 }
@@ -317,4 +318,5 @@ if (willTag) {
         '（未创建 tag；触发主站镜像 CI 需推送 v* tag）\n',
     );
 }
-process.stdout.write('MCP/skills 请用: pnpm bump-mcp-skills -- <version>\n');
+process.stdout.write('MCP 请用: pnpm bump-mcp -- <version>\n');
+process.stdout.write('CLI 工具镜像请用: pnpm bump-cli -- <version>\n');

@@ -153,10 +153,9 @@
         "clean": "pnpm clean-build-cache && pnpm clean-node-modules",
         "clean-and-build": "pnpm clean && pnpm build",
         "bump-version": "node scripts/bump-workspace-version.mjs",
-        "bump-mcp-skills": "node scripts/bump-versions.mjs all",
-        "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs",
-        "list-mcp-tools:write": "node scripts/list-mcp-tool-names.mjs --write",
-        "pack-lightdash-skills": "node scripts/pack-lightdash-skills.mjs"
+        "bump-cli": "node scripts/bump-cli-version.mjs",
+        "bump-mcp": "node scripts/bump-versions.mjs",
+        "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs"
     },
     "lint-staged": {
         "packages/frontend/src/**/*.(ts|tsx|json|css)": [
