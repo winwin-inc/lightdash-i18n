@@ -209,6 +209,7 @@ import type {
 } from './types/metricsExplorer';
 import type { ResultsPaginationMetadata } from './types/paginateResults';
 import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
+import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import { type ParametersValuesMap } from './types/parameters';
 import { type PivotConfiguration } from './types/pivot';
 import { type ApiPromotionChangesResponse } from './types/promotion';
@@ -1089,6 +1090,7 @@ type ApiResults =
     | ApiOssUploadUrlResponse['results']
     | UserCategoryList
     | ResultsCacheProjectSettings
+    | ApiDataTimezonePreviewResults
     // Data apps (Phase C)
     | ApiGenerateAppResponse['results']
     | ApiGetAppResponse['results']
