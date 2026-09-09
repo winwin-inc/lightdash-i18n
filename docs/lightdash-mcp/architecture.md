@@ -4,11 +4,10 @@
 
 官方内置 MCP 跑在主站进程里，依赖实例已开通对应商业能力与路由；**自托管仅 OSS**、或**当前套餐未包含**内置 MCP 时，这条路径往往不可用。是否收费、哪一档含该能力，以 [Lightdash 定价与方案](https://www.lightdash.com/pricing) 的说明为准（会随产品更新）。
 
-主站对外的 **REST + PAT** 在 OSS 场景仍可用。自建 `lightdash-mcp` + `lightdash-skills` 是在站外补上 MCP 协议层，并把「工具体」与「怎么用」拆开，和内置方案相比主要是这些**可验证的差别**：
+主站对外的 **REST + PAT** 在 OSS 场景仍可用。自建 `lightdash-mcp` 是在站外补上 MCP 协议层，和内置方案相比主要是这些**可验证的差别**：
 
 - **独立进程**：MCP 与主站发版、扩缩容解耦，故障面隔离。
 - **只依赖公开 API**：不依赖主站是否注册 EE 内置 MCP；能连上 REST、有 PAT 即可对接。
-- **Skills 固定编排**：工具由 MCP 暴露，顺序与场景约束写在 Skills 里，减少误调用和无效重试。
 
 ## 整体架构
 
@@ -17,7 +16,6 @@ flowchart TB
   subgraph editors [编辑器 / Agent]
     IDE[Cursor / Claude Code 等]
     LLM[LLM]
-    SK[Skills Markdown]
   end
   subgraph mcpproc [独立 MCP 进程]
     MCP[lightdash-mcp]
@@ -29,7 +27,6 @@ flowchart TB
     WH[(数仓)]
   end
   IDE -->|"MCP Streamable HTTP /mcp"| MCP
-  SK -.->|约束工具顺序与命名| LLM
   LLM <-->|tools/call| MCP
   MCP -->|"Authorization: ApiKey PAT"| REST
   REST --> ID
@@ -37,7 +34,7 @@ flowchart TB
   REST --> WH
 ```
 
-Skills 本身不监听端口，就是一些 Markdown 文件放在你的项目里供模型阅读。真正发请求出去的是 `lightdash-mcp` 这个独立进程。
+真正发请求出去的是 `lightdash-mcp` 这个独立进程。
 
 ## 鉴权是怎么跑的
 
@@ -49,7 +46,7 @@ Skills 本身不监听端口，就是一些 Markdown 文件放在你的项目里
 
 有一点要说明：`set_project` 设的默认项目 UUID 只存在 MCP 进程的内存里，用来省掉重复参数，**不会改变**主站对该 PAT 的权限判定。
 
-**与 PAT 的区分**：PAT 无效或未授权时多为 **401/403**。此前若 MCP 暴露依赖主站 EE `…/aiAgents` 等路由的工具，在 OSS 或未开通能力的主站上会稳定 **404**——那是「主站没有这条 REST」，不是 API Key 鉴权失败；本仓库的 `lightdash-mcp` 已**不再注册**这类与 Skills 流程无关、易混淆的 Agent 工具。
+**与 PAT 的区分**：PAT 无效或未授权时多为 **401/403**。此前若 MCP 暴露依赖主站 EE `…/aiAgents` 等路由的工具，在 OSS 或未开通能力的主站上会稳定 **404**——那是「主站没有这条 REST」，不是 API Key 鉴权失败；本仓库的 `lightdash-mcp` 已**不再注册**这类易混淆的 Agent 工具。
 
 当前自建 MCP 共 **19 个工具**（**15** 个核心 + **4** 个站点/已保存图表辅助），命名**统一无前缀**（仅 **`lightdash-analyst`** 为 Prompt 名）；历史 **`lightdash_*` 工具名已废弃**，请勿再写。
 
@@ -119,10 +116,6 @@ Skills 本身不监听端口，就是一些 Markdown 文件放在你的项目里
 - 上游 EE 内置 MCP 另有 **`find_charts` / `find_dashboards`** 作为独立 Tool；自建侧亦提供同名，并与 **`find_content`**（混合）、**`find_spaces`**（空间）并存。
 - 历史 **`lightdash_get_site_info` 等旧名**已移除；迁移时请用上表中的无前缀名。
 
-## Skills
+## 发版
 
-`lightdash-insight-router` 是唯一入口，所有请求先经过它路由到三条路径之一：保存图表、维度指标、SQL。
-
-`lightdash-metric-query` 是 `run_metric_query` 的补充说明，包括参数构造顺序、扁平参数约束、过滤/排序/维度规格说明，以及常见 422 报错排查。
-
-MCP 发版用 `pnpm bump-mcp -- x.y.z`（只升 MCP；Skills 文档不单独维护版本号）。
+MCP 发版用 `pnpm bump-mcp -- x.y.z`。
