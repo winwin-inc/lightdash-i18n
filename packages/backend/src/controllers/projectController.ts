@@ -19,6 +19,7 @@ import {
     ApiSqlQueryResults,
     ApiSuccessEmpty,
     ApiExecuteAsyncMetricQueryResults,
+    ApiDataTimezonePreview,
     CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartAsCode,
@@ -60,6 +61,7 @@ import {
     type UpdateMultipleDashboards,
     type UpdateQueryTimezoneSettings,
     type UpdateSchedulerSettings,
+    type DataTimezonePreviewRequest,
 } from '@lightdash/common';
 import {
     Body,
@@ -262,6 +264,32 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results: undefined,
+        };
+    }
+
+    /**
+     * Preview how warehouse dataTimezone interprets naive timestamps
+     * @summary Preview data timezone
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Post('preview-data-timezone')
+    @OperationId('PreviewDataTimezone')
+    async previewDataTimezone(
+        @Body() body: DataTimezonePreviewRequest,
+        @Request() req: express.Request,
+    ): Promise<ApiDataTimezonePreview> {
+        this.setStatus(200);
+        const results = await this.services
+            .getProjectService()
+            .previewDataTimezone(req.account!, body);
+        return {
+            status: 'ok',
+            results,
         };
     }
 

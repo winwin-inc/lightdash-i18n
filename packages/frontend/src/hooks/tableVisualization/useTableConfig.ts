@@ -95,6 +95,9 @@ const useTableConfig = (
     const [showSubtotals, setShowSubtotals] = useState<boolean>(
         tableChartConfig?.showSubtotals ?? false,
     );
+    const [showRowGrouping, setShowRowGrouping] = useState<boolean>(
+        tableChartConfig?.showRowGrouping ?? false,
+    );
     const [hideRowNumbers, setHideRowNumbers] = useState<boolean>(
         tableChartConfig?.hideRowNumbers === undefined
             ? false
@@ -293,8 +296,10 @@ const useTableConfig = (
     // Once dimensions are loaded, if there are not enough dimensions to use subtotals then
     // turn off "Show subtotals" so that "Show metrics as rows" can be enabled.
     useEffect(() => {
-        if (dimensions.length > 0 && numUnpivotedDimensions < 2)
+        if (dimensions.length > 0 && numUnpivotedDimensions < 2) {
             setShowSubtotals(false);
+            setShowRowGrouping(false);
+        }
     }, [dimensions.length, numUnpivotedDimensions]);
 
     const dashboardContext =
@@ -651,6 +656,7 @@ const useTableConfig = (
             enablePagination,
             pageSize,
             showSubtotals,
+            showRowGrouping,
             columns: columnProperties,
             hideRowNumbers,
             conditionalFormattings,
@@ -671,6 +677,7 @@ const useTableConfig = (
             enablePagination,
             pageSize,
             showSubtotals,
+            showRowGrouping,
             columnProperties,
             conditionalFormattings,
             metricsAsRows,
@@ -704,6 +711,8 @@ const useTableConfig = (
             setPageSize,
             showSubtotals,
             setShowSubtotals,
+            showRowGrouping,
+            setShowRowGrouping,
             columnProperties,
             setColumnProperties,
             updateColumnProperty,
@@ -756,6 +765,8 @@ const useTableConfig = (
             setPageSize,
             showSubtotals,
             setShowSubtotals,
+            showRowGrouping,
+            setShowRowGrouping,
             columnProperties,
             setColumnProperties,
             updateColumnProperty,

@@ -189,6 +189,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         getFieldLabel,
         getField,
         showSubtotals,
+        showRowGrouping,
         pivotMetricHeaderPosition,
         pivotAutoFillWidth,
         pivotDimensionColumnMaxWidth,
@@ -263,6 +264,8 @@ const SimpleTable: FC<SimpleTableProps> = ({
                             getField={getField}
                             hideRowNumbers={hideRowNumbers}
                             showSubtotals={showSubtotals}
+                            showRowGrouping={showRowGrouping}
+                            columnOrder={columnOrder}
                             columnProperties={
                                 visualizationConfig.chartConfig.columnProperties
                             }

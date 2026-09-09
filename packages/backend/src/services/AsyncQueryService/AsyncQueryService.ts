@@ -1715,6 +1715,8 @@ export class AsyncQueryService extends ProjectService {
                 fullQuery.missingParameterReferences,
             ),
             usedParameters: fullQuery.usedParameters,
+            timezone,
+            useTimezoneAwareDateTrunc,
         };
     }
 
@@ -2128,6 +2130,8 @@ export class AsyncQueryService extends ProjectService {
             parameterReferences,
             missingParameterReferences,
             usedParameters,
+            timezone,
+            useTimezoneAwareDateTrunc,
         } = await this.prepareMetricQueryAsyncQueryArgs({
             account,
             metricQuery,
@@ -2169,6 +2173,7 @@ export class AsyncQueryService extends ProjectService {
             warnings,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: useTimezoneAwareDateTrunc ? timezone : null,
         };
     }
 
@@ -2312,6 +2317,8 @@ export class AsyncQueryService extends ProjectService {
             parameterReferences,
             missingParameterReferences,
             usedParameters,
+            timezone,
+            useTimezoneAwareDateTrunc,
         } = await this.prepareMetricQueryAsyncQueryArgs({
             account,
             metricQuery: metricQueryWithLimit,
@@ -2350,6 +2357,7 @@ export class AsyncQueryService extends ProjectService {
             warnings,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: useTimezoneAwareDateTrunc ? timezone : null,
         };
     }
 
@@ -2576,6 +2584,8 @@ export class AsyncQueryService extends ProjectService {
             parameterReferences,
             missingParameterReferences,
             usedParameters,
+            timezone,
+            useTimezoneAwareDateTrunc,
         } = await this.prepareMetricQueryAsyncQueryArgs({
             account,
             metricQuery: metricQueryWithLimit,
@@ -2620,6 +2630,7 @@ export class AsyncQueryService extends ProjectService {
             fields,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: useTimezoneAwareDateTrunc ? timezone : null,
         };
     }
 
@@ -2808,6 +2819,8 @@ export class AsyncQueryService extends ProjectService {
             parameterReferences,
             missingParameterReferences,
             usedParameters,
+            timezone,
+            useTimezoneAwareDateTrunc,
         } = await this.prepareMetricQueryAsyncQueryArgs({
             account,
             metricQuery: underlyingDataMetricQuery,
@@ -2848,6 +2861,7 @@ export class AsyncQueryService extends ProjectService {
             warnings,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: useTimezoneAwareDateTrunc ? timezone : null,
         };
     }
 
@@ -2932,6 +2946,7 @@ export class AsyncQueryService extends ProjectService {
             cacheMetadata,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: null,
         };
     }
 
@@ -3291,6 +3306,7 @@ export class AsyncQueryService extends ProjectService {
             cacheMetadata,
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: null,
         };
     }
 
@@ -3404,6 +3420,7 @@ export class AsyncQueryService extends ProjectService {
             },
             parameterReferences,
             usedParametersValues: usedParameters,
+            resolvedTimezone: null,
         };
     }
 
@@ -3559,6 +3576,7 @@ export class AsyncQueryService extends ProjectService {
                 warnings: [],
                 parameterReferences: compiledMerge.parameterReferences,
                 usedParametersValues: compiledMerge.usedParametersValues,
+                resolvedTimezone: null,
             },
             parameterReferences: compiledMerge.parameterReferences,
             fieldOrigins: compiledMerge.fieldOrigins,

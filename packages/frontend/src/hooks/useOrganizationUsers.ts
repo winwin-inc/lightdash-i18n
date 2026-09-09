@@ -1,6 +1,8 @@
 import {
     type ApiError,
     type ApiOrganizationMemberProfiles,
+    type ApiReassignUserDashboardsResponse,
+    type ApiUserDashboardsSummaryResponse,
     type KnexPaginateArgs,
 } from '@lightdash/common';
 import {
@@ -189,6 +191,67 @@ export const useDeleteOrganizationUserMutation = () => {
         onError: ({ error }) => {
             showToastApiError({
                 title: t('hooks_organization_users.delete_error'),
+                apiError: error,
+            });
+        },
+    });
+};
+
+const getUserDashboardsSummaryQuery = async (userUuid: string) =>
+    lightdashApi<ApiUserDashboardsSummaryResponse['results']>({
+        url: `/org/user/${userUuid}/dashboards-summary`,
+        method: 'GET',
+        body: undefined,
+    });
+
+export const useUserDashboardsSummary = (
+    userUuid: string,
+    enabled: boolean = true,
+) => {
+    const setErrorResponse = useQueryError();
+    return useQuery<ApiUserDashboardsSummaryResponse['results'], ApiError>({
+        queryKey: ['user_dashboards_summary', userUuid],
+        queryFn: () => getUserDashboardsSummaryQuery(userUuid),
+        onError: (result) => setErrorResponse(result),
+        enabled,
+    });
+};
+
+const reassignUserDashboardsQuery = async ({
+    userUuid,
+    newOwnerUserUuid,
+}: {
+    userUuid: string;
+    newOwnerUserUuid: string;
+}) =>
+    lightdashApi<ApiReassignUserDashboardsResponse['results']>({
+        url: `/org/user/${userUuid}/reassign-dashboards`,
+        method: 'PATCH',
+        body: JSON.stringify({ newOwnerUserUuid }),
+    });
+
+export const useReassignUserDashboardsMutation = () => {
+    const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
+    return useMutation<
+        ApiReassignUserDashboardsResponse['results'],
+        ApiError,
+        { userUuid: string; newOwnerUserUuid: string }
+    >(reassignUserDashboardsQuery, {
+        mutationKey: ['reassign_user_dashboards'],
+        onSuccess: async (data) => {
+            showToastSuccess({
+                title: t(
+                    'hooks_organization_users.reassign_dashboards_success',
+                    {
+                        count: data.reassignedCount,
+                    },
+                ),
+            });
+        },
+        onError: ({ error }) => {
+            showToastApiError({
+                title: t('hooks_organization_users.reassign_dashboards_error'),
                 apiError: error,
             });
         },

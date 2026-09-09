@@ -16,6 +16,7 @@ import BooleanSwitch from '../Inputs/BooleanSwitch';
 import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { ClickhouseDefaultValues } from './defaultValues';
 
 export const ClickhouseSchemaInput: FC<{
@@ -186,6 +187,7 @@ const ClickhouseForm: FC<{
                             disabled={disabled}
                         />
 
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
                     </Stack>
                 </FormSection>

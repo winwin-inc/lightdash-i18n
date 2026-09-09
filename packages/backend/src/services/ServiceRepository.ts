@@ -343,6 +343,8 @@ export class ServiceRepository
                     userDashboardCategoryModel:
                         this.models.getUserDashboardCategoryModel(),
                     categoryRpcClient: this.clients.getCategoryRpcClient(),
+                    organizationMemberProfileModel:
+                        this.models.getOrganizationMemberProfileModel(),
                 }),
         );
     }

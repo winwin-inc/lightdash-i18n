@@ -178,6 +178,12 @@ export type TableChart = {
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
+    /**
+     * Visually deduplicate repeated row-index dimension values across consecutive
+     * rows without showing aggregate subtotal rows. When `showSubtotals` is true,
+     * grouping is implicitly active and this flag is ignored. Defaults to false.
+     */
+    showRowGrouping?: boolean;
     /** Warehouse OFFSET pagination for TABLE charts. Default off. */
     enablePagination?: boolean;
     /** Rows per page when enablePagination is true. Default 10. */

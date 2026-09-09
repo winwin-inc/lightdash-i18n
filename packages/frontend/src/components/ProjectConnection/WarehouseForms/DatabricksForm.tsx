@@ -21,6 +21,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 
 export const DatabricksSchemaInput: FC<{
     disabled: boolean;
@@ -179,6 +180,7 @@ const DatabricksForm: FC<{
                 />
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack>
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
                         <Stack spacing="xs">
                             <Stack spacing={0}>

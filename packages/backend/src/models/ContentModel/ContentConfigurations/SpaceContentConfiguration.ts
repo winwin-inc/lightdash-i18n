@@ -102,6 +102,10 @@ export const spaceContentConfiguration: ContentConfiguration<SpaceContentRow> =
                     knex.raw(`null as last_updated_by_user_last_name`),
                     knex.raw(`0 as views`),
                     knex.raw(`null as first_viewed_at`),
+                    knex.raw(`null::uuid as owner_user_uuid`),
+                    knex.raw(`null as owner_user_first_name`),
+                    knex.raw(`null as owner_user_last_name`),
+                    knex.raw(`null as owner_user_email`),
                     knex.raw(
                         `json_build_object(
                                     'chartCount', (

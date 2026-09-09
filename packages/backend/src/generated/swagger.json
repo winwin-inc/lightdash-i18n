@@ -3260,6 +3260,10 @@
             },
             "DashboardConfig": {
                 "properties": {
+                    "requiredFiltersNote": {
+                        "type": "string",
+                        "description": "Editor-authored note shown to viewers while filter rules are unmet"
+                    },
                     "syncChartTileUuids": {
                         "items": {
                             "type": "string"
@@ -3303,8 +3307,35 @@
                 "required": ["isDateZoomDisabled"],
                 "type": "object"
             },
+            "DashboardOwner": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "userUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["email", "lastName", "firstName", "userUuid"],
+                "type": "object"
+            },
             "Dashboard": {
                 "properties": {
+                    "owner": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DashboardOwner"
+                            }
+                        ],
+                        "nullable": true
+                    },
                     "config": {
                         "$ref": "#/components/schemas/DashboardConfig"
                     },
@@ -3399,6 +3430,7 @@
                     }
                 },
                 "required": [
+                    "owner",
                     "slug",
                     "access",
                     "isPrivate",
@@ -6000,6 +6032,10 @@
                         "type": "boolean",
                         "description": "Warehouse OFFSET pagination for TABLE charts. Default off."
                     },
+                    "showRowGrouping": {
+                        "type": "boolean",
+                        "description": "Visually deduplicate repeated row-index dimension values across consecutive\nrows without showing aggregate subtotal rows. When `showSubtotals` is true,\ngrouping is implicitly active and this flag is ignored. Defaults to false."
+                    },
                     "showSubtotals": {
                         "type": "boolean"
                     },
@@ -7541,6 +7577,11 @@
             },
             "ApiExecuteAsyncQueryResultsCommon": {
                 "properties": {
+                    "resolvedTimezone": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Resolved display timezone; null when timezone FF off or SQL queries"
+                    },
                     "usedParametersValues": {
                         "$ref": "#/components/schemas/ParametersValuesMap"
                     },
@@ -7558,6 +7599,7 @@
                     }
                 },
                 "required": [
+                    "resolvedTimezone",
                     "usedParametersValues",
                     "parameterReferences",
                     "cacheMetadata",
@@ -15120,6 +15162,15 @@
                     },
                     {
                         "properties": {
+                            "owner": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/DashboardOwner"
+                                    }
+                                ],
+                                "nullable": true,
+                                "description": "Only populated by the v2 content API"
+                            },
                             "validationErrors": {
                                 "items": {
                                     "$ref": "#/components/schemas/ValidationSummary"
@@ -15632,6 +15683,11 @@
             },
             "SchedulerCsvOptions": {
                 "properties": {
+                    "xlsxFileLayout": {
+                        "type": "string",
+                        "enum": ["zip", "workbook"],
+                        "description": "Dashboard XLSX: zip of files (default) or one multi-sheet workbook"
+                    },
                     "asAttachment": {
                         "type": "boolean"
                     },
@@ -16035,6 +16091,7 @@
                     "indexCatalog",
                     "generateDailyJobs",
                     "exportCsvDashboard",
+                    "exportContent",
                     "renameResources",
                     "cleanQueryHistory",
                     "downloadAsyncQueryResults"
@@ -16862,6 +16919,14 @@
                     },
                     "config": {
                         "$ref": "#/components/schemas/DashboardConfig"
+                    },
+                    "owner": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DashboardOwner"
+                            }
+                        ],
+                        "nullable": true
                     }
                 },
                 "required": [
@@ -16880,7 +16945,8 @@
                     "dashboardVersionId",
                     "tiles",
                     "filters",
-                    "tabs"
+                    "tabs",
+                    "owner"
                 ],
                 "type": "object",
                 "description": "From T, pick a set of properties whose keys are in the union K"
@@ -17879,6 +17945,117 @@
                 "required": ["sendEmail", "role", "email"],
                 "type": "object"
             },
+            "DataTimezonePreviewNaive": {
+                "properties": {
+                    "rendered": {
+                        "type": "string"
+                    },
+                    "readAs": {
+                        "type": "string"
+                    },
+                    "raw": {
+                        "type": "string"
+                    },
+                    "interpretedAs": {
+                        "type": "string"
+                    }
+                },
+                "required": ["rendered", "readAs", "raw", "interpretedAs"],
+                "type": "object"
+            },
+            "DataTimezonePreviewAware": {
+                "properties": {
+                    "rendered": {
+                        "type": "string"
+                    },
+                    "raw": {
+                        "type": "string"
+                    }
+                },
+                "required": ["rendered", "raw"],
+                "type": "object"
+            },
+            "ApiDataTimezonePreviewResults": {
+                "properties": {
+                    "aware": {
+                        "$ref": "#/components/schemas/DataTimezonePreviewAware"
+                    },
+                    "naive": {
+                        "$ref": "#/components/schemas/DataTimezonePreviewNaive"
+                    },
+                    "dataTimezoneApplies": {
+                        "type": "boolean"
+                    },
+                    "projectTimezone": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "aware",
+                    "naive",
+                    "dataTimezoneApplies",
+                    "projectTimezone"
+                ],
+                "type": "object"
+            },
+            "ApiDataTimezonePreview": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ApiDataTimezonePreviewResults"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "DataTimezonePreviewRequest": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "credentials": {
+                                "$ref": "#/components/schemas/CreateWarehouseCredentials"
+                            },
+                            "mode": {
+                                "type": "string",
+                                "enum": ["create"],
+                                "nullable": false
+                            }
+                        },
+                        "required": ["credentials", "mode"],
+                        "type": "object"
+                    },
+                    {
+                        "properties": {
+                            "dataTimezone": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "warehouseType": {
+                                "$ref": "#/components/schemas/WarehouseTypes"
+                            },
+                            "projectUuid": {
+                                "type": "string"
+                            },
+                            "mode": {
+                                "type": "string",
+                                "enum": ["edit"],
+                                "nullable": false
+                            }
+                        },
+                        "required": [
+                            "dataTimezone",
+                            "warehouseType",
+                            "projectUuid",
+                            "mode"
+                        ],
+                        "type": "object"
+                    }
+                ]
+            },
             "UpdateProjectMember": {
                 "properties": {
                     "role": {
@@ -18723,6 +18900,11 @@
             },
             "CreateDashboard": {
                 "properties": {
+                    "ownerUserUuid": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Set to a user uuid to assign an owner, null or omitted for no owner"
+                    },
                     "config": {
                         "$ref": "#/components/schemas/DashboardConfig"
                     },
@@ -19269,22 +19451,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "chart": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_ChartAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined--xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__chart_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--chartConfig_63__58__type-ChartType.CARTESIAN--config_63__58__eChartsConfig_58__xAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--yAxis_63__58__name_63_-string-or-undefined_-Array-or-undefined--series_63__58__name_63_-string-or-undefined--markLine_63__58__data_58__name_63_-string-or-undefined_-Array_-or-undefined_-Array-or-undefined__-or-undefined_-or-_type-ChartType.PIE--config_63__58__groupLabelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.FUNNEL--config_63__58__labelOverrides_63_-Record_string.string_-or-undefined_-or-undefined_-or-_type-ChartType.BIG_NUMBER--config_63__58__label_63_-string-or-undefined--comparisonLabel_63_-string-or-undefined_-or-undefined_-or-_type-ChartType.TABLE--config_63__58__columns_63_-Record_string._name-string__-or-undefined_-or-undefined_-or-_type-ChartType.CUSTOM--config_63__58__spec_63_-Record_string.unknown_-or-undefined_-or-undefined_-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiChartAsCodeListResponse": {
@@ -19750,22 +19932,22 @@
                     }
                 ]
             },
-            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
+            "PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__": {
                 "properties": {},
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
-            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
+            "PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__": {
                 "properties": {
                     "dashboard": {
-                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
+                        "$ref": "#/components/schemas/PartialObjectDeep___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined__._recurseIntoArrays-true__"
                     }
                 },
                 "type": "object",
                 "description": "Same as `PartialDeep`, but accepts only `object`s as inputs. Internal helper for `PartialDeep`."
             },
             "PartialDeep_DashboardAsCodeLanguageMap._recurseIntoArrays-true__": {
-                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__chartName-string--title-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__title-string--content-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
+                "$ref": "#/components/schemas/PartialObjectDeep__dashboard_58___91_x-string_93__58__name_63_-string-or-undefined--description_63_-string-or-undefined--tiles_63__58__40__type-DashboardTileTypes.SAVED_CHART-or-DashboardTileTypes.SQL_CHART--properties_58__title-string--chartName-string__-or-_type-DashboardTileTypes.MARKDOWN--properties_58__content-string--title-string__-or-_type-DashboardTileTypes.LOOM--properties_58__title-string___41_-Array-or-undefined___._recurseIntoArrays-true__",
                 "description": "Create a type from another type with all keys and nested keys set to optional.\n\nUse-cases:\n- Merging a default settings/config object with another object, the second object would be a deep partial of the default object.\n- Mocking and testing complex entities, where populating an entire object with its keys would be redundant in terms of the mock or test."
             },
             "ApiDashboardAsCodeListResponse": {
@@ -20852,6 +21034,80 @@
                     }
                 },
                 "required": ["role"],
+                "type": "object"
+            },
+            "UserDashboardsSummary": {
+                "properties": {
+                    "byProject": {
+                        "items": {
+                            "properties": {
+                                "count": {
+                                    "type": "number",
+                                    "format": "double"
+                                },
+                                "projectName": {
+                                    "type": "string"
+                                },
+                                "projectUuid": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["count", "projectName", "projectUuid"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    },
+                    "totalCount": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": ["byProject", "totalCount"],
+                "type": "object",
+                "description": "Dashboards owned by a user across all projects, e.g. for offboarding"
+            },
+            "ApiUserDashboardsSummaryResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/UserDashboardsSummary"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiReassignUserDashboardsResponse": {
+                "properties": {
+                    "results": {
+                        "properties": {
+                            "reassignedCount": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "required": ["reassignedCount"],
+                        "type": "object"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ReassignUserDashboardsRequest": {
+                "properties": {
+                    "newOwnerUserUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["newOwnerUserUuid"],
                 "type": "object"
             },
             "OrganizationMemberRole.EDITOR": {
@@ -24803,6 +25059,14 @@
                         "type": "string",
                         "format": "date-time",
                         "nullable": true
+                    },
+                    "owner": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DashboardOwner"
+                            }
+                        ],
+                        "nullable": true
                     }
                 },
                 "required": [
@@ -24820,7 +25084,8 @@
                     "space",
                     "pinnedList",
                     "views",
-                    "firstViewedAt"
+                    "firstViewedAt",
+                    "owner"
                 ],
                 "type": "object",
                 "additionalProperties": true
@@ -31230,6 +31495,48 @@
                 ]
             }
         },
+        "/api/v1/projects/preview-data-timezone": {
+            "post": {
+                "operationId": "PreviewDataTimezone",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiDataTimezonePreview"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Preview how warehouse dataTimezone interprets naive timestamps",
+                "summary": "Preview data timezone",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DataTimezonePreviewRequest"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectUuid}/access/{userUuid}": {
             "patch": {
                 "operationId": "UpdateProjectAccessForUser",
@@ -34018,6 +34325,102 @@
                         }
                     }
                 ]
+            }
+        },
+        "/api/v1/org/user/{userUuid}/dashboards-summary": {
+            "get": {
+                "operationId": "GetUserDashboardsSummary",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiUserDashboardsSummaryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Gets a summary of dashboards owned by a user across all projects",
+                "summary": "Get user dashboards",
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "the uuid of the user",
+                        "in": "path",
+                        "name": "userUuid",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/UUID"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/org/user/{userUuid}/reassign-dashboards": {
+            "patch": {
+                "operationId": "ReassignUserDashboards",
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiReassignUserDashboardsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Transfers ownership of all dashboards from one user to another",
+                "summary": "Reassign dashboards",
+                "tags": ["Organizations"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "the uuid of the user whose dashboards will be reassigned",
+                        "in": "path",
+                        "name": "userUuid",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/UUID"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "the new owner details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReassignUserDashboardsRequest",
+                                "description": "the new owner details"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/v1/org/allowedEmailDomains": {

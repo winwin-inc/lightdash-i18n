@@ -115,6 +115,10 @@ export const dbtExploreChartContentConfiguration: ContentConfiguration<SelectSav
                     knex.raw(
                         `${SavedChartsTableName}.first_viewed_at::timestamp as first_viewed_at`,
                     ),
+                    knex.raw(`null::uuid as owner_user_uuid`),
+                    knex.raw(`null as owner_user_first_name`),
+                    knex.raw(`null as owner_user_last_name`),
+                    knex.raw(`null as owner_user_email`),
                     knex.raw(`json_build_object(
                     'source','${ChartSourceType.DBT_EXPLORE}',
                     'chart_kind', ${SavedChartsTableName}.last_version_chart_kind,

@@ -152,6 +152,34 @@
         "update_success": "Success! User was updated.",
         "update_error": "Failed to update user's permissions"
     },
+    "hooks_organization_users": {
+        "delete_success": "Success! User was deleted.",
+        "delete_error": "Failed to delete user",
+        "update_success": "Success! User was updated.",
+        "update_error": "Failed to update user's permissions",
+        "reassign_dashboards_success": "Success! {{count}} dashboards transferred.",
+        "reassign_dashboards_error": "Failed to transfer dashboards"
+    },
+    "components_common_user_select": {
+        "placeholder": "Search for a user...",
+        "nothing_found": "No users found"
+    },
+    "components_user_settings_users_action_menu": {
+        "checking_owned_content": "Checking content owned by this user...",
+        "owns_dashboards": "This user is the owner of {{dashboardText}} across {{projectText}}.",
+        "dashboard_count_one": "1 dashboard",
+        "dashboard_count_other": "{{count}} dashboards",
+        "project_count_one": "1 project",
+        "project_count_other": "{{count}} projects",
+        "show_details": "Show details",
+        "hide_details": "Hide details",
+        "dashboard_singular": "dashboard",
+        "dashboard_plural": "dashboards",
+        "leave_unowned": "Leave dashboards without an owner",
+        "reassign_owner": "Transfer ownership to another user",
+        "new_owner_label": "New dashboard owner",
+        "no_owned_dashboards": "This user has no owned dashboards."
+    },
     "hooks_refresh_server": {
         "error": "Error syncing dbt project",
         "job_status": {
@@ -4093,6 +4121,10 @@
                 "label": "Description",
                 "placeholder": "A few words to give your team some context"
             },
+            "owner": {
+                "label": "Owner",
+                "placeholder": "Assign an owner..."
+            },
             "cancel": "Cancel",
             "save": "Save"
         }
@@ -5490,7 +5522,11 @@
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
-            "show_subtotals": "Show subtotals"
+            "show_subtotals": "Show subtotals",
+            "group_repeated_row_values": "Group repeated row values",
+            "row_grouping_always_on_with_subtotals": "Row grouping is always on when subtotals are enabled.",
+            "row_grouping_cant_be_used": "Row grouping cannot be used with metrics as rows",
+            "row_grouping_at_least_two_dimensions": "Row grouping can only be used on tables with at least two {{privoted}} dimensions"
         },
         "configure": "Configure",
         "config_tabs": {
@@ -6162,6 +6198,11 @@
         "configure": "Configure",
         "configure_chart": "Configure chart",
         "chart_type": "Chart type"
+    },
+    "components_explorer_visualization_timezone": {
+        "source_user": "This chart follows each viewer's own time zone. You're seeing it in {{timezone}}.",
+        "source_pinned": "This chart is pinned to {{timezone}} and won't follow the project time zone.",
+        "source_project": "This chart resolves in the project time zone ({{timezone}})."
     },
     "components_explorer_visualization_card_options": {
         "chart_types": {
@@ -7372,6 +7413,24 @@
                     "part_3": ", for the changes to take effect."
                 }
             }
+        },
+        "data_timezone": {
+            "label": "Data timezone",
+            "description": "The timezone your warehouse stores ambiguous timestamps in. Defaults to UTC if not set.",
+            "placeholder": "Not set (uses warehouse default)",
+            "preview": "Preview",
+            "preview_failed": "Could not preview",
+            "connection_failed": "Connection failed",
+            "pipeline_intro": "The current moment, step by step",
+            "unset_hint": "No data timezone set, so the warehouse reads the bare value in its own session timezone. Pick one above to control it.",
+            "step_from_warehouse": "From the warehouse",
+            "step_from_warehouse_value": "{{raw}}  ·  no timezone",
+            "step_exact_moment": "An exact moment in time",
+            "step_users_see": "What users see",
+            "read_as": "read as {{zone}}",
+            "your_data_timezone": " (your data timezone)",
+            "shown_in_project": "shown in {{timezone}} (your project timezone)",
+            "aware_note": "If a column already stores a timezone, step 1 is skipped: the moment is already exact ({{raw}} UTC) and your data timezone is ignored, so users see {{rendered}}."
         },
         "big_query": {
             "authentication_type": {
