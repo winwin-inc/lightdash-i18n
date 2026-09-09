@@ -1,7 +1,7 @@
 # 上游 CHANGELOG 高价值后置候选（0.2513 → 2.57）
 
 > **用途**：罗列相对上游 `../lightdash` 在 **0.2513.0 → 2.57.0** 窗口内出现、**尚未写入**主迁移评估表（[`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md) §二）、但对**中文自托管 BI fork** 仍有明显价值的能力，供试跑稳定后排期。  
-> **不阻塞**当前试跑门禁（FF + migrate + 最短手测，见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)）。  
+> **不阻塞**当前试跑门禁（FF + migrate + 手测，见 [`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。  
 > **上游对齐基线**与迁移指南文首「上游对齐基线」小节保持一致。
 
 ---
@@ -28,7 +28,7 @@
 | Embed / 三方嵌入能力包 | **本批不做 / 暂缓** | 当前业务几乎无用 |
 | Data Apps Sandbox / generate、Chart Types 全量 | **本批不做 / 暂缓** | Data Apps 尚未形成精品；运行时收口 A 保持现状 |
 | EE 解绑（Direct Access / Homepage / Autopilot 等） | **本批不做 / 暂缓** | 暂无需求 |
-| Role Sets / Slug rename / Pre-aggregates / GuidedSetup / Date Zoom | **本批不做** | 破坏性或强冲突；将来专项另开 |
+| Role Sets / Slug rename / Pre-aggregates / GuidedSetup / Date Zoom | **本批不做** | 破坏性或强冲突；将来专项另开。Slug / Date Zoom 增强说明见下文 **§暂缓归档** |
 | **本批迁（非破坏性三件套）** | Honest/时区 P1 收尾、Dashboard Ownership、透视表增强子集 | 见 §1.2 |
 
 **维护约定**：抬高对照窗口或完成一批上游移植时，同步更新本表与 [`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md) 文首基线。
@@ -115,10 +115,10 @@ flowchart LR
 | **Honest / 时区 P1 剩余** | 数仓时区配置与结果标注 | **本批迁**（dataTimezone UI + resolvedTimezone MVP） | echarts shift 后置 |
 | **Dashboard Ownership** | 资产治理闭环 | **本批迁** | 不绑 EE |
 | **透视表增强**（行合并 / 冻结列） | Explore 表格分析升级 | **本批迁子集**（VTable） | 不改 150 列上限 |
-| **Date Zoom 看板控件** | 看板级时间粒度 | 部分 | **本批不做**（动态日期+Tabs 强冲突） |
-| **Pre-aggregates 预聚合** | 降数仓成本 | 缺 | **本批不做** |
+| **Date Zoom 看板控件** | 看板级时间粒度 | 部分（基础已有；增强未追） | **本批不做**；见 §暂缓归档 |
+| **Pre-aggregates 预聚合** | 降数仓成本 | 缺 | **本批不做**（EE） |
 | **Content-as-Code / Git write-back** | 多环境发布 | 缺 | **不做 GitOps 可 skip** |
-| **Chart URL Slug 重命名** | 书签/外链稳定 | 边缘 | **本批不做**（破坏性） |
+| **Chart URL Slug 重命名** | 书签/外链稳定 | 边缘 | **本批不做**；见 §暂缓归档 |
 | **Filter Requirements GuidedSetup UI** | 配置体验 | 语义核已有 | **本批不做** |
 
 ---
@@ -168,8 +168,39 @@ CHANGELOG 体量大、但对当前试跑 / 主闭环 ROI 低或冲突大：
 
 ---
 
-## 7. 相关文档
+## 7. 暂缓归档（上游有、本窗口不实现）
 
-- 主迁移全景与评估表：[`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md)
-- 试跑冒烟与后置表：[`v2-smoke-checklist.md`](v2-smoke-checklist.md)
-- 自动化门禁：`pnpm v2:verify`
+> 记录「可以后专项做」的说明；**不等于排期**。交测勿当缺陷。
+
+### 7.1 Chart / Content Slug 重命名（非 EE）
+
+| | |
+|--|--|
+| **是什么** | 改图表/看板可读 URL（slug），并尽量维护旧链 / as-code 引用 |
+| **不是什么** | 「能用 slug 打开」——本仓已有；缺的是 rename 闭环 |
+| **上游** | `contentSlug.ts`、`cli/slugUpdate.ts`、`SavedChartModel.renameSlug`、Promote/Coder |
+| **为何暂缓** | 边缘需求；深链 / MCP / as-code 破坏面大 |
+| **再开条件** | 大量外链依赖 slug 且频繁改名，或 promote 强依赖 rename |
+
+### 7.2 Date Zoom 增强（非 EE）
+
+| | |
+|--|--|
+| **基础（已有）** | 顶栏切日/周/月等，改时间聚合颗粒（非筛选器） |
+| **增强（未追）** | 上游 `dateZoomConfig`、ControlPills / ControlConfig |
+| **上游** | `dashboard.ts` 的 `DateZoomConfig`、`utils/dateZoom.ts`、前端 `DateZoomControl*` |
+| **为何暂缓** | 与动态日期 + Tabs 易冲突；基础能力已够用 |
+| **再开条件** | 业务要可配置粒度集合/默认值，并愿意专项处理冲突 |
+
+### 7.3 其它本批不做（详见上文表）
+
+Embed 解绑、Pre-agg（EE）、Role Sets、GuidedSetup UI、External Sources、Chart Types 全量、Data Apps Sandbox/generate、echarts `timezoneShift` 等。
+
+---
+
+## 8. 相关文档
+
+- **索引**：[`v2-README.md`](v2-README.md)
+- 交测清单：[`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)
+- 迁移全景：[`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md)
+- 自动化：`pnpm v2:verify`

@@ -4,8 +4,8 @@
 >
 > **与 Cursor Plan 的分工**：可执行主线（Step0~5、优先级、验收、禁止项）以 Cursor Plan `v2-upgrade-optimized` 为准；本文档保留功能全景、评估表、风险长文与自研保护清单细节。**两边需同步维护，不可只留精简版。**
 >
-> **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；预发人工项见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。  
-> **CHANGELOG 增量高价值候选**（未进 §二评估表、不阻塞试跑）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
+> **主迁移代码状态（2026-09-03）**：Step 0–4 已合入 `feat/v2-upgrade`；Step 5 自动化用 `pnpm v2:verify`；**预发/交测**见 [`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)（索引 [`v2-README.md`](v2-README.md)）。**`packages/query-sdk` 已引入**；**common `ee/apps` 宿主类型已引入**；**Data Apps 运行时收口（A）已落地**：`features/apps` UI + 路由/Nav/`EnableDataApps` + CASL/`HealthService.dataApps` + Dashboard tile ✅；后端 AppModel/API/preview/migrations 已从上游拷入且 `backend typecheck` 通过。**仍待**：Sandbox 真跑通 / generate 端到端、去部分 STUB。后置专项：Chart Types、External Sources、i18n ns 重构、EE 解绑。  
+> **CHANGELOG 增量 / 收口与暂缓**：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
 
 ### 上游对齐基线
 
@@ -326,7 +326,7 @@ flowchart TB
    - `LOCK_DASHBOARD_FILTERS_ENABLED=true` → 启用筛选器锁定 UI（FF `lock-dashboard-filters`；前端 DEV 模式默认可用）
    - `DASHBOARD_TABS_IN_MEMORY=true` → Tab 内存模式（见上）
    - `RESULTS_CACHE_ENABLED=true` → 结果缓存（见 `results.cacheEnabled`）
-7. **发版 tag 与静态资源**：正式 `vX.Y.Z` 由 GA 上传 OSS 并走 CDN；试跑 `vX.Y.Z-test.N`（semver 预发布）跳过 OSS，运行时后端托管镜像内前端（见 [`v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
+7. **发版 tag 与静态资源**：正式 `vX.Y.Z` 由 GA 上传 OSS 并走 CDN；试跑 `vX.Y.Z-test.N`（semver 预发布）跳过 OSS，运行时后端托管镜像内前端（见 [`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
 
 ---
 
@@ -428,7 +428,7 @@ flowchart TD
 2. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
 3. `pnpm generate-api` — **已通过**。
 4. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
-5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-smoke-checklist.md`](v2-smoke-checklist.md)）。
+5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
 6. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）
