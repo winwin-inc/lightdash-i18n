@@ -14,6 +14,7 @@ import { SlackClient } from '../../clients/Slack/SlackClient';
 import { AnalyticsModel } from '../../models/AnalyticsModel';
 import type { CatalogModel } from '../../models/CatalogModel/CatalogModel';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
+import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberProfileModel';
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
@@ -97,6 +98,7 @@ describe('DashboardService', () => {
         userDashboardCategoryModel:
             userDashboardCategoryModel as unknown as UserDashboardCategoryModel,
         categoryRpcClient: {} as CategoryRpcClient,
+        organizationMemberProfileModel: {} as OrganizationMemberProfileModel,
     });
     afterEach(() => {
         jest.clearAllMocks();

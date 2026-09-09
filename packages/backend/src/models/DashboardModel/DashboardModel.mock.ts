@@ -166,6 +166,7 @@ export const dashboardEntry: DashboardTable['base'] = {
     search_vector: '',
     views_count: 0,
     first_viewed_at: null,
+    owner_user_uuid: null,
 };
 
 export const dashboardVersionEntry: DashboardVersionTable['base'] = {
@@ -208,6 +209,10 @@ export const dashboardWithVersionEntry: GetDashboardQuery = {
     views_count: 1,
     first_viewed_at: new Date(1),
     config: undefined,
+    owner_user_uuid: null,
+    owner_first_name: null,
+    owner_last_name: null,
+    owner_email: null,
 };
 
 export const dashboardTileEntry: DashboardTileTable['base'] = {
@@ -317,6 +322,7 @@ export const expectedDashboard: DashboardDAO = {
     views: 1,
     firstViewedAt: new Date(1),
     tabs: [],
+    owner: null,
 };
 
 export const expectedAllDashboards: DashboardBasicDetailsWithTileTypes[] = [
