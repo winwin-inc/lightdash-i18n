@@ -1420,14 +1420,17 @@
         },
         "scheduler": {
             "processing_job": "正在处理任务...",
+            "processing_job_subtitle": "正在准备推送内容，请稍候",
             "failed_to_process_job": "处理任务失败",
             "scheduleed_successfully": "已计划的交付发送成功",
             "process_scheduled_delivery": "正在处理已计划的交付...",
+            "process_scheduled_delivery_subtitle": "发送完成后会在这里提示",
             "send_scheduled_delivery_failed": "发送已计划的交付失败",
             "polling_job_status_error": "轮询任务状态时出错"
         },
         "send_now_scheduler": {
             "processing_job": "正在处理任务...",
+            "processing_job_subtitle": "正在准备推送内容，请稍候",
             "failed_to_process_job": "处理任务失败",
             "failed_to_send_scheduled_delivery": "发送已计划的交付失败"
         },

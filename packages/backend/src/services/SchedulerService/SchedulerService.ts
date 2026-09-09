@@ -48,12 +48,12 @@ import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import { SchedulerClient } from '../../scheduler/SchedulerClient';
+import { getAdjustedCronByOffset } from '../../utils/cronUtils';
 import {
     assertDashboardSchedulerFilterRequirementsMet,
     getSchedulerFiltersFromUpdate,
 } from '../../utils/schedulerFilterRequirements';
-import { SchedulerClient } from '../../scheduler/SchedulerClient';
-import { getAdjustedCronByOffset } from '../../utils/cronUtils';
 import { BaseService } from '../BaseService';
 
 type SchedulerServiceArguments = {
@@ -634,7 +634,11 @@ export class SchedulerService extends BaseService {
         );
     }
 
-    async sendSchedulerByUuid(user: SessionUser, schedulerUuid: string) {
+    async sendSchedulerByUuid(
+        user: SessionUser,
+        schedulerUuid: string,
+        locale?: string,
+    ) {
         if (!isUserWithOrg(user)) {
             throw new ForbiddenError('User is not part of an organization');
         }
@@ -644,10 +648,16 @@ export class SchedulerService extends BaseService {
             resource: { organizationUuid, projectUuid },
         } = await this.checkUserCanUpdateSchedulerResource(user, schedulerUuid);
 
+        const options = {
+            ...scheduler.options,
+            ...(locale ? { locale } : {}),
+        };
+
         return this.schedulerClient.addScheduledDeliveryJob(
             new Date(),
             {
                 ...scheduler,
+                options,
                 organizationUuid,
                 projectUuid,
                 userUuid: user.userUuid,
@@ -711,7 +721,9 @@ export class SchedulerService extends BaseService {
 
         await this.schedulerModel.bulkUpdateSchedulersCron(schedulerUpdates);
     }
+
     // STUB: port from upstream SchedulerService when app deliveries are wired
+    // eslint-disable-next-line class-methods-use-this
     async getAppSchedulers(
         _user: SessionUser,
         _appUuid: string,
@@ -720,6 +732,7 @@ export class SchedulerService extends BaseService {
         return [];
     }
 
+    // eslint-disable-next-line class-methods-use-this
     async createAppScheduler(
         _user: SessionUser,
         _appUuid: string,

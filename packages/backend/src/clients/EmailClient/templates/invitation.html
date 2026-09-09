@@ -553,13 +553,13 @@
                                                                                                     style="
                                                                                                         display: block;
                                                                                                         border: 0;
-                                                                                                        height: auto;
-                                                                                                        width: 100%;
+                                                                                                        width: 36px;
+                                                                                                        height: 36px;
                                                                                                         margin: 0;
-                                                                                                        max-width: 100%;
                                                                                                     "
-                                                                                                    width="122"
-                                                                                                    src="{{host}}/lightdash-logo.png"
+                                                                                                    width="36"
+                                                                                                    height="36"
+                                                                                                    src="{{logoSrc}}"
                                                                                                 />
                                                                                             </div>
                                                                                         </td>
@@ -676,12 +676,7 @@
                                                                                                         mso-text-raise: 1px;
                                                                                                     "
                                                                                                 >
-                                                                                                    You&#39;ve
-                                                                                                    been
-                                                                                                    invited
-                                                                                                    to
-                                                                                                    join
-                                                                                                    Lightdash!
+                                                                                                    {{inviteTitle}}
                                                                                                 </h1>
                                                                                             </td>
                                                                                         </tr>
@@ -748,48 +743,8 @@
                                                                                                         mso-text-raise: 2px;
                                                                                                     "
                                                                                                 >
-                                                                                                    Your
-                                                                                                    teammates
-                                                                                                    at <span
-                                                                                                        class="t145"
-                                                                                                        style="
-                                                                                                            font-weight: 500;
-                                                                                                            mso-line-height-rule: exactly;
-                                                                                                        "
-                                                                                                        >{{orgName}}</span
-                                                                                                    > are
-                                                                                                    using <span
-                                                                                                        class="t146"
-                                                                                                        style="
-                                                                                                            font-weight: 500;
-                                                                                                            mso-line-height-rule: exactly;
-                                                                                                        "
-                                                                                                        >Lightdash</span
-                                                                                                    > to
-                                                                                                    discover
-                                                                                                    and
-                                                                                                    share
-                                                                                                    data
-                                                                                                    insights.
-                                                                                                    Click
-                                                                                                    on
-                                                                                                    the
-                                                                                                    link
-                                                                                                    below
-                                                                                                    within
-                                                                                                    the
-                                                                                                    next
-                                                                                                    72
-                                                                                                    hours
-                                                                                                    to
-                                                                                                    join
-                                                                                                    your
-                                                                                                    team
-                                                                                                    and
-                                                                                                    start
-                                                                                                    exploring
-                                                                                                    your
-                                                                                                    data!
+                                                                                                    {{inviteBody}}
+                                                                                                    {{inviteCtaHint}}
                                                                                                 </p>
                                                                                             </td>
                                                                                         </tr>
@@ -873,9 +828,7 @@
                                                                                                     "
                                                                                                     href="{{inviteUrl}}"
                                                                                                     target="_blank"
-                                                                                                    >Join
-                                                                                                    your
-                                                                                                    team!</a
+                                                                                                    >{{inviteCta}}</a
                                                                                                 >
                                                                                             </td>
                                                                                         </tr>
@@ -1197,7 +1150,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Lightdash</a
+                                                                                                        >{{brandName}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>
@@ -1262,8 +1215,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Privacy
-                                                                                                        policy</a
+                                                                                                        >{{privacyPolicy}}</a
                                                                                                     >  •
                                                                                                      <a
                                                                                                         class="t123"
@@ -1277,9 +1229,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Join
-                                                                                                        our
-                                                                                                        community</a
+                                                                                                        >{{joinCommunity}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>

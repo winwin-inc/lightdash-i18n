@@ -24,7 +24,6 @@ import {
     type SchedulerAndTargets,
     type SchedulerCsvOptions,
 } from '@lightdash/common';
-import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
     Anchor,
     Box,
@@ -64,6 +63,7 @@ import intersection from 'lodash/intersection';
 import isEqual from 'lodash/isEqual';
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 
 import FieldSelect from '../../../components/common/FieldSelect';
 import FilterNumberInput from '../../../components/common/Filters/FilterInputs/FilterNumberInput';
@@ -86,12 +86,7 @@ import SchedulerParameters from './SchedulerParameters';
 import { SchedulerPreview } from './SchedulerPreview';
 import { Limit, Values } from './types';
 
-enum SlackStates {
-    LOADING,
-    SUCCESS,
-    NO_SLACK,
-    MISSING_SCOPES,
-}
+enum SlackStates
 
 const DEFAULT_VALUES = {
     name: '',
@@ -166,8 +161,8 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             options.limit === Limit.TABLE
                 ? Limit.TABLE
                 : options.limit === Limit.ALL
-                ? Limit.ALL
-                : Limit.CUSTOM;
+                  ? Limit.ALL
+                  : Limit.CUSTOM;
         if (formOptions.limit === Limit.CUSTOM) {
             formOptions.customLimit = options.limit as number;
         }
@@ -343,7 +338,7 @@ const SchedulerForm: FC<Props> = ({
     currentParameterValues,
     availableParameters,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const thresholdOperatorOptions = [
         {
@@ -397,18 +392,18 @@ const SchedulerForm: FC<Props> = ({
                       ),
                   })
                 : isThresholdAlert
-                ? DEFAULT_VALUES_ALERT
-                : {
-                      ...DEFAULT_VALUES,
-                      selectedTabs: isDashboardTabsAvailable
-                          ? dashboard?.tabs.map((tab) => tab.uuid)
-                          : null,
-                      parameters:
-                          isDashboard &&
-                          Object.keys(dashboardParameterValues).length > 0
-                              ? dashboardParameterValues
-                              : undefined,
-                  },
+                  ? DEFAULT_VALUES_ALERT
+                  : {
+                        ...DEFAULT_VALUES,
+                        selectedTabs: isDashboardTabsAvailable
+                            ? dashboard?.tabs.map((tab) => tab.uuid)
+                            : null,
+                        parameters:
+                            isDashboard &&
+                            Object.keys(dashboardParameterValues).length > 0
+                                ? dashboardParameterValues
+                                : undefined,
+                    },
         validateInputOnBlur: ['options.customLimit'],
 
         validate: {
@@ -502,10 +497,24 @@ const SchedulerForm: FC<Props> = ({
                         resource?.type === 'dashboard'
                             ? values.options.xlsxFileLayout
                             : undefined,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             } else if (values.format === SchedulerFormat.IMAGE) {
                 options = {
                     withPdf: values.options.withPdf,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
+                };
+            } else {
+                // gsheets / other formats still carry UI locale for any email fallbacks
+                options = {
+                    ...options,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             }
 
@@ -615,12 +624,12 @@ const SchedulerForm: FC<Props> = ({
                                   'features_scheduler_form.form.tabs_panel_setup.slack_group.channels',
                               )
                             : channelPrefix === '@'
-                            ? t(
-                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.users',
-                              )
-                            : t(
-                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
-                              ),
+                              ? t(
+                                    'features_scheduler_form.form.tabs_panel_setup.slack_group.users',
+                                )
+                              : t(
+                                    'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                                ),
                 };
             })
             .concat(privateChannels);
@@ -943,7 +952,7 @@ const SchedulerForm: FC<Props> = ({
                                         'features_scheduler_form.form.tabs_panel_setup.format',
                                     )}
                                 </Input.Label>
-                                <Group spacing="xs" noWrap>
+                                <Group spacing="xs" noWrap align="center">
                                     <SegmentedControl
                                         data={[
                                             {
@@ -963,16 +972,10 @@ const SchedulerForm: FC<Props> = ({
                                             },
                                         ]}
                                         w="50%"
-                                        mb="xs"
                                         {...form.getInputProps('format')}
                                     />
                                     {isImageDisabled && (
-                                        <Text
-                                            size="xs"
-                                            color="gray.6"
-                                            w="30%"
-                                            sx={{ alignSelf: 'start' }}
-                                        >
+                                        <Text size="xs" color="gray.6" w="30%">
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
                                             )}{' '}

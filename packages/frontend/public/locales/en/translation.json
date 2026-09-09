@@ -1412,14 +1412,17 @@
         },
         "scheduler": {
             "processing_job": "Processing job...",
+            "processing_job_subtitle": "Preparing delivery content, please wait",
             "failed_to_process_job": "Failed to process job",
             "scheduleed_successfully": "Scheduled delivery sent successfully",
             "process_scheduled_delivery": "Processing scheduled delivery...",
+            "process_scheduled_delivery_subtitle": "You'll get another notice when it's done",
             "send_scheduled_delivery_failed": "Failed to send scheduled delivery",
             "polling_job_status_error": "Error polling job status"
         },
         "send_now_scheduler": {
             "processing_job": "Processing job...",
+            "processing_job_subtitle": "Preparing delivery content, please wait",
             "failed_to_process_job": "Failed to process job",
             "failed_to_send_scheduled_delivery": "Failed to send scheduled delivery"
         },

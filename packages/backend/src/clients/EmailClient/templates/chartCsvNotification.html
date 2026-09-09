@@ -590,14 +590,13 @@
                                                                                                     style="
                                                                                                         display: block;
                                                                                                         border: 0;
-                                                                                                        height: auto;
-                                                                                                        width: 100%;
+                                                                                                        width: 36px;
+                                                                                                        height: 36px;
                                                                                                         margin: 0;
-                                                                                                        max-width: 100%;
                                                                                                     "
-                                                                                                    width="100"
-                                                                                                    height="20.859375"
-                                                                                                    src="{{host}}/lightdash-logo.png"
+                                                                                                    width="36"
+                                                                                                    height="36"
+                                                                                                    src="{{logoSrc}}"
                                                                                                 />
                                                                                             </div>
                                                                                         </td>
@@ -905,16 +904,7 @@
                                                                                                                                 mso-text-raise: 1px;
                                                                                                                             "
                                                                                                                         >
-                                                                                                                            The
-                                                                                                                            latest
-                                                                                                                            results
-                                                                                                                            for
-                                                                                                                            this
-                                                                                                                            chart
-                                                                                                                            are
-                                                                                                                            ready
-                                                                                                                            to
-                                                                                                                            download!
+                                                                                                                            {{chartReady}}
                                                                                                                         </h1>
                                                                                                                     </td>
                                                                                                                 </tr>
@@ -1015,8 +1005,7 @@
                                                                                                                                 mso-text-raise: 8px;
                                                                                                                             "
                                                                                                                             target="_blank"
-                                                                                                                            >Download
-                                                                                                                            .csv</a
+                                                                                                                            >{{downloadCsv}}</a
                                                                                                                         >
                                                                                                                     </td>
                                                                                                                 </tr>
@@ -1282,8 +1271,7 @@
                                                                                                                                                                                                     should
                                                                                                                                                                                                     update
                                                                                                                                                                                                     your
-                                                                                                                                                                                                    scheduled
-                                                                                                                                                                                                    delivery
+                                                                                                                                                                                                    {{scheduledDeliveryLabel}}
                                                                                                                                                                                                     to
                                                                                                                                                                                                     include
                                                                                                                                                                                                     fewer
@@ -1558,8 +1546,7 @@
                                                                                                                                                                                                     "
                                                                                                                                                                                                 >
                                                                                                                                                                                                     This
-                                                                                                                                                                                                    scheduled
-                                                                                                                                                                                                    delivery
+                                                                                                                                                                                                    {{scheduledDeliveryLabel}}
                                                                                                                                                                                                     returned
                                                                                                                                                                                                     an
                                                                                                                                                                                                     empty
@@ -1685,10 +1672,7 @@
                                                                                                                 color: #6178c2;
                                                                                                                 mso-line-height-rule: exactly;
                                                                                                             "
-                                                                                                            >View
-                                                                                                            chart
-                                                                                                            in
-                                                                                                            Lightdash</span
+                                                                                                            >{{viewChart}}</span
                                                                                                         ></a
                                                                                                     >
                                                                                                 </p>
@@ -1782,8 +1766,7 @@
                                                                                                                 color: #6178c2;
                                                                                                                 mso-line-height-rule: exactly;
                                                                                                             "
-                                                                                                            >Scheduled
-                                                                                                            delivery</span
+                                                                                                            >{{scheduledDeliveryLabel}}</span
                                                                                                         ></a
                                                                                                     >{{/if}}
                                                                                                     {{#unless
@@ -1793,8 +1776,7 @@
                                                                                                             margin-bottom: 0;
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
-                                                                                                        >Scheduled
-                                                                                                        delivery</span
+                                                                                                        >{{scheduledDeliveryLabel}}</span
                                                                                                     >{{/unless}}
                                                                                                     <span
                                                                                                         class="t236"
@@ -2127,7 +2109,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Lightdash</a
+                                                                                                        >{{brandName}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>
@@ -2194,8 +2176,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Privacy
-                                                                                                        policy</a
+                                                                                                        >{{privacyPolicy}}</a
                                                                                                     >
                                                                                                     •
                                                                                                     <a
@@ -2212,9 +2193,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Join
-                                                                                                        our
-                                                                                                        community</a
+                                                                                                        >{{joinCommunity}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>

@@ -259,7 +259,7 @@ pnpm -F @lightdash/mcp test
 ## 版本号与发版（`mcp-v*`）
 
 - **运行时**：本包 **[`package.json`](./package.json)** 的 **`version`**（Server 元数据与启动日志）。
-- **与 lightdash-skills 同号发布**：须与本仓库内 **`packages/lightdash-skills/version.json`** 的 `version` 一致；打 **`mcp-v*`** tag、触发 Docker 构建与推送等，按本 monorepo 既有流程执行（具体命令与脚本选项见仓库内维护文档，不在此罗列）。
+- **发版**：仓库根 **`pnpm bump-mcp -- x.y.z`**（写本包 version、打 **`mcp-v*`** tag；推送后触发 Docker 构建与推送）。细节见 [`scripts/bump-versions.mjs`](../../scripts/bump-versions.mjs) 与 **`docs/mcp/`**。
 
 ## Docker
 

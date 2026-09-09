@@ -561,13 +561,13 @@
                                                                                                     style="
                                                                                                         display: block;
                                                                                                         border: 0;
-                                                                                                        height: auto;
-                                                                                                        width: 100%;
+                                                                                                        width: 36px;
+                                                                                                        height: 36px;
                                                                                                         margin: 0;
-                                                                                                        max-width: 100%;
                                                                                                     "
-                                                                                                    width="122"
-                                                                                                    src="{{host}}/lightdash-logo.png"
+                                                                                                    width="36"
+                                                                                                    height="36"
+                                                                                                    src="{{logoSrc}}"
                                                                                                 />
                                                                                             </div>
                                                                                         </td>
@@ -684,11 +684,7 @@
                                                                                                         mso-text-raise: 1px;
                                                                                                     "
                                                                                                 >
-                                                                                                    Your
-                                                                                                    one
-                                                                                                    time
-                                                                                                    password
-                                                                                                    is:
+                                                                                                    {{otpIntro}}
                                                                                                 </h1>
                                                                                             </td>
                                                                                         </tr>
@@ -822,18 +818,7 @@
                                                                                                         mso-text-raise: 2px;
                                                                                                     "
                                                                                                 >
-                                                                                                    Enter
-                                                                                                    this
-                                                                                                    code
-                                                                                                    in
-                                                                                                    Lightdash
-                                                                                                    so
-                                                                                                    we
-                                                                                                    can
-                                                                                                    verify
-                                                                                                    your
-                                                                                                    email
-                                                                                                    address.
+                                                                                                    {{otpHint}}
                                                                                                     This
                                                                                                     code
                                                                                                     is
@@ -845,15 +830,7 @@
                                                                                                     >.
                                                                                                 </p>
                                                                                                 <p>
-                                                                                                    If
-                                                                                                    you
-                                                                                                    have
-                                                                                                    any
-                                                                                                    questions,
-                                                                                                    send
-                                                                                                    us
-                                                                                                    an
-                                                                                                    email.
+                                                                                                    {{otpQuestions}}
                                                                                                      
                                                                                                 </p>
                                                                                             </td>
@@ -921,10 +898,7 @@
                                                                                                         mso-text-raise: 2px;
                                                                                                     "
                                                                                                 >
-                                                                                                    We’re
-                                                                                                    glad
-                                                                                                    you’re
-                                                                                                    here! 
+                                                                                                    {{otpGlad}} 
                                                                                                 </p>
                                                                                             </td>
                                                                                         </tr>
@@ -1246,7 +1220,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Lightdash</a
+                                                                                                        >{{brandName}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>
@@ -1311,8 +1285,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Privacy
-                                                                                                        policy</a
+                                                                                                        >{{privacyPolicy}}</a
                                                                                                     >  •
                                                                                                      <a
                                                                                                         class="t111"
@@ -1326,9 +1299,7 @@
                                                                                                             mso-line-height-rule: exactly;
                                                                                                         "
                                                                                                         target="_blank"
-                                                                                                        >Join
-                                                                                                        our
-                                                                                                        community</a
+                                                                                                        >{{joinCommunity}}</a
                                                                                                     >
                                                                                                 </p>
                                                                                             </td>

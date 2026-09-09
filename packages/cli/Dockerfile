@@ -1,6 +1,6 @@
 # Jenkins CLI 工具镜像（对齐历史 justfile + mise Dockerfile）
 # 历史打法：docker build --build-arg VERSION=x.y.z -t .../tool:lightdash-cli-x.y.z
-# 现打法：git tag cli-vX.Y.Z → Actions 推送 .../tool:lightdash-cli-X.Y.Z
+# 现打法：pnpm bump-cli -- X.Y.Z → git push origin cli-vX.Y.Z → Actions 推送 .../tool:lightdash-cli-X.Y.Z
 # Jenkins：
 #   IMAGE=registry-vpc.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-0.2107.7
 #

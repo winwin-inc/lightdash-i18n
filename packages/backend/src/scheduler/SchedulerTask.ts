@@ -8,12 +8,13 @@ import {
     CreateSchedulerTarget,
     DashboardFilterRule,
     DashboardParameterValue,
+    type DateGranularity,
     type DownloadAsyncQueryResultsPayload,
     DownloadCsvPayload,
     DownloadFileType,
     EmailNotificationPayload,
-    ExportCsvDashboardPayload,
     type ExportContentPayload,
+    ExportCsvDashboardPayload,
     FeatureFlags,
     FieldReferenceError,
     ForbiddenError,
@@ -88,16 +89,13 @@ import {
     operatorActionValue,
     pivotResultsAsCsv,
     setUuidParam,
-    type DateGranularity,
 } from '@lightdash/common';
 import archiver from 'archiver';
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
-import { Readable } from 'stream';
-import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
-import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import slackifyMarkdown from 'slackify-markdown';
+import { Readable } from 'stream';
 import {
     DownloadCsv,
     LightdashAnalytics,
@@ -127,6 +125,7 @@ import {
 } from '../services/CsvService/CsvService';
 import { DashboardService } from '../services/DashboardService/DashboardService';
 import { ExcelService } from '../services/ExcelService/ExcelService';
+import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import { ProjectService } from '../services/ProjectService/ProjectService';
 import { RenameService } from '../services/RenameService/RenameService';
 import { SchedulerService } from '../services/SchedulerService/SchedulerService';
@@ -137,6 +136,7 @@ import {
 import { UserService } from '../services/UserService';
 import { ValidationService } from '../services/ValidationService/ValidationService';
 import { EncryptionUtil } from '../utils/EncryptionUtil/EncryptionUtil';
+import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
 import { SchedulerClient } from './SchedulerClient';
 
 export type SchedulerTaskArguments = {
@@ -1745,8 +1745,8 @@ export default class SchedulerTask {
 
         const workbookPath = `/tmp/${nanoid()}.xlsx`;
         try {
-            const workbookResult = await WorkbookExportHelper.createWorkbookFile(
-                {
+            const workbookResult =
+                await WorkbookExportHelper.createWorkbookFile({
                     files: files.map((file) => ({
                         filename: file.filename,
                         sheetName: file.filename,
@@ -1758,8 +1758,7 @@ export default class SchedulerTask {
                             `Failed to add XLSX file "${filename}" to workbook: ${error}`,
                         );
                     },
-                },
-            );
+                });
 
             if (workbookResult.worksheetCount === 0) {
                 throw new UnexpectedServerError(
@@ -2164,6 +2163,15 @@ export default class SchedulerTask {
                     schedulerUuid,
                 );
 
+            const emailLocale =
+                (scheduler.options as { locale?: string } | undefined)
+                    ?.locale ?? 'zh';
+            const humanCron = getHumanReadableCronExpression(
+                scheduler.cron,
+                scheduler.timezone || defaultSchedulerTimezone,
+                emailLocale,
+            );
+
             if (thresholds !== undefined && thresholds.length > 0) {
                 // We assume the threshold is possitive , so we don't need to get results here
                 if (imageUrl === undefined) {
@@ -2190,23 +2198,27 @@ export default class SchedulerTask {
                 }** triggered the following alerts:\n${thresholdMessageList.join(
                     '\n',
                 )}`;
+                const alertCopy = (
+                    await import('../clients/EmailClient/emailCopy')
+                ).getEmailCopy(emailLocale);
                 await this.emailClient.sendImageNotificationEmail(
                     recipient,
-                    `Lightdash Data Alert`,
+                    alertCopy.dataAlertSubject,
                     name,
                     details.description || '',
                     thresholdMessage,
-                    new Date().toLocaleDateString('en-GB'),
-                    `For security reasons, delivered files expire after ${
-                        this.s3Client.getExpirationWarning()?.days || 3
-                    } days`,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
+                    ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     undefined, // expiration days
-                    'This is a data alert sent by Lightdash',
+                    alertCopy.dataAlertDeliveryType,
+                    emailLocale,
                 );
             } else if (format === SchedulerFormat.IMAGE) {
                 if (imageUrl === undefined) {
@@ -2218,17 +2230,18 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     this.s3Client.getExpirationWarning()?.days,
+                    undefined,
+                    emailLocale,
                 );
             } else if (savedChartUuid) {
                 if (csvUrl === undefined) {
@@ -2241,11 +2254,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrl,
                     url,
                     schedulerUrl,
@@ -2253,6 +2265,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else if (dashboardUuid) {
                 if (csvUrls === undefined) {
@@ -2266,11 +2279,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrls,
                     url,
                     schedulerUrl,
@@ -2278,6 +2290,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else {
                 throw new Error('Not implemented');
@@ -3279,7 +3292,9 @@ export default class SchedulerTask {
                     );
                 }
                 if (!this.s3Client.isEnabled()) {
-                    throw new MissingConfigError('Cloud storage is not enabled');
+                    throw new MissingConfigError(
+                        'Cloud storage is not enabled',
+                    );
                 }
 
                 if (payload.format === SchedulerFormat.CSV) {
@@ -3297,10 +3312,9 @@ export default class SchedulerTask {
                             dashboardUuid: payload.resourceUuid,
                             options,
                             overrideDashboardFilters: payload.dashboardFilters,
-                            dateZoomGranularity:
-                                payload.dateZoomGranularity as
-                                    | DateGranularity
-                                    | undefined,
+                            dateZoomGranularity: payload.dateZoomGranularity as
+                                | DateGranularity
+                                | undefined,
                             selectedTabs: payload.selectedTabs ?? null,
                             invalidateCache: true,
                             schedulerParameters: payload.parameters,
@@ -3467,7 +3481,7 @@ export default class SchedulerTask {
             const zipFileName = `${sanitizeGenericFileName(
                 zipNameBase,
             )}-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
-            return this.s3Client.uploadZip(
+            return await this.s3Client.uploadZip(
                 fsSync.createReadStream(zipPath),
                 zipFileName,
             );

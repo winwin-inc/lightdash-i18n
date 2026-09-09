@@ -62,11 +62,9 @@ import {
     isEmptyTabFilters,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
-import { useProject } from '../../hooks/useProject';
-import {
-    hasSavedFiltersOverrides,
-} from '../../hooks/useSavedDashboardFiltersOverrides';
 import useToaster from '../../hooks/toaster/useToaster';
+import { useProject } from '../../hooks/useProject';
+import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
     initializeCategoryFiltersAsync,
@@ -777,6 +775,9 @@ const DashboardProvider: React.FC<
 
     const [chartsWithDateZoomApplied, setChartsWithDateZoomApplied] =
         useState<Set<string>>();
+    const [chartsWithDateDimension, setChartsWithDateDimension] = useState<
+        Set<string>
+    >(() => new Set());
 
     // Update dashboard url date zoom change
     // Only sync URL in regular dashboards or 'direct' embed mode (not 'sdk' mode)
@@ -1562,6 +1563,8 @@ const DashboardProvider: React.FC<
         setDateZoomGranularity,
         chartsWithDateZoomApplied,
         setChartsWithDateZoomApplied,
+        chartsWithDateDimension,
+        setChartsWithDateDimension,
         dashboardCommentsCheck,
         dashboardComments,
         hasTileComments,

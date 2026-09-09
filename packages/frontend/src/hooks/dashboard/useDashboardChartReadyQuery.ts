@@ -14,14 +14,14 @@ import {
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lightdashApi } from '../../api';
 import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import {
     getTableChartPageSize,
     isWarehousePaginatedTableChart,
 } from '../../utils/isWarehousePaginatedTableChart';
-import { lightdashApi } from '../../api';
-import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
-import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import { useExplore } from '../useExplore';
 import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import { useSavedQuery } from '../useSavedQuery';
@@ -99,6 +99,9 @@ export const useDashboardChartReadyQuery = (
         useSearchParams<QueryExecutionContext>('context') || undefined;
     const setChartsWithDateZoomApplied = useDashboardContext(
         (c) => c.setChartsWithDateZoomApplied,
+    );
+    const setChartsWithDateDimension = useDashboardContext(
+        (c) => c.setChartsWithDateDimension,
     );
     const addParameterDefinitions = useDashboardContext(
         (c) => c.addParameterDefinitions,
@@ -180,6 +183,29 @@ export const useDashboardChartReadyQuery = (
         () => JSON.stringify(chartParameterValues),
         [chartParameterValues],
     );
+
+    useEffect(() => {
+        if (!chartUuid) return;
+
+        setChartsWithDateDimension((prev) => {
+            const next = new Set(prev);
+            if (hasADateDimension) {
+                next.add(chartUuid);
+            } else {
+                next.delete(chartUuid);
+            }
+            return next;
+        });
+
+        return () => {
+            setChartsWithDateDimension((prev) => {
+                if (!prev.has(chartUuid)) return prev;
+                const next = new Set(prev);
+                next.delete(chartUuid);
+                return next;
+            });
+        };
+    }, [hasADateDimension, chartUuid, setChartsWithDateDimension]);
 
     useEffect(() => {
         setChartsWithDateZoomApplied((prev) => {

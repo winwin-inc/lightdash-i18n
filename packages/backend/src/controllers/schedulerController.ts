@@ -378,6 +378,7 @@ export class SchedulerController extends BaseController {
     async postByUuid(
         @Path() schedulerUuid: string,
         @Request() req: express.Request,
+        @Body() body?: { locale?: string },
     ): Promise<ApiTestSchedulerResponse> {
         this.setStatus(200);
         return {
@@ -386,7 +387,11 @@ export class SchedulerController extends BaseController {
                 jobId: (
                     await this.services
                         .getSchedulerService()
-                        .sendSchedulerByUuid(req.user!, schedulerUuid)
+                        .sendSchedulerByUuid(
+                            req.user!,
+                            schedulerUuid,
+                            body?.locale,
+                        )
                 ).jobId,
             },
         };

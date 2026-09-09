@@ -36,7 +36,7 @@ TypeScript monorepo（pnpm workspaces）：
 -   生产上线：更新次要版本号（如 `v0.2109`）
 -   变更记录：[CHANGELOG.md](CHANGELOG.md)
 
-MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不会打主站镜像。
+MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不会打主站镜像。快捷命令：`pnpm bump-mcp -- x.y.z`、`pnpm bump-cli -- x.y.z`。
 
 ## 分支管理
 
