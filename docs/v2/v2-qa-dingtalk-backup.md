@@ -22,20 +22,20 @@
 
 ## 2. 已上线 / 已落地能力（备份清单）
 
-下列能力已在本产品落地（代码已接线；部分需环境变量开启后才在界面出现）。
+下列能力已在本产品落地（代码已接线）。下列开关**未设 env 即默认开启**；设 `=false` 并重启服务后关闭。
 
-### 2.1 依赖环境变量的能力
+### 2.1 可由环境变量关闭的能力
 
-开关配在服务端环境（backend / 根 env），改完需重启服务。
+开关配在服务端环境（backend / 根 env），改完需重启服务。语义：未设置 / 空 → **开**；`false` → 关。
 
 | 环境变量 | 已上线能力说明 |
 |----------|----------------|
-| `MERGE_QUERIES_ENABLED=true` | Explore **合并查询**：跨 explore join、Run、保存与重开 |
-| `DASHBOARD_TABS_IN_MEMORY=true` | 看板 **Tab 内存**：已访问 Tab 切回时减少整页闪断重建 |
-| `LOCK_DASHBOARD_FILTERS_ENABLED=true` | 看板 **筛选锁定**：编辑态锁定后，view 下 URL 强改锁定项被忽略并提示 |
-| `ENABLE_TIMEZONE_SUPPORT=true` | **时区能力总开关**（仅 env，界面不可开），详见 2.3 |
-| `RESULTS_CACHE_ENABLED=true` | 项目 **结果缓存 TTL** 设置（如缓存设置页可读可写） |
-| `APPS_RUNTIME_ENABLED=true` | **Data Apps 运行时入口**（导航 / 权限 / 看板磁贴）；Sandbox 真跑、AI 生成端到端 **未作为交付** |
+| `MERGE_QUERIES_ENABLED`（默认开） | Explore **合并查询**：跨 explore join、Run、保存与重开 |
+| `DASHBOARD_TABS_IN_MEMORY`（默认开） | 看板 **Tab 内存**：已访问 Tab 切回时减少整页闪断重建 |
+| `LOCK_DASHBOARD_FILTERS_ENABLED`（默认开） | 看板 **筛选锁定**：编辑态锁定后，view 下 URL 强改锁定项被忽略并提示 |
+| `ENABLE_TIMEZONE_SUPPORT`（默认开） | **时区能力总开关**（界面不可单独开），详见 2.3 |
+| `RESULTS_CACHE_ENABLED`（默认开） | 项目 **结果缓存 TTL** 设置（如缓存设置页可读可写） |
+| `APPS_RUNTIME_ENABLED`（默认开） | **Data Apps 运行时入口**（导航 / 权限 / 看板磁贴）；Sandbox 真跑、AI 生成端到端 **未作为交付、不测** |
 
 ### 2.2 不依赖上述开关即可用的能力
 
@@ -68,7 +68,7 @@
     - 需使用与服务端同代的 CLI 执行 deploy/preview 后 Explore 侧边栏生效。  
     - 仅影响侧边栏归类，**不改** explore/表名，不影响按表名的历史查询。
 
-### 2.3 时区能力明细（需 `ENABLE_TIMEZONE_SUPPORT=true`）
+### 2.3 时区能力明细（默认开；`ENABLE_TIMEZONE_SUPPORT=false` 可关）
 
 1. 项目查询时区可配置并保存。  
 2. Explore / 图表可选项目时区、用户时区等。  
@@ -84,7 +84,7 @@
 | 合并查询 | Explore 有合并入口 → join → Run → 保存重开仍在 |
 | Tab 内存 | 多 Tab：A→B→A，A 不整页闪断重建 |
 | 锁筛选 | 编辑锁定 → view 打开带 filters 的链接 → 锁定项不被覆盖 |
-| 时区 | 开 env 后：项目/图/用户/仓库时区与 Badge 可见 |
+| 时区 | 默认开：项目/图/用户/仓库时区与 Badge 可见 |
 | 结果缓存 | 项目缓存 TTL 可改 |
 | Data Apps | 能进列表、能加看板磁贴即可 |
 | Formula / PoP / 透视 | 按上节功能点各走通一次 |
@@ -151,7 +151,7 @@
 ## 7. 一句话收口
 
 - **对齐上游**：评估窗口 **0.2513.0 → 2.57.0**（commit `c2ac5d553a`），本产品发版号独立（如 2.0.2）。  
-- **已上线**：§2 所列（含需 env 开启项与无需 FF 项）。  
+- **已上线**：§2 所列（含默认可关 FF 项与无需 FF 项）。  
 - **不需要实现**：§3 所列（Slug 重命名增强、Date Zoom 增强、Embed 解绑、Pre-agg、Role Sets、Chart Types 全量、Data Apps 深挖、整仓追齐等）。
 
 ---

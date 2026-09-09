@@ -6,6 +6,7 @@ import {
     NotFoundError,
 } from '@lightdash/common';
 import { Knex } from 'knex';
+import { envEnabledDefaultTrue } from '../../config/envFlag';
 import { LightdashConfig } from '../../config/parseConfig';
 import { isFeatureFlagEnabled } from '../../postHog';
 
@@ -173,7 +174,7 @@ export class FeatureFlagModel {
     }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
         return Promise.resolve({
             id: featureFlagId,
-            enabled: process.env.DASHBOARD_TABS_IN_MEMORY === 'true',
+            enabled: envEnabledDefaultTrue('DASHBOARD_TABS_IN_MEMORY'),
         });
     }
 
@@ -182,7 +183,7 @@ export class FeatureFlagModel {
     }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
         return Promise.resolve({
             id: featureFlagId,
-            enabled: process.env.MERGE_QUERIES_ENABLED === 'true',
+            enabled: envEnabledDefaultTrue('MERGE_QUERIES_ENABLED'),
         });
     }
 
@@ -191,7 +192,7 @@ export class FeatureFlagModel {
     }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
         return Promise.resolve({
             id: featureFlagId,
-            enabled: process.env.LOCK_DASHBOARD_FILTERS_ENABLED === 'true',
+            enabled: envEnabledDefaultTrue('LOCK_DASHBOARD_FILTERS_ENABLED'),
         });
     }
 
@@ -209,7 +210,7 @@ export class FeatureFlagModel {
     }: FeatureFlagLogicArgs): Promise<FeatureFlag> {
         return Promise.resolve({
             id: featureFlagId,
-            enabled: process.env.ENABLE_TIMEZONE_SUPPORT === 'true',
+            enabled: envEnabledDefaultTrue('ENABLE_TIMEZONE_SUPPORT'),
         });
     }
 }

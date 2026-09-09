@@ -100,12 +100,13 @@ services:
             - OTEL_EXPORTER_ZIPKIN_ENDPOINT=${OTEL_EXPORTER_ZIPKIN_ENDPOINT}
             - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
             - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-lightdash-backend}
-            # v2 主功能闭环特性开关（部署环境请按需覆盖）
+            # v2 主功能闭环特性开关（部署环境请按需覆盖；未设时代码默认 true）
             - MERGE_QUERIES_ENABLED=${MERGE_QUERIES_ENABLED:-true}
             - DASHBOARD_TABS_IN_MEMORY=${DASHBOARD_TABS_IN_MEMORY:-true}
             - LOCK_DASHBOARD_FILTERS_ENABLED=${LOCK_DASHBOARD_FILTERS_ENABLED:-true}
             - RESULTS_CACHE_ENABLED=${RESULTS_CACHE_ENABLED:-true}
             - ENABLE_TIMEZONE_SUPPORT=${ENABLE_TIMEZONE_SUPPORT:-true}
+            - APPS_RUNTIME_ENABLED=${APPS_RUNTIME_ENABLED:-true}
         volumes:
             - '${DBT_PROJECT_DIR}:/usr/app/dbt'
         ports:

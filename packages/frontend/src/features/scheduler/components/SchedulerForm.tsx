@@ -86,7 +86,12 @@ import SchedulerParameters from './SchedulerParameters';
 import { SchedulerPreview } from './SchedulerPreview';
 import { Limit, Values } from './types';
 
-enum SlackStates
+enum SlackStates {
+    LOADING,
+    SUCCESS,
+    NO_SLACK,
+    MISSING_SCOPES,
+}
 
 const DEFAULT_VALUES = {
     name: '',

@@ -37,6 +37,7 @@ import {
     DEFAULT_OPENAI_MODEL_NAME,
     DEFAULT_OPENROUTER_MODEL_NAME,
 } from './aiConfigSchema';
+import { envEnabledDefaultTrue } from './envFlag';
 
 enum TokenEnvironmentVariable {
     SERVICE_ACCOUNT = 'LD_SETUP_SERVICE_ACCOUNT_TOKEN',
@@ -1456,7 +1457,7 @@ const parseDataAppOtelConfig = (): DataAppOtelConfig => {
 };
 
 const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
-    const enabled = process.env.APPS_RUNTIME_ENABLED === 'true';
+    const enabled = envEnabledDefaultTrue('APPS_RUNTIME_ENABLED');
     const dataAppCodingAgent = (() => {
         const value = process.env.APPS_CODING_AGENT?.trim().toLowerCase();
         if (!value || value === 'claude') return 'claude' as const;
@@ -2057,7 +2058,7 @@ export const parseConfig = (): LightdashConfig => {
         },
         s3: parseBaseS3Config(),
         results: {
-            cacheEnabled: process.env.RESULTS_CACHE_ENABLED === 'true',
+            cacheEnabled: envEnabledDefaultTrue('RESULTS_CACHE_ENABLED'),
             autocompleteEnabled:
                 process.env.AUTOCOMPLETE_CACHE_ENABLED === 'true',
             cacheStateTimeSeconds: parseInt(

@@ -6,20 +6,20 @@
 
 ---
 
-## 一、环境变量 ↔ 功能（先开再测）
+## 一、环境变量 ↔ 功能（默认开启）
 
-下列开关开在 **backend**（或根 `.env`），改完**重启 backend**，再刷前端。未列出的功能 = **不依赖这些 FF**。
+下列开关读 **backend**（或根 `.env`）。**未设置即开启**；设为 `false` 并**重启 backend** 后关闭。未列出的功能 = **不依赖这些 FF**。
 
-| 环境变量 | 打开后可测的前端能力 |
-|----------|----------------------|
-| `MERGE_QUERIES_ENABLED=true` | Explore **合并查询**（选第二表 / join / Run / 保存重开） |
-| `DASHBOARD_TABS_IN_MEMORY=true` | 看板 **Tab 切回不整页重建**（已访问 Tab 保留实例） |
-| `LOCK_DASHBOARD_FILTERS_ENABLED=true` | 看板编辑态 **锁定筛选**；view 下 URL 改筛被忽略并提示 |
-| `ENABLE_TIMEZONE_SUPPORT=true` | **时区全套**（仅 env 可开）：项目查询时区、Explore/图表时区选择、时区感知分组与筛选、用户默认时区、仓库「数据时区」+ Preview、结果 `resolvedTimezone` Badge |
-| `RESULTS_CACHE_ENABLED=true` | 项目设置 **结果缓存 TTL**（`/caching`）可读可写 |
-| `APPS_RUNTIME_ENABLED=true` | **Data Apps** 导航 / 权限 / 看板磁贴（有限；Sandbox、generate **不测**） |
+| 环境变量 | 默认开时的前端能力 | 关闭 |
+|----------|----------------------|------|
+| `MERGE_QUERIES_ENABLED` | Explore **合并查询**（选第二表 / join / Run / 保存重开） | `=false` |
+| `DASHBOARD_TABS_IN_MEMORY` | 看板 **Tab 切回不整页重建**（已访问 Tab 保留实例） | `=false` |
+| `LOCK_DASHBOARD_FILTERS_ENABLED` | 看板编辑态 **锁定筛选**；view 下 URL 改筛被忽略并提示 | `=false` |
+| `ENABLE_TIMEZONE_SUPPORT` | **时区全套**：项目查询时区、Explore/图表时区选择、时区感知分组与筛选、用户默认时区、仓库「数据时区」+ Preview、结果 `resolvedTimezone` Badge | `=false` |
+| `RESULTS_CACHE_ENABLED` | 项目设置 **结果缓存 TTL**（`/caching`）可读可写 | `=false` |
+| `APPS_RUNTIME_ENABLED` | **Data Apps** 导航 / 权限 / 看板磁贴（有限；Sandbox、generate **不测**） | `=false` |
 
-**试跑建议**：以上除 Data Apps 外，预发可先全部 `=true`。
+**试跑建议**：预发可不配这些变量（默认全开）；不测 Data Apps 深能力即可。
 
 ---
 
@@ -59,9 +59,9 @@
 | Merge | Explore 出现合并入口 → join → Run → 保存重开仍在 |
 | Tab 内存 | 多 Tab 看板切 A→B→A，A 不闪断整页重建 |
 | 锁筛选 | 编辑锁定某筛 → 分享带 `?filters=` → view 不覆盖并提示 |
-| 时区 | 开 FF 后：项目设置有查询时区；Explore/图可选时区；仓库有数据时区 Preview；图旁有时区 Badge |
+| 时区 | 默认开：项目设置有查询时区；Explore/图可选时区；仓库有数据时区 Preview；图旁有时区 Badge |
 | 结果缓存 | 项目 `/caching` 能改 TTL |
-| Data Apps | 能进列表/加看板磁贴即可；**不测** Sandbox / generate / Chart Types |
+| Data Apps | 默认开：能进列表/加看板磁贴即可；**不测** Sandbox / generate / Chart Types |
 
 ---
 
