@@ -168,7 +168,7 @@ pnpm -F backend migrate
 | ~~query-sdk 包~~ | **已引入** |
 | ~~common ee/apps 宿主类型~~ | **已引入** |
 | i18n ns 硬重构 | 5 域 PR，删巨型 translation.json |
-| Honest Metadata 剩余 | 主路径已齐；warehouse `dataTimezone` UI / viz `resolvedTimezone` 仍可后置 |
+| Honest Metadata 剩余 | **本批已收**：warehouse `dataTimezone` UI + Preview；结果 `resolvedTimezone` 标注 MVP；echarts timezoneShift 仍后置 |
 | EE 解绑 | Direct Access / Homepage / Autopilot |
 | ~~PoP fanout CTE~~ | **已移植** |
 | ~~项目级 queryTimezone~~ | **已移植**；FF 仅 env |
@@ -178,7 +178,7 @@ pnpm -F backend migrate
 | ~~MQB totalConfiguration~~ | **已移植** |
 | ~~ChartTimezoneSelect / 用户时区哨兵~~ | **已移植** |
 
-> **CHANGELOG 增量高价值候选**（CJK 检索、Filter Requirements、导出/XLSX、Embed、Role Sets 等，不阻塞本清单发布）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。
+> **CHANGELOG 增量高价值候选**（CJK 检索、Filter Requirements、导出/XLSX、Embed、Role Sets 等，不阻塞本清单发布）：见 [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md)。本窗口非破坏性收口见该文档 §1.1 / §6.1 Batch 4。
 
 ### 增量 P0 手测（本轮移植，不阻塞主清单）
 
@@ -193,6 +193,10 @@ pnpm -F backend migrate
 | P0-7 | 定时交付筛选 | 必填/需求组未满足时 Scheduler 表单无法保存 |
 | P0-8 | 看板定时 XLSX | 格式选项可选「分文件 ZIP」或「单个工作簿」；workbook 交付为一份多 sheet XLSX |
 | P0-9 | 看板导出 Modal XLSX | 导出弹窗可选 `.xlsx`；「分文件 ZIP」与「单个工作簿」均可下载 |
+| P0-10 | 数据时区 | 开启时区 FF 后，仓库连接表单可见「数据时区」并可 Preview |
+| P0-11 | 查询时区标注 | Explore 图表标题旁可见 resolvedTimezone Badge（FF 开） |
+| P0-12 | 看板所有者 | 更新看板可指定 owner；删除用户时可转让/留空 |
+| P0-13 | 透视冻结/行合并 | 表格配置可开行合并；冻结列在透视 VTable 生效；不改变 150 列上限 |
 
 ## 十、本轮 agent 完成项 vs 待预发手测
 

@@ -88,6 +88,11 @@ import {
     resolveQueryTimezone,
     isValidTimezone,
     getColumnTimezone,
+    type ApiDataTimezonePreviewResults,
+    type DataTimezonePreviewRequest,
+    buildDataTimezonePreviewResponse,
+    buildDataTimezonePreviewSql,
+    currentUtcWallClock,
     GroupType,
     hasIntersection,
     hasWarehouseCredentials,
@@ -6945,6 +6950,104 @@ export class ProjectService extends BaseService {
             user,
         });
         return enabled;
+    }
+
+    async previewDataTimezone(
+        account: Account,
+        body: DataTimezonePreviewRequest,
+    ): Promise<ApiDataTimezonePreviewResults> {
+        assertIsAccountWithOrg(account);
+        if (
+            !(await this.isTimezoneSupportEnabled({
+                userUuid: account.user.id,
+                organizationUuid: account.organization.organizationUuid,
+            }))
+        ) {
+            throw new ForbiddenError('Timezone support is not enabled');
+        }
+
+        let effectiveCredentials: CreateWarehouseCredentials;
+        let projectTimezone = 'UTC';
+        if (body.mode === 'edit') {
+            const stored = await this.projectModel.getWithSensitiveFields(
+                body.projectUuid,
+            );
+            if (
+                account.user.ability.cannot(
+                    'update',
+                    subject('Project', stored),
+                )
+            ) {
+                throw new ForbiddenError();
+            }
+            if (
+                !stored.warehouseConnection ||
+                stored.warehouseConnection.type !== body.warehouseType
+            ) {
+                throw new ParameterError(
+                    'Save the warehouse connection before previewing a different warehouse type.',
+                );
+            }
+            effectiveCredentials = {
+                ...stored.warehouseConnection,
+                dataTimezone: body.dataTimezone ?? undefined,
+            };
+            projectTimezone = await this.getQueryTimezoneForProject(
+                body.projectUuid,
+            );
+        } else if (
+            account.user.ability.cannot(
+                'create',
+                subject('Project', {
+                    organizationUuid: account.organization.organizationUuid,
+                    type: ProjectType.DEFAULT,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        } else {
+            effectiveCredentials = body.credentials;
+        }
+
+        const { dataTimezone } = effectiveCredentials;
+        if (dataTimezone && !isValidTimezone(dataTimezone)) {
+            throw new ParameterError('Invalid data timezone');
+        }
+
+        const sshTunnel = new SshTunnel(effectiveCredentials);
+        const tunnelCredentials = await sshTunnel.connect();
+        try {
+            const warehouseClient =
+                this.projectModel.getWarehouseClientFromCredentials(
+                    tunnelCredentials,
+                );
+            const adapterType = warehouseClient.getAdapterType();
+            const nowWallClock = currentUtcWallClock();
+            const sql = buildDataTimezonePreviewSql(adapterType, nowWallClock);
+            const queryTags: RunQueryTags = {
+                organization_uuid: account.organization.organizationUuid,
+                user_uuid: account.user.id,
+                query_context: QueryExecutionContext.API,
+            };
+            const { rows } = await warehouseClient.runQuery(
+                sql,
+                queryTags,
+                dataTimezone,
+            );
+            if (rows.length === 0) {
+                throw new UnexpectedServerError(
+                    'Data timezone preview query returned no rows',
+                );
+            }
+            return buildDataTimezonePreviewResponse({
+                row: rows[0],
+                nowWallClock,
+                projectTimezone,
+                dataTimezone,
+            });
+        } finally {
+            await sshTunnel.disconnect();
+        }
     }
 
     async getQueryTimezoneForProject(projectUuid: string): Promise<string> {

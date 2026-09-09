@@ -369,4 +369,46 @@ describe('pivotDataToVTable', () => {
             getMetricValueLeafColumns(unsetColumns).map((col) => col.maxWidth),
         ).toEqual(Array.from({ length: 6 }, () => DEFAULT_COLUMN_MAX_WIDTH));
     });
+
+    it('读取 columnProperties.frozen 计算 frozenColCount', () => {
+        const indexFieldId =
+            threeDimensionPivotData.retrofitData.pivotColumnInfo.find(
+                (col) => col.columnType === 'indexValue',
+            )?.fieldId;
+        expect(indexFieldId).toBeTruthy();
+
+        const { frozenColCount } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            hideRowNumbers: false,
+            columnProperties: {
+                [indexFieldId!]: { frozen: true },
+            },
+        });
+
+        // row number (#) + first frozen index column
+        expect(frozenColCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('showRowGrouping 开启且无小计时返回行合并信息', () => {
+        const { rowSpanMerges } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            showRowGrouping: true,
+            showSubtotals: false,
+            columnOrder: ['site', 'region', 'page'],
+        });
+
+        expect(rowSpanMerges).not.toBeNull();
+        expect(rowSpanMerges!.size).toBeGreaterThan(0);
+    });
+
+    it('showSubtotals 开启时不进入 grouping-only 行合并', () => {
+        const { rowSpanMerges } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            showRowGrouping: true,
+            showSubtotals: true,
+            columnOrder: ['site', 'region', 'page'],
+        });
+
+        expect(rowSpanMerges).toBeNull();
+    });
 });

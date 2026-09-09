@@ -174,11 +174,13 @@ const GeneralSettings: FC = () => {
         setPageSize,
         setShowRowCalculation,
         setShowSubtotals,
+        setShowRowGrouping,
         setShowTableNames,
         showColumnCalculation,
         showResultsTotal,
         showRowCalculation,
         showSubtotals,
+        showRowGrouping,
         showTableNames,
         pivotMetricHeaderPosition,
         setPivotMetricHeaderPosition,
@@ -663,6 +665,55 @@ const GeneralSettings: FC = () => {
                                 setShowSubtotals(!showSubtotals);
                             }}
                             disabled={!canUseSubtotals || metricsAsRows}
+                        />
+                    </Box>
+                </Tooltip>
+                <Tooltip
+                    disabled={
+                        canUseSubtotals && !showSubtotals && !metricsAsRows
+                    }
+                    label={
+                        showSubtotals
+                            ? t(
+                                  'components_visualization_configs_table.settings.row_grouping_always_on_with_subtotals',
+                              )
+                            : metricsAsRows
+                            ? t(
+                                  'components_visualization_configs_table.settings.row_grouping_cant_be_used',
+                              )
+                            : t(
+                                  'components_visualization_configs_table.settings.row_grouping_at_least_two_dimensions',
+                                  {
+                                      privoted: isPivotTableEnabled
+                                          ? 'un-pivoted'
+                                          : '',
+                                  },
+                              )
+                    }
+                    w={300}
+                    multiline
+                    withinPortal
+                    position="top-start"
+                >
+                    <Box>
+                        <Checkbox
+                            label={t(
+                                'components_visualization_configs_table.settings.group_repeated_row_values',
+                            )}
+                            checked={
+                                showSubtotals ||
+                                (canUseSubtotals &&
+                                    !metricsAsRows &&
+                                    (showRowGrouping ?? false))
+                            }
+                            onChange={() => {
+                                setShowRowGrouping(!showRowGrouping);
+                            }}
+                            disabled={
+                                !canUseSubtotals ||
+                                metricsAsRows ||
+                                showSubtotals
+                            }
                         />
                     </Box>
                 </Tooltip>

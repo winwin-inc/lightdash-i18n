@@ -64,6 +64,7 @@ import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
 import VisualizationConfig from '../VisualizationCard/VisualizationConfig';
 import { SeriesContextMenu } from './SeriesContextMenu';
 import { useExplorerResultsData } from './useExplorerResultsData';
+import VisualizationTimezone from './VisualizationTimezone';
 import VisualizationWarning from './VisualizationWarning';
 
 export type EchartsClickEvent = {
@@ -453,6 +454,18 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                     rightHeaderElement={
                         isOpen && (
                             <>
+                                <VisualizationTimezone
+                                    resolvedTimezone={
+                                        isWarehousePaginatedTable
+                                            ? chartPagedQuery.query.data
+                                                  ?.resolvedTimezone
+                                            : query.data?.resolvedTimezone
+                                    }
+                                    timezoneSetting={
+                                        unsavedChartVersion.metricQuery
+                                            ?.timezone
+                                    }
+                                />
                                 {isEditMode ? (
                                     <Button
                                         {...COLLAPSABLE_CARD_BUTTON_PROPS}

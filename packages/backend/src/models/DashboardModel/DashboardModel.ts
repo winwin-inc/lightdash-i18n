@@ -32,6 +32,7 @@ import {
     type DashboardBasicDetailsWithTileTypes,
     type DashboardFilters,
     type DashboardParameters,
+    type UserDashboardsSummary,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { validate as isValidUuid, v4 as uuidv4 } from 'uuid';
@@ -50,6 +51,7 @@ import {
     DashboardViewsTableName,
     DashboardsTableName,
 } from '../../database/entities/dashboards';
+import { EmailTableName } from '../../database/entities/emails';
 import {
     OrganizationTable,
     OrganizationTableName,
@@ -95,7 +97,12 @@ export type GetDashboardQuery = Pick<
     Pick<UserTable['base'], 'user_uuid' | 'first_name' | 'last_name'> &
     Pick<OrganizationTable['base'], 'organization_uuid'> &
     Pick<PinnedListTable['base'], 'pinned_list_uuid'> &
-    Pick<PinnedDashboardTable['base'], 'order'>;
+    Pick<PinnedDashboardTable['base'], 'order'> & {
+        owner_user_uuid: string | null;
+        owner_first_name: string | null;
+        owner_last_name: string | null;
+        owner_email: string | null;
+    };
 
 export type GetDashboardDetailsQuery = Pick<
     DashboardTable['base'],
@@ -854,6 +861,21 @@ export class DashboardModel {
                 `${PinnedListTableName}.pinned_list_uuid`,
                 `${PinnedDashboardTableName}.pinned_list_uuid`,
             )
+            .leftJoin(
+                `${UserTableName} as owner_user`,
+                `${DashboardsTableName}.owner_user_uuid`,
+                'owner_user.user_uuid',
+            )
+            .leftJoin(
+                `${EmailTableName} as owner_email`,
+                function ownerEmailJoin() {
+                    this.on(
+                        'owner_email.user_id',
+                        '=',
+                        'owner_user.user_id',
+                    ).andOnVal('owner_email.is_primary', true);
+                },
+            )
             .select<
                 (GetDashboardQuery & {
                     space_uuid: string;
@@ -879,6 +901,10 @@ export class DashboardModel {
                 `${PinnedDashboardTableName}.order`,
                 `${DashboardsTableName}.views_count`,
                 `${DashboardsTableName}.first_viewed_at`,
+                `${DashboardsTableName}.owner_user_uuid`,
+                `owner_user.first_name as owner_first_name`,
+                `owner_user.last_name as owner_last_name`,
+                `owner_email.email as owner_email`,
             ])
             .orderBy(`${DashboardVersionsTableName}.created_at`, 'desc')
             .limit(1);
@@ -1200,6 +1226,14 @@ export class DashboardModel {
             },
             slug: dashboard.slug,
             config: dashboard?.config,
+            owner: dashboard.owner_user_uuid
+                ? {
+                      userUuid: dashboard.owner_user_uuid,
+                      firstName: dashboard.owner_first_name ?? '',
+                      lastName: dashboard.owner_last_name ?? '',
+                      email: dashboard.owner_email,
+                  }
+                : null,
         };
     }
 
@@ -1230,6 +1264,7 @@ export class DashboardModel {
                     name: dashboard.name,
                     description: dashboard.description,
                     space_id: space.space_id,
+                    owner_user_uuid: dashboard.ownerUserUuid ?? null,
                     slug: dashboard.forceSlug
                         ? dashboard.slug
                         : await DashboardModel.generateUniqueSlug(
@@ -1250,9 +1285,93 @@ export class DashboardModel {
         return this.getByIdOrSlug(dashboardId);
     }
 
+    /**
+     * Counts dashboards owned by a user, broken down by project.
+     * Used for the offboarding flow when deleting an organization member.
+     */
+    async getDashboardsSummaryByOwner(
+        userUuid: string,
+    ): Promise<UserDashboardsSummary> {
+        const rows = await this.database(DashboardsTableName)
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${DashboardsTableName}.space_id`,
+            )
+            .innerJoin(
+                ProjectTableName,
+                `${ProjectTableName}.project_id`,
+                `${SpaceTableName}.project_id`,
+            )
+            .where(`${DashboardsTableName}.owner_user_uuid`, userUuid)
+            .groupBy(
+                `${ProjectTableName}.project_uuid`,
+                `${ProjectTableName}.name`,
+            )
+            .orderBy(`${ProjectTableName}.name`, 'asc')
+            .select<
+                {
+                    project_uuid: string;
+                    project_name: string;
+                    count: string | number;
+                }[]
+            >(
+                `${ProjectTableName}.project_uuid`,
+                `${ProjectTableName}.name as project_name`,
+                this.database.raw(
+                    `count(${DashboardsTableName}.dashboard_uuid) as count`,
+                ),
+            );
+
+        const byProject = rows.map((row) => ({
+            projectUuid: row.project_uuid,
+            projectName: row.project_name,
+            count: Number(row.count),
+        }));
+
+        return {
+            totalCount: byProject.reduce(
+                (total, project) => total + project.count,
+                0,
+            ),
+            byProject,
+        };
+    }
+
+    /**
+     * Transfers ownership of all dashboards owned by one user to another,
+     * scoped to the given projects. Returns the number updated.
+     */
+    async updateOwnerByUser(
+        fromUserUuid: string,
+        toUserUuid: string,
+        projectUuids: string[],
+    ): Promise<number> {
+        if (projectUuids.length === 0) return 0;
+
+        const dashboardUuids = this.database(DashboardsTableName)
+            .select(`${DashboardsTableName}.dashboard_uuid`)
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${DashboardsTableName}.space_id`,
+            )
+            .innerJoin(
+                ProjectTableName,
+                `${ProjectTableName}.project_id`,
+                `${SpaceTableName}.project_id`,
+            )
+            .where(`${DashboardsTableName}.owner_user_uuid`, fromUserUuid)
+            .whereIn(`${ProjectTableName}.project_uuid`, projectUuids);
+
+        return this.database(DashboardsTableName)
+            .update({ owner_user_uuid: toUserUuid })
+            .whereIn('dashboard_uuid', dashboardUuids);
+    }
+
     async update(
         dashboardUuidOrSlug: string,
-        dashboard: DashboardUnversionedFields,
+        dashboard: Partial<DashboardUnversionedFields>,
     ): Promise<DashboardDAO> {
         const withSpaceId = dashboard.spaceUuid
             ? {
@@ -1264,10 +1383,18 @@ export class DashboardModel {
                   )?.spaceId,
               }
             : {};
+        const withOwner =
+            dashboard.ownerUserUuid !== undefined
+                ? { owner_user_uuid: dashboard.ownerUserUuid }
+                : {};
         const query = this.database(DashboardsTableName).update({
-            name: dashboard.name,
-            description: dashboard.description,
+            // Owner-only updates omit name; leave it unchanged in that case
+            ...(dashboard.name !== undefined ? { name: dashboard.name } : {}),
+            ...(dashboard.description !== undefined
+                ? { description: dashboard.description }
+                : {}),
             ...withSpaceId,
+            ...withOwner,
         });
 
         if (isValidUuid(dashboardUuidOrSlug)) {

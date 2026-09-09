@@ -300,7 +300,7 @@ flowchart TB
 | ~~Tabs 超集合并 / Filter Override~~ | 无大 schema | — | **已合入**（reconcile + hidden/懒加载 + locked-tab + 锁定 UI） |
 | Project Chart Types | 视 Data Apps 范围 | **大（~250+ 文件）** | **不可单独落地**：硬依赖可运行 apps。顺序：common apps types（✅）→ `features/apps` UI+路由（✅）→ 后端 API（✅ typecheck）→ Sandbox 真跑通（⚠️）→ `features/chartTypes` |
 | i18n 硬重构 | **无 DB** | 无 | 仅前端词条与调用方；见第六节 |
-| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | **PoP 简单路径已落地**（types + migration + MQB CTE + Explore Modal）；fanout CTE / TotalQueryBuilder / 项目级 `queryTimezone` Settings 可后置 |
+| Honest Metadata（剩余） | 一般无额外表；`used_parameters` 已覆盖缓存重读参数化 format | 小 | **本批已收**：dataTimezone UI + Preview + resolvedTimezone 标注 MVP；echarts timezoneShift 后置 |
 | Formula 包 | **有 DB**（见上表 formula / total_mode） | 小 | **已引入** `packages/formula` + FormulaForm UI + validate API |
 | Query SDK 包 | **无 DB** | 无 | **已引入** `packages/query-sdk`；common 镜像 `ee/apps` 宿主类型；Data Apps UI/路由/后端 API ✅（typecheck 通过）；Chart Types / Sandbox 真跑通未接 |
 

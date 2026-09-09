@@ -150,7 +150,29 @@
         "delete_success": "成功！用户已被删除。",
         "delete_error": "删除用户失败。",
         "update_success": "成功！用户已更新。",
-        "update_error": "更新用户权限失败。"
+        "update_error": "更新用户权限失败。",
+        "reassign_dashboards_success": "成功！已转让 {{count}} 个看板。",
+        "reassign_dashboards_error": "转让看板失败"
+    },
+    "components_common_user_select": {
+        "placeholder": "搜索用户…",
+        "nothing_found": "未找到用户"
+    },
+    "components_user_settings_users_action_menu": {
+        "checking_owned_content": "正在检查该用户拥有的看板…",
+        "owns_dashboards": "该用户是 {{dashboardText}} 的所有者，分布在 {{projectText}}。",
+        "dashboard_count_one": "1 个看板",
+        "dashboard_count_other": "{{count}} 个看板",
+        "project_count_one": "1 个项目",
+        "project_count_other": "{{count}} 个项目",
+        "show_details": "显示详情",
+        "hide_details": "隐藏详情",
+        "dashboard_singular": "个看板",
+        "dashboard_plural": "个看板",
+        "leave_unowned": "保留看板但不指定所有者",
+        "reassign_owner": "将所有权转让给其他用户",
+        "new_owner_label": "新的看板所有者",
+        "no_owned_dashboards": "该用户没有拥有的看板。"
     },
     "hooks_refresh_server": {
         "error": "同步 dbt 项目时出错",
@@ -4128,6 +4150,10 @@
                 "label": "描述",
                 "placeholder": "几句话为您的团队提供一些背景信息"
             },
+            "owner": {
+                "label": "所有者",
+                "placeholder": "指定所有者…"
+            },
             "cancel": "取消",
             "save": "保存"
         }
@@ -5528,7 +5554,11 @@
             "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
             "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
             "can_use_subtotals": "小计只能用于未透视的表",
-            "show_subtotals": "显示小计"
+            "show_subtotals": "显示小计",
+            "group_repeated_row_values": "合并重复行值",
+            "row_grouping_always_on_with_subtotals": "启用小计时行合并始终开启",
+            "row_grouping_cant_be_used": "行合并不能与指标作为行一起使用",
+            "row_grouping_at_least_two_dimensions": "行合并只能用于至少有两个 {{privoted}} 维度的表"
         },
         "configure": "配置",
         "config_tabs": {
@@ -6200,6 +6230,11 @@
         "configure": "配置",
         "configure_chart": "配置图表",
         "chart_type": "图表类型"
+    },
+    "components_explorer_visualization_timezone": {
+        "source_user": "此图表跟随每位查看者的时区。当前显示为 {{timezone}}。",
+        "source_pinned": "此图表固定为 {{timezone}}，不会跟随项目时区。",
+        "source_project": "此图表使用项目时区（{{timezone}}）。"
     },
     "components_explorer_visualization_card_options": {
         "chart_types": {
@@ -7416,6 +7451,24 @@
                     "part_3": ", 以使更改生效。"
                 }
             }
+        },
+        "data_timezone": {
+            "label": "数据时区",
+            "description": "数仓中无时区时间戳按此时区解释。未设置时使用数仓默认（通常为 UTC）。",
+            "placeholder": "未设置（使用数仓默认）",
+            "preview": "预览",
+            "preview_failed": "预览失败",
+            "connection_failed": "连接失败",
+            "pipeline_intro": "当前时刻逐步解释",
+            "unset_hint": "未设置数据时区，数仓将按自身会话时区读取裸时间戳。请在上方选择时区以控制解释方式。",
+            "step_from_warehouse": "来自数仓",
+            "step_from_warehouse_value": "{{raw}}  ·  无时区",
+            "step_exact_moment": "确切时间点",
+            "step_users_see": "用户看到",
+            "read_as": "读作 {{zone}}",
+            "your_data_timezone": "（你的数据时区）",
+            "shown_in_project": "以 {{timezone}} 展示（项目查询时区）",
+            "aware_note": "若列本身已带时区，则跳过第 1 步：时刻已确定（{{raw}} UTC），数据时区会被忽略，用户看到 {{rendered}}。"
         },
         "big_query": {
             "authentication_type": {

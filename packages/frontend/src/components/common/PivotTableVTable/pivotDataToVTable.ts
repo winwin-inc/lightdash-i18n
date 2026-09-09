@@ -14,6 +14,12 @@ import {
     type TableCellAlignment,
 } from '@lightdash/common';
 
+import { getFrozenColumnLayout } from '../PivotTable/getFrozenColumnLayout';
+import {
+    getGroupedDimColumnIds,
+    getRowSpanMerges,
+    type RowSpanMerge,
+} from '../PivotTable/getRowSpanMerges';
 import { ROW_NUMBER_COLUMN_ID } from '../Table/constants';
 
 const ALL_PIVOTED_SPACER_FIELD = '__pivot_spacer__';
@@ -40,6 +46,11 @@ export type PivotDataToVTableOptions = {
     pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;
+    /** Visually merge repeated row-index dimension values (grouping-only mode) */
+    showRowGrouping?: boolean;
+    showSubtotals?: boolean;
+    /** Chart column order; used to decide which index dims are grouped */
+    columnOrder?: string[];
 };
 
 /** customRender 条形图用：与 BarChartDisplay 一致的柱上/柱后文字与颜色 */
@@ -139,6 +150,13 @@ export type VTableListOption = {
     columns: (VTableColumnDef | VTableColumnGroup)[];
     records: Record<string, string | number | null | undefined>[];
     columnTotalsRecords?: Record<string, string | number | null | undefined>[];
+    /** Leading leaf columns to freeze (VTable frozenColCount) */
+    frozenColCount: number;
+    /**
+     * Per-column rowSpan merges for grouping-only mode.
+     * Keys are pivot column fieldIds; values are per data-row merge info.
+     */
+    rowSpanMerges: Map<string, RowSpanMerge[]> | null;
 };
 
 function getHeaderDisplay(
@@ -426,6 +444,37 @@ function buildGroupedDataColumns(
 }
 
 /**
+ * Flatten leaf columns in left-to-right order (for frozenColCount mapping).
+ */
+function flattenLeafColumnFields(
+    cols: (VTableColumnDef | VTableColumnGroup)[],
+): string[] {
+    const out: string[] = [];
+    for (const c of cols) {
+        if ('field' in c) out.push(c.field);
+        else out.push(...flattenLeafColumnFields(c.columns));
+    }
+    return out;
+}
+
+/**
+ * Convert sticky frozen-column layout fieldIds into a contiguous frozenColCount
+ * for VTable (freezes every leaf column up to and including the rightmost frozen).
+ */
+function frozenLayoutToColCount(
+    columns: (VTableColumnDef | VTableColumnGroup)[],
+    frozenFieldIds: Iterable<string>,
+): number {
+    const leafFields = flattenLeafColumnFields(columns);
+    let maxIdx = -1;
+    for (const fieldId of frozenFieldIds) {
+        const idx = leafFields.indexOf(fieldId);
+        if (idx > maxIdx) maxIdx = idx;
+    }
+    return maxIdx >= 0 ? maxIdx + 1 : 0;
+}
+
+/**
  * 将 PivotData 转为 VTable ListTable 可用的 option
  */
 export function pivotDataToVTable(
@@ -443,6 +492,9 @@ export function pivotDataToVTable(
         pivotColumnMaxWidth,
         cellAlignment = 'left',
         pivotRowDimensionAlignment = 'left',
+        showRowGrouping = false,
+        showSubtotals = false,
+        columnOrder,
     } = options;
 
     const dataColumnMaxWidth = getColumnMaxWidth(pivotColumnMaxWidth);
@@ -697,9 +749,60 @@ export function pivotDataToVTable(
         );
     }
 
+    // metricsAsRows: label column uses a synthetic fieldId; freeze is stored on
+    // the underlying metric fieldIds — mirror upstream PivotTable mapping.
+    let labelColumnFrozen = false;
+    if (data.pivotConfig.metricsAsRows) {
+        const labelMetricIds = new Set<string>();
+        for (const row of data.indexValues) {
+            for (const entry of row) {
+                if (entry.type === 'label') labelMetricIds.add(entry.fieldId);
+            }
+        }
+        for (const id of labelMetricIds) {
+            if (columnProperties[id]?.frozen === true) {
+                labelColumnFrozen = true;
+                break;
+            }
+        }
+    }
+
+    const frozenLayout = getFrozenColumnLayout({
+        pivotColumnInfo,
+        columnProperties,
+        rowNumberWidth: hideRowNumbers ? 0 : 48,
+        defaultColumnWidth: 100,
+        labelColumnFrozen,
+    });
+    const frozenColCount = frozenLayoutToColCount(columns, frozenLayout.keys());
+
+    // Grouping-only mode: merge repeated index-dim values without subtotal rows.
+    const groupingOnlyMode = showRowGrouping && !showSubtotals;
+    let rowSpanMerges: Map<string, RowSpanMerge[]> | null = null;
+    if (groupingOnlyMode) {
+        const orderForGrouping =
+            columnOrder && columnOrder.length > 0
+                ? columnOrder
+                : pivotColumnInfo.map((c) => c.fieldId);
+        const groupedColumnIds = getGroupedDimColumnIds(
+            data.indexValueTypes,
+            orderForGrouping,
+        );
+        if (groupedColumnIds.length > 0) {
+            const rows = data.retrofitData.allCombinedData;
+            rowSpanMerges = getRowSpanMerges(
+                rows.length,
+                groupedColumnIds,
+                (rowIndex, columnId) => rows[rowIndex]?.[columnId]?.value?.raw,
+            );
+        }
+    }
+
     return {
         columns,
         records,
         columnTotalsRecords,
+        frozenColCount,
+        rowSpanMerges,
     };
 }

@@ -15,6 +15,7 @@ import {
     type DashboardAvailableFilters,
     type DashboardBasicDetails,
     type DashboardSummary,
+    type UserDashboardsSummary,
 } from './types/dashboard';
 import { type Explore, type SummaryExplore } from './types/explore';
 import {
@@ -284,6 +285,7 @@ export * from './types/conditionalFormatting';
 export * from './types/content';
 export * from './types/csv';
 export * from './types/dashboard';
+export * from './types/dataTimezonePreview';
 export * from './types/dbt';
 export * from './types/directAccess';
 export * from './types/downloadFile';
@@ -633,6 +635,8 @@ type ApiExecuteAsyncQueryResultsCommon = {
     cacheMetadata: CacheMetadata;
     parameterReferences: string[]; // params needed for query to run
     usedParametersValues: ParametersValuesMap; // params values used
+    /** Resolved display timezone; null when timezone FF off or SQL queries */
+    resolvedTimezone: string | null;
 };
 
 export type ApiExecuteAsyncMetricQueryResults =
@@ -961,6 +965,8 @@ type ApiResults =
     | DashboardBasicDetails[]
     | OnboardingStatus
     | Dashboard[]
+    | UserDashboardsSummary
+    | { reassignedCount: number }
     | DeleteOpenIdentity
     | ApiFlashResults
     | Record<OpenIdIdentitySummary['issuerType'], OpenIdIdentitySummary[]>

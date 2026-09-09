@@ -4,6 +4,7 @@ import {
     DashboardVersionsTableName,
     DashboardsTableName,
 } from '../../../database/entities/dashboards';
+import { EmailTableName } from '../../../database/entities/emails';
 import { OrganizationTableName } from '../../../database/entities/organizations';
 import { PinnedDashboardTableName } from '../../../database/entities/pinnedList';
 import { ProjectTableName } from '../../../database/entities/projects';
@@ -67,6 +68,21 @@ export const dashboardContentConfiguration: ContentConfiguration<SummaryContentR
                     `updated_by_user.user_uuid`,
                     `last_version.updated_by_user_uuid`,
                 )
+                .leftJoin(
+                    `${UserTableName} as owner_user`,
+                    `owner_user.user_uuid`,
+                    `${DashboardsTableName}.owner_user_uuid`,
+                )
+                .leftJoin(
+                    `${EmailTableName} as owner_email`,
+                    function ownerEmailJoin() {
+                        this.on(
+                            'owner_email.user_id',
+                            '=',
+                            'owner_user.user_id',
+                        ).andOnVal('owner_email.is_primary', true);
+                    },
+                )
                 .select<SummaryContentRow[]>([
                     knex.raw(`'${ContentType.DASHBOARD}' as content_type`),
                     knex.raw(
@@ -100,6 +116,10 @@ export const dashboardContentConfiguration: ContentConfiguration<SummaryContentR
                     knex.raw(
                         `${DashboardsTableName}.first_viewed_at::timestamp as first_viewed_at`,
                     ),
+                    `${DashboardsTableName}.owner_user_uuid as owner_user_uuid`,
+                    `owner_user.first_name as owner_user_first_name`,
+                    `owner_user.last_name as owner_user_last_name`,
+                    `owner_email.email as owner_user_email`,
                     knex.raw(`json_build_object() as metadata`),
                 ])
                 .where((builder) => {
@@ -116,6 +136,14 @@ export const dashboardContentConfiguration: ContentConfiguration<SummaryContentR
                             filters.spaceUuids,
                         );
                     }
+
+                    if (filters.ownerUserUuids) {
+                        void builder.whereIn(
+                            `${DashboardsTableName}.owner_user_uuid`,
+                            filters.ownerUserUuids,
+                        );
+                    }
+
                     void builder.where(
                         `last_version.dashboard_version_id`,
                         knex.raw(`(select dashboard_version_id
@@ -187,6 +215,14 @@ export const dashboardContentConfiguration: ContentConfiguration<SummaryContentR
                     : null,
                 views: value.views,
                 firstViewedAt: value.first_viewed_at,
+                owner: value.owner_user_uuid
+                    ? {
+                          userUuid: value.owner_user_uuid,
+                          firstName: value.owner_user_first_name ?? '',
+                          lastName: value.owner_user_last_name ?? '',
+                          email: value.owner_user_email,
+                      }
+                    : null,
             };
         },
     };

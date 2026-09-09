@@ -127,6 +127,8 @@ export type CreateDashboard = {
     spaceUuid?: string;
     tabs: DashboardTab[];
     config?: DashboardConfig;
+    /** Set to a user uuid to assign an owner, null or omitted for no owner */
+    ownerUserUuid?: string | null;
 };
 
 export type DashboardTile =
@@ -173,6 +175,13 @@ export type DashboardTabWithUrls = DashboardTab & {
 
 export type DashboardDAO = Omit<Dashboard, 'isPrivate' | 'access'>;
 
+export type DashboardOwner = {
+    userUuid: string;
+    firstName: string;
+    lastName: string;
+    email: string | null;
+};
+
 export type DashboardConfig = {
     pinnedParameters?: string[];
     isDateZoomDisabled: boolean;
@@ -213,6 +222,7 @@ export type Dashboard = {
     access: SpaceShare[] | null;
     slug: string;
     config?: DashboardConfig;
+    owner: DashboardOwner | null;
 };
 
 export enum DashboardSummaryTone {
@@ -247,7 +257,11 @@ export type DashboardBasicDetails = Pick<
     | 'firstViewedAt'
     | 'pinnedListUuid'
     | 'pinnedListOrder'
-> & { validationErrors?: ValidationSummary[] };
+> & {
+    validationErrors?: ValidationSummary[];
+    /** Only populated by the v2 content API */
+    owner?: DashboardOwner | null;
+};
 
 export type DashboardBasicDetailsWithTileTypes = DashboardBasicDetails & {
     tileTypes: DashboardTileTypes[];
@@ -257,7 +271,7 @@ export type SpaceDashboard = DashboardBasicDetails;
 
 export type DashboardUnversionedFields = Pick<
     CreateDashboard,
-    'name' | 'description' | 'spaceUuid'
+    'name' | 'description' | 'spaceUuid' | 'ownerUserUuid'
 >;
 
 export type DashboardVersionedFields = Pick<
@@ -305,7 +319,8 @@ export const isDashboardUnversionedFields = (
     data: UpdateDashboard,
 ): data is DashboardUnversionedFields =>
     ('name' in data && !!data.name) ||
-    ('spaceUuid' in data && !!data.spaceUuid);
+    ('spaceUuid' in data && !!data.spaceUuid) ||
+    ('ownerUserUuid' in data && data.ownerUserUuid !== undefined);
 
 export const isDashboardVersionedFields = (
     data: UpdateDashboard,
@@ -392,4 +407,28 @@ export type CreateDashboardWithCharts = {
 export type ApiCreateDashboardWithChartsResponse = {
     status: 'ok';
     results: Dashboard;
+};
+
+/** Dashboards owned by a user across all projects, e.g. for offboarding */
+export type UserDashboardsSummary = {
+    totalCount: number;
+    byProject: Array<{
+        projectUuid: string;
+        projectName: string;
+        count: number;
+    }>;
+};
+
+export type ReassignUserDashboardsRequest = {
+    newOwnerUserUuid: string;
+};
+
+export type ApiUserDashboardsSummaryResponse = {
+    status: 'ok';
+    results: UserDashboardsSummary;
+};
+
+export type ApiReassignUserDashboardsResponse = {
+    status: 'ok';
+    results: { reassignedCount: number };
 };

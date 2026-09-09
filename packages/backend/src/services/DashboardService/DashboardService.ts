@@ -47,6 +47,8 @@ import {
     type ExportContentRequest,
     type SchedulerCsvOptions,
     type UserCategoryList,
+    type UserDashboardsSummary,
+    type UUID,
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
@@ -65,6 +67,7 @@ import { AnalyticsModel } from '../../models/AnalyticsModel';
 import type { CatalogModel } from '../../models/CatalogModel/CatalogModel';
 import { getChartFieldUsageChanges } from '../../models/CatalogModel/utils';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
+import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberProfileModel';
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
@@ -93,6 +96,7 @@ type DashboardServiceArguments = {
     catalogModel: CatalogModel;
     userDashboardCategoryModel: UserDashboardCategoryModel;
     categoryRpcClient: CategoryRpcClient;
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
 };
 
 export class DashboardService
@@ -127,6 +131,8 @@ export class DashboardService
 
     categoryRpcClient: CategoryRpcClient;
 
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
+
     constructor({
         analytics,
         dashboardModel,
@@ -142,6 +148,7 @@ export class DashboardService
         catalogModel,
         userDashboardCategoryModel,
         categoryRpcClient,
+        organizationMemberProfileModel,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -158,6 +165,7 @@ export class DashboardService
         this.slackClient = slackClient;
         this.userDashboardCategoryModel = userDashboardCategoryModel;
         this.categoryRpcClient = categoryRpcClient;
+        this.organizationMemberProfileModel = organizationMemberProfileModel;
     }
 
     static getCreateEventProperties(
@@ -688,6 +696,13 @@ export class DashboardService
                 "You don't have access to the space this dashboard belongs to",
             );
         }
+        if (dashboard.ownerUserUuid) {
+            // Throws NotFoundError when the user is not an org member
+            await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                space.organizationUuid,
+                dashboard.ownerUserUuid,
+            );
+        }
         const createDashboard = {
             ...dashboard,
             slug: generateSlug(dashboard.name),
@@ -992,12 +1007,21 @@ export class DashboardService
                 }
             }
 
+            if (dashboard.ownerUserUuid) {
+                // Throws NotFoundError when the user is not an org member
+                await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                    existingDashboardDao.organizationUuid,
+                    dashboard.ownerUserUuid,
+                );
+            }
+
             const updatedDashboard = await this.dashboardModel.update(
                 existingDashboardDao.uuid,
                 {
                     name: dashboard.name,
                     description: dashboard.description,
                     spaceUuid: dashboard.spaceUuid,
+                    ownerUserUuid: dashboard.ownerUserUuid,
                 },
             );
 
@@ -1146,6 +1170,103 @@ export class DashboardService
                 (item) => item.dashboardUuid === dashboardUuid,
             ),
         };
+    }
+
+    /**
+     * Summary of dashboards owned by a user across all projects, used by the
+     * offboarding flow when deleting an organization member. The caller must
+     * be able to manage dashboards in every project where the user owns any.
+     */
+    async getUserDashboardsSummary(
+        user: SessionUser,
+        targetUserUuid: UUID,
+    ): Promise<UserDashboardsSummary> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        const { organizationUuid } = user;
+
+        // Throws NotFoundError when the user is not an org member
+        const targetMember =
+            await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                organizationUuid,
+                targetUserUuid,
+            );
+
+        const summary =
+            await this.dashboardModel.getDashboardsSummaryByOwner(
+                targetUserUuid,
+            );
+
+        const projectsWithoutPermission = summary.byProject
+            .filter(
+                (project) =>
+                    !user.ability.can(
+                        'manage',
+                        subject('Dashboard', {
+                            organizationUuid: targetMember.organizationUuid,
+                            projectUuid: project.projectUuid,
+                        }),
+                    ),
+            )
+            .map((project) => project.projectName);
+
+        if (projectsWithoutPermission.length > 0) {
+            throw new ForbiddenError(
+                `You do not have permission to manage dashboards in: ${projectsWithoutPermission.join(
+                    ', ',
+                )}`,
+            );
+        }
+
+        return summary;
+    }
+
+    /**
+     * Transfers ownership of all dashboards owned by one user to another,
+     * used to keep ownership continuity when deleting an organization member.
+     */
+    async reassignUserDashboards(
+        user: SessionUser,
+        fromUserUuid: UUID,
+        newOwnerUserUuid: UUID,
+    ): Promise<{ reassignedCount: number }> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        const { organizationUuid } = user;
+
+        // Also validates fromUser membership and the caller's per-project access
+        const summary = await this.getUserDashboardsSummary(user, fromUserUuid);
+
+        if (summary.totalCount === 0) {
+            return { reassignedCount: 0 };
+        }
+
+        // Throws NotFoundError when the new owner is not an org member
+        await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+            organizationUuid,
+            newOwnerUserUuid,
+        );
+
+        const reassignedCount = await this.dashboardModel.updateOwnerByUser(
+            fromUserUuid,
+            newOwnerUserUuid,
+            summary.byProject.map((project) => project.projectUuid),
+        );
+
+        this.analytics.track({
+            event: 'dashboard.ownership_reassigned',
+            userId: user.userUuid,
+            properties: {
+                organizationId: organizationUuid,
+                fromUserUuid,
+                newOwnerUserUuid,
+                reassignedCount,
+            },
+        });
+
+        return { reassignedCount };
     }
 
     async updateMultiple(

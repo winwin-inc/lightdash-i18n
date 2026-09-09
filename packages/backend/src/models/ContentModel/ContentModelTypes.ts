@@ -81,6 +81,10 @@ export type SummaryContentRow<
     last_updated_by_user_last_name: string | null;
     views: number;
     first_viewed_at: Date | null;
+    owner_user_uuid: string | null;
+    owner_user_first_name: string | null;
+    owner_user_last_name: string | null;
+    owner_user_email: string | null;
     metadata: T;
 };
 

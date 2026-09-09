@@ -637,6 +637,17 @@ type UpdatedDashboardEvent = BaseTrack & {
     };
 };
 
+export type DashboardOwnershipReassignedEvent = BaseTrack & {
+    event: 'dashboard.ownership_reassigned';
+    userId: string;
+    properties: {
+        organizationId: string;
+        fromUserUuid: string;
+        newOwnerUserUuid: string;
+        reassignedCount: number;
+    };
+};
+
 export type CreateDashboardOrVersionEvent = BaseTrack & {
     event: 'dashboard.created' | 'dashboard_version.created';
     properties: {
@@ -1452,6 +1463,7 @@ type TypedEvent =
     | ProjectDeletedEvent
     | ProjectCompiledEvent
     | UpdatedDashboardEvent
+    | DashboardOwnershipReassignedEvent
     | DeletedDashboardEvent
     | CreateDashboardOrVersionEvent
     | ProjectTablesConfigurationEvent
@@ -1664,7 +1676,7 @@ export class LightdashAnalytics extends Analytics {
     }
 }
 
-// STUB: Data Apps upload analytics ¡ª port full event union from upstream later
+// STUB: Data Apps upload analytics Â¡Âª port full event union from upstream later
 export type DataAppUploadIdentitySource =
     | 'slug'
     | 'uuid-fallback'
