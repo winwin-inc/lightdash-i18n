@@ -1085,9 +1085,9 @@ const AppGenerate: FC = () => {
             : null;
     const displayThemeName: string | null = hasThemeChipSource
         ? currentThemeUuid
-            ? (orgThemes.find((t) => t.designUuid === currentThemeUuid)?.name ??
-              latestVersionThemeName)
-            : NO_THEME_LABEL
+            ? (orgThemes.find((th) => th.designUuid === currentThemeUuid)
+                  ?.name ?? latestVersionThemeName)
+            : t('pages_app_generate.no_theme')
         : null;
 
     // User-pinned version override. `null` = follow latest ready (default).
