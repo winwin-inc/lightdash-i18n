@@ -18,7 +18,11 @@ import SMTPPool from 'nodemailer/lib/smtp-pool';
 import path from 'path';
 import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
-import { emailTemplateStrings, getEmailCopy } from './emailCopy';
+import { VERSION } from '../../version';
+import {
+    emailTemplateStrings,
+    getEmailCopy,
+} from './emailCopy';
 
 // Timeout configurations based on Nodemailer defaults, adjusted for scheduler compatibility
 export const SMTP_CONNECTION_CONFIG = {
@@ -164,6 +168,8 @@ export default class EmailClient {
             host: this.lightdashConfig.siteUrl,
             // Keep historic public asset path (PNG); same as upstream email templates.
             logoSrc: `${this.lightdashConfig.siteUrl}${copy.logoPath}`,
+            // Product version for email footer (not site URL).
+            appVersion: VERSION,
             ...extra,
         };
     }
