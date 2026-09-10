@@ -6,6 +6,7 @@ import {
 import { ActionIcon, Group, Popover, Title } from '@mantine-8/core';
 import { IconInfoCircle, IconStar, IconStarFilled } from '@tabler/icons-react';
 import { useState, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DASHBOARD_HEADER_HEIGHT } from '../../../components/common/Dashboard/dashboard.constants';
 import MantineIcon from '../../../components/common/MantineIcon';
 import PageHeader from '../../../components/common/Page/PageHeader';
@@ -33,7 +34,7 @@ type AppHeaderApp = {
 type Props = {
     projectUuid: string;
     app: AppHeaderApp;
-    /** Per-page actions (edit button, refresh, overflow menu, ‚Ä? rendered on
+    /** Per-page actions (edit button, refresh, overflow menu, ù? rendered on
      *  the right. The builder and viewer have different actions, so each owns
      *  its own slot while sharing this header chrome. */
     rightSection: ReactNode;
@@ -46,6 +47,7 @@ type Props = {
  * an inline favorite star.
  */
 const AppHeader: FC<Props> = ({ projectUuid, app, rightSection }) => {
+    const { t } = useTranslation();
     const displayName = getAppDisplayName(app.name, app.uuid);
 
     const { data: favorites } = useFavorites(projectUuid);
@@ -109,8 +111,8 @@ const AppHeader: FC<Props> = ({ projectUuid, app, rightSection }) => {
                     disabled={favoriteMutation.isLoading}
                     aria-label={
                         isFavorited
-                            ? 'Remove from favorites'
-                            : 'Add to favorites'
+                            ? t('features_apps_header.remove_favorites')
+                            : t('features_apps_header.add_favorites')
                     }
                     onClick={() => {
                         // Personal apps must be filed in a space before they

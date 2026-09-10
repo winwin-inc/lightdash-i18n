@@ -10,43 +10,40 @@ import {
 
 export type TemplateDefinition = {
     id: DataAppTemplate;
-    title: string;
-    description: string;
+    titleKey: string;
+    descriptionKey: string;
     icon: TablerIcon;
 };
 
 const TEMPLATES: TemplateDefinition[] = [
     {
         id: 'dashboard',
-        title: 'Dashboard',
-        description: 'A grid of KPIs and charts for at-a-glance reporting.',
+        titleKey: 'features_apps_templates.dashboard.title',
+        descriptionKey: 'features_apps_templates.dashboard.description',
         icon: IconLayoutDashboard,
     },
     {
         id: 'slideshow',
-        title: 'Slide Show',
-        description:
-            'A guided narrative - one chart per slide, navigated linearly.',
+        titleKey: 'features_apps_templates.slideshow.title',
+        descriptionKey: 'features_apps_templates.slideshow.description',
         icon: IconPresentation,
     },
     {
         id: 'pdf',
-        title: 'PDF Report',
-        description:
-            'A print-friendly document with sections and supporting charts.',
+        titleKey: 'features_apps_templates.pdf.title',
+        descriptionKey: 'features_apps_templates.pdf.description',
         icon: IconFileText,
     },
     {
         id: 'custom',
-        title: 'From scratch',
-        description: 'Start from scratch and describe whatever you want.',
+        titleKey: 'features_apps_templates.custom.title',
+        descriptionKey: 'features_apps_templates.custom.description',
         icon: IconPencil,
     },
     {
         id: 'data_app_viz',
-        title: 'Data app visualization',
-        description:
-            'A reusable single-tile chart you can apply to any query like a chart type.',
+        titleKey: 'features_apps_templates.data_app_viz.title',
+        descriptionKey: 'features_apps_templates.data_app_viz.description',
         icon: IconPuzzle,
     },
 ];
@@ -59,9 +56,9 @@ export const PICKER_TEMPLATES: TemplateDefinition[] = TEMPLATES.filter(
 );
 
 export const getTemplate = (id: DataAppTemplate): TemplateDefinition => {
-    const t = TEMPLATES.find((x) => x.id === id);
-    if (!t) {
+    const template = TEMPLATES.find((x) => x.id === id);
+    if (!template) {
         throw new Error(`Unknown data app template: ${id}`);
     }
-    return t;
+    return template;
 };

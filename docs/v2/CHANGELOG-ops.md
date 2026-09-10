@@ -31,7 +31,7 @@
 | `DASHBOARD_TABS_IN_MEMORY` | **Tab 更流畅**：多 Tab 切回去时少整页重载。 |
 | `LOCK_DASHBOARD_FILTERS_ENABLED` | **锁定筛选**：锁住的条件不会被分享链接改掉。 |
 | `ENABLE_TIMEZONE_SUPPORT` | **时区**：可配项目 / 用户 / 图表时区，结果会标明实际时区。只能用环境变量打开。 |
-| `APPS_RUNTIME_ENABLED` | **数据应用入口**：导航和看板磁贴可用；不含生成应用、沙箱跑通。 |
+| `APPS_RUNTIME_ENABLED` | **数据应用入口**：导航和看板磁贴可用；不含生成应用、沙箱跑通。专题与踩坑见 [`v2-data-apps.md`](v2-data-apps.md)。 |
 
 发版建议：预发除 Data Apps 外可先全部打开；生产按业务需要逐项开。
 

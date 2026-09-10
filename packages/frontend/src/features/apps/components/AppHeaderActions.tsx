@@ -33,6 +33,7 @@ import {
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type FC, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import MantineIcon from '../../../components/common/MantineIcon';
 import AppDeleteModal from '../../../components/common/modal/AppDeleteModal';
@@ -146,6 +147,7 @@ const AppHeaderActions: FC<Props> = ({
     upgrade,
     capturedQueryCount,
 }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
 
     const canEdit = useCanEditDataApp(projectUuid, {
@@ -206,11 +208,11 @@ const AppHeaderActions: FC<Props> = ({
             void queryClient.resetQueries({
                 queryKey: ['app-thumbnail', projectUuid, appUuid],
             });
-            showToastSuccess({ title: 'Thumbnail removed' });
+            showToastSuccess({ title: t('features_apps_header.thumbnail_removed') });
         } catch (err) {
             showToastError({
-                title: 'Failed to remove thumbnail',
-                subtitle: isApiError(err) ? err.error.message : 'Unknown error',
+                title: t('features_apps_header.failed_remove_thumbnail'),
+                subtitle: isApiError(err) ? err.error.message : t('pages_app_generate.unknown_error'),
             });
         }
     }, [
@@ -220,6 +222,7 @@ const AppHeaderActions: FC<Props> = ({
         queryClient,
         showToastSuccess,
         showToastError,
+        t,
     ]);
 
     const [schedulerModalOpen, setSchedulerModalOpen] = useState(false);
@@ -262,7 +265,7 @@ const AppHeaderActions: FC<Props> = ({
             {onEdit && (
                 <>
                     <Tooltip
-                        label="Continue building"
+                        label={t('features_apps_header.continue_building')}
                         withinPortal
                         position="bottom"
                         openDelay={200}
@@ -272,7 +275,7 @@ const AppHeaderActions: FC<Props> = ({
                         }}
                     >
                         <ActionIcon
-                            aria-label="Continue building"
+                            aria-label={t('features_apps_header.continue_building')}
                             radius="md"
                             onClick={onEdit}
                             bg="foreground"
@@ -290,7 +293,7 @@ const AppHeaderActions: FC<Props> = ({
                 </>
             )}
             <Tooltip
-                label="Refresh to re-run queries"
+                label={t('features_apps_header.refresh_queries')}
                 withinPortal
                 position="bottom"
                 openDelay={200}
@@ -305,14 +308,14 @@ const AppHeaderActions: FC<Props> = ({
                     radius="md"
                     disabled={refreshDisabled}
                     onClick={onRefresh}
-                    aria-label="Refresh"
+                    aria-label={t('features_apps_header.refresh')}
                 >
                     <MantineIcon icon={IconRefresh} />
                 </ActionIcon>
             </Tooltip>
             {fullscreenToggle}
             {shareUrl && (
-                <ShareLinkButton url={shareUrl} label="Copy link to the app" />
+                <ShareLinkButton url={shareUrl} label={t('features_apps_header.copy_link')} />
             )}
             <Menu
                 position="bottom-end"
@@ -333,7 +336,7 @@ const AppHeaderActions: FC<Props> = ({
                             variant="default"
                             size="md"
                             radius="md"
-                            aria-label="App actions"
+                            aria-label={t('features_apps_header.app_actions')}
                         >
                             <MantineIcon icon={IconDots} />
                         </ActionIcon>
@@ -347,7 +350,7 @@ const AppHeaderActions: FC<Props> = ({
                         }
                         onClick={onViewNetwork}
                     >
-                        View network
+                        {t('features_apps_header.view_network')}
                     </Menu.Item>
                     {canCreateScheduledDeliveries && (
                         <Menu.Item
@@ -356,7 +359,7 @@ const AppHeaderActions: FC<Props> = ({
                             }
                             onClick={() => setSchedulerModalOpen(true)}
                         >
-                            Schedule delivery
+                            {t('features_apps_header.schedule_delivery')}
                         </Menu.Item>
                     )}
                     {canCreateScheduledDeliveries && hasGoogleDriveEnabled && (
@@ -376,7 +379,7 @@ const AppHeaderActions: FC<Props> = ({
                                 }
                                 onClick={() => setSyncModalOpen(true)}
                             >
-                                Google Sheets Sync
+                                {t('features_apps_header.google_sheets_sync')}
                             </Menu.Item>
                         </Can>
                     )}
@@ -393,14 +396,14 @@ const AppHeaderActions: FC<Props> = ({
                                         variant="light"
                                         color="blue"
                                     >
-                                        New
+                                        {t('features_apps_header.new_badge')}
                                     </Badge>
                                 ) : undefined
                             }
                             disabled={upgrade.disabled}
                             onClick={() => setIsUpgradeModalOpen(true)}
                         >
-                            Upgrade app
+                            {t('features_apps_header.upgrade_app')}
                         </Menu.Item>
                     )}
                     {canEdit && (
@@ -410,7 +413,7 @@ const AppHeaderActions: FC<Props> = ({
                             }
                             onClick={() => setIsUpdateModalOpen(true)}
                         >
-                            Rename
+                            {t('features_apps_header.rename')}
                         </Menu.Item>
                     )}
                     {canEdit && captureThumbnail && (
@@ -422,7 +425,7 @@ const AppHeaderActions: FC<Props> = ({
                                 disabled={captureThumbnail.disabled}
                                 onClick={captureThumbnail.onCapture}
                             >
-                                Capture thumbnail
+                                {t('features_apps_header.capture_thumbnail')}
                             </Menu.Item>
                             <Menu.Item
                                 leftSection={
@@ -431,7 +434,7 @@ const AppHeaderActions: FC<Props> = ({
                                 disabled={!hasThumbnail || isDeletingThumbnail}
                                 onClick={() => void handleRemoveThumbnail()}
                             >
-                                Remove thumbnail
+                                {t('features_apps_header.remove_thumbnail')}
                             </Menu.Item>
                         </>
                     )}
@@ -443,7 +446,7 @@ const AppHeaderActions: FC<Props> = ({
                             disabled={isDuplicating}
                             onClick={handleDuplicate}
                         >
-                            Duplicate
+                            {t('features_apps_header.duplicate')}
                         </Menu.Item>
                     )}
                     {canEdit && (
@@ -462,8 +465,8 @@ const AppHeaderActions: FC<Props> = ({
                                 onClick={() => setIsMoveToSpaceOpen(true)}
                             >
                                 {appSpaceUuid
-                                    ? 'Move to space'
-                                    : 'Add to space'}
+                                    ? t('features_apps_header.move_to_space')
+                                    : t('features_apps_header.add_to_space')}
                             </Menu.Item>
                             {isPreviewProject && hasReadyVersion && (
                                 <Menu.Item
@@ -491,7 +494,7 @@ const AppHeaderActions: FC<Props> = ({
                                             setIsDirectAccessModalOpen(true)
                                         }
                                     >
-                                        Share
+                                        {t('features_apps_header.share')}
                                     </Menu.Item>
                                 )}
                             <Menu.Divider />
@@ -502,7 +505,7 @@ const AppHeaderActions: FC<Props> = ({
                                 }
                                 onClick={() => setIsDeleteModalOpen(true)}
                             >
-                                Delete
+                                {t('features_apps_header.delete')}
                             </Menu.Item>
                         </>
                     )}

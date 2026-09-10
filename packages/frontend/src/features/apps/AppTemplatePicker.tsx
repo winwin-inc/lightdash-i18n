@@ -1,6 +1,7 @@
 import { type DataAppTemplate } from '@lightdash/common';
 import { Stack, Text, ThemeIcon } from '@mantine-8/core';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PolymorphicPaperButton } from '../../components/common/PolymorphicPaperButton';
 import classes from './AppTemplatePicker.module.css';
 import { PICKER_TEMPLATES } from './templates';
@@ -10,52 +11,56 @@ type Props = {
     onSelectedChange: (template: DataAppTemplate | null) => void;
 };
 
-const AppTemplatePicker: FC<Props> = ({ selected, onSelectedChange }) => (
-    <div className={classes.fan}>
-        {PICKER_TEMPLATES.map((template, index) => {
-            const Icon = template.icon;
-            const isSelected = selected === template.id;
-            return (
-                <PolymorphicPaperButton
-                    key={template.id}
-                    component="button"
-                    type="button"
-                    radius="md"
-                    className={`${classes.card} ${isSelected ? classes.cardSelected : ''}`}
-                    data-pos={index}
-                    aria-pressed={isSelected}
-                    data-selected={isSelected ? 'true' : undefined}
-                    onClick={() =>
-                        onSelectedChange(isSelected ? null : template.id)
-                    }
-                >
-                    <Stack gap="xs" align="flex-start">
-                        <ThemeIcon
-                            size="lg"
-                            radius="md"
-                            variant="light"
-                            color="gray"
-                            className={classes.cardIcon}
-                        >
-                            <Icon size={20} />
-                        </ThemeIcon>
-                        <Stack gap={4} className={classes.cardContent}>
-                            <Text
-                                fw={600}
-                                size="sm"
-                                className={classes.cardTitle}
+const AppTemplatePicker: FC<Props> = ({ selected, onSelectedChange }) => {
+    const { t } = useTranslation();
+
+    return (
+        <div className={classes.fan}>
+            {PICKER_TEMPLATES.map((template, index) => {
+                const Icon = template.icon;
+                const isSelected = selected === template.id;
+                return (
+                    <PolymorphicPaperButton
+                        key={template.id}
+                        component="button"
+                        type="button"
+                        radius="md"
+                        className={`${classes.card} ${isSelected ? classes.cardSelected : ''}`}
+                        data-pos={index}
+                        aria-pressed={isSelected}
+                        data-selected={isSelected ? 'true' : undefined}
+                        onClick={() =>
+                            onSelectedChange(isSelected ? null : template.id)
+                        }
+                    >
+                        <Stack gap="xs" align="flex-start">
+                            <ThemeIcon
+                                size="lg"
+                                radius="md"
+                                variant="light"
+                                color="gray"
+                                className={classes.cardIcon}
                             >
-                                {template.title}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                                {template.description}
-                            </Text>
+                                <Icon size={20} />
+                            </ThemeIcon>
+                            <Stack gap={4} className={classes.cardContent}>
+                                <Text
+                                    fw={600}
+                                    size="sm"
+                                    className={classes.cardTitle}
+                                >
+                                    {t(template.titleKey)}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {t(template.descriptionKey)}
+                                </Text>
+                            </Stack>
                         </Stack>
-                    </Stack>
-                </PolymorphicPaperButton>
-            );
-        })}
-    </div>
-);
+                    </PolymorphicPaperButton>
+                );
+            })}
+        </div>
+    );
+};
 
 export default AppTemplatePicker;

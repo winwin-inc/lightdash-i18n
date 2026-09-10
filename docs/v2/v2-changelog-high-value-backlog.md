@@ -26,7 +26,7 @@
 | 方向 | 决策 | 说明 |
 |------|------|------|
 | Embed / 三方嵌入能力包 | **本批不做 / 暂缓** | 当前业务几乎无用 |
-| Data Apps Sandbox / generate、Chart Types 全量 | **本批不做 / 暂缓** | Data Apps 尚未形成精品；运行时收口 A 保持现状 |
+| Data Apps Sandbox / generate、Chart Types 全量 | **本批不做 / 暂缓** | Data Apps 尚未形成精品；运行时收口 A 保持现状。专题追踪见 [`v2-data-apps.md`](v2-data-apps.md) |
 | EE 解绑（Direct Access / Homepage / Autopilot 等） | **本批不做 / 暂缓** | 暂无需求 |
 | Role Sets / Slug rename / Pre-aggregates / GuidedSetup / Date Zoom | **本批不做** | 破坏性或强冲突；将来专项另开。Slug / Date Zoom 增强说明见下文 **§暂缓归档** |
 | **本批迁（非破坏性三件套）** | Honest/时区 P1 收尾、Dashboard Ownership、透视表增强子集 | 见 §1.2 |
@@ -194,7 +194,7 @@ CHANGELOG 体量大、但对当前试跑 / 主闭环 ROI 低或冲突大：
 
 ### 7.3 其它本批不做（详见上文表）
 
-Embed 解绑、Pre-agg（EE）、Role Sets、GuidedSetup UI、External Sources、Chart Types 全量、Data Apps Sandbox/generate、echarts `timezoneShift` 等。
+Embed 解绑、Pre-agg（EE）、Role Sets、GuidedSetup UI、External Sources、Chart Types 全量、Data Apps Sandbox/generate、echarts `timezoneShift` 等。Data Apps 用法与跟进清单见 [`v2-data-apps.md`](v2-data-apps.md)。
 
 ---
 
@@ -204,4 +204,5 @@ Embed 解绑、Pre-agg（EE）、Role Sets、GuidedSetup UI、External Sources�
 - **发版说明**：[`CHANGELOG.md`](CHANGELOG.md)
 - 交测清单：[`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)
 - 迁移全景：[`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md)
+- Data Apps 专题：[`v2-data-apps.md`](v2-data-apps.md)
 - 自动化：`pnpm v2:verify`

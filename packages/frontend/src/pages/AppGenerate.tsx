@@ -65,6 +65,7 @@ import {
     useParams,
 } from 'react-router';
 import { validate as isUuidString, v4 as uuid4 } from 'uuid';
+import { useTranslation } from 'react-i18next';
 import { AiMarkdown } from '../components/common/AiMarkdown';
 import Callout from '../components/common/Callout';
 import MantineIcon from '../components/common/MantineIcon';
@@ -192,20 +193,19 @@ const AppResourceImage: FC<{
 };
 
 const TemplateChip: FC<{ template: DataAppTemplate }> = ({ template }) => {
-    const t = getTemplate(template);
+    const { t } = useTranslation();
+    const definition = getTemplate(template);
     return (
         <Badge
             variant="light"
             color="gray"
             size="md"
-            leftSection={<MantineIcon icon={t.icon} size={12} />}
+            leftSection={<MantineIcon icon={definition.icon} size={12} />}
         >
-            {t.title}
+            {t(definition.titleKey)}
         </Badge>
     );
 };
-
-const NO_THEME_LABEL = 'No theme';
 
 const ThemeChip: FC<{
     themeName: string;
@@ -213,63 +213,66 @@ const ThemeChip: FC<{
     themes: { designUuid: string; name: string; isDefault?: boolean }[];
     disabled?: boolean;
     onThemeChange: (designUuid: string | null) => void;
-}> = ({ themeName, selectedThemeUuid, themes, disabled, onThemeChange }) => (
-    <Menu position="top-start" shadow="md" withinPortal>
-        <Menu.Target>
-            <Badge
-                component="button"
-                type="button"
-                variant="light"
-                color="gray"
-                size="md"
-                leftSection={<MantineIcon icon={IconBrush} size={12} />}
-                disabled={disabled}
-                styles={{
-                    root: {
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                    },
-                }}
-            >
-                {themeName}
-            </Badge>
-        </Menu.Target>
-        <Menu.Dropdown>
-            <Menu.Item
-                leftSection={
-                    selectedThemeUuid === null ? (
-                        <MantineIcon icon={IconCheck} size={14} />
-                    ) : undefined
-                }
-                disabled={disabled}
-                onClick={() => onThemeChange(null)}
-            >
-                {NO_THEME_LABEL}
-            </Menu.Item>
-            {themes.length > 0 && <Menu.Divider />}
-            {themes.map((theme) => (
+}> = ({ themeName, selectedThemeUuid, themes, disabled, onThemeChange }) => {
+    const { t } = useTranslation();
+    return (
+        <Menu position="top-start" shadow="md" withinPortal>
+            <Menu.Target>
+                <Badge
+                    component="button"
+                    type="button"
+                    variant="light"
+                    color="gray"
+                    size="md"
+                    leftSection={<MantineIcon icon={IconBrush} size={12} />}
+                    disabled={disabled}
+                    styles={{
+                        root: {
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                        },
+                    }}
+                >
+                    {themeName}
+                </Badge>
+            </Menu.Target>
+            <Menu.Dropdown>
                 <Menu.Item
-                    key={theme.designUuid}
                     leftSection={
-                        selectedThemeUuid === theme.designUuid ? (
+                        selectedThemeUuid === null ? (
                             <MantineIcon icon={IconCheck} size={14} />
                         ) : undefined
                     }
                     disabled={disabled}
-                    onClick={() => onThemeChange(theme.designUuid)}
+                    onClick={() => onThemeChange(null)}
                 >
-                    <Group gap="xs">
-                        <Text size="sm">{theme.name}</Text>
-                        {theme.isDefault && (
-                            <Text size="xs" c="dimmed">
-                                Default
-                            </Text>
-                        )}
-                    </Group>
+                    {t('pages_app_generate.no_theme')}
                 </Menu.Item>
-            ))}
-        </Menu.Dropdown>
-    </Menu>
-);
+                {themes.length > 0 && <Menu.Divider />}
+                {themes.map((theme) => (
+                    <Menu.Item
+                        key={theme.designUuid}
+                        leftSection={
+                            selectedThemeUuid === theme.designUuid ? (
+                                <MantineIcon icon={IconCheck} size={14} />
+                            ) : undefined
+                        }
+                        disabled={disabled}
+                        onClick={() => onThemeChange(theme.designUuid)}
+                    >
+                        <Group gap="xs">
+                            <Text size="sm">{theme.name}</Text>
+                            {theme.isDefault && (
+                                <Text size="xs" c="dimmed">
+                                    {t('pages_app_generate.default_theme')}
+                                </Text>
+                            )}
+                        </Group>
+                    </Menu.Item>
+                ))}
+            </Menu.Dropdown>
+        </Menu>
+    );
+};
 
 /** A removable pill for an element picked with the inspector. Matches the
  *  chart/dashboard pill shape, violet-tinted to mark inspector picks. */
@@ -366,6 +369,7 @@ const AvailableConnectionsChip: FC<{ aliases: string[] }> = ({ aliases }) => (
 );
 
 const AppGenerate: FC = () => {
+    const { t } = useTranslation();
     const { appUuid: urlAppUuid } = useParams();
     const projectUuid = useProjectUuid();
     const navigate = useNavigate();
@@ -663,7 +667,7 @@ const AppGenerate: FC = () => {
                     ? err.error.message
                     : err instanceof Error
                       ? err.message
-                      : 'Failed to generate app';
+                      : t('pages_app_generate.failed_generate');
                 setLocalMessages((prev) => [
                     ...prev,
                     {
@@ -676,7 +680,7 @@ const AppGenerate: FC = () => {
                 ]);
             },
         }),
-        [invalidateAppData, navigate, projectUuid, urlAppUuid],
+        [invalidateAppData, navigate, projectUuid, urlAppUuid, t],
     );
 
     // The generate half of a submit, deferred until the clarifying round (if
@@ -985,10 +989,11 @@ const AppGenerate: FC = () => {
 
             if (!projectUuid || !activeAppUuid || isAgentWorking) return;
 
+            // Prompts sent to the coding agent stay in English.
             const themeName = designUuid
-                ? (orgThemes.find((t) => t.designUuid === designUuid)?.name ??
-                  'Selected theme')
-                : NO_THEME_LABEL;
+                ? (orgThemes.find((theme) => theme.designUuid === designUuid)
+                      ?.name ?? 'Selected theme')
+                : 'No theme';
             const prompt =
                 designUuid === null
                     ? `Remove theme`
@@ -1030,7 +1035,7 @@ const AppGenerate: FC = () => {
                             ? err.error.message
                             : err instanceof Error
                               ? err.message
-                              : 'Failed to apply theme';
+                              : t('pages_app_generate.failed_apply_theme');
                         setLocalMessages((prev) => [
                             ...prev,
                             {
@@ -1059,6 +1064,7 @@ const AppGenerate: FC = () => {
             modelRequest,
             user.data?.firstName,
             user.data?.lastName,
+            t,
         ],
     );
 
@@ -1325,8 +1331,8 @@ const AppGenerate: FC = () => {
             <Box mt="30vh">
                 <SuboptimalState
                     icon={IconAppsOff}
-                    title="Data app not found"
-                    description="This data app doesn't exist or has been deleted."
+                    title={t('pages_app_generate.not_found_title')}
+                    description={t('pages_app_generate.not_found_description')}
                 />
             </Box>
         );
@@ -1385,8 +1391,13 @@ const AppGenerate: FC = () => {
         setFileAttachments((prev) => {
             if (prev.length >= MAX_APP_FILES_PER_VERSION) {
                 showToastWarning({
-                    title: `Attachment limit reached`,
-                    subtitle: `You can attach up to ${MAX_APP_FILES_PER_VERSION} files per message.`,
+                    title: t('pages_app_generate.attachment_limit'),
+                    subtitle: t(
+                        'pages_app_generate.attachment_limit_subtitle',
+                        {
+                            count: MAX_APP_FILES_PER_VERSION,
+                        },
+                    ),
                 });
                 return prev;
             }
@@ -1453,11 +1464,16 @@ const AppGenerate: FC = () => {
             void queryClient.invalidateQueries({
                 queryKey: ['app-thumbnail', projectUuid, activeAppUuid],
             });
-            showToastSuccess({ title: 'Thumbnail updated' });
+            showToastSuccess({
+                title: t('pages_app_generate.thumbnail_updated'),
+            });
         } catch (err) {
             showToastError({
-                title: 'Failed to capture thumbnail',
-                subtitle: err instanceof Error ? err.message : 'Unknown error',
+                title: t('pages_app_generate.thumbnail_capture_failed'),
+                subtitle:
+                    err instanceof Error
+                        ? err.message
+                        : t('pages_app_generate.unknown_error'),
             });
         } finally {
             setIsCapturingScreenshot(false);
@@ -1482,19 +1498,22 @@ const AppGenerate: FC = () => {
                     });
                 } catch (err) {
                     showToastWarning({
-                        title: 'Thumbnail not saved',
+                        title: t('pages_app_generate.thumbnail_not_saved'),
                         subtitle:
                             err instanceof Error
                                 ? err.message
-                                : 'Unknown error',
+                                : t('pages_app_generate.unknown_error'),
                     });
                 }
             }
             void handleFileAttach(file, 'screenshot');
         } catch (err) {
             showToastError({
-                title: 'Screenshot failed',
-                subtitle: err instanceof Error ? err.message : 'Unknown error',
+                title: t('pages_app_generate.screenshot_failed'),
+                subtitle:
+                    err instanceof Error
+                        ? err.message
+                        : t('pages_app_generate.unknown_error'),
             });
         } finally {
             setIsCapturingScreenshot(false);
@@ -1587,11 +1606,11 @@ const AppGenerate: FC = () => {
                         ids.push(result.fileId);
                     } catch (err) {
                         showToastError({
-                            title: 'File upload failed',
+                            title: t('pages_app_generate.file_upload_failed'),
                             subtitle:
                                 err instanceof Error
                                     ? err.message
-                                    : 'Unknown error',
+                                    : t('pages_app_generate.unknown_error'),
                         });
                     }
                 }
@@ -1778,11 +1797,10 @@ const AppGenerate: FC = () => {
                                         fz={28}
                                         className={classes.composeTitle}
                                     >
-                                        Build a Data App
+                                        {t('pages_app_generate.title')}
                                     </Text>
                                     <Text size="sm" c="dimmed">
-                                        Pick a starting point, then describe
-                                        what you want to build.
+                                        {t('pages_app_generate.subtitle')}
                                     </Text>
                                 </Stack>
                                 <AppTemplatePicker
@@ -1812,8 +1830,12 @@ const AppGenerate: FC = () => {
                                     ) : null}
                                     <Text size="xs" c="dimmed">
                                         {isFetchingNextPage
-                                            ? 'Loading earlier messages...'
-                                            : 'Load earlier messages'}
+                                            ? t(
+                                                  'pages_app_generate.loading_earlier',
+                                              )
+                                            : t(
+                                                  'pages_app_generate.load_earlier',
+                                              )}
                                     </Text>
                                 </Group>
                             )}
@@ -1826,9 +1848,7 @@ const AppGenerate: FC = () => {
                                             maw={320}
                                             ta="center"
                                         >
-                                            Describe what you want to build and
-                                            I'll generate a data app connected
-                                            to your project.
+                                            {t('pages_app_generate.empty_chat')}
                                         </Text>
                                     )}
                                 </Box>
@@ -2259,7 +2279,7 @@ const AppGenerate: FC = () => {
                                             className={classes.clarifyContainer}
                                         >
                                             <Text size="sm">
-                                                A few quick questions:
+                                                {t('pages_app_generate.quick_questions')}
                                             </Text>
                                             <ClarificationQuestionList
                                                 questions={
@@ -2279,7 +2299,7 @@ const AppGenerate: FC = () => {
                                                         )
                                                     }
                                                 >
-                                                    Skip
+                                                    {t('pages_app_generate.skip')}
                                                 </Button>
                                                 <Button
                                                     size="xs"
@@ -2289,7 +2309,7 @@ const AppGenerate: FC = () => {
                                                         )
                                                     }
                                                 >
-                                                    Build
+                                                    {t('pages_app_generate.build')}
                                                 </Button>
                                             </Group>
                                         </Box>
@@ -2311,10 +2331,9 @@ const AppGenerate: FC = () => {
                                                                 size="sm"
                                                                 c="dimmed"
                                                             >
-                                                                Hold tight, I
-                                                                may have some
-                                                                questions before
-                                                                starting{' '}
+                                                                {t(
+                                                                    'pages_app_generate.clarifying',
+                                                                )}{' '}
                                                                 <LoadingDots />
                                                             </Text>
                                                         ) : (
@@ -2336,15 +2355,7 @@ const AppGenerate: FC = () => {
                                                                             classes.workingLine
                                                                         }
                                                                     >
-                                                                        Working
-                                                                        on your
-                                                                        app ù??
-                                                                        feel
-                                                                        free to
-                                                                        switch
-                                                                        tabs or
-                                                                        close
-                                                                        this one{' '}
+                                                                        {t('pages_app_generate.working')}{' '}
                                                                         <LoadingDots />
                                                                     </Text>
                                                                 ) : latestBuildingVersion?.statusMessage ? (
@@ -2487,7 +2498,9 @@ const AppGenerate: FC = () => {
                                     <PromptComposer
                                         ref={promptEditorRef}
                                         size="md"
-                                        placeholder="Describe the app you want to build..."
+                                        placeholder={t(
+                                            'pages_app_generate.placeholder',
+                                        )}
                                         autoFocus
                                         // Editable while the agent works so the next prompt
                                         // can be drafted; disabled only during the
@@ -2847,11 +2860,17 @@ const AppGenerate: FC = () => {
                                                             className={
                                                                 classes.startingFromChip
                                                             }
-                                                            title={`Starting from ${
-                                                                getTemplate(
-                                                                    selectedTemplate,
-                                                                ).title
-                                                            }`}
+                                                            title={t(
+                                                                'pages_app_generate.starting_from',
+                                                                {
+                                                                    name: t(
+                                                                        getTemplate(
+                                                                            selectedTemplate,
+                                                                        )
+                                                                            .titleKey,
+                                                                    ),
+                                                                },
+                                                            )}
                                                         >
                                                             <MantineIcon
                                                                 icon={
@@ -2870,7 +2889,9 @@ const AppGenerate: FC = () => {
                                                                     classes.startingFromLabel
                                                                 }
                                                             >
-                                                                Template:
+                                                                {t(
+                                                                    'pages_app_generate.template_label',
+                                                                )}
                                                             </Text>
                                                             <Text
                                                                 span
@@ -2880,11 +2901,11 @@ const AppGenerate: FC = () => {
                                                                 c="inherit"
                                                                 lineClamp={1}
                                                             >
-                                                                {
+                                                                {t(
                                                                     getTemplate(
                                                                         selectedTemplate,
-                                                                    ).title
-                                                                }
+                                                                    ).titleKey,
+                                                                )}
                                                             </Text>
                                                         </Group>
                                                     )}
@@ -2907,14 +2928,18 @@ const AppGenerate: FC = () => {
                                                 {isBuilding ? (
                                                     <ComposerSubmitButton
                                                         icon={IconPlayerStop}
-                                                        label="Stop generation"
+                                                        label={t(
+                                                            'pages_app_generate.stop_generation',
+                                                        )}
                                                         onClick={handleCancel}
                                                         loading={isCancelling}
                                                     />
                                                 ) : (
                                                     <ComposerSubmitButton
                                                         icon={IconArrowUp}
-                                                        label="Send message"
+                                                        label={t(
+                                                            'pages_app_generate.send_message',
+                                                        )}
                                                         onClick={() =>
                                                             void handleSubmit()
                                                         }
@@ -3059,7 +3084,12 @@ const AppGenerate: FC = () => {
                                         setRestoreTargetVersion(null);
                                         resetRestoreVersion();
                                     }}
-                                    title={`Restore version ${restoreTargetVersion}?`}
+                                    title={t(
+                                        'pages_app_generate.restore_version_title',
+                                        {
+                                            version: restoreTargetVersion,
+                                        },
+                                    )}
                                     icon={IconRestore}
                                     actions={
                                         <Button
@@ -3083,7 +3113,9 @@ const AppGenerate: FC = () => {
                                                 )
                                             }
                                         >
-                                            Restore version
+                                            {t(
+                                                'pages_app_generate.restore_version',
+                                            )}
                                         </Button>
                                     }
                                 >
@@ -3099,7 +3131,7 @@ const AppGenerate: FC = () => {
                                             <Callout variant="danger">
                                                 {restoreVersionError.error
                                                     ?.message ??
-                                                    'Failed to restore version.'}
+                                                    t('pages_app_generate.failed_restore')}
                                             </Callout>
                                         )}
                                     </Stack>
