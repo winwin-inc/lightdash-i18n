@@ -24,11 +24,18 @@
 
 `GET /api/v2/content?...&contentTypes=data_app&dataAppVizsFilter=exclude` 返回 **500**，日志含 `routine: 'errorMissingColumn'`。
 
-| 结论 | 说明 |
-|------|------|
-| 原因 | 库未跑齐 `apps` / `app_versions` 等 migration（缺 `template`、`views_count` 等列） |
-| **不是** | 本仓相对上游 `../lightdash` 缺核心 apps migration 文件（已对齐） |
-| 处理 | 预发执行 `pnpm -F backend migrate-production`（或确认容器 entrypoint 已跑成功），再查 `\d apps` 与 `knex_migrations` |
+| 缺列（日志原文） | 原因 | 处理 |
+|------------------|------|------|
+| `apps.template` / `apps.views_count` 等 | 库未跑齐 apps 相关 migration | 确认镜像含 apps migrations 后执行 `migrate-production` |
+| `spaces.deleted_at` | Data Apps 查询过滤已删空间；本仓曾缺 soft-delete migration | 已补入 `20260206163809_add_soft_delete_to_spaces.ts`（及图表/看板等 soft-delete）；发版后必须再跑 migrate |
+
+发版后建议在库里自检：
+
+```sql
+\d spaces
+-- 应有 deleted_at、deleted_by_user_uuid
+SELECT name FROM knex_migrations WHERE name LIKE '%soft_delete_to_spaces%';
+```
 
 ---
 
@@ -157,3 +164,4 @@ flowchart LR
 | 日期 | 说明 |
 |------|------|
 | 2026-09-10 | 初版：交付边界、用法、手写能力、筛选联动、预发缺列踩坑、跟进清单 |
+| 2026-09-10 | 补记：`spaces.deleted_at` 缺列与 soft-delete migration 回填 |
