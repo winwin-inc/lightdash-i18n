@@ -14,7 +14,7 @@
 | **已交付** | 导航入口、全部数据应用列表、CASL 权限、看板 Data App 磁贴、后端 AppModel / API / preview 基建、相关 DB migration |
 | **不交付（本窗口）** | AI 一键 generate 端到端、Sandbox 真构建出 `ready`、CLI `upload --apps`、产品内代码 IDE |
 
-开关：`APPS_RUNTIME_ENABLED=true`（改完需重启 backend）。关闭时界面不出现数据应用入口。
+开关：`APPS_RUNTIME_ENABLED=true`（改完需重启 backend）。关闭时界面不出现数据应用入口。与发版说明一致：本窗口暂不开放；生产建议关。
 
 ---
 
