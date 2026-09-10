@@ -11,6 +11,7 @@
 | [`v2-qa-dingtalk-backup.md`](v2-qa-dingtalk-backup.md) | 钉钉备份（自包含） |
 | [`v2-changelog-high-value-backlog.md`](v2-changelog-high-value-backlog.md) | 收口决策、暂缓项、批次记录 |
 | [`v2-upgrade-and-migration-guide.md`](v2-upgrade-and-migration-guide.md) | 工程迁移全景与评估 |
+| [`v2-data-apps.md`](v2-data-apps.md) | **Data Apps 专题**：交付边界、用法、手写能力、筛选联动、预发踩坑、跟进清单 |
 
 **已合并仅留跳转（同目录）：**
 

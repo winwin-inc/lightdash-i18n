@@ -10,6 +10,7 @@ import {
 } from '@mantine-8/core';
 import { IconCheck, IconChevronDown } from '@tabler/icons-react';
 import { useMemo, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../MantineIcon';
 import { filterDeprecatedModelsForPicker, getModelKey } from './utils';
 
@@ -29,6 +30,7 @@ export const ModelSelector: FC<Props> = ({
     onReasoningChange,
     ...buttonProps
 }) => {
+    const { t } = useTranslation();
     const selectedModel = useMemo(
         () => models.find((m) => getModelKey(m) === value),
         [models, value],
@@ -56,7 +58,9 @@ export const ModelSelector: FC<Props> = ({
     const showReasoning =
         selectedModel?.supportsReasoning === true &&
         onReasoningChange !== undefined;
-    const reasoningLabel = reasoningEnabled ? 'High' : null;
+    const reasoningLabel = reasoningEnabled
+        ? t('features_apps_composer.reasoning_high')
+        : null;
 
     if (visibleModels.length === 1 && !showReasoning) {
         return null;
@@ -84,7 +88,8 @@ export const ModelSelector: FC<Props> = ({
                 >
                     <Group gap={6} wrap="nowrap">
                         <Text size="xs" fw={600} c="ldGray.8" span>
-                            {selectedModel?.displayName ?? 'Select model'}
+                            {selectedModel?.displayName ??
+                                t('features_apps_composer.select_model')}
                         </Text>
                         {showReasoning && reasoningLabel && (
                             <Text size="xs" fw={500} c="ldGray.6" span>
@@ -98,7 +103,9 @@ export const ModelSelector: FC<Props> = ({
             <Menu.Dropdown>
                 {showReasoning && (
                     <>
-                        <Menu.Label>Reasoning</Menu.Label>
+                        <Menu.Label>
+                            {t('features_apps_composer.reasoning')}
+                        </Menu.Label>
                         <Menu.Item
                             onClick={() => onReasoningChange(false)}
                             rightSection={
@@ -111,7 +118,7 @@ export const ModelSelector: FC<Props> = ({
                                 ) : null
                             }
                         >
-                            Default
+                            {t('features_apps_composer.reasoning_default')}
                         </Menu.Item>
                         <Menu.Item
                             onClick={() => onReasoningChange(true)}
@@ -125,7 +132,7 @@ export const ModelSelector: FC<Props> = ({
                                 ) : null
                             }
                         >
-                            High
+                            {t('features_apps_composer.reasoning_high')}
                         </Menu.Item>
                         {visibleModels.length > 1 && <Menu.Divider />}
                     </>

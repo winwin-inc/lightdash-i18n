@@ -46,6 +46,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import uniqBy from 'lodash/uniqBy';
+import { useTranslation } from 'react-i18next';
 import {
     useCallback,
     useMemo,
@@ -111,33 +112,36 @@ const SAMPLE_DATA_TOOLTIP =
  * image attachment. Shows a loader while the capture is in flight.
  *
  * Rendered only once the preview is mounted and the iframe SDK has announced
- * screenshot support �?an always-present but permanently dead control reads as
+ * screenshot support Ã¢Â€?an always-present but permanently dead control reads as
  * broken on the compose screen, where no app exists yet.
  */
 export const ScreenshotButton: FC<{
     onClick: () => void;
     disabled: boolean;
     loading?: boolean;
-}> = ({ onClick, disabled, loading }) => (
-    <Tooltip
-        label="Capture a screenshot of the preview and attach it"
-        withArrow
-        position="top"
-    >
-        <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="md"
-            radius="xl"
-            onClick={onClick}
-            disabled={disabled}
-            loading={loading}
-            aria-label="Capture screenshot"
+}> = ({ onClick, disabled, loading }) => {
+    const { t } = useTranslation();
+    return (
+        <Tooltip
+            label={t('features_apps_composer.capture_screenshot_label')}
+            withArrow
+            position="top"
         >
-            <MantineIcon icon={IconCamera} size={16} />
-        </ActionIcon>
-    </Tooltip>
-);
+            <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="md"
+                radius="xl"
+                onClick={onClick}
+                disabled={disabled}
+                loading={loading}
+                aria-label={t('features_apps_composer.capture_screenshot')}
+            >
+                <MantineIcon icon={IconCamera} size={16} />
+            </ActionIcon>
+        </Tooltip>
+    );
+};
 
 /**
  * Toggle button that activates the iframe-side element inspector.
@@ -152,42 +156,45 @@ export const InspectButton: FC<{
     enabled: boolean;
     onToggle: () => void;
     disabled?: boolean;
-}> = ({ enabled, onToggle, disabled }) => (
-    <Tooltip
-        label={
-            enabled
-                ? 'Inspect mode on - click any element in the preview'
-                : 'Point at an element in the preview to reference it'
-        }
-        withArrow
-        position="top"
-    >
-        <ActionIcon
-            variant={enabled ? 'light' : 'subtle'}
-            color={enabled ? 'indigo' : 'gray'}
-            size="md"
-            radius="xl"
-            onClick={onToggle}
-            disabled={disabled}
-            aria-label="Toggle element inspector"
-            aria-pressed={enabled}
+}> = ({ enabled, onToggle, disabled }) => {
+    const { t } = useTranslation();
+    return (
+        <Tooltip
+            label={
+                enabled
+                    ? t('features_apps_composer.inspect_on')
+                    : t('features_apps_composer.inspect_off')
+            }
+            withArrow
+            position="top"
         >
-            <MantineIcon icon={IconClick} size={16} />
-        </ActionIcon>
-    </Tooltip>
-);
+            <ActionIcon
+                variant={enabled ? 'light' : 'subtle'}
+                color={enabled ? 'indigo' : 'gray'}
+                size="md"
+                radius="xl"
+                onClick={onToggle}
+                disabled={disabled}
+                aria-label={t('features_apps_composer.inspect_aria')}
+                aria-pressed={enabled}
+            >
+                <MantineIcon icon={IconClick} size={16} />
+            </ActionIcon>
+        </Tooltip>
+    );
+};
 
 type ModelOption = {
     value: DataAppCodingAgentModel;
     label: string;
     // Short advantage line shown in the popover. Together with the order
-    // below, these form a capability spectrum (premium �?balanced �?budget)
+    // below, these form a capability spectrum (premium Ã¢Â†?balanced Ã¢Â†?budget)
     // so the trade-off is legible at a glance.
     tagline: string;
     isDefault?: boolean;
 };
 
-// Order: capability descending �?Opus (highest quality) �?Sonnet (default) �?
+// Order: capability descending Ã¢Â€?Opus (highest quality) Ã¢Â†?Sonnet (default) Ã¢Â†?
 // Haiku (fastest). The "Default" tag on Sonnet anchors the recommendation
 // without forcing it to position 0.
 const CLAUDE_MODEL_OPTIONS: ModelOption[] = [
@@ -353,6 +360,7 @@ const QueryPickerView: FC<{
     attachFromLink,
     isResolvingLink,
 }) => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
@@ -422,7 +430,7 @@ const QueryPickerView: FC<{
             <Box px="xs" pb="xs">
                 <TextInput
                     size="xs"
-                    placeholder="Search or paste a link..."
+                    placeholder={t('features_apps_composer.search_or_paste')}
                     leftSection={<MantineIcon icon={IconSearch} size={14} />}
                     rightSection={
                         (isFetching && !isInitialLoading) || isResolvingLink ? (
@@ -519,7 +527,7 @@ const QueryPickerView: FC<{
             </ScrollArea.Autosize>
             <Box className={classes.attachPickerFooter}>
                 <Button size="compact-xs" radius="md" onClick={onDone}>
-                    Done
+                    {t('features_apps_composer.done')}
                 </Button>
             </Box>
         </>
@@ -612,7 +620,7 @@ export const SelectedAttachmentSection: FC<{
 
 /**
  * Dashed circular button rendered after a pill when sample data is off.
- * Click �?enables sample data; the pill then shows an inline database icon
+ * Click Ã¢Â†?enables sample data; the pill then shows an inline database icon
  * (via `InlineDataToggle`) and this button disappears.
  */
 const AddDataButton: FC<{
@@ -640,7 +648,7 @@ const AddDataButton: FC<{
 
 /**
  * Inline database icon button inside the pill when sample data is on.
- * Click �?disables sample data; the pill reverts to plain and the
+ * Click Ã¢Â†?disables sample data; the pill reverts to plain and the
  * `AddDataButton` reappears next to it.
  */
 const InlineDataToggle: FC<{
@@ -649,7 +657,7 @@ const InlineDataToggle: FC<{
     tooltipSuffix?: string;
 }> = ({ onClick, disabled, tooltipSuffix }) => (
     <Tooltip
-        label={`Sample data included �?click to remove.${tooltipSuffix ?? ''}`}
+        label={`Sample data included Ã¢Â€?click to remove.${tooltipSuffix ?? ''}`}
         multiline
         w={260}
         withArrow
@@ -671,7 +679,7 @@ const AddLinkButton: FC<{ onClick: () => void; disabled?: boolean }> = ({
     disabled,
 }) => (
     <Tooltip
-        label="Link live �?run this chart by reference so the app updates when the chart changes in Lightdash."
+        label="Link live Ã¢Â€?run this chart by reference so the app updates when the chart changes in Lightdash."
         multiline
         w={260}
         withArrow
@@ -693,7 +701,7 @@ const InlineLinkToggle: FC<{ onClick: () => void; disabled?: boolean }> = ({
     disabled,
 }) => (
     <Tooltip
-        label="Linked live �?click to unlink (revert to a copied query)."
+        label="Linked live Ã¢Â€?click to unlink (revert to a copied query)."
         multiline
         w={260}
         withArrow
@@ -808,7 +816,7 @@ export const SelectedQuerySection: FC<{
 
 /**
  * Internal: dashboard list with search. Interaction-identical to
- * `QueryPickerView`; only the selection model differs �?single-select, so
+ * `QueryPickerView`; only the selection model differs Ã¢Â€?single-select, so
  * picking a different dashboard replaces the current one.
  */
 const DashboardPickerView: FC<{
@@ -828,6 +836,7 @@ const DashboardPickerView: FC<{
     attachFromLink,
     isResolvingLink,
 }) => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
@@ -869,7 +878,7 @@ const DashboardPickerView: FC<{
             <Box px="xs" pb="xs">
                 <TextInput
                     size="xs"
-                    placeholder="Search or paste a link..."
+                    placeholder={t('features_apps_composer.search_or_paste')}
                     leftSection={<MantineIcon icon={IconSearch} size={14} />}
                     rightSection={
                         isResolvingLink ? <Loader size={14} /> : undefined
@@ -927,7 +936,7 @@ const DashboardPickerView: FC<{
             </ScrollArea.Autosize>
             <Box className={classes.attachPickerFooter}>
                 <Button size="compact-xs" radius="md" onClick={onDone}>
-                    Done
+                    {t('features_apps_composer.done')}
                 </Button>
             </Box>
         </>
@@ -956,6 +965,7 @@ export const ConnectionPickerView: FC<{
     enabled,
     linkedAppUuid,
 }) => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const [searchQuery, setSearchQuery] = useState('');
     const { data: connections, isInitialLoading } = useExternalConnections(
@@ -978,7 +988,7 @@ export const ConnectionPickerView: FC<{
     const { mutate: unlink } = useUnlinkAppExternalConnection();
 
     // Only project/org admins can create connections; mirror the gate the
-    // Project Settings �?Data app connections page uses.
+    // Project Settings Ã¢Â†?Data app connections page uses.
     const { user } = useApp();
     const { data: project } = useProject(projectUuid);
     const canManageConnections =
@@ -1062,7 +1072,7 @@ export const ConnectionPickerView: FC<{
             <Box px="xs" pb="xs">
                 <TextInput
                     size="xs"
-                    placeholder="Search connections..."
+                    placeholder={t('features_apps_composer.search_connections')}
                     leftSection={<MantineIcon icon={IconSearch} size={14} />}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.currentTarget.value)}
@@ -1148,7 +1158,7 @@ export const ConnectionPickerView: FC<{
                     </Anchor>
                 )}
                 <Button size="compact-xs" radius="md" onClick={onDone}>
-                    Done
+                    {t('features_apps_composer.done')}
                 </Button>
             </Box>
         </>
@@ -1191,6 +1201,7 @@ export const AttachButton: FC<{
     disabled,
     filesDisabled,
 }) => {
+    const { t } = useTranslation();
     const projectUuid = useProjectUuid();
     const [opened, setOpened] = useState(false);
     const [view, setView] = useState<AttachView>('menu');
@@ -1238,7 +1249,7 @@ export const AttachButton: FC<{
         >
             <Popover.Target>
                 <Tooltip
-                    label="Add charts, dashboards, connections or files"
+                    label={t('features_apps_composer.attach_label')}
                     withArrow
                     position="top"
                     disabled={opened}
@@ -1253,11 +1264,11 @@ export const AttachButton: FC<{
                         py={6}
                         onClick={() => setOpened((o) => !o)}
                         disabled={disabled}
-                        aria-label="Attach resources"
+                        aria-label={t('features_apps_composer.attach_aria')}
                         leftSection={<MantineIcon icon={IconPlus} size={14} />}
                     >
                         <Text span size="xs" fw={600} lh={1.2} c="inherit">
-                            Attach
+                            {t('features_apps_composer.attach')}
                         </Text>
                     </Button>
                 </Tooltip>
@@ -1273,10 +1284,12 @@ export const AttachButton: FC<{
                             <MantineIcon icon={IconChartBar} />
                             <Box flex={1}>
                                 <Text size="sm" fw={500}>
-                                    Queries
+                                    {t('features_apps_composer.attach_queries')}
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    Attach saved charts
+                                    {t(
+                                        'features_apps_composer.attach_saved_charts',
+                                    )}
                                 </Text>
                             </Box>
                         </UnstyledButton>
@@ -1288,10 +1301,12 @@ export const AttachButton: FC<{
                             <MantineIcon icon={IconLayoutDashboard} />
                             <Box flex={1}>
                                 <Text size="sm" fw={500}>
-                                    Dashboard
+                                    {t(
+                                        'features_apps_composer.attach_dashboard_title',
+                                    )}
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    Attach all tiles from a dashboard
+                                    {t('features_apps_composer.attach_dashboard')}
                                 </Text>
                             </Box>
                         </UnstyledButton>
@@ -1305,12 +1320,16 @@ export const AttachButton: FC<{
                             <MantineIcon icon={IconPhoto} />
                             <Box flex={1}>
                                 <Text size="sm" fw={500}>
-                                    Files
+                                    {t('features_apps_composer.attach_files')}
                                 </Text>
                                 <Text size="xs" c="dimmed">
                                     {filesDisabled
-                                        ? 'Attachment limit reached'
-                                        : 'Upload images, PDFs, or text files'}
+                                        ? t(
+                                              'features_apps_composer.attachment_limit',
+                                          )
+                                        : t(
+                                              'features_apps_composer.attach_files_hint',
+                                          )}
                                 </Text>
                             </Box>
                         </UnstyledButton>
@@ -1322,10 +1341,14 @@ export const AttachButton: FC<{
                             <MantineIcon icon={IconPlugConnected} />
                             <Box flex={1}>
                                 <Text size="sm" fw={500}>
-                                    External connections
+                                    {t(
+                                        'features_apps_composer.attach_connections',
+                                    )}
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    Let the app fetch from external APIs
+                                    {t(
+                                        'features_apps_composer.attach_connections_hint',
+                                    )}
                                 </Text>
                             </Box>
                         </UnstyledButton>
@@ -1400,7 +1423,7 @@ export const AttachButton: FC<{
 };
 
 /**
- * Opens the external-connection picker directly �?used by surfaces that
+ * Opens the external-connection picker directly Ã¢Â€?used by surfaces that
  * attach connections without the rest of the data-app resource menu.
  */
 export const ConnectionAttachButton: FC<{

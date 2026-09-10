@@ -142,7 +142,18 @@ export const TileAddModal: FC<AddProps> = ({
                         {t(
                             'components_dashboard_tiles_forms_add_tile.add_tile',
                             {
-                                type,
+                                type:
+                                    type === DashboardTileTypes.MARKDOWN
+                                        ? t(
+                                              'components_dashboard_tiles_forms_add_tile.type_markdown',
+                                          )
+                                        : type === DashboardTileTypes.LOOM
+                                          ? t(
+                                                'components_dashboard_tiles_forms_add_tile.type_loom',
+                                            )
+                                          : t(
+                                                'components_dashboard_tiles_forms_add_tile.type_data_app',
+                                            ),
                             },
                         )}
                     </Title>

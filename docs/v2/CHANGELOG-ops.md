@@ -24,14 +24,13 @@
 
 未设置或空值时默认 **开启**；仅当设为 `false`（大小写不敏感）并重启后端后关闭。关闭时界面不出现对应入口，不影响现有用法。
 
-| 环境变量 | 功能 | 关闭示例 |
-|----------|------|----------|
-| `MERGE_QUERIES_ENABLED` | **合并查询**：把两张数据集按字段拼在一起分析。 | `=false` |
-| `DASHBOARD_TABS_IN_MEMORY` | **Tab 更流畅**：多 Tab 切回去时少整页重载。 | `=false` |
-| `LOCK_DASHBOARD_FILTERS_ENABLED` | **锁定筛选**：锁住的条件不会被分享链接改掉。 | `=false` |
-| `ENABLE_TIMEZONE_SUPPORT` | **时区**：可配项目 / 用户 / 图表时区，结果会标明实际时区。 | `=false` |
-| `RESULTS_CACHE_ENABLED` | **结果缓存**：相同查询复用上次结果，默认 24 小时（`CACHE_STALE_TIME_SECONDS` 可改实例默认）；项目管理员可在项目设置改本项目时长。 | `=false` |
-| `APPS_RUNTIME_ENABLED` | **数据应用入口**：导航和看板磁贴可用；**不含**生成应用、沙箱跑通。 | `=false` |
+| 环境变量 | 功能 |
+|----------|------|
+| `MERGE_QUERIES_ENABLED` | **合并查询**：把两张数据集按字段拼在一起分析。 |
+| `DASHBOARD_TABS_IN_MEMORY` | **Tab 更流畅**：多 Tab 切回去时少整页重载。 |
+| `LOCK_DASHBOARD_FILTERS_ENABLED` | **锁定筛选**：锁住的条件不会被分享链接改掉。 |
+| `ENABLE_TIMEZONE_SUPPORT` | **时区**：可配项目 / 用户 / 图表时区，结果会标明实际时区。只能用环境变量打开。 |
+| `APPS_RUNTIME_ENABLED` | **数据应用入口**：导航和看板磁贴可用；不含生成应用、沙箱跑通。专题与踩坑见 [`v2-data-apps.md`](v2-data-apps.md)。 |
 
 发版说明：试跑/预发可不配这些变量（默认全开）；生产若暂不需要某项，显式设 `=false`。
 

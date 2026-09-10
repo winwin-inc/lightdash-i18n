@@ -3,6 +3,32 @@ import { MantineProvider } from '@mantine-8/core';
 import { fireEvent, render, screen } from '@testing-library/react';
 import AppTemplatePicker from './AppTemplatePicker';
 
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (key: string) => {
+            const map: Record<string, string> = {
+                'features_apps_templates.dashboard.title': 'Dashboard',
+                'features_apps_templates.dashboard.description':
+                    'A grid of KPIs and charts for at-a-glance reporting.',
+                'features_apps_templates.slideshow.title': 'Slide Show',
+                'features_apps_templates.slideshow.description':
+                    'A guided narrative - one chart per slide, navigated linearly.',
+                'features_apps_templates.pdf.title': 'PDF Report',
+                'features_apps_templates.pdf.description':
+                    'A print-friendly document with sections and supporting charts.',
+                'features_apps_templates.custom.title': 'From scratch',
+                'features_apps_templates.custom.description':
+                    'Start from scratch and describe whatever you want.',
+                'features_apps_templates.data_app_viz.title':
+                    'Data app visualization',
+                'features_apps_templates.data_app_viz.description':
+                    'A reusable single-tile chart you can apply to any query like a chart type.',
+            };
+            return map[key] ?? key;
+        },
+    }),
+}));
+
 const setup = (
     selected:
         | 'dashboard'
