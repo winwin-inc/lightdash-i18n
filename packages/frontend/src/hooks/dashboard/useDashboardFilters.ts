@@ -2,6 +2,7 @@ import {
     FilterInteractivityValues,
     getFilterInteractivityValue,
     isDateRangeDynamic,
+    isSingleDateDynamic,
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
@@ -20,7 +21,8 @@ export const emptyFilters: DashboardFilters = {
 
 export const shouldPersistSavedFilterOverride = (
     originalFilter: DashboardFilterRule,
-): boolean => !isDateRangeDynamic(originalFilter);
+): boolean =>
+    !isDateRangeDynamic(originalFilter) && !isSingleDateDynamic(originalFilter);
 
 export const useDashboardFilters = ({
     dashboard,

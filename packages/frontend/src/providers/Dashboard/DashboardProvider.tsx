@@ -64,7 +64,6 @@ import {
 } from '../../hooks/dashboard/useDashboardTabFilters';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
-import { useProject } from '../../hooks/useProject';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
@@ -994,7 +993,12 @@ const DashboardProvider: React.FC<
     ]);
     // This ensures category filters are initialized even if userCategories loads after dashboard
     useEffect(() => {
-        if (!canApplyCategoryFilters || !userCategories || !projectUuid || isEditMode)
+        if (
+            !canApplyCategoryFilters ||
+            !userCategories ||
+            !projectUuid ||
+            isEditMode
+        )
             return;
 
         // 用 functional update 读取当前 filters，避免依赖 dashboardFilters 导致循环
@@ -1026,7 +1030,12 @@ const DashboardProvider: React.FC<
 
     // Apply category filters to tab filters when userCategories loads
     useEffect(() => {
-        if (!canApplyCategoryFilters || !userCategories || !projectUuid || isEditMode)
+        if (
+            !canApplyCategoryFilters ||
+            !userCategories ||
+            !projectUuid ||
+            isEditMode
+        )
             return;
         if (isEmptyTabFilters(tabFilters)) return;
 
@@ -1290,16 +1299,12 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce(
-                    (acc, [uuid, filter]) => {
-                        acc[uuid] =
-                            convertDashboardFiltersParamToDashboardFilters(
-                                filter as DashboardFiltersFromSearchParam,
-                            );
-                        return acc;
-                    },
-                    {} as Record<string, DashboardFilters>,
-                ),
+                Object.entries(filters).reduce((acc, [uuid, filter]) => {
+                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
+                        filter as DashboardFiltersFromSearchParam,
+                    );
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }
     });

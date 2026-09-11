@@ -234,7 +234,9 @@ export const treeContainsExplore = (
             if (node.key === exploreName) {
                 return true;
             }
-        } else if (treeContainsExplore(Object.values(node.children), exploreName)) {
+        } else if (
+            treeContainsExplore(Object.values(node.children), exploreName)
+        ) {
             return true;
         }
     }

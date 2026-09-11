@@ -216,6 +216,13 @@ export type DateFilterSettings = {
      * `values` holds the two literal dates.
      */
     dateRange?: DateRangeSetting;
+    /**
+     * Optional configuration for single-value month `EQUALS` rules that
+     * supports a dynamic default (e.g. last available month with the
+     * day-of-month data cutoff). When `singleDate.mode` is `'dynamic'`,
+     * `values` are resolved at query time from `singleDate.preset`.
+     */
+    singleDate?: SingleDateSetting;
 };
 
 /**
@@ -223,6 +230,26 @@ export type DateFilterSettings = {
  * (`fixed`) or computed relative to "now" (`dynamic`).
  */
 export type DateRangeMode = 'fixed' | 'dynamic';
+
+/**
+ * Named presets for dynamic single-date (month equals) defaults.
+ * `lastAvailableMonth`: before the 4th → month-before-last; from the 4th → last month.
+ */
+export type SingleDatePreset = 'lastAvailableMonth';
+
+/**
+ * Settings for a single-value dynamic date default (month + equals).
+ */
+export type SingleDateSetting = {
+    mode?: DateRangeMode;
+    preset?: SingleDatePreset;
+};
+
+/**
+ * Day-of-month when the previous calendar month's data becomes available.
+ * Before this day, only the month-before-last is considered available.
+ */
+export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
 
 /**
  * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,
@@ -272,6 +299,63 @@ export const isDateRangeDynamic = (
         | { dateRange?: DateRangeSetting }
         | undefined;
     return settings?.dateRange?.mode === 'dynamic';
+};
+
+/**
+ * Whether a single-value date rule should be resolved as dynamic.
+ * Treats rules without explicit settings as fixed (backwards compatible).
+ */
+export const isSingleDateDynamic = (
+    rule: BaseFilterRule & { settings?: unknown },
+): boolean => {
+    const settings = rule.settings as
+        | { singleDate?: SingleDateSetting }
+        | undefined;
+    return settings?.singleDate?.mode === 'dynamic';
+};
+
+/**
+ * Resolve the last available data month (start of month) relative to `now`
+ * using the day-of-month cutoff: before the 4th → two months ago; from the
+ * 4th → one month ago.
+ */
+export const resolveLastAvailableMonth = (
+    now: Date = new Date(),
+    timezone?: string,
+): Date => {
+    const ref = timezone ? moment(now).tz(timezone) : moment(now);
+    const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+    return ref.clone().subtract(monthsBack, 'months').startOf('month').toDate();
+};
+
+/**
+ * Resolve a dynamic single-date rule to a `YYYY-MM` string. Returns the
+ * existing `values[0]` for non-dynamic rules or unknown presets.
+ */
+export const resolveSingleDateValue = (
+    rule: Pick<FilterRule, 'values' | 'settings'>,
+    now: Date = new Date(),
+    timezone?: string,
+): string | undefined => {
+    const settings = rule.settings as
+        | { singleDate?: SingleDateSetting }
+        | undefined;
+    if (settings?.singleDate?.mode !== 'dynamic') {
+        const raw = rule.values?.[0];
+        return raw == null || raw === '' ? undefined : String(raw);
+    }
+    const { preset } = settings.singleDate;
+    if (preset === 'lastAvailableMonth') {
+        const ref = timezone ? moment(now).tz(timezone) : moment(now);
+        const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+        return ref
+            .clone()
+            .subtract(monthsBack, 'months')
+            .startOf('month')
+            .format(getDateFormat(TimeFrames.MONTH));
+    }
+    const raw = rule.values?.[0];
+    return raw == null || raw === '' ? undefined : String(raw);
 };
 
 /**

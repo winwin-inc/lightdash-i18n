@@ -334,7 +334,9 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
                         <Box
                             key={item.id}
                             style={{
-                                paddingLeft: `${item.depth * INDENT_PER_DEPTH}px`,
+                                paddingLeft: `${
+                                    item.depth * INDENT_PER_DEPTH
+                                }px`,
                             }}
                         >
                             <ExploreNavLink
@@ -370,10 +372,7 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
     );
 
     return (
-        <Box
-            ref={parentRef}
-            sx={{ flexGrow: 1, overflowY: 'auto' }}
-        >
+        <Box ref={parentRef} sx={{ flexGrow: 1, overflowY: 'auto' }}>
             <Box
                 style={{
                     height: virtualizer.getTotalSize() + 16,

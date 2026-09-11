@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
     AbilityAction,
     BulkActionable,
+    convertOrganizationRoleToProjectRole,
     CreateDashboard,
     CreateDashboardWithCharts,
     CreateSavedChart,
@@ -13,16 +14,6 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
-    OrganizationMemberRole,
-    ParameterError,
-    ProjectMemberRole,
-    SchedulerAndTargets,
-    SchedulerFormat,
-    SessionUser,
-    TogglePinnedItemInfo,
-    UpdateDashboard,
-    UpdateMultipleDashboards,
-    convertOrganizationRoleToProjectRole,
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
@@ -33,7 +24,16 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    OrganizationMemberRole,
+    ParameterError,
+    ProjectMemberRole,
     SCHEDULER_TASKS,
+    SchedulerAndTargets,
+    SchedulerFormat,
+    SessionUser,
+    TogglePinnedItemInfo,
+    UpdateDashboard,
+    UpdateMultipleDashboards,
     type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
@@ -1193,10 +1193,9 @@ export class DashboardService
                 targetUserUuid,
             );
 
-        const summary =
-            await this.dashboardModel.getDashboardsSummaryByOwner(
-                targetUserUuid,
-            );
+        const summary = await this.dashboardModel.getDashboardsSummaryByOwner(
+            targetUserUuid,
+        );
 
         const projectsWithoutPermission = summary.byProject
             .filter(

@@ -1,11 +1,6 @@
 import { subject } from '@casl/ability';
 import { ExploreType, type SummaryExplore } from '@lightdash/common';
-import {
-    ActionIcon,
-    Skeleton,
-    Stack,
-    TextInput,
-} from '@mantine/core';
+import { ActionIcon, Skeleton, Stack, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconAlertCircle,
@@ -162,35 +157,38 @@ const BasePanel = () => {
         [tableGroupsResult.data],
     );
 
-    const [groupedExploreTree, defaultUngroupedExplores, customUngroupedExplores] =
-        useMemo(() => {
-            if (!filteredExplores) {
-                return [[], [] as SummaryExplore[], [] as SummaryExplore[]];
+    const [
+        groupedExploreTree,
+        defaultUngroupedExplores,
+        customUngroupedExplores,
+    ] = useMemo(() => {
+        if (!filteredExplores) {
+            return [[], [] as SummaryExplore[], [] as SummaryExplore[]];
+        }
+
+        const groupedExplores: SummaryExplore[] = [];
+        const defaultExplores: SummaryExplore[] = [];
+        const customExplores: SummaryExplore[] = [];
+
+        for (const explore of filteredExplores) {
+            if (exploreHasGroups(explore)) {
+                groupedExplores.push(explore);
+            } else if (explore.type === ExploreType.VIRTUAL) {
+                customExplores.push(explore);
+            } else {
+                defaultExplores.push(explore);
             }
+        }
 
-            const groupedExplores: SummaryExplore[] = [];
-            const defaultExplores: SummaryExplore[] = [];
-            const customExplores: SummaryExplore[] = [];
+        const tree = sortExploreTree(
+            buildExploreTree(groupedExplores, tableGroupDetails),
+        );
 
-            for (const explore of filteredExplores) {
-                if (exploreHasGroups(explore)) {
-                    groupedExplores.push(explore);
-                } else if (explore.type === ExploreType.VIRTUAL) {
-                    customExplores.push(explore);
-                } else {
-                    defaultExplores.push(explore);
-                }
-            }
+        defaultExplores.sort((a, b) => a.label.localeCompare(b.label));
+        customExplores.sort((a, b) => a.label.localeCompare(b.label));
 
-            const tree = sortExploreTree(
-                buildExploreTree(groupedExplores, tableGroupDetails),
-            );
-
-            defaultExplores.sort((a, b) => a.label.localeCompare(b.label));
-            customExplores.sort((a, b) => a.label.localeCompare(b.label));
-
-            return [tree, defaultExplores, customExplores];
-        }, [filteredExplores, tableGroupDetails]);
+        return [tree, defaultExplores, customExplores];
+    }, [filteredExplores, tableGroupDetails]);
 
     const virtualViewsSectionLabel = t(
         'components_explorer_sider_bar.virtual_views',

@@ -126,6 +126,52 @@ describe('Filter SQL', () => {
             `((customers.created) >= ('2026-08-01') AND (customers.created) <= ('2026-08-31'))`,
         );
     });
+    test('should resolve dynamic lastAvailableMonth equals before the 4th', () => {
+        jest.setSystemTime(new Date('2026-07-03T12:00:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    id: 'filter-id',
+                    target: { fieldId: 'customers_created' },
+                    operator: FilterOperator.EQUALS,
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                adapterType.default,
+                'UTC',
+            ),
+        ).toBe(`(customers.created) = ('2026-05-01')`);
+    });
+    test('should resolve dynamic lastAvailableMonth equals on or after the 4th', () => {
+        jest.setSystemTime(new Date('2026-07-04T12:00:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    id: 'filter-id',
+                    target: { fieldId: 'customers_created' },
+                    operator: FilterOperator.EQUALS,
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                adapterType.default,
+                'UTC',
+            ),
+        ).toBe(`(customers.created) = ('2026-06-01')`);
+    });
     test.each(Object.values(FilterOperator))(
         'should return number filter sql for operator %s',
         (operator) => {
