@@ -201,9 +201,10 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 说明要点：
 
-- `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `session_lifecycle` / `security`）。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
+- `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `content_fields` / `session_lifecycle` / `security`）。`content_fields` 说明 `chartKind`（认图）与 `chartConfig.type`（仅 full）、`groups` 等。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
-- `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。
+- `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。默认 slim 图表项含 **`chartKind`**（认图；UI「自定义」=`custom`）；勿把 `chartConfig.type`（仅 `full`）当成折线/柱状。
+- `list_explores`：默认精简含 **`groups`**（嵌套 path keys）与 `groupLabel`；完整嵌套分组以本工具为准（`find_explores` 的 catalog 可能无 `groups`）。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
 - `run_semantic_metric_query` / `run_metric_query`：首条 **CSV** + `structuredContent`（默认 `valueFormat=raw`；`valueFormat=formatted` 为 Explorer 展示值；`full=true` 额外返回嵌套 rows、fields、warnings 及第二条 JSON）
 - `run_metric_query`：扁平参数（`exploreName` + `dimensions[]` + `metrics[]`），简单查询。规则在 `src/mcp/toolDescriptions/runMetricQueryFlat.ts`。
@@ -219,12 +220,14 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 | -------------------- | ---------------------------------------------------------- |
 | `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
 | `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
-| `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴（层级浏览）                  |
-| `get_saved_chart`    | 按图表 UUID 拉取已保存图表定义（含 `webUrl`，默认精简输出）                      |
+| `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴；默认含 **`chartKind`**（统计自定义：`chartKind==="custom"`） |
+| `get_saved_chart`    | 已保存图表定义（含 `webUrl`）；默认精简含 **`chartKind`**，**无**顶层 `chartType`；`full=true` 含 `chartConfig.type` |
 | `run_saved_chart`    | 按已保存图表 UUID 执行查询（与 metric 查询一致：CSV + valueFormat；`full=true` 返回 fields/warnings） |
-| `get_dashboard_tiles`| 查看看板磁贴布局与图表关联                                              |
+| `get_dashboard_tiles`| 看板磁贴布局；默认含 **`chartKind`** / `tabUuid` / `chartSlug`（有则返回） |
 | `run_dashboard_tiles`| 批量执行看板中的 `saved_chart` 磁贴（其他磁贴类型会跳过并给出原因）                 |
 | `get_dashboard_code` | 导出看板 as-code 配置（基于 `/api/v1/projects/{projectUuid}/dashboards/code`） |
+
+**破坏性说明（认图字段）：** `get_saved_chart` 默认 slim 不再返回顶层 `chartType`；认图统一用 `chartKind`。配置结构请 `full=true` 读 `chartConfig.type`。详见 `get_mcp_docs(topic=content_fields)`。
 
 
 ### 提示词

@@ -49,17 +49,32 @@ const listSpacesParams = {
 
 const getSavedChartParams = {
     chartUuid: z.string(),
-    full: z.boolean().optional(),
+    full: z
+        .boolean()
+        .optional()
+        .describe(
+            '默认 false：精简含 chartKind（认图）。true：完整对象含 chartConfig.type（配置结构标签，勿当折线/柱状）。',
+        ),
 } satisfies ZodRawShape;
 
 const getDashboardTilesParams = {
     dashboardUuid: z.string(),
-    full: z.boolean().optional(),
+    full: z
+        .boolean()
+        .optional()
+        .describe(
+            '默认 false：精简含 chartKind（自 lastVersionChartKind；sql_chart/data_app 多为 null）、tile type、tabUuid/chartSlug（有则返回）。统计看板「自定义」图：数 chartKind==="custom"。',
+        ),
 } satisfies ZodRawShape;
 
 const listChartsParams = {
     dashboardUuid: z.string(),
-    full: z.boolean().optional(),
+    full: z
+        .boolean()
+        .optional()
+        .describe(
+            '默认 false：仅 saved_chart 磁贴，精简含 chartKind。统计「自定义」：数 chartKind==="custom"。true 返回完整 tile。',
+        ),
 } satisfies ZodRawShape;
 
 const runDashboardTilesParams = {
@@ -185,7 +200,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'get_saved_chart',
-        '查看某张已保存图表的名称、可用参数、依赖的数据主题；跑数前先确认参数怎么填。返回含 siteBaseUrl 与 webUrl（浏览器打开该图表）。',
+        '查看已保存图表元数据（含 webUrl）。默认精简含 chartKind（认图：line/vertical_bar/custom/…；UI「自定义」= custom）；无顶层 chartType。读配置结构用 full=true → chartConfig.type（cartesian 可含多种形态，勿当折线/柱状）。跑数前可先确认参数。',
         getSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);
@@ -350,7 +365,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'list_charts',
-        '按 dashboardUuid 列出看板内的已保存图表磁贴（层级浏览，非关键词搜索）。有 dashboardUuid 时用此工具；按名称搜索用 find_charts。',
+        '按 dashboardUuid 列出看板内 saved_chart 磁贴（层级浏览）。默认精简含 chartKind；统计「自定义」图：数 chartKind==="custom"。不含 sql_chart/data_app（见 get_dashboard_tiles）。按名称搜索用 find_charts。',
         listChartsParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);
@@ -389,7 +404,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'get_dashboard_tiles',
-        '读取看板磁贴布局（包含类型、坐标、关联图表信息）。',
+        '读取看板磁贴布局（type/坐标/chartUuid/chartKind 等）。默认精简：chartKind 来自 lastVersionChartKind（认图；UI「自定义」= custom）；sql_chart/data_app 的 chartKind 多为 null。统计自定义图可数 chartKind==="custom"。',
         getDashboardTilesParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);

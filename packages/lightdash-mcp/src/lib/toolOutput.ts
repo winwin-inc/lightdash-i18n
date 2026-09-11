@@ -1,3 +1,9 @@
+import {
+    ChartType,
+    getChartKind,
+    type ChartConfig,
+} from '@lightdash/common';
+
 type AnyRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): AnyRecord | null {
@@ -7,6 +13,29 @@ function asRecord(value: unknown): AnyRecord | null {
 
 function asArray(value: unknown): unknown[] | null {
     return Array.isArray(value) ? value : null;
+}
+
+/** Derive ChartKind from saved chartConfig; never throws on dirty payloads. */
+export function deriveChartKindFromSavedChart(
+    chart: AnyRecord,
+): string | null {
+    const chartConfig = asRecord(chart.chartConfig);
+    if (!chartConfig || typeof chartConfig.type !== 'string') {
+        return null;
+    }
+    const typeValues = new Set<string>(Object.values(ChartType));
+    if (!typeValues.has(chartConfig.type)) {
+        return null;
+    }
+    try {
+        const kind = getChartKind(
+            chartConfig.type as ChartType,
+            chartConfig.config as ChartConfig['config'],
+        );
+        return kind ?? null;
+    } catch {
+        return null;
+    }
 }
 
 export function slimProject(item: unknown): AnyRecord {
@@ -33,12 +62,14 @@ export function slimSpace(item: unknown): AnyRecord {
 
 export function slimContentItem(item: unknown): AnyRecord {
     const row = asRecord(item) ?? {};
+    const contentType = row.contentType ?? null;
     return {
-        contentType: row.contentType ?? null,
+        contentType,
         uuid: row.uuid ?? null,
         name: row.name ?? null,
         views: row.views ?? null,
         webUrl: row.webUrl ?? null,
+        chartKind: contentType === 'chart' ? row.chartKind ?? null : null,
     };
 }
 
@@ -72,6 +103,7 @@ export function slimExplore(item: unknown): AnyRecord {
     return {
         name: row.name ?? null,
         label: row.label ?? null,
+        groups: Array.isArray(row.groups) ? row.groups : null,
         groupLabel: row.groupLabel ?? null,
         heuristicScore: row.heuristicScore ?? null,
     };
@@ -95,7 +127,7 @@ export function slimSavedChart(item: unknown): AnyRecord {
             asRecord(asRecord(chart.metricQuery)?.filters) ?? asRecord(chart.filters),
         sorts:
             asArray(asRecord(chart.metricQuery)?.sorts) ?? asArray(chart.sorts) ?? [],
-        chartType: asRecord(chart.chartConfig)?.type ?? chart.chartType ?? null,
+        chartKind: deriveChartKindFromSavedChart(chart),
         webUrl: row.webUrl ?? chart.webUrl ?? null,
     };
 }

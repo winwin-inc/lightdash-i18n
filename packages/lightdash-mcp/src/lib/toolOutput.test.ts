@@ -4,6 +4,8 @@ import {
     slimChartSearchItem,
     slimContentItem,
     slimDashboardSearchItem,
+    slimExplore,
+    slimSavedChart,
     rowsToScalarFlat,
 } from './toolOutput';
 
@@ -43,14 +45,33 @@ describe('content slim outputs', () => {
         project: { uuid: 'project-1' },
     };
 
-    it('slimContentItem keeps mixed-content default fields', () => {
+    it('slimContentItem keeps chartKind for chart items', () => {
         assert.deepEqual(slimContentItem(baseItem), {
             contentType: 'chart',
             uuid: 'uuid-1',
             name: 'demo',
             views: 42,
             webUrl: 'http://example/chart',
+            chartKind: 'line',
         });
+    });
+
+    it('slimContentItem sets chartKind null for non-chart items', () => {
+        assert.deepEqual(
+            slimContentItem({
+                ...baseItem,
+                contentType: 'dashboard',
+                chartKind: 'line',
+            }),
+            {
+                contentType: 'dashboard',
+                uuid: 'uuid-1',
+                name: 'demo',
+                views: 42,
+                webUrl: 'http://example/chart',
+                chartKind: null,
+            },
+        );
     });
 
     it('slimChartSearchItem keeps chart-specific fields', () => {
@@ -72,5 +93,81 @@ describe('content slim outputs', () => {
             webUrl: 'http://example/chart',
             spaceName: 'Shared',
         });
+    });
+});
+
+describe('slimExplore', () => {
+    it('keeps nested groups and groupLabel', () => {
+        assert.deepEqual(
+            slimExplore({
+                name: 'orders',
+                label: 'Orders',
+                groups: ['frontend', 'nezha'],
+                groupLabel: 'legacy',
+                heuristicScore: 1.2,
+            }),
+            {
+                name: 'orders',
+                label: 'Orders',
+                groups: ['frontend', 'nezha'],
+                groupLabel: 'legacy',
+                heuristicScore: 1.2,
+            },
+        );
+    });
+
+    it('sets groups null when missing', () => {
+        assert.equal(
+            slimExplore({ name: 'orders', label: 'Orders' }).groups,
+            null,
+        );
+    });
+});
+
+describe('slimSavedChart', () => {
+    it('exposes chartKind and omits top-level chartType', () => {
+        const slim = slimSavedChart({
+            name: 'Tea share',
+            tableName: 'tea',
+            metricQuery: {
+                dimensions: ['d1'],
+                metrics: ['m1'],
+                filters: {},
+                sorts: [],
+            },
+            chartConfig: {
+                type: 'custom',
+                config: { spec: {} },
+            },
+            webUrl: 'http://example/chart',
+        });
+        assert.equal(slim.chartKind, 'custom');
+        assert.equal('chartType' in slim, false);
+        assert.equal(slim.webUrl, 'http://example/chart');
+    });
+
+    it('derives line chartKind from cartesian series', () => {
+        const slim = slimSavedChart({
+            name: 'Trend',
+            tableName: 'sales',
+            chartConfig: {
+                type: 'cartesian',
+                config: {
+                    layout: { xField: 'x', yField: ['y'] },
+                    eChartsConfig: {
+                        series: [{ type: 'line' }],
+                    },
+                },
+            },
+        });
+        assert.equal(slim.chartKind, 'line');
+    });
+
+    it('returns null chartKind on dirty config without throwing', () => {
+        const slim = slimSavedChart({
+            name: 'Broken',
+            chartConfig: { type: 'not-a-real-type' },
+        });
+        assert.equal(slim.chartKind, null);
     });
 });

@@ -28,7 +28,12 @@ const searchQueriesSchema = {
     searchQueries: z.array(z.object({ label: z.string() })),
     page: z.number().optional(),
     pageSize: z.number().optional(),
-    full: z.boolean().optional(),
+    full: z
+        .boolean()
+        .optional()
+        .describe(
+            '默认 false 返回精简字段。认图用 chartKind（line/vertical_bar/custom/…）；勿把 chartConfig.type（仅 full）当成折线/柱状。',
+        ),
 };
 
 export function getContentSlimMapper(
@@ -89,7 +94,7 @@ export function registerContentTools(
         server,
         'core-tool',
         'find_content',
-        '混合关键词搜索图表、看板、空间（v2 content API，不传 contentTypes 过滤）；返回含 webUrl。示例：find_content(searchQueries:[{label:"品牌"}])。若已知类型优先用 find_charts / find_dashboards / find_spaces。',
+        '混合关键词搜索图表、看板、空间（v2 content API，不传 contentTypes）。默认精简含 webUrl；图表项含 chartKind（可视化形态，如 line/custom；UI「自定义」= custom）。认图用 chartKind，勿与 full 时的 chartConfig.type（配置结构标签，cartesian 可含多种形态）混淆。已知类型优先 find_charts / find_dashboards / find_spaces。',
         searchQueriesSchema,
         async (args) =>
             runLabelWiseContentSearch(
@@ -105,7 +110,7 @@ export function registerContentTools(
         server,
         'core-tool',
         'find_charts',
-        '按关键词搜索已保存图表（v2 content API，`contentTypes` 固定为 chart）；返回含 webUrl。示例：find_charts(searchQueries:[{label:"销量"}])。',
+        '按关键词搜索已保存图表（contentTypes=chart）。默认精简含 webUrl、chartKind（认图：line/vertical_bar/custom/…；UI「自定义」= custom）。勿把 chartConfig.type（仅 full）当成图表形态。示例：find_charts(searchQueries:[{label:"销量"}])。',
         searchQueriesSchema,
         async (args) =>
             runLabelWiseContentSearch(
