@@ -2605,6 +2605,11 @@
                 "range_summary": "{{start}} 至 {{end}}"
             }
         },
+        "single_date": {
+            "preset": {
+                "last_available_month": "上月（4号显示）"
+            }
+        },
         "to_latest_month_hint": "开始月",
         "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {

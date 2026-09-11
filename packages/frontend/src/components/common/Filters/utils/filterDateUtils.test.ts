@@ -7,6 +7,7 @@ import {
     clampDateRangeValuesToBounds,
     getDashboardFilterDatePickerBounds,
     getDynamicMaxAllowedDate,
+    getLastAvailableMonth,
 } from './filterDateUtils';
 
 dayjs.extend(quarterOfYear);
@@ -108,5 +109,19 @@ describe('clampDateRangeValuesToBounds', () => {
 describe('DATA_MONTH_AVAILABLE_FROM_DAY', () => {
     it('is 4', () => {
         expect(DATA_MONTH_AVAILABLE_FROM_DAY).toBe(4);
+    });
+});
+
+describe('getLastAvailableMonth', () => {
+    it('returns start of two months ago before the 4th', () => {
+        expect(getLastAvailableMonth(dayjs('2026-03-03'))).toEqual(
+            dayjs('2026-01-01').startOf('month').toDate(),
+        );
+    });
+
+    it('returns start of last month on or after the 4th', () => {
+        expect(getLastAvailableMonth(dayjs('2026-03-04'))).toEqual(
+            dayjs('2026-02-01').startOf('month').toDate(),
+        );
     });
 });
