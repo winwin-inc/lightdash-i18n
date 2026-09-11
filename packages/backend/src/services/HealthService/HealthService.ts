@@ -113,6 +113,7 @@ export class HealthService extends BaseService {
             hasGitlab:
                 this.lightdashConfig.gitlab.clientId !== undefined &&
                 this.lightdashConfig.gitlab.clientSecret !== undefined,
+            hasAdminApi: this.hasAdminApiConfig(),
             auth: {
                 disablePasswordAuthentication:
                     this.lightdashConfig.auth.disablePasswordAuthentication,
@@ -203,6 +204,11 @@ export class HealthService extends BaseService {
             this.lightdashConfig.slack?.clientId !== undefined &&
             this.lightdashConfig.slack.signingSecret !== undefined
         );
+    }
+
+    private hasAdminApiConfig(): boolean {
+        const { host, apiKey } = this.lightdashConfig.adminApi || {};
+        return Boolean(host && apiKey);
     }
 
     private isGoogleSSOEnabled(): boolean {
