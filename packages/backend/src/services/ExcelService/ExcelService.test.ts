@@ -938,8 +938,12 @@ describe('ExcelService', () => {
             // Pivot XLSX runs formatted CSV cells through convertToExcelDate.
             // YYYY-MM becomes YYYYMM text so Excel does not parse a date
             // (2026-08 → 2026/7/31 16:00 in UTC+8).
+            // YYYYMMDD must stay text too (20250101 → 2024/12/31 in UTC+8).
             expect(ExcelService.convertToExcelDate('2026-08')).toBe('202608');
             expect(ExcelService.convertToExcelDate('202608')).toBe('202608');
+            expect(ExcelService.convertToExcelDate('20250101')).toBe(
+                '20250101',
+            );
             expect(ExcelService.convertToExcelDate('2026')).toBe('2026');
             expect(ExcelService.convertToExcelDate('2026-08-01')).toBe(
                 '2026-08-01',

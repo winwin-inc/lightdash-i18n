@@ -176,12 +176,13 @@ export class ExcelService {
 
     /**
      * Calendar-only display strings that must stay text.
-     * YYYYMM is ISO-8601 basic year-month and would otherwise become a Date.
+     * YYYYMM / YYYYMMDD are ISO-8601 basic and would otherwise become a Date.
      */
     private static isCalendarDateDisplayValue(value: string): boolean {
         return (
             /^\d{4}$/.test(value) ||
             /^\d{6}$/.test(value) ||
+            /^\d{8}$/.test(value) ||
             /^\d{4}-\d{2}$/.test(value) ||
             /^\d{4}-\d{2}-\d{2}$/.test(value) ||
             /^\d{4}-Q[1-4]$/.test(value)
@@ -189,8 +190,9 @@ export class ExcelService {
     }
 
     /**
-     * Convert full ISO datetimes to Date. Month periods become YYYYMM text
-     * (202608) so Excel does not shift timezone (2026/7/31 16:00 in UTC+8).
+     * Convert full ISO datetimes to Date. Month/day periods stay text
+     * (202608 / 20250101) so Excel does not shift timezone
+     * (2026/7/31 16:00 or 2024/12/31 in UTC+8).
      */
     static convertToExcelDate(value: unknown): Date | unknown {
         if (typeof value === 'string') {
