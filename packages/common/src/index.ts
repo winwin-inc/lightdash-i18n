@@ -69,17 +69,6 @@ import { type SlackSettings } from './types/slackSettings';
 import { type ApiCreateTagResponse } from './types/tags';
 
 import {
-    type ApiCreateComment,
-    type ApiDeleteComment,
-    type ApiGetComments,
-} from './types/api/comments';
-import { type Email } from './types/api/email';
-import { type ApiSuccessEmpty } from './types/api/success';
-import { type ApiFormulaValidationResults } from './types/api';
-import { type ApiGetChangeResponse } from './types/changeset';
-import { type DbtExposure } from './types/dbt';
-import { type EmailStatusExpiring } from './types/email';
-import {
     type ApiAppImageUrlResponse,
     type ApiAppThumbnailUrlResponse,
     type ApiDataAppActivityResponse,
@@ -94,6 +83,17 @@ import {
     type ApiUpdateAppResponse,
     type ApiUpgradeAppResponse,
 } from './ee/apps/types';
+import { type ApiFormulaValidationResults } from './types/api';
+import {
+    type ApiCreateComment,
+    type ApiDeleteComment,
+    type ApiGetComments,
+} from './types/api/comments';
+import { type Email } from './types/api/email';
+import { type ApiSuccessEmpty } from './types/api/success';
+import { type ApiGetChangeResponse } from './types/changeset';
+import { type DbtExposure } from './types/dbt';
+import { type EmailStatusExpiring } from './types/email';
 import {
     type ApiFavoriteItems,
     type ApiToggleFavorite,
@@ -197,6 +197,7 @@ import {
     type ApiChartContentResponse,
     type ApiContentResponse,
 } from './types/content';
+import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import type { ApiGroupListResponse } from './types/groups';
 import type {
     ApiCompiledMergeQueryResults,
@@ -208,13 +209,12 @@ import type {
     ApiMetricsExplorerTotalResults,
 } from './types/metricsExplorer';
 import type { ResultsPaginationMetadata } from './types/paginateResults';
-import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
-import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import { type ParametersValuesMap } from './types/parameters';
 import { type PivotConfiguration } from './types/pivot';
 import { type ApiPromotionChangesResponse } from './types/promotion';
 import { type QueryHistoryStatus } from './types/queryHistory';
 import { type ApiRenameFieldsResponse } from './types/rename';
+import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
 import { type SchedulerWithLogs } from './types/schedulerLog';
 import {
     type ApiCreateSqlChart,
@@ -304,10 +304,9 @@ export * from './types/groups';
 export * from './types/job';
 export * from './types/knex-paginate';
 export * from './types/lightdashProjectConfig';
-export * from './types/resultsCacheProjectSettings';
+export * from './types/mergeQuery';
 export * from './types/metricQuery';
 export * from './types/metricsExplorer';
-export * from './types/mergeQuery';
 export * from './types/notifications';
 export * from './types/oauth';
 export * from './types/openIdIdentity';
@@ -329,6 +328,7 @@ export * from './types/queryHistory';
 export * from './types/rename';
 export * from './types/resourceViewItem';
 export * from './types/results';
+export * from './types/resultsCacheProjectSettings';
 export * from './types/roles';
 export * from './types/savedCharts';
 export * from './types/scheduler';
@@ -372,15 +372,15 @@ export * from './utils/dependencyGraph';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
-export * from './utils/getActiveTabForTabs';
 export * from './utils/formatting';
+export * from './utils/getActiveTabForTabs';
 export * from './utils/github';
 export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
+export * from './utils/mergeQueryItems';
 export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
-export * from './utils/mergeQueryItems';
 export * from './utils/oauth';
 export * from './utils/organization';
 export * from './utils/projectMemberRole';
@@ -1258,6 +1258,7 @@ export type HealthState = {
     hasSlack: boolean;
     hasGithub: boolean;
     hasGitlab: boolean;
+    hasAdminApi: boolean;
     hasHeadlessBrowser: boolean;
     hasExtendedUsageAnalytics: boolean;
     hasCacheAutocompleResults: boolean;

@@ -2,6 +2,7 @@ import { subject } from '@casl/ability';
 import {
     AbilityAction,
     BulkActionable,
+    convertOrganizationRoleToProjectRole,
     CreateDashboard,
     CreateDashboardWithCharts,
     CreateSavedChart,
@@ -13,16 +14,6 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
-    OrganizationMemberRole,
-    ParameterError,
-    ProjectMemberRole,
-    SchedulerAndTargets,
-    SchedulerFormat,
-    SessionUser,
-    TogglePinnedItemInfo,
-    UpdateDashboard,
-    UpdateMultipleDashboards,
-    convertOrganizationRoleToProjectRole,
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
@@ -33,7 +24,16 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    OrganizationMemberRole,
+    ParameterError,
+    ProjectMemberRole,
     SCHEDULER_TASKS,
+    SchedulerAndTargets,
+    SchedulerFormat,
+    SessionUser,
+    TogglePinnedItemInfo,
+    UpdateDashboard,
+    UpdateMultipleDashboards,
     type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
@@ -1193,10 +1193,9 @@ export class DashboardService
                 targetUserUuid,
             );
 
-        const summary =
-            await this.dashboardModel.getDashboardsSummaryByOwner(
-                targetUserUuid,
-            );
+        const summary = await this.dashboardModel.getDashboardsSummaryByOwner(
+            targetUserUuid,
+        );
 
         const projectsWithoutPermission = summary.byProject
             .filter(
@@ -1908,8 +1907,9 @@ export class DashboardService
 
     /**
      * 获取当前用户的类目列表
-     * 根据用户在看板类目权限表中的权限，构建一级、二级、三级、四级的类目树
-     * 权限生效范围：客户使用模式下的所有用户都需要进行类目权限过滤
+     * 根据用户在看板类目权限中的权限，构建一级、二级、三级、四级的类目树。
+     * 依赖内部后台 Admin API；未配置时返回空列表。
+     * 类目权限过滤对所有项目、所有角色生效（与客户使用模式无关；客户使用模式仅用于 UI 收敛与 VIEWER 看板白名单）。
      * @param user 用户
      * @param projectUuid 项目UUID
      * @param dashboardUuid 看板UUID（可选），如果提供则只返回该看板相关的类目
@@ -1919,27 +1919,26 @@ export class DashboardService
         projectUuid: string,
         dashboardUuid?: string,
     ): Promise<UserCategoryList> {
-        // 检查是否为客户使用模式
+        const emptyCategories: UserCategoryList = {
+            level1: [],
+            level2: [],
+            level3: [],
+            level4: [],
+        };
+
+        if (!this.categoryRpcClient.isConfigured()) {
+            return emptyCategories;
+        }
+
         const db = this.userDashboardCategoryModel.getDatabase();
         const project = await db
             .from('projects')
             .where('project_uuid', projectUuid)
-            .select('project_id', 'is_customer_use', 'organization_id')
+            .select('project_uuid')
             .first();
 
         if (!project) {
             throw new ParameterError(`Project ${projectUuid} not found`);
-        }
-
-        const isCustomerUse = project.is_customer_use ?? false;
-        if (!isCustomerUse) {
-            // 如果不是客户使用模式，返回空列表
-            return {
-                level1: [],
-                level2: [],
-                level3: [],
-                level4: [],
-            };
         }
 
         // 类目权限过滤适用于所有用户，不区分角色

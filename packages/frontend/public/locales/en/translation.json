@@ -2605,6 +2605,11 @@
                 "range_summary": "{{start}} to {{end}}"
             }
         },
+        "single_date": {
+            "preset": {
+                "last_available_month": "Last month (available from the 4th)"
+            }
+        },
         "to_latest_month_hint": "Start month",
         "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {

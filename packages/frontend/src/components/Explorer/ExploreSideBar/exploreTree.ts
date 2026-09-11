@@ -214,3 +214,31 @@ export const collectMatchingGroupPathsFromArray = (
     visit(rootNodes);
     return matches;
 };
+
+/**
+ * Ancestor group paths for a single explore — used to restore expansion when
+ * navigating back to the tables list from a nested group.
+ */
+export const collectAncestorPathsForExplore = (
+    rootNodes: ExploreNode[],
+    exploreName: string,
+): Set<string> =>
+    collectMatchingGroupPathsFromArray(rootNodes, new Set([exploreName]));
+
+export const treeContainsExplore = (
+    rootNodes: ExploreNode[],
+    exploreName: string,
+): boolean => {
+    for (const node of rootNodes) {
+        if (node.type === 'explore') {
+            if (node.key === exploreName) {
+                return true;
+            }
+        } else if (
+            treeContainsExplore(Object.values(node.children), exploreName)
+        ) {
+            return true;
+        }
+    }
+    return false;
+};

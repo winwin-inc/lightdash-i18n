@@ -1,11 +1,6 @@
 import { subject } from '@casl/ability';
 import { ExploreType, type SummaryExplore } from '@lightdash/common';
-import {
-    ActionIcon,
-    Skeleton,
-    Stack,
-    TextInput,
-} from '@mantine/core';
+import { ActionIcon, Skeleton, Stack, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconAlertCircle,
@@ -65,6 +60,7 @@ const BasePanel = () => {
     const location = useLocation();
     const projectUuid = useProjectUuid();
     const searchFromUrl = useSearchParams('search') ?? '';
+    const focusFromUrl = useSearchParams('focus');
     const [search, setSearch] = useState(searchFromUrl);
     const [debouncedSearch] = useDebouncedValue(search, 300);
     const exploresResult = useExplores(projectUuid, true);
@@ -107,6 +103,7 @@ const BasePanel = () => {
             } else {
                 params.delete('search');
             }
+            params.set('focus', explore.name);
             void navigate({
                 pathname: `/projects/${projectUuid}/tables/${explore.name}`,
                 search: params.toString(),
@@ -114,6 +111,21 @@ const BasePanel = () => {
         },
         [location.search, navigate, projectUuid, search],
     );
+
+    const clearFocusParam = useCallback(() => {
+        const params = new URLSearchParams(location.search);
+        if (!params.has('focus')) {
+            return;
+        }
+        params.delete('focus');
+        void navigate(
+            {
+                pathname: location.pathname,
+                search: params.toString(),
+            },
+            { replace: true },
+        );
+    }, [location.pathname, location.search, navigate]);
 
     const filteredExplores = useMemo(() => {
         const validSearch = debouncedSearch
@@ -145,35 +157,38 @@ const BasePanel = () => {
         [tableGroupsResult.data],
     );
 
-    const [groupedExploreTree, defaultUngroupedExplores, customUngroupedExplores] =
-        useMemo(() => {
-            if (!filteredExplores) {
-                return [[], [] as SummaryExplore[], [] as SummaryExplore[]];
+    const [
+        groupedExploreTree,
+        defaultUngroupedExplores,
+        customUngroupedExplores,
+    ] = useMemo(() => {
+        if (!filteredExplores) {
+            return [[], [] as SummaryExplore[], [] as SummaryExplore[]];
+        }
+
+        const groupedExplores: SummaryExplore[] = [];
+        const defaultExplores: SummaryExplore[] = [];
+        const customExplores: SummaryExplore[] = [];
+
+        for (const explore of filteredExplores) {
+            if (exploreHasGroups(explore)) {
+                groupedExplores.push(explore);
+            } else if (explore.type === ExploreType.VIRTUAL) {
+                customExplores.push(explore);
+            } else {
+                defaultExplores.push(explore);
             }
+        }
 
-            const groupedExplores: SummaryExplore[] = [];
-            const defaultExplores: SummaryExplore[] = [];
-            const customExplores: SummaryExplore[] = [];
+        const tree = sortExploreTree(
+            buildExploreTree(groupedExplores, tableGroupDetails),
+        );
 
-            for (const explore of filteredExplores) {
-                if (exploreHasGroups(explore)) {
-                    groupedExplores.push(explore);
-                } else if (explore.type === ExploreType.VIRTUAL) {
-                    customExplores.push(explore);
-                } else {
-                    defaultExplores.push(explore);
-                }
-            }
+        defaultExplores.sort((a, b) => a.label.localeCompare(b.label));
+        customExplores.sort((a, b) => a.label.localeCompare(b.label));
 
-            const tree = sortExploreTree(
-                buildExploreTree(groupedExplores, tableGroupDetails),
-            );
-
-            defaultExplores.sort((a, b) => a.label.localeCompare(b.label));
-            customExplores.sort((a, b) => a.label.localeCompare(b.label));
-
-            return [tree, defaultExplores, customExplores];
-        }, [filteredExplores, tableGroupDetails]);
+        return [tree, defaultExplores, customExplores];
+    }, [filteredExplores, tableGroupDetails]);
 
     const virtualViewsSectionLabel = t(
         'components_explorer_sider_bar.virtual_views',
@@ -239,6 +254,8 @@ const BasePanel = () => {
                             customUngroupedExplores={customUngroupedExplores}
                             virtualViewsSectionLabel={virtualViewsSectionLabel}
                             searchQuery={debouncedSearch}
+                            focusExploreName={focusFromUrl}
+                            onFocusApplied={clearFocusParam}
                             onExploreClick={navigateToTable}
                         />
                     </Stack>

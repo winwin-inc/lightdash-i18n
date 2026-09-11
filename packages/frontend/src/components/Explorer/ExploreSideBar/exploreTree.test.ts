@@ -1,8 +1,10 @@
 import { type SummaryExplore } from '@lightdash/common';
 import {
     buildExploreTree,
+    collectAncestorPathsForExplore,
     collectMatchingGroupPaths,
     sortExploreTree,
+    treeContainsExplore,
 } from './exploreTree';
 
 const explore = (
@@ -17,7 +19,7 @@ const explore = (
         schemaName: 'schema',
         groups: options.groups,
         groupLabel: options.groupLabel,
-    }) as unknown as SummaryExplore;
+    } as unknown as SummaryExplore);
 
 describe('buildExploreTree', () => {
     it('groups explores by their nested `groups` array', () => {
@@ -109,5 +111,32 @@ describe('collectMatchingGroupPaths', () => {
         expect(matches.has('marketing/email')).toBe(true);
         expect(matches.has('marketing/paid')).toBe(false);
         expect(matches.has('ops')).toBe(false);
+    });
+});
+
+describe('collectAncestorPathsForExplore', () => {
+    it('returns ancestor paths for a nested explore', () => {
+        const tree = sortExploreTree(
+            buildExploreTree([
+                explore('orders', { groups: ['marketing', 'email'] }),
+                explore('ads', { groups: ['marketing', 'paid'] }),
+            ]),
+        );
+        const matches = collectAncestorPathsForExplore(tree, 'orders');
+        expect(matches.has('marketing')).toBe(true);
+        expect(matches.has('marketing/email')).toBe(true);
+        expect(matches.has('marketing/paid')).toBe(false);
+    });
+});
+
+describe('treeContainsExplore', () => {
+    it('finds explores nested under groups', () => {
+        const tree = sortExploreTree(
+            buildExploreTree([
+                explore('orders', { groups: ['marketing', 'email'] }),
+            ]),
+        );
+        expect(treeContainsExplore(tree, 'orders')).toBe(true);
+        expect(treeContainsExplore(tree, 'missing')).toBe(false);
     });
 });
