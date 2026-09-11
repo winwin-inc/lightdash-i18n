@@ -16,7 +16,9 @@ import {
     isFilterableItem,
     isFilterRule,
     isMomentInput,
+    isSingleDateDynamic,
     resolveDateRangeValues,
+    resolveSingleDateValue,
     TimeFrames,
     type AnyType,
     type BaseFilterRule,
@@ -26,6 +28,7 @@ import {
     type DateRangeSetting,
     type Field,
     type FilterableItem,
+    type SingleDateSetting,
     type TableCalculation,
 } from '@lightdash/common';
 import isEmpty from 'lodash/isEmpty';
@@ -180,14 +183,38 @@ export const getDateRangeRuleWithFixedValues = <
 };
 
 /**
- * If the rule has a dynamic date range, re-resolve the `values` from
- * `settings.dateRange` using the current date so the displayed chip label
+ * Strip `settings.singleDate` so a viewer override becomes a fixed value
+ * for the rest of the session (saved dynamic default is not rewritten).
+ */
+export const getSingleDateRuleWithFixedValues = <
+    T extends BaseFilterRule & {
+        settings?: { singleDate?: SingleDateSetting };
+    },
+>(
+    rule: T,
+): T => {
+    if (!isSingleDateDynamic(rule) || !rule.settings) return rule;
+
+    const { singleDate: _drop, ...settings } = rule.settings;
+
+    return {
+        ...rule,
+        settings,
+    } as T;
+};
+
+/**
+ * If the rule has a dynamic date range or single-date default, re-resolve
+ * `values` from settings using the current date so the displayed chip label
  * always reflects "now" rather than the stale values saved at config time.
  * Returns the original `values` for non-dynamic rules.
  */
 export const resolveDisplayValues = (
     rule: BaseFilterRule & {
-        settings?: { dateRange?: DateRangeSetting };
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
         minAllowedDate?: string;
         maxAllowedDate?: string;
         dateRangeGranularity?: TimeFrames;
@@ -195,6 +222,10 @@ export const resolveDisplayValues = (
     },
     now: Date = new Date(),
 ): AnyType[] | undefined => {
+    if (isSingleDateDynamic(rule) && rule.operator === FilterOperator.EQUALS) {
+        const resolved = resolveSingleDateValue(rule, now);
+        return resolved != null ? [resolved] : rule.values;
+    }
     if (!isDateRangeDynamic(rule)) return rule.values;
     const dr = rule.settings?.dateRange;
     if (!dr) return rule.values;
@@ -219,30 +250,45 @@ export const resolveDisplayValues = (
 };
 
 /**
- * Returns a new rule with `values` re-resolved from `settings.dateRange`
- * if the rule is a dynamic date range. Non-dynamic rules are returned as-is.
- * Use this to ensure filter rules sent to the backend have up-to-date
- * `values` that match what the user sees in the chip label.
+ * Returns a new rule with `values` re-resolved from dynamic settings if
+ * present. Non-dynamic rules are returned as-is.
  */
 export const resolveDynamicDateRangeRule = <
-    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+    T extends BaseFilterRule & {
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
+    },
 >(
     rule: T,
     now: Date = new Date(),
 ): T => {
-    if (!isDateRangeDynamic(rule)) return rule;
+    if (isSingleDateDynamic(rule) && rule.operator !== FilterOperator.EQUALS) {
+        // Stale singleDate after operator change — drop without resolving
+        return getSingleDateRuleWithFixedValues(rule);
+    }
+    if (!isDateRangeDynamic(rule) && !isSingleDateDynamic(rule)) return rule;
     const resolved = resolveDisplayValues(rule, now);
     if (resolved === rule.values) return rule;
     return { ...rule, values: resolved };
 };
 
-/** 查询前解析动态日期并去掉 dateRange，保证接口参数与筛选器展示一致 */
+/** 查询前解析动态日期并去掉动态 settings，保证接口参数与筛选器展示一致 */
 export const prepareDashboardFilterRuleForQuery = <
-    T extends BaseFilterRule & { settings?: { dateRange?: DateRangeSetting } },
+    T extends BaseFilterRule & {
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
+    },
 >(
     rule: T,
     now: Date = new Date(),
-): T => getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now));
+): T =>
+    getSingleDateRuleWithFixedValues(
+        getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now)),
+    );
 
 const useValueAsString = () => {
     const { t } = useTranslation();
