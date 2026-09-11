@@ -19,7 +19,9 @@ import {
     isDateRangeDynamic,
     isFilterTarget,
     isMetricFilterTarget,
+    isSingleDateDynamic,
     resolveDateRangeValues,
+    resolveSingleDateValue,
     unitOfTimeFormat,
     type DateFilterRule,
     type FilterRule,
@@ -447,11 +449,7 @@ export const renderDateFilterSql = (
                 return castAwareInstantTimestampLiteral(value, adapterType);
             case 'legacy':
                 if (timestampFilterContext.instantLhs) {
-                    return castLegacyTimestampLiteral(
-                        value,
-                        adapterType,
-                        true,
-                    );
+                    return castLegacyTimestampLiteral(value, adapterType, true);
                 }
                 switch (adapterType) {
                     case SupportedDbtAdapter.TRINO: {
@@ -469,10 +467,21 @@ export const renderDateFilterSql = (
     };
 
     switch (filter.operator) {
-        case FilterOperator.EQUALS:
+        case FilterOperator.EQUALS: {
+            if (isSingleDateDynamic(filter)) {
+                const resolved = resolveSingleDateValue(
+                    filter,
+                    new Date(),
+                    timezone,
+                );
+                return `(${dimensionSql}) = ${castValue(
+                    effectiveDateFormatter(resolved ?? filter.values?.[0]),
+                )}`;
+            }
             return `(${dimensionSql}) = ${castValue(
                 effectiveDateFormatter(filter.values?.[0]),
             )}`;
+        }
         case FilterOperator.NOT_EQUALS:
             return `((${dimensionSql}) != ${castValue(
                 effectiveDateFormatter(filter.values?.[0]),
@@ -667,8 +676,7 @@ export const renderDateFilterSql = (
                     timezone,
                 );
                 startDate =
-                    resolvedStart ??
-                    effectiveDateFormatter(filter.values?.[0]);
+                    resolvedStart ?? effectiveDateFormatter(filter.values?.[0]);
             } else {
                 // Fixed mode: use values directly (preserves TIMESTAMP
                 // ISO strings etc.)
@@ -678,9 +686,7 @@ export const renderDateFilterSql = (
             if (latestDataMonthMaxSql) {
                 endBound = `(${latestDataMonthMaxSql})`;
             } else if (filter.values?.[1] != null) {
-                endBound = castValue(
-                    effectiveDateFormatter(filter.values[1]),
-                );
+                endBound = castValue(effectiveDateFormatter(filter.values[1]));
             }
 
             if (endBound === undefined) {
