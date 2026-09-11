@@ -4,6 +4,7 @@
 export const MCP_DOCS_TOPICS = [
     'overview',
     'query_workflow',
+    'content_fields',
     'session_lifecycle',
     'security',
 ] as const;
@@ -17,7 +18,8 @@ const DOCS: Record<McpDocsTopic, string> = {
 - 查询类工具优先每次显式传 projectUuid；不要依赖跨请求的 set_project 状态。
 - 标准 Session：initialize → 保存并回传 Mcp-Session-Id → 可选 GET SSE → 结束时 DELETE。
 - 无 Mcp-Session-Id 的 tools/call 走 compat 兼容通道（按鉴权身份隔离）。
-- 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | session_lifecycle | security。
+- 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | content_fields | session_lifecycle | security。
+- 字段约定（chartKind / groups 等）见 topic=content_fields。
 `,
 
     query_workflow: `# 查询工作流
@@ -27,6 +29,36 @@ const DOCS: Record<McpDocsTopic, string> = {
 3. 需要枚举值时用 search_field_values。
 4. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
 5. 大结果先缩小 limit / filters；不要猜测 fieldId。
+6. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+`,
+
+    content_fields: `# 内容字段约定（默认 slim）
+
+## chartKind（认图）
+
+- 含义：可视化形态。常见值：line、vertical_bar、area、pie、table、big_number、custom、…
+- UI「图表类型 = 自定义」对应 chartKind: "custom"。
+- 默认 slim 即返回（无需 full）：find_charts、find_content（图表项）、list_charts、get_dashboard_tiles、get_saved_chart。
+- 统计看板自定义图：list_charts(dashboardUuid) 或 get_dashboard_tiles → 数 chartKind==="custom"。
+- list_charts 仅含 saved_chart；sql_chart / data_app 的 chartKind 多为 null。
+
+## chartConfig.type / slim 顶层 chartType
+
+- 是配置 JSON 的结构标签：cartesian / pie / table / custom / …
+- 折线与柱状在结构上都可能是 cartesian；认图必须用 chartKind，不要用 chartType / chartConfig.type。
+- get_saved_chart 默认 slim **同时**返回 chartKind 与 chartType（chartType = chartConfig.type）；full=true 可读完整 chartConfig。
+- 勿与上游 EE XML 里名叫 ChartType、实为 ChartKind 的标签硬套。
+
+## 数据集分组 groups
+
+- groups: string[] 为嵌套侧边栏 path keys（最多约 5 层）；不是展示中文文案。
+- groupLabel 为旧单层字段；有 groups 时优先用 groups。
+- 完整 groups 以 list_explores 为准；find_explores（catalog）可能只有 groupLabel。
+
+## full 参数
+
+- 默认 false = 精简字段（上表）。
+- true = API 原样/完整对象，体积更大。
 `,
 
     session_lifecycle: `# Session 生命周期（2025 Streamable HTTP）

@@ -62,11 +62,13 @@ import {
     isEmptyTabFilters,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
+import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
 import { useProject } from '../../hooks/useProject';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
+    hasAnyUserCategories,
     initializeCategoryFiltersAsync,
     isCategoryField,
     updateCategoryFilterCascadeAsync,
@@ -190,17 +192,16 @@ const DashboardProvider: React.FC<
         setHaveShowAddFilterButtonStatesChanged,
     } = useDashboardFilterState({ dashboard });
 
-    // Get project info to check if customer use mode is enabled
-    const { data: project } = useProject(projectUuid);
-
-    // Get user categories for category filter initialization (only in customer use mode)
-    const isCustomerUse = project?.isCustomerUse ?? false;
+    // 类目权限依赖内部后台 Admin API；与客户使用模式无关
+    const { data: health } = useHealth();
+    const hasAdminApi = health?.hasAdminApi ?? false;
     const { data: userCategories } = useUserCategories({
         dashboardUuid, // 传递当前看板的 UUID，以便根据看板过滤类目
         useQueryOptions: {
-            enabled: !!projectUuid && isCustomerUse,
+            enabled: !!projectUuid && hasAdminApi,
         },
     });
+    const canApplyCategoryFilters = hasAnyUserCategories(userCategories);
 
     // 筛选器状态（含 URL override 与 reset；override hook 只在 useDashboardFilters 内实例化一次）
     const {
@@ -229,7 +230,7 @@ const DashboardProvider: React.FC<
     // 异步版本：与 field/search 取交集后再设值
     const initializeCategoryFiltersWithFieldSearch = useCallback(
         async (filters: DashboardFilters): Promise<DashboardFilters> => {
-            if (!isCustomerUse || !userCategories || !projectUuid)
+            if (!canApplyCategoryFilters || !userCategories || !projectUuid)
                 return filters;
             return initializeCategoryFiltersAsync(
                 filters,
@@ -237,7 +238,7 @@ const DashboardProvider: React.FC<
                 projectUuid,
             );
         },
-        [isCustomerUse, userCategories, projectUuid],
+        [canApplyCategoryFilters, userCategories, projectUuid],
     );
 
     // 异步联动：与 field/search 取交集
@@ -247,7 +248,7 @@ const DashboardProvider: React.FC<
             changedFilter: DashboardFilterRule,
             newValue: string | null,
         ): Promise<DashboardFilters> => {
-            if (!isCustomerUse || !userCategories || !projectUuid)
+            if (!canApplyCategoryFilters || !userCategories || !projectUuid)
                 return filters;
             const cascaded = await updateCategoryFilterCascadeAsync(
                 filters,
@@ -262,7 +263,7 @@ const DashboardProvider: React.FC<
                 projectUuid,
             );
         },
-        [isCustomerUse, userCategories, projectUuid],
+        [canApplyCategoryFilters, userCategories, projectUuid],
     );
 
     const replaceDimensionFilterAtIndex = useCallback(
@@ -290,7 +291,7 @@ const DashboardProvider: React.FC<
             ? applyInteractivityFiltering(filters)
             : filters;
 
-        if (isCustomerUse && userCategories && !isEditMode) {
+        if (canApplyCategoryFilters && !isEditMode) {
             void initializeCategoryFiltersWithFieldSearch(filteredFilters).then(
                 (refined) => {
                     setDashboardFilters(refined);
@@ -304,8 +305,7 @@ const DashboardProvider: React.FC<
     }, [
         dashboard,
         embedDashboard,
-        isCustomerUse,
-        userCategories,
+        canApplyCategoryFilters,
         isEditMode,
         setDashboardFilters,
         setDashboardTemporaryFilters,
@@ -326,8 +326,7 @@ const DashboardProvider: React.FC<
                 item.values !== undefined && item.values.length > 0;
 
             if (
-                !isCustomerUse ||
-                !userCategories ||
+                !canApplyCategoryFilters ||
                 !isCategoryField(item) ||
                 isEdit ||
                 !hasSelectedValue
@@ -356,8 +355,7 @@ const DashboardProvider: React.FC<
         },
         [
             originalUpdateDimensionDashboardFilter,
-            isCustomerUse,
-            userCategories,
+            canApplyCategoryFilters,
             dashboardFilters,
             setDashboardFilters,
             updateCascadeWithFieldSearch,
@@ -402,8 +400,7 @@ const DashboardProvider: React.FC<
                 item.values !== undefined && item.values.length > 0;
 
             if (
-                !isCustomerUse ||
-                !userCategories ||
+                !canApplyCategoryFilters ||
                 !isCategoryField(item) ||
                 isEditMode ||
                 !hasSelectedValue
@@ -433,8 +430,7 @@ const DashboardProvider: React.FC<
         },
         [
             updateTabDimensionFilter,
-            isCustomerUse,
-            userCategories,
+            canApplyCategoryFilters,
             tabFilters,
             setTabFilters,
             isEditMode,
@@ -945,8 +941,8 @@ const DashboardProvider: React.FC<
                 updatedDashboardFilters,
             );
 
-            // Step 4: Initialize category filters based on user permissions (only in customer use mode)
-            if (isCustomerUse && userCategories && !isEditMode) {
+            // Step 4: Initialize category filters based on user permissions (when Admin API is available)
+            if (canApplyCategoryFilters && !isEditMode) {
                 setDashboardFilters(updatedDashboardFilters);
                 void initializeCategoryFiltersWithFieldSearch(
                     updatedDashboardFilters,
@@ -983,7 +979,7 @@ const DashboardProvider: React.FC<
         dashboardFilters,
         overridesForSavedDashboardFilters,
         tabFilters,
-        isCustomerUse,
+        canApplyCategoryFilters,
         isEditMode,
         userCategories,
         setHaveFiltersChanged,
@@ -998,7 +994,7 @@ const DashboardProvider: React.FC<
     ]);
     // This ensures category filters are initialized even if userCategories loads after dashboard
     useEffect(() => {
-        if (!isCustomerUse || !userCategories || !projectUuid || isEditMode)
+        if (!canApplyCategoryFilters || !userCategories || !projectUuid || isEditMode)
             return;
 
         // 用 functional update 读取当前 filters，避免依赖 dashboardFilters 导致循环
@@ -1021,7 +1017,7 @@ const DashboardProvider: React.FC<
             return currentFilters; // 先返回原值，等异步完成后再更新
         });
     }, [
-        isCustomerUse,
+        canApplyCategoryFilters,
         userCategories,
         projectUuid,
         isEditMode,
@@ -1030,7 +1026,7 @@ const DashboardProvider: React.FC<
 
     // Apply category filters to tab filters when userCategories loads
     useEffect(() => {
-        if (!isCustomerUse || !userCategories || !projectUuid || isEditMode)
+        if (!canApplyCategoryFilters || !userCategories || !projectUuid || isEditMode)
             return;
         if (isEmptyTabFilters(tabFilters)) return;
 
@@ -1056,7 +1052,7 @@ const DashboardProvider: React.FC<
         };
         void asyncRefine();
     }, [
-        isCustomerUse,
+        canApplyCategoryFilters,
         userCategories,
         projectUuid,
         isEditMode,
@@ -1217,7 +1213,7 @@ const DashboardProvider: React.FC<
                     ),
                     metrics: applyMetricOverrides(prevFilters, safeOverrides),
                 };
-                if (isCustomerUse && userCategories && !isEditMode) {
+                if (canApplyCategoryFilters && !isEditMode) {
                     void initializeCategoryFiltersWithFieldSearch(
                         updatedFilters,
                     ).then((refined) => {
@@ -1232,7 +1228,7 @@ const DashboardProvider: React.FC<
         dashboard?.tabs,
         overridesForSavedDashboardFilters,
         activeTab,
-        isCustomerUse,
+        canApplyCategoryFilters,
         userCategories,
         isEditMode,
         initializeCategoryFiltersWithFieldSearch,
@@ -1267,9 +1263,9 @@ const DashboardProvider: React.FC<
             // TODO: this should probably merge with the filters
             // from the database. This will break if they diverge,
             // meaning there is a subtle race condition here
-            // Apply category filter initialization if in customer use mode
+            // Apply category filter initialization when Admin API categories are available
             // Note: If userCategories is not loaded yet, it will be applied in the useEffect below
-            if (isCustomerUse && userCategories && !isEditMode) {
+            if (canApplyCategoryFilters && !isEditMode) {
                 setDashboardFilters(unsavedDashboardFilters);
                 void initializeCategoryFiltersWithFieldSearch(
                     unsavedDashboardFilters,

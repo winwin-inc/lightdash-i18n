@@ -191,21 +191,36 @@ export const useExplorerRoute = () => {
     const [searchParams] = useSearchParams();
     const fromDashboard =
         fromDashboardFromRedux ?? searchParams.get('fromDashboard');
+    // Primitive deps so chart-version URL sync does not loop on searchParams identity
+    const focusParam = searchParams.get('focus');
+    const tablesSearchParam = searchParams.get('search');
 
     // Update url params based on pristine state
     // Only sync URL when we're actually on a table page (pathParams.tableId exists)
     useEffect(() => {
         if (pathParams.tableId && metricQuery && tableName) {
+            const nextUrl = getExplorerUrlFromCreateSavedChartVersion(
+                pathParams.projectUuid,
+                {
+                    ...mergedUnsavedChartVersion,
+                    metricQuery,
+                },
+                false,
+                fromDashboard,
+            );
+            // Preserve tables-list restore params that getExplorerUrl* does not know about
+            const nextParams = new URLSearchParams(nextUrl.search);
+            if (focusParam) {
+                nextParams.set('focus', focusParam);
+            }
+            if (tablesSearchParam) {
+                nextParams.set('search', tablesSearchParam);
+            }
             void navigate(
-                getExplorerUrlFromCreateSavedChartVersion(
-                    pathParams.projectUuid,
-                    {
-                        ...mergedUnsavedChartVersion,
-                        metricQuery,
-                    },
-                    false,
-                    fromDashboard,
-                ),
+                {
+                    pathname: nextUrl.pathname,
+                    search: nextParams.toString(),
+                },
                 { replace: true },
             );
         }
@@ -217,6 +232,8 @@ export const useExplorerRoute = () => {
         mergedUnsavedChartVersion,
         tableName,
         fromDashboard,
+        focusParam,
+        tablesSearchParam,
     ]);
 
     useEffect(() => {

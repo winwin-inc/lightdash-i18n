@@ -35,11 +35,21 @@
 
 ## `get_saved_chart`
 
-JSON 含 **`webUrl`**（及 `siteBaseUrl`）等，用于在浏览器打开图表。「在 Lightdash 里打开」类流程应使用这些字段。
+默认精简同时含 **`chartKind`**（认图：`line` / `vertical_bar` / `custom` / …；UI「自定义」=`custom`）与 **`chartType`**（=`chartConfig.type`，配置结构标签；`cartesian` 可含多种形态，**不要**当成折线/柱状），以及 **`webUrl`** 等。
+
+读完整配置：`full: true` 后看 **`chartConfig`** + **`metricQuery`**。
+
+## `list_charts` / `get_dashboard_tiles`
+
+默认精简含 **`chartKind`**。统计看板「自定义」图：数 `chartKind === "custom"`（仅 `saved_chart`；`sql_chart` / `data_app` 多为 null）。
 
 ## `find_charts` / `find_dashboards` / `find_content`
 
-列表在可用时包含 **`webUrl`**——**优先使用**这些 URL，不要手拼 slug。
+列表在可用时包含 **`webUrl`**——**优先使用**这些 URL，不要手拼 slug。图表相关项默认含 **`chartKind`**（认图）。
+
+## `list_explores` / `find_explores`
+
+默认精简可含 **`groups`**（嵌套 path keys）与 **`groupLabel`**；完整嵌套路径优先 `list_explores`。
 
 ## `get_site_info`
 

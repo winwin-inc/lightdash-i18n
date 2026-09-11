@@ -102,6 +102,20 @@ export const spaceContentConfiguration: ContentConfiguration<SpaceContentRow> =
                     knex.raw(`null as last_updated_by_user_last_name`),
                     knex.raw(`0 as views`),
                     knex.raw(`null as first_viewed_at`),
+                    knex.raw(
+                        `${SpaceTableName}.deleted_at::timestamp as deleted_at`,
+                    ),
+                    `${SpaceTableName}.deleted_by_user_uuid as deleted_by_user_uuid`,
+                    knex.raw(
+                        `(SELECT first_name FROM users WHERE user_uuid = ${SpaceTableName}.deleted_by_user_uuid) as deleted_by_user_first_name`,
+                    ),
+                    knex.raw(
+                        `(SELECT last_name FROM users WHERE user_uuid = ${SpaceTableName}.deleted_by_user_uuid) as deleted_by_user_last_name`,
+                    ),
+                    knex.raw(`null::timestamp as verified_at`),
+                    knex.raw(`null::uuid as verified_by_user_uuid`),
+                    knex.raw(`null as verified_by_user_first_name`),
+                    knex.raw(`null as verified_by_user_last_name`),
                     knex.raw(`null::uuid as owner_user_uuid`),
                     knex.raw(`null as owner_user_first_name`),
                     knex.raw(`null as owner_user_last_name`),

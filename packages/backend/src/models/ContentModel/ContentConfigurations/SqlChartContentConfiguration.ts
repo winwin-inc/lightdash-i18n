@@ -106,6 +106,20 @@ export const sqlChartContentConfiguration: ContentConfiguration<SelectSavedSql> 
                     knex.raw(
                         `${SavedSqlTableName}.first_viewed_at::timestamp as first_viewed_at`,
                     ),
+                    knex.raw(
+                        `${SavedSqlTableName}.deleted_at::timestamp as deleted_at`,
+                    ),
+                    `${SavedSqlTableName}.deleted_by_user_uuid as deleted_by_user_uuid`,
+                    knex.raw(
+                        `(SELECT first_name FROM users WHERE user_uuid = ${SavedSqlTableName}.deleted_by_user_uuid) as deleted_by_user_first_name`,
+                    ),
+                    knex.raw(
+                        `(SELECT last_name FROM users WHERE user_uuid = ${SavedSqlTableName}.deleted_by_user_uuid) as deleted_by_user_last_name`,
+                    ),
+                    knex.raw(`null::timestamp as verified_at`),
+                    knex.raw(`null::uuid as verified_by_user_uuid`),
+                    knex.raw(`null as verified_by_user_first_name`),
+                    knex.raw(`null as verified_by_user_last_name`),
                     knex.raw(`null::uuid as owner_user_uuid`),
                     knex.raw(`null as owner_user_first_name`),
                     knex.raw(`null as owner_user_last_name`),

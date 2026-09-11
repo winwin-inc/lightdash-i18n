@@ -57,14 +57,15 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 - `get_current_project`：读当前设的是哪个项目
 
 **Explore**
-- `list_explores`：列出所有 explores（`filtered: true` 默认只显示已启用的）
-- `find_explores`：按关键词搜索 explore
+- `list_explores`：列出 explores；默认精简含 `groups`（嵌套 path keys）与 `groupLabel`
+- `find_explores`：按关键词搜索 explore（catalog 可能无完整 `groups`，完整路径优先 `list_explores`）
 - `find_fields`：在某个 explore 里按关键词找字段
 
 **内容**
-- `find_content`：v2 混合关键词搜索（不固定类型），返回 webUrl
-- `find_charts` / `find_dashboards` / `find_spaces`：分别只搜图表 / 看板 / 空间（与上游 EE 内置 MCP 同名的独立 Tool）
+- `find_content`：v2 混合关键词搜索；图表项默认含 `chartKind`（认图；UI「自定义」=`custom`）
+- `find_charts` / `find_dashboards` / `find_spaces`：分别只搜图表 / 看板 / 空间；`find_charts` 默认含 `chartKind`
 - `list_verified_content`：已验证的图表和看板
+- `get_mcp_docs`：内置说明；字段约定见 `topic=content_fields`
 
 **查询**
 - `search_field_values`：枚举维度取值
@@ -74,7 +75,8 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 **站点 / 已保存图表**（与核心共用 PAT；无前缀命名）
 - `get_site_info`：返回 siteBaseUrl
 - `list_spaces`：列空间
-- `get_saved_chart` / `run_saved_chart`：操作已保存的图表
+- `list_charts` / `get_dashboard_tiles`：看板内图表/磁贴；默认含 `chartKind`（统计自定义：数 `chartKind==="custom"`）
+- `get_saved_chart` / `run_saved_chart`：已保存图表；`get_saved_chart` 默认精简同时含 `chartKind`（认图）与 `chartType`（=`chartConfig.type`）
 
 另外有一个 `lightdash-analyst` Prompt，给模型用的角色说明，不是工具。
 

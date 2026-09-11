@@ -46,6 +46,6 @@
 
 ## Notes
 
-- `get_mcp_docs` 返回内置静态使用说明（overview / query_workflow / session_lifecycle / security），不读本地 `docs/mcp`、不访问远程 URL、不接受密钥。
+- `get_mcp_docs` 返回内置静态使用说明（overview / query_workflow / content_fields / session_lifecycle / security），不读本地 `docs/mcp`、不访问远程 URL、不接受密钥。字段约定（`chartKind` / `groups`）见 `content_fields`。
 - `get_dashboard_tiles` / `run_dashboard_tiles` / `get_dashboard_code` 为本包扩展能力，不属于上游 EE 内置 MCP 工具集。
-- 多数列表与查询工具默认返回精简结构；传 `full: true` 才返回完整字段。
+- 多数列表与查询工具默认返回精简结构（认图用 `chartKind`）；`get_saved_chart` 默认同时含 `chartKind` 与 `chartType`（=`chartConfig.type`）；传 `full: true` 返回完整字段。

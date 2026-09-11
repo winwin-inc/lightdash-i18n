@@ -81,6 +81,14 @@ export type SummaryContentRow<
     last_updated_by_user_last_name: string | null;
     views: number;
     first_viewed_at: Date | null;
+    deleted_at: Date | null;
+    deleted_by_user_uuid: string | null;
+    deleted_by_user_first_name: string | null;
+    deleted_by_user_last_name: string | null;
+    verified_at: Date | null;
+    verified_by_user_uuid: string | null;
+    verified_by_user_first_name: string | null;
+    verified_by_user_last_name: string | null;
     owner_user_uuid: string | null;
     owner_user_first_name: string | null;
     owner_user_last_name: string | null;

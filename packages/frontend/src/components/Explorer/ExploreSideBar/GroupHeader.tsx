@@ -25,7 +25,14 @@ const GroupHeader: FC<GroupHeaderProps> = ({
                 onClick={onToggle}
                 disableRightSectionRotation
                 rightSection={<></>}
-                leftSection={
+                styles={{
+                    icon: {
+                        marginRight: 4,
+                        width: 'auto',
+                        minWidth: 0,
+                    },
+                }}
+                icon={
                     <MantineIcon
                         icon={isExpanded ? IconChevronDown : IconChevronRight}
                         size={14}
