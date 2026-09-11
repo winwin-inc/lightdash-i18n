@@ -65,6 +65,7 @@ const BasePanel = () => {
     const location = useLocation();
     const projectUuid = useProjectUuid();
     const searchFromUrl = useSearchParams('search') ?? '';
+    const focusFromUrl = useSearchParams('focus');
     const [search, setSearch] = useState(searchFromUrl);
     const [debouncedSearch] = useDebouncedValue(search, 300);
     const exploresResult = useExplores(projectUuid, true);
@@ -107,6 +108,7 @@ const BasePanel = () => {
             } else {
                 params.delete('search');
             }
+            params.set('focus', explore.name);
             void navigate({
                 pathname: `/projects/${projectUuid}/tables/${explore.name}`,
                 search: params.toString(),
@@ -114,6 +116,21 @@ const BasePanel = () => {
         },
         [location.search, navigate, projectUuid, search],
     );
+
+    const clearFocusParam = useCallback(() => {
+        const params = new URLSearchParams(location.search);
+        if (!params.has('focus')) {
+            return;
+        }
+        params.delete('focus');
+        void navigate(
+            {
+                pathname: location.pathname,
+                search: params.toString(),
+            },
+            { replace: true },
+        );
+    }, [location.pathname, location.search, navigate]);
 
     const filteredExplores = useMemo(() => {
         const validSearch = debouncedSearch
@@ -239,6 +256,8 @@ const BasePanel = () => {
                             customUngroupedExplores={customUngroupedExplores}
                             virtualViewsSectionLabel={virtualViewsSectionLabel}
                             searchQuery={debouncedSearch}
+                            focusExploreName={focusFromUrl}
+                            onFocusApplied={clearFocusParam}
                             onExploreClick={navigateToTable}
                         />
                     </Stack>

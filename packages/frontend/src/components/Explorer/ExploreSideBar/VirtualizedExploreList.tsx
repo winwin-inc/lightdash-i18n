@@ -1,10 +1,20 @@
 import { type SummaryExplore } from '@lightdash/common';
 import { Box, Divider } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+} from 'react';
 import ExploreNavLink from './ExploreNavLink';
 import {
+    collectAncestorPathsForExplore,
     collectMatchingGroupPathsFromArray,
+    treeContainsExplore,
     type ExploreNode,
 } from './exploreTree';
 import GroupHeader from './GroupHeader';
@@ -41,6 +51,8 @@ interface VirtualizedExploreListProps {
     customUngroupedExplores: SummaryExplore[];
     virtualViewsSectionLabel: string;
     searchQuery: string;
+    focusExploreName: string | null;
+    onFocusApplied: () => void;
     onExploreClick: (explore: SummaryExplore) => void;
 }
 
@@ -69,6 +81,8 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
     customUngroupedExplores,
     virtualViewsSectionLabel,
     searchQuery,
+    focusExploreName,
+    onFocusApplied,
     onExploreClick,
 }) => {
     const [expandedGroupPaths, setExpandedGroupPaths] = useState<Set<string>>(
@@ -78,6 +92,7 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
         new Set(),
     );
     const parentRef = useRef<HTMLDivElement>(null);
+    const focusHandledRef = useRef<string | null>(null);
 
     const toggleGroup = useCallback((path: string) => {
         setExpandedGroupPaths((prev) => {
@@ -102,6 +117,47 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
             return next;
         });
     }, []);
+
+    // Expand ancestors (and virtual-views section if needed) for focus restore.
+    useEffect(() => {
+        if (!focusExploreName || focusHandledRef.current === focusExploreName) {
+            return;
+        }
+
+        const ancestorPaths = collectAncestorPathsForExplore(
+            groupedExploreTree,
+            focusExploreName,
+        );
+        if (ancestorPaths.size > 0) {
+            setExpandedGroupPaths((prev) => {
+                const next = new Set(prev);
+                for (const path of ancestorPaths) {
+                    next.add(path);
+                }
+                return next;
+            });
+        }
+
+        if (
+            customUngroupedExplores.some(
+                (explore) => explore.name === focusExploreName,
+            )
+        ) {
+            setExpandedSections((prev) => {
+                if (prev.has(virtualViewsSectionLabel)) {
+                    return prev;
+                }
+                const next = new Set(prev);
+                next.add(virtualViewsSectionLabel);
+                return next;
+            });
+        }
+    }, [
+        focusExploreName,
+        groupedExploreTree,
+        customUngroupedExplores,
+        virtualViewsSectionLabel,
+    ]);
 
     const virtualItems = useMemo<VirtualListItem[]>(() => {
         const searchExpansion = searchQuery
@@ -214,6 +270,51 @@ const VirtualizedExploreList: FC<VirtualizedExploreListProps> = ({
         estimateSize: getItemHeight,
         overscan: 5,
     });
+
+    // Scroll to focused explore once it is present in the flattened list.
+    useEffect(() => {
+        if (!focusExploreName || focusHandledRef.current === focusExploreName) {
+            return;
+        }
+
+        const index = virtualItems.findIndex(
+            (item) =>
+                item.type === 'explore' &&
+                item.explore.name === focusExploreName,
+        );
+
+        if (index >= 0) {
+            focusHandledRef.current = focusExploreName;
+            const frame = requestAnimationFrame(() => {
+                virtualizer.scrollToIndex(index, { align: 'center' });
+                onFocusApplied();
+            });
+            return () => cancelAnimationFrame(frame);
+        }
+
+        const existsInData =
+            treeContainsExplore(groupedExploreTree, focusExploreName) ||
+            defaultUngroupedExplores.some(
+                (explore) => explore.name === focusExploreName,
+            ) ||
+            customUngroupedExplores.some(
+                (explore) => explore.name === focusExploreName,
+            );
+
+        // Filtered out or unknown — clear sticky focus so it does not linger.
+        if (!existsInData) {
+            focusHandledRef.current = focusExploreName;
+            onFocusApplied();
+        }
+    }, [
+        focusExploreName,
+        virtualItems,
+        virtualizer,
+        onFocusApplied,
+        groupedExploreTree,
+        defaultUngroupedExplores,
+        customUngroupedExplores,
+    ]);
 
     const renderItem = useCallback(
         (item: VirtualListItem) => {
