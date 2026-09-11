@@ -35,9 +35,9 @@
 
 ## `get_saved_chart`
 
-默认精简含 **`chartKind`**（认图：`line` / `vertical_bar` / `custom` / …；UI「自定义」=`custom`）与 **`webUrl`** 等。**无**顶层 `chartType`。
+默认精简同时含 **`chartKind`**（认图：`line` / `vertical_bar` / `custom` / …；UI「自定义」=`custom`）与 **`chartType`**（=`chartConfig.type`，配置结构标签；`cartesian` 可含多种形态，**不要**当成折线/柱状），以及 **`webUrl`** 等。
 
-读配置结构：`full: true` 后看 **`chartConfig.type`**（`cartesian` 可含多种形态，**不要**当成折线/柱状）+ **`metricQuery`**。
+读完整配置：`full: true` 后看 **`chartConfig`** + **`metricQuery`**。
 
 ## `list_charts` / `get_dashboard_tiles`
 

@@ -53,7 +53,7 @@ const getSavedChartParams = {
         .boolean()
         .optional()
         .describe(
-            '默认 false：精简含 chartKind（认图）。true：完整对象含 chartConfig.type（配置结构标签，勿当折线/柱状）。',
+            '默认 false：精简同时含 chartKind（认图）与 chartType（=chartConfig.type，配置结构标签）。true：完整对象含 chartConfig。',
         ),
 } satisfies ZodRawShape;
 
@@ -200,7 +200,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'get_saved_chart',
-        '查看已保存图表元数据（含 webUrl）。默认精简含 chartKind（认图：line/vertical_bar/custom/…；UI「自定义」= custom）；无顶层 chartType。读配置结构用 full=true → chartConfig.type（cartesian 可含多种形态，勿当折线/柱状）。跑数前可先确认参数。',
+        '查看已保存图表元数据（含 webUrl）。默认精简同时含 chartKind（认图：line/vertical_bar/custom/…；UI「自定义」= custom）与 chartType（=chartConfig.type，配置结构标签；cartesian 可含多种形态，勿当折线/柱状）。读完整配置用 full=true。跑数前可先确认参数。',
         getSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);

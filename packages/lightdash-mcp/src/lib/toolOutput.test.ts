@@ -125,7 +125,7 @@ describe('slimExplore', () => {
 });
 
 describe('slimSavedChart', () => {
-    it('exposes chartKind and omits top-level chartType', () => {
+    it('exposes both chartKind and chartType', () => {
         const slim = slimSavedChart({
             name: 'Tea share',
             tableName: 'tea',
@@ -142,11 +142,11 @@ describe('slimSavedChart', () => {
             webUrl: 'http://example/chart',
         });
         assert.equal(slim.chartKind, 'custom');
-        assert.equal('chartType' in slim, false);
+        assert.equal(slim.chartType, 'custom');
         assert.equal(slim.webUrl, 'http://example/chart');
     });
 
-    it('derives line chartKind from cartesian series', () => {
+    it('derives line chartKind while chartType stays cartesian', () => {
         const slim = slimSavedChart({
             name: 'Trend',
             tableName: 'sales',
@@ -161,6 +161,7 @@ describe('slimSavedChart', () => {
             },
         });
         assert.equal(slim.chartKind, 'line');
+        assert.equal(slim.chartType, 'cartesian');
     });
 
     it('returns null chartKind on dirty config without throwing', () => {
@@ -169,5 +170,6 @@ describe('slimSavedChart', () => {
             chartConfig: { type: 'not-a-real-type' },
         });
         assert.equal(slim.chartKind, null);
+        assert.equal(slim.chartType, 'not-a-real-type');
     });
 });

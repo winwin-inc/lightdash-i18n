@@ -221,13 +221,13 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 | `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
 | `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
 | `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴；默认含 **`chartKind`**（统计自定义：`chartKind==="custom"`） |
-| `get_saved_chart`    | 已保存图表定义（含 `webUrl`）；默认精简含 **`chartKind`**，**无**顶层 `chartType`；`full=true` 含 `chartConfig.type` |
+| `get_saved_chart`    | 已保存图表定义（含 `webUrl`）；默认精简同时含 **`chartKind`**（认图）与 **`chartType`**（=`chartConfig.type`）；`full=true` 含完整 `chartConfig` |
 | `run_saved_chart`    | 按已保存图表 UUID 执行查询（与 metric 查询一致：CSV + valueFormat；`full=true` 返回 fields/warnings） |
 | `get_dashboard_tiles`| 看板磁贴布局；默认含 **`chartKind`** / `tabUuid` / `chartSlug`（有则返回） |
 | `run_dashboard_tiles`| 批量执行看板中的 `saved_chart` 磁贴（其他磁贴类型会跳过并给出原因）                 |
 | `get_dashboard_code` | 导出看板 as-code 配置（基于 `/api/v1/projects/{projectUuid}/dashboards/code`） |
 
-**破坏性说明（认图字段）：** `get_saved_chart` 默认 slim 不再返回顶层 `chartType`；认图统一用 `chartKind`。配置结构请 `full=true` 读 `chartConfig.type`。详见 `get_mcp_docs(topic=content_fields)`。
+**字段说明（认图）：** 列表/详情认图用 `chartKind`；`get_saved_chart` 的 `chartType` 等同 `chartConfig.type`（配置结构标签，勿当折线/柱状）。详见 `get_mcp_docs(topic=content_fields)`。
 
 
 ### 提示词

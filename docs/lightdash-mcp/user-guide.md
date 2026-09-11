@@ -76,7 +76,7 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 - `get_site_info`：返回 siteBaseUrl
 - `list_spaces`：列空间
 - `list_charts` / `get_dashboard_tiles`：看板内图表/磁贴；默认含 `chartKind`（统计自定义：数 `chartKind==="custom"`）
-- `get_saved_chart` / `run_saved_chart`：已保存图表；`get_saved_chart` 默认精简含 `chartKind`（无顶层 `chartType`；配置结构用 `full` → `chartConfig.type`）
+- `get_saved_chart` / `run_saved_chart`：已保存图表；`get_saved_chart` 默认精简同时含 `chartKind`（认图）与 `chartType`（=`chartConfig.type`）
 
 另外有一个 `lightdash-analyst` Prompt，给模型用的角色说明，不是工具。
 

@@ -104,7 +104,7 @@ flowchart TB
 |--------|--------|
 | `get_site_info` | 返回 `siteBaseUrl` |
 | `list_spaces` | 列出当前项目空间 |
-| `get_saved_chart` | 已保存图表元数据 + `webUrl`；默认精简含 `chartKind`（无顶层 `chartType`） |
+| `get_saved_chart` | 已保存图表元数据 + `webUrl`；默认精简同时含 `chartKind` 与 `chartType` |
 | `run_saved_chart` | 按已保存图表跑数 |
 
 ### Prompt
@@ -115,7 +115,7 @@ flowchart TB
 
 - 上游 EE 内置 MCP 另有 **`find_charts` / `find_dashboards`** 作为独立 Tool；自建侧亦提供同名，并与 **`find_content`**（混合）、**`find_spaces`**（空间）并存。
 - 历史 **`lightdash_get_site_info` 等旧名**已移除；迁移时请用上表中的无前缀名。
-- **认图字段**：默认 slim 统一用 `chartKind`；`chartConfig.type` 仅 `full` 可见。详见 `get_mcp_docs(topic=content_fields)`。
+- **认图字段**：默认 slim 认图用 `chartKind`；`get_saved_chart` 另保留 `chartType`（=`chartConfig.type`）。详见 `get_mcp_docs(topic=content_fields)`。
 
 ## 发版
 

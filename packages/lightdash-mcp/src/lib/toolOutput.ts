@@ -128,6 +128,7 @@ export function slimSavedChart(item: unknown): AnyRecord {
         sorts:
             asArray(asRecord(chart.metricQuery)?.sorts) ?? asArray(chart.sorts) ?? [],
         chartKind: deriveChartKindFromSavedChart(chart),
+        chartType: asRecord(chart.chartConfig)?.type ?? chart.chartType ?? null,
         webUrl: row.webUrl ?? chart.webUrl ?? null,
     };
 }

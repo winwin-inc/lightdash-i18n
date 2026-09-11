@@ -42,11 +42,11 @@ const DOCS: Record<McpDocsTopic, string> = {
 - 统计看板自定义图：list_charts(dashboardUuid) 或 get_dashboard_tiles → 数 chartKind==="custom"。
 - list_charts 仅含 saved_chart；sql_chart / data_app 的 chartKind 多为 null。
 
-## chartConfig.type（仅 full，勿当认图）
+## chartConfig.type / slim 顶层 chartType
 
 - 是配置 JSON 的结构标签：cartesian / pie / table / custom / …
-- 折线与柱状在结构上都可能是 cartesian；认图必须用 chartKind，不要用 chartConfig.type。
-- get_saved_chart 默认 slim 无顶层 chartType；需要结构时 full=true 读 chartConfig.type。
+- 折线与柱状在结构上都可能是 cartesian；认图必须用 chartKind，不要用 chartType / chartConfig.type。
+- get_saved_chart 默认 slim **同时**返回 chartKind 与 chartType（chartType = chartConfig.type）；full=true 可读完整 chartConfig。
 - 勿与上游 EE XML 里名叫 ChartType、实为 ChartKind 的标签硬套。
 
 ## 数据集分组 groups

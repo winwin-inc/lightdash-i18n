@@ -12,7 +12,7 @@ description: 当用户提到柱/线/表/KPI/大数字/饼图/漏斗/地图/PoP�
 ## 何时加载
 
 - 图表类型/版式、看板 tile、`chartSlug`、tile 标题与重命名不同步。
-- 环比/同比（PoP）或对比口径；列表认图看 **`chartKind`**；读完整配置时 `get_saved_chart(full: true)` 解读 **`chartConfig.type`** + **`metricQuery`**（勿把 `chartConfig.type` 当成折线/柱状）。
+- 环比/同比（PoP）或对比口径；列表认图看 **`chartKind`**；`get_saved_chart` 默认同时有 `chartKind` 与 `chartType`（后者=`chartConfig.type`）；读完整配置时可用 `full: true` 看 **`chartConfig`** + **`metricQuery`**（勿把 `chartType`/`chartConfig.type` 当成折线/柱状）。
 
 不重写完整工具链；下表用于**参数**与**解读**。
 
@@ -29,7 +29,7 @@ description: 当用户提到柱/线/表/KPI/大数字/饼图/漏斗/地图/PoP�
 
 ## 图表类型与最小 `metricQuery`
 
-**认图**用 MCP 返回的 **`chartKind`**（如 `line` / `custom`）。下表的 `chartConfig.type` 仅用于**写/读配置结构**（常需 `get_saved_chart` 的 `full: true`）；`cartesian` 可对应多种 `chartKind`。
+**认图**用 MCP 返回的 **`chartKind`**（如 `line` / `custom`）。`get_saved_chart` 另有 **`chartType`**（=`chartConfig.type`）表示配置结构；下表用于**写/读配置**。`cartesian` 可对应多种 `chartKind`。
 
 未用 `run_saved_chart` 时，`metricQuery.dimensions` 中每维须对 viz 有意义（多余维改分组、易扭指标）。
 
