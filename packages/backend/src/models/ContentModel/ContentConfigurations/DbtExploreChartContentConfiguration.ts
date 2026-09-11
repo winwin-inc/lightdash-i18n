@@ -115,6 +115,20 @@ export const dbtExploreChartContentConfiguration: ContentConfiguration<SelectSav
                     knex.raw(
                         `${SavedChartsTableName}.first_viewed_at::timestamp as first_viewed_at`,
                     ),
+                    knex.raw(
+                        `${SavedChartsTableName}.deleted_at::timestamp as deleted_at`,
+                    ),
+                    `${SavedChartsTableName}.deleted_by_user_uuid as deleted_by_user_uuid`,
+                    knex.raw(
+                        `(SELECT first_name FROM users WHERE user_uuid = ${SavedChartsTableName}.deleted_by_user_uuid) as deleted_by_user_first_name`,
+                    ),
+                    knex.raw(
+                        `(SELECT last_name FROM users WHERE user_uuid = ${SavedChartsTableName}.deleted_by_user_uuid) as deleted_by_user_last_name`,
+                    ),
+                    knex.raw(`null::timestamp as verified_at`),
+                    knex.raw(`null::uuid as verified_by_user_uuid`),
+                    knex.raw(`null as verified_by_user_first_name`),
+                    knex.raw(`null as verified_by_user_last_name`),
                     knex.raw(`null::uuid as owner_user_uuid`),
                     knex.raw(`null as owner_user_first_name`),
                     knex.raw(`null as owner_user_last_name`),

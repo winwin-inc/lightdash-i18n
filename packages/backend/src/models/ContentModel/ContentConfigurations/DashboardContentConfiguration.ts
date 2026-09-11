@@ -116,6 +116,20 @@ export const dashboardContentConfiguration: ContentConfiguration<SummaryContentR
                     knex.raw(
                         `${DashboardsTableName}.first_viewed_at::timestamp as first_viewed_at`,
                     ),
+                    knex.raw(
+                        `${DashboardsTableName}.deleted_at::timestamp as deleted_at`,
+                    ),
+                    `${DashboardsTableName}.deleted_by_user_uuid as deleted_by_user_uuid`,
+                    knex.raw(
+                        `(SELECT first_name FROM users WHERE user_uuid = ${DashboardsTableName}.deleted_by_user_uuid) as deleted_by_user_first_name`,
+                    ),
+                    knex.raw(
+                        `(SELECT last_name FROM users WHERE user_uuid = ${DashboardsTableName}.deleted_by_user_uuid) as deleted_by_user_last_name`,
+                    ),
+                    knex.raw(`null::timestamp as verified_at`),
+                    knex.raw(`null::uuid as verified_by_user_uuid`),
+                    knex.raw(`null as verified_by_user_first_name`),
+                    knex.raw(`null as verified_by_user_last_name`),
                     `${DashboardsTableName}.owner_user_uuid as owner_user_uuid`,
                     `owner_user.first_name as owner_user_first_name`,
                     `owner_user.last_name as owner_user_last_name`,
