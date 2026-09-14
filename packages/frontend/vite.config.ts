@@ -118,9 +118,9 @@ export default defineConfig({
             },
         }),
     ],
-    css: {
-        transformer: 'lightningcss',
-    },
+    // Use default PostCSS pipeline (postcss.config.cjs + postcss-preset-mantine)
+    // so @mixin light/dark expand correctly. lightningcss does not understand
+    // those mixins and silently breaks dark-mode CSS Modules.
     optimizeDeps: {
         exclude: ['@lightdash/common'],
         esbuildOptions: {
@@ -133,8 +133,15 @@ export default defineConfig({
         target: 'es2017',
     },
     resolve: {
-        alias:
-            process.env.NODE_ENV === 'development'
+        alias: {
+            // Always bundle formula from source: its CJS dist is not reliably
+            // tree-shaken/named-exported by Rollup in production vite builds
+            // ("listFunctions is not exported by ../formula/dist/index.js").
+            '@lightdash/formula': path.resolve(
+                __dirname,
+                '../formula/src/index.ts',
+            ),
+            ...(process.env.NODE_ENV === 'development'
                 ? {
                       '@lightdash/common/src': path.resolve(
                           __dirname,
@@ -151,7 +158,8 @@ export default defineConfig({
                           'node_modules/echarts/dist/echarts.min.js',
                       ),
                   }
-                : undefined,
+                : {}),
+        },
     },
     build: {
         outDir: 'build',
@@ -160,7 +168,9 @@ export default defineConfig({
         // legacy 插件继续为更老的环境注入 polyfill
         target: 'es2017',
         minify: true,
-        sourcemap: true,
+        // Sourcemaps roughly double peak RSS during Rollup; only emit when Sentry
+        // upload is configured (Docker/CI already passes SENTRY_AUTH_TOKEN then).
+        sourcemap: Boolean(process.env.SENTRY_AUTH_TOKEN),
 
         rollupOptions: {
             output: {

@@ -30,6 +30,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { getWarehouseIcon } from '../ProjectConnectFlow/utils';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { SnowflakeDefaultValues } from './defaultValues';
 import { getSsoLabel, PASSWORD_LABEL, PRIVATE_KEY_LABEL } from './util';
 
@@ -617,6 +618,7 @@ const SnowflakeForm: FC<{
                                         'warehouse.accessUrl',
                                     )}
                                 />
+                                <DataTimezoneField disabled={disabled} />
                                 <StartOfWeekSelect
                                     disabled={disabled}
                                     isRedeployRequired={false}

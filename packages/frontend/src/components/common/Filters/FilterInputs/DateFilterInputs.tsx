@@ -27,6 +27,7 @@ import FilterDatePicker from './FilterDatePicker';
 import FilterDateTimePicker from './FilterDateTimePicker';
 import FilterDateTimeRangePicker from './FilterDateTimeRangePicker';
 import FilterDynamicDateRangePicker from './FilterDynamicDateRangePicker';
+import FilterDynamicMonthPicker from './FilterDynamicMonthPicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterUnitOfTimeAutoComplete from './FilterUnitOfTimeAutoComplete';
@@ -163,6 +164,28 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                             </Flex>
                         );
                     case TimeFrames.MONTH:
+                        if (rule.operator === FilterOperator.EQUALS) {
+                            return (
+                                <FilterDynamicMonthPicker
+                                    rule={
+                                        rule as unknown as Parameters<
+                                            typeof FilterDynamicMonthPicker
+                                        >[0]['rule']
+                                    }
+                                    onChange={
+                                        onChange as unknown as Parameters<
+                                            typeof FilterDynamicMonthPicker
+                                        >[0]['onChange']
+                                    }
+                                    disabled={disabled}
+                                    filterMinDate={cfgMin}
+                                    filterMaxDate={cfgMax}
+                                    placeholder={placeholder}
+                                    popoverProps={popoverProps}
+                                    isEditMode={isEditMode}
+                                />
+                            );
+                        }
                         return (
                             <Flex direction="column" gap={4} w="100%">
                                 {rule.operator ===

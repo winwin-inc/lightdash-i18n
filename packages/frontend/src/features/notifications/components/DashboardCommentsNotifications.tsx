@@ -3,6 +3,7 @@ import { Menu, Text, Tooltip, useMantineTheme } from '@mantine/core';
 import { IconCircleFilled } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useCallback, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
@@ -13,6 +14,48 @@ import { useUpdateNotification } from '../hooks/useNotifications';
 type Props = {
     projectUuid: string;
     notifications: Notification[];
+};
+
+// Backend stores English message; parse and localize for display.
+// Format: `{author} tagged you|commented in dashboard "{name}" [in tile "{tile}"]`
+const DASHBOARD_COMMENT_MESSAGE_REGEX =
+    /^(.+?) (tagged you|commented) in dashboard "(.+?)"(?: in tile "(.+?)")?\s*$/;
+
+const getLocalizedDashboardCommentMessage = (
+    notification: Notification,
+    t: (key: string, options?: Record<string, string>) => string,
+): string => {
+    if (!notification.message) {
+        return '';
+    }
+
+    const match = notification.message.match(DASHBOARD_COMMENT_MESSAGE_REGEX);
+    if (!match) {
+        return notification.message;
+    }
+
+    const [, author, action, parsedDashboardName, parsedTileName] = match;
+    const dashboardName =
+        notification.metadata?.dashboardName ?? parsedDashboardName;
+    const tileName =
+        notification.metadata?.dashboardTileName ?? parsedTileName;
+    const isTagged = action === 'tagged you';
+
+    if (tileName) {
+        return t(
+            isTagged
+                ? 'features_notifications.dashboard_comment.tagged_in_tile'
+                : 'features_notifications.dashboard_comment.commented_in_tile',
+            { author, dashboardName, tileName },
+        );
+    }
+
+    return t(
+        isTagged
+            ? 'features_notifications.dashboard_comment.tagged'
+            : 'features_notifications.dashboard_comment.commented',
+        { author, dashboardName },
+    );
 };
 
 const NotificationTime: FC<{ createdAt: Date }> = ({ createdAt }) => {
@@ -39,6 +82,7 @@ export const DashboardCommentsNotifications: FC<Props> = ({
     projectUuid,
     notifications,
 }) => {
+    const { t } = useTranslation();
     const { track } = useTracking();
     const theme = useMantineTheme();
     const navigate = useNavigate();
@@ -96,7 +140,12 @@ export const DashboardCommentsNotifications: FC<Props> = ({
                 >
                     <>
                         <NotificationTime createdAt={notification.createdAt} />
-                        <Text c="gray.3">{notification.message} </Text>
+                        <Text c="gray.3">
+                            {getLocalizedDashboardCommentMessage(
+                                notification,
+                                t,
+                            )}
+                        </Text>
                     </>
                 </Menu.Item>
             ))}

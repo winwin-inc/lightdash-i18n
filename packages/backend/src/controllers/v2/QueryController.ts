@@ -1,12 +1,15 @@
 import {
     AnyType,
     ApiErrorPayload,
+    type ApiExecuteAsyncMergeQueryRequest,
+    type ApiExecuteAsyncMergeQueryResults,
     ApiExecuteAsyncDashboardChartQueryResults,
     ApiExecuteAsyncDashboardSqlChartQueryResults,
     ApiExecuteAsyncSqlQueryResults,
     ApiGetAsyncQueryResults,
     ApiSuccess,
     ApiSuccessEmpty,
+    applyMetricQueryLimitOffset,
     DownloadAsyncQueryResultsRequestParams,
     ExecuteAsyncSqlQueryRequestParams,
     ForbiddenError,
@@ -140,19 +143,23 @@ export class QueryController extends BaseController {
         this.setStatus(200);
         const context = body.context ?? getContextFromHeader(req);
 
-        const metricQuery: MetricQuery = {
-            exploreName: body.query.exploreName,
-            dimensions: body.query.dimensions ?? [],
-            metrics: body.query.metrics ?? [],
-            filters: body.query.filters ?? {},
-            sorts: body.query.sorts ?? [],
-            limit: body.query.limit ?? 500,
-            tableCalculations: body.query.tableCalculations ?? [],
-            additionalMetrics: body.query.additionalMetrics,
-            customDimensions: body.query.customDimensions,
-            timezone: body.query.timezone,
-            metricOverrides: body.query.metricOverrides,
-        };
+        const metricQuery: MetricQuery = applyMetricQueryLimitOffset(
+            {
+                exploreName: body.query.exploreName,
+                dimensions: body.query.dimensions ?? [],
+                metrics: body.query.metrics ?? [],
+                filters: body.query.filters ?? {},
+                sorts: body.query.sorts ?? [],
+                limit: body.query.limit ?? 500,
+                tableCalculations: body.query.tableCalculations ?? [],
+                additionalMetrics: body.query.additionalMetrics,
+                customDimensions: body.query.customDimensions,
+                timezone: body.query.timezone,
+                metricOverrides: body.query.metricOverrides,
+            },
+            body.query.limit,
+            body.query.offset,
+        );
 
         const results = await this.services
             .getAsyncQueryService()
@@ -172,6 +179,39 @@ export class QueryController extends BaseController {
             status: 'ok',
             results,
         };
+    }
+
+    /**
+     * Validates and executes a warehouse-native merge query asynchronously.
+     * @summary Execute merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/merge-query')
+    @OperationId('executeAsyncMergeQuery')
+    async executeAsyncMergeQuery(
+        @Body() body: ApiExecuteAsyncMergeQueryRequest,
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccess<ApiExecuteAsyncMergeQueryResults>> {
+        this.setStatus(200);
+        const results = await this.services
+            .getAsyncQueryService()
+            .executeAsyncMergeQuery({
+                account: req.account!,
+                projectUuid,
+                mergeQuery: body.mergeQuery,
+                context:
+                    body.context ??
+                    getContextFromHeader(req) ??
+                    QueryExecutionContext.API,
+                invalidateCache: body.invalidateCache,
+                parameters: body.parameters,
+                mode: body.mode ?? { type: 'interactive' },
+                chart: body.chart,
+            });
+
+        return { status: 'ok', results };
     }
 
     /**
@@ -207,6 +247,7 @@ export class QueryController extends BaseController {
                 versionUuid: body.versionUuid,
                 context: context ?? QueryExecutionContext.API,
                 limit: body.limit,
+                offset: body.offset,
                 parameters: body.parameters,
                 pivotResults: body.pivotResults,
             });
@@ -252,6 +293,7 @@ export class QueryController extends BaseController {
                 dashboardSorts: body.dashboardSorts,
                 dateZoom: body.dateZoom,
                 limit: body.limit,
+                offset: body.offset,
                 context: context ?? QueryExecutionContext.API,
                 parameters: body.parameters,
                 pivotResults: body.pivotResults,

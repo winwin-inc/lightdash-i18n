@@ -13,7 +13,12 @@ import {
     type SavedChart,
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
+import {
+    getTableChartPageSize,
+    isWarehousePaginatedTableChart,
+} from '../../utils/isWarehousePaginatedTableChart';
 import { lightdashApi } from '../../api';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
@@ -47,6 +52,8 @@ const postEmbedDashboardTileQuery = async (
         | 'pivotResults'
         | 'invalidateCache'
         | 'dateZoom'
+        | 'limit'
+        | 'offset'
     >,
 ): Promise<ApiExecuteAsyncDashboardChartQueryResults> =>
     lightdashApi<ApiExecuteAsyncDashboardChartQueryResults>({
@@ -93,6 +100,9 @@ export const useDashboardChartReadyQuery = (
     const setChartsWithDateZoomApplied = useDashboardContext(
         (c) => c.setChartsWithDateZoomApplied,
     );
+    const setChartsWithDateDimension = useDashboardContext(
+        (c) => c.setChartsWithDateDimension,
+    );
     const addParameterDefinitions = useDashboardContext(
         (c) => c.addParameterDefinitions,
     );
@@ -105,6 +115,14 @@ export const useDashboardChartReadyQuery = (
     const chartQuery = useSavedQuery({
         id: chartUuid ?? undefined,
     });
+    const [tablePageIndex, setTablePageIndex] = useState(0);
+    const isWarehousePaginatedTable = chartQuery.data
+        ? isWarehousePaginatedTableChart(chartQuery.data)
+        : false;
+    const configuredPageSize = chartQuery.data
+        ? getTableChartPageSize(chartQuery.data, 5000)
+        : DEFAULT_PAGE_SIZE;
+    const [tablePageSize, setTablePageSize] = useState(configuredPageSize);
 
     const error = chartQuery.error;
 
@@ -122,17 +140,17 @@ export const useDashboardChartReadyQuery = (
         }
     }, [explore, addParameterDefinitions]);
 
-    const timezoneFixDashboardFilters =
-        dashboardFilters && convertDateDashboardFilters(dashboardFilters);
-    const timezoneFixDashboardTabFilters =
-        dashboardTabFilters && convertDateDashboardFilters(dashboardTabFilters);
-
     const timezoneFixFilters = useMemo(() => {
-        if (tabUuid) {
-            return timezoneFixDashboardTabFilters;
-        }
-        return timezoneFixDashboardFilters;
-    }, [tabUuid, timezoneFixDashboardTabFilters, timezoneFixDashboardFilters]);
+        const sourceFilters = tabUuid ? dashboardTabFilters : dashboardFilters;
+        return sourceFilters
+            ? convertDateDashboardFilters(sourceFilters)
+            : sourceFilters;
+    }, [tabUuid, dashboardFilters, dashboardTabFilters]);
+
+    const dashboardFiltersKey = useMemo(
+        () => JSON.stringify(timezoneFixFilters ?? null),
+        [timezoneFixFilters],
+    );
 
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
@@ -160,6 +178,34 @@ export const useDashboardChartReadyQuery = (
             ),
         );
     }, [parameterValues, tileParameterReferences, tileUuid]);
+
+    const chartParameterValuesKey = useMemo(
+        () => JSON.stringify(chartParameterValues),
+        [chartParameterValues],
+    );
+
+    useEffect(() => {
+        if (!chartUuid) return;
+
+        setChartsWithDateDimension((prev) => {
+            const next = new Set(prev);
+            if (hasADateDimension) {
+                next.add(chartUuid);
+            } else {
+                next.delete(chartUuid);
+            }
+            return next;
+        });
+
+        return () => {
+            setChartsWithDateDimension((prev) => {
+                if (!prev.has(chartUuid)) return prev;
+                const next = new Set(prev);
+                next.delete(chartUuid);
+                return next;
+            });
+        };
+    }, [hasADateDimension, chartUuid, setChartsWithDateDimension]);
 
     useEffect(() => {
         setChartsWithDateZoomApplied((prev) => {
@@ -190,6 +236,18 @@ export const useDashboardChartReadyQuery = (
             chartQuery.data?.pivotConfig,
         );
 
+    useEffect(() => {
+        setTablePageIndex(0);
+        setTablePageSize(configuredPageSize);
+    }, [
+        dashboardFiltersKey,
+        sortKey,
+        granularity,
+        chartParameterValuesKey,
+        invalidateCache,
+        configuredPageSize,
+    ]);
+
     const queryKey = useMemo(
         () => [
             'dashboard_chart_ready_query',
@@ -206,6 +264,8 @@ export const useDashboardChartReadyQuery = (
             invalidateCache,
             chartParameterValues,
             shouldUsePivotResults,
+            isWarehousePaginatedTable ? tablePageIndex : 0,
+            isWarehousePaginatedTable ? tablePageSize : 0,
         ],
         [
             chartQuery.data?.projectUuid,
@@ -223,6 +283,9 @@ export const useDashboardChartReadyQuery = (
             invalidateCache,
             chartParameterValues,
             shouldUsePivotResults,
+            isWarehousePaginatedTable,
+            tablePageIndex,
+            tablePageSize,
         ],
     );
 
@@ -242,6 +305,13 @@ export const useDashboardChartReadyQuery = (
             const isEmbedContext =
                 requestedContext === QueryExecutionContext.EMBED;
 
+            const warehousePaginationParams = isWarehousePaginatedTable
+                ? {
+                      limit: tablePageSize,
+                      offset: tablePageIndex * tablePageSize,
+                  }
+                : {};
+
             const executeQueryResponse = isEmbedContext
                 ? await postEmbedDashboardTileQuery(
                       chartQuery.data.projectUuid,
@@ -254,6 +324,7 @@ export const useDashboardChartReadyQuery = (
                           },
                           invalidateCache,
                           pivotResults: shouldUsePivotResults,
+                          ...warehousePaginationParams,
                       },
                   )
                 : await executeAsyncDashboardChartQuery(
@@ -270,6 +341,7 @@ export const useDashboardChartReadyQuery = (
                           invalidateCache,
                           parameters: parameterValues,
                           pivotResults: shouldUsePivotResults,
+                          ...warehousePaginationParams,
                       },
                   );
 
@@ -303,5 +375,33 @@ export const useDashboardChartReadyQuery = (
         queryResult.error,
     ]);
 
-    return { ...queryResult, error: error || queryResult.error };
+    const onTablePageSizeChange = useCallback((nextPageSize: number) => {
+        setTablePageSize(nextPageSize);
+        setTablePageIndex(0);
+    }, []);
+
+    const tablePagination = useMemo(
+        () =>
+            isWarehousePaginatedTable
+                ? {
+                      enabled: true,
+                      pageIndex: tablePageIndex,
+                      pageSize: tablePageSize,
+                      onPageChange: setTablePageIndex,
+                      onPageSizeChange: onTablePageSizeChange,
+                  }
+                : undefined,
+        [
+            isWarehousePaginatedTable,
+            tablePageIndex,
+            tablePageSize,
+            onTablePageSizeChange,
+        ],
+    );
+
+    return {
+        ...queryResult,
+        error: error || queryResult.error,
+        tablePagination,
+    };
 };

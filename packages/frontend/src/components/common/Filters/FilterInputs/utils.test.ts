@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     getDateRangeRuleWithFixedValues,
+    getSingleDateRuleWithFixedValues,
     prepareDashboardFilterRuleForQuery,
     resolveDisplayValues,
 } from './utils';
@@ -175,6 +176,63 @@ describe('prepareDashboardFilterRuleForQuery', () => {
         expect(
             (prepared.settings as { dateRange?: unknown } | undefined)
                 ?.dateRange,
+        ).toBeUndefined();
+    });
+});
+
+describe('single-date dynamic month equals', () => {
+    const createSingleDateRule = (): DashboardFilterRule => ({
+        id: 'filter-1',
+        label: 'Created month',
+        operator: FilterOperator.EQUALS,
+        target: {
+            fieldId: 'orders_created_month',
+            tableName: 'orders',
+        },
+        values: ['2020-01'],
+        settings: {
+            singleDate: {
+                mode: 'dynamic',
+                preset: 'lastAvailableMonth',
+            },
+        },
+    });
+
+    it('resolveDisplayValues uses lastAvailableMonth before the 4th', () => {
+        expect(
+            resolveDisplayValues(
+                createSingleDateRule(),
+                new Date('2026-07-03'),
+            ),
+        ).toEqual(['2026-05']);
+    });
+
+    it('resolveDisplayValues uses lastAvailableMonth on or after the 4th', () => {
+        expect(
+            resolveDisplayValues(
+                createSingleDateRule(),
+                new Date('2026-07-04'),
+            ),
+        ).toEqual(['2026-06']);
+    });
+
+    it('getSingleDateRuleWithFixedValues strips singleDate', () => {
+        const rule = createSingleDateRule();
+        expect(getSingleDateRuleWithFixedValues(rule)).toEqual({
+            ...rule,
+            settings: {},
+        });
+    });
+
+    it('prepareDashboardFilterRuleForQuery resolves and strips singleDate', () => {
+        const prepared = prepareDashboardFilterRuleForQuery(
+            createSingleDateRule(),
+            new Date('2026-07-03'),
+        );
+        expect(prepared.values).toEqual(['2026-05']);
+        expect(
+            (prepared.settings as { singleDate?: unknown } | undefined)
+                ?.singleDate,
         ).toBeUndefined();
     });
 });

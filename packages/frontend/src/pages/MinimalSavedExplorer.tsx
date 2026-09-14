@@ -131,8 +131,12 @@ const MinimalSavedExplorer: FC = () => {
                                   itemDetail: {
                                       isOpen: false,
                                   },
+                                  periodOverPeriodComparison: {
+                                      isOpen: false,
+                                  },
                               },
                               queryExecution: defaultQueryExecution,
+                              chartTablePagination: null,
                           }
                         : undefined
                 }

@@ -27,6 +27,7 @@ export type CaslSubjectNames =
     | 'CompileProject'
     | 'ContentAsCode'
     | 'CustomSql'
+    | 'CustomSqlTableCalculations'
     | 'Dashboard'
     | 'DashboardComments'
     | 'DashboardCsv'
@@ -55,7 +56,10 @@ export type CaslSubjectNames =
     | 'Tags'
     | 'UnderlyingData'
     | 'Validation'
-    | 'VirtualView';
+    | 'VirtualView'
+    | 'DataApp'
+    | 'DataAppDependency'
+    | 'ExternalConnection';
 
 export type Subject =
     | CaslSubjectNames

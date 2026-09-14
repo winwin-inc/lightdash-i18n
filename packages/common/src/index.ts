@@ -15,6 +15,7 @@ import {
     type DashboardAvailableFilters,
     type DashboardBasicDetails,
     type DashboardSummary,
+    type UserDashboardsSummary,
 } from './types/dashboard';
 import { type Explore, type SummaryExplore } from './types/explore';
 import {
@@ -53,8 +54,10 @@ import {
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
 import {
+    type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
+    type ChartConfig,
     type ChartHistory,
     type ChartVersion,
     type SavedChart,
@@ -72,9 +75,29 @@ import {
 } from './types/api/comments';
 import { type Email } from './types/api/email';
 import { type ApiSuccessEmpty } from './types/api/success';
+import { type ApiFormulaValidationResults } from './types/api';
 import { type ApiGetChangeResponse } from './types/changeset';
 import { type DbtExposure } from './types/dbt';
 import { type EmailStatusExpiring } from './types/email';
+import {
+    type ApiAppImageUrlResponse,
+    type ApiAppThumbnailUrlResponse,
+    type ApiDataAppActivityResponse,
+    type ApiDuplicateAppResponse,
+    type ApiGenerateAppResponse,
+    type ApiGetAppResponse,
+    type ApiMyAppsResponse,
+    type ApiPreviewTokenResponse,
+    type ApiPromoteAppDiffResponse,
+    type ApiPromoteAppResponse,
+    type ApiRestoreAppVersionResponse,
+    type ApiUpdateAppResponse,
+    type ApiUpgradeAppResponse,
+} from './ee/apps/types';
+import {
+    type ApiFavoriteItems,
+    type ApiToggleFavorite,
+} from './types/favorites';
 import { type FieldValueSearchResult } from './types/fieldMatch';
 import { type DashboardFilters } from './types/filter';
 import {
@@ -151,6 +174,7 @@ import type {
 } from './ee';
 import { type AnyType } from './types/any';
 import { type ApiOssUploadUrlResponse } from './types/api/oss';
+import type { ExecuteAsyncMergeQueryRequestParams } from './types/api/paginatedQuery';
 import {
     type ApiGetProjectParametersListResults,
     type ApiGetProjectParametersResults,
@@ -175,10 +199,17 @@ import {
 } from './types/content';
 import type { ApiGroupListResponse } from './types/groups';
 import type {
+    ApiCompiledMergeQueryResults,
+    MergeFieldOrigins,
+    MergeQueryError,
+} from './types/mergeQuery';
+import type {
     ApiMetricsExplorerQueryResults,
     ApiMetricsExplorerTotalResults,
 } from './types/metricsExplorer';
 import type { ResultsPaginationMetadata } from './types/paginateResults';
+import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
+import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import { type ParametersValuesMap } from './types/parameters';
 import { type PivotConfiguration } from './types/pivot';
 import { type ApiPromotionChangesResponse } from './types/promotion';
@@ -255,11 +286,14 @@ export * from './types/conditionalFormatting';
 export * from './types/content';
 export * from './types/csv';
 export * from './types/dashboard';
+export * from './types/dataTimezonePreview';
 export * from './types/dbt';
+export * from './types/directAccess';
 export * from './types/downloadFile';
 export * from './types/email';
 export * from './types/errors';
 export * from './types/explore';
+export * from './types/favorites';
 export * from './types/featureFlags';
 export * from './types/field';
 export * from './types/fieldMatch';
@@ -270,8 +304,10 @@ export * from './types/groups';
 export * from './types/job';
 export * from './types/knex-paginate';
 export * from './types/lightdashProjectConfig';
+export * from './types/resultsCacheProjectSettings';
 export * from './types/metricQuery';
 export * from './types/metricsExplorer';
+export * from './types/mergeQuery';
 export * from './types/notifications';
 export * from './types/oauth';
 export * from './types/openIdIdentity';
@@ -280,6 +316,7 @@ export * from './types/organizationMemberProfile';
 export * from './types/organizationWarehouseCredentials';
 export * from './types/paginateResults';
 export * from './types/parameters';
+export * from './types/periodOverPeriodComparison';
 export * from './types/personalAccessToken';
 export * from './types/pinning';
 export * from './types/pivot';
@@ -324,6 +361,7 @@ export * from './utils/catalogMetricsTree';
 export * from './utils/changeset';
 export * from './utils/charts';
 export * from './utils/colors';
+export * from './utils/conditionalFormatExpressions';
 export * from './utils/conditionalFormatting';
 export * from './utils/convertCustomDimensionsToYaml';
 export * from './utils/convertCustomMetricsToYaml';
@@ -334,16 +372,21 @@ export * from './utils/dependencyGraph';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
+export * from './utils/getActiveTabForTabs';
 export * from './utils/formatting';
 export * from './utils/github';
 export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
+export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
+export * from './utils/mergeQueryItems';
 export * from './utils/oauth';
 export * from './utils/organization';
 export * from './utils/projectMemberRole';
 export * from './utils/promises';
+export * from './utils/resolveQueryTimezone';
+export * from './utils/resultColumns';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
 export * from './utils/searchParams';
@@ -593,6 +636,8 @@ type ApiExecuteAsyncQueryResultsCommon = {
     cacheMetadata: CacheMetadata;
     parameterReferences: string[]; // params needed for query to run
     usedParametersValues: ParametersValuesMap; // params values used
+    /** Resolved display timezone; null when timezone FF off or SQL queries */
+    resolvedTimezone: string | null;
 };
 
 export type ApiExecuteAsyncMetricQueryResults =
@@ -601,6 +646,39 @@ export type ApiExecuteAsyncMetricQueryResults =
         fields: ItemsMap;
         warnings: QueryWarning[];
     };
+
+type ApiExecuteAsyncMergeQueryMetadata = {
+    parameterReferences: string[];
+    fieldOrigins: MergeFieldOrigins;
+};
+
+export type ApiExecuteAsyncMergeQueryResults =
+    | (ApiExecuteAsyncMergeQueryMetadata & {
+          outcome: 'started';
+          query: ApiExecuteAsyncMetricQueryResults;
+      })
+    | (ApiExecuteAsyncMergeQueryMetadata & {
+          outcome: 'refused';
+          errors: MergeQueryError[];
+      });
+
+export type MergeQueryExecutionMode =
+    | { type: 'interactive' }
+    | { type: 'export'; limit: number | null };
+
+export type MergeQueryChart = {
+    chartConfig: ChartConfig;
+    pivotConfig?: SavedChart['pivotConfig'];
+};
+
+/** One-call merge execution request. Derived pivot SQL remains server-owned. */
+export type ApiExecuteAsyncMergeQueryRequest = Omit<
+    ExecuteAsyncMergeQueryRequestParams,
+    'pivotConfiguration'
+> & {
+    mode?: MergeQueryExecutionMode;
+    chart?: MergeQueryChart;
+};
 
 export type ApiExecuteAsyncDashboardChartQueryResults =
     ApiExecuteAsyncQueryResultsCommon & {
@@ -803,6 +881,8 @@ export type UpdateUserArgs = {
     isSetupComplete: boolean;
     isActive: boolean;
     isTrialAccount?: boolean;
+    /** IANA timezone; null clears preference and falls back to project */
+    timezone?: string | null;
 };
 
 export type PasswordResetLink = {
@@ -862,6 +942,7 @@ type ApiResults =
     | ApiQueryResults
     | ApiSqlQueryResults
     | ApiCompiledQueryResults
+    | ApiFormulaValidationResults
     | ApiExploresResults
     | ApiExploreResults
     | ApiStatusResults
@@ -885,6 +966,8 @@ type ApiResults =
     | DashboardBasicDetails[]
     | OnboardingStatus
     | Dashboard[]
+    | UserDashboardsSummary
+    | { reassignedCount: number }
     | DeleteOpenIdentity
     | ApiFlashResults
     | Record<OpenIdIdentitySummary['issuerType'], OpenIdIdentitySummary[]>
@@ -934,6 +1017,7 @@ type ApiResults =
     | ApiSshKeyPairResponse['results']
     | MostPopularAndRecentlyUpdated
     | ApiCalculateTotalResponse['results']
+    | ApiCalculateCountResponse['results']
     | Record<string, DbtExposure>
     | ApiCreateComment['results']
     | ApiGetComments['results']
@@ -970,6 +1054,8 @@ type ApiResults =
     | ApiExecuteAsyncSqlQueryResults
     | ApiExecuteAsyncDashboardSqlChartQueryResults
     | ApiExecuteAsyncMetricQueryResults
+    | ApiExecuteAsyncMergeQueryResults
+    | ApiCompiledMergeQueryResults
     | ApiExecuteAsyncDashboardChartQueryResults
     | ApiGetAsyncQueryResults
     | ApiSchedulersResponse['results']
@@ -1002,7 +1088,26 @@ type ApiResults =
     | ApiAiOrganizationSettingsResponse['results']
     | ApiUpdateAiOrganizationSettingsResponse['results']
     | ApiOssUploadUrlResponse['results']
-    | UserCategoryList;
+    | UserCategoryList
+    | ResultsCacheProjectSettings
+    | ApiDataTimezonePreviewResults
+    // Data apps (Phase C)
+    | ApiGenerateAppResponse['results']
+    | ApiGetAppResponse['results']
+    | ApiUpdateAppResponse['results']
+    | ApiDuplicateAppResponse['results']
+    | ApiUpgradeAppResponse['results']
+    | ApiPromoteAppResponse['results']
+    | ApiPromoteAppDiffResponse['results']
+    | ApiPreviewTokenResponse['results']
+    | ApiAppThumbnailUrlResponse['results']
+    | ApiAppImageUrlResponse['results']
+    | ApiMyAppsResponse['results']
+    | ApiDataAppActivityResponse['results']
+    | ApiRestoreAppVersionResponse['results']
+    | ApiToggleFavorite['results']
+    | ApiFavoriteItems['results']
+    | { token: string; version: number }; // EmbedAppPreviewToken
 
 export type ApiResponse<T extends ApiResults = ApiResults> = {
     status: 'ok';
@@ -1153,6 +1258,7 @@ export type HealthState = {
     hasSlack: boolean;
     hasGithub: boolean;
     hasGitlab: boolean;
+    hasAdminApi: boolean;
     hasHeadlessBrowser: boolean;
     hasExtendedUsageAnalytics: boolean;
     hasCacheAutocompleResults: boolean;
@@ -1178,6 +1284,10 @@ export type HealthState = {
     ai: {
         analyticsProjectUuid?: string;
         analyticsDashboardUuid?: string;
+    };
+    dataApps: {
+        previewOrigin: string | null;
+        sampleDataEnabled: boolean;
     };
 };
 
@@ -1213,11 +1323,15 @@ export type CreateProject = Omit<
     | 'organizationUuid'
     | 'schedulerTimezone'
     | 'createdByUserUuid'
+    | 'queryTimezone'
+    | 'useProjectTimezoneInFilters'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
     copyWarehouseConnectionFromUpstreamProject?: boolean;
     tableConfiguration?: CreateProjectTableConfiguration;
     copyContent?: boolean;
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export type CreateProjectOptionalCredentials = Omit<
@@ -1242,8 +1356,12 @@ export type UpdateProject = Omit<
     | 'type'
     | 'schedulerTimezone'
     | 'createdByUserUuid'
+    | 'queryTimezone'
+    | 'useProjectTimezoneInFilters'
 > & {
     warehouseConnection: CreateWarehouseCredentials;
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export const getResultValueArray = (

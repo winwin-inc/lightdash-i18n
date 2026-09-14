@@ -17,6 +17,7 @@ import {
 import useDashboardStorage from '../../../hooks/dashboard/useDashboardStorage';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
 import { getExplorerUrlFromCreateSavedChartVersion } from '../../../hooks/useExplorerRoute';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useCreateInAnySpaceAccess from '../../../hooks/user/useCreateInAnySpaceAccess';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
@@ -25,7 +26,7 @@ import { RefreshButton } from '../../RefreshButton';
 import RefreshDbtButton from '../../RefreshDbtButton';
 import MantineIcon from '../../common/MantineIcon';
 import ShareShortLinkButton from '../../common/ShareShortLinkButton';
-import TimeZonePicker from '../../common/TimeZonePicker';
+import ChartTimezoneSelect from '../../common/ChartTimezoneSelect';
 import SaveChartButton from '../SaveChartButton';
 import QueryWarnings from './QueryWarnings';
 
@@ -96,10 +97,16 @@ const ExplorerHeader: FC = memo(() => {
         };
     }, [getHasDashboardChanges, t]);
 
-    // FEATURE FLAG: this component doesn't appear when the feature flag is disabled
+    // Legacy PostHog flag; EnableTimezoneSupport moves picker into RunQuerySettings
     const userTimeZonesEnabled = useFeatureFlagEnabled(
         FeatureFlags.EnableUserTimezones,
     );
+    const { data: timezoneSupportFlag } = useServerFeatureFlag(
+        FeatureFlags.EnableTimezoneSupport,
+    );
+    const timezoneSupportEnabled = timezoneSupportFlag?.enabled === true;
+    const showTimezonePicker =
+        !!userTimeZonesEnabled && !timezoneSupportEnabled;
 
     const userCanManageCompileProject = user?.data?.ability?.can(
         'manage',
@@ -160,10 +167,10 @@ const ExplorerHeader: FC = memo(() => {
                         <QueryWarnings queryWarnings={queryWarnings} />
                     )}
 
-                {userTimeZonesEnabled && (
-                    <TimeZonePicker
+                {showTimezonePicker && (
+                    <ChartTimezoneSelect
                         onChange={setTimeZone}
-                        value={selectedTimezone as string}
+                        value={selectedTimezone ?? undefined}
                     />
                 )}
 

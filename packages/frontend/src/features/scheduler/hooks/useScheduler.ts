@@ -130,11 +130,14 @@ const sendNowScheduler = async (scheduler: CreateSchedulerAndTargets) =>
         body: JSON.stringify(scheduler),
     });
 
-const sendNowSchedulerByUuid = async (uuid: string) =>
+const sendNowSchedulerByUuid = async (
+    uuid: string,
+    locale: string,
+) =>
     lightdashApi<ApiTestSchedulerResponse['results']>({
         url: `/schedulers/${uuid}/send`,
         method: 'POST',
-        body: undefined,
+        body: JSON.stringify({ locale }),
     });
 
 export const useScheduler = (
@@ -328,8 +331,18 @@ const useSendNowJobStatus = (jobId: string | undefined) => {
                         title: t(
                             'features_scheduler_hooks.scheduler.process_scheduled_delivery',
                         ),
+                        subtitle: t(
+                            'features_scheduler_hooks.scheduler.process_scheduled_delivery_subtitle',
+                        ),
                         loading: true,
                         autoClose: false,
+                        styles: {
+                            root: {
+                                minHeight: 56,
+                                paddingTop: 12,
+                                paddingBottom: 12,
+                            },
+                        },
                     });
                 }
                 if (data?.status === SchedulerJobStatus.COMPLETED) {
@@ -403,8 +416,14 @@ export const useSendNowScheduler = () => {
                 title: t(
                     'features_scheduler_hooks.send_now_scheduler.processing_job',
                 ),
+                subtitle: t(
+                    'features_scheduler_hooks.send_now_scheduler.processing_job_subtitle',
+                ),
                 loading: true,
                 autoClose: false,
+                styles: {
+                    root: { minHeight: 56, paddingTop: 12, paddingBottom: 12 },
+                },
             });
             return sendNowScheduler(res);
         },
@@ -451,7 +470,7 @@ export const useSendNowScheduler = () => {
 };
 
 export const useSendNowSchedulerByUuid = (schedulerUuid: string) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { showToastInfo, showToastApiError } = useToaster();
 
     const sendNowMutation = useMutation<
@@ -465,10 +484,19 @@ export const useSendNowSchedulerByUuid = (schedulerUuid: string) => {
                 title: t(
                     'features_scheduler_hooks.send_now_scheduler.processing_job',
                 ),
+                subtitle: t(
+                    'features_scheduler_hooks.send_now_scheduler.processing_job_subtitle',
+                ),
                 loading: true,
                 autoClose: false,
+                styles: {
+                    root: { minHeight: 56, paddingTop: 12, paddingBottom: 12 },
+                },
             });
-            return sendNowSchedulerByUuid(schedulerUuid);
+            return sendNowSchedulerByUuid(
+                schedulerUuid,
+                i18n.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en',
+            );
         },
         {
             mutationKey: ['sendNowSchedulerByUuid', schedulerUuid],

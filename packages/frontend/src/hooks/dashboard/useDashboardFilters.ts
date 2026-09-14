@@ -2,6 +2,7 @@ import {
     FilterInteractivityValues,
     getFilterInteractivityValue,
     isDateRangeDynamic,
+    isSingleDateDynamic,
     type Dashboard,
     type DashboardFilterRule,
     type DashboardFilters,
@@ -20,7 +21,8 @@ export const emptyFilters: DashboardFilters = {
 
 export const shouldPersistSavedFilterOverride = (
     originalFilter: DashboardFilterRule,
-): boolean => !isDateRangeDynamic(originalFilter);
+): boolean =>
+    !isDateRangeDynamic(originalFilter) && !isSingleDateDynamic(originalFilter);
 
 export const useDashboardFilters = ({
     dashboard,
@@ -44,11 +46,17 @@ export const useDashboardFilters = ({
     const [haveFiltersChanged, setHaveFiltersChanged] =
         useState<boolean>(false);
 
+    const savedDashboardFiltersForReconcile = useMemo(
+        () => dashboard?.filters ?? embedDashboard?.filters,
+        [dashboard?.filters, embedDashboard?.filters],
+    );
+
     const {
         overridesForSavedDashboardFilters,
         addSavedFilterOverride,
         removeSavedFilterOverride,
-    } = useSavedDashboardFiltersOverrides();
+        resetSavedFilterOverrides,
+    } = useSavedDashboardFiltersOverrides(savedDashboardFiltersForReconcile);
 
     const allFilters = useMemo(() => {
         if (!isFilterEnabled) return emptyFilters;
@@ -256,6 +264,7 @@ export const useDashboardFilters = ({
         addMetricDashboardFilter,
         removeDimensionDashboardFilter,
         overridesForSavedDashboardFilters,
+        resetSavedFilterOverrides,
         applyInteractivityFiltering,
     };
 };

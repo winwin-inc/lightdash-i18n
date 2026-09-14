@@ -7,9 +7,12 @@ import {
     type FilterGroup,
     FilterOperator,
     isFilterRuleDefinedForFieldId,
+    isSingleDateDynamic,
     removeFieldFromFilterGroup,
     resolveDateRangeBound,
     resolveDateRangeValues,
+    resolveLastAvailableMonth,
+    resolveSingleDateValue,
     UnitOfTime,
 } from './filter';
 import { TimeFrames } from './timeFrames';
@@ -484,5 +487,98 @@ describe('resolveDateRangeBound', () => {
                 'America/Los_Angeles',
             ),
         ).toEqual(['2026-08-01', '2026-08-31']);
+    });
+});
+
+describe('resolveLastAvailableMonth / resolveSingleDateValue', () => {
+    it('returns month-before-last before the 4th', () => {
+        const result = resolveLastAvailableMonth(new Date('2026-03-03'));
+        expect([
+            result.getFullYear(),
+            result.getMonth(),
+            result.getDate(),
+        ]).toEqual([2026, 0, 1]);
+    });
+
+    it('returns last month on or after the 4th', () => {
+        const result = resolveLastAvailableMonth(new Date('2026-03-04'));
+        expect([
+            result.getFullYear(),
+            result.getMonth(),
+            result.getDate(),
+        ]).toEqual([2026, 1, 1]);
+    });
+
+    it('resolves lastAvailableMonth preset to YYYY-MM', () => {
+        expect(
+            resolveSingleDateValue(
+                {
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                new Date('2026-07-03'),
+            ),
+        ).toBe('2026-05');
+
+        expect(
+            resolveSingleDateValue(
+                {
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                new Date('2026-07-04'),
+            ),
+        ).toBe('2026-06');
+    });
+
+    it('resolves lastAvailableMonth in the given timezone', () => {
+        // 2026-07-04 00:30 UTC is still July 3 in America/Los_Angeles
+        expect(
+            resolveSingleDateValue(
+                {
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                new Date('2026-07-04T00:30:00Z'),
+                'America/Los_Angeles',
+            ),
+        ).toBe('2026-05');
+    });
+
+    it('isSingleDateDynamic is true only for dynamic mode', () => {
+        expect(
+            isSingleDateDynamic({
+                id: '1',
+                operator: FilterOperator.EQUALS,
+                settings: {
+                    singleDate: {
+                        mode: 'dynamic',
+                        preset: 'lastAvailableMonth',
+                    },
+                },
+            }),
+        ).toBe(true);
+        expect(
+            isSingleDateDynamic({
+                id: '1',
+                operator: FilterOperator.EQUALS,
+                values: ['2026-01'],
+            }),
+        ).toBe(false);
     });
 });

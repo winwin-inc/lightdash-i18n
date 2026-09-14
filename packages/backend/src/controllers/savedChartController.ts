@@ -1,5 +1,6 @@
 import {
     AnyType,
+    ApiCalculateCountResponse,
     ApiCalculateTotalResponse,
     ApiErrorPayload,
     ApiGetChartHistoryResponse,
@@ -301,6 +302,47 @@ export class SavedChartController extends BaseController {
         return {
             status: 'ok',
             results: totalResult,
+        };
+    }
+
+    /**
+     * Calculate result row count from a saved chart
+     * @param chartUuid chartUuid for the chart to run
+     * @param req express request
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/calculate-count')
+    @OperationId('CalculateCountFromSavedChart')
+    async calculateCountFromSavedChart(
+        @Path() chartUuid: string,
+        @Body()
+        body: {
+            dashboardFilters?: AnyType;
+            invalidateCache?: boolean;
+            parameters?: ParametersValuesMap;
+            dashboardSlug?: string;
+            dashboardName?: string;
+        },
+        @Request() req: express.Request,
+    ): Promise<ApiCalculateCountResponse> {
+        this.setStatus(200);
+        const countResult = await this.services
+            .getProjectService()
+            .calculateCountFromSavedChart(
+                req.account!,
+                chartUuid,
+                body.dashboardFilters,
+                body.invalidateCache,
+                body.parameters,
+                {
+                    dashboardSlug: body.dashboardSlug,
+                    dashboardName: body.dashboardName,
+                },
+            );
+        return {
+            status: 'ok',
+            results: countResult,
         };
     }
 

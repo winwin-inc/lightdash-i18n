@@ -7,6 +7,7 @@ import {
 import {
     assertUnreachable,
     ResourceViewItemType,
+    type PinnedItems,
     type ResourceViewItem,
 } from '@lightdash/common';
 import { Anchor, Box, SimpleGrid, Stack, Text } from '@mantine/core';
@@ -25,6 +26,7 @@ import {
 } from '../types';
 import ResourceViewGridChartItem from './ResourceViewGridChartItem';
 import ResourceViewGridDashboardItem from './ResourceViewGridDashboardItem';
+import ResourceViewGridDataAppItem from './ResourceViewGridDataAppItem';
 import ResourceViewGridSpaceItem from './ResourceViewGridSpaceItem';
 
 export interface ResourceViewGridCommonProps {
@@ -116,6 +118,13 @@ const DraggableItem: FC<DraggableItemProps> = ({
                                 onAction={onAction}
                                 dragIcon={DragIcon}
                             />
+                        ) : item.type === ResourceViewItemType.DATA_APP ? (
+                            <ResourceViewGridDataAppItem
+                                item={item}
+                                allowDelete={allowDelete}
+                                onAction={onAction}
+                                dragIcon={DragIcon}
+                            />
                         ) : (
                             assertUnreachable(
                                 item,
@@ -165,13 +174,13 @@ const ResourceViewGrid: FC<ResourceViewGridProps> = ({
     }, [hasReorder, groups, items, getResourceGroupTitle]);
 
     // this method converts groupedItems to the format required by the API
-    const pinnedItemsOrder = (data: typeof groupedItems) =>
+    const pinnedItemsOrder = (data: typeof groupedItems): PinnedItems =>
         data.flatMap((group) =>
             group.items.map((item, index) => {
                 return {
                     type: item.type,
                     data: { ...item.data, pinnedListOrder: index },
-                } as ResourceViewItem;
+                } as PinnedItems[number];
             }),
         );
 

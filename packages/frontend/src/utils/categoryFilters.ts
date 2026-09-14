@@ -60,6 +60,21 @@ export const isCategoryField = (filter: DashboardFilterRule): boolean => {
 };
 
 /**
+ * 用户类目列表是否至少包含一类目（用于判断是否启用筛选器联动）
+ */
+export const hasAnyUserCategories = (
+    userCategories: UserCategoryList | null | undefined,
+): boolean => {
+    if (!userCategories) return false;
+    return (
+        userCategories.level1.length > 0 ||
+        userCategories.level2.length > 0 ||
+        userCategories.level3.length > 0 ||
+        userCategories.level4.length > 0
+    );
+};
+
+/**
  * 获取筛选器对应的类目层级
  * 从 filter.categoryLevel 配置属性中读取
  */

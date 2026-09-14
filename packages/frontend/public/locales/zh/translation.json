@@ -25,6 +25,66 @@
         "download_as": "下载为",
         "results": "结果"
     },
+    "features_mergeQuery": {
+        "join_type": "关联类型",
+        "join_inner": "内连接",
+        "join_left": "左连接",
+        "join_full_outer": "全外连接",
+        "join_inner_help": "内连接 · 仅保留两边都有的 {{joinField}} 值，未匹配的行会被丢弃。",
+        "join_left_help": "左连接 · 保留 {{thisQuery}} 中的 {{joinField}} 值，仅在 {{otherQuery}} 中出现的行会被丢弃。",
+        "join_full_help": "全外连接 · 保留任一侧的 {{joinField}}，无匹配时另一侧列为空。",
+        "this_query": "当前查询",
+        "other_query": "另一查询",
+        "done": "完成",
+        "edit": "编辑",
+        "choose_field": "选择或添加字段",
+        "something_went_wrong": "出错了",
+        "matched_on": "匹配字段",
+        "matches_only": "仅匹配行",
+        "keep_all_rows": "保留全部行",
+        "keep_query": "保留 {{label}}",
+        "merge_failed": "合并查询运行失败",
+        "first_data": "第一份数据",
+        "combined_data": "合并数据",
+        "choose_data_to_combine": "选择要合并的数据",
+        "select_data_and_fields": "选择数据与字段",
+        "choose_fields": "选择字段",
+        "remove_combined_data": "移除合并数据",
+        "filters": "筛选",
+        "no_filters": "无筛选",
+        "active_filters": "{{count}} 个生效",
+        "first_table": "第一张表",
+        "second_table": "第二张表",
+        "back_to_fields": "返回字段",
+        "change_table": "更换表",
+        "join_conditions": "关联条件",
+        "add_join_condition": "添加关联条件",
+        "use_suggestion": "使用建议",
+        "remove_join_condition": "移除关联条件 {{index}}",
+        "choose_table": "选择表",
+        "choose_table_desc": "选择要与当前查询合并的数据。",
+        "select_fields": "选择字段",
+        "select_fields_metric_dimension": "添加一个指标和一个用于匹配的维度。",
+        "select_fields_dimension": "添加一个用于匹配的维度。",
+        "select_fields_metric": "至少添加一个指标。",
+        "match_queries": "匹配查询",
+        "match_queries_desc": "在关联关系中选择对应字段。",
+        "review_relationship": "检查关联关系",
+        "review_relationship_desc": "确认保留规则后运行合并查询。",
+        "add_metric_from_table": "请从 {{table}} 至少添加一个指标",
+        "pick_join_field": "请在两侧各选一个用于关联的字段",
+        "cannot_join_on_field": "无法使用该字段关联这两个查询",
+        "field_only_in_one_query": "该字段仅存在于其中一个查询",
+        "relationship": "关联关系",
+        "data_sources": "数据源",
+        "selected_count": "已选 {{count}} 项",
+        "active_filters_badge": "{{count}} 个生效筛选",
+        "active_filters_badge_plural": "{{count}} 个生效筛选",
+        "filters_join_hint": "匹配字段上的筛选会同时作用于两个查询，其余筛选仅作用于各自查询。",
+        "selected_for_result": "结果字段 · {{count}}",
+        "source_order_first": "第一份",
+        "source_order_second": "第二份"
+    },
     "about_footer": {
         "about_msy_x": "关于 马上赢X"
     },
@@ -90,7 +150,29 @@
         "delete_success": "成功！用户已被删除。",
         "delete_error": "删除用户失败。",
         "update_success": "成功！用户已更新。",
-        "update_error": "更新用户权限失败。"
+        "update_error": "更新用户权限失败。",
+        "reassign_dashboards_success": "成功！已转让 {{count}} 个看板。",
+        "reassign_dashboards_error": "转让看板失败"
+    },
+    "components_common_user_select": {
+        "placeholder": "搜索用户…",
+        "nothing_found": "未找到用户"
+    },
+    "components_user_settings_users_action_menu": {
+        "checking_owned_content": "正在检查该用户拥有的看板…",
+        "owns_dashboards": "该用户是 {{dashboardText}} 的所有者，分布在 {{projectText}}。",
+        "dashboard_count_one": "1 个看板",
+        "dashboard_count_other": "{{count}} 个看板",
+        "project_count_one": "1 个项目",
+        "project_count_other": "{{count}} 个项目",
+        "show_details": "显示详情",
+        "hide_details": "隐藏详情",
+        "dashboard_singular": "个看板",
+        "dashboard_plural": "个看板",
+        "leave_unowned": "保留看板但不指定所有者",
+        "reassign_owner": "将所有权转让给其他用户",
+        "new_owner_label": "新的看板所有者",
+        "no_owned_dashboards": "该用户没有拥有的看板。"
     },
     "hooks_refresh_server": {
         "error": "同步 dbt 项目时出错",
@@ -308,6 +390,10 @@
         "save_success": "项目配置已保存",
         "save_error": "保存表配置失败"
     },
+    "hooks_project_results_cache_settings": {
+        "save_success": "缓存时长已更新",
+        "save_error": "更新缓存时长失败"
+    },
     "hooks_project": {
         "update_error": "更新项目失败",
         "create_error": "创建项目失败"
@@ -470,7 +556,8 @@
             "edit": "编辑表计算",
             "add": "添加表计算",
             "empty": "SQL 不能为空",
-            "name": "名称不能为空"
+            "name": "名称不能为空",
+            "no_sql_permission": "您没有权限创建或编辑 SQL 表计算"
         },
         "edit": "编辑表计算",
         "create": "创建表计算",
@@ -479,9 +566,20 @@
                 "label": "名称",
                 "placeholder": "例如: 累计订单数"
             },
+            "calculation_mode": {
+                "label": "计算模式",
+                "placeholder": "选择",
+                "dropdown": {
+                    "raw_sql": "原始 SQL",
+                    "template": "预定义模板",
+                    "formula": "公式"
+                }
+            },
             "tabs": {
+                "template": "模板",
                 "sql": "SQL",
-                "format": "Format"
+                "format": "格式",
+                "formula": "公式"
             },
             "tooltip": {
                 "label": "手动选择此SQL表计算的结果类型，这将帮助我们在过滤器或结果中正确处理该字段。",
@@ -511,6 +609,35 @@
         "orderBy": "排序",
         "window_function": "窗口函数",
         "partition_by": "分区"
+    },
+    "features_table_calculation_formula": {
+        "search_functions": "搜索函数",
+        "close_esc": "关闭 (Esc)",
+        "close_function_reference": "关闭函数参考",
+        "no_functions_match": "没有匹配「{{query}}」的函数",
+        "show_available_fields": "显示可用字段",
+        "fields_available_one": "1 个可用字段",
+        "fields_available_other": "{{count}} 个可用字段",
+        "available_fields": "可用字段",
+        "click_to_insert_prefix": "点击插入，或在公式中输入",
+        "click_to_insert_suffix": "",
+        "no_fields_selected": "尚未选择字段——请先在查询中添加维度或指标。",
+        "hint_field": "字段",
+        "hint_function": "函数",
+        "need_help": "需要帮助？",
+        "placeholder_formula": "输入 @ 引用字段，或 # 引用函数。示例：=IF(@销售额 > 1000, \"高\", \"低\")",
+        "placeholder_dual": "描述计算，或输入 @ 引用字段——例如 =SUM(@销售额)",
+        "no_functions_found": "未找到函数",
+        "categories": {
+            "aggregate": "聚合",
+            "logical": "逻辑",
+            "math": "数学",
+            "string": "文本",
+            "date": "日期",
+            "window": "窗口",
+            "null": "空值处理",
+            "type": "类型"
+        }
     },
     "features_omnibar": {
         "search_project": {
@@ -1154,7 +1281,10 @@
         },
         "validate_tips": {
             "name": "姓名为必填项",
-            "custom_limit": "自定义限制必须是整数"
+            "custom_limit": "自定义限制必须是整数",
+            "required_filters": "必填筛选器必须有值",
+            "requirement_group": "请为每个需求组中的至少一个筛选器设置值",
+            "required_filters_missing": "部分必填筛选器尚未设置值"
         },
         "form": {
             "tabs_list": {
@@ -1181,6 +1311,7 @@
                 "threshold_alert": "这是 马上赢X 查询数据变化的频率。(如果满足最新数值的条件,您将收到通知)",
                 "default_project": "项目默认",
                 "format": "格式",
+                "format_image": "图片",
                 "image_disabled": {
                     "part_1": "您必须启用",
                     "part_2": "无头浏览器",
@@ -1196,6 +1327,10 @@
                 "all_results": "全部结果",
                 "custom": "自定义...",
                 "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
+                "xlsx_output": "XLSX 输出",
+                "xlsx_output_help": "「分文件 ZIP」将每个看板磁贴导出为独立 XLSX；「单个工作簿」将每个磁贴放到同一 XLSX 的不同工作表。",
+                "xlsx_zip": "分文件（ZIP）",
+                "xlsx_workbook": "单个工作簿",
                 "tabs": {
                     "title": "选项卡",
                     "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",
@@ -1213,6 +1348,11 @@
                     "part_4": "到您的 马上赢X 实例"
                 },
                 "search_slack_channels": "搜索 Slack 频道",
+                "slack_group": {
+                    "channels": "频道",
+                    "users": "用户",
+                    "private_channels": "私有频道"
+                },
                 "send_to_private_channel": "发送到私有频道 #{{query}}",
                 "add_slack_disabled": "如果要投放到私有 Slack 频道, 请在输入框中准确输入该频道在 Slack 中的名称。同时确保您已邀请 马上赢X Slackbot 加入该频道。"
             },
@@ -1280,14 +1420,17 @@
         },
         "scheduler": {
             "processing_job": "正在处理任务...",
+            "processing_job_subtitle": "正在准备推送内容，请稍候",
             "failed_to_process_job": "处理任务失败",
             "scheduleed_successfully": "已计划的交付发送成功",
             "process_scheduled_delivery": "正在处理已计划的交付...",
+            "process_scheduled_delivery_subtitle": "发送完成后会在这里提示",
             "send_scheduled_delivery_failed": "发送已计划的交付失败",
             "polling_job_status_error": "轮询任务状态时出错"
         },
         "send_now_scheduler": {
             "processing_job": "正在处理任务...",
+            "processing_job_subtitle": "正在准备推送内容，请稍候",
             "failed_to_process_job": "处理任务失败",
             "failed_to_send_scheduled_delivery": "发送已计划的交付失败"
         },
@@ -2140,7 +2283,12 @@
     },
     "components_common_paginate": {
         "page": "页",
-        "of": "的"
+        "of": "共",
+        "jump_to_page": "跳转到页",
+        "first": "首页",
+        "last": "末页",
+        "go_to_page": "前往",
+        "of_pages": "/{{totalPages}} 页"
     },
     "components_common_page_header": {
         "last_edited": "最近编辑",
@@ -2363,6 +2511,7 @@
             "end_date": "结束日期"
         },
         "utc_time": "UTC 时间",
+        "local_time": "本地时间",
         "filters_error": "FiltersProvider 中需要 projectUuid",
         "add": "添加",
         "add_filter_tip": "请输入以添加筛选器值",
@@ -2456,6 +2605,11 @@
                 "range_summary": "{{start}} 至 {{end}}"
             }
         },
+        "single_date": {
+            "preset": {
+                "last_available_month": "上月（4号显示）"
+            }
+        },
         "to_latest_month_hint": "开始月",
         "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {
@@ -2514,10 +2668,23 @@
     "components_common_table": {
         "copied_to_clipboard": "已复制到剪贴板!",
         "pagination": {
-            "pages": "页",
+            "pages": "分页",
             "scroll": "滚动",
             "page": "页",
-            "of": "共"
+            "of": "共",
+            "showing_of_total": "显示 {{shown}} / 共 {{total}}",
+            "page_size": "每页",
+            "page_size_prefix": "每页",
+            "page_size_suffix": "条",
+            "one_result": "1 条结果",
+            "n_results": "{{count}} 条结果",
+            "total_data_prefix": "共 ",
+            "total_data_suffix": " 条",
+            "loading_count": "加载中…",
+            "count_error": "无法获取总数",
+            "pagination_empty_page": {
+                "back_to_first_page": "返回第 1 页"
+            }
         },
         "provider": {
             "error": "useTableContext 必须在 TableProvider 内部使用"
@@ -2707,7 +2874,13 @@
             "tables": "表格",
             "filter_rules": {
                 "part_1": "是任何值"
-            }
+            },
+            "lock": "锁定筛选器",
+            "lock_on_tab": "在此标签页锁定筛选器",
+            "lock_unlock": "解锁筛选器",
+            "lock_unlock_tab": "在此标签页解锁筛选器",
+            "locked": "已由看板编辑者锁定",
+            "locked_on_tab": "已在此标签页锁定"
         },
         "filter_dashboard": {
             "title": "筛选看板为...",
@@ -2721,7 +2894,15 @@
             "reset_all_filters": "重置所有筛选器"
         },
         "enable_filter": "启用筛选器",
-        "show_add_filter_button": "显示筛选器"
+        "show_add_filter_button": "显示筛选器",
+        "filter_locked_toast": {
+            "title": "筛选器已锁定",
+            "override_single": "已忽略一条筛选覆盖，因为看板编辑者锁定了该筛选器。",
+            "override_many": "已忽略 {{count}} 条筛选覆盖，因为看板编辑者锁定了这些筛选器。",
+            "temp_single": "已忽略一条临时筛选，因为看板编辑者锁定了它{{scope}}。",
+            "temp_many": "已忽略 {{count}} 条临时筛选，因为看板编辑者锁定了它们{{scope}}。",
+            "scope_tab": "（当前标签页）"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {
@@ -2790,7 +2971,9 @@
             "rename_tab": "重命名标签页",
             "remove_tabs_component": "移除标签页组件",
             "remove_tab": "移除标签页",
-            "safely_remove_tab": "安全移除标签页"
+            "safely_remove_tab": "安全移除标签页",
+            "hide_tab": "隐藏标签页",
+            "show_tab": "显示标签页"
         }
     },
     "components_dbt_cloud_settings": {
@@ -2902,6 +3085,30 @@
             "update": "更新"
         }
     },
+    "components_settings_query_timezone": {
+        "tips": {
+            "success": "成功更新项目的查询时区设置",
+            "failed": "更新项目的查询时区设置失败"
+        },
+        "title": "时区行为",
+        "description_enabled": "用于日期筛选、时间分组，以及图表与表格中日期展示的时区。这不会改变数据库会话时区。",
+        "description_disabled": "控制「今天」「本周」等相对日期筛选的含义。例如设为 US/Eastern 时，「今天」表示纽约时间的午夜到午夜，而不是 UTC。这不会改变数据库会话时区。",
+        "form": {
+            "timezone_label": "默认时区",
+            "timezone_placeholder": "服务器默认（UTC）",
+            "filter_toggle_label": "筛选输入使用项目时区",
+            "filter_toggle_description": "将绝对日期按项目时区解释，而不是用户浏览器时区。需开启 ENABLE_TIMEZONE_SUPPORT 后生效。",
+            "update": "更新"
+        }
+    },
+    "components_chart_timezone_select": {
+        "group_default": "默认",
+        "group_specific": "指定时区",
+        "project_timezone": "项目时区",
+        "user_timezone": "用户时区",
+        "local_suffix": " - 本地",
+        "user_timezone_tooltip": "每位查看者按自己的时区看数据；未设置时回退到项目时区。"
+    },
     "components_settings_semantic_layer": {
         "semantic_layer": {
             "dbt": "dbt 语义层",
@@ -2983,6 +3190,11 @@
             "label": "上游项目"
         },
         "select_project": "选择项目",
+        "group": {
+            "production": "生产项目",
+            "preview": "预览项目"
+        },
+        "current_suffix": "{{name}}（当前）",
         "update": "更新",
         "toast_success": {
             "title": "项目已更新",
@@ -3079,6 +3291,9 @@
         },
         "error_tip": "标题或内容是必填的",
         "add_tile": "添加 {{type}} 图块",
+        "type_markdown": "Markdown",
+        "type_loom": "Loom",
+        "type_data_app": "数据应用",
         "cancel": "取消",
         "add": "添加"
     },
@@ -3098,7 +3313,12 @@
         "tooltip_new_chart": "在此生成的图表仅适用于此看板",
         "markdown": "Markdown",
         "loom_video": "Loom 视频",
+        "data_app": "数据应用",
         "add_tab": "添加标签页"
+    },
+    "components_dashboard_tiles_data_app_tile_edit_form": {
+        "title": "标题",
+        "title_placeholder": "磁贴标题"
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "已复制到剪贴板!",
@@ -3609,6 +3829,10 @@
                 "title": "看板",
                 "description": "将多个图表排列到单一视图中"
             },
+            "data_app": {
+                "title": "数据应用",
+                "description": "基于你的数据构建交互式应用。"
+            },
             "space": {
                 "title": "空间",
                 "description": "组织您保存的图表和看板"
@@ -3631,6 +3855,9 @@
             "charts": {
                 "title": "全部图表"
             },
+            "data_apps": {
+                "title": "全部数据应用"
+            },
             "metrics": {
                 "title": "指标目录"
             }
@@ -3651,6 +3878,14 @@
         "no_notifications_tip": "没有通知",
         "validation_error_notification_tip": "新验证已完成 {{validationTimeAgo}} 和 {{numberOfErrors}} 错误",
         "validation_errors": "验证错误"
+    },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} 在看板「{{dashboardName}}」中提到了你",
+            "tagged_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中提到了你",
+            "commented": "{{author}} 在看板「{{dashboardName}}」中发表了评论",
+            "commented_in_tile": "{{author}} 在看板「{{dashboardName}}」的磁贴「{{tileName}}」中发表了评论"
+        }
     },
     "components_navbar_headway_menu": {
         "tooltip": {
@@ -3948,8 +4183,10 @@
         "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
         "tooltip": {
             "label": "以 zip 文件形式导出所有图表的表格结果",
-            "button": "导出 CSV"
+            "button": "导出 CSV",
+            "button_xlsx": "导出 XLSX"
         },
+        "tabs_label": "选项卡",
         "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
         "include_all_tabs": "包含所有选项卡",
         "select_tabs": "选择要包含的选项卡",
@@ -3958,7 +4195,8 @@
         "export_dashboard": "导出看板",
         "tabs": {
             "image": "图片",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {
@@ -3972,6 +4210,10 @@
             "description": {
                 "label": "描述",
                 "placeholder": "几句话为您的团队提供一些背景信息"
+            },
+            "owner": {
+                "label": "所有者",
+                "placeholder": "指定所有者…"
             },
             "cancel": "取消",
             "save": "保存"
@@ -4005,6 +4247,11 @@
         "items": "项",
         "new_space": "新空间",
         "move": "移动",
+        "move_title": "移动{{type}}",
+        "type_dashboard": "看板",
+        "type_chart": "图表",
+        "type_space": "空间",
+        "type_data_app": "数据应用",
         "cancel": "取消",
         "confirm": "确认",
         "create_space": "创建空间 & 移动",
@@ -4239,6 +4486,11 @@
                     "part_1": "此电子邮件尚未验证.",
                     "part_2": "单击此处验证"
                 }
+            },
+            "timezone": {
+                "label": "默认时区",
+                "description": "用于按「用户时区」渲染查询结果；留空则回退到项目时区。",
+                "placeholder": "项目默认"
             }
         },
         "cancel": "取消",
@@ -5115,6 +5367,8 @@
             "y_axis_label": "Y 轴标签",
             "y_axis_label_left": "Y 轴标签（左侧）",
             "y_axis_label_right": "Y 轴标签（右侧）",
+            "y_axis_label_gap": "Y 轴标签距离",
+            "y_axis_label_gap_placeholder": "自动",
             "x_axis_label_bottom": "X 轴标签（底部）",
             "x_axis_label_top": "X 轴标签（顶部）",
             "auto_x_axis_range": "自动 X 轴范围",
@@ -5360,10 +5614,18 @@
             "show_row_totals": "显示行总计",
             "show_column_totals": "显示列总计",
             "show_number_of_results": "显示结果数量",
+            "enable_pagination": "启用分页",
+            "pagination_not_supported": "透视表或小计不支持分页",
+            "page_size": "每页条数",
             "subtotals_cant_be_used": "小计不能与指标作为行一起使用",
             "at_least_two_dimensions": "小计只能用于至少有两个 {{privoted}} 维度的表",
+            "un_pivoted": "非透视",
             "can_use_subtotals": "小计只能用于未透视的表",
-            "show_subtotals": "显示小计"
+            "show_subtotals": "显示小计",
+            "group_repeated_row_values": "合并重复行值",
+            "row_grouping_always_on_with_subtotals": "启用小计时行合并始终开启",
+            "row_grouping_cant_be_used": "行合并不能与指标作为行一起使用",
+            "row_grouping_at_least_two_dimensions": "行合并只能用于至少有两个 {{privoted}} 维度的表"
         },
         "configure": "配置",
         "config_tabs": {
@@ -5824,7 +6086,22 @@
         "edit_dimension": "编辑自定义维度",
         "eidt_calculation": "编辑计算",
         "sort": "排序",
-        "sorting": "排序方式"
+        "sorting": "排序方式",
+        "add_period_comparison": "添加同期对比"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "添加同期对比",
+        "confirm": "添加对比",
+        "cancel": "取消",
+        "already_exists_title": "该对比已存在",
+        "already_exists_body": "该指标已存在相同时间维度和偏移量的同期对比。请选择其他时间维度或偏移量。",
+        "time_dimension": "时间维度",
+        "time_dimension_placeholder": "选择时间维度",
+        "time_dimension_placeholder_disabled": "请先添加时间维度以启用对比",
+        "offset": "偏移量",
+        "granularity_label": "{{label}} 粒度",
+        "granularity_from_dimension": "粒度由所选维度决定",
+        "will_create": "将创建："
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "已复制到剪贴板",
@@ -6021,6 +6298,11 @@
         "configure_chart": "配置图表",
         "chart_type": "图表类型"
     },
+    "components_explorer_visualization_timezone": {
+        "source_user": "此图表跟随每位查看者的时区。当前显示为 {{timezone}}。",
+        "source_pinned": "此图表固定为 {{timezone}}，不会跟随项目时区。",
+        "source_project": "此图表使用项目时区（{{timezone}}）。"
+    },
     "components_explorer_visualization_card_options": {
         "chart_types": {
             "mixed": "混合",
@@ -6185,7 +6467,8 @@
         "resource_view_labels": {
             "chart": "图表",
             "dashboard": "看板",
-            "space": "空间"
+            "space": "空间",
+            "data_app": "数据应用"
         },
         "resource_view_chart_labels": {
             "bar": "柱状图",
@@ -6251,6 +6534,7 @@
     "components_common_resource_view_utils": {
         "resource_type_names": {
             "dashboard": "看板",
+            "chart": "图表",
             "space": "空间",
             "bar_chart": "柱状图",
             "horizontal_bar_chart": "条形图",
@@ -6264,6 +6548,8 @@
             "table": "表格",
             "big_number": "大数值",
             "custom_visualization": "自定义可视化",
+            "data_app": "数据应用",
+            "custom_chart": "自定义图表",
             "not_supported": "不支持 {{chartKind}} 图表类型"
         }
     },
@@ -6271,7 +6557,8 @@
         "all": "全部",
         "dashboards": "看板",
         "charts": "图表",
-        "spaces": "空间"
+        "spaces": "空间",
+        "data_apps": "数据应用"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "只有你可见",
@@ -6470,7 +6757,7 @@
             "label": "限制",
             "radio_01": "表格结果",
             "radio_02": "所有结果",
-            "radio_03": "自定义..."
+            "radio_03": "自定义"
         },
         "limit_alert_tip": {
             "part_1": "结果被限制在",
@@ -6514,10 +6801,12 @@
         "radio_groups_limit": {
             "part_1": "表格结果",
             "part_2": "所有结果",
-            "part_3": "自定义..."
+            "part_3": "自定义"
         },
         "prvot_tables_warning": "Pivot 导出限制为 {{csvCellsLimit}} 个单元格和 {{maxColumnLimit}} 列。",
-        "limit": "Excel 导出限制为 1,000,000 行。",
+        "table_results_limit_hint": "最多导出当前查询行数（{{count}}）。",
+        "csv_cells_limit_hint": "最多导出 {{csvCellsLimit}} 格（按行×列累计）",
+        "limit": "最多导出 1,000,000 行",
         "download": "下载"
     },
     "components_funnel_chart": {
@@ -6612,10 +6901,12 @@
                 "dbt_semantic_layer": "dbt 语义层",
                 "usage_analytics": "使用分析",
                 "syncs_scheduled_deliveries": "同步与定时交付",
+                "query_timezone": "查询时区",
                 "validator": "验证器",
                 "data_ops": "数据操作",
                 "changesets": "变更集",
                 "parameters": "参数",
+                "results_caching": "结果缓存",
                 "custom_sql": "自定义 SQL",
                 "semantic_layer_integration": "语义层集成"
             }
@@ -7229,6 +7520,24 @@
                 }
             }
         },
+        "data_timezone": {
+            "label": "数据时区",
+            "description": "数仓中无时区时间戳按此时区解释。未设置时使用数仓默认（通常为 UTC）。",
+            "placeholder": "未设置（使用数仓默认）",
+            "preview": "预览",
+            "preview_failed": "预览失败",
+            "connection_failed": "连接失败",
+            "pipeline_intro": "当前时刻逐步解释",
+            "unset_hint": "未设置数据时区，数仓将按自身会话时区读取裸时间戳。请在上方选择时区以控制解释方式。",
+            "step_from_warehouse": "来自数仓",
+            "step_from_warehouse_value": "{{raw}}  ·  无时区",
+            "step_exact_moment": "确切时间点",
+            "step_users_see": "用户看到",
+            "read_as": "读作 {{zone}}",
+            "your_data_timezone": "（你的数据时区）",
+            "shown_in_project": "以 {{timezone}} 展示（项目查询时区）",
+            "aware_note": "若列本身已带时区，则跳过第 1 步：时刻已确定（{{raw}} UTC），数据时区会被忽略，用户看到 {{rendered}}。"
+        },
         "big_query": {
             "authentication_type": {
                 "label": "认证类型",
@@ -7767,6 +8076,24 @@
             "no_parameters_configured": "没有为这个项目配置参数"
         }
     },
+    "components_project_results_cache": {
+        "title": "缓存时长",
+        "description": "缓存结果保留多久后，马上赢X 会再次查询数据仓库。",
+        "use_default": "使用默认缓存时长",
+        "default_expires": "缓存结果将在 {{duration}} 后过期。",
+        "ttl_label": "缓存时长（分钟）",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "请输入 {{min}} 到 {{max}}（30 天）之间的整数分钟数",
+        "save": "保存",
+        "units": {
+            "minute": "分钟",
+            "minutes": "分钟",
+            "hour": "小时",
+            "hours": "小时",
+            "day": "天",
+            "days": "天"
+        }
+    },
     "components_limit_button": {
         "schema_error": {
             "invalid_value": "无效值",
@@ -8133,6 +8460,131 @@
         "toast_user_error": "创建用户失败",
         "or": "或",
         "sign_up": "注册"
+    },
+    "pages_saved_apps": {
+        "title": "数据应用",
+        "breadcrumb_home": "首页",
+        "breadcrumb_all": "全部数据应用",
+        "create": "创建数据应用"
+    },
+    "pages_app_generate": {
+        "title": "创建数据应用",
+        "subtitle": "选择一个起点，然后描述你想构建的内容。",
+        "placeholder": "描述你想构建的应用...",
+        "empty_chat": "描述你想构建的内容，我会生成一个连接你项目数据的数据应用。",
+        "load_earlier": "加载更早的消息",
+        "loading_earlier": "正在加载更早的消息...",
+        "stop_generation": "停止生成",
+        "send_message": "发送消息",
+        "skip": "跳过",
+        "build": "生成",
+        "working": "正在处理你的应用——可切换标签页或关闭本页",
+        "clarifying": "请稍候，开始前我可能还会问几个问题",
+        "quick_questions": "几个快速问题：",
+        "template_label": "模板：",
+        "starting_from": "起始模板：{{name}}",
+        "failed_generate": "生成应用失败",
+        "failed_apply_theme": "应用主题失败",
+        "not_found_title": "未找到数据应用",
+        "not_found_description": "该数据应用不存在或已被删除。",
+        "thumbnail_updated": "缩略图已更新",
+        "thumbnail_capture_failed": "捕获缩略图失败",
+        "thumbnail_not_saved": "缩略图未保存",
+        "screenshot_failed": "截图失败",
+        "file_upload_failed": "文件上传失败",
+        "unknown_error": "未知错误",
+        "attachment_limit": "已达到附件上限",
+        "attachment_limit_subtitle": "每条消息最多可附加 {{count}} 个文件。",
+        "restore_version_title": "恢复到版本 {{version}}？",
+        "restore_version": "恢复版本",
+        "failed_restore": "恢复版本失败。",
+        "selected_theme": "已选主题",
+        "no_theme": "无主题",
+        "remove_theme": "移除主题",
+        "apply_theme": "应用主题：{{name}}",
+        "default_theme": "默认"
+    },
+    "features_apps_templates": {
+        "dashboard": {
+            "title": "看板",
+            "description": "KPI 与图表网格，适合一览式汇报。"
+        },
+        "slideshow": {
+            "title": "幻灯片",
+            "description": "引导式叙事——每页一张图，线性浏览。"
+        },
+        "pdf": {
+            "title": "PDF 报告",
+            "description": "适合打印的文档，含章节与配套图表。"
+        },
+        "custom": {
+            "title": "从零开始",
+            "description": "从零开始，用自然语言描述任意需求。"
+        },
+        "data_app_viz": {
+            "title": "数据应用可视化",
+            "description": "可复用的单磁贴图表，可像图表类型一样应用到任意查询。"
+        }
+    },
+    "features_apps_composer": {
+        "select_model": "选择模型",
+        "reasoning": "推理",
+        "reasoning_default": "默认",
+        "reasoning_high": "高",
+        "attach": "附加",
+        "attach_label": "添加图表、看板、连接或文件",
+        "attach_aria": "附加资源",
+        "attach_queries": "查询",
+        "attach_saved_charts": "附加已保存的图表",
+        "attach_dashboard_title": "看板",
+        "attach_dashboard": "附加看板中的全部磁贴",
+        "attach_files": "文件",
+        "attach_files_hint": "上传图片、PDF 或文本文件",
+        "attach_connections": "外部连接",
+        "attach_connections_hint": "允许应用从外部 API 取数",
+        "attachment_limit": "已达到附件上限",
+        "capture_screenshot": "截取预览",
+        "capture_screenshot_label": "截取预览并附加",
+        "inspect_on": "检查模式已开——点击预览中的任意元素",
+        "inspect_off": "指向预览中的元素以引用",
+        "inspect_aria": "切换元素检查器",
+        "search_or_paste": "搜索或粘贴链接...",
+        "search_connections": "搜索连接...",
+        "done": "完成"
+    },
+    "features_apps_header": {
+        "continue_building": "继续构建",
+        "refresh": "刷新",
+        "refresh_queries": "刷新以重新运行查询",
+        "copy_link": "复制应用链接",
+        "app_actions": "应用操作",
+        "view_network": "查看网络请求",
+        "schedule_delivery": "定时推送",
+        "google_sheets_sync": "Google Sheets 同步",
+        "upgrade_app": "升级应用",
+        "new_badge": "新",
+        "rename": "重命名",
+        "capture_thumbnail": "捕获缩略图",
+        "remove_thumbnail": "移除缩略图",
+        "thumbnail_removed": "缩略图已移除",
+        "failed_remove_thumbnail": "移除缩略图失败",
+        "duplicate": "复制",
+        "move_to_space": "移动到空间",
+        "add_to_space": "添加到空间",
+        "share": "分享",
+        "delete": "删除",
+        "add_favorites": "添加到收藏",
+        "remove_favorites": "取消收藏"
+    },
+    "components_dashboard_tiles_data_app_tile_form": {
+        "title": "标题",
+        "title_placeholder": "磁贴标题",
+        "data_app": "数据应用",
+        "data_app_description": "只有已移入空间的应用才能添加到看板。",
+        "loading_apps": "正在加载应用...",
+        "pick_data_app": "选择数据应用",
+        "no_matching": "没有匹配的数据应用",
+        "failed_load": "加载应用失败"
     },
     "pages_saved_dashboards": {
         "dashboards": "看板",

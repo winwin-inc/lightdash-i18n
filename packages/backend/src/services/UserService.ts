@@ -22,6 +22,7 @@ import {
     isOpenIdIdentityIssuerType,
     isOpenIdUser,
     isUserWithOrg,
+    isValidTimezone,
     LightdashMode,
     LightdashUser,
     LocalIssuerTypes,
@@ -597,7 +598,7 @@ export class UserService extends BaseService {
                 throw new DeactivatedAccountError();
             }
 
-            const organization = this.loginToOrganization(
+            const organization = await this.loginToOrganization(
                 openIdSession?.userUuid,
                 openIdUser.openId.issuerType,
             );
@@ -1122,7 +1123,7 @@ export class UserService extends BaseService {
             if (!user.isActive) {
                 throw new DeactivatedAccountError();
             }
-            const userOrganization = this.loginToOrganization(
+            const userOrganization = await this.loginToOrganization(
                 user.userUuid,
                 LocalIssuerTypes.EMAIL,
             );
@@ -1181,6 +1182,14 @@ export class UserService extends BaseService {
         user: SessionUser,
         data: Partial<UpdateUserArgs>,
     ): Promise<LightdashUser> {
+        if (
+            data.timezone !== undefined &&
+            data.timezone !== null &&
+            !isValidTimezone(data.timezone)
+        ) {
+            throw new ParameterError(`Invalid timezone: ${data.timezone}`);
+        }
+
         const updatedUser = await this.userModel.updateUser(
             user.userUuid,
             user.email,
@@ -1190,6 +1199,7 @@ export class UserService extends BaseService {
                 email: data.email,
                 isMarketingOptedIn: data.isMarketingOptedIn,
                 isTrackingAnonymized: data.isTrackingAnonymized,
+                timezone: data.timezone,
             },
         );
         this.identifyUser(updatedUser);
@@ -1348,7 +1358,7 @@ export class UserService extends BaseService {
                 'You do not have permission to login with personal access tokens',
             );
         }
-        const organization = this.loginToOrganization(
+        const organization = await this.loginToOrganization(
             user.userUuid,
             LocalIssuerTypes.API_TOKEN,
         );

@@ -2,6 +2,9 @@ import {
     Account,
     DownloadFileType,
     MetricQuery,
+    MergeQuery,
+    MergeQueryChart,
+    MergeQueryExecutionMode,
     PivotConfig,
     PivotConfiguration,
     type CacheMetadata,
@@ -16,6 +19,7 @@ import {
     type ResultsPaginationArgs,
     type RunQueryTags,
     type SortField,
+    type UserAttributeValueMap,
 } from '@lightdash/common';
 
 export type CommonAsyncQueryArgs = {
@@ -63,10 +67,18 @@ export type ExecuteAsyncMetricQueryArgs = CommonAsyncQueryArgs & {
     dashboardUuid?: string;
 };
 
+export type ExecuteAsyncMergeQueryArgs = CommonAsyncQueryArgs & {
+    mergeQuery: MergeQuery;
+    mode: MergeQueryExecutionMode;
+    chart?: MergeQueryChart;
+    userAttributeOverrides?: UserAttributeValueMap;
+};
+
 export type ExecuteAsyncSavedChartQueryArgs = CommonAsyncQueryArgs & {
     chartUuid: string;
     versionUuid?: string;
     limit?: number | null | undefined;
+    offset?: number;
     pivotResults?: boolean;
 };
 
@@ -77,6 +89,7 @@ export type ExecuteAsyncDashboardChartQueryArgs = CommonAsyncQueryArgs & {
     dashboardSorts: SortField[];
     dateZoom?: DateZoom;
     limit?: number | null | undefined;
+    offset?: number;
     pivotResults?: boolean;
 };
 
@@ -160,4 +173,5 @@ export type RunAsyncWarehouseQueryArgs = {
     };
     pivotConfiguration?: PivotConfiguration;
     originalColumns?: ResultColumns;
+    usedParameters?: ParametersValuesMap | null;
 };

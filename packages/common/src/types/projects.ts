@@ -1,5 +1,6 @@
 import { type WeekDay } from '../utils/timeFrames';
 import { type ProjectGroupAccess } from './projectGroupAccess';
+import { type GroupType } from './table';
 
 export enum ProjectType {
     DEFAULT = 'DEFAULT',
@@ -56,6 +57,7 @@ export type CreateBigqueryCredentials = {
     maximumBytesBilled: number | undefined;
     startOfWeek?: WeekDay | null;
     executionProject?: string;
+    dataTimezone?: string;
 };
 export const sensitiveCredentialsFieldNames = [
     'user',
@@ -87,6 +89,7 @@ export type CreateDatabricksCredentials = {
     personalAccessToken: string;
     requireUserCredentials?: boolean;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
     compute?: Array<{
         name: string;
         httpPath: string;
@@ -123,6 +126,7 @@ export type CreatePostgresCredentials = SshTunnelConfiguration &
         role?: string;
         startOfWeek?: WeekDay | null;
         timeoutSeconds?: number;
+        dataTimezone?: string;
     };
 export type PostgresCredentials = Omit<
     CreatePostgresCredentials,
@@ -139,6 +143,7 @@ export type CreateTrinoCredentials = {
     schema: string;
     http_scheme: string;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
 };
 export type TrinoCredentials = Omit<
     CreateTrinoCredentials,
@@ -155,6 +160,7 @@ export type CreateClickhouseCredentials = {
     secure?: boolean;
     startOfWeek?: WeekDay | null;
     timeoutSeconds?: number;
+    dataTimezone?: string;
 };
 export type ClickhouseCredentials = Omit<
     CreateClickhouseCredentials,
@@ -175,6 +181,7 @@ export type CreateRedshiftCredentials = SshTunnelConfiguration & {
     ra3Node?: boolean;
     startOfWeek?: WeekDay | null;
     timeoutSeconds?: number;
+    dataTimezone?: string;
 };
 export type RedshiftCredentials = Omit<
     CreateRedshiftCredentials,
@@ -208,7 +215,9 @@ export type CreateSnowflakeCredentials = {
     queryTag?: string;
     accessUrl?: string;
     startOfWeek?: WeekDay | null;
+    dataTimezone?: string;
     quotedIdentifiersIgnoreCase?: boolean;
+    disableTimestampConversion?: boolean; // Disable timestamp conversion to UTC - only disable if all timestamp values are already in UTC
     override?: boolean;
     organizationWarehouseCredentialsUuid?: string;
 };
@@ -233,6 +242,22 @@ export type WarehouseCredentials =
     | TrinoCredentials
     | ClickhouseCredentials;
 
+/**
+ * Returns the timezone the column data is in when the query runs.
+ * Snowflake's dbt translator wraps timestamps with CONVERT_TIMEZONE('UTC', col),
+ * so columns are UTC unless `disableTimestampConversion` opts out of that wrap.
+ */
+export const getColumnTimezone = (
+    credentials: CreateWarehouseCredentials | WarehouseCredentials,
+): string => {
+    if (
+        credentials.type === WarehouseTypes.SNOWFLAKE &&
+        !credentials.disableTimestampConversion
+    ) {
+        return 'UTC';
+    }
+    return credentials.dataTimezone ?? 'UTC';
+};
 export type CreatePostgresLikeCredentials =
     | CreateRedshiftCredentials
     | CreatePostgresCredentials;
@@ -460,12 +485,24 @@ export type Project = {
      * If true, certain features/content may be hidden
      */
     isCustomerUse?: boolean;
+    /** IANA zone used as the project default for query timezone resolution */
+    queryTimezone: string | null;
+    /** When true, absolute date filters use the project timezone */
+    useProjectTimezoneInFilters: boolean;
+};
+
+export type UpdateQueryTimezoneSettings = {
+    queryTimezone?: string | null;
+    useProjectTimezoneInFilters?: boolean;
 };
 
 export type ProjectSummary = Pick<
     Project,
     'name' | 'projectUuid' | 'organizationUuid' | 'type' | 'upstreamProjectUuid'
->;
+> & {
+    /** Present on newer project rows; optional until all callers populate it */
+    createdByUserUuid?: string | null;
+};
 
 export type ApiProjectResponse = {
     status: 'ok';
@@ -496,3 +533,5 @@ export type PreviewContentMapping = {
 export type UpdateSchedulerSettings = {
     schedulerTimezone: string;
 };
+
+export type ApiTableGroupsResults = Record<string, GroupType>;

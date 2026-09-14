@@ -24,6 +24,7 @@ import TrackingProvider from './providers/Tracking/TrackingProvider';
 import Routes from './Routes';
 
 import './plugins/i18n';
+import './styles/cjk-screenshot-fonts.css';
 
 // Mantine v8 styles
 import '@mantine-8/core/styles.css';

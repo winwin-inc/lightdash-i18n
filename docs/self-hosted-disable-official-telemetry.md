@@ -39,7 +39,7 @@
 
 | 项 | 值 |
 |----|-----|
-| Git tag | `cli-vX.Y.Z`（触发 [`.github/workflows/build-docker-cli.yml`](../.github/workflows/build-docker-cli.yml)） |
+| Git tag | `cli-vX.Y.Z`（`pnpm bump-cli -- X.Y.Z`，触发 [`.github/workflows/build-docker-cli.yml`](../.github/workflows/build-docker-cli.yml)） |
 | ACR 镜像 | `registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-X.Y.Z` |
 | Jenkins 示例 | `IMAGE=registry-vpc.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-0.2107.7` |
 
@@ -47,7 +47,7 @@ Dockerfile 基于历史 `winwin/tool:mise` + dbt 1.9.8 + hologres/odps，CLI 使
 
 ## 5. 主站发版与验证
 
-1. 合并含本改动的分支并发主站镜像（如 `pnpm bump-version`）
+1. 合并含本改动的分支并发主站镜像（如 `pnpm bump-version`）；Jenkins CLI 镜像另用 `pnpm bump-cli -- X.Y.Z` 打 `cli-v*` tag
 2. 部署后检查：
    - 浏览器 Network：无 `analytics.lightdash.com` / `rudderlabs` / `posthog` / `intercom` / `headway` / `usepylon`
    - `GET /api/v1/health`：`rudder` 无有效 key、`posthog` 为空、`intercom.appId` 为空

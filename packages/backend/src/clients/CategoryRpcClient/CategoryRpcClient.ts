@@ -20,6 +20,14 @@ export class CategoryRpcClient {
     }
 
     /**
+     * Whether the internal admin API (ADMIN_API_HOST / ADMIN_API_KEY) is configured.
+     */
+    isConfigured(): boolean {
+        const { host, apiKey } = this.config.adminApi || {};
+        return Boolean(host && apiKey);
+    }
+
+    /**
      * 调用 RPC 接口获取所有类目
      */
     async findAllCategories(): Promise<CategoryItem[]> {

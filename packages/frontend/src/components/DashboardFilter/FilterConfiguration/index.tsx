@@ -42,11 +42,9 @@ import {
     type MouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
 
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
-import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { isCategoryField } from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
@@ -115,9 +113,6 @@ const FilterConfiguration: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
     const { showToastError } = useToaster();
-    const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { data: project } = useProject(projectUuid);
-    const isCustomerUse = project?.isCustomerUse ?? false;
     const isMobileDevice = useIsMobileDevice();
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
@@ -702,7 +697,6 @@ const FilterConfiguration: FC<Props> = ({
                                         setPendingExcludedValue
                                     }
                                     popoverProps={popoverProps}
-                                    isCustomerUse={isCustomerUse}
                                     parentFilterOptions={parentFilterOptions}
                                 />
                             )}

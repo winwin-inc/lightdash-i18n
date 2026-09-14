@@ -2,6 +2,8 @@ import { Knex } from 'knex';
 import { LightdashConfig } from '../config/parseConfig';
 import { type UtilRepository } from '../utils/UtilRepository';
 import { AnalyticsModel } from './AnalyticsModel';
+import { AppModel } from './AppModel';
+import { OrganizationDesignModel } from './OrganizationDesignModel';
 import { CatalogModel } from './CatalogModel/CatalogModel';
 import { ChangesetModel } from './ChangesetModel';
 import { CommentModel } from './CommentModel/CommentModel';
@@ -57,6 +59,8 @@ import { WarehouseAvailableTablesModel } from './WarehouseAvailableTablesModel/W
 
 export type ModelManifest = {
     analyticsModel: AnalyticsModel;
+    appModel: AppModel;
+    organizationDesignModel: OrganizationDesignModel;
     commentModel: CommentModel;
     dashboardModel: DashboardModel;
     downloadFileModel: DownloadFileModel;
@@ -111,6 +115,7 @@ export type ModelManifest = {
     embedModel: unknown;
     dashboardSummaryModel: unknown;
     serviceAccountModel: unknown;
+    sandboxRegistryModel: unknown;
 };
 
 /**
@@ -211,6 +216,21 @@ export class ModelRepository
         return this.getModel(
             'analyticsModel',
             () => new AnalyticsModel({ database: this.database }),
+        );
+    }
+
+
+    public getAppModel(): AppModel {
+        return this.getModel(
+            'appModel',
+            () => new AppModel({ database: this.database }),
+        );
+    }
+
+    public getOrganizationDesignModel(): OrganizationDesignModel {
+        return this.getModel(
+            'organizationDesignModel',
+            () => new OrganizationDesignModel({ database: this.database }),
         );
     }
 
@@ -577,6 +597,10 @@ export class ModelRepository
 
     public getAiAgentModel<ModelImplT>(): ModelImplT {
         return this.getModel('aiAgentModel');
+    }
+
+    public getSandboxRegistryModel<ModelImplT>(): ModelImplT {
+        return this.getModel('sandboxRegistryModel');
     }
 
     public getAiOrganizationSettingsModel<ModelImplT>(): ModelImplT {

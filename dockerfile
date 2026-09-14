@@ -26,6 +26,7 @@
     libcairo2-dev \
     libpango1.0-dev \
     librsvg2-dev \
+    fonts-noto-cjk \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
   
@@ -59,6 +60,7 @@
   COPY tsconfig.json .
   COPY .eslintrc.js .
   COPY .pnpmfile.cjs .
+  COPY packages/formula/package.json ./packages/formula/
   COPY packages/common/package.json ./packages/common/
   COPY packages/warehouses/package.json ./packages/warehouses/
   COPY packages/backend/package.json ./packages/backend/
@@ -78,6 +80,11 @@
   RUN if [ -n "${SENTRY_AUTH_TOKEN}" ] && [ -n "${SENTRY_ORG}" ] && [ -n "${SENTRY_RELEASE_VERSION}" ]; then \
       npm install -g @sentry/cli; \
       fi
+  
+  # Build formula (backend/frontend workspace dependency)
+  COPY packages/formula/tsconfig.json ./packages/formula/
+  COPY packages/formula/src/ ./packages/formula/src/
+  RUN pnpm -F @lightdash/formula build
   
   # Build common
   COPY packages/common/tsconfig.json ./packages/common/
@@ -187,6 +194,7 @@
     libpango1.0-dev \
     librsvg2-dev \
     dumb-init \
+    fonts-noto-cjk \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
   

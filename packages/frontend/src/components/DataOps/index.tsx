@@ -47,7 +47,10 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                                 .map((project) => ({
                                     label:
                                         project.projectUuid === projectUuid
-                                            ? `${project.name} (Current)`
+                                            ? t(
+                                                  'components_data_pos.current_suffix',
+                                                  { name: project.name },
+                                              )
                                             : project.name,
                                     value: project.projectUuid,
                                     disabled:
@@ -57,8 +60,12 @@ export const DataOps: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                                         currentProject?.upstreamProjectUuid,
                                     group:
                                         project.type === ProjectType.PREVIEW
-                                            ? 'Preview projects'
-                                            : 'Production projects',
+                                            ? t(
+                                                  'components_data_pos.group.preview',
+                                              )
+                                            : t(
+                                                  'components_data_pos.group.production',
+                                              ),
                                 })) || []
                         }
                         label={t('components_data_pos.select.label')}

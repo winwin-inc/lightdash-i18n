@@ -78,6 +78,9 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
         [ResourceViewItemType.SPACE]: t(
             'components_common_resource_view_action_menu.resource_view_labels.space',
         ),
+        [ResourceViewItemType.DATA_APP]: t(
+            'components_common_resource_view_action_menu.resource_view_labels.data_app',
+        ),
     };
 
     const organizationUuid = user.data?.organizationUuid;
@@ -174,6 +177,25 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                     subject('Space', {
                         ...item.data,
                         access: userAccess ? [userAccess] : [],
+                    }),
+                )
+            ) {
+                return null;
+            }
+            break;
+        }
+        case ResourceViewItemType.DATA_APP: {
+            const userAccess = spaces.find(
+                (space) => space.uuid === item.data.spaceUuid,
+            )?.userAccess;
+            if (
+                user.data?.ability?.cannot(
+                    'manage',
+                    subject('DataApp', {
+                        organizationUuid,
+                        projectUuid,
+                        access: userAccess ? [userAccess] : [],
+                        createdByUserUuid: item.data.createdByUserUuid,
                     }),
                 )
             ) {

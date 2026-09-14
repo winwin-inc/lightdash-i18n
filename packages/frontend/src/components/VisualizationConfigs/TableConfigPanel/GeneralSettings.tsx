@@ -6,6 +6,7 @@ import {
     Group,
     NumberInput,
     SegmentedControl,
+    Select,
     Stack,
     Switch,
     Tooltip,
@@ -13,7 +14,10 @@ import {
 import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import useHealth from '../../../hooks/health/useHealth';
 import useToaster from '../../../hooks/toaster/useToaster';
+import { TABLE_PAGINATION_PAGE_SIZES } from '../../common/Table/constants';
+import { compactSelectStyles } from '../../common/Table/paginationCompactStyles';
 import { isTableVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
@@ -32,6 +36,8 @@ const GeneralSettings: FC = () => {
     } = useVisualizationContext();
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const { showToastError } = useToaster();
+    const health = useHealth();
+    const maxPageSize = health.data?.query.maxLimit ?? 5000;
     const { dimensions } = resultsData?.metricQuery || {
         dimensions: [] as string[],
     };
@@ -162,13 +168,19 @@ const GeneralSettings: FC = () => {
         setHideRowNumbers,
         setShowColumnCalculation,
         setShowResultsTotal,
+        enablePagination,
+        setEnablePagination,
+        pageSize,
+        setPageSize,
         setShowRowCalculation,
         setShowSubtotals,
+        setShowRowGrouping,
         setShowTableNames,
         showColumnCalculation,
         showResultsTotal,
         showRowCalculation,
         showSubtotals,
+        showRowGrouping,
         showTableNames,
         pivotMetricHeaderPosition,
         setPivotMetricHeaderPosition,
@@ -555,6 +567,70 @@ const GeneralSettings: FC = () => {
                     }}
                 />
                 <Tooltip
+                    disabled={!isPivotTableEnabled && !showSubtotals}
+                    label={t(
+                        'components_visualization_configs_table.settings.pagination_not_supported',
+                    )}
+                    w={300}
+                    multiline
+                    withinPortal
+                    position="top-start"
+                >
+                    <Box>
+                        <Group spacing={8} noWrap align="center">
+                            <Checkbox
+                                label={t(
+                                    'components_visualization_configs_table.settings.enable_pagination',
+                                )}
+                                checked={
+                                    enablePagination &&
+                                    !isPivotTableEnabled &&
+                                    !showSubtotals
+                                }
+                                onChange={() => {
+                                    setEnablePagination(!enablePagination);
+                                }}
+                                disabled={
+                                    !!isPivotTableEnabled || showSubtotals
+                                }
+                            />
+                            {enablePagination &&
+                            !isPivotTableEnabled &&
+                            !showSubtotals ? (
+                                <Select
+                                    size="xs"
+                                    w={52}
+                                    styles={compactSelectStyles}
+                                    value={String(pageSize)}
+                                    data={Array.from(
+                                        new Set([
+                                            ...TABLE_PAGINATION_PAGE_SIZES.filter(
+                                                (size) => size <= maxPageSize,
+                                            ),
+                                            ...(pageSize <= maxPageSize
+                                                ? [pageSize]
+                                                : []),
+                                        ]),
+                                    )
+                                        .sort((a, b) => a - b)
+                                        .map((size) => ({
+                                            value: String(size),
+                                            label: String(size),
+                                        }))}
+                                    onChange={(value) => {
+                                        if (value) {
+                                            setPageSize(Number(value));
+                                        }
+                                    }}
+                                    aria-label={t(
+                                        'components_visualization_configs_table.settings.page_size',
+                                    )}
+                                />
+                            ) : null}
+                        </Group>
+                    </Box>
+                </Tooltip>
+                <Tooltip
                     disabled={canUseSubtotals}
                     label={
                         metricsAsRows
@@ -565,7 +641,9 @@ const GeneralSettings: FC = () => {
                                   'components_visualization_configs_table.settings.at_least_two_dimensions',
                                   {
                                       privoted: isPivotTableEnabled
-                                          ? 'un-pivoted'
+                                          ? t(
+                                                'components_visualization_configs_table.settings.un_pivoted',
+                                            )
                                           : '',
                                   },
                               )
@@ -589,6 +667,57 @@ const GeneralSettings: FC = () => {
                                 setShowSubtotals(!showSubtotals);
                             }}
                             disabled={!canUseSubtotals || metricsAsRows}
+                        />
+                    </Box>
+                </Tooltip>
+                <Tooltip
+                    disabled={
+                        canUseSubtotals && !showSubtotals && !metricsAsRows
+                    }
+                    label={
+                        showSubtotals
+                            ? t(
+                                  'components_visualization_configs_table.settings.row_grouping_always_on_with_subtotals',
+                              )
+                            : metricsAsRows
+                            ? t(
+                                  'components_visualization_configs_table.settings.row_grouping_cant_be_used',
+                              )
+                            : t(
+                                  'components_visualization_configs_table.settings.row_grouping_at_least_two_dimensions',
+                                  {
+                                      privoted: isPivotTableEnabled
+                                          ? t(
+                                                'components_visualization_configs_table.settings.un_pivoted',
+                                            )
+                                          : '',
+                                  },
+                              )
+                    }
+                    w={300}
+                    multiline
+                    withinPortal
+                    position="top-start"
+                >
+                    <Box>
+                        <Checkbox
+                            label={t(
+                                'components_visualization_configs_table.settings.group_repeated_row_values',
+                            )}
+                            checked={
+                                showSubtotals ||
+                                (canUseSubtotals &&
+                                    !metricsAsRows &&
+                                    (showRowGrouping ?? false))
+                            }
+                            onChange={() => {
+                                setShowRowGrouping(!showRowGrouping);
+                            }}
+                            disabled={
+                                !canUseSubtotals ||
+                                metricsAsRows ||
+                                showSubtotals
+                            }
                         />
                     </Box>
                 </Tooltip>

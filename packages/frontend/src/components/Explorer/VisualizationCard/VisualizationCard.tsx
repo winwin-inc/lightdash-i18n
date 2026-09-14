@@ -1,6 +1,8 @@
 import { subject } from '@casl/ability';
 import {
+    ChartType,
     ECHARTS_DEFAULT_COLORS,
+    isTableChartConfig,
     NotFoundError,
     type ApiErrorDetail,
     type PivotConfig,
@@ -25,6 +27,7 @@ import ErrorBoundary from '../../../features/errorBoundary/ErrorBoundary';
 import {
     explorerActions,
     selectColumnOrder,
+    selectFromDashboard,
     selectIsEditMode,
     selectIsVisualizationConfigOpen,
     selectIsVisualizationExpanded,
@@ -33,11 +36,18 @@ import {
     useExplorerDispatch,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { resolveMergeColumnOrder } from '../../../features/mergeQuery/utils/resolveMergeColumnOrder';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
+import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
+import { useCalculateCount } from '../../../hooks/useCalculateCount';
 import { useExplore } from '../../../hooks/useExplore';
-import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
+import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
+import {
+    getTableConfigPageSize,
+    isWarehousePaginatedTableConfig,
+} from '../../../utils/isWarehousePaginatedTableChart';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
@@ -47,11 +57,14 @@ import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard/constants';
 import MantineIcon from '../../common/MantineIcon';
 import LightdashVisualization from '../../LightdashVisualization';
+import { type TablePaginationState } from '../../LightdashVisualization/context';
 import VisualizationProvider from '../../LightdashVisualization/VisualizationProvider';
 import { type EchartSeriesClickEvent } from '../../SimpleChart';
 import { VisualizationConfigPortalId } from '../ExplorePanel/constants';
 import VisualizationConfig from '../VisualizationCard/VisualizationConfig';
 import { SeriesContextMenu } from './SeriesContextMenu';
+import { useExplorerResultsData } from './useExplorerResultsData';
+import VisualizationTimezone from './VisualizationTimezone';
 import VisualizationWarning from './VisualizationWarning';
 
 export type EchartsClickEvent = {
@@ -73,18 +86,19 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         (context) => context.state.savedChart,
     );
 
-    const { query, queryResults, isLoading, getDownloadQueryUuid } =
-        useExplorerQuery();
-    const isLoadingQueryResults = isLoading || queryResults.isFetchingRows;
-
-    const resultsData = useMemo(
-        () => ({
-            ...queryResults,
-            metricQuery: query.data?.metricQuery,
-            fields: query.data?.fields,
-        }),
-        [query.data, queryResults],
-    );
+    const {
+        query,
+        queryResults,
+        getDownloadQueryUuid,
+        missingRequiredParameters,
+        computedMetricQuery,
+        parameters,
+        merge,
+        mergeResults,
+        isLoadingQueryResults: mergeAwareIsLoadingQueryResults,
+        resultsData: mergeAwareResultsData,
+    } = useExplorerResultsData();
+    const fromDashboard = useExplorerSelector(selectFromDashboard);
 
     const setPivotFields = useExplorerContext(
         (context) => context.actions.setPivotFields,
@@ -121,16 +135,140 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const pivotConfig = useExplorerContext(
         (context) => context.state.unsavedChartVersion.pivotConfig,
     );
+    const projectUuid = useExplorerContext(
+        (context) => context.state.savedChart?.projectUuid || fallBackUUid,
+    );
+
+    const isWarehousePaginatedTable = useMemo(
+        () => isWarehousePaginatedTableConfig(chartConfig, pivotConfig),
+        [chartConfig, pivotConfig],
+    );
+
+    const configuredPageSize = useMemo(
+        () =>
+            getTableConfigPageSize(
+                chartConfig,
+                health.data?.query.maxLimit ?? 5000,
+            ),
+        [chartConfig, health.data?.query.maxLimit],
+    );
+
+    const { data: fromDashboardData } = useDashboardQuery(
+        fromDashboard ?? undefined,
+    );
+
+    const chartPagedQuery = useExplorerChartPagedQuery({
+        enabled:
+            isWarehousePaginatedTable &&
+            Boolean(tableName) &&
+            !mergeResults,
+        projectUuid,
+        tableName,
+        metricQuery: computedMetricQuery,
+        configuredPageSize,
+        parameters,
+        missingRequiredParameters,
+        fromDashboard,
+        dashboardContext: fromDashboardData
+            ? {
+                  dashboardSlug: fromDashboardData.slug,
+                  dashboardName: fromDashboardData.name,
+              }
+            : undefined,
+    });
+
+    // Real total for showResultsTotal without pagination (do NOT enable paged query).
+    // Pivot tables keep limit-based rowsCount; skip COUNT when warehouse pagination
+    // already fetches count via chartPagedQuery. Merge queries skip COUNT as well.
+    const showResultsTotalWithoutPagination = useMemo(() => {
+        if (mergeResults || isWarehousePaginatedTable) {
+            return false;
+        }
+        if (chartConfig.type !== ChartType.TABLE) {
+            return false;
+        }
+        if (pivotConfig?.columns && pivotConfig.columns.length > 0) {
+            return false;
+        }
+        const config = chartConfig.config;
+        return isTableChartConfig(config) && Boolean(config.showResultsTotal);
+    }, [chartConfig, isWarehousePaginatedTable, mergeResults, pivotConfig]);
+
+    const resultsTotalCount = useCalculateCount({
+        metricQuery: computedMetricQuery,
+        explore: tableName,
+        parameters,
+        projectUuid,
+        dashboardContext: fromDashboardData
+            ? {
+                  dashboardSlug: fromDashboardData.slug,
+                  dashboardName: fromDashboardData.name,
+              }
+            : undefined,
+        enabled: showResultsTotalWithoutPagination && Boolean(tableName),
+    });
+
+    const tablePagination = useMemo((): TablePaginationState | undefined => {
+        if (chartPagedQuery.tablePagination) {
+            return chartPagedQuery.tablePagination;
+        }
+        if (!showResultsTotalWithoutPagination) {
+            return undefined;
+        }
+        return {
+            enabled: false,
+            totalRowCount: resultsTotalCount.data?.rowCount,
+            isCountLoading:
+                resultsTotalCount.data === undefined &&
+                !resultsTotalCount.isError,
+            isCountError: Boolean(resultsTotalCount.isError),
+        };
+    }, [
+        chartPagedQuery.tablePagination,
+        showResultsTotalWithoutPagination,
+        resultsTotalCount.data,
+        resultsTotalCount.isError,
+    ]);
+
+    const chartResultsData = useMemo(
+        () => ({
+            ...chartPagedQuery.queryResults,
+            metricQuery: chartPagedQuery.query.data?.metricQuery,
+            fields: chartPagedQuery.query.data?.fields,
+        }),
+        [chartPagedQuery.query.data, chartPagedQuery.queryResults],
+    );
+
+    const resultsData =
+        mergeResults || !isWarehousePaginatedTable
+            ? mergeAwareResultsData
+            : chartResultsData;
+
+    const isLoadingQueryResults =
+        mergeResults || !isWarehousePaginatedTable
+            ? mergeAwareIsLoadingQueryResults
+            : chartPagedQuery.isLoading;
+
+    const visualizationColumnOrder = mergeResults
+        ? resolveMergeColumnOrder(mergeResults.columnOrder, columnOrder)
+        : columnOrder;
 
     const unsavedChartVersion = useMemo(
         () => ({
             tableName,
-            metricQuery,
-            tableConfig: { columnOrder },
+            metricQuery: mergeResults?.metricQuery ?? metricQuery,
+            tableConfig: { columnOrder: visualizationColumnOrder },
             chartConfig,
             pivotConfig,
         }),
-        [tableName, metricQuery, columnOrder, chartConfig, pivotConfig],
+        [
+            tableName,
+            metricQuery,
+            visualizationColumnOrder,
+            chartConfig,
+            pivotConfig,
+            mergeResults?.metricQuery,
+        ],
     );
 
     const tableCalculationsMetadata = useExplorerContext(
@@ -140,9 +278,6 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
     const toggleSection = useCallback(
         () => toggleExpandedSection(ExplorerSection.VISUALIZATION),
         [toggleExpandedSection],
-    );
-    const projectUuid = useExplorerContext(
-        (context) => context.state.savedChart?.projectUuid || fallBackUUid,
     );
 
     const { data: explore } = useExplore(unsavedChartVersion.tableName);
@@ -193,10 +328,23 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
         [unsavedChartVersion],
     );
 
-    const { missingRequiredParameters } = useExplorerQuery();
-
     const apiErrorDetail = useMemo(() => {
-        const queryError = query.error?.error ?? queryResults.error?.error;
+        if (merge?.runError) return merge.runError.error;
+        if (merge?.runErrors.length) {
+            return {
+                message: merge.runErrors
+                    .map((error) => error.message)
+                    .join(' '),
+                name: 'Error',
+                statusCode: 400,
+                data: {},
+            } satisfies ApiErrorDetail;
+        }
+
+        const queryError = isWarehousePaginatedTable && !mergeResults
+            ? (chartPagedQuery.query.error?.error ??
+              chartPagedQuery.queryResults.error?.error)
+            : (query.error?.error ?? queryResults.error?.error);
 
         return !missingRequiredParameters?.length
             ? queryError
@@ -208,6 +356,12 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                   data: {},
               } satisfies ApiErrorDetail);
     }, [
+        merge?.runError,
+        merge?.runErrors,
+        isWarehousePaginatedTable,
+        mergeResults,
+        chartPagedQuery.query.error?.error,
+        chartPagedQuery.queryResults.error?.error,
         query.error?.error,
         queryResults.error?.error,
         missingRequiredParameters,
@@ -269,7 +423,12 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                 onPivotDimensionsChange={setPivotFields}
                 colorPalette={org?.chartColors ?? ECHARTS_DEFAULT_COLORS}
                 tableCalculationsMetadata={tableCalculationsMetadata}
-                parameters={query.data?.usedParametersValues}
+                parameters={
+                    isWarehousePaginatedTable
+                        ? chartPagedQuery.query.data?.usedParametersValues
+                        : query.data?.usedParametersValues
+                }
+                tablePagination={tablePagination}
             >
                 <CollapsableCard
                     title={t('components_explorer_visualization_card.chart')}
@@ -295,6 +454,18 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                     rightHeaderElement={
                         isOpen && (
                             <>
+                                <VisualizationTimezone
+                                    resolvedTimezone={
+                                        isWarehousePaginatedTable
+                                            ? chartPagedQuery.query.data
+                                                  ?.resolvedTimezone
+                                            : query.data?.resolvedTimezone
+                                    }
+                                    timezoneSetting={
+                                        unsavedChartVersion.metricQuery
+                                            ?.timezone
+                                    }
+                                />
                                 {isEditMode ? (
                                     <Button
                                         {...COLLAPSABLE_CARD_BUTTON_PROPS}
@@ -349,7 +520,9 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                                     {!!projectUuid && (
                                         <ChartDownloadMenu
                                             getDownloadQueryUuid={
-                                                getDownloadQueryUuid
+                                                mergeResults && merge
+                                                    ? merge.getDownloadQueryUuid
+                                                    : getDownloadQueryUuid
                                             }
                                             projectUuid={projectUuid}
                                             chartName={savedChart?.name}

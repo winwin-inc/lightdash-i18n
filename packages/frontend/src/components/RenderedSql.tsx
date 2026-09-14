@@ -16,6 +16,7 @@ import {
     MONACO_DEFAULT_OPTIONS,
     registerMonacoLanguage,
 } from '../features/sqlRunner/utils/monaco';
+import { useMergeCompiledSql } from '../features/mergeQuery/hooks/useMergeCompiledSql';
 import { useCompiledSql } from '../hooks/useCompiledSql';
 import { useProject } from '../hooks/useProject';
 
@@ -34,6 +35,9 @@ export const RenderedSql = () => {
         [project],
     );
     const { data, error, isInitialLoading } = useCompiledSql();
+    // With a merge configured, the merged statement is what Run executes;
+    // Query A's SQL alone would be SQL that does not run.
+    const merge = useMergeCompiledSql();
 
     const beforeMount: BeforeMount = useCallback(
         (monaco) => {
@@ -48,9 +52,12 @@ export const RenderedSql = () => {
     );
 
     const formattedSql = useMemo(() => {
-        if (!data?.query) return '';
+        const sqlToFormat = merge.isMergeActive
+            ? merge.data?.sql
+            : data?.query;
+        if (!sqlToFormat) return '';
         try {
-            return format(data.query, {
+            return format(sqlToFormat, {
                 language: getLanguage(project?.warehouseConnection?.type),
             });
         } catch (e) {
@@ -58,11 +65,20 @@ export const RenderedSql = () => {
                 'Error rendering SQL:',
                 e instanceof Error ? e.message : 'Unknown error occurred',
             );
-            return data.query;
+            return sqlToFormat;
         }
-    }, [data?.query, project?.warehouseConnection?.type]);
+    }, [
+        data?.query,
+        merge.isMergeActive,
+        merge.data?.sql,
+        project?.warehouseConnection?.type,
+    ]);
 
-    if (isInitialLoading) {
+    const mergeCompileErrors = merge.isMergeActive
+        ? (merge.data?.errors ?? [])
+        : [];
+
+    if (isInitialLoading || (merge.isMergeActive && merge.isInitialLoading)) {
         return (
             <Stack my="xs" align="center">
                 <Loader size="lg" color="gray" mt="xs" />
@@ -70,6 +86,25 @@ export const RenderedSql = () => {
                     {t('components_rendered_sql.compiling_sql')}
                 </Title>
             </Stack>
+        );
+    }
+
+    if (mergeCompileErrors.length > 0) {
+        return (
+            <div style={{ margin: 10 }}>
+                <Alert
+                    icon={<IconAlertCircle size="1rem" />}
+                    title={t('components_rendered_sql.compilation_error')}
+                    color="red"
+                    variant="filled"
+                >
+                    {mergeCompileErrors.map((mergeError) => (
+                        <p key={`${mergeError.kind}-${mergeError.sourceId ?? ''}`}>
+                            {mergeError.message}
+                        </p>
+                    ))}
+                </Alert>
+            </div>
         );
     }
 

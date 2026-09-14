@@ -77,6 +77,7 @@ export type DbUserDetails = {
     is_active: boolean;
     is_trial_account: boolean;
     updated_at: Date;
+    timezone: string | null;
 };
 
 export const mapDbUserDetailsToLightdashUser = (
@@ -100,6 +101,7 @@ export const mapDbUserDetailsToLightdashUser = (
     isPending: !hasAuthentication,
     createdAt: user.created_at,
     updatedAt: user.updated_at,
+    timezone: user.timezone ?? null,
 });
 
 const userDetailsQueryBuilder = (
@@ -458,6 +460,7 @@ export class UserModel {
             isSetupComplete,
             isActive,
             isTrialAccount,
+            timezone,
         }: Partial<UpdateUserArgs>,
     ): Promise<LightdashUser> {
         await this.database.transaction(async (trx) => {
@@ -473,6 +476,7 @@ export class UserModel {
                     is_tracking_anonymized: this.canTrackingBeAnonymized()
                         ? isTrackingAnonymized
                         : false,
+                    ...(timezone !== undefined && { timezone }),
                     updated_at: new Date(),
                 })
                 .returning('*');

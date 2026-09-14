@@ -11,13 +11,11 @@ import {
     Badge,
     Box,
     Button,
-    Card,
     Flex,
     Group,
     HoverCard,
     List,
     LoadingOverlay,
-    Modal,
     Pagination,
     Paper,
     Select,
@@ -29,13 +27,7 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import {
-    IconAlertCircle,
-    IconHelp,
-    IconPlus,
-    IconTrash,
-    IconX,
-} from '@tabler/icons-react';
+import { IconHelp, IconPlus, IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -43,10 +35,7 @@ import { useTableStyles } from '../../../hooks/styles/useTableStyles';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import { useCreateInviteLinkMutation } from '../../../hooks/useInviteLink';
 import { useUpsertOrganizationUserRoleAssignmentMutation } from '../../../hooks/useOrganizationRoles';
-import {
-    useDeleteOrganizationUserMutation,
-    usePaginatedOrganizationUsers,
-} from '../../../hooks/useOrganizationUsers';
+import { usePaginatedOrganizationUsers } from '../../../hooks/useOrganizationUsers';
 import useApp from '../../../providers/App/useApp';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
@@ -55,6 +44,7 @@ import { SettingsCard } from '../../common/Settings/SettingsCard';
 import { DEFAULT_PAGE_SIZE } from '../../common/Table/constants';
 import InvitesModal from './InvitesModal';
 import InviteSuccess from './InviteSuccess';
+import UsersActionMenu from './UsersActionMenu';
 
 const UserNameDisplay: FC<{
     user: OrganizationMemberProfile;
@@ -208,15 +198,11 @@ const UserListItem: FC<{
     user: OrganizationMemberProfile | OrganizationMemberProfileWithGroups;
     isGroupManagementEnabled?: boolean;
 }> = ({ disabled, user, isGroupManagementEnabled }) => {
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [showInviteSuccess, setShowInviteSuccess] = useState(true);
-    const { mutate, isLoading: isDeleting } =
-        useDeleteOrganizationUserMutation();
     const inviteLink = useCreateInviteLinkMutation();
     const { track } = useTracking();
     const { user: activeUser, health } = useApp();
     const updateUserRole = useUpsertOrganizationUserRoleAssignmentMutation();
-    const handleDelete = () => mutate(user.userUuid);
 
     const getRoleDescription = useRoleDescription();
     const { t } = useTranslation();
@@ -369,71 +355,11 @@ const UserListItem: FC<{
                             </td>
                         )}
                         <td>
-                            <Group position="right">
-                                <Button
-                                    px="xs"
-                                    variant="outline"
-                                    onClick={() => setIsDeleteDialogOpen(true)}
-                                    disabled={disabled}
-                                    color="red"
-                                >
-                                    <MantineIcon icon={IconTrash} />
-                                </Button>
-                            </Group>
-                            <Modal
-                                opened={isDeleteDialogOpen}
-                                onClose={() =>
-                                    !isDeleting
-                                        ? setIsDeleteDialogOpen(false)
-                                        : undefined
-                                }
-                                title={
-                                    <Group spacing="xs">
-                                        <MantineIcon
-                                            size="lg"
-                                            icon={IconAlertCircle}
-                                            color="red"
-                                        />
-                                        <Title order={4}>
-                                            {t(
-                                                'components_user_settings_groups_panel_users_view.modal_delete.title',
-                                            )}
-                                        </Title>
-                                    </Group>
-                                }
-                            >
-                                <Text pb="md">
-                                    {t(
-                                        'components_user_settings_groups_panel_users_view.modal_delete.content',
-                                    )}
-                                </Text>
-                                <Card withBorder>
-                                    <UserNameDisplay user={user} />
-                                </Card>
-                                <Group spacing="xs" position="right" mt="md">
-                                    <Button
-                                        disabled={isDeleting}
-                                        onClick={() =>
-                                            setIsDeleteDialogOpen(false)
-                                        }
-                                        variant="outline"
-                                        color="dark"
-                                    >
-                                        {t(
-                                            'components_user_settings_groups_panel_users_view.modal_delete.cancel',
-                                        )}
-                                    </Button>
-                                    <Button
-                                        onClick={handleDelete}
-                                        disabled={isDeleting}
-                                        color="red"
-                                    >
-                                        {t(
-                                            'components_user_settings_groups_panel_users_view.modal_delete.delete',
-                                        )}
-                                    </Button>
-                                </Group>
-                            </Modal>
+                            <UsersActionMenu
+                                user={user}
+                                disabled={disabled}
+                                userDisplay={<UserNameDisplay user={user} />}
+                            />
                         </td>
                     </>
                 )}

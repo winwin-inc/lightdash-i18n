@@ -332,6 +332,38 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                 ) : null}
                             </Can>
 
+                            {limit === Limit.TABLE && (
+                                <Alert color="gray" p="xs">
+                                    <Text size="xs">
+                                        {t(
+                                            'components_export_results.table_results_limit_hint',
+                                            {
+                                                count: totalResults,
+                                            },
+                                        )}
+                                    </Text>
+                                </Alert>
+                            )}
+                            {(limit === Limit.ALL ||
+                                limit === Limit.CUSTOM) &&
+                                !isPivotTable && (
+                                    <Alert color="gray" p="xs">
+                                        <Text size="xs">
+                                            {fileType ===
+                                            DownloadFileType.XLSX
+                                                ? t(
+                                                      'components_export_results.limit',
+                                                  )
+                                                : t(
+                                                      'components_export_results.csv_cells_limit_hint',
+                                                      {
+                                                          csvCellsLimit:
+                                                              csvCellsLimit.toLocaleString(),
+                                                      },
+                                                  )}
+                                        </Text>
+                                    </Alert>
+                                )}
                             {limit === Limit.CUSTOM && (
                                 <NumberInput
                                     w="100%"
@@ -360,20 +392,6 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                     </Text>
                                 </Alert>
                             )}
-
-                            {/* Excel row limit warning */}
-                            {fileType === DownloadFileType.XLSX &&
-                                (limit === Limit.ALL ||
-                                    limit === Limit.CUSTOM) &&
-                                !isPivotTable && (
-                                    <Alert color="gray.9" p="xs">
-                                        <Text size="xs">
-                                            {t(
-                                                'components_export_results.limit',
-                                            )}
-                                        </Text>
-                                    </Alert>
-                                )}
                         </Stack>
                     </Stack>
 

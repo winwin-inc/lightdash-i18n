@@ -145,13 +145,18 @@ export function registerExploreCatalogTools(
         server,
         'core-tool',
         'list_explores',
-        '列出项目 explores（REST: GET …/explores）。默认精简字段；full=true 返回完整结构。',
+        '列出项目 explores（GET …/explores）。默认精简含 name/label/groups/groupLabel：groups 为嵌套分组 path keys（优先于旧单层 groupLabel；非展示文案）。完整结构用 full=true。',
         {
             projectUuid: z.string().optional(),
             filtered: z.boolean().optional(),
             page: z.number().optional(),
             pageSize: z.number().optional(),
-            full: z.boolean().optional(),
+            full: z
+                .boolean()
+                .optional()
+                .describe(
+                    '默认 false：精简含 groups（嵌套 path keys）与 groupLabel。嵌套分组以 list_explores 为准。',
+                ),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
@@ -203,11 +208,16 @@ export function registerExploreCatalogTools(
         server,
         'core-tool',
         'find_explores',
-        '用数据目录搜索「找 explore」（GET …/dataCatalog?type=table&search=…）。默认精简字段；full=true 返回完整结构。',
+        '用数据目录搜索 explore（GET …/dataCatalog?type=table）。默认精简含 groupLabel；groups 有则透出（catalog 可能无嵌套，完整 groups 优先 list_explores）。full=true 返回完整结构。',
         {
             projectUuid: z.string().optional(),
             searchQuery: z.string(),
-            full: z.boolean().optional(),
+            full: z
+                .boolean()
+                .optional()
+                .describe(
+                    '默认 false：精简字段。嵌套 groups 可能缺失，完整路径用 list_explores。',
+                ),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);

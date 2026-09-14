@@ -16,8 +16,7 @@ export const RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION = `【语义 Metric Query】�
 ## 看板上下文 dashboardUuid
 部分 explore 依赖 dashboardSlug。
 - 已知看板时传 dashboardUuid；可放在 metricQuery JSON 内，也可用顶层参数（顶层优先）。
-- 未传且需要看板上下文时，不是报错；会返回 \`status: "dashboard_selection_required"\` 和 \`candidates\`。
-- 收到 candidates 后，选一个 dashboardUuid，再带上它重试。
+- 未传且需要看板上下文时：反查仅 1 个关联看板则自动选用并查数；多个关联看板时返回 \`dashboard_selection_required\` + \`candidates\`，选一个后重试。
 - 不依赖看板上下文时，不传 dashboardUuid 也会直接查数。
 
 ## 何时使用
@@ -42,7 +41,7 @@ run_semantic_metric_query({
 错误示例：run_metric_query({ metricQuery: "..." })
 
 ## 错误处理
-- status=dashboard_selection_required：不是失败；从 candidates 选 dashboardUuid 后重试
+- status=dashboard_selection_required：多候选时出现；从 candidates 选 dashboardUuid 后重试（唯一候选已自动选用）
 - 422/4xx：Lightdash API 校验失败，按返回信息改 metricQuery 后重试
 - 401/403：检查 PAT 与项目权限
 - xxx.filter is not a function：通常是把 Explorer JSON 传给了 run_metric_query`;

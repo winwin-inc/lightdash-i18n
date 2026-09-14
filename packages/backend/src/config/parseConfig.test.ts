@@ -13,6 +13,7 @@ import {
     getIntegerFromEnvironmentVariable,
     getMaybeBase64EncodedFromEnvironmentVariable,
     getObjectFromEnvironmentVariable,
+    isSemverPrereleaseVersion,
     parseConfig,
     parseOrganizationMemberRoleArray,
 } from './parseConfig';
@@ -37,12 +38,15 @@ test('Should default results S3 config to S3 config', () => {
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'mock_bucket',
         region: 'mock_region',
         accessKey: 'mock_access_key',
         secretKey: 'mock_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
     });
+    expect(config.s3?.publicEndpoint).toBeUndefined();
 });
 
 test('Should use explicit results S3 config when set', () => {
@@ -53,11 +57,13 @@ test('Should use explicit results S3 config when set', () => {
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'new_bucket',
         region: 'new_region',
         accessKey: 'new_access_key',
         secretKey: 'new_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
     });
 });
 
@@ -75,11 +81,31 @@ test('Should prioritize new results S3 config over deprecated config when both a
     const config = parseConfig();
     expect(config.results.s3).toEqual({
         endpoint: 'mock_endpoint',
+        publicEndpoint: undefined,
         bucket: 'new_bucket',
         region: 'new_region',
         accessKey: 'new_access_key',
         secretKey: 'new_secret_key',
         forcePathStyle: false,
+        pathPrefix: undefined,
+    });
+});
+
+test('Should parse S3_PUBLIC_ENDPOINT into s3 and results.s3', () => {
+    process.env.S3_ACCESS_KEY = 'mock_access_key';
+    process.env.S3_SECRET_KEY = 'mock_secret_key';
+    process.env.S3_PUBLIC_ENDPOINT = 'https://report.example.com';
+    const config = parseConfig();
+    expect(config.s3?.publicEndpoint).toBe('https://report.example.com');
+    expect(config.results.s3).toEqual({
+        endpoint: 'mock_endpoint',
+        publicEndpoint: 'https://report.example.com',
+        bucket: 'mock_bucket',
+        region: 'mock_region',
+        accessKey: 'mock_access_key',
+        secretKey: 'mock_secret_key',
+        forcePathStyle: false,
+        pathPrefix: undefined,
     });
 });
 
@@ -557,5 +583,40 @@ describe('parseAndSanitizeSchedulerTasks', () => {
             parseConfig();
             expect(console.warn).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('isSemverPrereleaseVersion', () => {
+    test('detects semver prerelease tags', () => {
+        expect(isSemverPrereleaseVersion('2.0.1-test.1')).toBe(true);
+        expect(isSemverPrereleaseVersion('2.0.1-rc.1')).toBe(true);
+        expect(isSemverPrereleaseVersion(' 1.2.3-beta ')).toBe(true);
+    });
+
+    test('rejects formal versions and non-semver strings', () => {
+        expect(isSemverPrereleaseVersion('2.0.1')).toBe(false);
+        expect(isSemverPrereleaseVersion('dev-20260902-120000')).toBe(false);
+        expect(isSemverPrereleaseVersion(undefined)).toBe(false);
+        expect(isSemverPrereleaseVersion('')).toBe(false);
+    });
+});
+
+describe('CDN config prerelease', () => {
+    test('prerelease STATIC_FILES_VERSION forces backend static even with CDN_BASE_URL', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.CDN_BASE_URL = 'https://img0.banmahui.cn';
+        process.env.STATIC_FILES_VERSION = '2.0.1-test.1';
+        const config = parseConfig();
+        expect(config.cdn?.baseUrl).toBeUndefined();
+        expect(config.cdn?.staticFilesVersion).toBe('2.0.1-test.1');
+    });
+
+    test('formal version keeps CDN_BASE_URL', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.CDN_BASE_URL = 'https://cdn.example.com';
+        process.env.STATIC_FILES_VERSION = '2.0.1';
+        const config = parseConfig();
+        expect(config.cdn?.baseUrl).toBe('https://cdn.example.com');
+        expect(config.cdn?.staticFilesVersion).toBe('2.0.1');
     });
 });

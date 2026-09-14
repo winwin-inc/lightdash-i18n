@@ -14,6 +14,20 @@ import type {
     SavedChart,
 } from '..';
 
+/** STUB: subset of upstream contentAsCode/core ContentAsCodeType */
+export enum ContentAsCodeType {
+    CHART = 'chart',
+    DASHBOARD = 'dashboard',
+    SQL_CHART = 'sql_chart',
+    SPACE = 'space',
+    VIRTUAL_VIEW = 'virtual_view',
+    SCHEDULED_DELIVERY = 'scheduled_delivery',
+    ALERT = 'alert',
+    GOOGLE_SHEETS_SYNC = 'google_sheets_sync',
+    AI_AGENT = 'ai_agent',
+    EXTERNAL_CONNECTION = 'external_connection',
+}
+
 export const currentVersion = 1;
 // We want to only use properties that can be modified by the user
 // We'll be using slug to access these charts, so uuids are not included

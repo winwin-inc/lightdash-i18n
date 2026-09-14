@@ -1,10 +1,16 @@
-import { TimeFrames, type WeekDay } from '@lightdash/common';
+import {
+    DATA_MONTH_AVAILABLE_FROM_DAY,
+    TimeFrames,
+    type WeekDay,
+} from '@lightdash/common';
 import { type DayOfWeek } from '@mantine/dates';
 
 import dayjs from 'dayjs';
 import getLocaleData from 'dayjs/plugin/localeData';
 import quarterOfYear from 'dayjs/plugin/quarterOfYear';
 import updateLocale from 'dayjs/plugin/updateLocale';
+
+export { DATA_MONTH_AVAILABLE_FROM_DAY };
 
 dayjs.extend(quarterOfYear);
 
@@ -78,9 +84,6 @@ export const mergeMaxDate = (a?: Date, b?: Date): Date | undefined => {
     return dayjs(a).isBefore(dayjs(b)) ? a : b;
 };
 
-/** 底层数据每月 3 号更新；4 号起上月数据可用，4 号前只能选到上上月 */
-export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
-
 const toDayjs = (value: Date | dayjs.Dayjs | string = dayjs()): dayjs.Dayjs =>
     dayjs.isDayjs(value) ? value : dayjs(value);
 
@@ -138,6 +141,19 @@ export const getDynamicMaxAllowedDate = (
         return ref.subtract(1, 'quarter').endOf('quarter').toDate();
     }
     return undefined;
+};
+
+/**
+ * 按 4 号数据可用规则解析「上月（4号显示）」对应的月初日期。
+ * 4 号前 → 上上月初；4 号及以后 → 上月初。
+ */
+export const getLastAvailableMonth = (
+    referenceDate: Date | dayjs.Dayjs = dayjs(),
+): Date => {
+    const max = getDynamicMaxAllowedDate(TimeFrames.MONTH, referenceDate, true);
+    return toDayjs(max ?? referenceDate)
+        .startOf('month')
+        .toDate();
 };
 
 /**

@@ -211,6 +211,24 @@ export const isWithValueFilter = (filterOperator: FilterOperator) =>
     filterOperator !== FilterOperator.NULL &&
     filterOperator !== FilterOperator.NOT_NULL;
 
+/**
+ * An "empty" dashboard filter is active (not disabled), uses a value-requiring
+ * operator, and has no value set — an unset default control the viewer fills in
+ * at runtime.
+ */
+export const isEmptyDashboardFilterRule = (filter: {
+    operator: FilterOperator;
+    values?: unknown[] | null;
+    disabled?: boolean;
+    includeNull?: boolean;
+}): boolean =>
+    filter.disabled !== true &&
+    isWithValueFilter(filter.operator) &&
+    filter.operator !== FilterOperator.IN_THE_CURRENT &&
+    filter.operator !== FilterOperator.NOT_IN_THE_CURRENT &&
+    filter.includeNull !== true &&
+    (!Array.isArray(filter.values) || filter.values.length === 0);
+
 export const getFilterRuleWithDefaultValue = <T extends FilterRule>(
     filterType: FilterType,
     field: FilterableField | undefined,
@@ -1450,3 +1468,173 @@ export const getVisibleFilterOperatorOptions = (
 
     return visibleOptions;
 };
+
+// When a dashboard has no tabs, the lock toggle stores the dashboard uuid as
+// a sentinel in lockedTabUuids — so any non-empty list means "locked".
+export const isFilterLockedOnTab = (
+    rule: Pick<DashboardFilterRule, 'lockedTabUuids'>,
+    tabUuid: string | undefined,
+    hasTabs: boolean,
+): boolean => {
+    if (!rule.lockedTabUuids || rule.lockedTabUuids.length === 0) return false;
+    if (!hasTabs) return true;
+    if (!tabUuid) return false;
+    return rule.lockedTabUuids.includes(tabUuid);
+};
+
+const buildLockedTargetKeysForTab = (
+    rules: DashboardFilterRule[],
+    tabUuid: string | undefined,
+    hasTabs: boolean,
+): Set<string> => {
+    const keys = new Set<string>();
+    rules.forEach((rule) => {
+        if (isFilterLockedOnTab(rule, tabUuid, hasTabs)) {
+            keys.add(`${rule.target.tableName}::${rule.target.fieldId}`);
+        }
+    });
+    return keys;
+};
+
+const dropRulesTargetingLockedFields = (
+    overrideRules: DashboardFilterRule[],
+    lockedKeys: Set<string>,
+): { kept: DashboardFilterRule[]; droppedCount: number } => {
+    if (lockedKeys.size === 0) {
+        return { kept: overrideRules, droppedCount: 0 };
+    }
+    let droppedCount = 0;
+    const kept = overrideRules.filter((rule) => {
+        const key = `${rule.target.tableName}::${rule.target.fieldId}`;
+        if (lockedKeys.has(key)) {
+            droppedCount += 1;
+            return false;
+        }
+        return true;
+    });
+    return { kept, droppedCount };
+};
+
+export type StripOverridesForLockedFiltersResult = {
+    filters: DashboardFilters;
+    droppedCount: number;
+};
+
+/**
+ * Drop override rules that target a field whose saved filter is locked on the
+ * given tab. For tab-less dashboards (`hasTabs=false`) any non-empty
+ * `lockedTabUuids` is treated as a dashboard-wide lock. For tabbed dashboards
+ * `tabUuid` is required to decide; when undefined nothing is stripped.
+ */
+export const stripOverridesForLockedFiltersOnTab = (
+    saved: DashboardFilters,
+    overrides: DashboardFilters,
+    tabUuid: string | undefined,
+    hasTabs: boolean,
+): StripOverridesForLockedFiltersResult => {
+    const dimensions = dropRulesTargetingLockedFields(
+        overrides.dimensions,
+        buildLockedTargetKeysForTab(saved.dimensions, tabUuid, hasTabs),
+    );
+    const metrics = dropRulesTargetingLockedFields(
+        overrides.metrics,
+        buildLockedTargetKeysForTab(saved.metrics, tabUuid, hasTabs),
+    );
+    const tableCalculations = dropRulesTargetingLockedFields(
+        overrides.tableCalculations,
+        buildLockedTargetKeysForTab(saved.tableCalculations, tabUuid, hasTabs),
+    );
+    return {
+        filters: {
+            dimensions: dimensions.kept,
+            metrics: metrics.kept,
+            tableCalculations: tableCalculations.kept,
+        },
+        droppedCount:
+            dimensions.droppedCount +
+            metrics.droppedCount +
+            tableCalculations.droppedCount,
+    };
+};
+
+export type UnmetFilterRequirement =
+    | { type: 'single'; filter: DashboardFilterRule }
+    | { type: 'group'; groupId: string; filters: DashboardFilterRule[] };
+
+export type FilterRequirementRule = {
+    type: 'single' | 'group';
+    /**
+     * `requiredGroupId` for shared rules; the filter's own id for one-member
+     * rules expressed via `required: true`.
+     */
+    id: string;
+    members: DashboardFilterRule[];
+};
+
+/**
+ * Unified view of filter requirements: every requirement is a rule, a set of
+ * filters where at least one must be set. `required: true` is a one-member
+ * rule; filters sharing a `requiredGroupId` form one rule.
+ */
+export const getFilterRequirementRules = (
+    dashboardFilters: Pick<DashboardFilters, 'dimensions' | 'metrics'>,
+): FilterRequirementRule[] => {
+    const filterRules = [
+        ...dashboardFilters.dimensions,
+        ...dashboardFilters.metrics,
+    ];
+
+    const rules: FilterRequirementRule[] = [];
+    const groupRulesById = new Map<string, FilterRequirementRule>();
+    filterRules.forEach((filterRule) => {
+        if (filterRule.required) {
+            rules.push({
+                type: 'single',
+                id: filterRule.id,
+                members: [filterRule],
+            });
+            return;
+        }
+        if (!filterRule.requiredGroupId) return;
+
+        const existingRule = groupRulesById.get(filterRule.requiredGroupId);
+        if (existingRule) {
+            existingRule.members.push(filterRule);
+            return;
+        }
+        const rule: FilterRequirementRule = {
+            type: 'group',
+            id: filterRule.requiredGroupId,
+            members: [filterRule],
+        };
+        groupRulesById.set(filterRule.requiredGroupId, rule);
+        rules.push(rule);
+    });
+    return rules;
+};
+
+export const isValuelessDashboardFilterRule = (
+    rule: DashboardFilterRule,
+): boolean => rule.disabled === true || isEmptyDashboardFilterRule(rule);
+
+/** A rule is satisfied when any member actually filters the query */
+export const isRequirementRuleSatisfied = (
+    rule: FilterRequirementRule,
+): boolean =>
+    rule.members.some((member) => !isValuelessDashboardFilterRule(member));
+
+/**
+ * Unmet requirements over dimensions + metrics, derived from
+ * `getFilterRequirementRules` so the dashboard lock and the requirement UIs
+ * share a single rule derivation.
+ */
+export const getUnmetFilterRequirements = (
+    dashboardFilters: DashboardFilters,
+): UnmetFilterRequirement[] =>
+    getFilterRequirementRules(dashboardFilters)
+        .filter((rule) => !isRequirementRuleSatisfied(rule))
+        .map<UnmetFilterRequirement>((rule) =>
+            rule.type === 'single'
+                ? { type: 'single', filter: rule.members[0] }
+                : { type: 'group', groupId: rule.id, filters: rule.members },
+        );

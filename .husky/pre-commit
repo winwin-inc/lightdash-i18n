@@ -15,4 +15,8 @@ if git diff --cached --name-only | grep -q "examples/full-jaffle-shop-demo/profi
   exit 1
 fi
 
-npx lint-staged
+if [ -x "$(dirname "$0")/../node_modules/.bin/lint-staged" ]; then
+  pnpm exec lint-staged
+else
+  pnpm dlx lint-staged@12.1.2
+fi

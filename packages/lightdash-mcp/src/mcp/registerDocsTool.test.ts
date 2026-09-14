@@ -10,6 +10,7 @@ describe('get_mcp_docs content', () => {
         assert.deepEqual([...MCP_DOCS_TOPICS], [
             'overview',
             'query_workflow',
+            'content_fields',
             'session_lifecycle',
             'security',
         ]);
@@ -25,6 +26,9 @@ describe('get_mcp_docs content', () => {
         assert.match(getMcpDocsText('security'), /认证 Header/);
         assert.match(getMcpDocsText('session_lifecycle'), /DELETE/);
         assert.match(getMcpDocsText('query_workflow'), /projectUuid/);
+        assert.match(getMcpDocsText('content_fields'), /chartKind/);
+        assert.match(getMcpDocsText('content_fields'), /groups/);
+        assert.match(getMcpDocsText('content_fields'), /custom/);
     });
 
     it('defaults overview', () => {

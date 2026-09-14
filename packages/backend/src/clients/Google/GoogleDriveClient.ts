@@ -45,7 +45,8 @@ export class GoogleDriveClient {
                     this.lightdashConfig.auth.google.oauth2ClientSecret,
                 refresh_token: refreshToken,
             };
-            const authClient = google.auth.fromJSON(credentials);
+            // googleapis typings omit fromJSON on AuthPlus in some versions
+            const authClient = (google.auth as any).fromJSON(credentials);
             return new google.auth.GoogleAuth({
                 authClient,
             });

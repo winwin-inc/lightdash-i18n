@@ -13,11 +13,16 @@ import {
     selectMetricQuery,
     selectMetrics,
     selectParameterReferences,
+    selectPeriodOverPeriodComparisonModal,
     selectSorts,
     selectTableName,
     useExplorerDispatch,
     useExplorerSelector,
 } from '../../features/explorer/store';
+import { MergeAutoRun } from '../../features/mergeQuery/components/MergeAutoRun';
+import { MergeReadOnlyBar } from '../../features/mergeQuery/components/MergeReadOnlyBar';
+import { MergeRelationshipCard } from '../../features/mergeQuery/components/MergeRelationshipCard';
+import { useMergeSafe } from '../../features/mergeQuery/context/useMerge';
 import { useOrganization } from '../../hooks/organization/useOrganization';
 import { useParameters } from '../../hooks/parameters/useParameters';
 import { useCompiledSql } from '../../hooks/useCompiledSql';
@@ -35,10 +40,13 @@ import ExplorerHeader from './ExplorerHeader';
 import FiltersCard from './FiltersCard/FiltersCard';
 import { FormatModal } from './FormatModal';
 import ParametersCard from './ParametersCard/ParametersCard';
+import { PeriodOverPeriodComparisonModal } from './PeriodOverPeriodComparisonModal/PeriodOverPeriodComparisonModal';
 import ResultsCard from './ResultsCard/ResultsCard';
 import SqlCard from './SqlCard/SqlCard';
 import VisualizationCard from './VisualizationCard/VisualizationCard';
 import { WriteBackModal } from './WriteBackModal';
+
+const EMPTY_PARAMETER_REFERENCES: string[] = [];
 
 const Explorer: FC<{ hideHeader?: boolean }> = memo(
     ({ hideHeader = false }) => {
@@ -53,12 +61,26 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
         const parameterReferencesFromRedux = useExplorerSelector(
             selectParameterReferences,
         );
+        const mergeParameterReferences =
+            useMergeSafe()?.parameterReferences ?? EMPTY_PARAMETER_REFERENCES;
+        const effectiveParameterReferences = useMemo(
+            () =>
+                Array.from(
+                    new Set([
+                        ...(parameterReferencesFromRedux ?? []),
+                        ...mergeParameterReferences,
+                    ]),
+                ),
+            [parameterReferencesFromRedux, mergeParameterReferences],
+        );
 
         const { isOpen: isAdditionalMetricModalOpen } = useExplorerSelector(
             selectAdditionalMetricModal,
         );
         const { isOpen: isFormatModalOpen } =
             useExplorerSelector(selectFormatModal);
+        const { isOpen: isPeriodOverPeriodComparisonModalOpen } =
+            useExplorerSelector(selectPeriodOverPeriodComparisonModal);
 
         const dispatch = useExplorerDispatch();
 
@@ -115,9 +137,9 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
 
         const { data: projectParameters } = useParameters(
             projectUuid,
-            parameterReferencesFromRedux ?? undefined,
+            effectiveParameterReferences,
             {
-                enabled: !!parameterReferencesFromRedux?.length,
+                enabled: effectiveParameterReferences.length > 0,
             },
         );
 
@@ -152,14 +174,17 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
                 queryUuid={queryUuid}
             >
                 <Stack sx={{ flexGrow: 1 }}>
+                    <MergeAutoRun />
                     {!hideHeader && isEditMode && <ExplorerHeader />}
 
+                    <MergeReadOnlyBar />
+                    <MergeRelationshipCard />
+
                     {!!tableName &&
-                        parameterReferencesFromRedux &&
-                        parameterReferencesFromRedux?.length > 0 && (
+                        effectiveParameterReferences.length > 0 && (
                             <ParametersCard
                                 parameterReferences={
-                                    parameterReferencesFromRedux
+                                    effectiveParameterReferences
                                 }
                             />
                         )}
@@ -191,6 +216,9 @@ const Explorer: FC<{ hideHeader?: boolean }> = memo(
 
                 {isAdditionalMetricModalOpen && <CustomMetricModal />}
                 {isFormatModalOpen && <FormatModal />}
+                {isPeriodOverPeriodComparisonModalOpen && (
+                    <PeriodOverPeriodComparisonModal />
+                )}
             </MetricQueryDataProvider>
         );
     },

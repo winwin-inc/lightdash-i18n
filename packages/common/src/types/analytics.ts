@@ -91,6 +91,7 @@ export enum QueryExecutionContext {
     SCHEDULED_CHART = 'scheduledChart',
     SCHEDULED_DASHBOARD = 'scheduledDashboard',
     CALCULATE_TOTAL = 'calculateTotal',
+    CALCULATE_COUNT = 'calculateCount',
     CALCULATE_SUBTOTAL = 'calculateSubtotal',
     EMBED = 'embed',
     AI = 'ai',
@@ -98,4 +99,5 @@ export enum QueryExecutionContext {
     API = 'api',
     CLI = 'cli',
     METRICS_EXPLORER = 'metricsExplorer',
+    DATA_APP_SAMPLE = 'dataAppSample',
 }

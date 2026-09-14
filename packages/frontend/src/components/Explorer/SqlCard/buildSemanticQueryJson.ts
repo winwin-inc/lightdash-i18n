@@ -3,6 +3,7 @@
  * Inject projectUuid / dashboardUuid when present so MCP can use the same
  * context without reverse lookup. Context fields are placed first so they
  * are visually obvious in the editor.
+ * limit / offset are always last and adjacent (pagination-friendly).
  */
 export type SemanticQueryContext = {
     projectUuid?: string | null;
@@ -20,10 +21,14 @@ export function buildSemanticQueryJson(
     const projectUuid = nonEmptyString(context.projectUuid);
     const dashboardUuid = nonEmptyString(context.dashboardUuid);
 
-    const payload = {
+    const { limit, offset, ...rest } = metricQuery as Record<string, unknown>;
+
+    const payload: Record<string, unknown> = {
         ...(projectUuid ? { projectUuid } : {}),
         ...(dashboardUuid ? { dashboardUuid } : {}),
-        ...metricQuery,
+        ...rest,
+        ...(limit !== undefined ? { limit } : {}),
+        ...(offset !== undefined ? { offset } : {}),
     };
 
     return JSON.stringify(payload, null, 2);

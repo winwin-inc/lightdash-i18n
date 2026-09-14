@@ -19,15 +19,23 @@ const TableFooter = () => {
                     <tr key={footerGroup.id}>
                         {footerGroup.headers.map((header) => {
                             const meta = header.column.columnDef.meta;
+                            const textAlign =
+                                typeof meta?.cellStyle?.textAlign === 'string'
+                                    ? meta.cellStyle.textAlign
+                                    : undefined;
                             return (
                                 <FooterCell
-                                    style={meta?.style}
+                                    style={{
+                                        ...meta?.style,
+                                        ...meta?.cellStyle,
+                                    }}
                                     className={meta?.className}
                                     key={header.id}
                                     colSpan={header.colSpan}
                                     $isNaN={
                                         !meta?.item || !isNumericItem(meta.item)
                                     }
+                                    $textAlign={textAlign}
                                 >
                                     {header.isPlaceholder
                                         ? null

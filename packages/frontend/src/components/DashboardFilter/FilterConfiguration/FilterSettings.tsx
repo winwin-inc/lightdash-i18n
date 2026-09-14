@@ -101,7 +101,6 @@ interface FilterSettingsProps {
     ) => void;
     onPendingExcludedValueChange?: (value: string) => void;
     pendingExcludedValue?: string;
-    isCustomerUse?: boolean;
     parentFilterOptions?: ParentFilterOption[];
 }
 

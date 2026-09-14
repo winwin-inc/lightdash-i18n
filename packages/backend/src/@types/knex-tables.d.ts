@@ -9,6 +9,8 @@ import {
     DashboardTable,
     DashboardTabsTable,
     DashboardTabsTableName,
+    DashboardTileDataAppsTable,
+    DashboardTileDataAppsTableName,
     DashboardTileChartTable,
     DashboardTileChartTableName,
     DashboardTileLoomsTable,
@@ -69,6 +71,8 @@ import {
     PinnedDashboardTableName,
     PinnedListTable,
     PinnedListTableName,
+    PinnedAppTable,
+    PinnedAppTableName,
     PinnedSpaceTable,
     PinnedSpaceTableName,
 } from '../database/entities/pinnedList';
@@ -123,11 +127,19 @@ import {
 } from '../database/entities/warehouseCredentials';
 
 import {
+    AnalyticsAppViews,
+    AnalyticsAppViewsTableName,
     AnalyticsChartViews,
     AnalyticsChartViewsTableName,
     AnalyticsDashboardViews,
     AnalyticsDashboardViewsTableName,
 } from '../database/entities/analytics';
+import {
+    AppsTable,
+    AppsTableName,
+    AppVersionsTable,
+    AppVersionsTableName,
+} from '../database/entities/apps';
 import {
     CatalogTable,
     CatalogTableName,
@@ -420,5 +432,10 @@ declare module 'knex/types/tables' {
         [ChangesetsTableName]: ChangesetsTable;
         [ChangesTableName]: ChangesTable;
         [UserDashboardCategoryTableName]: UserDashboardCategoryTable;
+        [AppsTableName]: AppsTable;
+        [AppVersionsTableName]: AppVersionsTable;
+        [AnalyticsAppViewsTableName]: AnalyticsAppViews;
+        [DashboardTileDataAppsTableName]: DashboardTileDataAppsTable;
+        [PinnedAppTableName]: PinnedAppTable;
     }
 }

@@ -30,9 +30,12 @@ import {
     useExplorerSelector,
 } from '../../../features/explorer/store';
 import { useCompiledSql } from '../../../hooks/useCompiledSql';
+import { useEffectiveChartTablePagination } from '../../../hooks/useEffectiveChartTablePagination';
+import { useMergeCompiledSql } from '../../../features/mergeQuery/hooks/useMergeCompiledSql';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
+import { applyChartTablePaginationToMetricQuery } from '../../../utils/applyChartTablePaginationToMetricQuery';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import MantineIcon from '../../common/MantineIcon';
 import { buildSemanticQueryJson } from './buildSemanticQueryJson';
@@ -66,6 +69,7 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
+    const chartTablePagination = useEffectiveChartTablePagination();
 
     const toggleExpandedSection = useCallback(
         (section: ExplorerSection) => {
@@ -78,21 +82,40 @@ const SqlCard: FC<SqlCardProps> = memo(({ projectUuid }) => {
     const { data, isSuccess } = useCompiledSql({
         enabled: !!tableName && queryView === 'sql',
     });
+    // With a merge configured, the merged statement is what Run executes;
+    // the card's copy must carry it, not the primary source's.
+    const merge = useMergeCompiledSql();
 
     const metricQueryJson = useMemo(() => {
         if (!tableName) return '';
-        return buildSemanticQueryJson(metricQuery, {
+        const queryForDisplay = applyChartTablePaginationToMetricQuery(
+            metricQuery,
+            chartTablePagination,
+        );
+        return buildSemanticQueryJson(queryForDisplay, {
             projectUuid,
             dashboardUuid: fromDashboard,
         });
-    }, [metricQuery, tableName, projectUuid, fromDashboard]);
+    }, [
+        metricQuery,
+        chartTablePagination,
+        tableName,
+        projectUuid,
+        fromDashboard,
+    ]);
+
+    const sqlToCopy = merge.isMergeActive
+        ? (merge.data?.sql ?? '')
+        : (data?.query ?? '');
 
     const copyValue =
-        queryView === 'sql' ? (data?.query ?? '') : metricQueryJson;
+        queryView === 'sql' ? sqlToCopy : metricQueryJson;
 
     const canCopy =
         queryView === 'sql'
-            ? !!(data && isSuccess && data.query)
+            ? merge.isMergeActive
+                ? !!merge.data?.sql
+                : !!(data && isSuccess && data.query)
             : metricQueryJson.length > 0;
 
     const copyLabel =

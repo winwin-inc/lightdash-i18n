@@ -36,7 +36,68 @@ describe('createDashboardContextResolver', () => {
         }
     });
 
-    it('does not auto-select when explore has related dashboards', async () => {
+    it('auto-resolves when explore has exactly one related dashboard', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [
+                    {
+                        dashboardUuid: 'd1',
+                        dashboardSlug: 'c60',
+                        dashboardName: '新品数据库',
+                        chartUuids: ['c1'],
+                    },
+                ],
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            exploreName: 'report_newproduct_hotsales',
+        });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.equal(resolved.context.dashboardUuid, 'd1');
+            assert.equal(resolved.context.dashboardSlug, 'c60');
+            assert.equal(resolved.context.dashboardName, '新品数据库');
+            assert.equal(resolved.context.source, 'uniqueExploreContext');
+            assert.equal(resolved.context.candidateCount, 1);
+        }
+    });
+
+    it('auto-resolves when chart has exactly one related dashboard', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [
+                    {
+                        dashboardUuid: 'dash-chart',
+                        dashboardSlug: 'slug-chart',
+                        dashboardName: 'Chart Dash',
+                        chartUuids: ['chart-1'],
+                    },
+                ],
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            chartUuid: 'chart-1',
+        });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.equal(resolved.context.dashboardUuid, 'dash-chart');
+            assert.equal(resolved.context.source, 'uniqueChartContext');
+        }
+    });
+
+    it('does not auto-select when explore has multiple related dashboards', async () => {
         const api = {
             getDashboard: async () => {
                 throw new Error('should not call getDashboard');

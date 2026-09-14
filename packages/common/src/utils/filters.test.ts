@@ -22,6 +22,7 @@ import {
     resetRequiredFilterRules,
     trackWhichTimeBasedMetricFiltersToOverride,
     getVisibleFilterOperatorOptions,
+    stripOverridesForLockedFiltersOnTab,
 } from './filters';
 import {
     chartAndFilterGroup,
@@ -691,5 +692,102 @@ describe('getVisibleFilterOperatorOptions', () => {
             { value: FilterOperator.EQUALS, label: 'Is' },
             { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
         ]);
+    });
+});
+
+describe('stripOverridesForLockedFiltersOnTab', () => {
+    const TAB_A = 'tab-a';
+    const TAB_B = 'tab-b';
+    const makeRule = (
+        id: string,
+        fieldId: string,
+        tableName: string,
+        opts: { lockedTabUuids?: string[]; values?: unknown[] } = {},
+    ): DashboardFilterRule => ({
+        id,
+        operator: FilterOperator.EQUALS,
+        target: { fieldId, tableName },
+        values: opts.values ?? ['x'],
+        label: undefined,
+        ...(opts.lockedTabUuids ? { lockedTabUuids: opts.lockedTabUuids } : {}),
+    });
+
+    test('drops override on a tab where the rule is locked', () => {
+        const saved = {
+            dimensions: [
+                makeRule('s-1', 'orders_status', 'orders', {
+                    lockedTabUuids: [TAB_A],
+                }),
+            ],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const overrides = {
+            dimensions: [
+                makeRule('o-1', 'orders_status', 'orders', {
+                    values: ['returned'],
+                }),
+            ],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const result = stripOverridesForLockedFiltersOnTab(
+            saved,
+            overrides,
+            TAB_A,
+            true,
+        );
+        expect(result.filters.dimensions).toEqual([]);
+        expect(result.droppedCount).toBe(1);
+    });
+
+    test('keeps override on a tab where the rule is NOT locked', () => {
+        const saved = {
+            dimensions: [
+                makeRule('s-1', 'orders_status', 'orders', {
+                    lockedTabUuids: [TAB_A],
+                }),
+            ],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const overrides = {
+            dimensions: [makeRule('o-1', 'orders_status', 'orders')],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const result = stripOverridesForLockedFiltersOnTab(
+            saved,
+            overrides,
+            TAB_B,
+            true,
+        );
+        expect(result.filters.dimensions).toHaveLength(1);
+        expect(result.droppedCount).toBe(0);
+    });
+
+    test('tab-less dashboard: any non-empty lockedTabUuids strips overrides', () => {
+        const saved = {
+            dimensions: [
+                makeRule('s-1', 'orders_status', 'orders', {
+                    lockedTabUuids: ['dashboard-uuid-as-sentinel'],
+                }),
+            ],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const overrides = {
+            dimensions: [makeRule('o-1', 'orders_status', 'orders')],
+            metrics: [],
+            tableCalculations: [],
+        };
+        const result = stripOverridesForLockedFiltersOnTab(
+            saved,
+            overrides,
+            undefined,
+            false,
+        );
+        expect(result.filters.dimensions).toEqual([]);
+        expect(result.droppedCount).toBe(1);
     });
 });

@@ -17,6 +17,7 @@ import {
     useUpdateDashboard,
 } from '../../../hooks/dashboard/useDashboard';
 import MantineModal from '../MantineModal';
+import { UserSelect } from '../UserSelect';
 
 interface DashboardUpdateModalProps {
     opened: ModalProps['opened'];
@@ -25,7 +26,9 @@ interface DashboardUpdateModalProps {
     onConfirm?: () => void;
 }
 
-type FormState = Pick<Dashboard, 'name' | 'description'>;
+type FormState = Pick<Dashboard, 'name' | 'description'> & {
+    ownerUserUuid: string | null;
+};
 
 const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
     uuid,
@@ -40,6 +43,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
         initialValues: {
             name: '',
             description: '',
+            ownerUserUuid: null,
         },
     });
 
@@ -51,6 +55,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
         setValues({
             name: dashboard.name,
             description: dashboard.description ?? '',
+            ownerUserUuid: dashboard.owner?.userUuid ?? null,
         });
     }, [dashboard, setValues]);
 
@@ -62,6 +67,7 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
         await mutateAsync({
             name: data.name,
             description: data.description,
+            ownerUserUuid: data.ownerUserUuid,
         });
         onConfirm?.();
     });
@@ -125,6 +131,21 @@ const DashboardUpdateModal: FC<DashboardUpdateModalProps> = ({
                         autosize
                         maxRows={3}
                         {...form.getInputProps('description')}
+                    />
+
+                    <UserSelect
+                        label={t(
+                            'components_common_modal_dashboard_update.form.owner.label',
+                        )}
+                        placeholder={t(
+                            'components_common_modal_dashboard_update.form.owner.placeholder',
+                        )}
+                        value={form.values.ownerUserUuid}
+                        onChange={(next) =>
+                            form.setFieldValue('ownerUserUuid', next)
+                        }
+                        disabled={isUpdating}
+                        clearable
                     />
                 </Stack>
             </form>

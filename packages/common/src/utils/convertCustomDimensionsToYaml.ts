@@ -127,6 +127,15 @@ const warehouseClientMock: WarehouseClient = {
     escapeString(value) {
         return value;
     },
+    castToTimestamp(value) {
+        return `TIMESTAMP '${value.toISOString()}'`;
+    },
+    castToDate(value) {
+        return `DATE '${value.toISOString().slice(0, 10)}'`;
+    },
+    castToNaiveTimestamp(value) {
+        return `DATETIME '${value.toISOString()}'`;
+    },
 };
 
 export const previewConvertCustomDimensionToDbt = (

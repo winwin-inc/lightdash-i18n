@@ -13,7 +13,7 @@ const getMcpDocsParams = {
         .enum(MCP_DOCS_TOPICS)
         .optional()
         .describe(
-            '文档主题：overview | query_workflow | session_lifecycle | security；默认 overview',
+            '文档主题：overview | query_workflow | content_fields | session_lifecycle | security；默认 overview。字段约定（chartKind/groups）用 content_fields。',
         ),
 } satisfies ZodRawShape;
 
@@ -22,7 +22,7 @@ export function registerDocsTool(server: McpServer): void {
         server,
         'core-tool',
         'get_mcp_docs',
-        '返回 Lightdash MCP 内置精简使用说明（静态文本）。可选 topic：overview、query_workflow、session_lifecycle、security。不读本地文件、不访问远程 URL、不接受密钥。',
+        '返回 Lightdash MCP 内置精简使用说明（静态文本）。可选 topic：overview、query_workflow、content_fields、session_lifecycle、security。chartKind/groups 等字段约定见 content_fields。不读本地文件、不访问远程 URL、不接受密钥。',
         getMcpDocsParams,
         async (args) => {
             const topic = (args.topic as McpDocsTopic | undefined) ?? 'overview';

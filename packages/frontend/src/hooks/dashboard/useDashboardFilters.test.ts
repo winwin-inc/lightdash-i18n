@@ -44,6 +44,19 @@ describe('shouldPersistSavedFilterOverride', () => {
         ).toBe(false);
     });
 
+    it('keeps single-date dynamic overrides in the current browser session', () => {
+        expect(
+            shouldPersistSavedFilterOverride(
+                createFilter({
+                    singleDate: {
+                        mode: 'dynamic',
+                        preset: 'lastAvailableMonth',
+                    },
+                }),
+            ),
+        ).toBe(false);
+    });
+
     it('continues to persist ordinary saved-filter overrides', () => {
         expect(shouldPersistSavedFilterOverride(createFilter())).toBe(true);
     });

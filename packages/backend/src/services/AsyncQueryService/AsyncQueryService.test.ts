@@ -731,6 +731,7 @@ describe('AsyncQueryService', () => {
                 resultsExpiresAt: null,
                 columns: null,
                 originalColumns: null,
+                usedParameters: null,
             });
 
             serviceWithCache.getExplore = jest
@@ -901,6 +902,7 @@ describe('AsyncQueryService', () => {
                 resultsExpiresAt: new Date(Date.now() + 60_000),
                 columns: expectedColumns,
                 originalColumns: mockOriginalColumns,
+                usedParameters: null,
             };
 
             serviceWithCache.queryHistoryModel.get = jest

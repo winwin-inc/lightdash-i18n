@@ -25,6 +25,7 @@ import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
 import uniq from 'lodash/uniq';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
+import { useMergeSafe } from '../../features/mergeQuery/context/useMerge';
 import { useCalculateSubtotals } from '../useCalculateSubtotals';
 import { useCalculateTotal } from '../useCalculateTotal';
 import { type InfiniteQueryResults } from '../useQueryResults';
@@ -85,8 +86,17 @@ const useTableConfig = (
     const [showResultsTotal, setShowResultsTotal] = useState<boolean>(
         tableChartConfig?.showResultsTotal ?? false,
     );
+    const [enablePagination, setEnablePagination] = useState<boolean>(
+        tableChartConfig?.enablePagination ?? false,
+    );
+    const [pageSize, setPageSize] = useState<number>(
+        tableChartConfig?.pageSize ?? 10,
+    );
     const [showSubtotals, setShowSubtotals] = useState<boolean>(
         tableChartConfig?.showSubtotals ?? false,
+    );
+    const [showRowGrouping, setShowRowGrouping] = useState<boolean>(
+        tableChartConfig?.showRowGrouping ?? false,
     );
     const [hideRowNumbers, setHideRowNumbers] = useState<boolean>(
         tableChartConfig?.hideRowNumbers === undefined
@@ -275,15 +285,21 @@ const useTableConfig = (
     const numUnpivotedDimensions =
         dimensions.length - (pivotDimensions?.length || 0);
 
+    // Subtotals re-derive from the metric query behind the source query. A
+    // merge has no such query — its metric query describes the merged result
+    // rather than anything the warehouse can be asked to group again.
+    const isMerged = !!useMergeSafe()?.mergeResults;
     const canUseSubtotals = useMemo(() => {
-        return !metricsAsRows && numUnpivotedDimensions > 1;
-    }, [metricsAsRows, numUnpivotedDimensions]);
+        return !metricsAsRows && numUnpivotedDimensions > 1 && !isMerged;
+    }, [metricsAsRows, numUnpivotedDimensions, isMerged]);
 
     // Once dimensions are loaded, if there are not enough dimensions to use subtotals then
     // turn off "Show subtotals" so that "Show metrics as rows" can be enabled.
     useEffect(() => {
-        if (dimensions.length > 0 && numUnpivotedDimensions < 2)
+        if (dimensions.length > 0 && numUnpivotedDimensions < 2) {
             setShowSubtotals(false);
+            setShowRowGrouping(false);
+        }
     }, [dimensions.length, numUnpivotedDimensions]);
 
     const dashboardContext =
@@ -637,7 +653,10 @@ const useTableConfig = (
             showRowCalculation,
             showTableNames,
             showResultsTotal,
+            enablePagination,
+            pageSize,
             showSubtotals,
+            showRowGrouping,
             columns: columnProperties,
             hideRowNumbers,
             conditionalFormattings,
@@ -655,7 +674,10 @@ const useTableConfig = (
             hideRowNumbers,
             showTableNames,
             showResultsTotal,
+            enablePagination,
+            pageSize,
             showSubtotals,
+            showRowGrouping,
             columnProperties,
             conditionalFormattings,
             metricsAsRows,
@@ -683,8 +705,14 @@ const useTableConfig = (
             setHideRowNumbers,
             showResultsTotal,
             setShowResultsTotal,
+            enablePagination,
+            setEnablePagination,
+            pageSize,
+            setPageSize,
             showSubtotals,
             setShowSubtotals,
+            showRowGrouping,
+            setShowRowGrouping,
             columnProperties,
             setColumnProperties,
             updateColumnProperty,
@@ -731,8 +759,14 @@ const useTableConfig = (
             setHideRowNumbers,
             showResultsTotal,
             setShowResultsTotal,
+            enablePagination,
+            setEnablePagination,
+            pageSize,
+            setPageSize,
             showSubtotals,
             setShowSubtotals,
+            showRowGrouping,
+            setShowRowGrouping,
             columnProperties,
             setColumnProperties,
             updateColumnProperty,

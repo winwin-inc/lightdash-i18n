@@ -25,6 +25,66 @@
         "download_as": "Download as",
         "results": "Results"
     },
+    "features_mergeQuery": {
+        "join_type": "Join type",
+        "join_inner": "Inner",
+        "join_left": "Left",
+        "join_full_outer": "Full outer",
+        "join_inner_help": "Inner join · Only the {{joinField}} values in both {{thisQuery}} and {{otherQuery}}. Everything unmatched is dropped.",
+        "join_left_help": "Left join · Only the {{joinField}} values in {{thisQuery}}. Anything found solely in {{otherQuery}} is dropped.",
+        "join_full_help": "Full outer join · Every {{joinField}} from either query. Where one side has no match, its columns are blank.",
+        "this_query": "this query",
+        "other_query": "the other query",
+        "done": "Done",
+        "edit": "Edit",
+        "choose_field": "Choose or add a field",
+        "something_went_wrong": "Something went wrong",
+        "matched_on": "Matched on",
+        "matches_only": "Matches only",
+        "keep_all_rows": "Keep all rows",
+        "keep_query": "Keep {{label}}",
+        "merge_failed": "The merge failed to run",
+        "first_data": "First data",
+        "combined_data": "Combined data",
+        "choose_data_to_combine": "Choose data to combine",
+        "select_data_and_fields": "Select data and fields",
+        "choose_fields": "Choose fields",
+        "remove_combined_data": "Remove combined data",
+        "filters": "Filters",
+        "no_filters": "No filters",
+        "active_filters": "{{count}} active",
+        "first_table": "First table",
+        "second_table": "Second table",
+        "back_to_fields": "Back to fields",
+        "change_table": "Change table",
+        "join_conditions": "Join conditions",
+        "add_join_condition": "Add join condition",
+        "use_suggestion": "Use suggestion",
+        "remove_join_condition": "Remove join condition {{index}}",
+        "choose_table": "Choose a table",
+        "choose_table_desc": "Pick the data you want to combine with this query.",
+        "select_fields": "Select fields",
+        "select_fields_metric_dimension": "Add a metric and a dimension to match on.",
+        "select_fields_dimension": "Add a dimension to match on.",
+        "select_fields_metric": "Add at least one metric.",
+        "match_queries": "Match the queries",
+        "match_queries_desc": "Choose corresponding fields in the relationship.",
+        "review_relationship": "Review the relationship",
+        "review_relationship_desc": "Check what to keep, then run the merged query.",
+        "add_metric_from_table": "Add at least one metric from {{table}}",
+        "pick_join_field": "Pick a field from each query to join on",
+        "cannot_join_on_field": "These queries cannot be joined on that field",
+        "field_only_in_one_query": "A field is only in one of the queries",
+        "relationship": "Relationship",
+        "data_sources": "Data sources",
+        "selected_count": "{{count}} selected",
+        "active_filters_badge": "{{count}} active filter",
+        "active_filters_badge_plural": "{{count}} active filters",
+        "filters_join_hint": "Filters on a matching field apply to both queries. Other filters stay with their query.",
+        "selected_for_result": "Selected for result · {{count}}",
+        "source_order_first": "First",
+        "source_order_second": "Second"
+    },
     "about_footer": {
         "about_msy_x": "About MSY X"
     },
@@ -91,6 +151,34 @@
         "delete_error": "Failed to delete user",
         "update_success": "Success! User was updated.",
         "update_error": "Failed to update user's permissions"
+    },
+    "hooks_organization_users": {
+        "delete_success": "Success! User was deleted.",
+        "delete_error": "Failed to delete user",
+        "update_success": "Success! User was updated.",
+        "update_error": "Failed to update user's permissions",
+        "reassign_dashboards_success": "Success! {{count}} dashboards transferred.",
+        "reassign_dashboards_error": "Failed to transfer dashboards"
+    },
+    "components_common_user_select": {
+        "placeholder": "Search for a user...",
+        "nothing_found": "No users found"
+    },
+    "components_user_settings_users_action_menu": {
+        "checking_owned_content": "Checking content owned by this user...",
+        "owns_dashboards": "This user is the owner of {{dashboardText}} across {{projectText}}.",
+        "dashboard_count_one": "1 dashboard",
+        "dashboard_count_other": "{{count}} dashboards",
+        "project_count_one": "1 project",
+        "project_count_other": "{{count}} projects",
+        "show_details": "Show details",
+        "hide_details": "Hide details",
+        "dashboard_singular": "dashboard",
+        "dashboard_plural": "dashboards",
+        "leave_unowned": "Leave dashboards without an owner",
+        "reassign_owner": "Transfer ownership to another user",
+        "new_owner_label": "New dashboard owner",
+        "no_owned_dashboards": "This user has no owned dashboards."
     },
     "hooks_refresh_server": {
         "error": "Error syncing dbt project",
@@ -308,6 +396,10 @@
         "save_success": "Saved project configuration",
         "save_error": "Failed to save tables configuration"
     },
+    "hooks_project_results_cache_settings": {
+        "save_success": "Cache duration updated",
+        "save_error": "Failed to update cache duration"
+    },
     "hooks_project": {
         "update_error": "Failed to update project",
         "create_error": "Failed to create project"
@@ -469,7 +561,8 @@
             "edit": "Edit table calculation",
             "add": "Add table calculation",
             "empty": "SQL cannot be empty",
-            "name": "Name cannot be empty"
+            "name": "Name cannot be empty",
+            "no_sql_permission": "You do not have permission to create or edit SQL table calculations"
         },
         "edit": "Edit table calculation",
         "create": "Create table calculation",
@@ -483,13 +576,15 @@
                 "placeholder": "Select",
                 "dropdown": {
                     "raw_sql": "Raw SQL",
-                    "template": "Predefined Template"
+                    "template": "Predefined Template",
+                    "formula": "Formula"
                 }
             },
             "tabs": {
                 "template": "Template",
                 "sql": "SQL",
-                "format": "Format"
+                "format": "Format",
+                "formula": "Formula"
             },
             "tooltip": {
                 "label": "'Manually select the type of the result of this SQL table calculation, this will help us to treat this field correctly in filters or results.",
@@ -519,6 +614,35 @@
         "orderBy": "Order By",
         "window_function": "Window Function",
         "partition_by": "Partition By"
+    },
+    "features_table_calculation_formula": {
+        "search_functions": "Search functions",
+        "close_esc": "Close (Esc)",
+        "close_function_reference": "Close function reference",
+        "no_functions_match": "No functions match \"{{query}}\"",
+        "show_available_fields": "Show available fields",
+        "fields_available_one": "1 field available",
+        "fields_available_other": "{{count}} fields available",
+        "available_fields": "Available fields",
+        "click_to_insert_prefix": "Click to insert, or type",
+        "click_to_insert_suffix": "in the formula.",
+        "no_fields_selected": "No fields selected yet — add dimensions or metrics to your query first.",
+        "hint_field": "field",
+        "hint_function": "function",
+        "need_help": "Need help?",
+        "placeholder_formula": "Type @ to use your selected fields or # for functions. Example: =IF(@Revenue > 1000, \"high\", \"low\")",
+        "placeholder_dual": "Describe the calculation, or type @ to use your selected fields — e.g. =SUM(@Revenue)",
+        "no_functions_found": "No functions found",
+        "categories": {
+            "aggregate": "Aggregate",
+            "logical": "Logic",
+            "math": "Math",
+            "string": "Text",
+            "date": "Date",
+            "window": "Window",
+            "null": "Null handling",
+            "type": "Type"
+        }
     },
     "features_omnibar": {
         "search_project": {
@@ -1149,7 +1273,10 @@
         },
         "validate_tips": {
             "name": "Name is required",
-            "custom_limit": "Custom limit must be an integer"
+            "custom_limit": "Custom limit must be an integer",
+            "required_filters": "Required filters must have values",
+            "requirement_group": "Set a value for at least one filter in each requirement group",
+            "required_filters_missing": "Some required filters are missing values"
         },
         "form": {
             "tabs_list": {
@@ -1176,6 +1303,7 @@
                 "threshold_alert": " This is the frequency at which MSY X runs a query to check your data for changes. (You will be notified if the conditions on the latest value are met) ",
                 "default_project": "Project Default",
                 "format": "Format",
+                "format_image": "Image",
                 "image_disabled": {
                     "part_1": "You must enable the",
                     "part_2": "headless browser",
@@ -1191,6 +1319,10 @@
                 "all_results": "All results",
                 "custom": "Custom...",
                 "results_are_limited": "Results are limited to {{limit}} cells for each file",
+                "xlsx_output": "XLSX output",
+                "xlsx_output_help": "Separate files puts each dashboard tile in its own XLSX file inside a ZIP. Single workbook puts each tile on its own sheet in one XLSX file.",
+                "xlsx_zip": "Separate files (ZIP)",
+                "xlsx_workbook": "Single workbook",
                 "tabs": {
                     "title": "Tabs",
                     "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",
@@ -1208,6 +1340,11 @@
                     "part_4": "for your MSY X instance"
                 },
                 "search_slack_channels": "Search Slack channels",
+                "slack_group": {
+                    "channels": "Channels",
+                    "users": "Users",
+                    "private_channels": "Private channels"
+                },
                 "send_to_private_channel": "Send to private channel #{{query}}",
                 "add_slack_disabled": "If delivering to a private Slack channel, please type the name of the channel in the input box exactly as it appears in Slack. Also ensure you invite the MSY X Slackbot into that channel."
             },
@@ -1275,14 +1412,17 @@
         },
         "scheduler": {
             "processing_job": "Processing job...",
+            "processing_job_subtitle": "Preparing delivery content, please wait",
             "failed_to_process_job": "Failed to process job",
             "scheduleed_successfully": "Scheduled delivery sent successfully",
             "process_scheduled_delivery": "Processing scheduled delivery...",
+            "process_scheduled_delivery_subtitle": "You'll get another notice when it's done",
             "send_scheduled_delivery_failed": "Failed to send scheduled delivery",
             "polling_job_status_error": "Error polling job status"
         },
         "send_now_scheduler": {
             "processing_job": "Processing job...",
+            "processing_job_subtitle": "Preparing delivery content, please wait",
             "failed_to_process_job": "Failed to process job",
             "failed_to_send_scheduled_delivery": "Failed to send scheduled delivery"
         },
@@ -2143,7 +2283,12 @@
     },
     "components_common_paginate": {
         "page": "Page",
-        "of": "of"
+        "of": "of",
+        "jump_to_page": "Jump to page",
+        "first": "First page",
+        "last": "Last page",
+        "go_to_page": "Go to",
+        "of_pages": "/ {{totalPages}} pages"
     },
     "components_common_page_header": {
         "last_edited": "Last edited",
@@ -2366,6 +2511,7 @@
             "end_date": "End date"
         },
         "utc_time": "UTC time",
+        "local_time": "Local time",
         "filters_error": "projectUuid is required in FiltersProvider",
         "add": "Add",
         "add_filter_tip": "Please type to add the filter value",
@@ -2459,6 +2605,11 @@
                 "range_summary": "{{start}} to {{end}}"
             }
         },
+        "single_date": {
+            "preset": {
+                "last_available_month": "Last month (available from the 4th)"
+            }
+        },
         "to_latest_month_hint": "Start month",
         "to_latest_month_chip": "≥ {{start}}",
         "unit_of_time": {
@@ -2520,7 +2671,20 @@
             "pages": "Pages",
             "scroll": "Scroll",
             "page": "Page",
-            "of": "of"
+            "of": "of",
+            "showing_of_total": "Showing {{shown}} of {{total}}",
+            "page_size": "Rows per page",
+            "page_size_prefix": "Rows",
+            "page_size_suffix": "per page",
+            "one_result": "1 result",
+            "n_results": "{{count}} results",
+            "total_data_prefix": "Total ",
+            "total_data_suffix": " rows",
+            "loading_count": "Loading…",
+            "count_error": "Unable to load total",
+            "pagination_empty_page": {
+                "back_to_first_page": "Back to page 1"
+            }
         },
         "provider": {
             "error": "useTableContext must be used within a TableProvider"
@@ -2696,7 +2860,13 @@
             "tables": "Tables: ",
             "filter_rules": {
                 "part_1": "is any value"
-            }
+            },
+            "lock": "Lock filter",
+            "lock_on_tab": "Lock filter on this tab",
+            "lock_unlock": "Unlock filter",
+            "lock_unlock_tab": "Unlock filter on this tab",
+            "locked": "Locked by the dashboard editor",
+            "locked_on_tab": "Locked on this tab"
         },
         "filter_dashboard": {
             "title": "Filter dashboard to...",
@@ -2710,7 +2880,15 @@
             "reset_all_filters": "Reset all filters"
         },
         "enable_filter": "Enable filter",
-        "show_add_filter_button": "Show add filter"
+        "show_add_filter_button": "Show add filter",
+        "filter_locked_toast": {
+            "title": "Locked dashboard filter",
+            "override_single": "A filter override was ignored because the dashboard editor locked that filter.",
+            "override_many": "{{count}} filter overrides were ignored because the dashboard editor locked those filters.",
+            "temp_single": "A temporary filter was ignored because the dashboard editor locked it{{scope}}.",
+            "temp_many": "{{count}} temporary filters were ignored because the dashboard editor locked them{{scope}}.",
+            "scope_tab": " on this tab"
+        }
     },
     "components_dashboard_tabs": {
         "add_tab_modal": {
@@ -2779,7 +2957,9 @@
             "rename_tab": "Rename tab",
             "remove_tabs_component": "Remove tabs component",
             "remove_tab": "Remove tab",
-            "safely_remove_tab": "Safely remove tab"
+            "safely_remove_tab": "Safely remove tab",
+            "hide_tab": "Hide tab",
+            "show_tab": "Show tab"
         }
     },
     "components_dbt_cloud_settings": {
@@ -2972,6 +3152,11 @@
             "label": "Upstream project"
         },
         "select_project": "Select project",
+        "group": {
+            "production": "Production projects",
+            "preview": "Preview projects"
+        },
+        "current_suffix": "{{name}} (Current)",
         "update": "Update",
         "toast_success": {
             "title": "Project updated",
@@ -3068,6 +3253,9 @@
         },
         "error_tip": "Title or content is required",
         "add_tile": "Add {{type}} tile",
+        "type_markdown": "markdown",
+        "type_loom": "loom",
+        "type_data_app": "data app",
         "cancel": "Cancel",
         "add": "Add"
     },
@@ -3087,7 +3275,12 @@
         "tooltip_new_chart": "Charts generated from here are exclusive to this dashboard",
         "markdown": "Markdown",
         "loom_video": "Loom video",
+        "data_app": "Data app",
         "add_tab": "Add tab"
+    },
+    "components_dashboard_tiles_data_app_tile_edit_form": {
+        "title": "Title",
+        "title_placeholder": "Tile title"
     },
     "components_dashboard_tiles_chart_title": {
         "copied": "Copied to clipboard!",
@@ -3598,6 +3791,10 @@
                 "title": "Dashboard",
                 "description": "Arrange multiple charts into a single view."
             },
+            "data_app": {
+                "title": "Data App",
+                "description": "Build an interactive app powered by your data."
+            },
             "space": {
                 "title": "Space",
                 "description": "Organize your saved charts and dashboards."
@@ -3620,6 +3817,9 @@
             "charts": {
                 "title": "All saved charts"
             },
+            "data_apps": {
+                "title": "All data apps"
+            },
             "metrics": {
                 "title": "Metric Catalog"
             }
@@ -3640,6 +3840,14 @@
         "no_notifications_tip": "No notifications",
         "validation_error_notification_tip": "New validation completed {{validationTimeAgo}} with {{numberOfErrors}} errors",
         "validation_errors": "Validation errors"
+    },
+    "features_notifications": {
+        "dashboard_comment": {
+            "tagged": "{{author}} tagged you in dashboard \"{{dashboardName}}\"",
+            "tagged_in_tile": "{{author}} tagged you in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\"",
+            "commented": "{{author}} commented in dashboard \"{{dashboardName}}\"",
+            "commented_in_tile": "{{author}} commented in dashboard \"{{dashboardName}}\" in tile \"{{tileName}}\""
+        }
     },
     "components_navbar_headway_menu": {
         "tooltip": {
@@ -3938,8 +4146,10 @@
         "alert": "Your CSV export will include data for the selected date zoom granularity.",
         "tooltip": {
             "label": "Export results in table for all charts in a zip file",
-            "button": "Export CSV"
+            "button": "Export CSV",
+            "button_xlsx": "Export XLSX"
         },
+        "tabs_label": "Tabs",
         "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
         "include_all_tabs": "Include all tabs",
         "select_tabs": "Select tabs to include in the export",
@@ -3948,7 +4158,8 @@
         "export_dashboard": "Export dashboard",
         "tabs": {
             "image": "Image",
-            "csv": ".csv"
+            "csv": ".csv",
+            "xlsx": ".xlsx"
         }
     },
     "components_common_modal_dashboard_update": {
@@ -3962,6 +4173,10 @@
             "description": {
                 "label": "Description",
                 "placeholder": "A few words to give your team some context"
+            },
+            "owner": {
+                "label": "Owner",
+                "placeholder": "Assign an owner..."
             },
             "cancel": "Cancel",
             "save": "Save"
@@ -3995,6 +4210,11 @@
         "items": "items",
         "new_space": "New Space",
         "move": "Move",
+        "move_title": "Move {{type}}",
+        "type_dashboard": "dashboard",
+        "type_chart": "chart",
+        "type_space": "space",
+        "type_data_app": "data app",
         "cancel": "Cancel",
         "confirm": "Confirm",
         "create_space": "Create space & move",
@@ -5107,6 +5327,8 @@
             "y_axis_label": "Y-axis label",
             "y_axis_label_left": "Y-axis label (left)",
             "y_axis_label_right": "Y-axis label (right)",
+            "y_axis_label_gap": "Y-axis label distance",
+            "y_axis_label_gap_placeholder": "Auto",
             "x_axis_label_bottom": "X-axis label (bottom)",
             "x_axis_label_top": "X-axis label (top)",
             "auto_x_axis_range": "Auto x-axis range",
@@ -5352,10 +5574,18 @@
             "show_row_totals": "Show row totals",
             "show_column_totals": "Show column totals",
             "show_number_of_results": "Show number of results",
+            "enable_pagination": "Enable pagination",
+            "pagination_not_supported": "Pagination is not available with pivot tables or subtotals",
+            "page_size": "Rows per page",
             "subtotals_cant_be_used": "Subtotals cannot be used with metrics as rows",
             "at_least_two_dimensions": "Subtotals can only be used on tables with at least two {{privoted}} dimensions",
+            "un_pivoted": "un-pivoted",
             "can_use_subtotals": "Subtotals can only be used on tables that aren't pivoted",
-            "show_subtotals": "Show subtotals"
+            "show_subtotals": "Show subtotals",
+            "group_repeated_row_values": "Group repeated row values",
+            "row_grouping_always_on_with_subtotals": "Row grouping is always on when subtotals are enabled.",
+            "row_grouping_cant_be_used": "Row grouping cannot be used with metrics as rows",
+            "row_grouping_at_least_two_dimensions": "Row grouping can only be used on tables with at least two {{privoted}} dimensions"
         },
         "configure": "Configure",
         "config_tabs": {
@@ -5816,7 +6046,22 @@
         "edit_dimension": " Edit custom dimension",
         "eidt_calculation": "Edit calculation",
         "sort": "Sort",
-        "sorting": "Sorting"
+        "sorting": "Sorting",
+        "add_period_comparison": "Add period comparison"
+    },
+    "components_explorer_period_over_period_comparison_modal": {
+        "title": "Add period comparison",
+        "confirm": "Add comparison",
+        "cancel": "Cancel",
+        "already_exists_title": "This comparison already exists",
+        "already_exists_body": "A period comparison with the same time dimension and offset already exists for this metric. Choose a different time dimension or offset.",
+        "time_dimension": "Time dimension",
+        "time_dimension_placeholder": "Select time dimension",
+        "time_dimension_placeholder_disabled": "Add a time dimension to enable comparison",
+        "offset": "Offset",
+        "granularity_label": "{{label}} granularity",
+        "granularity_from_dimension": "Granularity derived from dimension",
+        "will_create": "This will create:"
     },
     "components_explorer_results_card_cell_context_menu": {
         "copied_to_clipboard": "Copied to clipboard",
@@ -6013,6 +6258,19 @@
         "configure_chart": "Configure chart",
         "chart_type": "Chart type"
     },
+    "components_explorer_visualization_timezone": {
+        "source_user": "This chart follows each viewer's own time zone. You're seeing it in {{timezone}}.",
+        "source_pinned": "This chart is pinned to {{timezone}} and won't follow the project time zone.",
+        "source_project": "This chart resolves in the project time zone ({{timezone}})."
+    },
+    "components_chart_timezone_select": {
+        "group_default": "Default",
+        "group_specific": "Specific timezone",
+        "project_timezone": "Project timezone",
+        "user_timezone": "User timezone",
+        "local_suffix": " - Local",
+        "user_timezone_tooltip": "Each viewer sees data in their own timezone. Falls back to the project timezone if they haven't set one."
+    },
     "components_explorer_visualization_card_options": {
         "chart_types": {
             "mixed": "Mixed",
@@ -6179,7 +6437,8 @@
         "resource_view_labels": {
             "chart": "chart",
             "dashboard": "dashboard",
-            "space": "space"
+            "space": "space",
+            "data_app": "data app"
         },
         "resource_view_chart_labels": {
             "bar": "Bar chart",
@@ -6245,6 +6504,7 @@
     "components_common_resource_view_utils": {
         "resource_type_names": {
             "dashboard": "Dashboard",
+            "chart": "Chart",
             "space": "Space",
             "bar_chart": "Bar chart",
             "horizontal_bar_chart": "Horizontal bar chart",
@@ -6258,6 +6518,8 @@
             "table": "Table",
             "big_number": "Big number",
             "custom_visualization": "Custom visualization",
+            "data_app": "Data app",
+            "custom_chart": "Custom chart",
             "not_supported": "Chart type {{chartKind}} not supported"
         }
     },
@@ -6265,7 +6527,8 @@
         "all": "All",
         "dashboards": "Dashboards",
         "charts": "Charts",
-        "spaces": "Spaces"
+        "spaces": "Spaces",
+        "data_apps": "Data apps"
     },
     "components_common_resource_view_access_info": {
         "only_visible_to_you": "Only visible to you",
@@ -6462,7 +6725,7 @@
         "radio_groups_limit": {
             "radio_01": "Results in Table",
             "radio_02": "All Results",
-            "radio_03": "Custom..."
+            "radio_03": "Custom"
         },
         "limit_alert_tip": {
             "part_1": "Results are limited to",
@@ -6506,10 +6769,12 @@
         "radio_groups_limit": {
             "part_1": "Results in Table",
             "part_2": "All Results",
-            "part_3": "Custom..."
+            "part_3": "Custom"
         },
         "prvot_tables_warning": "Pivot exports are limited to {{csvCellsLimit}} cells and {{maxColumnLimit}} columns.",
-        "limit": "Excel exports are limited to 1,000,000 rows.",
+        "table_results_limit_hint": "Export at most the current query rows ({{count}}).",
+        "csv_cells_limit_hint": "Up to {{csvCellsLimit}} cells (rows × columns)",
+        "limit": "Up to 1,000,000 rows",
         "download": "Download"
     },
     "components_funnel_chart": {
@@ -6608,6 +6873,7 @@
                 "custom_sql": "Custom SQL",
                 "changesets": "Changesets",
                 "parameters": "Parameters",
+                "results_caching": "Results caching",
                 "project_access": "Project access",
                 "semantic_layer_integration": "Semantic Layer Integration"
             }
@@ -7216,6 +7482,24 @@
                 }
             }
         },
+        "data_timezone": {
+            "label": "Data timezone",
+            "description": "The timezone your warehouse stores ambiguous timestamps in. Defaults to UTC if not set.",
+            "placeholder": "Not set (uses warehouse default)",
+            "preview": "Preview",
+            "preview_failed": "Could not preview",
+            "connection_failed": "Connection failed",
+            "pipeline_intro": "The current moment, step by step",
+            "unset_hint": "No data timezone set, so the warehouse reads the bare value in its own session timezone. Pick one above to control it.",
+            "step_from_warehouse": "From the warehouse",
+            "step_from_warehouse_value": "{{raw}}  ·  no timezone",
+            "step_exact_moment": "An exact moment in time",
+            "step_users_see": "What users see",
+            "read_as": "read as {{zone}}",
+            "your_data_timezone": " (your data timezone)",
+            "shown_in_project": "shown in {{timezone}} (your project timezone)",
+            "aware_note": "If a column already stores a timezone, step 1 is skipped: the moment is already exact ({{raw}} UTC) and your data timezone is ignored, so users see {{rendered}}."
+        },
         "big_query": {
             "authentication_type": {
                 "label": "Authentication Type",
@@ -7752,6 +8036,24 @@
             "no_parameters_configured": "No parameters configured for this project"
         }
     },
+    "components_project_results_cache": {
+        "title": "Cache duration",
+        "description": "How long cached results are kept before MSY X queries the warehouse again.",
+        "use_default": "Use the default cache duration",
+        "default_expires": "Cached results expire after {{duration}}.",
+        "ttl_label": "Cache duration (minutes)",
+        "ttl_hint": "= {{duration}}",
+        "ttl_error": "Enter a whole number of minutes between {{min}} and {{max}} (30 days)",
+        "save": "Save",
+        "units": {
+            "minute": "minute",
+            "minutes": "minutes",
+            "hour": "hour",
+            "hours": "hours",
+            "day": "day",
+            "days": "days"
+        }
+    },
     "components_limit_button": {
         "schema_error": {
             "invalid_value": "Invalid value",
@@ -8127,6 +8429,131 @@
         "toast_user_error": "Failed to create user",
         "or": "OR",
         "sign_up": "Sign up"
+    },
+    "pages_saved_apps": {
+        "title": "Data apps",
+        "breadcrumb_home": "Home",
+        "breadcrumb_all": "All data apps",
+        "create": "Create data app"
+    },
+    "pages_app_generate": {
+        "title": "Build a Data App",
+        "subtitle": "Pick a starting point, then describe what you want to build.",
+        "placeholder": "Describe the app you want to build...",
+        "empty_chat": "Describe what you want to build and I'll generate a data app connected to your project.",
+        "load_earlier": "Load earlier messages",
+        "loading_earlier": "Loading earlier messages...",
+        "stop_generation": "Stop generation",
+        "send_message": "Send message",
+        "skip": "Skip",
+        "build": "Build",
+        "working": "Working on your app — feel free to switch tabs or close this one",
+        "clarifying": "Hold tight, I may have some questions before starting",
+        "quick_questions": "A few quick questions:",
+        "template_label": "Template:",
+        "starting_from": "Starting from {{name}}",
+        "failed_generate": "Failed to generate app",
+        "failed_apply_theme": "Failed to apply theme",
+        "not_found_title": "Data app not found",
+        "not_found_description": "This data app doesn't exist or has been deleted.",
+        "thumbnail_updated": "Thumbnail updated",
+        "thumbnail_capture_failed": "Failed to capture thumbnail",
+        "thumbnail_not_saved": "Thumbnail not saved",
+        "screenshot_failed": "Screenshot failed",
+        "file_upload_failed": "File upload failed",
+        "unknown_error": "Unknown error",
+        "attachment_limit": "Attachment limit reached",
+        "attachment_limit_subtitle": "You can attach up to {{count}} files per message.",
+        "restore_version_title": "Restore version {{version}}?",
+        "restore_version": "Restore version",
+        "failed_restore": "Failed to restore version.",
+        "selected_theme": "Selected theme",
+        "no_theme": "No theme",
+        "remove_theme": "Remove theme",
+        "apply_theme": "Apply theme: {{name}}",
+        "default_theme": "Default"
+    },
+    "features_apps_templates": {
+        "dashboard": {
+            "title": "Dashboard",
+            "description": "A grid of KPIs and charts for at-a-glance reporting."
+        },
+        "slideshow": {
+            "title": "Slide Show",
+            "description": "A guided narrative - one chart per slide, navigated linearly."
+        },
+        "pdf": {
+            "title": "PDF Report",
+            "description": "A print-friendly document with sections and supporting charts."
+        },
+        "custom": {
+            "title": "From scratch",
+            "description": "Start from scratch and describe whatever you want."
+        },
+        "data_app_viz": {
+            "title": "Data app visualization",
+            "description": "A reusable single-tile chart you can apply to any query like a chart type."
+        }
+    },
+    "features_apps_composer": {
+        "select_model": "Select model",
+        "reasoning": "Reasoning",
+        "reasoning_default": "Default",
+        "reasoning_high": "High",
+        "attach": "Attach",
+        "attach_label": "Add charts, dashboards, connections or files",
+        "attach_aria": "Attach resources",
+        "attach_queries": "Queries",
+        "attach_saved_charts": "Attach saved charts",
+        "attach_dashboard_title": "Dashboard",
+        "attach_dashboard": "Attach all tiles from a dashboard",
+        "attach_files": "Files",
+        "attach_files_hint": "Upload images, PDFs, or text files",
+        "attach_connections": "External connections",
+        "attach_connections_hint": "Let the app fetch from external APIs",
+        "attachment_limit": "Attachment limit reached",
+        "capture_screenshot": "Capture screenshot",
+        "capture_screenshot_label": "Capture a screenshot of the preview and attach it",
+        "inspect_on": "Inspect mode on - click any element in the preview",
+        "inspect_off": "Point at an element in the preview to reference it",
+        "inspect_aria": "Toggle element inspector",
+        "search_or_paste": "Search or paste a link...",
+        "search_connections": "Search connections...",
+        "done": "Done"
+    },
+    "features_apps_header": {
+        "continue_building": "Continue building",
+        "refresh": "Refresh",
+        "refresh_queries": "Refresh to re-run queries",
+        "copy_link": "Copy link to the app",
+        "app_actions": "App actions",
+        "view_network": "View network",
+        "schedule_delivery": "Schedule delivery",
+        "google_sheets_sync": "Google Sheets Sync",
+        "upgrade_app": "Upgrade app",
+        "new_badge": "New",
+        "rename": "Rename",
+        "capture_thumbnail": "Capture thumbnail",
+        "remove_thumbnail": "Remove thumbnail",
+        "thumbnail_removed": "Thumbnail removed",
+        "failed_remove_thumbnail": "Failed to remove thumbnail",
+        "duplicate": "Duplicate",
+        "move_to_space": "Move to space",
+        "add_to_space": "Add to space",
+        "share": "Share",
+        "delete": "Delete",
+        "add_favorites": "Add to favorites",
+        "remove_favorites": "Remove from favorites"
+    },
+    "components_dashboard_tiles_data_app_tile_form": {
+        "title": "Title",
+        "title_placeholder": "Tile title",
+        "data_app": "Data app",
+        "data_app_description": "Only apps that were moved to a space can be added to a dashboard.",
+        "loading_apps": "Loading apps...",
+        "pick_data_app": "Pick a data app",
+        "no_matching": "No matching data apps",
+        "failed_load": "Failed to load apps"
     },
     "pages_saved_dashboards": {
         "dashboards": "Dashboards",

@@ -69,7 +69,9 @@ type GenericEvent = {
         | EventName.METRICS_CATALOG_SEARCH_APPLIED
         | EventName.METRICS_CATALOG_TREES_EDGE_CREATED
         | EventName.METRICS_CATALOG_TREES_EDGE_REMOVED
-        | EventName.METRICS_CATALOG_TREES_CANVAS_MODE_CLICKED;
+        | EventName.METRICS_CATALOG_TREES_CANVAS_MODE_CLICKED
+        | EventName.DATA_APP_RECENT_SUGGESTION_CLICK
+        | EventName.DATA_APP_CLARIFY_ROUND_RESOLVED;
     properties?: {};
 };
 
@@ -449,6 +451,28 @@ type AiAgentChartExploredEvent = {
     };
 };
 
+type DataAppRecentSuggestionClickEvent = {
+    name: EventName.DATA_APP_RECENT_SUGGESTION_CLICK;
+    properties: {
+        projectId: string;
+        appId: string;
+        position: number;
+        status: string;
+        version: number | undefined;
+    };
+};
+
+type DataAppClarifyRoundResolvedEvent = {
+    name: EventName.DATA_APP_CLARIFY_ROUND_RESOLVED;
+    properties: {
+        projectId: string;
+        template: string | undefined;
+        outcome: string;
+        questionCount: number;
+        answeredCount: number;
+    };
+};
+
 export type EventData =
     | GenericEvent
     | FormClickedEvent
@@ -486,7 +510,9 @@ export type EventData =
     | SpaceBreadcrumbClickedEvent
     | AiAgentChartHowItsCalculatedClickedEvent
     | AiAgentChartCreatedEvent
-    | AiAgentChartExploredEvent;
+    | AiAgentChartExploredEvent
+    | DataAppRecentSuggestionClickEvent
+    | DataAppClarifyRoundResolvedEvent;
 
 export type IdentifyData = {
     id: string;

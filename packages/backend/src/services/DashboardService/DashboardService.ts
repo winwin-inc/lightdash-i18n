@@ -33,15 +33,22 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    SCHEDULER_TASKS,
     type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
+    type DashboardFilterRule,
     type DashboardQueryContext,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
+    type ExportContentPayload,
+    type ExportContentRequest,
+    type SchedulerCsvOptions,
     type UserCategoryList,
+    type UserDashboardsSummary,
+    type UUID,
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
@@ -60,6 +67,7 @@ import { AnalyticsModel } from '../../models/AnalyticsModel';
 import type { CatalogModel } from '../../models/CatalogModel/CatalogModel';
 import { getChartFieldUsageChanges } from '../../models/CatalogModel/utils';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
+import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberProfileModel';
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
@@ -68,6 +76,7 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
+import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
@@ -87,6 +96,7 @@ type DashboardServiceArguments = {
     catalogModel: CatalogModel;
     userDashboardCategoryModel: UserDashboardCategoryModel;
     categoryRpcClient: CategoryRpcClient;
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
 };
 
 export class DashboardService
@@ -121,6 +131,8 @@ export class DashboardService
 
     categoryRpcClient: CategoryRpcClient;
 
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
+
     constructor({
         analytics,
         dashboardModel,
@@ -136,6 +148,7 @@ export class DashboardService
         catalogModel,
         userDashboardCategoryModel,
         categoryRpcClient,
+        organizationMemberProfileModel,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -152,6 +165,7 @@ export class DashboardService
         this.slackClient = slackClient;
         this.userDashboardCategoryModel = userDashboardCategoryModel;
         this.categoryRpcClient = categoryRpcClient;
+        this.organizationMemberProfileModel = organizationMemberProfileModel;
     }
 
     static getCreateEventProperties(
@@ -526,6 +540,8 @@ export class DashboardService
     async getByIdOrSlug(
         user: SessionUser,
         dashboardUuidOrSlug: string,
+        // Optional project scoping (upstream); ignored until model supports it.
+        _options?: { projectUuid?: string },
     ): Promise<Dashboard> {
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             dashboardUuidOrSlug,
@@ -678,6 +694,13 @@ export class DashboardService
         ) {
             throw new ForbiddenError(
                 "You don't have access to the space this dashboard belongs to",
+            );
+        }
+        if (dashboard.ownerUserUuid) {
+            // Throws NotFoundError when the user is not an org member
+            await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                space.organizationUuid,
+                dashboard.ownerUserUuid,
             );
         }
         const createDashboard = {
@@ -984,12 +1007,21 @@ export class DashboardService
                 }
             }
 
+            if (dashboard.ownerUserUuid) {
+                // Throws NotFoundError when the user is not an org member
+                await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                    existingDashboardDao.organizationUuid,
+                    dashboard.ownerUserUuid,
+                );
+            }
+
             const updatedDashboard = await this.dashboardModel.update(
                 existingDashboardDao.uuid,
                 {
                     name: dashboard.name,
                     description: dashboard.description,
                     spaceUuid: dashboard.spaceUuid,
+                    ownerUserUuid: dashboard.ownerUserUuid,
                 },
             );
 
@@ -1138,6 +1170,103 @@ export class DashboardService
                 (item) => item.dashboardUuid === dashboardUuid,
             ),
         };
+    }
+
+    /**
+     * Summary of dashboards owned by a user across all projects, used by the
+     * offboarding flow when deleting an organization member. The caller must
+     * be able to manage dashboards in every project where the user owns any.
+     */
+    async getUserDashboardsSummary(
+        user: SessionUser,
+        targetUserUuid: UUID,
+    ): Promise<UserDashboardsSummary> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        const { organizationUuid } = user;
+
+        // Throws NotFoundError when the user is not an org member
+        const targetMember =
+            await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+                organizationUuid,
+                targetUserUuid,
+            );
+
+        const summary =
+            await this.dashboardModel.getDashboardsSummaryByOwner(
+                targetUserUuid,
+            );
+
+        const projectsWithoutPermission = summary.byProject
+            .filter(
+                (project) =>
+                    !user.ability.can(
+                        'manage',
+                        subject('Dashboard', {
+                            organizationUuid: targetMember.organizationUuid,
+                            projectUuid: project.projectUuid,
+                        }),
+                    ),
+            )
+            .map((project) => project.projectName);
+
+        if (projectsWithoutPermission.length > 0) {
+            throw new ForbiddenError(
+                `You do not have permission to manage dashboards in: ${projectsWithoutPermission.join(
+                    ', ',
+                )}`,
+            );
+        }
+
+        return summary;
+    }
+
+    /**
+     * Transfers ownership of all dashboards owned by one user to another,
+     * used to keep ownership continuity when deleting an organization member.
+     */
+    async reassignUserDashboards(
+        user: SessionUser,
+        fromUserUuid: UUID,
+        newOwnerUserUuid: UUID,
+    ): Promise<{ reassignedCount: number }> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        const { organizationUuid } = user;
+
+        // Also validates fromUser membership and the caller's per-project access
+        const summary = await this.getUserDashboardsSummary(user, fromUserUuid);
+
+        if (summary.totalCount === 0) {
+            return { reassignedCount: 0 };
+        }
+
+        // Throws NotFoundError when the new owner is not an org member
+        await this.organizationMemberProfileModel.getOrganizationMemberByUuid(
+            organizationUuid,
+            newOwnerUserUuid,
+        );
+
+        const reassignedCount = await this.dashboardModel.updateOwnerByUser(
+            fromUserUuid,
+            newOwnerUserUuid,
+            summary.byProject.map((project) => project.projectUuid),
+        );
+
+        this.analytics.track({
+            event: 'dashboard.ownership_reassigned',
+            userId: user.userUuid,
+            properties: {
+                organizationId: organizationUuid,
+                fromUserUuid,
+                newOwnerUserUuid,
+                reassignedCount,
+            },
+        });
+
+        return { reassignedCount };
     }
 
     async updateMultiple(
@@ -1320,6 +1449,72 @@ export class DashboardService
         return this.schedulerModel.getDashboardSchedulers(dashboardUuid);
     }
 
+    /**
+     * Schedule a one-click dashboard content export (CSV or XLSX zip/workbook).
+     * Image export continues to use the legacy /export screenshot route.
+     */
+    async scheduleExportContent(
+        user: SessionUser,
+        dashboardUuid: string,
+        data: ExportContentRequest,
+    ): Promise<{ jobId: string }> {
+        if (!isUserWithOrg(user)) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+
+        if (
+            data.format !== SchedulerFormat.CSV &&
+            data.format !== SchedulerFormat.XLSX
+        ) {
+            throw new ParameterError('Unsupported export format');
+        }
+
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('ExportCsv', {
+                    organizationUuid: dashboard.organizationUuid,
+                    projectUuid: dashboard.projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const options: SchedulerCsvOptions = {
+            formatted: data.options?.formatted ?? true,
+            limit: data.options?.limit ?? 'table',
+            xlsxFileLayout: data.options?.xlsxFileLayout,
+        };
+
+        const payload: ExportContentPayload = {
+            resourceType: 'dashboard',
+            resourceUuid: dashboard.uuid,
+            format: data.format,
+            options,
+            dashboardFilters: data.dashboardFilters,
+            dateZoomGranularity: data.dateZoomGranularity,
+            customViewportWidth: data.customViewportWidth,
+            selectedTabs: data.selectedTabs ?? null,
+            parameters: data.parameters,
+            organizationUuid: dashboard.organizationUuid,
+            projectUuid: dashboard.projectUuid,
+            userUuid: user.userUuid,
+            schedulerUuid: undefined,
+        };
+
+        const { jobId } = await this.schedulerClient.scheduleTask(
+            SCHEDULER_TASKS.EXPORT_CONTENT,
+            payload,
+        );
+
+        return { jobId };
+    }
+
     async createScheduler(
         user: SessionUser,
         dashboardUuid: string,
@@ -1339,8 +1534,19 @@ export class DashboardService
             throw new ParameterError('Timezone string is not valid');
         }
 
-        const { projectUuid, organizationUuid } =
-            await this.checkCreateScheduledDeliveryAccess(user, dashboardUuid);
+        const dashboard = await this.checkCreateScheduledDeliveryAccess(
+            user,
+            dashboardUuid,
+        );
+        const { projectUuid, organizationUuid } = dashboard;
+        assertDashboardSchedulerFilterRequirementsMet({
+            savedDashboardFilters: dashboard.filters,
+            // Dashboard create path always carries optional dimension overrides
+            schedulerFilters: (
+                newScheduler as { filters?: DashboardFilterRule[] }
+            ).filters,
+        });
+
         const scheduler = await this.schedulerModel.createScheduler({
             ...newScheduler,
             createdBy: user.userUuid,
@@ -1702,8 +1908,9 @@ export class DashboardService
 
     /**
      * 获取当前用户的类目列表
-     * 根据用户在看板类目权限表中的权限，构建一级、二级、三级、四级的类目树
-     * 权限生效范围：客户使用模式下的所有用户都需要进行类目权限过滤
+     * 根据用户在看板类目权限中的权限，构建一级、二级、三级、四级的类目树。
+     * 依赖内部后台 Admin API；未配置时返回空列表。
+     * 类目权限过滤对所有项目、所有角色生效（与客户使用模式无关；客户使用模式仅用于 UI 收敛与 VIEWER 看板白名单）。
      * @param user 用户
      * @param projectUuid 项目UUID
      * @param dashboardUuid 看板UUID（可选），如果提供则只返回该看板相关的类目
@@ -1713,27 +1920,26 @@ export class DashboardService
         projectUuid: string,
         dashboardUuid?: string,
     ): Promise<UserCategoryList> {
-        // 检查是否为客户使用模式
+        const emptyCategories: UserCategoryList = {
+            level1: [],
+            level2: [],
+            level3: [],
+            level4: [],
+        };
+
+        if (!this.categoryRpcClient.isConfigured()) {
+            return emptyCategories;
+        }
+
         const db = this.userDashboardCategoryModel.getDatabase();
         const project = await db
             .from('projects')
             .where('project_uuid', projectUuid)
-            .select('project_id', 'is_customer_use', 'organization_id')
+            .select('project_uuid')
             .first();
 
         if (!project) {
             throw new ParameterError(`Project ${projectUuid} not found`);
-        }
-
-        const isCustomerUse = project.is_customer_use ?? false;
-        if (!isCustomerUse) {
-            // 如果不是客户使用模式，返回空列表
-            return {
-                level1: [],
-                level2: [],
-                level3: [],
-                level4: [],
-            };
         }
 
         // 类目权限过滤适用于所有用户，不区分角色

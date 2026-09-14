@@ -1,10 +1,12 @@
 import {
     AnyType,
+    ApiCalculateCountResponse,
     ApiCalculateTotalResponse,
     ApiChartAsCodeListResponse,
     ApiChartAsCodeUpsertResponse,
     ApiChartListResponse,
     ApiChartSummaryListResponse,
+    ApiCompiledMergeQueryResults,
     ApiCreateTagResponse,
     ApiDashboardAsCodeListResponse,
     ApiDashboardAsCodeUpsertResponse,
@@ -16,8 +18,12 @@ import {
     ApiSpaceSummaryListResponse,
     ApiSqlQueryResults,
     ApiSuccessEmpty,
+    ApiExecuteAsyncMetricQueryResults,
+    ApiDataTimezonePreview,
+    CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartAsCode,
+    CompileMergeQueryRequest,
     CreateProjectMember,
     DashboardAsCode,
     DashboardTab,
@@ -25,7 +31,10 @@ import {
     DbtProjectEnvironmentVariable,
     LightdashRequestMethodHeader,
     ParameterError,
+    formatMergeQueryRefusal,
+    QueryExecutionContext,
     RequestMethod,
+    RunMergeQueryRequest,
     UpdateMetadata,
     UpdateProjectMember,
     UserWarehouseCredentials,
@@ -40,6 +49,9 @@ import {
     type ApiGetTagsResponse,
     type ApiRefreshResults,
     type ApiSuccess,
+    type ApiTableGroupsResults,
+    type ApiResultsCacheProjectSettingsResponse,
+    type UpdateResultsCacheProjectSettings,
     type ApiUpdateDashboardsResponse,
     type CalculateSubtotalsFromQuery,
     type CreateDashboard,
@@ -47,7 +59,9 @@ import {
     type DuplicateDashboardParams,
     type Tag,
     type UpdateMultipleDashboards,
+    type UpdateQueryTimezoneSettings,
     type UpdateSchedulerSettings,
+    type DataTimezonePreviewRequest,
 } from '@lightdash/common';
 import {
     Body,
@@ -69,6 +83,7 @@ import {
     Tags,
 } from '@tsoa/runtime';
 import express from 'express';
+import { getContextFromHeader } from '../analytics/LightdashAnalytics';
 import type { DbTagUpdate } from '../database/entities/tags';
 import {
     allowApiKeyAuthentication,
@@ -253,6 +268,32 @@ export class ProjectController extends BaseController {
     }
 
     /**
+     * Preview how warehouse dataTimezone interprets naive timestamps
+     * @summary Preview data timezone
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Post('preview-data-timezone')
+    @OperationId('PreviewDataTimezone')
+    async previewDataTimezone(
+        @Body() body: DataTimezonePreviewRequest,
+        @Request() req: express.Request,
+    ): Promise<ApiDataTimezonePreview> {
+        this.setStatus(200);
+        const results = await this.services
+            .getProjectService()
+            .previewDataTimezone(req.account!, body);
+        return {
+            status: 'ok',
+            results,
+        };
+    }
+
+    /**
      * Update a user's access to a project
      * @deprecated use ProjectRolesController.UpdateProjectUserRoleAssignment instead
      */
@@ -362,6 +403,78 @@ export class ProjectController extends BaseController {
     }
 
     /**
+     * Compile warehouse-native merge query SQL without executing it.
+     * @summary Compile merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/mergeQuery/compile')
+    @OperationId('CompileMergeQuery')
+    @Tags('Exploring')
+    async CompileMergeQuery(
+        @Path() projectUuid: string,
+        @Body() body: CompileMergeQueryRequest,
+        @Request() req: express.Request,
+    ): Promise<{
+        status: 'ok';
+        results: ApiCompiledMergeQueryResults;
+    }> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getAsyncQueryService()
+                .compileMergeQuery({
+                    account: req.account!,
+                    projectUuid,
+                    mergeQuery: body.mergeQuery,
+                    parameters: body.parameters,
+                }),
+        };
+    }
+
+    /**
+     * Execute a warehouse-native merge query asynchronously.
+     * @summary Run merge query
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/mergeQuery/run')
+    @OperationId('RunMergeQuery')
+    @Tags('Exploring')
+    async RunMergeQuery(
+        @Path() projectUuid: string,
+        @Body() body: RunMergeQueryRequest,
+        @Request() req: express.Request,
+    ): Promise<{
+        status: 'ok';
+        results: ApiExecuteAsyncMetricQueryResults;
+    }> {
+        this.setStatus(200);
+        const result = await this.services
+            .getAsyncQueryService()
+            .executeLegacyAsyncMergeQuery({
+                account: req.account!,
+                projectUuid,
+                mergeQuery: body.mergeQuery,
+                parameters: body.parameters,
+                mode:
+                    body.csvLimit === undefined
+                        ? { type: 'interactive' }
+                        : { type: 'export', limit: body.csvLimit },
+                pivotConfiguration: body.pivotConfiguration,
+                context:
+                    getContextFromHeader(req) ?? QueryExecutionContext.EXPLORE,
+            });
+        if (result.outcome === 'refused') {
+            throw new ParameterError(formatMergeQueryRefusal(result.errors), {
+                errors: result.errors,
+            });
+        }
+        return { status: 'ok', results: result.query };
+    }
+
+    /**
      * Calculate all metric totals from a metricQuery
      * @param projectUuid The uuid of the project to get charts for
      * @param body The metric query to calculate totals for
@@ -383,6 +496,31 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results: totalResult,
+        };
+    }
+
+    /**
+     * Calculate result row count from a metricQuery (no detail rows)
+     * @param projectUuid The uuid of the project
+     * @param body The metric query to count rows for
+     * @param req express request
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('{projectUuid}/calculate-count')
+    @OperationId('CalculateCountFromQuery')
+    async CalculateCountFromQuery(
+        @Path() projectUuid: string,
+        @Body() body: CalculateCountFromQuery,
+        @Request() req: express.Request,
+    ): Promise<ApiCalculateCountResponse> {
+        this.setStatus(200);
+        const countResult = await this.services
+            .getProjectService()
+            .calculateCountFromQuery(req.account!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: countResult,
         };
     }
 
@@ -776,6 +914,35 @@ export class ProjectController extends BaseController {
         };
     }
 
+    /**
+     * Update query timezone settings for a project
+     * @summary Update query timezone settings
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Updated')
+    @Patch('{projectUuid}/queryTimezoneSettings')
+    @OperationId('updateQueryTimezoneSettings')
+    async updateQueryTimezoneSettings(
+        @Path() projectUuid: string,
+        @Body() body: UpdateQueryTimezoneSettings,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccessEmpty> {
+        this.setStatus(200);
+
+        await this.services
+            .getProjectService()
+            .updateQueryTimezone(req.user!, projectUuid, body);
+
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
     @Middlewares([
         allowApiKeyAuthentication,
         isAuthenticated,
@@ -894,6 +1061,108 @@ export class ProjectController extends BaseController {
         return {
             status: 'ok',
             results,
+        };
+    }
+
+    /**
+     * Get project-level table-group definitions from lightdash.config.yml.
+     * @summary Get project table groups
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/table-groups')
+    @OperationId('getProjectTableGroups')
+    async getProjectTableGroups(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiSuccess<ApiTableGroupsResults>> {
+        this.setStatus(200);
+        const tableGroups = await this.services
+            .getProjectService()
+            .getTableGroups(req.user!, projectUuid);
+        return {
+            status: 'ok',
+            results: tableGroups,
+        };
+    }
+
+    /**
+     * Replace project-level table-group definitions. Sent by the CLI on
+     * deploy/preview so labels & descriptions from `table_groups` in
+     * `lightdash.config.yml` are applied. Pass an empty object to clear.
+     * @summary Replace project table groups
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Success')
+    @Put('{projectUuid}/table-groups')
+    @OperationId('replaceProjectTableGroups')
+    async replaceProjectTableGroups(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Body() tableGroups: ApiTableGroupsResults,
+    ): Promise<ApiSuccessEmpty> {
+        await this.services.getProjectService().replaceProjectTableGroups({
+            user: req.user!,
+            projectUuid,
+            tableGroups,
+        });
+        return {
+            status: 'ok',
+            results: undefined,
+        };
+    }
+
+    /**
+     * Get the results cache TTL for a project. A null TTL means the
+     * instance-wide default applies.
+     * @summary Get results cache settings
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Get('{projectUuid}/results-cache-config')
+    @OperationId('getProjectResultsCacheSettings')
+    async getProjectResultsCacheSettings(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+    ): Promise<ApiResultsCacheProjectSettingsResponse> {
+        this.setStatus(200);
+        const settings = await this.services
+            .getProjectService()
+            .getProjectResultsCacheSettings(req.user!, projectUuid);
+        return {
+            status: 'ok',
+            results: settings,
+        };
+    }
+
+    /**
+     * Update the results cache TTL for a project. Pass null to fall back to
+     * the instance-wide default.
+     * @summary Update results cache settings
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @SuccessResponse('200', 'Updated')
+    @Patch('{projectUuid}/results-cache-config')
+    @OperationId('updateProjectResultsCacheSettings')
+    async updateProjectResultsCacheSettings(
+        @Path() projectUuid: string,
+        @Request() req: express.Request,
+        @Body() body: UpdateResultsCacheProjectSettings,
+    ): Promise<ApiResultsCacheProjectSettingsResponse> {
+        const settings = await this.services
+            .getProjectService()
+            .updateProjectResultsCacheSettings(req.user!, projectUuid, body);
+        return {
+            status: 'ok',
+            results: settings,
         };
     }
 

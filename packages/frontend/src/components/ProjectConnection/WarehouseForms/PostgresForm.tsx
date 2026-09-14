@@ -23,6 +23,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { PostgresDefaultValues } from './defaultValues';
 import { useCreateSshKeyPair } from './sshHooks';
 
@@ -345,6 +346,7 @@ const PostgresForm: FC<{
                             {...form.getInputProps('warehouse.role')}
                         />
 
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
 
                         <NumberInput

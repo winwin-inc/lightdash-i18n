@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-适用于 Lightdash 技能包的最小行为约束。版本见同目录 **`version.json`**（与统一部署的 MCP 服务版本号对齐即可）。在本 monorepo 内维护版本脚本时见 **[MAINTAINERS.md](./MAINTAINERS.md)**。
+适用于 Lightdash 技能包的最小行为约束。版本以统一部署的 **Lightdash MCP**（`packages/lightdash-mcp` / `mcp-v*`）为准。在本 monorepo 内维护说明见 **[MAINTAINERS.md](./MAINTAINERS.md)**。
 
 技能正文以**中文**写规则与分支；**工具名、JSON 字段、枚举值**等与 MCP 一致，保持**英文原文**不翻译（详见 **[README — 文档语言约定](./README.md#文档语言约定)**）。
 
