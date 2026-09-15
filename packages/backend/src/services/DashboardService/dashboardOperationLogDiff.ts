@@ -292,7 +292,7 @@ const describeTile = (tile: DiffableTile) => {
     return {
         tileUuid: tile.uuid || 'unknown',
         type: tile.type,
-        title: getTileTitle(tile, tile.uuid),
+        title: getTileTitle(tile, tile.uuid || 'unknown'),
         savedChartUuid: properties.savedChartUuid ?? null,
         chartName: properties.chartName ?? null,
         belongsToDashboard: properties.belongsToDashboard ?? null,

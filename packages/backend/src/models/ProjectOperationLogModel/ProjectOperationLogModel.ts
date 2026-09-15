@@ -4,7 +4,7 @@ import {
     ProjectOperationLogsTableName,
     type DbProjectOperationLog,
     type DbProjectOperationLogInsert,
-} from '../database/entities/projectOperationLogs';
+} from '../../database/entities/projectOperationLogs';
 
 export type CreateProjectOperationLog = {
     organizationUuid: string;
