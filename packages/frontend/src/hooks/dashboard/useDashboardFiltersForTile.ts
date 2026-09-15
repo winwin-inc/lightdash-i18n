@@ -1,4 +1,5 @@
 import {
+    backfillDashboardFilterRulesTileTargets,
     getDashboardFilterRulesForTile,
     type DashboardFilters,
 } from '@lightdash/common';
@@ -15,6 +16,9 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
     const isGlobalFilterEnabled = useDashboardContext(
         (c) => c.isGlobalFilterEnabled,
     );
+    const filterableFieldsByTileUuid = useDashboardContext(
+        (c) => c.filterableFieldsByTileUuid,
+    );
 
     return useMemo(() => {
         if (!isGlobalFilterEnabled) return emptyFilters;
@@ -22,25 +26,45 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
         const forQuery = (rule: typeof dashboardFilters.dimensions[number]) =>
             prepareDashboardFilterRuleForQuery(rule);
 
-        return {
-            dimensions: getDashboardFilterRulesForTile(tileUuid, [
+        const dimensions = backfillDashboardFilterRulesTileTargets(
+            [
                 ...dashboardFilters.dimensions,
                 ...(dashboardTemporaryFilters?.dimensions ?? []),
-            ]).map(forQuery),
-            metrics: getDashboardFilterRulesForTile(tileUuid, [
+            ],
+            filterableFieldsByTileUuid,
+        );
+        const metrics = backfillDashboardFilterRulesTileTargets(
+            [
                 ...dashboardFilters.metrics,
                 ...(dashboardTemporaryFilters?.metrics ?? []),
-            ]),
-            tableCalculations: getDashboardFilterRulesForTile(tileUuid, [
+            ],
+            filterableFieldsByTileUuid,
+        );
+        const tableCalculations = backfillDashboardFilterRulesTileTargets(
+            [
                 ...dashboardFilters.tableCalculations,
                 ...(dashboardTemporaryFilters?.tableCalculations ?? []),
-            ]),
+            ],
+            filterableFieldsByTileUuid,
+        );
+
+        return {
+            dimensions: getDashboardFilterRulesForTile(
+                tileUuid,
+                dimensions,
+            ).map(forQuery),
+            metrics: getDashboardFilterRulesForTile(tileUuid, metrics),
+            tableCalculations: getDashboardFilterRulesForTile(
+                tileUuid,
+                tableCalculations,
+            ),
         };
     }, [
         tileUuid,
         dashboardFilters,
         dashboardTemporaryFilters,
         isGlobalFilterEnabled,
+        filterableFieldsByTileUuid,
     ]);
 };
 
