@@ -96,7 +96,7 @@ export class ProjectOperationLogController extends BaseController {
     }
 
     /**
-     * Purge operation logs older than the given cutoff (min retention 30 days)
+     * Purge operation logs by retention days (min 30) or clear all (mode=all)
      */
     @Middlewares([
         allowApiKeyAuthentication,

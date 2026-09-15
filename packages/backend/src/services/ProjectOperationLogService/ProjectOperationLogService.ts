@@ -172,17 +172,28 @@ export class ProjectOperationLogService extends BaseService {
     async purge(
         user: SessionUser,
         projectUuid: string,
-        body: { beforeDays?: number; before?: string },
+        body: {
+            mode?: 'before_days' | 'all';
+            beforeDays?: number;
+            before?: string;
+        },
     ): Promise<ProjectOperationLogPurgeResult> {
         const { organizationUuid } = await this.assertCanManage(
             user,
             projectUuid,
         );
 
+        const mode = body.mode ?? 'before_days';
         let cutoff: Date;
         let beforeDays: number | undefined = body.beforeDays;
+        let deletedCount: number;
 
-        if (body.before) {
+        if (mode === 'all') {
+            cutoff = new Date();
+            deletedCount = await this.projectOperationLogModel.purgeAll(
+                projectUuid,
+            );
+        } else if (body.before) {
             cutoff = new Date(body.before);
             if (Number.isNaN(cutoff.getTime())) {
                 throw new ParameterError('Invalid before date');
@@ -194,6 +205,11 @@ export class ProjectOperationLogService extends BaseService {
                     `Retention minimum is ${MIN_RETENTION_DAYS} days`,
                 );
             }
+            deletedCount =
+                await this.projectOperationLogModel.purgeBefore(
+                    projectUuid,
+                    cutoff,
+                );
         } else {
             beforeDays = beforeDays ?? DEFAULT_PURGE_DAYS;
             if (beforeDays < MIN_RETENTION_DAYS) {
@@ -203,13 +219,12 @@ export class ProjectOperationLogService extends BaseService {
             }
             cutoff = new Date();
             cutoff.setUTCDate(cutoff.getUTCDate() - beforeDays);
+            deletedCount =
+                await this.projectOperationLogModel.purgeBefore(
+                    projectUuid,
+                    cutoff,
+                );
         }
-
-        const deletedCount =
-            await this.projectOperationLogModel.purgeBefore(
-                projectUuid,
-                cutoff,
-            );
 
         await this.record({
             organizationUuid,
@@ -218,9 +233,10 @@ export class ProjectOperationLogService extends BaseService {
             action: PROJECT_OPERATION_LOG_ACTIONS.OPERATION_LOG_PURGED,
             resourceType: 'operation_log',
             summary: {
+                mode,
                 deletedCount,
                 cutoff: cutoff.toISOString(),
-                beforeDays: beforeDays ?? null,
+                beforeDays: mode === 'all' ? null : beforeDays ?? null,
             },
         });
 

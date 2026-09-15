@@ -81,7 +81,11 @@ export type ApiProjectOperationLogPurgeResponse = {
     results: ProjectOperationLogPurgeResult;
 };
 
+export type ProjectOperationLogPurgeMode = 'before_days' | 'all';
+
 export type ProjectOperationLogPurgeBody = {
+    /** before_days (default): delete older than beforeDays/before; all: clear project logs */
+    mode?: ProjectOperationLogPurgeMode;
     beforeDays?: number;
     before?: string;
 };

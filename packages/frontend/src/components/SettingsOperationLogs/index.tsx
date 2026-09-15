@@ -3,6 +3,7 @@ import {
     Anchor,
     Badge,
     Button,
+    Checkbox,
     CopyButton,
     Divider,
     Drawer,
@@ -11,6 +12,7 @@ import {
     Modal,
     NumberInput,
     Paper,
+    Radio,
     Select,
     Stack,
     Table,
@@ -170,20 +172,44 @@ const translateSummaryValue = (
     value: unknown,
     t: TFunction,
 ): string => {
+    if (typeof value === 'boolean') {
+        return t(
+            `components_settings_operation_logs.summary_values.${value}`,
+            { defaultValue: value ? 'true' : 'false' },
+        );
+    }
     if (typeof value === 'string') {
         if (
             key === 'scope' ||
             key === 'source' ||
             key === 'kind' ||
-            key === 'changeKind'
+            key === 'changeKind' ||
+            key === 'mode'
         ) {
             return t(
                 `components_settings_operation_logs.summary_values.${value}`,
                 { defaultValue: value },
             );
         }
+        if (key === 'action' && value.includes('.')) {
+            return t(actionLabelKey(value), { defaultValue: value });
+        }
+    }
+    if (Array.isArray(value) && key === 'changeKinds') {
+        return value
+            .map((item) =>
+                typeof item === 'string' && item.includes('.')
+                    ? t(actionLabelKey(item), { defaultValue: item })
+                    : formatSummaryValue(item),
+            )
+            .join('、');
     }
     return formatSummaryValue(value);
+};
+
+const formatChangeActionLabel = (action: unknown, t: TFunction): string => {
+    if (typeof action !== 'string' || !action) return '-';
+    return t(actionLabelKey(action), { defaultValue: action });
 };
 
 const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
@@ -192,31 +218,188 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
     if (cleaned === undefined) {
         return (
             <Text size="xs" color="dimmed">
-                {t('components_settings_operation_logs.detail_no_summary', { defaultValue: '-' })}
+                {t('components_settings_operation_logs.detail_no_summary', {
+                    defaultValue: '-',
+                })}
             </Text>
         );
     }
 
     if (typeof cleaned !== 'object' || cleaned === null || Array.isArray(cleaned)) {
         return (
-            <Text size="xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            <Text
+                size="xs"
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
                 {formatSummaryValue(cleaned)}
             </Text>
         );
     }
 
-    const entries = Object.entries(cleaned as Record<string, unknown>);
+    const record = cleaned as Record<string, unknown>;
+    const changes = Array.isArray(record.changes) ? record.changes : null;
+
+    if (changes && changes.length > 0) {
+        const metaEntries = Object.entries(record).filter(
+            ([key]) => key !== 'changes' && key !== 'changeKinds',
+        );
+        return (
+            <Stack spacing="sm">
+                {metaEntries.length > 0 ? (
+                    <Stack spacing={6}>
+                        {metaEntries.map(([key, value]) => (
+                            <Group
+                                key={key}
+                                spacing={6}
+                                align="flex-start"
+                                noWrap
+                            >
+                                <Text
+                                    size="xs"
+                                    color="dimmed"
+                                    miw={110}
+                                    style={{ flexShrink: 0 }}
+                                >
+                                    {t(
+                                        `components_settings_operation_logs.summary_keys.${key}`,
+                                        { defaultValue: key },
+                                    )}
+                                </Text>
+                                <Text
+                                    size="xs"
+                                    style={{
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                    }}
+                                >
+                                    {translateSummaryValue(key, value, t)}
+                                </Text>
+                            </Group>
+                        ))}
+                    </Stack>
+                ) : null}
+                <Stack spacing={8}>
+                    <Text size="xs" color="dimmed">
+                        {t(
+                            'components_settings_operation_logs.summary_keys.changes',
+                            { defaultValue: 'changes' },
+                        )}
+                    </Text>
+                    {changes.map((item, index) => {
+                        const change =
+                            item && typeof item === 'object'
+                                ? (item as Record<string, unknown>)
+                                : {};
+                        const actionLabel = formatChangeActionLabel(
+                            change.action,
+                            t,
+                        );
+                        const resourceName =
+                            typeof change.resourceName === 'string'
+                                ? change.resourceName
+                                : '';
+                        const nestedSummary =
+                            change.summary &&
+                            typeof change.summary === 'object' &&
+                            !Array.isArray(change.summary)
+                                ? (change.summary as Record<string, unknown>)
+                                : null;
+                        return (
+                            <Paper
+                                key={`${String(change.action)}-${index}`}
+                                withBorder
+                                p="xs"
+                                radius="sm"
+                            >
+                                <Stack spacing={4}>
+                                    <Text size="sm" fw={500}>
+                                        {index + 1}. {actionLabel}
+                                        {resourceName
+                                            ? ` · ${resourceName}`
+                                            : ''}
+                                    </Text>
+                                    {nestedSummary ? (
+                                        <Stack spacing={4}>
+                                            {Object.entries(nestedSummary)
+                                                .filter(
+                                                    ([key]) =>
+                                                        ![
+                                                            'source',
+                                                            'schemaVersion',
+                                                            'occurredAt',
+                                                        ].includes(key),
+                                                )
+                                                .map(([key, value]) => (
+                                                    <Group
+                                                        key={key}
+                                                        spacing={6}
+                                                        align="flex-start"
+                                                        noWrap
+                                                    >
+                                                        <Text
+                                                            size="xs"
+                                                            color="dimmed"
+                                                            miw={90}
+                                                            style={{
+                                                                flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            {t(
+                                                                `components_settings_operation_logs.summary_keys.${key}`,
+                                                                {
+                                                                    defaultValue:
+                                                                        key,
+                                                                },
+                                                            )}
+                                                        </Text>
+                                                        <Text
+                                                            size="xs"
+                                                            style={{
+                                                                whiteSpace:
+                                                                    'pre-wrap',
+                                                                wordBreak:
+                                                                    'break-word',
+                                                            }}
+                                                        >
+                                                            {translateSummaryValue(
+                                                                key,
+                                                                value,
+                                                                t,
+                                                            )}
+                                                        </Text>
+                                                    </Group>
+                                                ))}
+                                        </Stack>
+                                    ) : null}
+                                </Stack>
+                            </Paper>
+                        );
+                    })}
+                </Stack>
+            </Stack>
+        );
+    }
+
+    const entries = Object.entries(record);
     return (
         <Stack spacing={6}>
             {entries.map(([key, value]) => (
                 <Group key={key} spacing={6} align="flex-start" noWrap>
-                    <Text size="xs" color="dimmed" miw={110} style={{ flexShrink: 0 }}>
+                    <Text
+                        size="xs"
+                        color="dimmed"
+                        miw={110}
+                        style={{ flexShrink: 0 }}
+                    >
                         {t(
                             `components_settings_operation_logs.summary_keys.${key}`,
                             { defaultValue: key },
                         )}
                     </Text>
-                    <Text size="xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    <Text
+                        size="xs"
+                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    >
                         {translateSummaryValue(key, value, t)}
                     </Text>
                 </Group>
@@ -312,6 +495,10 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
     const [purgeOpened, { open: openPurge, close: closePurge }] =
         useDisclosure(false);
     const [beforeDays, setBeforeDays] = useState<number>(90);
+    const [purgeMode, setPurgeMode] = useState<'before_days' | 'all'>(
+        'before_days',
+    );
+    const [confirmClearAll, setConfirmClearAll] = useState(false);
 
     const filters = useMemo(
         () => ({
@@ -356,7 +543,11 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
 
     const handlePurge = async () => {
         try {
-            const result = await purge({ beforeDays });
+            const result = await purge(
+                purgeMode === 'all'
+                    ? { mode: 'all' }
+                    : { mode: 'before_days', beforeDays },
+            );
             notifications.show({
                 color: 'green',
                 title: t('components_settings_operation_logs.purge_success_title'),
@@ -365,6 +556,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                     { count: result.deletedCount },
                 ),
             });
+            setConfirmClearAll(false);
             closePurge();
         } catch (e) {
             notifications.show({
@@ -396,7 +588,12 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                     variant="light"
                     size="xs"
                     leftIcon={<MantineIcon icon={IconTrash} />}
-                    onClick={openPurge}
+                    onClick={() => {
+                        setPurgeMode('before_days');
+                        setBeforeDays(90);
+                        setConfirmClearAll(false);
+                        openPurge();
+                    }}
                 >
                     {t('components_settings_operation_logs.purge_button')}
                 </Button>
@@ -865,23 +1062,79 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                             'components_settings_operation_logs.purge_modal_body',
                         )}
                     </Text>
-                    <NumberInput
-                        size="xs"
+                    <Radio.Group
+                        value={purgeMode}
+                        onChange={(v) => {
+                            setPurgeMode(v as 'before_days' | 'all');
+                            setConfirmClearAll(false);
+                        }}
                         label={t(
-                            'components_settings_operation_logs.purge_before_days',
+                            'components_settings_operation_logs.purge_mode_label',
                         )}
-                        value={beforeDays}
-                        onChange={(v) =>
-                            setBeforeDays(typeof v === 'number' ? v : 90)
-                        }
-                        min={30}
+                        size="xs"
                         styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                    />
+                    >
+                        <Stack spacing={6} mt={4}>
+                            <Radio
+                                value="before_days"
+                                label={t(
+                                    'components_settings_operation_logs.purge_mode_before_days',
+                                )}
+                                size="xs"
+                            />
+                            <Radio
+                                value="all"
+                                label={t(
+                                    'components_settings_operation_logs.purge_mode_all',
+                                )}
+                                size="xs"
+                            />
+                        </Stack>
+                    </Radio.Group>
+                    {purgeMode === 'before_days' ? (
+                        <NumberInput
+                            size="xs"
+                            label={t(
+                                'components_settings_operation_logs.purge_before_days',
+                            )}
+                            value={beforeDays}
+                            onChange={(v) =>
+                                setBeforeDays(typeof v === 'number' ? v : 90)
+                            }
+                            min={30}
+                            styles={{
+                                label: { fontSize: 12, marginBottom: 4 },
+                            }}
+                        />
+                    ) : (
+                        <Stack spacing={6}>
+                            <Text size="xs" color="red">
+                                {t(
+                                    'components_settings_operation_logs.purge_clear_all_warning',
+                                )}
+                            </Text>
+                            <Checkbox
+                                size="xs"
+                                checked={confirmClearAll}
+                                onChange={(e) =>
+                                    setConfirmClearAll(
+                                        e.currentTarget.checked,
+                                    )
+                                }
+                                label={t(
+                                    'components_settings_operation_logs.purge_clear_all_confirm',
+                                )}
+                            />
+                        </Stack>
+                    )}
                     <Group position="right" spacing="xs">
                         <Button
                             variant="default"
                             size="xs"
-                            onClick={closePurge}
+                            onClick={() => {
+                                setConfirmClearAll(false);
+                                closePurge();
+                            }}
                         >
                             {t(
                                 'components_settings_operation_logs.purge_cancel',
@@ -891,6 +1144,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                             color="red"
                             size="xs"
                             loading={isPurging}
+                            disabled={
+                                purgeMode === 'all' && !confirmClearAll
+                            }
                             onClick={() => void handlePurge()}
                         >
                             {t(

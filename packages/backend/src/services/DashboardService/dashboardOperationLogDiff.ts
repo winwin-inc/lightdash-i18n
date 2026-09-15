@@ -537,28 +537,33 @@ export const diffDashboardVersionedContent = (
             }
         }
 
-        const prevOrder = prevTabs.map((tab) => tab.uuid).join(',');
-        const nextOrder = nextTabs.map((tab) => tab.uuid).join(',');
-        if (
-            prevOrder !== nextOrder &&
+        // Compare per-tab `order` field, not array position — FE save
+        // often reorders the tabs array without changing tab.order.
+        const sameTabSet =
             prevById.size === nextById.size &&
-            [...prevById.keys()].every((uuid) => nextById.has(uuid))
-        ) {
-            events.push({
-                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_REORDERED,
-                summary: {
-                    previousOrder: prevTabs.map((tab) => ({
-                        uuid: tab.uuid,
-                        name: tab.name,
-                        order: tab.order,
-                    })),
-                    nextOrder: nextTabs.map((tab) => ({
-                        uuid: tab.uuid,
-                        name: tab.name,
-                        order: tab.order,
-                    })),
-                },
+            [...prevById.keys()].every((uuid) => nextById.has(uuid));
+        if (sameTabSet) {
+            const orderChanged = prevTabs.some((tab) => {
+                const nextTab = nextById.get(tab.uuid);
+                return nextTab != null && nextTab.order !== tab.order;
             });
+            if (orderChanged) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_REORDERED,
+                    summary: {
+                        previousOrder: prevTabs.map((tab) => ({
+                            uuid: tab.uuid,
+                            name: tab.name,
+                            order: tab.order,
+                        })),
+                        nextOrder: nextTabs.map((tab) => ({
+                            uuid: tab.uuid,
+                            name: tab.name,
+                            order: tab.order,
+                        })),
+                    },
+                });
+            }
         }
     }
 

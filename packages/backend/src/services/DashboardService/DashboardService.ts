@@ -1153,31 +1153,35 @@ export class DashboardService
         const hasClientEvents =
             Array.isArray(clientEvents) && clientEvents.length > 0;
 
+        type MergedOperationChange = {
+            action: string;
+            resourceType?: string;
+            resourceUuid?: string | null;
+            resourceName?: string | null;
+            summary?: Record<string, unknown> | null;
+        };
+
+        const mergedChanges: MergedOperationChange[] = [];
+
         if (hasClientEvents) {
-            await Promise.all(
-                clientEvents!.map((event) =>
-                    this.projectOperationLogService.record({
-                        ...baseLog,
-                        action: event.action,
-                        resourceType:
-                            event.resourceType ?? baseLog.resourceType,
-                        resourceUuid:
-                            event.resourceUuid ?? baseLog.resourceUuid,
-                        resourceName:
-                            event.resourceName ?? baseLog.resourceName,
-                        summary: {
-                            ...(event.summary ?? {}),
-                            source: 'client',
-                            schemaVersion: event.schemaVersion,
-                            scope: event.scope,
-                            tabUuid: event.tabUuid,
-                            tabName: event.tabName,
-                            changeKind: event.changeKind,
-                            occurredAt: event.occurredAt,
-                        },
-                    }),
-                ),
-            );
+            for (const event of clientEvents!) {
+                mergedChanges.push({
+                    action: String(event.action),
+                    resourceType: event.resourceType,
+                    resourceUuid: event.resourceUuid,
+                    resourceName: event.resourceName,
+                    summary: {
+                        ...(event.summary ?? {}),
+                        source: 'client',
+                        schemaVersion: event.schemaVersion,
+                        scope: event.scope,
+                        tabUuid: event.tabUuid,
+                        tabName: event.tabName,
+                        changeKind: event.changeKind,
+                        occurredAt: event.occurredAt,
+                    },
+                });
+            }
         }
 
         if (isDashboardVersionedFields(dashboard)) {
@@ -1193,24 +1197,50 @@ export class DashboardService
                 },
             );
 
-            // FE semantic events cover filters; skip noisy auto-diff for filters.
+            // FE semantic events cover filters; also drop incidental
+            // config/parameters "dashboard.updated" noise on the same save.
             if (hasClientEvents) {
                 fineEvents = fineEvents.filter(
                     (event) =>
-                        !String(event.action).startsWith('dashboard.filters.'),
+                        !String(event.action).startsWith(
+                            'dashboard.filters.',
+                        ) &&
+                        event.action !==
+                            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
                 );
             }
 
-            if (fineEvents.length > 0) {
-                await Promise.all(
-                    fineEvents.map((event) =>
-                        this.projectOperationLogService.record({
-                            ...baseLog,
-                            action: event.action,
-                            summary: event.summary,
-                        }),
-                    ),
-                );
+            for (const event of fineEvents) {
+                mergedChanges.push({
+                    action: String(event.action),
+                    summary: {
+                        ...(event.summary ?? {}),
+                        source: 'diff',
+                    },
+                });
+            }
+
+            if (mergedChanges.length === 1) {
+                const only = mergedChanges[0];
+                await this.projectOperationLogService.record({
+                    ...baseLog,
+                    action: only.action,
+                    resourceType: only.resourceType ?? baseLog.resourceType,
+                    resourceUuid: only.resourceUuid ?? baseLog.resourceUuid,
+                    resourceName: only.resourceName ?? baseLog.resourceName,
+                    summary: only.summary ?? null,
+                });
+            } else if (mergedChanges.length > 1) {
+                await this.projectOperationLogService.record({
+                    ...baseLog,
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                    summary: {
+                        kind: 'save',
+                        changeCount: mergedChanges.length,
+                        changeKinds: mergedChanges.map((c) => c.action),
+                        changes: mergedChanges,
+                    },
+                });
             }
         } else if (
             isDashboardUnversionedFields(dashboard) &&

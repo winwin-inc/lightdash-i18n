@@ -217,4 +217,11 @@ export class ProjectOperationLogModel {
             .delete();
         return typeof deleted === 'number' ? deleted : 0;
     }
+
+    async purgeAll(projectUuid: string): Promise<number> {
+        const deleted = await this.database(ProjectOperationLogsTableName)
+            .where('project_uuid', projectUuid)
+            .delete();
+        return typeof deleted === 'number' ? deleted : 0;
+    }
 }
