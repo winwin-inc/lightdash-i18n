@@ -47,7 +47,7 @@ import { hasFilterValueSet } from '../FilterConfiguration/utils';
 import {
     enqueueFilterDeleted,
     enqueueFilterUpdatedFromDiff,
-} from '../../../../hooks/dashboard/dashboardOperationEventQueue';
+} from '../../../hooks/dashboard/dashboardOperationEventQueue';
 import { useFilterDropdownStyles } from '../filterDropdownStyles';
 import { useFilterPillStyles } from '../filterPillStyles';
 

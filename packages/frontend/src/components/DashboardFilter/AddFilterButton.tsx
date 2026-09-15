@@ -21,7 +21,7 @@ import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
-import { enqueueFilterCreated } from '../../../hooks/dashboard/dashboardOperationEventQueue';
+import { enqueueFilterCreated } from '../../hooks/dashboard/dashboardOperationEventQueue';
 import { FilterTabs } from './FilterConfiguration/constants';
 
 type Props = {
