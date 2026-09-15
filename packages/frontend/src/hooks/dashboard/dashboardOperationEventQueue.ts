@@ -80,13 +80,20 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
 });
 
 
-const filterResourceName = (rule: DashboardFilterRule): string => {
+const filterResourceName = (
+    rule: DashboardFilterRule,
+    tabName?: string | null,
+): string => {
     const label = rule.label?.trim();
     if (label) return label;
+    const fieldId = rule.target?.fieldId?.trim();
+    const niceTab = tabName?.trim();
+    if (niceTab && fieldId) return `${niceTab} · ${fieldId}`;
+    if (niceTab) return niceTab;
+    if (fieldId) return fieldId;
     const tableName = rule.target?.tableName;
-    const fieldId = rule.target?.fieldId;
     if (tableName && fieldId) return `${tableName}.${fieldId}`;
-    return fieldId || rule.id;
+    return rule.id;
 };
 
 const pushFilterEvent = (
@@ -103,7 +110,7 @@ const pushFilterEvent = (
         tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
         resourceType: 'dashboard_filter',
         resourceUuid: rule.id,
-        resourceName: filterResourceName(rule),
+        resourceName: filterResourceName(rule, ctx.tabName),
         changeKind,
         summary: {
             ...baseFilterSummary(rule),

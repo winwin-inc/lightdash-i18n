@@ -9581,7 +9581,7 @@
       "parentFieldId": "Parent field",
       "tileTargetCount": "Bound tiles",
       "changeKinds": "Change kinds",
-      "changes": "Changes",
+      "changes": "Change details",
       "changeCount": "Change count",
       "deletedCount": "Deleted count",
       "cutoff": "Cutoff",
@@ -9609,7 +9609,9 @@
       "isDateZoomDisabled": "Date zoom disabled",
       "filters": "Filters",
       "dimensions": "Dimensions",
-      "metrics": "Metrics"
+      "metrics": "Metrics",
+      "dashboardName": "Dashboard",
+      "dashboardUuid": "Dashboard ID"
     },
     "summary_values": {
       "global": "Global",
@@ -9646,6 +9648,8 @@
     "purge_mode_before_days": "By days",
     "purge_mode_all": "Clear all",
     "purge_clear_all_warning": "This permanently deletes all operation logs for this project.",
-    "purge_clear_all_confirm": "I confirm clearing all operation logs for this project"
+    "purge_clear_all_confirm": "I confirm clearing all operation logs for this project",
+    "related_dashboard": "Dashboard",
+    "related_dashboard_prefix": "Dashboard: "
   }
 }

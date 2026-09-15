@@ -1220,6 +1220,11 @@ export class DashboardService
                 });
             }
 
+            const dashboardContext = {
+                dashboardUuid: baseLog.resourceUuid,
+                dashboardName: baseLog.resourceName,
+            };
+
             if (mergedChanges.length === 1) {
                 const only = mergedChanges[0];
                 await this.projectOperationLogService.record({
@@ -1228,7 +1233,10 @@ export class DashboardService
                     resourceType: only.resourceType ?? baseLog.resourceType,
                     resourceUuid: only.resourceUuid ?? baseLog.resourceUuid,
                     resourceName: only.resourceName ?? baseLog.resourceName,
-                    summary: only.summary ?? null,
+                    summary: {
+                        ...(only.summary ?? {}),
+                        ...dashboardContext,
+                    },
                 });
             } else if (mergedChanges.length > 1) {
                 await this.projectOperationLogService.record({
@@ -1238,7 +1246,14 @@ export class DashboardService
                         kind: 'save',
                         changeCount: mergedChanges.length,
                         changeKinds: mergedChanges.map((c) => c.action),
-                        changes: mergedChanges,
+                        changes: mergedChanges.map((change) => ({
+                            ...change,
+                            summary: {
+                                ...(change.summary ?? {}),
+                                ...dashboardContext,
+                            },
+                        })),
+                        ...dashboardContext,
                     },
                 });
             }

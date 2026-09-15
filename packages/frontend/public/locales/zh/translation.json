@@ -9612,7 +9612,7 @@
       "parentFieldId": "父级字段",
       "tileTargetCount": "绑定图表数",
       "changeKinds": "变更类型",
-      "changes": "子变更",
+      "changes": "变更明细",
       "changeCount": "变更数",
       "deletedCount": "删除条数",
       "cutoff": "截止时间",
@@ -9640,7 +9640,9 @@
       "isDateZoomDisabled": "禁用日期缩放",
       "filters": "筛选器",
       "dimensions": "维度",
-      "metrics": "指标"
+      "metrics": "指标",
+      "dashboardName": "所属看板",
+      "dashboardUuid": "看板 ID"
     },
     "summary_values": {
       "global": "全局",
@@ -9677,6 +9679,8 @@
     "purge_mode_before_days": "按天数清理",
     "purge_mode_all": "清空全部",
     "purge_clear_all_warning": "将删除本项目全部操作日志，此操作不可撤销。",
-    "purge_clear_all_confirm": "我确认清空本项目全部操作日志"
+    "purge_clear_all_confirm": "我确认清空本项目全部操作日志",
+    "related_dashboard": "所属看板",
+    "related_dashboard_prefix": "看板："
   }
 }

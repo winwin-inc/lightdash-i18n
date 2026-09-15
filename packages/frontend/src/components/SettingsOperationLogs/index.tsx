@@ -96,6 +96,9 @@ const statusLabelKey = (status: string) =>
     `components_settings_operation_logs.statuses.${status}`;
 
 
+const looksLikeFieldPath = (value: string): boolean =>
+    /^[a-zA-Z_][\w]*\.[a-zA-Z_][\w]*$/.test(value);
+
 const formatResourceName = (row: {
     resourceType: string;
     resourceName: string | null;
@@ -105,20 +108,40 @@ const formatResourceName = (row: {
     const summaryLabel =
         typeof summary.label === 'string' ? summary.label.trim() : '';
     const summaryFieldId =
-        typeof summary.fieldId === 'string' ? summary.fieldId : '';
+        typeof summary.fieldId === 'string' ? summary.fieldId.trim() : '';
     const summaryTable =
-        typeof summary.tableName === 'string' ? summary.tableName : '';
+        typeof summary.tableName === 'string' ? summary.tableName.trim() : '';
+    const summaryTabName =
+        typeof summary.tabName === 'string' ? summary.tabName.trim() : '';
+    const storedName = row.resourceName?.trim() || '';
 
     if (row.resourceType === 'dashboard_filter') {
+        // Prefer human label; skip when label is just the raw field id.
+        if (
+            summaryLabel &&
+            summaryLabel !== summaryFieldId &&
+            !looksLikeFieldPath(summaryLabel)
+        ) {
+            return summaryLabel;
+        }
+        if (summaryTabName) {
+            const tail =
+                summaryLabel && !looksLikeFieldPath(summaryLabel)
+                    ? summaryLabel
+                    : summaryFieldId ||
+                      (looksLikeFieldPath(storedName) ? '' : storedName);
+            return tail ? `${summaryTabName} · ${tail}` : summaryTabName;
+        }
         if (summaryLabel) return summaryLabel;
-        if (row.resourceName?.trim()) return row.resourceName.trim();
+        if (storedName && !looksLikeFieldPath(storedName)) return storedName;
+        if (summaryFieldId) return summaryFieldId;
         if (summaryTable && summaryFieldId) {
             return `${summaryTable}.${summaryFieldId}`;
         }
-        return summaryFieldId || '-';
+        return storedName || '-';
     }
 
-    return row.resourceName || '-';
+    return storedName || '-';
 };
 
 const canOpenDashboardResource = (
@@ -129,6 +152,38 @@ const canOpenDashboardResource = (
     resourceType === 'dashboard' &&
     !!resourceUuid &&
     !action.endsWith('.deleted');
+
+const getRelatedDashboard = (row: {
+    resourceType: string;
+    resourceUuid: string | null | undefined;
+    resourceName?: string | null;
+    action: string;
+    summary?: Record<string, unknown> | null;
+}): { uuid: string; name: string } | null => {
+    if (row.action.endsWith('.deleted')) return null;
+    const summary = row.summary || {};
+    const fromSummaryUuid =
+        typeof summary.dashboardUuid === 'string'
+            ? summary.dashboardUuid.trim()
+            : '';
+    const fromSummaryName =
+        typeof summary.dashboardName === 'string'
+            ? summary.dashboardName.trim()
+            : '';
+    if (fromSummaryUuid) {
+        return {
+            uuid: fromSummaryUuid,
+            name: fromSummaryName || fromSummaryUuid,
+        };
+    }
+    if (row.resourceType === 'dashboard' && row.resourceUuid) {
+        return {
+            uuid: row.resourceUuid,
+            name: row.resourceName?.trim() || row.resourceUuid,
+        };
+    }
+    return null;
+};
 
 
 const isEmptyValue = (value: unknown): boolean =>
@@ -278,103 +333,128 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
                         ))}
                     </Stack>
                 ) : null}
-                <Stack spacing={8}>
+                <Stack spacing={6}>
                     <Text size="xs" color="dimmed">
                         {t(
                             'components_settings_operation_logs.summary_keys.changes',
                             { defaultValue: 'changes' },
                         )}
                     </Text>
-                    {changes.map((item, index) => {
-                        const change =
-                            item && typeof item === 'object'
-                                ? (item as Record<string, unknown>)
-                                : {};
-                        const actionLabel = formatChangeActionLabel(
-                            change.action,
-                            t,
-                        );
-                        const resourceName =
-                            typeof change.resourceName === 'string'
-                                ? change.resourceName
-                                : '';
-                        const nestedSummary =
-                            change.summary &&
-                            typeof change.summary === 'object' &&
-                            !Array.isArray(change.summary)
-                                ? (change.summary as Record<string, unknown>)
-                                : null;
-                        return (
-                            <Paper
-                                key={`${String(change.action)}-${index}`}
-                                withBorder
-                                p="xs"
-                                radius="sm"
-                            >
-                                <Stack spacing={4}>
-                                    <Text size="sm" fw={500}>
-                                        {index + 1}. {actionLabel}
-                                        {resourceName
-                                            ? ` · ${resourceName}`
-                                            : ''}
-                                    </Text>
-                                    {nestedSummary ? (
-                                        <Stack spacing={4}>
-                                            {Object.entries(nestedSummary)
-                                                .filter(
-                                                    ([key]) =>
-                                                        ![
-                                                            'source',
-                                                            'schemaVersion',
-                                                            'occurredAt',
-                                                        ].includes(key),
-                                                )
-                                                .map(([key, value]) => (
-                                                    <Group
-                                                        key={key}
-                                                        spacing={6}
-                                                        align="flex-start"
-                                                        noWrap
-                                                    >
-                                                        <Text
-                                                            size="xs"
-                                                            color="dimmed"
-                                                            miw={90}
-                                                            style={{
-                                                                flexShrink: 0,
-                                                            }}
+                    <Stack spacing={4}>
+                        {changes.map((item, index) => {
+                            const change =
+                                item && typeof item === 'object'
+                                    ? (item as Record<string, unknown>)
+                                    : {};
+                            const actionLabel = formatChangeActionLabel(
+                                change.action,
+                                t,
+                            );
+                            const changeKindLabel =
+                                typeof change.changeKind === 'string'
+                                    ? t(
+                                          `components_settings_operation_logs.summary_values.${change.changeKind}`,
+                                          {
+                                              defaultValue:
+                                                  change.changeKind,
+                                          },
+                                      )
+                                    : '';
+                            const title =
+                                actionLabel !== '-'
+                                    ? actionLabel
+                                    : changeKindLabel || '-';
+                            const resourceName =
+                                typeof change.resourceName === 'string' &&
+                                !looksLikeFieldPath(change.resourceName)
+                                    ? change.resourceName
+                                    : '';
+                            const nestedSummary =
+                                change.summary &&
+                                typeof change.summary === 'object' &&
+                                !Array.isArray(change.summary)
+                                    ? (change.summary as Record<
+                                          string,
+                                          unknown
+                                      >)
+                                    : null;
+                            return (
+                                <Paper
+                                    key={`${String(
+                                        change.action || change.changeKind,
+                                    )}-${index}`}
+                                    withBorder
+                                    p={6}
+                                    radius="sm"
+                                    bg="gray.0"
+                                >
+                                    <Stack spacing={2}>
+                                        <Text size="xs">
+                                            {index + 1}. {title}
+                                            {resourceName
+                                                ? ` · ${resourceName}`
+                                                : ''}
+                                        </Text>
+                                        {nestedSummary ? (
+                                            <Stack spacing={2} pl={12}>
+                                                {Object.entries(nestedSummary)
+                                                    .filter(
+                                                        ([key]) =>
+                                                            ![
+                                                                'source',
+                                                                'schemaVersion',
+                                                                'occurredAt',
+                                                            ].includes(key),
+                                                    )
+                                                    .map(([key, value]) => (
+                                                        <Group
+                                                            key={key}
+                                                            spacing={6}
+                                                            align="flex-start"
+                                                            noWrap
                                                         >
-                                                            {t(
-                                                                `components_settings_operation_logs.summary_keys.${key}`,
-                                                                {
-                                                                    defaultValue:
-                                                                        key,
-                                                                },
-                                                            )}
-                                                        </Text>
-                                                        <Text
-                                                            size="xs"
-                                                            style={{
-                                                                whiteSpace:
-                                                                    'pre-wrap',
-                                                                wordBreak:
-                                                                    'break-word',
-                                                            }}
-                                                        >
-                                                            {translateSummaryValue(
-                                                                key,
-                                                                value,
-                                                                t,
-                                                            )}
-                                                        </Text>
-                                                    </Group>
-                                                ))}
-                                        </Stack>
-                                    ) : null}
-                                </Stack>
-                            </Paper>
-                        );
-                    })}
+                                                            <Text
+                                                                size="xs"
+                                                                color="dimmed"
+                                                                miw={80}
+                                                                style={{
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            >
+                                                                {t(
+                                                                    `components_settings_operation_logs.summary_keys.${key}`,
+                                                                    {
+                                                                        defaultValue:
+                                                                            key,
+                                                                    },
+                                                                )}
+                                                            </Text>
+                                                            <Text
+                                                                size="xs"
+                                                                color="dimmed"
+                                                                style={{
+                                                                    whiteSpace:
+                                                                        'pre-wrap',
+                                                                    wordBreak:
+                                                                        'break-word',
+                                                                }}
+                                                            >
+                                                                {translateSummaryValue(
+                                                                    key,
+                                                                    value,
+                                                                    t,
+                                                                )}
+                                                            </Text>
+                                                        </Group>
+                                                    ))}
+                                            </Stack>
+                                        ) : null}
+                                    </Stack>
+                                </Paper>
+                            );
+                        })}
+                    </Stack>
+                </Stack>
                 </Stack>
             </Stack>
         );
@@ -811,24 +891,58 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                         })}
                                     </td>
                                     <td>
-                                        {canOpenDashboardResource(
-                                            row.resourceType,
-                                            row.resourceUuid,
-                                            row.action,
-                                        ) ? (
-                                            <Anchor
-                                                size="sm"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/projects/${projectUuid}/dashboards/${row.resourceUuid}`,
-                                                    )
-                                                }
-                                            >
-                                                {formatResourceName(row)}
-                                            </Anchor>
-                                        ) : (
-                                            formatResourceName(row)
-                                        )}
+                                        <Stack spacing={2}>
+                                            {canOpenDashboardResource(
+                                                row.resourceType,
+                                                row.resourceUuid,
+                                                row.action,
+                                            ) ? (
+                                                <Anchor
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/projects/${projectUuid}/dashboards/${row.resourceUuid}`,
+                                                        )
+                                                    }
+                                                >
+                                                    {formatResourceName(row)}
+                                                </Anchor>
+                                            ) : (
+                                                <Text size="sm">
+                                                    {formatResourceName(row)}
+                                                </Text>
+                                            )}
+                                            {row.resourceType ===
+                                                'dashboard_filter' &&
+                                            getRelatedDashboard(row) ? (
+                                                <Anchor
+                                                    size="xs"
+                                                    color="dimmed"
+                                                    onClick={() => {
+                                                        const related =
+                                                            getRelatedDashboard(
+                                                                row,
+                                                            );
+                                                        if (!related) return;
+                                                        navigate(
+                                                            `/projects/${projectUuid}/dashboards/${related.uuid}`,
+                                                        );
+                                                    }}
+                                                >
+                                                    {t(
+                                                        'components_settings_operation_logs.related_dashboard_prefix',
+                                                        {
+                                                            defaultValue:
+                                                                'Dashboard: ',
+                                                        },
+                                                    )}
+                                                    {
+                                                        getRelatedDashboard(row)!
+                                                            .name
+                                                    }
+                                                </Anchor>
+                                            ) : null}
+                                        </Stack>
                                     </td>
                                     <td
                                         className={stickyClasses.stickyStatus}
@@ -1016,6 +1130,29 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                 formatResourceName(detail)
                             )}
                         </DetailRow>
+                        {detail.resourceType === 'dashboard_filter' &&
+                        getRelatedDashboard(detail) ? (
+                            <DetailRow
+                                label={t(
+                                    'components_settings_operation_logs.related_dashboard',
+                                    { defaultValue: 'Dashboard' },
+                                )}
+                            >
+                                <Anchor
+                                    size="sm"
+                                    onClick={() => {
+                                        const related =
+                                            getRelatedDashboard(detail);
+                                        if (!related) return;
+                                        navigate(
+                                            `/projects/${projectUuid}/dashboards/${related.uuid}`,
+                                        );
+                                    }}
+                                >
+                                    {getRelatedDashboard(detail)!.name}
+                                </Anchor>
+                            </DetailRow>
+                        ) : null}
                         <DetailRow
                             label={t(
                                 'components_settings_operation_logs.columns.status',
