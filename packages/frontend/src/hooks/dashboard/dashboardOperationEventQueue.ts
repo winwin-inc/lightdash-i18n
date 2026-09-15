@@ -61,6 +61,16 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     values: rule.values,
     disabled: rule.disabled,
     required: rule.required,
+    excludedValues: (rule as DashboardFilterRule & { excludedValues?: unknown })
+        .excludedValues,
+    readOnly: (rule as DashboardFilterRule & { readOnly?: unknown })
+        .readOnly,
+    hidden: (rule as DashboardFilterRule & { hidden?: unknown })
+        .hidden,
+    allowedOperators: (rule as DashboardFilterRule & { allowedOperators?: unknown })
+        .allowedOperators,
+    singleValue: (rule as DashboardFilterRule & { singleValue?: unknown })
+        .singleValue,
     categoryLevel: (rule as DashboardFilterRule & { categoryLevel?: unknown })
         .categoryLevel,
     parentFieldId: (rule as DashboardFilterRule & { parentFieldId?: unknown })
@@ -192,7 +202,7 @@ export const enqueueFilterUpdatedFromDiff = (
         });
     }
 
-    const defaultKeys = ['values', 'disabled', 'required', 'operator'] as const;
+    const defaultKeys = ['values', 'required', 'operator'] as const;
     if (
         defaultKeys.some((key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]))
     ) {
@@ -201,6 +211,66 @@ export const enqueueFilterUpdatedFromDiff = (
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DEFAULT_VALUES_CHANGED,
             previous: Object.fromEntries(defaultKeys.map((key) => [key, prevExt[key]])),
             next: Object.fromEntries(defaultKeys.map((key) => [key, nextExt[key]])),
+        });
+    }
+
+    if (stableJson(prevExt.disabled) !== stableJson(nextExt.disabled)) {
+        changes.push({
+            changeKind: 'disabled',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DISABLED_CHANGED,
+            previous: { disabled: prevExt.disabled },
+            next: { disabled: nextExt.disabled },
+        });
+    }
+
+    if (
+        stableJson(prevExt.excludedValues) !==
+        stableJson(nextExt.excludedValues)
+    ) {
+        changes.push({
+            changeKind: 'excluded_values',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_EXCLUDED_VALUES_CHANGED,
+            previous: { excludedValues: prevExt.excludedValues },
+            next: { excludedValues: nextExt.excludedValues },
+        });
+    }
+
+    if (stableJson(prevExt.readOnly) !== stableJson(nextExt.readOnly)) {
+        changes.push({
+            changeKind: 'read_only',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_READ_ONLY_CHANGED,
+            previous: { readOnly: prevExt.readOnly },
+            next: { readOnly: nextExt.readOnly },
+        });
+    }
+
+    if (stableJson(prevExt.hidden) !== stableJson(nextExt.hidden)) {
+        changes.push({
+            changeKind: 'filter_hidden',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_HIDDEN_CHANGED,
+            previous: { hidden: prevExt.hidden },
+            next: { hidden: nextExt.hidden },
+        });
+    }
+
+    if (
+        stableJson(prevExt.allowedOperators) !==
+        stableJson(nextExt.allowedOperators)
+    ) {
+        changes.push({
+            changeKind: 'allowed_operators',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_ALLOWED_OPERATORS_CHANGED,
+            previous: { allowedOperators: prevExt.allowedOperators },
+            next: { allowedOperators: nextExt.allowedOperators },
+        });
+    }
+
+    if (stableJson(prevExt.singleValue) !== stableJson(nextExt.singleValue)) {
+        changes.push({
+            changeKind: 'input_mode',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_INPUT_MODE_CHANGED,
+            previous: { singleValue: prevExt.singleValue },
+            next: { singleValue: nextExt.singleValue },
         });
     }
 
@@ -262,3 +332,68 @@ export const enqueueFilterUpdatedFromDiff = (
     }
 };
 
+export const enqueueFilterBarVisibilityChanged = (
+    ctx: QueueContext,
+    previousEnabled: boolean,
+    nextEnabled: boolean,
+): void => {
+    if (previousEnabled === nextEnabled) return;
+    const label =
+        ctx.scope === 'tab'
+            ? ctx.tabName?.trim() || undefined
+            : undefined;
+    enqueueDashboardOperationEvent({
+        action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_BAR_VISIBILITY_CHANGED,
+        scope: ctx.scope,
+        tabUuid: ctx.scope === 'tab' ? ctx.tabUuid ?? null : null,
+        tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
+        resourceType: 'dashboard_filter',
+        resourceUuid: null,
+        resourceName: label ?? (ctx.scope === 'tab' ? 'tab' : 'global'),
+        changeKind: 'bar_visibility',
+        summary: {
+            label:
+                ctx.scope === 'global'
+                    ? 'global'
+                    : label || 'tab',
+            scope: ctx.scope,
+            tabUuid: ctx.tabUuid ?? null,
+            tabName: ctx.tabName ?? null,
+            previous: { enabled: previousEnabled },
+            next: { enabled: nextEnabled },
+        },
+    });
+};
+
+export const enqueueAddFilterButtonVisibilityChanged = (
+    ctx: QueueContext,
+    previousVisible: boolean,
+    nextVisible: boolean,
+): void => {
+    if (previousVisible === nextVisible) return;
+    const label =
+        ctx.scope === 'tab'
+            ? ctx.tabName?.trim() || undefined
+            : undefined;
+    enqueueDashboardOperationEvent({
+        action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_ADD_BUTTON_VISIBILITY_CHANGED,
+        scope: ctx.scope,
+        tabUuid: ctx.scope === 'tab' ? ctx.tabUuid ?? null : null,
+        tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
+        resourceType: 'dashboard_filter',
+        resourceUuid: null,
+        resourceName: label ?? (ctx.scope === 'tab' ? 'tab' : 'global'),
+        changeKind: 'add_button_visibility',
+        summary: {
+            label:
+                ctx.scope === 'global'
+                    ? 'global'
+                    : label || 'tab',
+            scope: ctx.scope,
+            tabUuid: ctx.tabUuid ?? null,
+            tabName: ctx.tabName ?? null,
+            previous: { visible: previousVisible },
+            next: { visible: nextVisible },
+        },
+    });
+};

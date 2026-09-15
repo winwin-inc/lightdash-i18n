@@ -116,13 +116,20 @@ const formatResourceName = (row: {
     const storedName = row.resourceName?.trim() || '';
 
     if (row.resourceType === 'dashboard_filter') {
-        // Prefer human label; skip when label is just the raw field id.
+        const summaryScope =
+            typeof summary.scope === 'string' ? summary.scope : '';
+        // Prefer human label; skip when label is just the raw field id / scope token.
         if (
             summaryLabel &&
             summaryLabel !== summaryFieldId &&
+            summaryLabel !== 'global' &&
+            summaryLabel !== 'tab' &&
             !looksLikeFieldPath(summaryLabel)
         ) {
             return summaryLabel;
+        }
+        if (summaryScope === 'global' && !summaryTabName) {
+            return '全局筛选器';
         }
         if (summaryTabName) {
             const tail =

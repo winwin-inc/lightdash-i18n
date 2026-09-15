@@ -30,6 +30,22 @@ export const PROJECT_OPERATION_LOG_ACTIONS = {
         'dashboard.filters.default_values_changed',
     DASHBOARD_FILTERS_TILE_BINDING_CHANGED:
         'dashboard.filters.tile_binding_changed',
+    DASHBOARD_FILTERS_DISABLED_CHANGED:
+        'dashboard.filters.disabled_changed',
+    DASHBOARD_FILTERS_EXCLUDED_VALUES_CHANGED:
+        'dashboard.filters.excluded_values_changed',
+    DASHBOARD_FILTERS_BAR_VISIBILITY_CHANGED:
+        'dashboard.filters.bar_visibility_changed',
+    DASHBOARD_FILTERS_ADD_BUTTON_VISIBILITY_CHANGED:
+        'dashboard.filters.add_button_visibility_changed',
+    DASHBOARD_FILTERS_READ_ONLY_CHANGED:
+        'dashboard.filters.read_only_changed',
+    DASHBOARD_FILTERS_HIDDEN_CHANGED:
+        'dashboard.filters.hidden_changed',
+    DASHBOARD_FILTERS_ALLOWED_OPERATORS_CHANGED:
+        'dashboard.filters.allowed_operators_changed',
+    DASHBOARD_FILTERS_INPUT_MODE_CHANGED:
+        'dashboard.filters.input_mode_changed',
     OPERATION_LOG_PURGED: 'operation_log.purged',
 } as const;
 

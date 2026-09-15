@@ -9535,8 +9535,16 @@
       "dashboard_filters_category_level_changed": "Changed category level",
       "dashboard_filters_parent_binding_changed": "Changed parent binding",
       "dashboard_filters_date_constraint_changed": "Changed date constraint",
-      "dashboard_filters_default_values_changed": "Changed default values",
-      "dashboard_filters_tile_binding_changed": "Changed tile binding"
+      "dashboard_filters_default_values_changed": "Change default/required",
+      "dashboard_filters_tile_binding_changed": "Changed tile binding",
+      "dashboard_filters_disabled_changed": "Toggle default value",
+      "dashboard_filters_excluded_values_changed": "Change excluded options",
+      "dashboard_filters_bar_visibility_changed": "Show/hide filter bar",
+      "dashboard_filters_add_button_visibility_changed": "Show/hide add filter",
+      "dashboard_filters_read_only_changed": "Set filter read-only",
+      "dashboard_filters_hidden_changed": "Set filter hidden",
+      "dashboard_filters_allowed_operators_changed": "Change allowed operators",
+      "dashboard_filters_input_mode_changed": "Change single/multi select"
     },
     "resource_types": {
       "dashboard": "Dashboard",
@@ -9611,7 +9619,16 @@
       "dimensions": "Dimensions",
       "metrics": "Metrics",
       "dashboardName": "Dashboard",
-      "dashboardUuid": "Dashboard ID"
+      "dashboardUuid": "Dashboard ID",
+      "excludedValues": "Excluded options",
+      "disabled": "Disabled",
+      "enabled": "Enabled",
+      "visible": "Visible",
+      "readOnly": "Read-only",
+      "hidden": "Hidden",
+      "allowedOperators": "Allowed operators",
+      "singleValue": "Single value",
+      "required": "Required to run"
     },
     "summary_values": {
       "global": "Global",
@@ -9634,7 +9651,17 @@
       "all": "Clear all",
       "diff": "Server diff",
       "true": "Yes",
-      "false": "No"
+      "false": "No",
+      "disabled": "Default value toggle",
+      "excluded_values": "Excluded options",
+      "bar_visibility": "Filter bar visibility",
+      "add_button_visibility": "Add button visibility",
+      "enabled": "Enabled",
+      "visible": "Visible",
+      "read_only": "Read-only",
+      "filter_hidden": "Hidden",
+      "allowed_operators": "Allowed operators",
+      "input_mode": "Single/multi select"
     },
     "copy_email_tip": "Click to copy email",
     "copy_email_done": "Email copied",

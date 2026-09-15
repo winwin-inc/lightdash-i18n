@@ -9566,8 +9566,16 @@
       "dashboard_filters_category_level_changed": "修改品类层级",
       "dashboard_filters_parent_binding_changed": "修改父级绑定",
       "dashboard_filters_date_constraint_changed": "修改日期约束",
-      "dashboard_filters_default_values_changed": "修改默认值",
-      "dashboard_filters_tile_binding_changed": "修改图表绑定"
+      "dashboard_filters_default_values_changed": "修改默认值/必填",
+      "dashboard_filters_tile_binding_changed": "修改图表绑定",
+      "dashboard_filters_disabled_changed": "开启/关闭默认值",
+      "dashboard_filters_excluded_values_changed": "修改排除下拉选项",
+      "dashboard_filters_bar_visibility_changed": "显示/隐藏筛选器栏",
+      "dashboard_filters_add_button_visibility_changed": "显示/隐藏添加筛选器",
+      "dashboard_filters_read_only_changed": "设置筛选器只读",
+      "dashboard_filters_hidden_changed": "设置筛选器隐藏",
+      "dashboard_filters_allowed_operators_changed": "修改允许的筛选方式",
+      "dashboard_filters_input_mode_changed": "修改单选/多选"
     },
     "resource_types": {
       "dashboard": "看板",
@@ -9642,7 +9650,16 @@
       "dimensions": "维度",
       "metrics": "指标",
       "dashboardName": "所属看板",
-      "dashboardUuid": "看板 ID"
+      "dashboardUuid": "看板 ID",
+      "excludedValues": "排除下拉选项",
+      "disabled": "已禁用",
+      "enabled": "已启用",
+      "visible": "可见",
+      "readOnly": "只读",
+      "hidden": "隐藏",
+      "allowedOperators": "允许的筛选方式",
+      "singleValue": "仅单选",
+      "required": "运行需要值"
     },
     "summary_values": {
       "global": "全局",
@@ -9665,7 +9682,19 @@
       "all": "清空全部",
       "diff": "系统比对",
       "true": "是",
-      "false": "否"
+      "false": "否",
+      "disabled": "默认值开关",
+      "excluded_values": "排除下拉选项",
+      "bar_visibility": "筛选器栏显隐",
+      "add_button_visibility": "添加按钮显隐",
+      "enabled": "启用",
+      "visible": "显示",
+      "global filters": "全局筛选器",
+      "tab filters": "页签筛选器",
+      "read_only": "只读",
+      "filter_hidden": "隐藏",
+      "allowed_operators": "允许的筛选方式",
+      "input_mode": "单选/多选"
     },
     "copy_email_tip": "点击复制邮箱",
     "copy_email_done": "已复制邮箱",
