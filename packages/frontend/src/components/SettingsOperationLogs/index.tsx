@@ -455,7 +455,6 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
                         })}
                     </Stack>
                 </Stack>
-                </Stack>
             </Stack>
         );
     }
