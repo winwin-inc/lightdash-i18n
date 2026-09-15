@@ -6,18 +6,19 @@ import {
     CopyButton,
     Divider,
     Drawer,
+    Grid,
     Group,
     Modal,
     NumberInput,
     Paper,
     Select,
-    SimpleGrid,
     Stack,
     Table,
     Text,
     TextInput,
     Tooltip,
     UnstyledButton,
+    createStyles,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
@@ -45,6 +46,33 @@ type Props = {
     projectUuid: string;
 };
 
+const useStyles = createStyles((theme) => ({
+    tableWrap: {
+        overflowX: 'auto',
+    },
+    stickyStatus: {
+        position: 'sticky',
+        right: 72,
+        zIndex: 2,
+        backgroundColor: theme.white,
+        minWidth: 88,
+        boxShadow: `-4px 0 8px -6px ${theme.fn.rgba(theme.black, 0.15)}`,
+    },
+    stickyDetail: {
+        position: 'sticky',
+        right: 0,
+        zIndex: 2,
+        backgroundColor: theme.white,
+        minWidth: 72,
+        boxShadow: `-4px 0 8px -6px ${theme.fn.rgba(theme.black, 0.15)}`,
+    },
+    stickyHead: {
+        backgroundColor: theme.colors.gray[0],
+        zIndex: 3,
+    },
+}));
+
+
 const ACTION_OPTIONS = Object.values(PROJECT_OPERATION_LOG_ACTIONS);
 
 const RESOURCE_TYPE_OPTIONS = [
@@ -64,6 +92,42 @@ const resourceTypeLabelKey = (resourceType: string) =>
 
 const statusLabelKey = (status: string) =>
     `components_settings_operation_logs.statuses.${status}`;
+
+
+const formatResourceName = (row: {
+    resourceType: string;
+    resourceName: string | null;
+    summary?: Record<string, unknown> | null;
+}): string => {
+    const summary = row.summary || {};
+    const summaryLabel =
+        typeof summary.label === 'string' ? summary.label.trim() : '';
+    const summaryFieldId =
+        typeof summary.fieldId === 'string' ? summary.fieldId : '';
+    const summaryTable =
+        typeof summary.tableName === 'string' ? summary.tableName : '';
+
+    if (row.resourceType === 'dashboard_filter') {
+        if (summaryLabel) return summaryLabel;
+        if (row.resourceName?.trim()) return row.resourceName.trim();
+        if (summaryTable && summaryFieldId) {
+            return `${summaryTable}.${summaryFieldId}`;
+        }
+        return summaryFieldId || '-';
+    }
+
+    return row.resourceName || '-';
+};
+
+const canOpenDashboardResource = (
+    resourceType: string,
+    resourceUuid: string | null | undefined,
+    action: string,
+): boolean =>
+    resourceType === 'dashboard' &&
+    !!resourceUuid &&
+    !action.endsWith('.deleted');
+
 
 const isEmptyValue = (value: unknown): boolean =>
     value === null ||
@@ -194,7 +258,7 @@ const ActorDisplay: FC<{
                             maxWidth: '100%',
                             textAlign: 'left',
                             color: theme.colors.blue[6],
-                            fontSize: theme.fontSizes.xs,
+                            fontSize: theme.fontSizes.sm,
                             lineHeight: 1.4,
                             wordBreak: 'break-all',
                             '&:hover': {
@@ -225,6 +289,7 @@ const DetailRow: FC<{ label: string; children: ReactNode }> = ({
 const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
     const { t } = useTranslation();
     const { cx, classes } = useTableStyles();
+    const { classes: stickyClasses } = useStyles();
 
     const navigate = useNavigate();
     const [page, setPage] = useState(1);
@@ -337,108 +402,123 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                 </Button>
             </Group>
 
-            <SimpleGrid
-                cols={5}
-                spacing="xs"
-                breakpoints={[
-                    { maxWidth: 'lg', cols: 3 },
-                    { maxWidth: 'md', cols: 2 },
-                    { maxWidth: 'sm', cols: 1 },
-                ]}
-            >
-                <DatePickerInput
-                    type="range"
-                    size="xs"
-                    label={t('components_settings_operation_logs.filter_date')}
-                    placeholder={[
-                        t(
-                            'components_settings_operation_logs.filter_date_placeholder',
-                        ),
-                        t(
-                            'components_settings_operation_logs.filter_date_placeholder',
-                        ),
-                    ]}
-                    value={dateRange}
-                    onChange={(value) => {
-                        setDateRange(value);
-                        setPage(1);
-                    }}
-                    clearable
-                    styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                />
-                <Select
-                    size="xs"
-                    label={t('components_settings_operation_logs.filter_action')}
-                    placeholder={t(
-                        'components_settings_operation_logs.filter_action_placeholder',
-                    )}
-                    data={ACTION_OPTIONS.map((value) => ({
-                        value,
-                        label: t(actionLabelKey(value), { defaultValue: value }),
-                    }))}
-                    value={action}
-                    onChange={(v) => {
-                        setAction(v);
-                        setPage(1);
-                    }}
-                    clearable
-                    searchable
-                    styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                />
-                <Select
-                    size="xs"
-                    label={t(
-                        'components_settings_operation_logs.filter_resource_type',
-                    )}
-                    placeholder={t(
-                        'components_settings_operation_logs.filter_resource_type_placeholder',
-                    )}
-                    data={RESOURCE_TYPE_OPTIONS.map((value) => ({
-                        value,
-                        label: t(resourceTypeLabelKey(value), { defaultValue: value }),
-                    }))}
-                    value={resourceType}
-                    onChange={(v) => {
-                        setResourceType(v);
-                        setPage(1);
-                    }}
-                    clearable
-                    searchable
-                    styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                />
-                <TextInput
-                    size="xs"
-                    label={t('components_settings_operation_logs.filter_actor')}
-                    placeholder={t(
-                        'components_settings_operation_logs.filter_actor_placeholder',
-                    )}
-                    value={actorEmail}
-                    onChange={(e) => {
-                        setActorEmail(e.currentTarget.value);
-                    }}
-                    styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                />
-                <TextInput
-                    size="xs"
-                    label={t('components_settings_operation_logs.filter_search')}
-                    placeholder={t(
-                        'components_settings_operation_logs.filter_search_placeholder',
-                    )}
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.currentTarget.value);
-                    }}
-                    styles={{ label: { fontSize: 12, marginBottom: 4 } }}
-                />
-            </SimpleGrid>
+                        <Grid gutter="xs" align="flex-end">
+                <Grid.Col xs={12} sm={6} md={4} lg={3}>
+                    <DatePickerInput
+                        type="range"
+                        size="xs"
+                        label={t(
+                            'components_settings_operation_logs.filter_date',
+                        )}
+                        valueFormat="YYYY-MM-DD"
+                        value={dateRange}
+                        onChange={(value) => {
+                            setDateRange(value);
+                            setPage(1);
+                        }}
+                        clearable
+                        w="100%"
+                        styles={{
+                            label: { fontSize: 12, marginBottom: 4 },
+                            input: { minWidth: 0 },
+                        }}
+                    />
+                </Grid.Col>
+                <Grid.Col xs={12} sm={6} md={4} lg={2}>
+                    <Select
+                        size="xs"
+                        label={t(
+                            'components_settings_operation_logs.filter_action',
+                        )}
+                        placeholder={t(
+                            'components_settings_operation_logs.filter_action_placeholder',
+                        )}
+                        data={ACTION_OPTIONS.map((value) => ({
+                            value,
+                            label: t(actionLabelKey(value), {
+                                defaultValue: value,
+                            }),
+                        }))}
+                        value={action}
+                        onChange={(v) => {
+                            setAction(v);
+                            setPage(1);
+                        }}
+                        clearable
+                        searchable
+                        w="100%"
+                        styles={{ label: { fontSize: 12, marginBottom: 4 } }}
+                    />
+                </Grid.Col>
+                <Grid.Col xs={12} sm={6} md={4} lg={2}>
+                    <Select
+                        size="xs"
+                        label={t(
+                            'components_settings_operation_logs.filter_resource_type',
+                        )}
+                        placeholder={t(
+                            'components_settings_operation_logs.filter_resource_type_placeholder',
+                        )}
+                        data={RESOURCE_TYPE_OPTIONS.map((value) => ({
+                            value,
+                            label: t(resourceTypeLabelKey(value), {
+                                defaultValue: value,
+                            }),
+                        }))}
+                        value={resourceType}
+                        onChange={(v) => {
+                            setResourceType(v);
+                            setPage(1);
+                        }}
+                        clearable
+                        searchable
+                        w="100%"
+                        styles={{ label: { fontSize: 12, marginBottom: 4 } }}
+                    />
+                </Grid.Col>
+                <Grid.Col xs={12} sm={6} md={4} lg={2}>
+                    <TextInput
+                        size="xs"
+                        label={t(
+                            'components_settings_operation_logs.filter_actor',
+                        )}
+                        placeholder={t(
+                            'components_settings_operation_logs.filter_actor_placeholder',
+                        )}
+                        value={actorEmail}
+                        onChange={(e) => {
+                            setActorEmail(e.currentTarget.value);
+                        }}
+                        w="100%"
+                        styles={{ label: { fontSize: 12, marginBottom: 4 } }}
+                    />
+                </Grid.Col>
+                <Grid.Col xs={12} sm={6} md={4} lg={3}>
+                    <TextInput
+                        size="xs"
+                        label={t(
+                            'components_settings_operation_logs.filter_search',
+                        )}
+                        placeholder={t(
+                            'components_settings_operation_logs.filter_search_placeholder',
+                        )}
+                        value={q}
+                        onChange={(e) => {
+                            setQ(e.currentTarget.value);
+                        }}
+                        w="100%"
+                        styles={{ label: { fontSize: 12, marginBottom: 4 } }}
+                    />
+                </Grid.Col>
+            </Grid>
 
-            <Paper withBorder radius="sm">
+            <Paper withBorder radius="sm" className={stickyClasses.tableWrap}>
                 <Table
                     className={cx(classes.root)}
                     highlightOnHover
-                    fontSize="xs"
-                    horizontalSpacing="sm"
-                    verticalSpacing="xs"
+                    fontSize="sm"
+                    horizontalSpacing="md"
+                    verticalSpacing="sm"
                 >
                     <thead>
                         <tr>
@@ -467,12 +547,22 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                     'components_settings_operation_logs.columns.resource_name',
                                 )}
                             </th>
-                            <th>
+                            <th
+                                className={cx(
+                                    stickyClasses.stickyStatus,
+                                    stickyClasses.stickyHead,
+                                )}
+                            >
                                 {t(
                                     'components_settings_operation_logs.columns.status',
                                 )}
                             </th>
-                            <th>
+                            <th
+                                className={cx(
+                                    stickyClasses.stickyDetail,
+                                    stickyClasses.stickyHead,
+                                )}
+                            >
                                 {t(
                                     'components_settings_operation_logs.columns.detail',
                                 )}
@@ -483,7 +573,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                         {isLoading ? (
                             <tr>
                                 <td colSpan={7}>
-                                    <Text p="sm" color="dimmed" size="xs">
+                                    <Text p="sm" color="dimmed" size="sm">
                                         {t(
                                             'components_settings_operation_logs.loading',
                                         )}
@@ -524,26 +614,35 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                         })}
                                     </td>
                                     <td>
-                                        {row.resourceType === 'dashboard' &&
-                                        row.resourceUuid ? (
+                                        {canOpenDashboardResource(
+                                            row.resourceType,
+                                            row.resourceUuid,
+                                            row.action,
+                                        ) ? (
                                             <Anchor
-                                                size="xs"
+                                                size="sm"
                                                 onClick={() =>
                                                     navigate(
                                                         `/projects/${projectUuid}/dashboards/${row.resourceUuid}`,
                                                     )
                                                 }
                                             >
-                                                {row.resourceName ||
-                                                    row.resourceUuid}
+                                                {formatResourceName(row)}
                                             </Anchor>
                                         ) : (
-                                            row.resourceName || '-'
+                                            formatResourceName(row)
                                         )}
                                     </td>
-                                    <td>
+                                    <td
+                                        className={stickyClasses.stickyStatus}
+                                        style={
+                                            row.status === 'failure'
+                                                ? { backgroundColor: '#fff5f5' }
+                                                : undefined
+                                        }
+                                    >
                                         <Badge
-                                            size="xs"
+                                            size="sm"
                                             variant="light"
                                             color={
                                                 row.status === 'failure'
@@ -556,11 +655,18 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                             })}
                                         </Badge>
                                     </td>
-                                    <td>
+                                    <td
+                                        className={stickyClasses.stickyDetail}
+                                        style={
+                                            row.status === 'failure'
+                                                ? { backgroundColor: '#fff5f5' }
+                                                : undefined
+                                        }
+                                    >
                                         <Anchor
                                             component="button"
                                             type="button"
-                                            size="xs"
+                                            size="sm"
                                             onClick={() =>
                                                 setSelectedUuid(
                                                     row.operationLogUuid,
@@ -577,7 +683,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                         ) : (
                             <tr>
                                 <td colSpan={7}>
-                                    <Text p="sm" color="dimmed" size="xs">
+                                    <Text p="sm" color="dimmed" size="sm">
                                         {t(
                                             'components_settings_operation_logs.empty',
                                         )}
@@ -694,8 +800,11 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                 'components_settings_operation_logs.columns.resource_name',
                             )}
                         >
-                            {detail.resourceType === 'dashboard' &&
-                            detail.resourceUuid ? (
+                            {canOpenDashboardResource(
+                                detail.resourceType,
+                                detail.resourceUuid,
+                                detail.action,
+                            ) ? (
                                 <Anchor
                                     size="sm"
                                     onClick={() =>
@@ -704,10 +813,10 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                         )
                                     }
                                 >
-                                    {detail.resourceName || detail.resourceUuid}
+                                    {formatResourceName(detail)}
                                 </Anchor>
                             ) : (
-                                detail.resourceName || '-'
+                                formatResourceName(detail)
                             )}
                         </DetailRow>
                         <DetailRow

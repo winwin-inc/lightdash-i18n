@@ -79,6 +79,16 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     tileTargetCount: Object.keys(rule.tileTargets || {}).length,
 });
 
+
+const filterResourceName = (rule: DashboardFilterRule): string => {
+    const label = rule.label?.trim();
+    if (label) return label;
+    const tableName = rule.target?.tableName;
+    const fieldId = rule.target?.fieldId;
+    if (tableName && fieldId) return `${tableName}.${fieldId}`;
+    return fieldId || rule.id;
+};
+
 const pushFilterEvent = (
     action: string,
     rule: DashboardFilterRule,
@@ -93,7 +103,7 @@ const pushFilterEvent = (
         tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
         resourceType: 'dashboard_filter',
         resourceUuid: rule.id,
-        resourceName: rule.label || rule.target?.fieldId || rule.id,
+        resourceName: filterResourceName(rule),
         changeKind,
         summary: {
             ...baseFilterSummary(rule),
@@ -134,34 +144,29 @@ export const enqueueFilterUpdatedFromDiff = (
     const prevExt = previous as DashboardFilterRule & Record<string, unknown>;
     const nextExt = next as DashboardFilterRule & Record<string, unknown>;
 
-    let emittedSemantic = false;
+    const changes: Array<{
+        changeKind: string;
+        action: string;
+        previous: Record<string, unknown>;
+        next: Record<string, unknown>;
+    }> = [];
 
     if (stableJson(prevExt.categoryLevel) !== stableJson(nextExt.categoryLevel)) {
-        pushFilterEvent(
-            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_CATEGORY_LEVEL_CHANGED,
-            next,
-            ctx,
-            'category_level',
-            {
-                previous: { categoryLevel: prevExt.categoryLevel },
-                next: { categoryLevel: nextExt.categoryLevel },
-            },
-        );
-        emittedSemantic = true;
+        changes.push({
+            changeKind: 'category_level',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_CATEGORY_LEVEL_CHANGED,
+            previous: { categoryLevel: prevExt.categoryLevel },
+            next: { categoryLevel: nextExt.categoryLevel },
+        });
     }
 
     if (stableJson(prevExt.parentFieldId) !== stableJson(nextExt.parentFieldId)) {
-        pushFilterEvent(
-            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_PARENT_BINDING_CHANGED,
-            next,
-            ctx,
-            'parent_binding',
-            {
-                previous: { parentFieldId: prevExt.parentFieldId },
-                next: { parentFieldId: nextExt.parentFieldId },
-            },
-        );
-        emittedSemantic = true;
+        changes.push({
+            changeKind: 'parent_binding',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_PARENT_BINDING_CHANGED,
+            previous: { parentFieldId: prevExt.parentFieldId },
+            next: { parentFieldId: nextExt.parentFieldId },
+        });
     }
 
     const dateKeys = [
@@ -171,84 +176,82 @@ export const enqueueFilterUpdatedFromDiff = (
         'dateRangeGranularity',
         'settings',
     ] as const;
-    const dateChanged = dateKeys.some(
-        (key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]),
-    );
-    if (dateChanged) {
-        pushFilterEvent(
-            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DATE_CONSTRAINT_CHANGED,
-            next,
-            ctx,
-            'date_constraint',
-            {
-                previous: Object.fromEntries(
-                    dateKeys.map((key) => [key, prevExt[key]]),
-                ),
-                next: Object.fromEntries(
-                    dateKeys.map((key) => [key, nextExt[key]]),
-                ),
-            },
-        );
-        emittedSemantic = true;
+    if (dateKeys.some((key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]))) {
+        changes.push({
+            changeKind: 'date_constraint',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DATE_CONSTRAINT_CHANGED,
+            previous: Object.fromEntries(dateKeys.map((key) => [key, prevExt[key]])),
+            next: Object.fromEntries(dateKeys.map((key) => [key, nextExt[key]])),
+        });
     }
 
     const defaultKeys = ['values', 'disabled', 'required', 'operator'] as const;
-    const defaultsChanged = defaultKeys.some(
-        (key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]),
-    );
-    if (defaultsChanged) {
-        pushFilterEvent(
-            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DEFAULT_VALUES_CHANGED,
-            next,
-            ctx,
-            'default_values',
-            {
-                previous: Object.fromEntries(
-                    defaultKeys.map((key) => [key, prevExt[key]]),
-                ),
-                next: Object.fromEntries(
-                    defaultKeys.map((key) => [key, nextExt[key]]),
-                ),
-            },
-        );
-        emittedSemantic = true;
+    if (
+        defaultKeys.some((key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]))
+    ) {
+        changes.push({
+            changeKind: 'default_values',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DEFAULT_VALUES_CHANGED,
+            previous: Object.fromEntries(defaultKeys.map((key) => [key, prevExt[key]])),
+            next: Object.fromEntries(defaultKeys.map((key) => [key, nextExt[key]])),
+        });
     }
 
     if (
         tileTargetsSignature(previous.tileTargets) !==
         tileTargetsSignature(next.tileTargets)
     ) {
-        pushFilterEvent(
-            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_TILE_BINDING_CHANGED,
-            next,
-            ctx,
-            'tile_binding',
-            {
-                previousTileTargetCount: Object.keys(previous.tileTargets || {})
-                    .length,
-                nextTileTargetCount: Object.keys(next.tileTargets || {}).length,
+        changes.push({
+            changeKind: 'tile_binding',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_TILE_BINDING_CHANGED,
+            previous: {
+                tileTargetCount: Object.keys(previous.tileTargets || {}).length,
             },
-        );
-        emittedSemantic = true;
+            next: {
+                tileTargetCount: Object.keys(next.tileTargets || {}).length,
+            },
+        });
     }
 
-    if (!emittedSemantic) {
-        // Fallback coarse update when only label/misc fields changed.
-        const corePrev = { ...prevExt };
-        const coreNext = { ...nextExt };
-        delete corePrev.tileTargets;
-        delete coreNext.tileTargets;
-        if (stableJson(corePrev) !== stableJson(coreNext)) {
-            pushFilterEvent(
-                PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_UPDATED,
-                next,
-                ctx,
-                'updated',
-                {
-                    previous: baseFilterSummary(previous),
-                    next: baseFilterSummary(next),
-                },
-            );
-        }
+    if (changes.length === 1) {
+        const only = changes[0];
+        pushFilterEvent(only.action, next, ctx, only.changeKind, {
+            previous: only.previous,
+            next: only.next,
+        });
+        return;
+    }
+
+    if (changes.length > 1) {
+        // One apply => one log row; keep fine detail inside summary.
+        pushFilterEvent(
+            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_UPDATED,
+            next,
+            ctx,
+            'updated_bundle',
+            {
+                changeKinds: changes.map((c) => c.changeKind),
+                changes,
+            },
+        );
+        return;
+    }
+
+    const corePrev = { ...prevExt };
+    const coreNext = { ...nextExt };
+    delete corePrev.tileTargets;
+    delete coreNext.tileTargets;
+    if (stableJson(corePrev) !== stableJson(coreNext)) {
+        pushFilterEvent(
+            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_UPDATED,
+            next,
+            ctx,
+            'updated',
+            {
+                previous: baseFilterSummary(previous),
+                next: baseFilterSummary(next),
+            },
+        );
     }
 };
+

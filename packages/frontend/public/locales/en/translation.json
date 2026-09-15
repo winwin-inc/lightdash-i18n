@@ -9579,7 +9579,9 @@
             "values": "Values",
             "categoryLevel": "Category level",
             "parentFieldId": "Parent field",
-            "tileTargetCount": "Bound tiles"
+            "tileTargetCount": "Bound tiles",
+            "changeKinds": "Changed items",
+            "changes": "Change details"
         },
         "summary_values": {
             "global": "Global",
@@ -9595,7 +9597,8 @@
             "parent_binding": "Parent binding",
             "date_constraint": "Date constraint",
             "default_values": "Default values",
-            "tile_binding": "Tile binding"
+            "tile_binding": "Tile binding",
+            "updated_bundle": "Multiple changes"
         },
         "copy_email_tip": "Click to copy email",
         "copy_email_done": "Email copied",

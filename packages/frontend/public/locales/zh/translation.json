@@ -9610,7 +9610,9 @@
             "values": "值",
             "categoryLevel": "品类层级",
             "parentFieldId": "父级字段",
-            "tileTargetCount": "绑定图表数"
+            "tileTargetCount": "绑定图表数",
+            "changeKinds": "变更项",
+            "changes": "变更明细"
         },
         "summary_values": {
             "global": "全局",
@@ -9626,7 +9628,8 @@
             "parent_binding": "父级绑定",
             "date_constraint": "日期约束",
             "default_values": "默认值",
-            "tile_binding": "图表绑定"
+            "tile_binding": "图表绑定",
+            "updated_bundle": "多项变更"
         },
         "copy_email_tip": "点击复制邮箱",
         "copy_email_done": "已复制邮箱",
