@@ -20,6 +20,7 @@ import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
@@ -335,7 +336,12 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
         isActiveTile(tile),
     );
 
+    const { setDashboardActiveTabUuid } = useDashboardStorage();
+
     const handleChangeTab = (tab: DashboardTab) => {
+        if (tab?.uuid) {
+            setDashboardActiveTabUuid(dashboardUuid, tab.uuid);
+        }
         const newParams = new URLSearchParams(search);
         // Change tabs by navigating to the new tab
         // the provider sets the active tab based on the URL
