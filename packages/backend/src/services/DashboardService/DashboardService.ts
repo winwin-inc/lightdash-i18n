@@ -1,4 +1,5 @@
 import { subject } from '@casl/ability';
+import { PROJECT_OPERATION_LOG_ACTIONS } from '@lightdash/common';
 import {
     AbilityAction,
     BulkActionable,
@@ -79,6 +80,7 @@ import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
 import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
 
 type DashboardServiceArguments = {
@@ -97,6 +99,7 @@ type DashboardServiceArguments = {
     userDashboardCategoryModel: UserDashboardCategoryModel;
     categoryRpcClient: CategoryRpcClient;
     organizationMemberProfileModel: OrganizationMemberProfileModel;
+    projectOperationLogService: ProjectOperationLogService;
 };
 
 export class DashboardService
@@ -133,6 +136,8 @@ export class DashboardService
 
     organizationMemberProfileModel: OrganizationMemberProfileModel;
 
+    projectOperationLogService: ProjectOperationLogService;
+
     constructor({
         analytics,
         dashboardModel,
@@ -149,6 +154,7 @@ export class DashboardService
         userDashboardCategoryModel,
         categoryRpcClient,
         organizationMemberProfileModel,
+        projectOperationLogService,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -166,6 +172,7 @@ export class DashboardService
         this.userDashboardCategoryModel = userDashboardCategoryModel;
         this.categoryRpcClient = categoryRpcClient;
         this.organizationMemberProfileModel = organizationMemberProfileModel;
+        this.projectOperationLogService = projectOperationLogService;
     }
 
     static getCreateEventProperties(
@@ -719,6 +726,16 @@ export class DashboardService
             properties: DashboardService.getCreateEventProperties(newDashboard),
         });
 
+        await this.projectOperationLogService.record({
+            organizationUuid: space.organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_CREATED,
+            resourceType: 'dashboard',
+            resourceUuid: newDashboard.uuid,
+            resourceName: newDashboard.name,
+        });
+
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             newDashboard.uuid,
         );
@@ -937,6 +954,20 @@ export class DashboardService
             properties: { ...dashboardProperties, duplicated: true },
         });
 
+        await this.projectOperationLogService.record({
+            organizationUuid: dashboard.organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_DUPLICATED,
+            resourceType: 'dashboard',
+            resourceUuid: newDashboard.uuid,
+            resourceName: newDashboard.name,
+            summary: {
+                sourceDashboardUuid: dashboard.uuid,
+                sourceDashboardName: dashboard.name,
+            },
+        });
+
         this.analytics.track({
             event: 'duplicated_dashboard_created',
             userId: user.userUuid,
@@ -1087,6 +1118,29 @@ export class DashboardService
             user.userUuid,
             updatedNewDashboard.spaceUuid,
         );
+
+        const spaceMoved =
+            isDashboardUnversionedFields(dashboard) &&
+            !!dashboard.spaceUuid &&
+            dashboard.spaceUuid !== existingDashboardDao.spaceUuid;
+
+        await this.projectOperationLogService.record({
+            organizationUuid: existingDashboardDao.organizationUuid,
+            projectUuid: existingDashboardDao.projectUuid,
+            actor: user,
+            action: spaceMoved
+                ? PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_MOVED
+                : PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+            resourceType: 'dashboard',
+            resourceUuid: existingDashboardDao.uuid,
+            resourceName: updatedNewDashboard.name,
+            summary: spaceMoved
+                ? {
+                      previousSpaceUuid: existingDashboardDao.spaceUuid,
+                      newSpaceUuid: dashboard.spaceUuid,
+                  }
+                : undefined,
+        });
 
         return {
             ...updatedNewDashboard,
@@ -1330,6 +1384,23 @@ export class DashboardService
             dashboards,
         );
 
+        const { organizationUuid: projectOrganizationUuid } =
+            await this.projectModel.get(projectUuid);
+        await Promise.all(
+            updatedDashboards.map((dashboard) =>
+                this.projectOperationLogService.record({
+                    organizationUuid:
+                        dashboard.organizationUuid ?? projectOrganizationUuid,
+                    projectUuid,
+                    actor: user,
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                    resourceType: 'dashboard',
+                    resourceUuid: dashboard.uuid,
+                    resourceName: dashboard.name,
+                }),
+            ),
+        );
+
         const updatedDashboardsWithSpacesAccess = updatedDashboards.map(
             async (dashboard) => {
                 const dashboardSpace = await this.spaceModel.getSpaceSummary(
@@ -1438,6 +1509,16 @@ export class DashboardService
                 dashboardId: deletedDashboard.uuid,
                 projectId: deletedDashboard.projectUuid,
             },
+        });
+
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_DELETED,
+            resourceType: 'dashboard',
+            resourceUuid: deletedDashboard.uuid,
+            resourceName: dashboardToDelete.name,
         });
     }
 
@@ -1840,8 +1921,7 @@ export class DashboardService
     }
 
     /**
-     * 获取用户的项目角色
-     * 优先级：直接项目成员 > 组成员 > 组织角色转换
+     * 鑾峰彇鐢ㄦ埛鐨勯」鐩鑹?     * 浼樺厛绾э細鐩存帴椤圭洰鎴愬憳 > 缁勬垚鍛?> 缁勭粐瑙掕壊杞崲
      */
     private async getUserProjectRole(
         user: SessionUser,
@@ -1907,14 +1987,9 @@ export class DashboardService
     }
 
     /**
-     * 获取当前用户的类目列表
-     * 根据用户在看板类目权限中的权限，构建一级、二级、三级、四级的类目树。
-     * 依赖内部后台 Admin API；未配置时返回空列表。
-     * 类目权限过滤对所有项目、所有角色生效（与客户使用模式无关；客户使用模式仅用于 UI 收敛与 VIEWER 看板白名单）。
-     * @param user 用户
-     * @param projectUuid 项目UUID
-     * @param dashboardUuid 看板UUID（可选），如果提供则只返回该看板相关的类目
-     */
+     * 鑾峰彇褰撳墠鐢ㄦ埛鐨勭被鐩垪琛?     * 鏍规嵁鐢ㄦ埛鍦ㄧ湅鏉跨被鐩潈闄愪腑鐨勬潈闄愶紝鏋勫缓涓€绾с€佷簩绾с€佷笁绾с€佸洓绾х殑绫荤洰鏍戙€?     * 渚濊禆鍐呴儴鍚庡彴 Admin API锛涙湭閰嶇疆鏃惰繑鍥炵┖鍒楄〃銆?     * 绫荤洰鏉冮檺杩囨护瀵规墍鏈夐」鐩€佹墍鏈夎鑹茬敓鏁堬紙涓庡鎴蜂娇鐢ㄦā寮忔棤鍏筹紱瀹㈡埛浣跨敤妯″紡浠呯敤浜?UI 鏀舵暃涓?VIEWER 鐪嬫澘鐧藉悕鍗曪級銆?     * @param user 鐢ㄦ埛
+     * @param projectUuid 椤圭洰UUID
+     * @param dashboardUuid 鐪嬫澘UUID锛堝彲閫夛級锛屽鏋滄彁渚涘垯鍙繑鍥炶鐪嬫澘鐩稿叧鐨勭被鐩?     */
     async getUserCategories(
         user: SessionUser,
         projectUuid: string,
@@ -1942,9 +2017,7 @@ export class DashboardService
             throw new ParameterError(`Project ${projectUuid} not found`);
         }
 
-        // 类目权限过滤适用于所有用户，不区分角色
-        // 只有没有 email 或 mobile 时才返回空列表
-        // If user has no email, return empty category list
+        // 绫荤洰鏉冮檺杩囨护閫傜敤浜庢墍鏈夌敤鎴凤紝涓嶅尯鍒嗚鑹?        // 鍙湁娌℃湁 email 鎴?mobile 鏃舵墠杩斿洖绌哄垪琛?        // If user has no email, return empty category list
         if (!user.email) {
             this.logger.warn(
                 `User ${user.userUuid} has no email, returning empty category list`,
@@ -2033,8 +2106,7 @@ export class DashboardService
             return { level1: [], level2: [], level3: [], level4: [] };
         }
 
-        // 调用 RPC 接口获取所有类目
-        const allCategories = await this.categoryRpcClient.findAllCategories();
+        // 璋冪敤 RPC 鎺ュ彛鑾峰彇鎵€鏈夌被鐩?        const allCategories = await this.categoryRpcClient.findAllCategories();
 
         this.logger.info(
             `User ${normalizedEmail} has ${allowedCategoryIds.size} allowed category ids in project ${projectUuid}`,
@@ -2043,8 +2115,7 @@ export class DashboardService
             `top 10 categories: ${JSON.stringify(allCategories.slice(0, 10))}`,
         );
 
-        // 构建类目映射表
-        const categoryMap = new Map<string, CategoryTreeNode>();
+        // 鏋勫缓绫荤洰鏄犲皠琛?        const categoryMap = new Map<string, CategoryTreeNode>();
         allCategories.forEach((cat) => {
             categoryMap.set(cat.categoryId, {
                 categoryId: cat.categoryId,
@@ -2056,16 +2127,15 @@ export class DashboardService
             });
         });
 
-        // 找出用户有权限的类目及其所有父级和子级类目
+        // 鎵惧嚭鐢ㄦ埛鏈夋潈闄愮殑绫荤洰鍙婂叾鎵€鏈夌埗绾у拰瀛愮骇绫荤洰
         const relevantCategoryIds = new Set<string>();
 
-        // 对于每个用户有权限的类目，添加其所有父级和子级
+        // 瀵逛簬姣忎釜鐢ㄦ埛鏈夋潈闄愮殑绫荤洰锛屾坊鍔犲叾鎵€鏈夌埗绾у拰瀛愮骇
         allowedCategoryIds.forEach((categoryId) => {
-            // 添加当前类目
+            // 娣诲姞褰撳墠绫荤洰
             relevantCategoryIds.add(categoryId);
 
-            // 向上查找所有父级
-            let currentId = categoryId;
+            // 鍚戜笂鏌ユ壘鎵€鏈夌埗绾?            let currentId = categoryId;
             while (currentId) {
                 const category = categoryMap.get(currentId);
                 if (!category) break;
@@ -2073,8 +2143,7 @@ export class DashboardService
                 currentId = category.parentId || '';
             }
 
-            // 向下查找所有子级（递归）
-            const addChildren = (id: string) => {
+            // 鍚戜笅鏌ユ壘鎵€鏈夊瓙绾э紙閫掑綊锛?            const addChildren = (id: string) => {
                 allCategories.forEach((cat) => {
                     if (cat.parentId === id) {
                         relevantCategoryIds.add(cat.categoryId);
@@ -2085,7 +2154,7 @@ export class DashboardService
             addChildren(categoryId);
         });
 
-        // 构建类目树（只包含相关类目）
+        // 鏋勫缓绫荤洰鏍戯紙鍙寘鍚浉鍏崇被鐩級
         const buildTree = (parentId: string): CategoryTreeNode[] => {
             const children: CategoryTreeNode[] = [];
             allCategories.forEach((cat) => {
@@ -2101,8 +2170,7 @@ export class DashboardService
                         level: cat.level,
                     };
 
-                    // 递归添加子节点
-                    const childNodes = buildTree(cat.categoryId);
+                    // 閫掑綊娣诲姞瀛愯妭鐐?                    const childNodes = buildTree(cat.categoryId);
                     if (childNodes.length > 0) {
                         node.children = childNodes;
                     }
@@ -2113,11 +2181,10 @@ export class DashboardService
             return children;
         };
 
-        // 构建完整的类目树（从根开始）
+        // 鏋勫缓瀹屾暣鐨勭被鐩爲锛堜粠鏍瑰紑濮嬶級
         const fullTree = buildTree('');
 
-        // 从完整树中提取各级类目
-        const extractByLevel = (
+        // 浠庡畬鏁存爲涓彁鍙栧悇绾х被鐩?        const extractByLevel = (
             nodes: CategoryTreeNode[],
             targetLevel: number,
         ): CategoryTreeNode[] => {
@@ -2125,7 +2192,7 @@ export class DashboardService
             const traverse = (nodeList: CategoryTreeNode[]) => {
                 nodeList.forEach((node) => {
                     if (node.level === targetLevel) {
-                        // 创建节点副本，但不包含子节点（因为这是平铺列表）
+                        // 鍒涘缓鑺傜偣鍓湰锛屼絾涓嶅寘鍚瓙鑺傜偣锛堝洜涓鸿繖鏄钩閾哄垪琛級
                         const flatNode: CategoryTreeNode = {
                             categoryId: node.categoryId,
                             parentId: node.parentId,
@@ -2153,13 +2220,9 @@ export class DashboardService
     }
 
     /**
-     * 验证筛选器中的类目值是否在用户权限范围内
-     * 用于检查看板筛选器中绑定的类目字段（如 cls_1、cls_2）的值是否合法
-     * @param user 用户
-     * @param projectUuid 项目UUID
-     * @param categoryFieldName 类目字段名（如 'cls_1', 'cls_2'）
-     * @param categoryValue 类目值（categoryId）
-     * @returns 是否在权限范围内
+     * 楠岃瘉绛涢€夊櫒涓殑绫荤洰鍊兼槸鍚﹀湪鐢ㄦ埛鏉冮檺鑼冨洿鍐?     * 鐢ㄤ簬妫€鏌ョ湅鏉跨瓫閫夊櫒涓粦瀹氱殑绫荤洰瀛楁锛堝 cls_1銆乧ls_2锛夌殑鍊兼槸鍚﹀悎娉?     * @param user 鐢ㄦ埛
+     * @param projectUuid 椤圭洰UUID
+     * @param categoryFieldName 绫荤洰瀛楁鍚嶏紙濡?'cls_1', 'cls_2'锛?     * @param categoryValue 绫荤洰鍊硷紙categoryId锛?     * @returns 鏄惁鍦ㄦ潈闄愯寖鍥村唴
      */
     async validateCategoryFilterValue(
         user: SessionUser,
@@ -2167,11 +2230,10 @@ export class DashboardService
         categoryFieldName: string,
         categoryValue: string,
     ): Promise<boolean> {
-        // 获取用户的类目权限树
+        // 鑾峰彇鐢ㄦ埛鐨勭被鐩潈闄愭爲
         const userCategories = await this.getUserCategories(user, projectUuid);
 
-        // 根据字段名确定类目层级
-        let allowedCategoryIds: string[] = [];
+        // 鏍规嵁瀛楁鍚嶇‘瀹氱被鐩眰绾?        let allowedCategoryIds: string[] = [];
         if (categoryFieldName === 'cls_1' || categoryFieldName === 'cls1') {
             allowedCategoryIds = userCategories.level1.map(
                 (cat) => cat.categoryId,
@@ -2198,14 +2260,13 @@ export class DashboardService
                 (cat) => cat.categoryId,
             );
         } else {
-            // 如果不是已知的类目字段，返回 false
+            // 濡傛灉涓嶆槸宸茬煡鐨勭被鐩瓧娈碉紝杩斿洖 false
             this.logger.warn(
                 `Unknown category field name: ${categoryFieldName} for user ${user.userUuid}`,
             );
             return false;
         }
 
-        // 检查值是否在允许的类目ID列表中
-        return allowedCategoryIds.includes(categoryValue);
+        // 妫€鏌ュ€兼槸鍚﹀湪鍏佽鐨勭被鐩甀D鍒楄〃涓?        return allowedCategoryIds.includes(categoryValue);
     }
 }

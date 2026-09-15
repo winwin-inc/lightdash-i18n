@@ -279,7 +279,9 @@ const UserActivity: FC = () => {
                                     .catch(console.error);
                         }}
                     >
-                        {isDownloadingCsv ? 'Exporting...' : 'Export CSV'}
+                        {isDownloadingCsv
+                            ? t('pages_user_activity.exporting_csv')
+                            : t('pages_user_activity.export_csv')}
                     </Button>
                 </Tooltip>
             </Group>

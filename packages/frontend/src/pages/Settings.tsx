@@ -22,6 +22,7 @@ import {
     IconUserCircle,
     IconUserCode,
     IconUserPlus,
+    IconClipboardList,
     IconUsers,
     IconUserShield,
     IconVariable,
@@ -860,7 +861,30 @@ const Settings: FC = () => {
                                         />
                                     ) : null}
 
-                                    <RouterNavLink
+                                    
+                                    {user.ability.can(
+                                        'manage',
+                                        subject('Project', {
+                                            organizationUuid:
+                                                organization.organizationUuid,
+                                            projectUuid: project.projectUuid,
+                                        }),
+                                    ) ? (
+                                        <RouterNavLink
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.operation_logs',
+                                            )}
+                                            exact
+                                            to={`/generalSettings/projectManagement/${project.projectUuid}/operationLogs`}
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconClipboardList}
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+
+<RouterNavLink
                                         label={t(
                                             'pages_settings.scroll_area_box_update.navs.syncs_scheduled_deliveries',
                                         )}

@@ -35,6 +35,7 @@ import { PermissionsService } from './PermissionsService/PermissionsService';
 import { PersonalAccessTokenService } from './PersonalAccessTokenService';
 import { PinningService } from './PinningService/PinningService';
 import { PivotTableService } from './PivotTableService/PivotTableService';
+import { ProjectOperationLogService } from './ProjectOperationLogService/ProjectOperationLogService';
 import { ProjectParametersService } from './ProjectParametersService';
 import { ProjectService } from './ProjectService/ProjectService';
 import { PromoteService } from './PromoteService/PromoteService';
@@ -82,6 +83,7 @@ interface ServiceManifest {
     pinningService: PinningService;
     pivotTableService: PivotTableService;
     projectService: ProjectService;
+    projectOperationLogService: ProjectOperationLogService;
     savedChartService: SavedChartService;
     schedulerService: SchedulerService;
     searchService: SearchService;
@@ -345,6 +347,8 @@ export class ServiceRepository
                     categoryRpcClient: this.clients.getCategoryRpcClient(),
                     organizationMemberProfileModel:
                         this.models.getOrganizationMemberProfileModel(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -1060,6 +1064,18 @@ export class ServiceRepository
         InstanceConfigurationServiceImplT,
     >(): InstanceConfigurationServiceImplT {
         return this.getService('instanceConfigurationService');
+    }
+
+    public getProjectOperationLogService(): ProjectOperationLogService {
+        return this.getService(
+            'projectOperationLogService',
+            () =>
+                new ProjectOperationLogService({
+                    projectOperationLogModel:
+                        this.models.getProjectOperationLogModel(),
+                    projectModel: this.models.getProjectModel(),
+                }),
+        );
     }
 
     public getProjectParametersService(): ProjectParametersService {
