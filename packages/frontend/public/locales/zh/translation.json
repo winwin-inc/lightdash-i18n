@@ -9541,6 +9541,20 @@
       "resource_name": "资源名称",
       "status": "状态",
       "detail": "详情"
+    },
+    "actions": {
+      "dashboard_created": "创建看板",
+      "dashboard_updated": "更新看板",
+      "dashboard_deleted": "删除看板",
+      "dashboard_duplicated": "复制看板",
+      "dashboard_moved": "移动看板",
+      "dashboard_tiles_copied": "复制图表块",
+      "dashboard_tiles_layout_updated": "调整图表/布局",
+      "dashboard_filters_created": "新建筛选器",
+      "dashboard_filters_updated": "修改筛选器",
+      "dashboard_filters_deleted": "删除筛选器",
+      "dashboard_filters_tile_targets_updated": "更新筛选绑定",
+      "operation_log_purged": "清理操作日志"
     }
   }
 }

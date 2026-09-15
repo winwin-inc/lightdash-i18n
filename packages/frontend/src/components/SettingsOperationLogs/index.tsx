@@ -36,6 +36,9 @@ type Props = {
 
 const ACTION_OPTIONS = Object.values(PROJECT_OPERATION_LOG_ACTIONS);
 
+const actionLabelKey = (action: string) =>
+    `components_settings_operation_logs.actions.${action.replace(/\./g, '_')}`;
+
 const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
     const { t } = useTranslation();
     const { cx, classes } = useTableStyles();
@@ -146,7 +149,10 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                 />
                 <Select
                     label={t('components_settings_operation_logs.filter_action')}
-                    data={ACTION_OPTIONS}
+                    data={ACTION_OPTIONS.map((value) => ({
+                        value,
+                        label: t(actionLabelKey(value), value),
+                    }))}
                     value={action}
                     onChange={(v) => {
                         setAction(v);
@@ -239,7 +245,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                         )}
                                     </td>
                                     <td>{row.actorDisplay}</td>
-                                    <td>{row.action}</td>
+                                    <td>{t(actionLabelKey(row.action), row.action)}</td>
                                     <td>{row.resourceType}</td>
                                     <td>{row.resourceName || '-'}</td>
                                     <td>{row.status}</td>

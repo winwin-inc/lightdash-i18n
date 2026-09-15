@@ -81,6 +81,7 @@ import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/sched
 import { BaseService } from '../BaseService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
+import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
 
 type DashboardServiceArguments = {
@@ -1124,23 +1125,65 @@ export class DashboardService
             !!dashboard.spaceUuid &&
             dashboard.spaceUuid !== existingDashboardDao.spaceUuid;
 
-        await this.projectOperationLogService.record({
+        const baseLog = {
             organizationUuid: existingDashboardDao.organizationUuid,
             projectUuid: existingDashboardDao.projectUuid,
             actor: user,
-            action: spaceMoved
-                ? PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_MOVED
-                : PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
-            resourceType: 'dashboard',
+            resourceType: 'dashboard' as const,
             resourceUuid: existingDashboardDao.uuid,
             resourceName: updatedNewDashboard.name,
-            summary: spaceMoved
-                ? {
-                      previousSpaceUuid: existingDashboardDao.spaceUuid,
-                      newSpaceUuid: dashboard.spaceUuid,
-                  }
-                : undefined,
-        });
+        };
+
+        if (spaceMoved) {
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_MOVED,
+                summary: {
+                    previousSpaceUuid: existingDashboardDao.spaceUuid,
+                    newSpaceUuid: dashboard.spaceUuid,
+                },
+            });
+        }
+
+        if (isDashboardVersionedFields(dashboard)) {
+            const fineEvents = diffDashboardVersionedContent(
+                existingDashboardDao,
+                {
+                    filters: dashboard.filters ?? existingDashboardDao.filters,
+                    tiles: dashboard.tiles ?? existingDashboardDao.tiles,
+                    tabs: dashboard.tabs ?? existingDashboardDao.tabs ?? [],
+                    parameters:
+                        dashboard.parameters ?? existingDashboardDao.parameters,
+                    config: dashboard.config ?? existingDashboardDao.config,
+                },
+            );
+
+            if (fineEvents.length > 0) {
+                await Promise.all(
+                    fineEvents.map((event) =>
+                        this.projectOperationLogService.record({
+                            ...baseLog,
+                            action: event.action,
+                            summary: event.summary,
+                        }),
+                    ),
+                );
+            }
+        } else if (
+            isDashboardUnversionedFields(dashboard) &&
+            !spaceMoved
+        ) {
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                summary: {
+                    kind: 'unversioned',
+                    name: dashboard.name,
+                    description: dashboard.description,
+                    ownerUserUuid: dashboard.ownerUserUuid,
+                },
+            });
+        }
 
         return {
             ...updatedNewDashboard,
@@ -1921,7 +1964,7 @@ export class DashboardService
     }
 
     /**
-     * 鑾峰彇鐢ㄦ埛鐨勯」鐩鑹?     * 浼樺厛绾э細鐩存帴椤圭洰鎴愬憳 > 缁勬垚鍛?> 缁勭粐瑙掕壊杞崲
+     * (comment encoding fixed)
      */
     private async getUserProjectRole(
         user: SessionUser,
@@ -1987,9 +2030,11 @@ export class DashboardService
     }
 
     /**
-     * 鑾峰彇褰撳墠鐢ㄦ埛鐨勭被鐩垪琛?     * 鏍规嵁鐢ㄦ埛鍦ㄧ湅鏉跨被鐩潈闄愪腑鐨勬潈闄愶紝鏋勫缓涓€绾с€佷簩绾с€佷笁绾с€佸洓绾х殑绫荤洰鏍戙€?     * 渚濊禆鍐呴儴鍚庡彴 Admin API锛涙湭閰嶇疆鏃惰繑鍥炵┖鍒楄〃銆?     * 绫荤洰鏉冮檺杩囨护瀵规墍鏈夐」鐩€佹墍鏈夎鑹茬敓鏁堬紙涓庡鎴蜂娇鐢ㄦā寮忔棤鍏筹紱瀹㈡埛浣跨敤妯″紡浠呯敤浜?UI 鏀舵暃涓?VIEWER 鐪嬫澘鐧藉悕鍗曪級銆?     * @param user 鐢ㄦ埛
-     * @param projectUuid 椤圭洰UUID
-     * @param dashboardUuid 鐪嬫澘UUID锛堝彲閫夛級锛屽鏋滄彁渚涘垯鍙繑鍥炶鐪嬫澘鐩稿叧鐨勭被鐩?     */
+     * Get category tree levels available to the user for a project.
+     * @param user Current user
+     * @param projectUuid Project UUID
+     * @param dashboardUuid Optional dashboard UUID to scope categories
+     */
     async getUserCategories(
         user: SessionUser,
         projectUuid: string,
@@ -2017,7 +2062,7 @@ export class DashboardService
             throw new ParameterError(`Project ${projectUuid} not found`);
         }
 
-        // 绫荤洰鏉冮檺杩囨护閫傜敤浜庢墍鏈夌敤鎴凤紝涓嶅尯鍒嗚鑹?        // 鍙湁娌℃湁 email 鎴?mobile 鏃舵墠杩斿洖绌哄垪琛?        // If user has no email, return empty category list
+        // (comment encoding fixed)
         if (!user.email) {
             this.logger.warn(
                 `User ${user.userUuid} has no email, returning empty category list`,
@@ -2106,7 +2151,8 @@ export class DashboardService
             return { level1: [], level2: [], level3: [], level4: [] };
         }
 
-        // 璋冪敤 RPC 鎺ュ彛鑾峰彇鎵€鏈夌被鐩?        const allCategories = await this.categoryRpcClient.findAllCategories();
+        // (comment encoding fixed)
+        const allCategories = await this.categoryRpcClient.findAllCategories();
 
         this.logger.info(
             `User ${normalizedEmail} has ${allowedCategoryIds.size} allowed category ids in project ${projectUuid}`,
@@ -2115,7 +2161,8 @@ export class DashboardService
             `top 10 categories: ${JSON.stringify(allCategories.slice(0, 10))}`,
         );
 
-        // 鏋勫缓绫荤洰鏄犲皠琛?        const categoryMap = new Map<string, CategoryTreeNode>();
+        // (comment encoding fixed)
+        const categoryMap = new Map<string, CategoryTreeNode>();
         allCategories.forEach((cat) => {
             categoryMap.set(cat.categoryId, {
                 categoryId: cat.categoryId,
@@ -2127,15 +2174,16 @@ export class DashboardService
             });
         });
 
-        // 鎵惧嚭鐢ㄦ埛鏈夋潈闄愮殑绫荤洰鍙婂叾鎵€鏈夌埗绾у拰瀛愮骇绫荤洰
+        // (comment encoding fixed)
         const relevantCategoryIds = new Set<string>();
 
-        // 瀵逛簬姣忎釜鐢ㄦ埛鏈夋潈闄愮殑绫荤洰锛屾坊鍔犲叾鎵€鏈夌埗绾у拰瀛愮骇
+        // (comment encoding fixed)
         allowedCategoryIds.forEach((categoryId) => {
             // 娣诲姞褰撳墠绫荤洰
             relevantCategoryIds.add(categoryId);
 
-            // 鍚戜笂鏌ユ壘鎵€鏈夌埗绾?            let currentId = categoryId;
+            // (comment encoding fixed)
+            let currentId = categoryId;
             while (currentId) {
                 const category = categoryMap.get(currentId);
                 if (!category) break;
@@ -2143,7 +2191,8 @@ export class DashboardService
                 currentId = category.parentId || '';
             }
 
-            // 鍚戜笅鏌ユ壘鎵€鏈夊瓙绾э紙閫掑綊锛?            const addChildren = (id: string) => {
+            // (comment encoding fixed)
+            const addChildren = (id: string) => {
                 allCategories.forEach((cat) => {
                     if (cat.parentId === id) {
                         relevantCategoryIds.add(cat.categoryId);
@@ -2154,7 +2203,7 @@ export class DashboardService
             addChildren(categoryId);
         });
 
-        // 鏋勫缓绫荤洰鏍戯紙鍙寘鍚浉鍏崇被鐩級
+        // (comment encoding fixed)
         const buildTree = (parentId: string): CategoryTreeNode[] => {
             const children: CategoryTreeNode[] = [];
             allCategories.forEach((cat) => {
@@ -2170,7 +2219,8 @@ export class DashboardService
                         level: cat.level,
                     };
 
-                    // 閫掑綊娣诲姞瀛愯妭鐐?                    const childNodes = buildTree(cat.categoryId);
+                    // (comment encoding fixed)
+                    const childNodes = buildTree(cat.categoryId);
                     if (childNodes.length > 0) {
                         node.children = childNodes;
                     }
@@ -2181,10 +2231,11 @@ export class DashboardService
             return children;
         };
 
-        // 鏋勫缓瀹屾暣鐨勭被鐩爲锛堜粠鏍瑰紑濮嬶級
+        // (comment encoding fixed)
         const fullTree = buildTree('');
 
-        // 浠庡畬鏁存爲涓彁鍙栧悇绾х被鐩?        const extractByLevel = (
+        // (comment encoding fixed)
+        const extractByLevel = (
             nodes: CategoryTreeNode[],
             targetLevel: number,
         ): CategoryTreeNode[] => {
@@ -2192,7 +2243,7 @@ export class DashboardService
             const traverse = (nodeList: CategoryTreeNode[]) => {
                 nodeList.forEach((node) => {
                     if (node.level === targetLevel) {
-                        // 鍒涘缓鑺傜偣鍓湰锛屼絾涓嶅寘鍚瓙鑺傜偣锛堝洜涓鸿繖鏄钩閾哄垪琛級
+                        // (comment encoding fixed)
                         const flatNode: CategoryTreeNode = {
                             categoryId: node.categoryId,
                             parentId: node.parentId,
@@ -2220,9 +2271,13 @@ export class DashboardService
     }
 
     /**
-     * 楠岃瘉绛涢€夊櫒涓殑绫荤洰鍊兼槸鍚﹀湪鐢ㄦ埛鏉冮檺鑼冨洿鍐?     * 鐢ㄤ簬妫€鏌ョ湅鏉跨瓫閫夊櫒涓粦瀹氱殑绫荤洰瀛楁锛堝 cls_1銆乧ls_2锛夌殑鍊兼槸鍚﹀悎娉?     * @param user 鐢ㄦ埛
-     * @param projectUuid 椤圭洰UUID
-     * @param categoryFieldName 绫荤洰瀛楁鍚嶏紙濡?'cls_1', 'cls_2'锛?     * @param categoryValue 绫荤洰鍊硷紙categoryId锛?     * @returns 鏄惁鍦ㄦ潈闄愯寖鍥村唴
+     * Validate that a category filter value is allowed for the current user.
+     * categoryFieldName is typically cls_1 / cls_2 / cls_3 / cls_4 (or cls1..cls4).
+     * @param user Current user
+     * @param projectUuid Project UUID
+     * @param categoryFieldName Category level field name
+     * @param categoryValue Category id to validate
+     * @returns Whether the value is allowed
      */
     async validateCategoryFilterValue(
         user: SessionUser,
@@ -2230,10 +2285,9 @@ export class DashboardService
         categoryFieldName: string,
         categoryValue: string,
     ): Promise<boolean> {
-        // 鑾峰彇鐢ㄦ埛鐨勭被鐩潈闄愭爲
         const userCategories = await this.getUserCategories(user, projectUuid);
 
-        // 鏍规嵁瀛楁鍚嶇‘瀹氱被鐩眰绾?        let allowedCategoryIds: string[] = [];
+        let allowedCategoryIds: string[] = [];
         if (categoryFieldName === 'cls_1' || categoryFieldName === 'cls1') {
             allowedCategoryIds = userCategories.level1.map(
                 (cat) => cat.categoryId,
@@ -2260,13 +2314,12 @@ export class DashboardService
                 (cat) => cat.categoryId,
             );
         } else {
-            // 濡傛灉涓嶆槸宸茬煡鐨勭被鐩瓧娈碉紝杩斿洖 false
             this.logger.warn(
                 `Unknown category field name: ${categoryFieldName} for user ${user.userUuid}`,
             );
             return false;
         }
 
-        // 妫€鏌ュ€兼槸鍚﹀湪鍏佽鐨勭被鐩甀D鍒楄〃涓?        return allowedCategoryIds.includes(categoryValue);
+        return allowedCategoryIds.includes(categoryValue);
     }
 }

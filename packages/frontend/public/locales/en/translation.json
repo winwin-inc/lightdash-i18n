@@ -9510,6 +9510,20 @@
       "resource_name": "Resource name",
       "status": "Status",
       "detail": "Details"
+    },
+    "actions": {
+      "dashboard_created": "Created dashboard",
+      "dashboard_updated": "Updated dashboard",
+      "dashboard_deleted": "Deleted dashboard",
+      "dashboard_duplicated": "Duplicated dashboard",
+      "dashboard_moved": "Moved dashboard",
+      "dashboard_tiles_copied": "Copied dashboard tile",
+      "dashboard_tiles_layout_updated": "Updated tiles/layout",
+      "dashboard_filters_created": "Created filter",
+      "dashboard_filters_updated": "Updated filter",
+      "dashboard_filters_deleted": "Deleted filter",
+      "dashboard_filters_tile_targets_updated": "Updated filter tile bindings",
+      "operation_log_purged": "Purged operation logs"
     }
   }
 }
