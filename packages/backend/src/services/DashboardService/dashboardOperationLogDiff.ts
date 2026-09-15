@@ -334,11 +334,10 @@ export const diffDiffableTiles = (
 
         const prevDesc = describeTile(prev);
         const nextDesc = describeTile(next);
-        const layoutFields = ['x', 'y', 'w', 'h', 'tabUuid'] as const;
-        const layoutDiffers = layoutFields.some(
+        const positionDiffers = (['x', 'y', 'w', 'h'] as const).some(
             (key) => prevDesc[key] !== nextDesc[key],
         );
-        if (layoutDiffers) {
+        if (positionDiffers) {
             layoutChanged.push({
                 tileUuid: uuid,
                 title: nextDesc.title,
@@ -347,21 +346,57 @@ export const diffDiffableTiles = (
                     y: prevDesc.y,
                     w: prevDesc.w,
                     h: prevDesc.h,
-                    tabUuid: prevDesc.tabUuid,
                 },
                 next: {
                     x: nextDesc.x,
                     y: nextDesc.y,
                     w: nextDesc.w,
                     h: nextDesc.h,
-                    tabUuid: nextDesc.tabUuid,
                 },
             });
         }
 
-        if (prev.type === DashboardTileTypes.SAVED_CHART || next.type === DashboardTileTypes.SAVED_CHART) {
-            if (
-                prevDesc.savedChartUuid !== nextDesc.savedChartUuid ||
+        if (prevDesc.tabUuid !== nextDesc.tabUuid) {
+            events.push({
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_TAB_ASSIGNMENT_CHANGED,
+                summary: {
+                    tileUuid: uuid,
+                    title: nextDesc.title,
+                    previousTabUuid: prevDesc.tabUuid,
+                    nextTabUuid: nextDesc.tabUuid,
+                },
+            });
+        }
+
+        if (prev.type !== next.type) {
+            events.push({
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_KIND_CHANGED,
+                summary: {
+                    tileUuid: uuid,
+                    title: nextDesc.title,
+                    previousType: prev.type,
+                    nextType: next.type,
+                },
+            });
+        }
+
+        if (
+            prev.type === DashboardTileTypes.SAVED_CHART ||
+            next.type === DashboardTileTypes.SAVED_CHART
+        ) {
+            if (prevDesc.savedChartUuid !== nextDesc.savedChartUuid) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_LINK_CHANGED,
+                    summary: {
+                        tileUuid: uuid,
+                        title: nextDesc.title,
+                        previousSavedChartUuid: prevDesc.savedChartUuid,
+                        nextSavedChartUuid: nextDesc.savedChartUuid,
+                        previousChartName: prevDesc.chartName,
+                        nextChartName: nextDesc.chartName,
+                    },
+                });
+            } else if (
                 prevDesc.chartName !== nextDesc.chartName ||
                 prevDesc.title !== nextDesc.title
             ) {
@@ -460,25 +495,71 @@ export const diffDashboardVersionedContent = (
         ...diffDiffableTiles(previous.tiles, next.tiles),
     ];
 
-    if (stableJson(previous.tabs || []) !== stableJson(next.tabs || [])) {
-        events.push({
-            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_LAYOUT_UPDATED,
-            summary: {
-                kind: 'tabs',
-                previousTabCount: previous.tabs?.length || 0,
-                nextTabCount: next.tabs?.length || 0,
-                previousTabs: (previous.tabs || []).map((tab) => ({
-                    uuid: tab.uuid,
-                    name: tab.name,
-                    order: tab.order,
-                })),
-                nextTabs: (next.tabs || []).map((tab) => ({
-                    uuid: tab.uuid,
-                    name: tab.name,
-                    order: tab.order,
-                })),
-            },
-        });
+    const prevTabs = previous.tabs || [];
+    const nextTabs = next.tabs || [];
+    if (stableJson(prevTabs) !== stableJson(nextTabs)) {
+        const prevById = new Map(prevTabs.map((tab) => [tab.uuid, tab]));
+        const nextById = new Map(nextTabs.map((tab) => [tab.uuid, tab]));
+
+        for (const [uuid, tab] of nextById) {
+            const prev = prevById.get(uuid);
+            if (!prev) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_CREATED,
+                    summary: {
+                        tabUuid: uuid,
+                        name: tab.name,
+                        order: tab.order,
+                    },
+                });
+            } else if (prev.name !== tab.name) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_RENAMED,
+                    summary: {
+                        tabUuid: uuid,
+                        previousName: prev.name,
+                        nextName: tab.name,
+                    },
+                });
+            }
+        }
+
+        for (const [uuid, tab] of prevById) {
+            if (!nextById.has(uuid)) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_DELETED,
+                    summary: {
+                        tabUuid: uuid,
+                        name: tab.name,
+                        order: tab.order,
+                    },
+                });
+            }
+        }
+
+        const prevOrder = prevTabs.map((tab) => tab.uuid).join(',');
+        const nextOrder = nextTabs.map((tab) => tab.uuid).join(',');
+        if (
+            prevOrder !== nextOrder &&
+            prevById.size === nextById.size &&
+            [...prevById.keys()].every((uuid) => nextById.has(uuid))
+        ) {
+            events.push({
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TABS_REORDERED,
+                summary: {
+                    previousOrder: prevTabs.map((tab) => ({
+                        uuid: tab.uuid,
+                        name: tab.name,
+                        order: tab.order,
+                    })),
+                    nextOrder: nextTabs.map((tab) => ({
+                        uuid: tab.uuid,
+                        name: tab.name,
+                        order: tab.order,
+                    })),
+                },
+            });
+        }
     }
 
     if (

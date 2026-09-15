@@ -46,6 +46,7 @@ import {
     appendNewTilesToBottom,
     useUpdateDashboard,
 } from '../hooks/dashboard/useDashboard';
+import { drainDashboardOperationEvents } from '../hooks/dashboard/dashboardOperationEventQueue';
 import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useOrganization } from '../hooks/organization/useOrganization';
@@ -1056,8 +1057,10 @@ const Dashboard: FC = () => {
         // tabs config
         const tabsConfig = getTabsConfig();
 
+        const clientEvents = drainDashboardOperationEvents();
         mutate({
             tiles: dashboardTiles || [],
+            ...(clientEvents.length > 0 ? { clientEvents } : {}),
             filters: {
                 dimensions: requiredFiltersWithoutValues,
                 metrics: [

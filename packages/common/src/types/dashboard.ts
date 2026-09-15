@@ -281,10 +281,16 @@ export type DashboardVersionedFields = Pick<
 
 export type UpdateDashboardDetails = Pick<Dashboard, 'name' | 'description'>;
 
+export type UpdateDashboardClientEvents = {
+    clientEvents?: import('./projectOperationLog').DashboardOperationClientEvent[];
+};
+
 export type UpdateDashboard =
-    | DashboardUnversionedFields
-    | DashboardVersionedFields
-    | (DashboardUnversionedFields & DashboardVersionedFields);
+    | (DashboardUnversionedFields & UpdateDashboardClientEvents)
+    | (DashboardVersionedFields & UpdateDashboardClientEvents)
+    | (DashboardUnversionedFields &
+          DashboardVersionedFields &
+          UpdateDashboardClientEvents);
 
 export type UpdateMultipleDashboards = Pick<
     Dashboard,

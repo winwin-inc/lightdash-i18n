@@ -1145,8 +1145,43 @@ export class DashboardService
             });
         }
 
+
+        const clientEvents =
+            'clientEvents' in dashboard
+                ? (dashboard as UpdateDashboard).clientEvents
+                : undefined;
+        const hasClientEvents =
+            Array.isArray(clientEvents) && clientEvents.length > 0;
+
+        if (hasClientEvents) {
+            await Promise.all(
+                clientEvents!.map((event) =>
+                    this.projectOperationLogService.record({
+                        ...baseLog,
+                        action: event.action,
+                        resourceType:
+                            event.resourceType ?? baseLog.resourceType,
+                        resourceUuid:
+                            event.resourceUuid ?? baseLog.resourceUuid,
+                        resourceName:
+                            event.resourceName ?? baseLog.resourceName,
+                        summary: {
+                            ...(event.summary ?? {}),
+                            source: 'client',
+                            schemaVersion: event.schemaVersion,
+                            scope: event.scope,
+                            tabUuid: event.tabUuid,
+                            tabName: event.tabName,
+                            changeKind: event.changeKind,
+                            occurredAt: event.occurredAt,
+                        },
+                    }),
+                ),
+            );
+        }
+
         if (isDashboardVersionedFields(dashboard)) {
-            const fineEvents = diffDashboardVersionedContent(
+            let fineEvents = diffDashboardVersionedContent(
                 existingDashboardDao,
                 {
                     filters: dashboard.filters ?? existingDashboardDao.filters,
@@ -1157,6 +1192,14 @@ export class DashboardService
                     config: dashboard.config ?? existingDashboardDao.config,
                 },
             );
+
+            // FE semantic events cover filters; skip noisy auto-diff for filters.
+            if (hasClientEvents) {
+                fineEvents = fineEvents.filter(
+                    (event) =>
+                        !String(event.action).startsWith('dashboard.filters.'),
+                );
+            }
 
             if (fineEvents.length > 0) {
                 await Promise.all(
