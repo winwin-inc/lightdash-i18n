@@ -25,6 +25,8 @@ describe('get_mcp_docs content', () => {
         assert.match(getMcpDocsText('security'), /认证 Header/);
         assert.match(getMcpDocsText('overview'), /sessionless/);
         assert.match(getMcpDocsText('query_workflow'), /projectUuid/);
+        assert.match(getMcpDocsText('query_workflow'), /limit \+ offset/);
+        assert.match(getMcpDocsText('query_workflow'), /page（从 1）/);
         assert.match(getMcpDocsText('content_fields'), /chartKind/);
         assert.match(getMcpDocsText('content_fields'), /groups/);
         assert.match(getMcpDocsText('content_fields'), /custom/);

@@ -104,6 +104,37 @@ describe('prepareSemanticMetricQueryBody', () => {
         assert.equal(body.limit, 200);
     });
 
+
+    it('applies offset override at top level', () => {
+        const { query: body } = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: [],
+                metrics: [],
+                limit: 10,
+                offset: 0,
+            }),
+            undefined,
+            4000,
+        );
+        assert.equal(body.offset, 4000);
+        assert.equal(body.limit, 10);
+    });
+
+    it('keeps embedded offset when no override', () => {
+        const { query: body } = prepareSemanticMetricQueryBody(
+            JSON.stringify({
+                exploreName: 'orders',
+                dimensions: [],
+                metrics: [],
+                limit: 50,
+                offset: 100,
+            }),
+            undefined,
+        );
+        assert.equal(body.offset, 100);
+    });
+
     it('parses Explorer JSON string', () => {
         const { query: body } = prepareSemanticMetricQueryBody(
             JSON.stringify({

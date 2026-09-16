@@ -384,7 +384,12 @@ export function registerQueryTools(
         dateZoom: z.any().optional(),
         pivotConfiguration: z.any().optional(),
         dashboardUuid: z.string().optional(),
-        pageSize: z.number().optional(),
+        pageSize: z
+            .number()
+            .optional()
+            .describe(
+                '异步查询结果拉取块大小（服务端会按 nextPage 收齐）；不是业务行分页，行分页用 limit+offset',
+            ),
         maxPollAttempts: z.number().optional(),
         pollIntervalMs: z.number().optional(),
         full: z.boolean().optional(),
@@ -400,7 +405,16 @@ export function registerQueryTools(
             projectUuid: z.string().optional(),
             metricQuery: metricQueryInputSchema,
             dashboardUuid: z.string().optional(),
-            limit: z.number().optional(),
+            limit: z
+                .number()
+                .optional()
+                .describe('覆盖 metricQuery.limit：本页最多返回行数'),
+            offset: z
+                .number()
+                .optional()
+                .describe(
+                    '覆盖 metricQuery.offset：仓库跳过行数（与 limit 组成 offset 分页）',
+                ),
             invalidateCache: z.boolean().optional(),
             full: z.boolean().optional(),
             valueFormat: metricQueryValueFormatSchema,
@@ -419,6 +433,7 @@ export function registerQueryTools(
                 } = prepareSemanticMetricQueryBody(
                     args.metricQuery,
                     args.limit as number | undefined,
+                    args.offset as number | undefined,
                 );
                 const projectUuid = resolveCoreToolsProjectUuid(
                     config,
@@ -529,7 +544,14 @@ export function registerQueryTools(
             metrics: z.array(z.string()).optional(),
             filters: z.any().optional(),
             sorts: z.any().optional(),
-            limit: z.number().optional(),
+            limit: z
+                .number()
+                .optional()
+                .describe('本页最多返回行数（仓库 limit）'),
+            offset: z
+                .number()
+                .optional()
+                .describe('仓库跳过行数；与 limit 组成 offset 分页（不是 page/pageSize）'),
             tableCalculations: z.any().optional(),
             additionalMetrics: z.any().optional(),
             customDimensions: z.any().optional(),
@@ -649,6 +671,7 @@ export function registerQueryTools(
                             filters: normalizedFilters,
                             sorts: toSorts(args.sorts, resolveFieldId),
                             limit: args.limit as number | undefined,
+                            offset: args.offset as number | undefined,
                             tableCalculations: toArray(args.tableCalculations),
                             additionalMetrics: toArrayLike(
                                 args.additionalMetrics,

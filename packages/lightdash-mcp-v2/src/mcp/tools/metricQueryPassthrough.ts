@@ -78,6 +78,7 @@ export function omitEmptyOptionalMetricQueryFields(
 export function prepareSemanticMetricQueryBody(
     metricQuery: unknown,
     limitOverride: number | undefined,
+    offsetOverride?: number | undefined,
 ): {
     query: Record<string, unknown>;
     dashboardUuid: string | undefined;
@@ -99,6 +100,9 @@ export function prepareSemanticMetricQueryBody(
     if (limitOverride !== undefined) {
         query = { ...query, limit: limitOverride };
     }
+    if (offsetOverride !== undefined) {
+        query = { ...query, offset: offsetOverride };
+    }
     return {
         query,
         dashboardUuid: embeddedDashboardUuid,
@@ -112,7 +116,7 @@ const FLAT_ONLY_KEYS = [
     'metrics',
     'filters',
     'sorts',
-    // note: top-level `limit` is valid on run_semantic_metric_query (overrides metricQuery.limit)
+    // note: top-level `limit`/`offset` are valid on run_semantic_metric_query (override metricQuery fields)
     'tableCalculations',
     'additionalMetrics',
     'customDimensions',

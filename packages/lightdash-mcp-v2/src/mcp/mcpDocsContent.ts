@@ -28,6 +28,16 @@ const DOCS: Record<McpDocsTopic, string> = {
 4. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
 5. 大结果先缩小 limit / filters；不要猜测 fieldId。
 6. 看板内认图 / 统计自定义图：list_charts → get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+
+## 分页约定（两套，勿混用）
+
+### 查数（run_metric_query / run_semantic_metric_query）
+- 使用 **limit + offset**（仓库级行分页）。
+- 客户端可固定 limit、递增 offset 循环，直到本页行数 < limit。
+- 不要用 page / pageSize 做查数翻页；pageSize 只影响异步结果拉取块大小（服务端会收齐）。
+
+### 目录 / 内容（list_explores、find_fields、find_content 等）
+- 使用 **page（从 1）+ pageSize**。
 `,
 
     content_fields: `# 内容字段约定（默认 slim）

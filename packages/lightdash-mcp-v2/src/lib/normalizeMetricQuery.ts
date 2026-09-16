@@ -40,6 +40,13 @@ export function normalizeMetricQueryRequest(
     const tableCalculations = Array.isArray(raw.tableCalculations)
         ? raw.tableCalculations
         : [];
+    const offsetRaw = raw.offset;
+    const offset =
+        typeof offsetRaw === 'number' &&
+        Number.isFinite(offsetRaw) &&
+        offsetRaw >= 0
+            ? Math.floor(offsetRaw)
+            : undefined;
 
     return {
         exploreName,
@@ -48,6 +55,7 @@ export function normalizeMetricQueryRequest(
         filters,
         sorts: sorts as MetricQueryRequest['sorts'],
         limit,
+        ...(offset !== undefined ? { offset } : {}),
         tableCalculations: tableCalculations as MetricQueryRequest['tableCalculations'],
         additionalMetrics: raw.additionalMetrics as MetricQueryRequest['additionalMetrics'],
         customDimensions: raw.customDimensions as MetricQueryRequest['customDimensions'],
