@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 升级 packages/lightdash-mcp 的 package.json.version，并打 mcp-v* tag。
+ * 升级 packages/lightdash-mcp-v2 的 package.json.version，并打 mcp-v* tag。
  *
  * 用法：
  *   pnpm bump-mcp -- 0.4.4
@@ -17,10 +17,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
-const mcpPkgPath = path.join(repoRoot, 'packages', 'lightdash-mcp', 'package.json');
+const mcpPkgPath = path.join(repoRoot, 'packages', 'lightdash-mcp-v2', 'package.json');
 
 /** 仓库根相对路径（正斜杠），供 git 状态校验 */
-const REL_MCP_PKG = 'packages/lightdash-mcp/package.json';
+const REL_MCP_PKG = 'packages/lightdash-mcp-v2/package.json';
 
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 
@@ -34,7 +34,7 @@ function usage() {
   pnpm bump-mcp -- 0.4.4 --no-commit
   pnpm bump-mcp -- 0.4.4 --no-tag
 
-默认行为：写 packages/lightdash-mcp/package.json -> 仅 add 该文件 -> git commit -> 打 mcp-v<ver> annotated tag。
+默认行为：写 packages/lightdash-mcp-v2/package.json -> 仅 add 该文件 -> git commit -> 打 mcp-v<ver> annotated tag。
 开关：--no-commit 仅写文件；--no-tag commit 后不打 tag。
 本地不 push；确认无误后：git push && git push origin mcp-v<版本号> 触发 MCP Docker CI。
 `);
@@ -151,7 +151,7 @@ function bumpMcp(version) {
     pkg.version = version;
     writeJson(mcpPkgPath, pkg);
     process.stdout.write(
-        `已写入 packages/lightdash-mcp/package.json -> "version": "${version}"\n`,
+        `已写入 packages/lightdash-mcp-v2/package.json -> "version": "${version}"\n`,
     );
 }
 
@@ -211,10 +211,10 @@ if (willTag) {
 
 bumpMcp(version);
 git(['add', REL_MCP_PKG]);
-git(['commit', '-m', `chore(release): 升级 lightdash-mcp 至 ${version}`]);
+git(['commit', '-m', `chore(release): 升级 lightdash-mcp-v2 至 ${version}`]);
 
 if (willTag) {
-    git(['tag', '-a', tagName, '-m', `lightdash-mcp v${version}`]);
+    git(['tag', '-a', tagName, '-m', `lightdash-mcp-v2 v${version}`]);
     process.stdout.write(`已创建 annotated tag: ${tagName}\n`);
 } else {
     process.stdout.write('（已跳过打 tag：使用了 --no-tag）\n');

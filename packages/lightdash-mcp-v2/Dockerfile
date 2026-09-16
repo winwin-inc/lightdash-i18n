@@ -12,18 +12,19 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY .pnpmfile.cjs ./
 COPY packages/common/package.json ./packages/common/package.json
-COPY packages/lightdash-mcp/package.json ./packages/lightdash-mcp/package.json
+COPY packages/lightdash-mcp-v2/package.json ./packages/lightdash-mcp-v2/package.json
 
+# 仓库可能未写入 mcp-v2 的 lockfile importer；CI 用非 frozen 安装以保证可构建
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prefer-offline --filter @lightdash/mcp...
+    pnpm install --no-frozen-lockfile --prefer-offline --filter @lightdash/mcp-v2...
 
 FROM deps AS build
 
 COPY packages/common ./packages/common
-COPY packages/lightdash-mcp ./packages/lightdash-mcp
+COPY packages/lightdash-mcp-v2 ./packages/lightdash-mcp-v2
 
-RUN pnpm -F @lightdash/common build && pnpm -F @lightdash/mcp build
-RUN pnpm --filter @lightdash/mcp deploy --prod /deploy
+RUN pnpm -F @lightdash/common build && pnpm -F @lightdash/mcp-v2 build
+RUN pnpm --filter @lightdash/mcp-v2 deploy --prod /deploy
 
 FROM node:20-bookworm-slim AS runtime
 

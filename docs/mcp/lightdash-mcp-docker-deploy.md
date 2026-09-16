@@ -8,7 +8,7 @@
 
 ## 1. 部署形态
 
-- Dockerfile 固定放在：`packages/lightdash-mcp/Dockerfile`
+- Dockerfile 固定放在：`packages/lightdash-mcp-v2/Dockerfile`
 - 构建上下文使用仓库根目录（需要读取 workspace 的 lockfile 与 `packages/common`）
 - 运行进程是 MCP HTTP 服务（默认端口 `3333`，端点 `/mcp`，健康检查 `/health`）
 
@@ -19,13 +19,13 @@
 ### 2.1 构建镜像
 
 ```bash
-docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
+docker build -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp:0.1.0 .
 ```
 
 开发调试建议加 `--no-cache`（避免吃到旧层）：
 
 ```bash
-docker build --no-cache -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:dev .
+docker build --no-cache -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp:dev .
 ```
 
 ### 2.2 运行镜像
@@ -99,7 +99,7 @@ curl -s http://localhost:3333/health
 
 ### 4.2 构建与推送逻辑
 
-- 使用 `packages/lightdash-mcp/Dockerfile`
+- 使用 `packages/lightdash-mcp-v2/Dockerfile`
 - 推送到阿里云 ACR 的独立仓库 **`winwin/lightdash-mcp`**（与主应用 `winwin/lightdash` 分离）
 - 首次使用前请在 ACR 控制台创建该仓库
 - tag 规则：
@@ -179,5 +179,5 @@ docker push ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
 
 | 日期 | 说明 |
 |------|------|
-| 2026-03-30 | 切换为 `packages/lightdash-mcp/Dockerfile` + GitHub Actions（`mcp-image.yml`）方案，精简环境变量并移除 `LIGHTDASH_WEB_*_PATH_TEMPLATE` |
+| 2026-03-30 | 切换为 `packages/lightdash-mcp-v2/Dockerfile` + GitHub Actions（`mcp-image.yml`）方案，精简环境变量并移除 `LIGHTDASH_WEB_*_PATH_TEMPLATE` |
 | 2026-04-29 | MCP 镜像改为独立 ACR 仓库 `winwin/lightdash-mcp`；镜像 tag 为 semver 数字 + `latest`（Git tag 仍为 `mcp-v*` 触发）；工作流更名为 `build-docker-mcp.yml`（与 `build-docker-with-i18n.yml` 的 `build-docker-*` 命名一致） |

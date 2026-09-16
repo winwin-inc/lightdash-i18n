@@ -8,7 +8,7 @@ on:
 
 env:
     REGISTRY: registry.cn-hangzhou.aliyuncs.com
-    # 与主应用镜像 winwin/lightdash 分离；需在 ACR 预先创建仓库 winwin/lightdash-mcp
+    # 与主应用镜像 winwin/lightdash 分离；打 mcp-v* tag 时构建 @lightdash/mcp-v2（镜像仓仍为 winwin/lightdash-mcp）
     REGISTRY_IMAGE: registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp
 
 jobs:
@@ -64,12 +64,12 @@ jobs:
               uses: docker/build-push-action@v5
               with:
                   context: .
-                  file: packages/lightdash-mcp/Dockerfile
+                  file: packages/lightdash-mcp-v2/Dockerfile
                   platforms: linux/amd64
                   push: true
                   provenance: false
                   tags: ${{ steps.vars.outputs.tags }}
                   labels: |
-                      org.opencontainers.image.title=lightdash-mcp
+                      org.opencontainers.image.title=lightdash-mcp-v2
                       org.opencontainers.image.version=${{ steps.vars.outputs.version }}
                       org.opencontainers.image.revision=${{ github.sha }}
