@@ -1,8 +1,8 @@
 # Lightdash MCP 独立镜像：构建与阿里云部署
 
-本文说明如何将 `packages/lightdash-mcp` 构建为独立镜像，并通过 GitHub Actions 推送到阿里云 ACR。
+本文说明如何将 `packages/lightdash-mcp-v2`（`@lightdash/mcp-v2`）构建为独立镜像，并通过 GitHub Actions 推送到阿里云 ACR。
 
-> 关联阅读：[MCP 文档索引](./README.md)、[标准客户端用法](./lightdash-mcp-client-usage.md)、[包级 README](../../packages/lightdash-mcp/README.md)。
+> 关联阅读：[MCP 文档索引](./README.md)、[标准客户端用法](./lightdash-mcp-client-usage.md)、[v2 完整说明](./lightdash-mcp-v2.md) · [包级 README](../../packages/lightdash-mcp-v2/README.md)。
 
 ---
 
@@ -42,7 +42,7 @@ docker run --rm -p 3333:3333 \
 
 ```bash
 docker run --rm -p 3333:3333 \
-  --env-file packages/lightdash-mcp/.env \
+  --env-file packages/lightdash-mcp-v2/.env \
   lightdash-mcp:dev
 ```
 
