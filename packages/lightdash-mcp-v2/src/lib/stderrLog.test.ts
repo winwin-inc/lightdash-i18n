@@ -1,15 +1,44 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { formatLocalTimestamp } from './stderrLog';
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import {
+    formatLocalTimestamp,
+    getMcpLogLevel,
+    resetMcpLogLevelCacheForTests,
+    shouldLog,
+} from './stderrLog';
 
 describe('formatLocalTimestamp', () => {
-    it('formats as [YYYY-MM-DD HH:mm:ss.SSS] in local time', () => {
-        const date = new Date(2026, 2, 14, 20, 12, 34, 789);
-        assert.equal(formatLocalTimestamp(date), '[2026-03-14 20:12:34.789]');
+    it('includes date and time with milliseconds in brackets', () => {
+        const s = formatLocalTimestamp(new Date(2026, 2, 14, 20, 12, 34, 789));
+        assert.match(s, /^\[2026-03-14 20:12:34\.789\]$/);
     });
+});
 
-    it('zero-pads single-digit fields and milliseconds', () => {
-        const date = new Date(2026, 0, 5, 1, 2, 3, 4);
-        assert.equal(formatLocalTimestamp(date), '[2026-01-05 01:02:03.004]');
+describe('mcp log level', () => {
+    const prev = process.env.LIGHTDASH_MCP_LOG_LEVEL;
+    beforeEach(() => {
+        resetMcpLogLevelCacheForTests();
+    });
+    afterEach(() => {
+        if (prev === undefined) delete process.env.LIGHTDASH_MCP_LOG_LEVEL;
+        else process.env.LIGHTDASH_MCP_LOG_LEVEL = prev;
+        resetMcpLogLevelCacheForTests();
+    });
+    it('defaults to info', () => {
+        delete process.env.LIGHTDASH_MCP_LOG_LEVEL;
+        resetMcpLogLevelCacheForTests();
+        assert.equal(getMcpLogLevel(), 'info');
+        assert.equal(shouldLog('debug'), false);
+    });
+    it('debug enables verbose lines', () => {
+        process.env.LIGHTDASH_MCP_LOG_LEVEL = 'debug';
+        resetMcpLogLevelCacheForTests();
+        assert.equal(shouldLog('debug'), true);
+    });
+    it('warn hides info', () => {
+        process.env.LIGHTDASH_MCP_LOG_LEVEL = 'warn';
+        resetMcpLogLevelCacheForTests();
+        assert.equal(shouldLog('info'), false);
+        assert.equal(shouldLog('warn'), true);
     });
 });

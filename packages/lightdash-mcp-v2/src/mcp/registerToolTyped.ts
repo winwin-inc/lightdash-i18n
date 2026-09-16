@@ -33,6 +33,7 @@ export function registerToolTyped(
         const maskedKey = getHttpRequestMaskedKey() ?? '***';
         writeStderrLog(
             `${prefix} ${name} | key: ${maskedKey} | ${userEmail}`,
+            'info',
         );
         return handler(args);
     };

@@ -189,6 +189,7 @@ export async function validateApiKeyAndGetEmail(
         const remainSec = Math.max(0, Math.floor((cached.expiresAtMs - now) / 1000));
         writeStderrLog(
             `[ApiAuth] ${maskedKey} 缓存命中 -> 有效（剩余 ${remainSec}s） | ${cached.email}`,
+            'debug',
         );
         return cached.email;
     }
@@ -203,6 +204,7 @@ export async function validateApiKeyAndGetEmail(
     if (!response.ok) {
         writeStderrLog(
             `[ApiAuth] ${maskedKey} 校验失败 -> ${response.status}`,
+            'warn',
         );
         throw new Error(`Lightdash API ${response.status}: Failed to authorize user`);
     }
@@ -212,6 +214,8 @@ export async function validateApiKeyAndGetEmail(
         email,
         expiresAtMs: now + AUTH_CACHE_TTL_MS,
     });
-    writeStderrLog(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}`);
+    writeStderrLog(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}`,
+            'info',
+        );
     return email;
 }

@@ -218,6 +218,7 @@ async function main(): Promise<void> {
             const statusTag = status >= 400 ? ` | error(${status})` : '';
             writeStderrLog(
                 `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag} | ${userEmail}`,
+                status >= 500 ? 'error' : status >= 400 ? 'warn' : 'debug',
             );
         }
     });
@@ -235,6 +236,7 @@ async function main(): Promise<void> {
                     err instanceof Error ? err.message : 'Invalid JSON';
                 writeStderrLog(
                     `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 400 | 0ms | error(400) | invalid_json_body | ${message}`,
+                    'warn',
                 );
                 if (!res.headersSent) {
                     res.status(400).json({
@@ -259,6 +261,7 @@ async function main(): Promise<void> {
             const message = err instanceof Error ? err.message : String(err);
             writeStderrLog(
                 `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 500 | 0ms | error(500) | unhandled | ${message}`,
+                'error',
             );
             if (!res.headersSent) {
                 res.status(500).json({
@@ -283,6 +286,6 @@ async function main(): Promise<void> {
 
 main().catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
-    writeStderrLog(msg);
+    writeStderrLog(msg, 'error');
     process.exit(1);
 });

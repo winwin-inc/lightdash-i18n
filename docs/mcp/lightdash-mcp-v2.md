@@ -141,6 +141,7 @@ MCP 客户端 URL 示例：`http://localhost:3333/mcp`，并配置鉴权 Header�
 | `LIGHTDASH_API_KEY` | 否 | 默认 PAT（客户端不带头时） |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | 默认 `3333` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 单次查询 limit 上限，默认 `5000` |
+| `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error`/`warn`/`info`/`debug`，默认 `info`；`debug` 才打鉴权缓存命中与 2xx 访问日志 |
 | `MCP_OAUTH_ENABLED` | 否 | 默认 `true` |
 | `OAUTH_INTROSPECT_URL` | 否 | 默认 `{SITE}/api/v1/oauth/introspect` |
 | `OAUTH_REQUIRED_SCOPES` | 否 | 默认 `mcp:read` |
