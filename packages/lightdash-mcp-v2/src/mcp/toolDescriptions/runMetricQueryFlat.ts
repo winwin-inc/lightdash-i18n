@@ -9,6 +9,7 @@ export const RUN_METRIC_QUERY_FLAT_DESCRIPTION = `【扁平 Metric Query】简�
 
 ## 分页（重要）
 - 行分页用 **limit + offset**（仓库级）：limit=本页条数，offset=跳过行数。客户端可循环叠加 offset。
+- 使用 offset 时请带稳定 sorts，否则页间可能乱序/重复/漏行。
 - **不要**对本工具用 page / pageSize 做业务翻页；pageSize 仅表示异步结果拉取块大小（服务端会收齐），可忽略。
 - 目录/内容类工具才用 page（从 1）+ pageSize。
 

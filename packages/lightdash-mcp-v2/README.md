@@ -6,7 +6,7 @@ Lightdash MCP HTTP 服务（**MCP 协议 2026-07-28 sessionless**）。
 
 ## 差异（相对 v1）
 
-- `createMcpHandler(..., { legacy: 'reject' })`：只接受 2026-07-28；旧 Session 客户端会被拒绝
+- `createMcpHandler(..., { legacy: 'stateless' })`：只接受 2026-07-28；旧 Session 客户端会被拒绝
 - **无** Session Registry / `Mcp-Session-Id` / GET SSE / DELETE
 - **无** `set_project` / `get_current_project` / `mcpSessionStore`
 - 项目解析：`工具参数 projectUuid` → `LIGHTDASH_PROJECT_UUID`

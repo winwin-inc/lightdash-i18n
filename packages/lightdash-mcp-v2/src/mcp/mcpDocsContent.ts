@@ -14,7 +14,7 @@ const DOCS: Record<McpDocsTopic, string> = {
     overview: `# Lightdash MCP v2 使用概览
 
 - 本服务通过 Streamable HTTP 暴露工具；客户端配置 URL 与鉴权 Header 即可。
-- 协议：MCP 2026-07-28 sessionless（不支持 Mcp-Session-Id / GET SSE / DELETE Session）。
+- 协议：MCP 2026-07-28 sessionless 为主；HTTP 使用 legacy:stateless，可用无状态方式兼容旧客户端流量（服务端不保存 Session / 当前项目）。
 - 查询类工具优先每次显式传 projectUuid；未传时回退环境变量 LIGHTDASH_PROJECT_UUID。
 - 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | content_fields | security。
 - 字段约定（chartKind / groups 等）见 topic=content_fields。
@@ -34,7 +34,9 @@ const DOCS: Record<McpDocsTopic, string> = {
 ### 查数（run_metric_query / run_semantic_metric_query）
 - 使用 **limit + offset**（仓库级行分页）。
 - 客户端可固定 limit、递增 offset 循环，直到本页行数 < limit。
+- 使用 offset 分页时请带**稳定 sorts**，否则页间可能乱序、重复或漏行。
 - 不要用 page / pageSize 做查数翻页；pageSize 只影响异步结果拉取块大小（服务端会收齐）。
+- 每次调用仍须自带鉴权 Header；需要项目时传 projectUuid 或配置 LIGHTDASH_PROJECT_UUID（无 set_project 会话状态）。
 
 ### 目录 / 内容（list_explores、find_fields、find_content 等）
 - 使用 **page（从 1）+ pageSize**。

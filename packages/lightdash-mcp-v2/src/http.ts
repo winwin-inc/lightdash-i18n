@@ -1,6 +1,6 @@
 /**
  * 独立 MCP 服务：Streamable HTTP（MCP 2026-07-28 sessionless）。
- * 严格模式：createMcpHandler({ legacy: 'reject' })，拒绝 2025 Session 协议客户端。
+ * 兼容模式：createMcpHandler({ legacy: 'stateless' })，按无状态方式接 2025 时代流量（不建服务端 Session）。
  */
 import express from 'express';
 import { createMcpHandler } from '@modelcontextprotocol/server';
@@ -54,7 +54,7 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
         `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}`,
     );
     writeStderrLog(
-        `[Config] MCP_PROTOCOL=2026-07-28 sessionless | legacy=reject`,
+        `[Config] MCP_PROTOCOL=2026-07-28 sessionless | legacy=stateless`,
     );
 }
 
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
 
     const mcpHandler = createMcpHandler(
         () => createLightdashMcpServer(config, { exploreCache }),
-        { legacy: 'reject' },
+        { legacy: 'stateless' },
     );
     const nodeMcp = toNodeHandler(mcpHandler);
 
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
             ok: true as const,
             package: '@lightdash/mcp-v2',
             protocol: '2026-07-28',
-            legacy: 'reject',
+            legacy: 'stateless',
             inFlightRequests,
         });
     });
@@ -276,7 +276,7 @@ async function main(): Promise<void> {
     }
     app.listen(port, '0.0.0.0', () => {
         writeStderrLog(
-            `Lightdash MCP v2 (2026-07-28 sessionless, legacy=reject) listening on http://0.0.0.0:${port}/mcp`,
+            `Lightdash MCP v2 (2026-07-28 sessionless, legacy=stateless) listening on http://0.0.0.0:${port}/mcp`,
         );
     });
 }

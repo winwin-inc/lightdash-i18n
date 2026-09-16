@@ -11,6 +11,7 @@ export const RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION = `【语义 Metric Query】�
 
 ## 分页（重要）
 - 行分页用 **limit + offset**：可写在 metricQuery JSON 内，也可用顶层 limit / offset 覆盖 JSON。
+- 使用 offset 时请带稳定 sorts，否则页间可能乱序/重复/漏行。
 - 客户端可按 limit 固定、offset 递增循环拉取；不要用 page / pageSize 做查数翻页。
 - pageSize（若出现）仅异步结果拉取块大小，服务端会收齐，可忽略。
 
