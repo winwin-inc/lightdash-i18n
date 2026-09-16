@@ -22,6 +22,7 @@ import {
 import { createLightdashMcpServer } from './mcp/createMcpServer';
 import { httpRequestApiKeyStore } from './lib/requestContext';
 import { writeStderrLog } from './lib/stderrLog';
+import { ensureContentTypeUtf8Charset } from './http/utf8Charset';
 
 const authCache = createAuthCache();
 const oauthCache = createOauthCache();
@@ -104,6 +105,8 @@ async function main(): Promise<void> {
     });
 
     app.all('/mcp', async (req: express.Request, res: express.Response) => {
+        // Declare UTF-8 on JSON/SSE so clients (e.g. Python requests) do not assume Latin-1
+        ensureContentTypeUtf8Charset(res);
         const start = Date.now();
         const ip = resolveClientIp(req);
         const bearerToken = parseBearerTokenFromRequest(req);

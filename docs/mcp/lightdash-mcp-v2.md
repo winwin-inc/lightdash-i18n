@@ -19,6 +19,7 @@
 | Zod | ^4 |
 | 默认端口 | `3333`（`LIGHTDASH_MCP_HTTP_PORT`） |
 | 端点 | `POST/… /mcp`，健康检查 `GET /health` |
+| 字符集 | 响应 UTF-8；`/mcp` 对 JSON/SSE 自动补 `charset=utf-8`（兼容 Python requests 等） |
 
 `legacy: 'stateless'`：可用无状态方式兼容部分旧客户端流量；**服务端不保存 MCP Session，也不记住「当前项目」**。
 
