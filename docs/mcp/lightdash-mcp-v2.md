@@ -58,6 +58,9 @@
 1. 工具参数 **`projectUuid`**（推荐每次显式传）  
 2. 环境变量 **`LIGHTDASH_PROJECT_UUID`**（整进程默认，不是按用户会话）
 
+**不知道该填哪个项目时**：先调用 **`list_projects`**（不需要 `projectUuid`，只依赖鉴权），从返回列表选择 uuid，再带入后续工具。  
+客户端若未传 `projectUuid`，且服务端也未配置默认项目，需要项目的工具会报错，并提示先用 `list_projects`。
+
 没有 `set_project`，服务端不会记住上次选的项目。
 
 ### 3.3 站点
@@ -184,7 +187,7 @@ docker run --rm -p 3333:3333 \
 
 1. URL 指向 v2 服务的 `/mcp`。  
 2. 配置鉴权 Header。  
-3. 需要项目的调用带 `projectUuid`，或依赖服务端 `LIGHTDASH_PROJECT_UUID`。  
+3. 需要项目时：未知则先 `list_projects`；再带 `projectUuid`，或依赖服务端 `LIGHTDASH_PROJECT_UUID`。  
 4. 大结果：查数用 `limit`/`offset` + 稳定 `sorts`；列表用 `page`/`pageSize`。  
 5. 不要依赖 `set_project` 或服务端 Session 记忆。  
 6. 需要时调用 `get_mcp_docs`（`overview` / `query_workflow` / `content_fields` / `security`）。

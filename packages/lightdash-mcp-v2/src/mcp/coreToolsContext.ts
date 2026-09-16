@@ -30,7 +30,7 @@ export function resolveCoreToolsProjectUuid(
             : null) ?? config.defaultProjectUuid;
     if (!sid) {
         throw new Error(
-            '缺少 projectUuid：请在环境变量中配置 LIGHTDASH_PROJECT_UUID，或在本次工具参数中传入 projectUuid',
+            '缺少 projectUuid：请先调用 list_projects 查看可选项目并在本工具传入 projectUuid，或在服务端配置环境变量 LIGHTDASH_PROJECT_UUID',
         );
     }
     return sid;

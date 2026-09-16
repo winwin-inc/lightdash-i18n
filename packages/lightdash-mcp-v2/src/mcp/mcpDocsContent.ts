@@ -13,16 +13,17 @@ export type McpDocsTopic = (typeof MCP_DOCS_TOPICS)[number];
 const DOCS: Record<McpDocsTopic, string> = {
     overview: `# Lightdash MCP v2 使用概览
 
-- 本服务通过 Streamable HTTP 暴露工具；客户端配置 URL 与鉴权 Header 即可。
-- 协议：MCP 2026-07-28 sessionless 为主；HTTP 使用 legacy:stateless，可用无状态方式兼容旧客户端流量（服务端不保存 Session / 当前项目）。
-- 查询类工具优先每次显式传 projectUuid；未传时回退环境变量 LIGHTDASH_PROJECT_UUID。
-- 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | content_fields | security。
-- 字段约定（chartKind / groups 等）见 topic=content_fields。
+- 本服务通过 Streamable HTTP 暴露工具；客户端配置 URL 与鉴权 Header（如 x-api-key）即可。
+- 协议：MCP 2026-07-28 sessionless 为主；HTTP 使用 legacy:stateless；服务端不保存 Session / 当前项目。
+- **项目怎么来**：需要项目的工具 → 工具参数 projectUuid → 否则环境变量 LIGHTDASH_PROJECT_UUID → 都没有则报错。
+- **不知道填哪个项目时**：先调用 list_projects（不需要 projectUuid），从返回列表选 uuid，再在后续工具中传入。
+- 单项目部署可在服务端配置 LIGHTDASH_PROJECT_UUID，客户端可不传 projectUuid。
+- 需要细节时再调用 get_mcp_docs，topic：overview | query_workflow | content_fields | security。
 `,
 
     query_workflow: `# 查询工作流
 
-1. list_projects，或工具参数传 projectUuid / 依赖 LIGHTDASH_PROJECT_UUID。
+1. **项目**：若未知项目，先 list_projects（无需 projectUuid）拿到可选项目；再在后续工具传 projectUuid。若服务端已配置 LIGHTDASH_PROJECT_UUID，可省略参数。
 2. list_explores / find_explores → find_fields，确认 explore 与 fieldId。
 3. 需要枚举值时用 search_field_values。
 4. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
@@ -36,7 +37,7 @@ const DOCS: Record<McpDocsTopic, string> = {
 - 客户端可固定 limit、递增 offset 循环，直到本页行数 < limit。
 - 使用 offset 分页时请带**稳定 sorts**，否则页间可能乱序、重复或漏行。
 - 不要用 page / pageSize 做查数翻页；pageSize 只影响异步结果拉取块大小（服务端会收齐）。
-- 每次调用仍须自带鉴权 Header；需要项目时传 projectUuid 或配置 LIGHTDASH_PROJECT_UUID（无 set_project 会话状态）。
+- 每次调用仍须自带鉴权 Header；需要项目时传 projectUuid 或配置 LIGHTDASH_PROJECT_UUID。不知道 uuid 时先 list_projects（无 set_project）。
 
 ### 目录 / 内容（list_explores、find_fields、find_content 等）
 - 使用 **page（从 1）+ pageSize**。
