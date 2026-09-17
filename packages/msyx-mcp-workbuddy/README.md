@@ -7,7 +7,7 @@ msyx-mcp-workbuddy/
 ├── connector-meta.json
 ├── mcp.json
 ├── token-schema.json
-├── icon.svg                 # 与本仓库前端平台图标一致（logo-icon）
+├── icon.svg
 └── skills/
     └── msyx-analyst/
         └── SKILL.md
