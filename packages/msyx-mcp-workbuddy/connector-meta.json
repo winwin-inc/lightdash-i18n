@@ -1,0 +1,23 @@
+{
+  "name": "马上赢X",
+  "name_zh": "马上赢X 数据",
+  "name_en": "MSYX Analytics",
+  "description": "Query 马上赢X metrics, explores, and dashboards with natural language.",
+  "description_zh": "通过自然语言查询马上赢X 业务指标、探索与看板数据。",
+  "description_en": "Query 马上赢X metrics, explores, and dashboards with natural language.",
+  "source": "msyx-mcp",
+  "type": "mcp",
+  "version": "1.0.0",
+  "auth_mode": "token",
+  "minWorkbuddyVersion": "4.24.0",
+  "examples_zh": [
+    "马上赢里有哪些可查的探索？",
+    "查一下本月各品类销售，按销量排序",
+    "先列出我能用的项目再查数"
+  ],
+  "examples_en": [
+    "Which explores can I query in MSYX?",
+    "Show this month's sales by category, sorted by volume",
+    "List my projects first, then run a metric query"
+  ]
+}

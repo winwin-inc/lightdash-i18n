@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "msyx-mcp": {
+      "type": "streamableHttp",
+      "url": "https://mcp-x.brandct.com/mcp",
+      "headers": {
+        "x-api-key": "${API_KEY}"
+      },
+      "timeout": 30000
+    }
+  }
+}
