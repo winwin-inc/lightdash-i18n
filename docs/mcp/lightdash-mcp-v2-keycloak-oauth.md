@@ -82,11 +82,14 @@ sequenceDiagram
 
 ### 3.2 Backend（PAT TTL 权威在此）
 
-| 变量 | 作用 |
-|------|------|
-| `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` | 与 MCP 相同，校验换票调用方 |
-| `LIGHTDASH_MCP_PAT_TTL_SECONDS` | 签发默认 TTL（秒），**默认 `3600`（1 小时）** |
-| `LIGHTDASH_MCP_PAT_TTL_MAX_SECONDS` | 上限钳制，默认 `86400`（24h） |
+换票路由 `POST /api/v1/mcp/token-exchange` **随主站默认注册**，**没有**单独的「打开换票 / 打开 v2 MCP」开关。
+
+| 变量 | 是不是开关 | 说明 |
+|------|------------|------|
+| `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` | **否，是共享密钥** | **必须配**。与独立 MCP 进程相同；未配时换票直接 401。勿用 `LIGHTDASH_SECRET` 顶替（那是 cookie/会话密钥，不该发给 MCP 进程） |
+| `LIGHTDASH_MCP_PAT_TTL_SECONDS` | 否 | 签发默认 TTL（秒），**默认 `3600`（1 小时）**；可不配 |
+| `LIGHTDASH_MCP_PAT_TTL_MAX_SECONDS` | 否 | 上限钳制，默认 `86400`（24h）；可不配 |
+| `MCP_ENABLED` | 是，但**只管** EE `{SITE}/api/v1/mcp` | **不要**用它开换票或产品 v2；产品交付保持不为 true 即可 |
 
 为何 MCP 不配 TTL：
 
@@ -100,6 +103,7 @@ sequenceDiagram
 
 `POST /api/v1/mcp/token-exchange`
 
+- **默认可用**：TSOA 路由已挂在主站；启用条件是配置了共享密钥，**不是** `MCP_ENABLED`。
 - 鉴权：`Authorization: Bearer <LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET>`（仅 MCP 服务可调）
 - Body：`{ "email": "user@example.com" }`
 - 逻辑：
@@ -187,3 +191,22 @@ Realm URL 用环境变量 `KEYCLOAK_REALM_URL`，**不写死**。
 - 所有 Keycloak 用户必须在 Lightdash **预先存在同邮箱账号**；否则换票 404。
 - 短 TTL PAT 会在 DB 中累积；建议后续加过期清理 job。
 - 生产务必配 `audience`，避免任意 audience 的 Keycloak token 被接受。
+
+---
+
+## 9. 与内置 MCP 协议端点的关系
+
+Lightdash 主站还有一个 **EE 内置 MCP 协议端点** `{SITE_URL}/api/v1/mcp`（约 10 个工具，鉴权为 Lightdash OAuth / PAT，不是 Keycloak）。**本部署不把它当作产品接入方式。**
+
+| 名称 | 路径 / 进程 | 给谁用 |
+|------|-------------|--------|
+| **产品 MCP（本方案）** | 独立 `@lightdash/mcp-v2`，`https://mcp-*.…/mcp` | Cursor / Claude 等外部客户端 |
+| **内置 MCP 协议端点** | `{SITE}/api/v1/mcp`（EE `McpService`） | 官方「直连主站」能力；代码保留，**勿宣传、勿配置进 `.mcp.json`** |
+| **换票 API** | `POST {SITE}/api/v1/mcp/token-exchange` | **仅**独立 v2 服务调用（共享密钥）；不是 MCP 协议、不是给客户端连的 |
+
+注意：
+
+- `token-exchange` 与内置协议端点同前缀 `/api/v1/mcp`，但是 TSOA REST，**不是** MCP Streamable HTTP。
+- 换票**默认挂路由**；只需 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，**不依赖** `MCP_ENABLED`。
+- 前端 Copilot 不走内置 MCP HTTP，而是直接调 AI tools。
+- 生产建议保持 `MCP_ENABLED` 不为 true（避免误开 EE 内置协议端点）；若开了 AiCopilot，内置端点可能仍可用，但仍不作为交付入口。

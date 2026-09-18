@@ -1,5 +1,9 @@
 # 使用指南
 
+> **过时（v1 + PAT）**：本文仍教手填 `x-api-key` / PAT 与 `set_project`。  
+> **当前交付**：只配 MCP URL，走 Keycloak OAuth —— 见 [MCP v2 说明](../mcp/lightdash-mcp-v2.md)。  
+> 分析师提问习惯见 [用户使用说明](../mcp/lightdash-mcp-user-guide.md)。本页仅保留作历史对照，不再维护。
+
 ## 开始之前
 
 你只需要两样东西，找平台或运维同学获取：

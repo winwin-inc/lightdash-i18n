@@ -138,6 +138,8 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 
 服务端必填 **`LIGHTDASH_SITE_URL`**（Lightdash 站点根 URL），以及 Keycloak / 换票相关变量（见 [Keycloak 专题 · 环境变量](./lightdash-mcp-v2-keycloak-oauth.md#3-环境变量)）。
 
+**与主站内置 MCP 的区别**：产品入口是独立 v2（`mcp-*.…/mcp`），不是 `{SITE}/api/v1/mcp`。后者为 EE 内置协议端点，本部署不交付。`POST /api/v1/mcp/token-exchange` 仅为 v2 服务间换票：**默认挂路由**，主站只需配 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`（密钥不是开关），**不依赖** `MCP_ENABLED`；TTL 可不配。见 [Keycloak 专题 · §9](./lightdash-mcp-v2-keycloak-oauth.md#9-与内置-mcp-协议端点的关系)。
+
 ---
 
 ## 4. 工具一览
@@ -210,18 +212,22 @@ v1 里 `set_project` 的 tags 只用于目录过滤。v2 在 `find_explores` / `
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
-| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点 URL |
+| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点 URL（REST + 换票） |
+| `KEYCLOAK_REALM_URL` | 是 | Keycloak realm 根 URL |
+| `MCP_PUBLIC_URL` | 是 | MCP 对外根 URL（OAuth resource） |
+| `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` | 是 | 与 Backend 共享的换票密钥 |
+| `MCP_OAUTH_AUDIENCE` | 否 | 默认 `{MCP_PUBLIC_URL}/mcp` |
+| `OAUTH_REQUIRED_SCOPES` | 否 | 默认 `openid,mcp:read` |
 | `LIGHTDASH_PROJECT_UUID` | 建议（单项目） | 默认项目；不设则工具须带 `projectUuid` |
-| `LIGHTDASH_API_KEY` | 否 | 见 §3.1；默认 OAuth 开启时不能替代客户端 header |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | 默认 `3333` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 单次 limit 上限，默认 `5000` |
 | `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error` / `warn` / `info` / `debug`，默认 `info` |
-| `MCP_OAUTH_ENABLED` | 否 | 默认 `true` |
-| `OAUTH_INTROSPECT_URL` | 否 | 默认 `{SITE}/api/v1/oauth/introspect` |
-| `OAUTH_REQUIRED_SCOPES` | 否 | 默认 `mcp:read` |
-| `OAUTH_RESOURCE_METADATA_URL` | 否 | OAuth 资源元数据 URL |
+
+Backend 另需同名 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，以及可选 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）/ `LIGHTDASH_MCP_PAT_TTL_MAX_SECONDS`（默认 86400）。详见 [Keycloak 专题 · 环境变量](./lightdash-mcp-v2-keycloak-oauth.md#3-环境变量)。
 
 完整示例见 `packages/lightdash-mcp-v2/.env.example`。
+
+**已移除（勿再配）**：客户端侧 `LIGHTDASH_API_KEY`、`MCP_OAUTH_ENABLED`、`OAUTH_INTROSPECT_URL`、`OAUTH_RESOURCE_METADATA_URL` 不再作为 v2 主鉴权路径。
 
 ---
 
@@ -229,7 +235,8 @@ v1 里 `set_project` 的 tags 只用于目录过滤。v2 在 `find_explores` / `
 
 ```bash
 cp packages/lightdash-mcp-v2/.env.example packages/lightdash-mcp-v2/.env
-# 编辑 .env：至少 LIGHTDASH_SITE_URL；单项目建议 LIGHTDASH_PROJECT_UUID
+# 编辑 .env：LIGHTDASH_SITE_URL、KEYCLOAK_REALM_URL、MCP_PUBLIC_URL、
+# LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET；单项目建议 LIGHTDASH_PROJECT_UUID
 
 pnpm -F @lightdash/mcp-v2 build
 pnpm -F @lightdash/mcp-v2 start:http
@@ -239,10 +246,10 @@ pnpm -F @lightdash/mcp-v2 start:http
 
 ```bash
 curl -s http://localhost:3333/health
-# 期望含 package: "@lightdash/mcp-v2", protocol, legacy: "stateless"
+# 期望含 package: "@lightdash/mcp-v2", protocol, legacy: "stateless", auth: "keycloak"
 ```
 
-本地客户端 URL 示例：`http://localhost:3333/mcp`。
+本地客户端 URL 示例：`http://localhost:3333/mcp`（仅 URL，走 Keycloak OAuth，不配 api-key）。
 
 ---
 
@@ -260,12 +267,17 @@ curl -s http://localhost:3333/health
 docker build -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp:2.1.2 .
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e KEYCLOAK_REALM_URL="https://keycloak.example.com/realms/mcp" \
+  -e MCP_PUBLIC_URL="http://localhost:3333" \
+  -e LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET="replace-with-long-random-secret" \
   -e LIGHTDASH_PROJECT_UUID="<uuid>" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:2.1.2
 ```
 
 先推含 v2 的代码，再推 `mcp-v*` tag。细部署见 [Docker 部署](./lightdash-mcp-docker-deploy.md)。
+
+**勿**把 Cursor 指到 Lightdash 主站 `{SITE}/api/v1/mcp`（那是 EE 内置协议端点，本部署不交付）；产品入口始终是独立 v2 域名。详见 [Keycloak 专题 · §9](./lightdash-mcp-v2-keycloak-oauth.md#9-与内置-mcp-协议端点的关系)。
 
 ---
 
