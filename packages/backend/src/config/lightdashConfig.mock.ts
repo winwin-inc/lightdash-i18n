@@ -257,6 +257,9 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     mcp: {
         enabled: true,
+        tokenExchangeSecret: undefined,
+        patTtlSeconds: 3600,
+        patTtlMaxSeconds: 86400,
     },
     customRoles: {
         enabled: false,

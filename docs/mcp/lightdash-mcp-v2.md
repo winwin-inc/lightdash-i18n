@@ -70,17 +70,11 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
   "mcpServers": {
     "msyx": {
       "type": "http",
-      "url": "https://mcp-x.brandct.com/mcp",
-      "headers": {
-        "x-api-key": "<PAT>"
-      }
+      "url": "https://mcp-x.brandct.com/mcp"
     },
     "msyx-pre": {
       "type": "http",
-      "url": "https://mcp-x.pre.banmahui.cn/mcp",
-      "headers": {
-        "x-api-key": "<PAT>"
-      }
+      "url": "https://mcp-x.pre.banmahui.cn/mcp"
     }
   }
 }
@@ -93,34 +87,40 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
   "mcpServers": {
     "lightdash": {
       "type": "http",
-      "url": "https://mcp-lightdash.banmahui.cn/mcp",
-      "headers": {
-        "x-api-key": "<PAT>"
-      }
+      "url": "https://mcp-lightdash.banmahui.cn/mcp"
     },
     "lightdash-pre": {
       "type": "http",
-      "url": "https://mcp-lightdash.pre.banmahui.cn/mcp",
-      "headers": {
-        "x-api-key": "<PAT>"
-      }
+      "url": "https://mcp-lightdash.pre.banmahui.cn/mcp"
     }
   }
 }
 ```
 
+首次连接会走 OAuth：浏览器打开 Keycloak（或 SSO）登录页 → 用**自己的**账号登录一次 → 客户端缓存 token。之后日常只需连 URL，不必再配 `x-api-key`。
+
 ---
 
 ## 3. 鉴权与项目
 
-### 3.1 鉴权
+### 3.1 鉴权（Keycloak OAuth + 邮箱换票）
 
-每个 HTTP 请求需要鉴权。客户端在 `.mcp.json` 的 `headers` 里配置一次即可，**不要**把密钥当工具参数：
+完整说明见 **[MCP v2 Keycloak OAuth](./lightdash-mcp-v2-keycloak-oauth.md)**。
 
-- `x-api-key: <PAT>`（推荐）
-- 或 `Authorization: Bearer <token>` / `Authorization: ApiKey <…>`
+摘要：
 
-服务端 `LIGHTDASH_API_KEY` 仅在 **`MCP_OAUTH_ENABLED=false`** 时，可作为「请求未带头」的兜底。默认 OAuth 开启时，客户端仍须传 key。共用服务端 key 等于所有访问者共用一把 PAT，公网慎用。
+1. 客户端带 `Authorization: Bearer <Keycloak JWT>`（由 MCP OAuth 流程自动获取）。
+2. MCP 用 Keycloak JWKS 验签（`iss` / `aud` / `exp` / scopes），从 claims 取 **email**。
+3. MCP 以共享密钥调用后端 `POST /api/v1/mcp/token-exchange`，按邮箱签发**短期 PAT**。
+4. 下游 Lightdash REST 一律使用 `Authorization: ApiKey <短期 PAT>`（**不**转发 Keycloak JWT）。
+
+要点：
+
+- `.mcp.json` **只配 URL**，不配 api-key、不配用户名密码。
+- **一人一票**：每人用自己的 Keycloak / SSO 账号；JWT email 必须等于 Lightdash 主邮箱。
+- `testuser` / `password123` **仅开发 realm 联调**，禁止写入运行时 env。
+- PAT TTL **仅 Backend** 环境变量控制（默认 1h / 上限 24h）；MCP 按响应 `expiresAt` 缓存并静默续期。
+- Keycloak JWT 过期 → 客户端 refresh / 重登（401 challenge）。
 
 ### 3.2 项目
 
@@ -132,11 +132,11 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 
 不知道填哪个项目时：先调 **`list_projects`**（不需要 `projectUuid`，只靠鉴权），再把返回的 uuid 传给后续工具。
 
-单项目入口（如 msyx-pre）**建议**在服务端配置 `LIGHTDASH_PROJECT_UUID`，客户端可只配 api-key。没有 `set_project`，服务端不会记住上次选的项目。
+单项目入口（如 msyx-pre）**建议**在服务端配置 `LIGHTDASH_PROJECT_UUID`。没有 `set_project`，服务端不会记住上次选的项目。
 
 ### 3.3 站点（部署侧）
 
-服务端必填 **`LIGHTDASH_SITE_URL`**（Lightdash 站点根 URL）。
+服务端必填 **`LIGHTDASH_SITE_URL`**（Lightdash 站点根 URL），以及 Keycloak / 换票相关变量（见 [Keycloak 专题 · 环境变量](./lightdash-mcp-v2-keycloak-oauth.md#3-环境变量)）。
 
 ---
 

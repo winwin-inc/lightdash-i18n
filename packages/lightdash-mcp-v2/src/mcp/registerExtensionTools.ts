@@ -105,12 +105,13 @@ type ExtensionToolsDeps = {
 function resolveExtensionApiKey(
     config: LightdashMcpEnvConfig,
 ): string {
-    const key = getHttpRequestApiKey() ?? config.apiKey;
+    const key = getHttpRequestApiKey();
     if (!key) {
         throw new Error(
-            'apiKey is required (x-api-key header or LIGHTDASH_API_KEY)',
+            'apiKey is required (Keycloak OAuth → token-exchange PAT in request context)',
         );
     }
+    void config;
     return key;
 }
 

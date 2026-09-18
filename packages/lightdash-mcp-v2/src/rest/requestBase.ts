@@ -1,21 +1,12 @@
 import {
-    getHttpRequestAuthType,
-    getHttpRequestOauthAccessToken,
     getHttpRequestUserAttributesHeader,
+    refreshHttpRequestApiKey,
 } from '../lib/requestContext';
 import type { RequestJsonFn } from './types';
 
 export function authHeaders(apiKey: string): Record<string, string> {
-    const authType = getHttpRequestAuthType();
-    const oauthToken = getHttpRequestOauthAccessToken();
-    if (authType === 'oauth' && oauthToken) {
-        return {
-            Authorization: `Bearer ${oauthToken}`,
-            'Content-Type': 'application/json',
-        };
-    }
     return {
-        Authorization: `ApiKey ${  apiKey}`,
+        Authorization: `ApiKey ${apiKey}`,
         'Content-Type': 'application/json',
     };
 }
@@ -53,23 +44,28 @@ export function createRequestJson(baseUrl: string): RequestJsonFn {
         init?: RequestInit,
     ): Promise<T> {
         const ua = getHttpRequestUserAttributesHeader();
-        const authType = getHttpRequestAuthType();
-        const res = await fetch(baseUrl + urlPath, {
-            ...init,
-            headers: {
-                ...authHeaders(apiKey),
-                ...(ua ? { 'X-Lightdash-User-Attributes': ua } : {}),
-                ...(init?.headers as Record<string, string> | undefined),
-            },
-        });
+        const doFetch = async (key: string): Promise<Response> =>
+            fetch(baseUrl + urlPath, {
+                ...init,
+                headers: {
+                    ...authHeaders(key),
+                    ...(ua ? { 'X-Lightdash-User-Attributes': ua } : {}),
+                    ...(init?.headers as Record<string, string> | undefined),
+                },
+            });
+
+        let effectiveKey = apiKey;
+        let res = await doFetch(effectiveKey);
+        if (res.status === 401) {
+            const refreshed = await refreshHttpRequestApiKey();
+            if (refreshed && refreshed !== effectiveKey) {
+                effectiveKey = refreshed;
+                res = await doFetch(effectiveKey);
+            }
+        }
         if (!res.ok) {
             const msg = await readErrorBody(res);
-            if (res.status === 401 && authType === 'oauth') {
-                throw new Error(
-                    `Lightdash API ${res.status}: OAuth token is accepted by MCP but rejected by downstream API. Try x-api-key in MCP connection headers. Details: ${msg}`,
-                );
-            }
-            throw new Error(`Lightdash API ${  res.status  }: ${  msg}`);
+            throw new Error(`Lightdash API ${res.status}: ${msg}`);
         }
         return res.json() as Promise<T>;
     };

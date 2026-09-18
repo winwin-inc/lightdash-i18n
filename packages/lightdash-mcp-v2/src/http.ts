@@ -1,40 +1,51 @@
 /**
  * 独立 MCP 服务：Streamable HTTP（MCP 2026-07-28 sessionless）。
- * 兼容模式：createMcpHandler({ legacy: 'stateless' })，按无状态方式接 2025 时代流量（不建服务端 Session）。
+ * Keycloak OAuth resource server + 邮箱换票 → 短期 PAT 调 Lightdash REST。
  */
 import express from 'express';
 import { createMcpHandler } from '@modelcontextprotocol/server';
+import type { AuthInfo, OAuthMetadata } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
+import {
+    getOAuthProtectedResourceMetadataUrl,
+    mcpAuthMetadataRouter,
+    requireBearerAuth,
+} from '@modelcontextprotocol/express';
 import { loadConfigFromEnv } from './config';
 import { getMcpPackageVersion } from './lib/mcpPackageVersion';
 import { getSharedExploreCache } from './lib/sharedExploreCache';
 import {
-    createAuthCache,
-    createOauthCache,
     maskApiKey,
-    parseApiKeyFromRequest,
-    parseBearerTokenFromRequest,
     parseUserAttributesHeader,
     resolveClientIp,
-    validateApiKeyAndGetEmail,
-    validateOauthToken,
 } from './http/authAndCache';
+import {
+    createKeycloakTokenVerifier,
+    fetchKeycloakOAuthMetadata,
+} from './http/keycloakJwt';
+import {
+    createPatCache,
+    getOrExchangePat,
+    invalidatePatCache,
+} from './http/tokenExchange';
 import { createLightdashMcpServer } from './mcp/createMcpServer';
 import { httpRequestApiKeyStore } from './lib/requestContext';
 import { writeStderrLog } from './lib/stderrLog';
 import { ensureContentTypeUtf8Charset } from './http/utf8Charset';
 
-const authCache = createAuthCache();
-const oauthCache = createOauthCache();
+const patCache = createPatCache();
 
 /** 当前进程内正在处理的 /mcp 请求数（仅观测，非 Session）。 */
 let inFlightRequests = 0;
+
+type RequestWithAuth = express.Request & {
+    auth?: AuthInfo;
+};
 
 function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     const projectLog =
         config.defaultProjectUuid ??
         '(未设置；调用需项目的工具时请在参数中传 projectUuid，或配置 LIGHTDASH_PROJECT_UUID)';
-    const hasApiKey = Boolean(config.apiKey && config.apiKey.length > 0);
     const oauthScopes =
         config.oauthRequiredScopes.length > 0
             ? config.oauthRequiredScopes.join(',')
@@ -46,17 +57,27 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
         `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}`,
     );
     writeStderrLog(
-        `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}`,
+        `[Config] KEYCLOAK_REALM_URL=${config.keycloakRealmUrl} | MCP_PUBLIC_URL=${config.mcpPublicUrl}`,
     );
     writeStderrLog(
-        `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}`,
+        `[Config] MCP_OAUTH_AUDIENCE=${config.oauthAudience} | OAUTH_REQUIRED_SCOPES=${oauthScopes}`,
     );
     writeStderrLog(
-        `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}`,
+        `[Config] LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET_SET=true`,
     );
     writeStderrLog(
-        `[Config] MCP_PROTOCOL=2026-07-28 sessionless | legacy=stateless`,
+        `[Config] MCP_PROTOCOL=2026-07-28 sessionless | legacy=stateless | auth=keycloak`,
     );
+}
+
+function emailFromAuthInfo(auth: AuthInfo | undefined): string | undefined {
+    const extra = auth?.extra as
+        | { email?: unknown; authSubject?: unknown }
+        | undefined;
+    if (typeof extra?.email === 'string' && extra.email.length > 0) {
+        return extra.email;
+    }
+    return undefined;
 }
 
 /** body-parser / express.json 解析失败时抛出的错误（非法或空 JSON body）。 */
@@ -90,9 +111,34 @@ async function main(): Promise<void> {
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
 
+    const resourceServerUrl = new URL(`${config.mcpPublicUrl}/mcp`);
+    const resourceMetadataUrl =
+        getOAuthProtectedResourceMetadataUrl(resourceServerUrl);
+    const oauthMetadata = (await fetchKeycloakOAuthMetadata(
+        config.keycloakRealmUrl,
+    )) as OAuthMetadata;
+
+    const verifier = createKeycloakTokenVerifier({
+        keycloakRealmUrl: config.keycloakRealmUrl,
+        audience: config.oauthAudience,
+        requiredScopes: config.oauthRequiredScopes,
+    });
+    const bearerAuth = requireBearerAuth({
+        verifier,
+        requiredScopes: config.oauthRequiredScopes,
+        resourceMetadataUrl,
+    });
+
     const app = express();
     app.disable('x-powered-by');
     app.use(express.json({ limit: '4mb' }));
+
+    app.use(
+        mcpAuthMetadataRouter({
+            oauthMetadata,
+            resourceServerUrl,
+        }),
+    );
 
     app.get('/health', (_req: express.Request, res: express.Response) => {
         res.status(200).json({
@@ -100,131 +146,141 @@ async function main(): Promise<void> {
             package: '@lightdash/mcp-v2',
             protocol: '2026-07-28',
             legacy: 'stateless',
+            auth: 'keycloak',
             inFlightRequests,
         });
     });
 
-    app.all('/mcp', async (req: express.Request, res: express.Response) => {
-        // Declare UTF-8 on JSON/SSE so clients (e.g. Python requests) do not assume Latin-1
-        ensureContentTypeUtf8Charset(res);
-        const start = Date.now();
-        const ip = resolveClientIp(req);
-        const bearerToken = parseBearerTokenFromRequest(req);
-        const headerKey = parseApiKeyFromRequest(req);
-        const effectiveKey =
-            headerKey ?? (config.oauthEnabled ? undefined : config.apiKey);
-        const maskedKey = maskApiKey(effectiveKey);
-        let userEmail = 'unknown';
-        let authType: 'apikey' | 'oauth' | undefined;
-        let oauthScopes: string[] = [];
-        let authSubject: string | undefined;
+    app.all(
+        '/mcp',
+        bearerAuth,
+        async (req: RequestWithAuth, res: express.Response) => {
+            ensureContentTypeUtf8Charset(res);
+            const start = Date.now();
+            const ip = resolveClientIp(req);
+            let userEmail = 'unknown';
+            let maskedKey = '***';
+            let authSubject: string | undefined;
 
-        inFlightRequests += 1;
-        try {
-            if (bearerToken && config.oauthEnabled) {
-                const oauthResult = await validateOauthToken(oauthCache, {
-                    introspectUrl: config.oauthIntrospectUrl,
-                    introspectApiKey: config.apiKey,
-                    token: bearerToken,
-                    requiredScopes: config.oauthRequiredScopes,
-                });
-                authType = 'oauth';
-                oauthScopes = oauthResult.scopes;
-                authSubject = oauthResult.subject;
-                userEmail = oauthResult.subject;
-            } else if (effectiveKey) {
-                userEmail = await validateApiKeyAndGetEmail(
-                    authCache,
-                    config.baseUrl,
-                    effectiveKey,
-                    maskedKey,
-                );
-                authType = 'apikey';
-            } else {
-                res.set(
-                    'WWW-Authenticate',
-                    `Bearer resource_metadata="${config.oauthResourceMetadataUrl}"`,
-                );
-                res.status(401).json({
-                    error: 'Unauthorized',
-                    hint: 'Provide Authorization: Bearer <token> or x-api-key',
-                });
-                return;
-            }
-
-            await httpRequestApiKeyStore.run(
-                {
-                    apiKey: effectiveKey,
-                    authType,
-                    oauthAccessToken:
-                        authType === 'oauth' ? bearerToken : undefined,
-                    oauthScopes,
-                    authSubject,
-                    userEmail,
-                    maskedKey,
-                    userAttributesHeader: parseUserAttributesHeader(req),
-                },
-                () =>
-                    new Promise<void>((resolve, reject) => {
-                        try {
-                            void Promise.resolve(
-                                nodeMcp(req, res, req.body),
-                            ).then(() => resolve(), reject);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    }),
-            );
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : String(error);
-            if (
-                message.includes('OAuth introspect failed with') ||
-                message.includes('OAuth introspect requires')
-            ) {
-                if (!res.headersSent) {
-                    res.status(503).json({
-                        error: 'Auth service unavailable',
-                        message,
-                    });
-                }
-                return;
-            }
-            const isAuthError =
-                message.includes('OAuth token') ||
-                message.includes('Failed to authorize user') ||
-                message.includes('missing required scopes');
-            if (isAuthError) {
-                if (!res.headersSent) {
+            inFlightRequests += 1;
+            try {
+                const auth = req.auth;
+                const email = emailFromAuthInfo(auth);
+                if (!email) {
                     res.set(
                         'WWW-Authenticate',
-                        `Bearer resource_metadata="${config.oauthResourceMetadataUrl}"`,
+                        `Bearer resource_metadata="${resourceMetadataUrl}"`,
                     );
                     res.status(401).json({
                         error: 'Unauthorized',
+                        message:
+                            'OAuth token missing email claim for token exchange',
+                    });
+                    return;
+                }
+                userEmail = email;
+                authSubject =
+                    typeof auth?.extra?.authSubject === 'string'
+                        ? auth.extra.authSubject
+                        : auth?.clientId;
+
+                const pat = await getOrExchangePat({
+                    cache: patCache,
+                    baseUrl: config.baseUrl,
+                    tokenExchangeSecret: config.tokenExchangeSecret,
+                    email,
+                });
+                maskedKey = maskApiKey(pat.accessToken);
+
+                const refreshApiKey = async (): Promise<string> => {
+                    invalidatePatCache(patCache, email);
+                    const next = await getOrExchangePat({
+                        cache: patCache,
+                        baseUrl: config.baseUrl,
+                        tokenExchangeSecret: config.tokenExchangeSecret,
+                        email,
+                        forceRefresh: true,
+                    });
+                    maskedKey = maskApiKey(next.accessToken);
+                    return next.accessToken;
+                };
+
+                await httpRequestApiKeyStore.run(
+                    {
+                        apiKey: pat.accessToken,
+                        authType: 'keycloak',
+                        oauthAccessToken: auth?.token,
+                        oauthScopes: auth?.scopes ?? [],
+                        authSubject,
+                        userEmail,
+                        maskedKey,
+                        refreshApiKey,
+                        userAttributesHeader: parseUserAttributesHeader(req),
+                    },
+                    () =>
+                        new Promise<void>((resolve, reject) => {
+                            try {
+                                void Promise.resolve(
+                                    nodeMcp(req, res, req.body),
+                                ).then(() => resolve(), reject);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        }),
+                );
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                if (
+                    message.includes('token-exchange failed with network') ||
+                    message.includes('Failed to fetch Keycloak')
+                ) {
+                    if (!res.headersSent) {
+                        res.status(503).json({
+                            error: 'Auth service unavailable',
+                            message,
+                        });
+                    }
+                    return;
+                }
+                const isAuthError =
+                    message.includes('Keycloak JWT') ||
+                    message.includes('OAuth token') ||
+                    message.includes('token-exchange') ||
+                    message.includes('missing required scopes') ||
+                    message.includes('missing email');
+                if (isAuthError) {
+                    if (!res.headersSent) {
+                        res.set(
+                            'WWW-Authenticate',
+                            `Bearer resource_metadata="${resourceMetadataUrl}"`,
+                        );
+                        res.status(401).json({
+                            error: 'Unauthorized',
+                            message,
+                        });
+                    }
+                    return;
+                }
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        error: 'Internal server error',
                         message,
                     });
                 }
                 return;
+            } finally {
+                inFlightRequests = Math.max(0, inFlightRequests - 1);
+                const elapsed = Date.now() - start;
+                const status = res.statusCode || 0;
+                const statusTag = status >= 400 ? ` | error(${status})` : '';
+                writeStderrLog(
+                    `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag} | ${userEmail}`,
+                    status >= 500 ? 'error' : status >= 400 ? 'warn' : 'debug',
+                );
             }
-            if (!res.headersSent) {
-                res.status(500).json({
-                    error: 'Internal server error',
-                    message,
-                });
-            }
-            return;
-        } finally {
-            inFlightRequests = Math.max(0, inFlightRequests - 1);
-            const elapsed = Date.now() - start;
-            const status = res.statusCode || 0;
-            const statusTag = status >= 400 ? ` | error(${status})` : '';
-            writeStderrLog(
-                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag} | ${userEmail}`,
-                status >= 500 ? 'error' : status >= 400 ? 'warn' : 'debug',
-            );
-        }
-    });
+        },
+    );
 
     app.use(
         (
@@ -282,7 +338,7 @@ async function main(): Promise<void> {
     }
     app.listen(port, '0.0.0.0', () => {
         writeStderrLog(
-            `Lightdash MCP v2 (2026-07-28 sessionless, legacy=stateless) listening on http://0.0.0.0:${port}/mcp`,
+            `Lightdash MCP v2 (2026-07-28 sessionless, Keycloak OAuth) listening on http://0.0.0.0:${port}/mcp`,
         );
     });
 }

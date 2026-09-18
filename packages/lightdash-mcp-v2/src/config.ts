@@ -6,27 +6,35 @@ loadDotenv({ path: path.join(__dirname, '..', '.env') });
 
 export type LightdashMcpEnvConfig = {
     baseUrl: string;
-    apiKey: string | undefined;
     /** 未配置时须在各工具可选 projectUuid 参数中提供项目 */
     defaultProjectUuid: string | null;
     maxLimit: number;
-    oauthEnabled: boolean;
-    oauthIntrospectUrl: string;
+    /** Keycloak realm 根 URL，如 https://keycloak.example/realms/mcp */
+    keycloakRealmUrl: string;
+    /** MCP 对外根 URL（audience / resource），如 http://localhost:3333 */
+    mcpPublicUrl: string;
+    /** JWT aud；默认 MCP_PUBLIC_URL 或 {MCP_PUBLIC_URL}/mcp */
+    oauthAudience: string;
     oauthRequiredScopes: string[];
-    oauthResourceMetadataUrl: string;
+    /** 调后端换票的共享密钥 */
+    tokenExchangeSecret: string;
 };
 
-export function loadConfigFromEnv(): LightdashMcpEnvConfig {
-    const raw = process.env.LIGHTDASH_SITE_URL;
-    const apiKey = process.env.LIGHTDASH_API_KEY;
-    const projectRaw = process.env.LIGHTDASH_PROJECT_UUID?.trim() ?? '';
-    const defaultProjectUuid = projectRaw.length > 0 ? projectRaw : null;
-    if (!raw) {
+function requireEnv(name: string): string {
+    const value = process.env[name]?.trim();
+    if (!value) {
         throw new Error(
-            'LIGHTDASH_SITE_URL is required（请设置环境变量，或在服务启动目录的 .env 中配置，参见 .env.example）',
+            `${name} is required（请设置环境变量，或在服务启动目录的 .env 中配置，参见 .env.example）`,
         );
     }
+    return value;
+}
+
+export function loadConfigFromEnv(): LightdashMcpEnvConfig {
+    const raw = requireEnv('LIGHTDASH_SITE_URL');
     const baseUrl = raw.replace(/\/$/, '');
+    const projectRaw = process.env.LIGHTDASH_PROJECT_UUID?.trim() ?? '';
+    const defaultProjectUuid = projectRaw.length > 0 ? projectRaw : null;
     const maxLimitRaw = process.env.LIGHTDASH_MAX_LIMIT;
     const maxLimit =
         maxLimitRaw !== undefined &&
@@ -34,27 +42,33 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         Number(maxLimitRaw) > 0
             ? Number(maxLimitRaw)
             : 5000;
-    const oauthEnabled = (process.env.MCP_OAUTH_ENABLED ?? 'true') === 'true';
-    const oauthIntrospectUrl =
-        process.env.OAUTH_INTROSPECT_URL?.trim() ||
-        `${baseUrl}/api/v1/oauth/introspect`;
+
+    const keycloakRealmUrl = requireEnv('KEYCLOAK_REALM_URL').replace(
+        /\/$/,
+        '',
+    );
+    const mcpPublicUrl = requireEnv('MCP_PUBLIC_URL').replace(/\/$/, '');
+    const oauthAudience =
+        process.env.MCP_OAUTH_AUDIENCE?.trim() ||
+        `${mcpPublicUrl}/mcp`;
     const oauthRequiredScopesRaw =
-        process.env.OAUTH_REQUIRED_SCOPES?.trim() || 'mcp:read';
+        process.env.OAUTH_REQUIRED_SCOPES?.trim() || 'openid,mcp:read';
     const oauthRequiredScopes = oauthRequiredScopesRaw
-        .split(',')
+        .split(/[,\s]+/)
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
-    const oauthResourceMetadataUrl =
-        process.env.OAUTH_RESOURCE_METADATA_URL?.trim() ||
-        `${baseUrl}/api/v1/oauth/.well-known/oauth-protected-resource`;
+    const tokenExchangeSecret = requireEnv(
+        'LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET',
+    );
+
     return {
         baseUrl,
-        apiKey,
         defaultProjectUuid,
         maxLimit,
-        oauthEnabled,
-        oauthIntrospectUrl,
+        keycloakRealmUrl,
+        mcpPublicUrl,
+        oauthAudience,
         oauthRequiredScopes,
-        oauthResourceMetadataUrl,
+        tokenExchangeSecret,
     };
 }

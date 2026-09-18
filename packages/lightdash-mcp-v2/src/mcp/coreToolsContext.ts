@@ -1,21 +1,17 @@
 import type { LightdashMcpEnvConfig } from '../config';
-import {
-    getHttpRequestApiKey,
-    getHttpRequestOauthAccessToken,
-} from '../lib/requestContext';
+import { getHttpRequestApiKey } from '../lib/requestContext';
 
 export function resolveCoreToolsApiKey(
     config: LightdashMcpEnvConfig,
 ): string {
-    const key =
-        getHttpRequestApiKey() ??
-        getHttpRequestOauthAccessToken() ??
-        config.apiKey;
+    const key = getHttpRequestApiKey();
     if (!key) {
         throw new Error(
-            'apiKey or OAuth token is required (Authorization Bearer, x-api-key, or LIGHTDASH_API_KEY)',
+            'apiKey is required (Keycloak OAuth → token-exchange PAT in request context)',
         );
     }
+    // config retained for call-site compatibility; PAT never comes from env
+    void config;
     return key;
 }
 

@@ -33,9 +33,12 @@ docker build --no-cache -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp
 ```bash
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e KEYCLOAK_REALM_URL="https://keycloak.example.com/realms/mcp" \
+  -e MCP_PUBLIC_URL="http://localhost:3333" \
+  -e LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET="replace-with-long-random-secret" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
-# 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须 MCP 客户端先 set_project 或在工具里传 projectUuid）
+# 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须在工具里传 projectUuid）
 ```
 
 也可以直接复用本地 `.env`：
@@ -46,13 +49,11 @@ docker run --rm -p 3333:3333 \
   lightdash-mcp:dev
 ```
 
-### 2.3 可选默认 API key
+### 2.3 鉴权（Keycloak OAuth）
 
-如果客户端不会在每次请求头里传 `x-api-key`，可在容器中设置：
+v2 使用 Keycloak OAuth + 邮箱换票，**不再**用容器内 `LIGHTDASH_API_KEY` 作客户端兜底。详见 [Keycloak OAuth 专题](./lightdash-mcp-v2-keycloak-oauth.md)。
 
-```bash
--e LIGHTDASH_API_KEY="<optional-default-pat>"
-```
+Backend 需配置同名 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，以及可选的 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）。
 
 ### 2.4 本地连通性验证
 
@@ -62,17 +63,13 @@ docker run --rm -p 3333:3333 \
 curl -s http://localhost:3333/health
 ```
 
-预期（0.4.x）类似：
+预期类似：
 
 ```json
-{"ok":true,"activeSessions":0,"pendingSessions":0,"compatSessions":0}
+{"ok":true,"package":"@lightdash/mcp-v2","protocol":"2026-07-28","legacy":"stateless","auth":"keycloak","inFlightRequests":0}
 ```
 
-若仍只有 `{"ok":true}`，多半是旧镜像（不含 Session 计数字段）。
-
-未带凭证访问 `/mcp` 预期 **401**。标准 Session / 兼容模式冒烟见 [标准客户端用法](./lightdash-mcp-client-usage.md)。
-
-在客户端（Cursor/Claude）配置该 URL，并带 `x-api-key` 后即可调工具（详见 `packages/lightdash-mcp/README.md`）。
+未带 Bearer 访问 `/mcp` 预期 **401**（带 `WWW-Authenticate` / `resource_metadata`）。客户端只需配置 MCP URL，走 OAuth 登录（见 [v2 说明](./lightdash-mcp-v2.md)）。
 
 ---
 
@@ -80,9 +77,13 @@ curl -s http://localhost:3333/health
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST 使用） |
-| `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖 `set_project` 或工具参数 `projectUuid`（解析顺序见包 README） |
-| `LIGHTDASH_API_KEY` | 否 | 默认兜底 PAT；优先级低于请求头 `x-api-key` 和 tool 参数 `apiKey` |
+| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST / 换票） |
+| `KEYCLOAK_REALM_URL` | 是 | Keycloak realm 根 URL |
+| `MCP_PUBLIC_URL` | 是 | MCP 对外根 URL（OAuth resource） |
+| `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` | 是 | 与 Backend 共享的换票密钥 |
+| `MCP_OAUTH_AUDIENCE` | 否 | 默认 `{MCP_PUBLIC_URL}/mcp` |
+| `OAUTH_REQUIRED_SCOPES` | 否 | 默认 `openid,mcp:read` |
+| `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖工具参数 `projectUuid` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 监听端口，默认 `3333` |
 

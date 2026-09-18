@@ -27,6 +27,7 @@ import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { LogService } from './LogService/LogService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
+import { McpTokenExchangeService } from './McpTokenExchangeService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
@@ -74,6 +75,7 @@ interface ServiceManifest {
     gdriveService: GdriveService;
     groupService: GroupsService;
     healthService: HealthService;
+    mcpTokenExchangeService: McpTokenExchangeService;
     notificationService: NotificationsService;
     oauthService: OAuthService;
     ossService: OssService;
@@ -441,6 +443,20 @@ export class ServiceRepository
                     lightdashConfig: this.context.lightdashConfig,
                     organizationModel: this.models.getOrganizationModel(),
                     migrationModel: this.models.getMigrationModel(),
+                }),
+        );
+    }
+
+    public getMcpTokenExchangeService(): McpTokenExchangeService {
+        return this.getService(
+            'mcpTokenExchangeService',
+            () =>
+                new McpTokenExchangeService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    userModel: this.models.getUserModel(),
+                    personalAccessTokenModel:
+                        this.models.getPersonalAccessTokenModel(),
                 }),
         );
     }

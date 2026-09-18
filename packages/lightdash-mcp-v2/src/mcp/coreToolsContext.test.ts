@@ -12,14 +12,13 @@ function baseConfig(
 ): LightdashMcpEnvConfig {
     return {
         baseUrl: 'https://example.com',
-        apiKey: undefined,
         defaultProjectUuid,
         maxLimit: 5000,
-        oauthEnabled: false,
-        oauthIntrospectUrl: 'https://example.com/api/v1/oauth/introspect',
-        oauthRequiredScopes: ['mcp:read'],
-        oauthResourceMetadataUrl:
-            'https://example.com/api/v1/oauth/.well-known/oauth-protected-resource',
+        keycloakRealmUrl: 'https://keycloak.example/realms/mcp',
+        mcpPublicUrl: 'http://localhost:3333',
+        oauthAudience: 'http://localhost:3333/mcp',
+        oauthRequiredScopes: ['openid', 'mcp:read'],
+        tokenExchangeSecret: 'test-secret',
     };
 }
 
@@ -56,16 +55,24 @@ test('resolveCoreToolsProjectUuid uses env when no arg', () => {
     assert.equal(u, 'uuid-env-only');
 });
 
-test('resolveCoreToolsApiKey can fallback to oauth token in request context', async () => {
+test('resolveCoreToolsApiKey uses exchanged PAT from request context', async () => {
     await httpRequestApiKeyStore.run(
         {
-            apiKey: undefined,
-            authType: 'oauth',
-            oauthAccessToken: 'oauth-token-1',
+            apiKey: 'ldpat_from_exchange',
+            authType: 'keycloak',
+            oauthAccessToken: 'keycloak-jwt',
+            userEmail: 'demo@example.com',
         },
         async () => {
             const token = resolveCoreToolsApiKey(baseConfig(null));
-            assert.equal(token, 'oauth-token-1');
+            assert.equal(token, 'ldpat_from_exchange');
         },
+    );
+});
+
+test('resolveCoreToolsApiKey throws when no PAT in context', () => {
+    assert.throws(
+        () => resolveCoreToolsApiKey(baseConfig(null)),
+        /apiKey is required/,
     );
 });

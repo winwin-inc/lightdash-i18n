@@ -1,6 +1,7 @@
 # @lightdash/mcp-v2
 
-> **最新完整说明**：[docs/mcp/lightdash-mcp-v2.md](../../docs/mcp/lightdash-mcp-v2.md)
+> **最新完整说明**：[docs/mcp/lightdash-mcp-v2.md](../../docs/mcp/lightdash-mcp-v2.md)  
+> **鉴权专题**：[docs/mcp/lightdash-mcp-v2-keycloak-oauth.md](../../docs/mcp/lightdash-mcp-v2-keycloak-oauth.md)
 
 Lightdash MCP HTTP 服务（**MCP 协议 2026-07-28 sessionless**，`legacy:stateless`）。
 
@@ -13,6 +14,7 @@ Lightdash MCP HTTP 服务（**MCP 协议 2026-07-28 sessionless**，`legacy:stat
 - **无** `set_project` / `get_current_project` / `mcpSessionStore`
 - 项目解析：`工具参数 projectUuid` → `LIGHTDASH_PROJECT_UUID`
 - 查数分页：`limit` + `offset`（建议稳定 sorts）；目录/内容：`page` + `pageSize`
+- **鉴权**：Keycloak OAuth（JWKS）→ 按 JWT email 向后端换短期 PAT → 下游 REST 用 `ApiKey`（客户端不再配 `x-api-key`）
 
 ## 启动
 
@@ -21,4 +23,6 @@ pnpm -F @lightdash/mcp-v2 build
 pnpm -F @lightdash/mcp-v2 start:http
 ```
 
-环境变量见 `.env.example`。默认端口 `LIGHTDASH_MCP_HTTP_PORT`（3333）。
+环境变量见 `.env.example`（必填：`LIGHTDASH_SITE_URL`、`KEYCLOAK_REALM_URL`、`MCP_PUBLIC_URL`、`LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`）。默认端口 `LIGHTDASH_MCP_HTTP_PORT`（3333）。
+
+Backend 需配置同名换票密钥，以及可选的 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）。
