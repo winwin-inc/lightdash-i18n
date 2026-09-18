@@ -14,6 +14,7 @@ import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration
 import SettingsScheduler from '../components/SettingsScheduler';
 import SettingsQueryTimezone from '../components/SettingsQueryTimezone';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
+import SettingsOperationLogs from '../components/SettingsOperationLogs';
 import { SettingsValidator } from '../components/SettingsValidator';
 import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
 import { ProjectChangesets } from '../features/changesets/components/ProjectChangesets';
@@ -53,6 +54,10 @@ const ProjectSettings: FC = () => {
             {
                 path: `/usageAnalytics`,
                 element: <SettingsUsageAnalytics projectUuid={projectUuid} />,
+            },
+            {
+                path: `/operationLogs`,
+                element: <SettingsOperationLogs projectUuid={projectUuid} />,
             },
             {
                 path: `/scheduledDeliveries`,

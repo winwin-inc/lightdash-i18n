@@ -17279,6 +17279,187 @@
                 "required": ["roleId"],
                 "type": "object"
             },
+            "ProjectOperationLogListItem": {
+                "properties": {
+                    "summary": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Record_string.unknown_"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "resourceName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "resourceUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "resourceType": {
+                        "type": "string"
+                    },
+                    "action": {
+                        "type": "string"
+                    },
+                    "actorDisplay": {
+                        "type": "string"
+                    },
+                    "actorName": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "actorEmail": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "actorUserUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "operationLogUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "summary",
+                    "status",
+                    "resourceName",
+                    "resourceUuid",
+                    "resourceType",
+                    "action",
+                    "actorDisplay",
+                    "actorName",
+                    "actorEmail",
+                    "actorUserUuid",
+                    "createdAt",
+                    "operationLogUuid"
+                ],
+                "type": "object"
+            },
+            "ProjectOperationLogList": {
+                "properties": {
+                    "pagination": {
+                        "properties": {
+                            "totalResults": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "totalPageCount": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "pageSize": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "page": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "required": [
+                            "totalResults",
+                            "totalPageCount",
+                            "pageSize",
+                            "page"
+                        ],
+                        "type": "object"
+                    },
+                    "data": {
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectOperationLogListItem"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": ["pagination", "data"],
+                "type": "object"
+            },
+            "ApiProjectOperationLogListResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ProjectOperationLogList"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ApiProjectOperationLogResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ProjectOperationLogListItem"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ProjectOperationLogPurgeResult": {
+                "properties": {
+                    "cutoff": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "deletedCount": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": ["cutoff", "deletedCount"],
+                "type": "object"
+            },
+            "ApiProjectOperationLogPurgeResponse": {
+                "properties": {
+                    "results": {
+                        "$ref": "#/components/schemas/ProjectOperationLogPurgeResult"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
+            "ProjectOperationLogPurgeMode": {
+                "type": "string",
+                "enum": ["before_days", "all"]
+            },
+            "ProjectOperationLogPurgeBody": {
+                "properties": {
+                    "before": {
+                        "type": "string"
+                    },
+                    "beforeDays": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "mode": {
+                        "$ref": "#/components/schemas/ProjectOperationLogPurgeMode",
+                        "description": "before_days (default): delete older than beforeDays/before; all: clear project logs"
+                    }
+                },
+                "type": "object"
+            },
             "ProjectType": {
                 "enum": ["DEFAULT", "PREVIEW"],
                 "type": "string"
@@ -25815,7 +25996,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "2.0.8",
+        "version": "2.1.2-test.0",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -31311,6 +31492,224 @@
                     {
                         "in": "path",
                         "name": "groupId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/v1/projects/{projectUuid}/operation-logs": {
+            "get": {
+                "operationId": "listProjectOperationLogs",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiProjectOperationLogListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "List project operation logs (admin / project manage)",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "format": "double",
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageSize",
+                        "required": false,
+                        "schema": {
+                            "format": "double",
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "action",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "actorUserUuid",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "actorEmail",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "resourceType",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "resourceUuid",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "purgeProjectOperationLogs",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiProjectOperationLogPurgeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Purge operation logs by retention days (min 30) or clear all (mode=all)",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProjectOperationLogPurgeBody"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectUuid}/operation-logs/{operationLogUuid}": {
+            "get": {
+                "operationId": "getProjectOperationLog",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiProjectOperationLogResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Get a single operation log including summary",
+                "tags": ["Projects"],
+                "security": [],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "projectUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "operationLogUuid",
                         "required": true,
                         "schema": {
                             "type": "string"

@@ -67,6 +67,7 @@ import {
     hasSavedFiltersOverrides,
 } from '../../hooks/useSavedDashboardFiltersOverrides';
 import useToaster from '../../hooks/toaster/useToaster';
+import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { useUserCategories } from '../../hooks/useUserCategories';
 import {
     hasAnyUserCategories,
@@ -176,6 +177,8 @@ const DashboardProvider: React.FC<
     const [activeTab, setActiveTab] = useState<
         Dashboard['tabs'][number] | undefined
     >();
+    const { setDashboardActiveTabUuid, getDashboardLastTabUuid } =
+        useDashboardStorage();
 
     // dashboard filter state
     const {
@@ -543,39 +546,43 @@ const DashboardProvider: React.FC<
         return (selectable.length > 0 ? selectable : sorted)[0];
     }, [dashboardTabs, isEditMode]);
 
-    // 同步当前 tab：view 模式下 hidden tab 不可选，URL 指向 hidden 时回退到首个可见 tab
+    // 同步当前 tab：URL > 本地上次选中 > 首个可见；切 tab 时写入缓存
     useEffect(() => {
         if (!dashboardTabs?.length) return;
+
+        const rememberedTabUuid =
+            tabUuid ?? getDashboardLastTabUuid(dashboardUuid) ?? undefined;
+
+        const resolvedTab = getActiveTabForTabs(
+            dashboardTabs,
+            rememberedTabUuid,
+            isEditMode,
+            undefined,
+        );
 
         setActiveTab((currentActiveTab) =>
             getActiveTabForTabs(
                 dashboardTabs,
-                tabUuid,
+                rememberedTabUuid,
                 isEditMode,
                 currentActiveTab,
             ),
         );
 
-        if (!firstTabByOrder) return;
+        if (resolvedTab?.uuid) {
+            setDashboardActiveTabUuid(dashboardUuid, resolvedTab.uuid);
+        }
 
-        const resolvedTab = getActiveTabForTabs(
-            dashboardTabs,
-            tabUuid,
-            isEditMode,
-            undefined,
-        );
-        const needRedirect =
-            !embedToken &&
-            dashboardTabs.length > 1 &&
-            projectUuid &&
-            resolvedTab?.uuid === firstTabByOrder.uuid &&
-            (!tabUuid || tabUuid !== firstTabByOrder.uuid);
+        if (!resolvedTab || embedToken || dashboardTabs.length <= 1 || !projectUuid) {
+            return;
+        }
 
-        if (needRedirect) {
+        // URL 未带 tab，或指向不可选 tab 时，纠正到解析后的 tab（含上次缓存）
+        if (!tabUuid || tabUuid !== resolvedTab.uuid) {
             const base = `/projects/${projectUuid}/dashboards/${dashboardUuid}/${
                 mode || 'view'
             }`;
-            void navigate(`${base}/tabs/${firstTabByOrder.uuid}`, {
+            void navigate(`${base}/tabs/${resolvedTab.uuid}`, {
                 replace: true,
             });
         }
@@ -589,6 +596,8 @@ const DashboardProvider: React.FC<
         dashboardUuid,
         mode,
         navigate,
+        getDashboardLastTabUuid,
+        setDashboardActiveTabUuid,
     ]);
 
     // Apply scheduler parameters when provided (for scheduled deliveries)

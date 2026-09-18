@@ -99,6 +99,9 @@ describe('DashboardService', () => {
             userDashboardCategoryModel as unknown as UserDashboardCategoryModel,
         categoryRpcClient: {} as CategoryRpcClient,
         organizationMemberProfileModel: {} as OrganizationMemberProfileModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as any,
     });
     afterEach(() => {
         jest.clearAllMocks();

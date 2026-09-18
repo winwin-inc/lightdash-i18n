@@ -19,6 +19,7 @@ import {
     SpaceShare,
     SpaceSummary,
     UnexpectedServerError,
+    PROJECT_OPERATION_LOG_ACTIONS,
 } from '@lightdash/common';
 import isEqual from 'lodash/isEqual';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
@@ -29,6 +30,7 @@ import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 
 export type PromotedChart = {
     projectUuid: string;
@@ -68,6 +70,7 @@ type PromoteServiceArguments = {
     spaceModel: SpaceModel;
     savedChartModel: SavedChartModel;
     dashboardModel: DashboardModel;
+    projectOperationLogService: ProjectOperationLogService;
 };
 
 const isChartWithinDashboard = (chart: Pick<SavedChartDAO, 'dashboardUuid'>) =>
@@ -86,6 +89,8 @@ export class PromoteService extends BaseService {
 
     private readonly dashboardModel: DashboardModel;
 
+    private readonly projectOperationLogService: ProjectOperationLogService;
+
     constructor(args: PromoteServiceArguments) {
         super();
         this.lightdashConfig = args.lightdashConfig;
@@ -94,6 +99,7 @@ export class PromoteService extends BaseService {
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.dashboardModel = args.dashboardModel;
+        this.projectOperationLogService = args.projectOperationLogService;
     }
 
     private async trackAnalytics(
@@ -1523,7 +1529,27 @@ export class PromoteService extends BaseService {
                 promotedDashboard,
                 upstreamDashboard,
             );
-            return promotionChanges.dashboards[0].data;
+
+            const promotedResult = promotionChanges.dashboards[0].data;
+            await this.projectOperationLogService.record({
+                organizationUuid:
+                    dashboard.organizationUuid ?? user.organizationUuid!,
+                projectUuid: dashboard.projectUuid,
+                actor: user,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_PROMOTED,
+                resourceType: 'dashboard',
+                resourceUuid: dashboard.uuid,
+                resourceName: dashboard.name,
+                summary: {
+                    upstreamProjectUuid,
+                    upstreamDashboardUuid: upstreamDashboard.dashboard?.uuid,
+                    upstreamDashboardName: upstreamDashboard.dashboard?.name,
+                    resultDashboardUuid: promotedResult.uuid,
+                    resultDashboardName: promotedResult.name,
+                },
+            });
+
+            return promotedResult;
         } catch (e) {
             Logger.error(`Unable to promote dashboard`, e);
             await this.trackAnalytics(

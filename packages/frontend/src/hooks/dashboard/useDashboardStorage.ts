@@ -6,6 +6,13 @@ import {
 } from '@lightdash/common';
 import { useCallback, useEffect, useState } from 'react';
 
+const dashboardLastTabStorageKey = (dashboardUuid: string) =>
+    `lightdash:dashboard-last-tab:${dashboardUuid}`;
+
+/** Session-scoped active tab for chart round-trips — also per dashboard. */
+const dashboardSessionTabStorageKey = (dashboardUuid: string) =>
+    `activeTabUuid:${dashboardUuid}`;
+
 const getIsEditingDashboardChart = () => {
     return (
         !!sessionStorage.getItem('fromDashboard') ||
@@ -36,10 +43,15 @@ const useDashboardStorage = () => {
     }, []);
 
     const getEditingDashboardInfo = useCallback(() => {
+        const dashboardUuid = sessionStorage.getItem('dashboardUuid');
         return {
             name: sessionStorage.getItem('fromDashboard'),
-            dashboardUuid: sessionStorage.getItem('dashboardUuid'),
-            activeTabUuid: sessionStorage.getItem('activeTabUuid'),
+            dashboardUuid,
+            activeTabUuid: dashboardUuid
+                ? sessionStorage.getItem(
+                      dashboardSessionTabStorageKey(dashboardUuid),
+                  )
+                : null,
         };
     }, []);
 
@@ -62,17 +74,26 @@ const useDashboardStorage = () => {
         );
     }, []);
 
-    const getDashboardActiveTabUuid = useCallback(() => {
-        return sessionStorage.getItem('activeTabUuid');
-    }, []);
+    const getDashboardActiveTabUuid = useCallback(
+        (dashUuid?: string | null) => {
+            const id = dashUuid || sessionStorage.getItem('dashboardUuid');
+            if (!id) return null;
+            return sessionStorage.getItem(dashboardSessionTabStorageKey(id));
+        },
+        [],
+    );
 
     const clearDashboardStorage = useCallback(() => {
+        const dashUuid = sessionStorage.getItem('dashboardUuid');
         sessionStorage.removeItem('fromDashboard');
         sessionStorage.removeItem('dashboardUuid');
         sessionStorage.removeItem('unsavedDashboardTiles');
         sessionStorage.removeItem('unsavedDashboardFilters');
         sessionStorage.removeItem('hasDashboardChanges');
-        sessionStorage.removeItem('activeTabUuid');
+        sessionStorage.removeItem('activeTabUuid'); // legacy global key
+        if (dashUuid) {
+            sessionStorage.removeItem(dashboardSessionTabStorageKey(dashUuid));
+        }
         // Trigger storage event to update NavBar
         window.dispatchEvent(new Event('storage'));
     }, []);
@@ -113,8 +134,17 @@ const useDashboardStorage = () => {
                 'hasDashboardChanges',
                 JSON.stringify(haveTilesChanged || haveFiltersChanged),
             );
-            if (activeTabUuid) {
+            if (activeTabUuid && dashboardUuid) {
+                sessionStorage.setItem(
+                    dashboardSessionTabStorageKey(dashboardUuid),
+                    activeTabUuid,
+                );
+                // keep legacy key briefly for older readers, scoped via dashboardUuid check on read
                 sessionStorage.setItem('activeTabUuid', activeTabUuid);
+                localStorage.setItem(
+                    dashboardLastTabStorageKey(dashboardUuid),
+                    activeTabUuid,
+                );
             }
             // Trigger storage event to update NavBar
             window.dispatchEvent(new Event('storage'));
@@ -140,6 +170,34 @@ const useDashboardStorage = () => {
         [],
     );
 
+    const getDashboardLastTabUuid = useCallback(
+        (dashUuid: string | undefined) => {
+            if (!dashUuid) return null;
+            return (
+                localStorage.getItem(dashboardLastTabStorageKey(dashUuid)) ||
+                null
+            );
+        },
+        [],
+    );
+
+    const setDashboardActiveTabUuid = useCallback(
+        (dashUuid: string | undefined, tabUuid: string | undefined) => {
+            if (!tabUuid || !dashUuid) return;
+            sessionStorage.setItem(
+                dashboardSessionTabStorageKey(dashUuid),
+                tabUuid,
+            );
+            sessionStorage.setItem('activeTabUuid', tabUuid); // legacy
+            localStorage.setItem(
+                dashboardLastTabStorageKey(dashUuid),
+                tabUuid,
+            );
+            window.dispatchEvent(new Event('storage'));
+        },
+        [],
+    );
+
     return {
         storeDashboard,
         clearDashboardStorage,
@@ -152,6 +210,8 @@ const useDashboardStorage = () => {
         getUnsavedDashboardTiles,
         setUnsavedDashboardTiles,
         getDashboardActiveTabUuid,
+        getDashboardLastTabUuid,
+        setDashboardActiveTabUuid,
     };
 };
 

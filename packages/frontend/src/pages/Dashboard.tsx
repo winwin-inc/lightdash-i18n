@@ -23,7 +23,8 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FC,
+    useRef} from 'react';
 import { type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
 import { useBlocker, useNavigate, useParams } from 'react-router';
@@ -46,6 +47,7 @@ import {
     appendNewTilesToBottom,
     useUpdateDashboard,
 } from '../hooks/dashboard/useDashboard';
+import { drainDashboardOperationEvents } from '../hooks/dashboard/dashboardOperationEventQueue';
 import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useOrganization } from '../hooks/organization/useOrganization';
@@ -631,11 +633,15 @@ const Dashboard: FC = () => {
 
     const [gridWidth, setGridWidth] = useState(0);
 
+    // Only redirect when save transitions to success — do not re-run on activeTab
+    // changes while isSuccess stays true in edit mode (that fought tab switching).
+    const wasSaveSuccessRef = useRef(false);
     useEffect(() => {
-        if (isSuccess) {
-            if (dashboardTabs.length > 1) {
+        if (isSuccess && !wasSaveSuccessRef.current) {
+            wasSaveSuccessRef.current = true;
+            if (dashboardTabs.length > 1 && activeTab?.uuid) {
                 void navigate(
-                    `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab?.uuid}`,
+                    `/projects/${projectUuid}/dashboards/${dashboardUuid}/view/tabs/${activeTab.uuid}`,
                     { replace: true },
                 );
             } else {
@@ -645,13 +651,16 @@ const Dashboard: FC = () => {
                 );
             }
         }
+        if (!isSuccess) {
+            wasSaveSuccessRef.current = false;
+        }
     }, [
         dashboardUuid,
         navigate,
         isSuccess,
         projectUuid,
         dashboardTabs,
-        activeTab,
+        activeTab?.uuid,
     ]);
 
     // 监听路由模式变化，当切换到 view 模式后重置状态
@@ -1056,8 +1065,10 @@ const Dashboard: FC = () => {
         // tabs config
         const tabsConfig = getTabsConfig();
 
+        const clientEvents = drainDashboardOperationEvents();
         mutate({
             tiles: dashboardTiles || [],
+            ...(clientEvents.length > 0 ? { clientEvents } : {}),
             filters: {
                 dimensions: requiredFiltersWithoutValues,
                 metrics: [
