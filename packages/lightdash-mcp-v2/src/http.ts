@@ -332,9 +332,13 @@ async function main(): Promise<void> {
         },
     );
 
-    const port = Number(process.env.LIGHTDASH_MCP_HTTP_PORT ?? 3333);
+    const port = Number(
+        process.env.LIGHTDASH_MCP_HTTP_PORT ?? process.env.PORT ?? 3333,
+    );
     if (!Number.isFinite(port) || port <= 0) {
-        throw new Error('LIGHTDASH_MCP_HTTP_PORT must be a positive number');
+        throw new Error(
+            'LIGHTDASH_MCP_HTTP_PORT / PORT must be a positive number',
+        );
     }
     app.listen(port, '0.0.0.0', () => {
         writeStderrLog(

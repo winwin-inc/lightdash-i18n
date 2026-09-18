@@ -39,6 +39,7 @@
 |------|------|
 | [**MCP v2 说明与使用**](./lightdash-mcp-v2.md) | **当前推荐交付**（接入 → 鉴权/项目 → 工具与查询 → 与 v1 差异 → 运维） |
 | [**MCP v2 Keycloak OAuth**](./lightdash-mcp-v2-keycloak-oauth.md) | Keycloak + 邮箱换票（一人一票、TTL、失效续期） |
+| [**MCP v2 运维部署（K8s + Docker 穿透）**](./lightdash-mcp-v2-deploy.md) | ConfigMap / Secret / Apisix、本地穿透 `MCP_PUBLIC_URL` |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查（Dockerfile 已指向 v2） |
 | [v2 包 README](../../packages/lightdash-mcp-v2/README.md) | 包级摘要 |
 
