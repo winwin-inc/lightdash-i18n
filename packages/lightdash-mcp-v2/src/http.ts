@@ -11,7 +11,13 @@ import {
     mcpAuthMetadataRouter,
     requireBearerAuth,
 } from '@modelcontextprotocol/express';
-import { loadConfigFromEnv } from './config';
+import {
+    buildDegradedServiceBody,
+    describeRequiredEnvPresence,
+    listMissingRequiredEnv,
+    loadConfigFromEnv,
+    missingEnvHint,
+} from './config';
 import { getMcpPackageVersion } from './lib/mcpPackageVersion';
 import { getSharedExploreCache } from './lib/sharedExploreCache';
 import {
@@ -42,6 +48,18 @@ type RequestWithAuth = express.Request & {
     auth?: AuthInfo;
 };
 
+function resolveListenPort(): number {
+    const port = Number(
+        process.env.LIGHTDASH_MCP_HTTP_PORT ?? process.env.PORT ?? 3333,
+    );
+    if (!Number.isFinite(port) || port <= 0) {
+        throw new Error(
+            'LIGHTDASH_MCP_HTTP_PORT / PORT must be a positive number',
+        );
+    }
+    return port;
+}
+
 function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     const projectLog =
         config.defaultProjectUuid ??
@@ -62,9 +80,7 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     writeStderrLog(
         `[Config] MCP_OAUTH_AUDIENCE=${config.oauthAudience} | OAUTH_REQUIRED_SCOPES=${oauthScopes}`,
     );
-    writeStderrLog(
-        `[Config] LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET_SET=true`,
-    );
+    writeStderrLog(`[Config] LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET_SET=true`);
     writeStderrLog(
         `[Config] MCP_PROTOCOL=2026-07-28 sessionless | legacy=stateless | auth=keycloak`,
     );
@@ -91,7 +107,37 @@ function isJsonBodyParseError(err: unknown): boolean {
     );
 }
 
-async function main(): Promise<void> {
+/** 缺必填 env：只 listen，/health 与 /mcp 返回 503，不拉 Keycloak */
+function startDegradedServer(missingEnv: string[]): void {
+    const presence = describeRequiredEnvPresence();
+    writeStderrLog(
+        `[Config] degraded: required env incomplete | ${presence.lines.join(' | ')}`,
+        'error',
+    );
+    writeStderrLog(`[Config] ${missingEnvHint(missingEnv)}`, 'error');
+
+    const body = buildDegradedServiceBody(missingEnv);
+    const app = express();
+    app.disable('x-powered-by');
+
+    app.get('/health', (_req: express.Request, res: express.Response) => {
+        res.status(503).json(body);
+    });
+
+    app.all('/mcp', (_req: express.Request, res: express.Response) => {
+        res.status(503).json(body);
+    });
+
+    const port = resolveListenPort();
+    app.listen(port, '0.0.0.0', () => {
+        writeStderrLog(
+            `Lightdash MCP v2 degraded (missing env, not fetching Keycloak) listening on http://0.0.0.0:${port} — /health and /mcp return 503`,
+            'error',
+        );
+    });
+}
+
+async function startFullServer(): Promise<void> {
     const config = loadConfigFromEnv();
     logStartupConfig(config);
 
@@ -332,19 +378,21 @@ async function main(): Promise<void> {
         },
     );
 
-    const port = Number(
-        process.env.LIGHTDASH_MCP_HTTP_PORT ?? process.env.PORT ?? 3333,
-    );
-    if (!Number.isFinite(port) || port <= 0) {
-        throw new Error(
-            'LIGHTDASH_MCP_HTTP_PORT / PORT must be a positive number',
-        );
-    }
+    const port = resolveListenPort();
     app.listen(port, '0.0.0.0', () => {
         writeStderrLog(
             `Lightdash MCP v2 (2026-07-28 sessionless, Keycloak OAuth) listening on http://0.0.0.0:${port}/mcp`,
         );
     });
+}
+
+async function main(): Promise<void> {
+    const missingEnv = listMissingRequiredEnv();
+    if (missingEnv.length > 0) {
+        startDegradedServer(missingEnv);
+        return;
+    }
+    await startFullServer();
 }
 
 main().catch((err: unknown) => {

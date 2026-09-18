@@ -1,8 +1,21 @@
 import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 
-// Node 不会自动读 .env；与 packages/lightdash-mcp-v2/.env.example 对齐
-loadDotenv({ path: path.join(__dirname, '..', '.env') });
+// Node 不会自动读 .env；仅本地兜底，不覆盖已有 process.env（K8s envFrom 优先）
+loadDotenv({
+    path: path.join(__dirname, '..', '.env'),
+    override: false,
+});
+
+/** 启动必填环境变量（K8s ConfigMap / Secret 或本地 .env） */
+export const REQUIRED_ENV_KEYS = [
+    'LIGHTDASH_SITE_URL',
+    'KEYCLOAK_REALM_URL',
+    'MCP_PUBLIC_URL',
+    'LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET',
+] as const;
+
+export type RequiredEnvKey = (typeof REQUIRED_ENV_KEYS)[number];
 
 export type LightdashMcpEnvConfig = {
     baseUrl: string;
@@ -20,11 +33,70 @@ export type LightdashMcpEnvConfig = {
     tokenExchangeSecret: string;
 };
 
+function envPresent(name: string): boolean {
+    const value = process.env[name]?.trim();
+    return value !== undefined && value.length > 0;
+}
+
+/** 返回 trim 后为空或未设置的必填环境变量名（只看 process.env） */
+export function listMissingRequiredEnv(): string[] {
+    return REQUIRED_ENV_KEYS.filter((name) => !envPresent(name));
+}
+
+/**
+ * 启动诊断：各必填键 SET / MISSING（密钥不打印值）。
+ * 返回与 listMissingRequiredEnv 相同的缺失列表。
+ */
+export function describeRequiredEnvPresence(): {
+    missing: string[];
+    lines: string[];
+} {
+    const lines: string[] = [];
+    const missing: string[] = [];
+    for (const name of REQUIRED_ENV_KEYS) {
+        if (envPresent(name)) {
+            lines.push(`${name}=SET`);
+        } else {
+            lines.push(`${name}=MISSING`);
+            missing.push(name);
+        }
+    }
+    return { missing, lines };
+}
+
+/** 缺配置时给运维的中文提示（K8s 优先，本地才提 .env） */
+export function missingEnvHint(missing: string[]): string {
+    return (
+        `缺少必填环境变量: ${missing.join(', ')}。` +
+        `K8s 请检查 ConfigMap lightdash-mcp-config 与 Secret lightdash-mcp-secret（envFrom），` +
+        `改完后需重建 Pod；本地开发可参考 .env.example。`
+    );
+}
+
+/** 缺配置时 /health、/mcp 的 503 body（供路由与单测共用） */
+export function buildDegradedServiceBody(missingEnv: string[]): {
+    ok: false;
+    ready: false;
+    package: '@lightdash/mcp-v2';
+    missingEnv: string[];
+    hint: string;
+} {
+    return {
+        ok: false,
+        ready: false,
+        package: '@lightdash/mcp-v2',
+        missingEnv,
+        hint: missingEnvHint(missingEnv),
+    };
+}
+
 function requireEnv(name: string): string {
     const value = process.env[name]?.trim();
     if (!value) {
         throw new Error(
-            `${name} is required（请设置环境变量，或在服务启动目录的 .env 中配置，参见 .env.example）`,
+            `${name} 未注入（环境变量为空或不存在）。` +
+                `K8s：检查 ConfigMap/Secret 是否 apply 且 Pod envFrom 已挂载；` +
+                `本地：在 .env 中配置，参见 .env.example`,
         );
     }
     return value;
@@ -49,8 +121,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     );
     const mcpPublicUrl = requireEnv('MCP_PUBLIC_URL').replace(/\/$/, '');
     const oauthAudience =
-        process.env.MCP_OAUTH_AUDIENCE?.trim() ||
-        `${mcpPublicUrl}/mcp`;
+        process.env.MCP_OAUTH_AUDIENCE?.trim() || `${mcpPublicUrl}/mcp`;
     const oauthRequiredScopesRaw =
         process.env.OAUTH_REQUIRED_SCOPES?.trim() || 'openid,mcp:read';
     const oauthRequiredScopes = oauthRequiredScopesRaw
