@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/mcp-v2",
-    "version": "2.1.2",
+    "version": "2.1.3",
     "private": true,
     "license": "MIT",
     "description": "Lightdash MCP HTTP server (protocol 2026-07-28 sessionless, legacy:stateless compat)",
