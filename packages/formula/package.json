@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/formula",
-    "version": "2.1.4",
+    "version": "2.1.4-test.1",
     "private": true,
     "license": "MIT",
     "main": "dist/index.js",
