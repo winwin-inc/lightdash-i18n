@@ -1,0 +1,18 @@
+{
+  "title": "马上赢X 对接配置",
+  "title_en": "MSYX Connection",
+  "description": "填写马上赢X 的 API Key（个人访问令牌）。凭证仅保存在本机 WorkBuddy 目录，不会上传云端。",
+  "description_en": "Enter your 马上赢X API Key (personal access token). Credentials stay on this device only.",
+  "fields": [
+    {
+      "key": "API_KEY",
+      "label": "API Key",
+      "label_en": "API Key",
+      "type": "password",
+      "required": true,
+      "placeholder": "在马上赢X 个人中心创建访问令牌",
+      "description": "用于调用 MCP 的个人访问令牌，将作为请求头 x-api-key 发送。",
+      "description_en": "Personal access token sent as the x-api-key header."
+    }
+  ]
+}

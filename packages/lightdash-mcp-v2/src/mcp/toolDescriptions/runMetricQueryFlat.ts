@@ -1,0 +1,36 @@
+/** MCP tool description for run_metric_query (flat parameters only). */
+export const RUN_METRIC_QUERY_FLAT_DESCRIPTION = `【扁平 Metric Query】简单指标查询（v2 异步 + 轮询，首选 CSV）。
+
+## 强制规则
+1. 仅使用顶层扁平参数：exploreName（必填）、dimensions[]、metrics[]、filters、sorts、limit、offset 等。
+2. 禁止传 metricQuery、queryConfig、config；整段 Explorer JSON 须用 run_semantic_metric_query（metricQuery 为 JSON 字符串）。
+3. dimensions、metrics 必须是字符串数组。
+4. 不支持在 filters 里原样保留 Explorer 的 filters.dimensions.id / and[].id；多条件 and 链请用 run_semantic_metric_query。
+
+## 分页（重要）
+- 行分页用 **limit + offset**（仓库级）：limit=本页条数，offset=跳过行数。客户端可循环叠加 offset。
+- 使用 offset 时请带稳定 sorts，否则页间可能乱序/重复/漏行。
+- **不要**对本工具用 page / pageSize 做业务翻页；pageSize 仅表示异步结果拉取块大小（服务端会收齐），可忽略。
+- 目录/内容类工具才用 page（从 1）+ pageSize。
+
+## 看板上下文 dashboardUuid
+部分 explore 依赖 dashboardSlug。已知看板时传 dashboardUuid。未传且需要看板上下文时：反查若仅 1 个关联看板则自动选用并查数；多个关联看板时返回 \`status: "dashboard_selection_required"\` 与 \`candidates\`，选一个 dashboardUuid 后重试。不依赖看板上下文时会直接查数。
+
+## 何时使用
+- 1~2 个 dimensions + 1 个 metrics + 简单 filters
+- 无需复制 Explorer 整段 JSON
+
+## 何时不要用
+- Explorer「复制 Metric Query」、filters.dimensions.and 多条件（含改类目/品牌/周期）→ run_semantic_metric_query + metricQuery
+
+## 参数（仅顶层）
+exploreName、dimensions[]、metrics[]、filters（对象）、sorts、limit、offset；可选 projectUuid、dashboardUuid、requiredFilterFieldIds[]、timezone、context、invalidateCache、pageSize（异步块大小）、full、valueFormat（raw | formatted，默认 raw；full 返回完整 API 结构）。
+
+## 最小示例
+{ exploreName: "orders", dimensions: ["orders_order_date_month"], metrics: ["orders_total_order_amount"], filters: {}, sorts: [], limit: 50, offset: 0 }
+
+## 与语义工具对照
+| 场景 | 工具 |
+| Explorer 复制整段 JSON / 改类目 values | run_semantic_metric_query + metricQuery |
+| 手写 2~3 个扁平字段 | run_metric_query |
+`;

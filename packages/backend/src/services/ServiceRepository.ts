@@ -26,6 +26,7 @@ import { GroupsService } from './GroupService';
 import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { LogService } from './LogService/LogService';
+import { McpTokenExchangeService } from './McpTokenExchangeService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
@@ -75,6 +76,7 @@ interface ServiceManifest {
     gdriveService: GdriveService;
     groupService: GroupsService;
     healthService: HealthService;
+    mcpTokenExchangeService: McpTokenExchangeService;
     notificationService: NotificationsService;
     oauthService: OAuthService;
     ossService: OssService;
@@ -445,6 +447,20 @@ export class ServiceRepository
                     lightdashConfig: this.context.lightdashConfig,
                     organizationModel: this.models.getOrganizationModel(),
                     migrationModel: this.models.getMigrationModel(),
+                }),
+        );
+    }
+
+    public getMcpTokenExchangeService(): McpTokenExchangeService {
+        return this.getService(
+            'mcpTokenExchangeService',
+            () =>
+                new McpTokenExchangeService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    userModel: this.models.getUserModel(),
+                    personalAccessTokenModel:
+                        this.models.getPersonalAccessTokenModel(),
                 }),
         );
     }
@@ -959,9 +975,12 @@ export class ServiceRepository
         );
     }
 
-    
-    public getAppGenerateService<AppGenerateServiceImplT>(): AppGenerateServiceImplT {
-        return this.getService('appGenerateService' as keyof ServiceManifest) as AppGenerateServiceImplT;
+    public getAppGenerateService<
+        AppGenerateServiceImplT,
+    >(): AppGenerateServiceImplT {
+        return this.getService(
+            'appGenerateService' as keyof ServiceManifest,
+        ) as AppGenerateServiceImplT;
     }
 
     public getEmbedService<EmbedServiceImplT>(): EmbedServiceImplT {

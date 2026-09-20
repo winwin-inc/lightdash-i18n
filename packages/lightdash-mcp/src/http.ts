@@ -32,6 +32,7 @@ import {
 import {
     httpRequestApiKeyStore,
 } from './lib/requestContext';
+import { writeStderrLog } from './lib/stderrLog';
 
 const authCache = createAuthCache();
 const oauthCache = createOauthCache();
@@ -45,14 +46,26 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
         config.oauthRequiredScopes.length > 0
             ? config.oauthRequiredScopes.join(',')
             : '(empty)';
-    process.stderr.write(
-        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}\n` +
-            `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}\n` +
-            `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}\n` +
-            `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}\n` +
-            `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}\n` +
-            `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SOFT_PER_OWNER=${config.softSessionsPerOwner} | HARD_PER_OWNER=${config.maxSessionsPerOwner}\n` +
-            `[Config] SESSION_TTL_MS=${config.sessionTtlMs} | LRU_MIN_IDLE_MS=${config.lruMinIdleMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}\n`,
+    writeStderrLog(
+        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}`,
+    );
+    writeStderrLog(
+        `[Config] MCP_OAUTH_ENABLED=${config.oauthEnabled} | OAUTH_REQUIRED_SCOPES=${oauthScopes}`,
+    );
+    writeStderrLog(
+        `[Config] OAUTH_RESOURCE_METADATA_URL=${config.oauthResourceMetadataUrl}`,
+    );
+    writeStderrLog(
+        `[Config] OAUTH_INTROSPECT_URL=${config.oauthIntrospectUrl} | LIGHTDASH_API_KEY_SET=${hasApiKey}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_MCP_MAX_SESSIONS=${config.maxSessions} | SOFT_PER_OWNER=${config.softSessionsPerOwner} | HARD_PER_OWNER=${config.maxSessionsPerOwner}`,
+    );
+    writeStderrLog(
+        `[Config] SESSION_TTL_MS=${config.sessionTtlMs} | LRU_MIN_IDLE_MS=${config.lruMinIdleMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}`,
     );
 }
 
@@ -65,8 +78,8 @@ function handleSessionNotFound(
     const sessionTag = sessionHeader
         ? ` | session=${sessionHeader.slice(0, 8)}...`
         : '';
-    process.stderr.write(
-        `[McpSession] 404 ${formatSessionMissingReason(reason)}${sessionTag} | ${userEmail}\n`,
+    writeStderrLog(
+        `[McpSession] 404 ${formatSessionMissingReason(reason)}${sessionTag} | ${userEmail}`,
     );
     res.status(404).json({
         error: 'Session not found',
@@ -118,8 +131,8 @@ async function main(): Promise<void> {
             exploreCache.pruneExpired();
             if (pruned > 0) {
                 const health = sessionRegistry.getHealthStats();
-                process.stderr.write(
-                    `[McpSession] scheduled prune complete | active=${health.activeSessions} compat=${health.compatSessions} sse=${health.activeSseConnections} inFlight=${health.inFlightRequests}\n`,
+                writeStderrLog(
+                    `[McpSession] scheduled prune complete | active=${health.activeSessions} compat=${health.compatSessions} sse=${health.activeSseConnections} inFlight=${health.inFlightRequests}`,
                 );
             }
         });
@@ -349,12 +362,12 @@ async function main(): Promise<void> {
                 compat: usedCompat,
             });
             if (status === 409) {
-                process.stderr.write(
-                    `[McpSse] 409 conflict${sessionTag} | activeSessions=${sessionRegistry.getActiveCount()} | ${userEmail}\n`,
+                writeStderrLog(
+                    `[McpSse] 409 conflict${sessionTag} | activeSessions=${sessionRegistry.getActiveCount()} | ${userEmail}`,
                 );
             }
-            process.stderr.write(
-                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag}${sessionTag} | ${userEmail}\n`,
+            writeStderrLog(
+                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: ${maskedKey} | ${status} | ${elapsed}ms${statusTag}${sessionTag} | ${userEmail}`,
             );
         }
     });
@@ -372,8 +385,8 @@ async function main(): Promise<void> {
                 const ip = resolveClientIp(req);
                 const message =
                     err instanceof Error ? err.message : 'Invalid JSON';
-                process.stderr.write(
-                    `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 400 | 0ms | error(400) | invalid_json_body | ${message}\n`,
+                writeStderrLog(
+                    `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 400 | 0ms | error(400) | invalid_json_body | ${message}`,
                 );
                 if (!res.headersSent) {
                     res.status(400).json({
@@ -396,8 +409,8 @@ async function main(): Promise<void> {
         ) => {
             const ip = resolveClientIp(req);
             const message = err instanceof Error ? err.message : String(err);
-            process.stderr.write(
-                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 500 | 0ms | error(500) | unhandled | ${message}\n`,
+            writeStderrLog(
+                `[RequestLog] [Request] ${req.method} ${req.path} | ip: ${ip} | key: *** | 500 | 0ms | error(500) | unhandled | ${message}`,
             );
             if (!res.headersSent) {
                 res.status(500).json({
@@ -409,19 +422,23 @@ async function main(): Promise<void> {
         },
     );
 
-    const port = Number(process.env.LIGHTDASH_MCP_HTTP_PORT ?? 3333);
+    const port = Number(
+        process.env.LIGHTDASH_MCP_HTTP_PORT ?? process.env.PORT ?? 3333,
+    );
     if (!Number.isFinite(port) || port <= 0) {
-        throw new Error('LIGHTDASH_MCP_HTTP_PORT must be a positive number');
+        throw new Error(
+            'LIGHTDASH_MCP_HTTP_PORT / PORT must be a positive number',
+        );
     }
     app.listen(port, '0.0.0.0', () => {
-        process.stderr.write(
-            `Lightdash MCP (Streamable HTTP) listening on http://0.0.0.0:${port}/mcp\n`,
+        writeStderrLog(
+            `Lightdash MCP (Streamable HTTP) listening on http://0.0.0.0:${port}/mcp`,
         );
     });
 }
 
 main().catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`${msg}\n`);
+    writeStderrLog(msg);
     process.exit(1);
 });

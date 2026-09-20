@@ -1,5 +1,8 @@
 # 架构说明
 
+> **过时（v1 + PAT）**：本文描述独立包 `@lightdash/mcp`（Session / `set_project` / 客户端 `x-api-key`）。  
+> **当前交付**请看 [MCP v2 说明](../mcp/lightdash-mcp-v2.md) 与 [文档索引](../mcp/README.md)。本页仅保留作历史对照，不再维护。
+
 ## 为什么要自己搞一套
 
 官方内置 MCP 跑在主站进程里，依赖实例已开通对应商业能力与路由；**自托管仅 OSS**、或**当前套餐未包含**内置 MCP 时，这条路径往往不可用。是否收费、哪一档含该能力，以 [Lightdash 定价与方案](https://www.lightdash.com/pricing) 的说明为准（会随产品更新）。

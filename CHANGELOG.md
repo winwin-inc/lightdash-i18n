@@ -6,6 +6,28 @@
 > -   生产环境上线更新次要版本号（如 v0.2092, v0.2093）
 > -   自 **v2.0** 起产品主版本独立编号
 
+## v2.0.5 ~ v2.0.8（2026-09）
+
+当前产品版本以仓库根 `package.json` 为准（现为 **2.0.8**）。
+
+-   **新功能**
+    -   看板月份筛选（month +「是」）支持动态默认「上月（4号显示）」；定时推送按同一规则解析
+    -   Excel 相关日期处理支持 `YYYYMMDD` 格式
+
+## @lightdash/mcp-v2 2.0.0 ~ 2.1.2（2026-09-16）
+
+独立 MCP 接入包 `@lightdash/mcp-v2`，与旧版 `@lightdash/mcp`（v1）并行；新接入请用 v2。说明见 [docs/mcp/lightdash-mcp-v2.md](./docs/mcp/lightdash-mcp-v2.md)。
+
+-   **新功能**
+    -   按 MCP 2026-07-28 / Streamable HTTP 提供无会话（sessionless）接入
+    -   查询支持 `limit` + `offset` 翻页；目录类仍用 `page` + `pageSize`
+    -   项目按每次请求的 `projectUuid` 指定，或使用服务默认项目；可用 `list_projects` 查看可选项目
+    -   目录工具支持按需传 `catalogTags` 过滤
+    -   中文等非 ASCII 结果更不易乱码（响应声明 UTF-8）
+-   **与 MCP v1 的差异（接入侧）**
+    -   不再提供「记住当前项目」：无 `set_project` / `get_current_project`，需在工具参数或默认项目中带上项目
+    -   客户端在配置里带好 API Key 即可；不必再维护 Session Id
+
 ## v2.0.4 (2026-09-11)
 
 -   **调优**

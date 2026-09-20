@@ -1,14 +1,14 @@
 # Lightdash MCP 独立镜像：构建与阿里云部署
 
-本文说明如何将 `packages/lightdash-mcp` 构建为独立镜像，并通过 GitHub Actions 推送到阿里云 ACR。
+本文说明如何将 `packages/lightdash-mcp-v2`（`@lightdash/mcp-v2`）构建为独立镜像，并通过 GitHub Actions 推送到阿里云 ACR。
 
-> 关联阅读：[MCP 文档索引](./README.md)、[标准客户端用法](./lightdash-mcp-client-usage.md)、[包级 README](../../packages/lightdash-mcp/README.md)。
+> 关联阅读：[MCP 文档索引](./README.md)、[标准客户端用法](./lightdash-mcp-client-usage.md)、[v2 完整说明](./lightdash-mcp-v2.md) · [包级 README](../../packages/lightdash-mcp-v2/README.md)。
 
 ---
 
 ## 1. 部署形态
 
-- Dockerfile 固定放在：`packages/lightdash-mcp/Dockerfile`
+- Dockerfile 固定放在：`packages/lightdash-mcp-v2/Dockerfile`
 - 构建上下文使用仓库根目录（需要读取 workspace 的 lockfile 与 `packages/common`）
 - 运行进程是 MCP HTTP 服务（默认端口 `3333`，端点 `/mcp`，健康检查 `/health`）
 
@@ -19,13 +19,13 @@
 ### 2.1 构建镜像
 
 ```bash
-docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
+docker build -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp:0.1.0 .
 ```
 
 开发调试建议加 `--no-cache`（避免吃到旧层）：
 
 ```bash
-docker build --no-cache -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:dev .
+docker build --no-cache -f packages/lightdash-mcp-v2/Dockerfile -t lightdash-mcp:dev .
 ```
 
 ### 2.2 运行镜像
@@ -33,26 +33,27 @@ docker build --no-cache -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:de
 ```bash
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e KEYCLOAK_REALM_URL="https://keycloak.example.com/realms/mcp" \
+  -e MCP_PUBLIC_URL="http://localhost:3333" \
+  -e LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET="replace-with-long-random-secret" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
-# 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须 MCP 客户端先 set_project 或在工具里传 projectUuid）
+# 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须在工具里传 projectUuid）
 ```
 
 也可以直接复用本地 `.env`：
 
 ```bash
 docker run --rm -p 3333:3333 \
-  --env-file packages/lightdash-mcp/.env \
+  --env-file packages/lightdash-mcp-v2/.env \
   lightdash-mcp:dev
 ```
 
-### 2.3 可选默认 API key
+### 2.3 鉴权（Keycloak OAuth）
 
-如果客户端不会在每次请求头里传 `x-api-key`，可在容器中设置：
+v2 使用 Keycloak OAuth + 邮箱换票，**不再**用容器内 `LIGHTDASH_API_KEY` 作客户端兜底。详见 [Keycloak OAuth 专题](./lightdash-mcp-v2-keycloak-oauth.md)。
 
-```bash
--e LIGHTDASH_API_KEY="<optional-default-pat>"
-```
+Backend 需配置同名 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，以及可选的 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）。
 
 ### 2.4 本地连通性验证
 
@@ -62,17 +63,13 @@ docker run --rm -p 3333:3333 \
 curl -s http://localhost:3333/health
 ```
 
-预期（0.4.x）类似：
+预期类似：
 
 ```json
-{"ok":true,"activeSessions":0,"pendingSessions":0,"compatSessions":0}
+{"ok":true,"package":"@lightdash/mcp-v2","protocol":"2026-07-28","legacy":"stateless","auth":"keycloak","inFlightRequests":0}
 ```
 
-若仍只有 `{"ok":true}`，多半是旧镜像（不含 Session 计数字段）。
-
-未带凭证访问 `/mcp` 预期 **401**。标准 Session / 兼容模式冒烟见 [标准客户端用法](./lightdash-mcp-client-usage.md)。
-
-在客户端（Cursor/Claude）配置该 URL，并带 `x-api-key` 后即可调工具（详见 `packages/lightdash-mcp/README.md`）。
+未带 Bearer 访问 `/mcp` 预期 **401**（带 `WWW-Authenticate` / `resource_metadata`）。客户端只需配置 MCP URL，走 OAuth 登录（见 [v2 说明](./lightdash-mcp-v2.md)）。
 
 ---
 
@@ -80,9 +77,13 @@ curl -s http://localhost:3333/health
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST 使用） |
-| `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖 `set_project` 或工具参数 `projectUuid`（解析顺序见包 README） |
-| `LIGHTDASH_API_KEY` | 否 | 默认兜底 PAT；优先级低于请求头 `x-api-key` 和 tool 参数 `apiKey` |
+| `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST / 换票） |
+| `KEYCLOAK_REALM_URL` | 是 | Keycloak realm 根 URL |
+| `MCP_PUBLIC_URL` | 是 | MCP 对外根 URL（OAuth resource） |
+| `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` | 是 | 与 Backend 共享的换票密钥 |
+| `MCP_OAUTH_AUDIENCE` | 否 | 默认 `{MCP_PUBLIC_URL}/mcp` |
+| `OAUTH_REQUIRED_SCOPES` | 否 | 默认 `openid,mcp:read` |
+| `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖工具参数 `projectUuid` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 监听端口，默认 `3333` |
 
@@ -99,7 +100,7 @@ curl -s http://localhost:3333/health
 
 ### 4.2 构建与推送逻辑
 
-- 使用 `packages/lightdash-mcp/Dockerfile`
+- 使用 `packages/lightdash-mcp-v2/Dockerfile`
 - 推送到阿里云 ACR 的独立仓库 **`winwin/lightdash-mcp`**（与主应用 `winwin/lightdash` 分离）
 - 首次使用前请在 ACR 控制台创建该仓库
 - tag 规则：
@@ -179,5 +180,5 @@ docker push ${REGISTRY}/${NAMESPACE}/${REPO}:${IMAGE_VERSION}
 
 | 日期 | 说明 |
 |------|------|
-| 2026-03-30 | 切换为 `packages/lightdash-mcp/Dockerfile` + GitHub Actions（`mcp-image.yml`）方案，精简环境变量并移除 `LIGHTDASH_WEB_*_PATH_TEMPLATE` |
+| 2026-03-30 | 切换为 `packages/lightdash-mcp-v2/Dockerfile` + GitHub Actions（`mcp-image.yml`）方案，精简环境变量并移除 `LIGHTDASH_WEB_*_PATH_TEMPLATE` |
 | 2026-04-29 | MCP 镜像改为独立 ACR 仓库 `winwin/lightdash-mcp`；镜像 tag 为 semver 数字 + `latest`（Git tag 仍为 `mcp-v*` 触发）；工作流更名为 `build-docker-mcp.yml`（与 `build-docker-with-i18n.yml` 的 `build-docker-*` 命名一致） |

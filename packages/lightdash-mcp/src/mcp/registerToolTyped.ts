@@ -5,6 +5,7 @@ import {
     getHttpRequestMaskedKey,
     getHttpRequestUserEmail,
 } from '../lib/requestContext';
+import { writeStderrLog } from '../lib/stderrLog';
 
 export type ToolCallLogKind = 'tool-call' | 'core-tool';
 
@@ -38,8 +39,8 @@ export function registerToolTyped(
     ): Promise<CallToolResult> => {
         const userEmail = getHttpRequestUserEmail() ?? 'unknown';
         const maskedKey = getHttpRequestMaskedKey() ?? '***';
-        process.stderr.write(
-            `${prefix} ${name} | key: ${maskedKey} | ${userEmail}\n`,
+        writeStderrLog(
+            `${prefix} ${name} | key: ${maskedKey} | ${userEmail}`,
         );
         return handler(args);
     };

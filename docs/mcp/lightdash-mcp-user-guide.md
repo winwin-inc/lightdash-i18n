@@ -109,4 +109,4 @@
 - [文档索引](./README.md)
 - [标准客户端用法](./lightdash-mcp-client-usage.md)
 - [查询工具速查](./lightdash-mcp-query-tools-quickref.md)
-- [Skills](../lightdash-mcp-skills/README.md)
+- [Skills](../../packages/lightdash-skills/README.md)
