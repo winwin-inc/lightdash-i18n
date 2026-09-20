@@ -402,19 +402,7 @@ claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahu
 
 ---
 
-## 10. 给后端同事的说明
-
-后端需要保证：
-
-1. `POST /api/v1/mcp/token-exchange` 可用，且配置了 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`。
-2. 仅接受 MCP 服务端用共享密钥调用；按 **email** 查找已有用户并签发短期 PAT。
-3. **不需要**部署或维护本地 Python OAuth 示例；该示例只证明 Keycloak DCR 对「单 localhost 回调」可用，不能替代 WorkBuddy/Cursor 的回调策略配置。
-
-MCP 服务端负责：JWT 校验、scopes/audience、发起换票、用 PAT 调 REST。
-
----
-
-## 11. 部署顺序建议
+## 10. 部署顺序建议
 
 1. Keycloak：Trusted Hosts + scopes + email/audience mapper（§5）。
 2. Backend：换票密钥与 TTL（§6.2）。
