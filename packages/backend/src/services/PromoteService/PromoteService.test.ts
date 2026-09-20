@@ -63,6 +63,9 @@ describe('PromoteService chart changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as any,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -269,6 +272,9 @@ describe('PromoteService dashboard changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as any,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -566,6 +572,9 @@ describe('PromoteService promoting and mutating changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: dashboardModel as unknown as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as any,
     });
     afterEach(() => {
         jest.clearAllMocks();

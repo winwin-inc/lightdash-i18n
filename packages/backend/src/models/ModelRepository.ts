@@ -31,6 +31,7 @@ import { OrganizationWarehouseCredentialsModel } from './OrganizationWarehouseCr
 import { PasswordResetLinkModel } from './PasswordResetLinkModel';
 import { PinnedListModel } from './PinnedListModel';
 import { ProjectModel } from './ProjectModel/ProjectModel';
+import { ProjectOperationLogModel } from './ProjectOperationLogModel/ProjectOperationLogModel';
 import { ProjectParametersModel } from './ProjectParametersModel';
 import { QueryHistoryModel } from './QueryHistoryModel/QueryHistoryModel';
 import { ResourceViewItemModel } from './ResourceViewItemModel';
@@ -84,6 +85,7 @@ export type ModelManifest = {
     personalAccessTokenModel: PersonalAccessTokenModel;
     pinnedListModel: PinnedListModel;
     projectModel: ProjectModel;
+    projectOperationLogModel: ProjectOperationLogModel;
     resourceViewItemModel: ResourceViewItemModel;
     rolesModel: RolesModel;
     savedChartModel: SavedChartModel;
@@ -641,6 +643,16 @@ export class ModelRepository
         return this.getModel(
             'queryHistoryModel',
             () => new QueryHistoryModel({ database: this.database }),
+        );
+    }
+
+    public getProjectOperationLogModel(): ProjectOperationLogModel {
+        return this.getModel(
+            'projectOperationLogModel',
+            () =>
+                new ProjectOperationLogModel({
+                    database: this.database,
+                }),
         );
     }
 

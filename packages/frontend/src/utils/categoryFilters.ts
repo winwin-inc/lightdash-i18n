@@ -1,10 +1,8 @@
 import {
-    type CategoryTreeNode,
     type DashboardFilterRule,
     type DashboardFilters,
     type FieldValueSearchResult,
     FilterOperator,
-    type UserCategoryList,
 } from '@lightdash/common';
 import { lightdashApi } from '../api';
 
@@ -60,19 +58,10 @@ export const isCategoryField = (filter: DashboardFilterRule): boolean => {
 };
 
 /**
- * 用户类目列表是否至少包含一类目（用于判断是否启用筛选器联动）
+ * 筛选器列表是否包含至少一个类目筛选器
  */
-export const hasAnyUserCategories = (
-    userCategories: UserCategoryList | null | undefined,
-): boolean => {
-    if (!userCategories) return false;
-    return (
-        userCategories.level1.length > 0 ||
-        userCategories.level2.length > 0 ||
-        userCategories.level3.length > 0 ||
-        userCategories.level4.length > 0
-    );
-};
+export const hasCategoryFilters = (filters: DashboardFilters): boolean =>
+    filters.dimensions.some((filter) => isCategoryField(filter));
 
 /**
  * 获取筛选器对应的类目层级
@@ -114,306 +103,10 @@ export const findParentFilter = (
     );
 };
 
-/**
- * 根据层级获取全部可用的类目
- */
-const getCategoriesForLevel = (
-    level: CategoryLevel,
-    userCategories: UserCategoryList,
-): CategoryTreeNode[] => {
-    switch (level) {
-        case 1:
-            return userCategories.level1;
-        case 2:
-            return userCategories.level2;
-        case 3:
-            return userCategories.level3;
-        case 4:
-            return userCategories.level4;
-        default:
-            return [];
-    }
+export type DashboardFilterContext = {
+    dashboardSlug?: string;
+    dashboardName?: string;
 };
-
-/**
- * 获取筛选器对应的类目列表
- */
-export const getCategoryListForFilter = (
-    filter: DashboardFilterRule,
-    userCategories: UserCategoryList,
-): CategoryTreeNode[] => {
-    const level = getCategoryLevel(filter);
-    if (!level) return [];
-    return getCategoriesForLevel(level, userCategories);
-};
-
-/**
- * 检查类目值是否在用户权限范围内
- */
-const getCategoryName = (category: CategoryTreeNode): string | undefined =>
-    category.name ? String(category.name) : undefined;
-
-/**
- * 检查类目 label（name）是否在用户权限范围内
- * 使用 label（name）查询
- */
-export const isCategoryLabelAllowed = (
-    filter: DashboardFilterRule,
-    categoryLabel: string,
-    userCategories: UserCategoryList,
-): boolean => {
-    const categoryList = getCategoryListForFilter(filter, userCategories);
-    return categoryList.some((cat) => getCategoryName(cat) === categoryLabel);
-};
-
-/**
- * 根据父级类目值过滤子级类目列表
- */
-export const filterCategoriesByParent = (
-    categories: CategoryTreeNode[],
-    parentId: string,
-): CategoryTreeNode[] => {
-    return categories.filter((cat) => cat.parentId === parentId);
-};
-
-/**
- * 根据父级类目值获取子级类目
- */
-export const getChildCategoriesForLevel = (
-    parentCategoryId: string,
-    userCategories: UserCategoryList,
-    targetLevel: Exclude<CategoryLevel, 1>,
-): CategoryTreeNode[] => {
-    const targetCategories = getCategoriesForLevel(targetLevel, userCategories);
-    return filterCategoriesByParent(targetCategories, parentCategoryId);
-};
-
-/**
- * 解析类目筛选器的值
- * 根据父级筛选器值获取子级类目列表
- * 如果父级筛选器值不在用户权限范围内，返回 undefined
- * 如果当前筛选器值在用户权限范围内，返回当前值
- * 如果当前筛选器值不在用户权限范围内，返回第一个可用类目
- */
-const resolveCategoryFilterValue = ({
-    filter,
-    filters,
-    userCategories,
-    parentValueOverride,
-}: ResolveCategoryValueArgs): string | undefined => {
-    if (!isCategoryField(filter)) return undefined;
-
-    const level = getCategoryLevel(filter);
-    if (!level) return undefined;
-
-    const parentFieldId = getParentFieldId(filter);
-    let availableCategories: CategoryTreeNode[] = [];
-
-    if (parentFieldId) {
-        const parentFilter = findParentFilter(filters, parentFieldId);
-        if (!parentFilter || !isCategoryField(parentFilter)) {
-            return undefined;
-        }
-
-        const parentLabel =
-            parentValueOverride !== undefined
-                ? parentValueOverride ?? undefined
-                : parentFilter.values && parentFilter.values.length > 0
-                ? String(parentFilter.values[0])
-                : undefined;
-
-        if (!parentLabel) {
-            return undefined;
-        }
-
-        const parentCategoryNode = getCategoryListForFilter(
-            parentFilter,
-            userCategories,
-        ).find((cat) => getCategoryName(cat) === parentLabel);
-
-        if (!parentCategoryNode) {
-            return undefined;
-        }
-
-        availableCategories = getChildCategoriesForLevel(
-            parentCategoryNode.categoryId,
-            userCategories,
-            level as Exclude<CategoryLevel, 1>,
-        );
-    } else {
-        availableCategories = getCategoriesForLevel(level, userCategories);
-    }
-
-    const availableLabels = availableCategories
-        .map((cat) => getCategoryName(cat))
-        .filter((label): label is string => !!label);
-
-    if (availableLabels.length === 0) {
-        return undefined;
-    }
-
-    const currentValue =
-        filter.values && filter.values.length > 0
-            ? String(filter.values[0])
-            : undefined;
-
-    if (currentValue && availableLabels.includes(currentValue)) {
-        return currentValue;
-    }
-
-    return availableLabels[0];
-};
-
-/**
- * 根据用户权限初始化单个类目筛选器的 values
- * 如果配置了父级筛选器，根据父级值获取子级类目列表；否则使用当前层级的所有类目
- * 如果当前值在类目列表中保持不变，否则选择第一个
- * 只有当 filter 有默认值配置（disabled === false）时才处理
- */
-export const initializeCategoryFilterValuesByPermission = (
-    filter: DashboardFilterRule,
-    filters: DashboardFilters,
-    userCategories: UserCategoryList,
-): DashboardFilterRule | null => {
-    if (!isCategoryField(filter) || filter.disabled) {
-        return null;
-    }
-
-    const resolvedValue = resolveCategoryFilterValue({
-        filter,
-        filters,
-        userCategories,
-    });
-
-    if (!resolvedValue) {
-        return null;
-    }
-
-    const currentValue = filter.values?.[0];
-    if (currentValue && String(currentValue) === resolvedValue) {
-        return null;
-    }
-
-    return {
-        ...filter,
-        values: [resolvedValue],
-        operator: FilterOperator.EQUALS,
-    };
-};
-
-type ResolveCategoryValueArgs = {
-    filter: DashboardFilterRule;
-    filters: DashboardFilters;
-    userCategories: UserCategoryList;
-    parentValueOverride?: string | null;
-};
-
-/**
- * 处理类目筛选器联动
- * 当父级类目改变时，自动更新子级类目的可选值
- */
-export const updateCategoryFilterCascade = (
-    filters: DashboardFilters,
-    changedFilter: DashboardFilterRule,
-    newValue: string | null,
-    userCategories: UserCategoryList,
-): DashboardFilters => {
-    if (!isCategoryField(changedFilter)) return filters;
-
-    const cascadeChildren = (
-        currentFilters: DashboardFilters,
-        parentFieldId: string,
-        parentValue: string | null,
-    ): { filters: DashboardFilters; hasChanges: boolean } => {
-        let updatedFilters = currentFilters;
-        let hasChanges = false;
-
-        currentFilters.dimensions.forEach((originalFilter) => {
-            const filter =
-                updatedFilters.dimensions.find(
-                    (dimension) => dimension.id === originalFilter.id,
-                ) ?? originalFilter;
-
-            if (!isCategoryField(filter)) return;
-
-            const filterParentFieldId = getParentFieldId(filter);
-            if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
-                return;
-
-            const resolvedValue = resolveCategoryFilterValue({
-                filter,
-                filters: updatedFilters,
-                userCategories,
-                parentValueOverride: parentValue,
-            });
-
-            const currentValue =
-                filter.values && filter.values.length > 0
-                    ? String(filter.values[0])
-                    : undefined;
-
-            if (resolvedValue !== currentValue) {
-                hasChanges = true;
-
-                const updatedFilter: DashboardFilterRule = {
-                    ...filter,
-                    values: resolvedValue ? [resolvedValue] : undefined,
-                    operator: resolvedValue
-                        ? FilterOperator.EQUALS
-                        : filter.operator,
-                };
-
-                updatedFilters = {
-                    ...updatedFilters,
-                    dimensions: updatedFilters.dimensions.map((dimension) =>
-                        dimension.id === filter.id ? updatedFilter : dimension,
-                    ),
-                };
-            }
-
-            const appliedFilter =
-                updatedFilters.dimensions.find(
-                    (dimension) => dimension.id === filter.id,
-                ) ?? filter;
-
-            const childValue =
-                appliedFilter.values && appliedFilter.values.length > 0
-                    ? String(appliedFilter.values[0])
-                    : null;
-
-            const childResult = cascadeChildren(
-                updatedFilters,
-                appliedFilter.target.fieldId,
-                childValue,
-            );
-
-            if (childResult.hasChanges) {
-                hasChanges = true;
-                updatedFilters = childResult.filters;
-            }
-        });
-
-        return { filters: updatedFilters, hasChanges };
-    };
-
-    const normalizedValue = newValue ? String(newValue) : null;
-
-    const result = cascadeChildren(
-        filters,
-        changedFilter.target.fieldId,
-        normalizedValue,
-    );
-
-    if (!result.hasChanges) {
-        return filters;
-    }
-
-    return result.filters;
-};
-
-// ============================================================
-// 异步版本：与 field/search 接口取交集
-// ============================================================
 
 const FIELD_SEARCH_CACHE_TTL_MS = 5000;
 
@@ -444,29 +137,34 @@ const getFieldSearchCacheKey = (
     projectUuid: string,
     fieldId: string,
     tableName: string,
-    filters?: DashboardFilterRule[],
+    filters: DashboardFilterRule[] | undefined,
+    dashboardContext: DashboardFilterContext | undefined,
 ): string =>
     JSON.stringify({
         projectUuid,
         fieldId,
         tableName,
         filters: serializeFieldSearchFilters(filters),
+        dashboardSlug: dashboardContext?.dashboardSlug ?? null,
+        dashboardName: dashboardContext?.dashboardName ?? null,
     });
 
 /**
- * 调用 field/search 接口获取字段的实际可用值
+ * 调用 field/search 接口获取字段的实际可用值（含看板上下文以触发 dbt sql_filter）
  */
 const fetchFieldSearchValues = async (
     projectUuid: string,
     fieldId: string,
     tableName: string,
-    filters?: DashboardFilterRule[],
+    filters: DashboardFilterRule[] | undefined,
+    dashboardContext: DashboardFilterContext | undefined,
 ): Promise<string[]> => {
     const cacheKey = getFieldSearchCacheKey(
         projectUuid,
         fieldId,
         tableName,
         filters,
+        dashboardContext,
     );
     const now = Date.now();
     const cachedEntry = fieldSearchCache.get(cacheKey);
@@ -499,6 +197,8 @@ const fetchFieldSearchValues = async (
                     table: tableName,
                     filters: filterGroup,
                     forceRefresh: false,
+                    dashboardSlug: dashboardContext?.dashboardSlug,
+                    dashboardName: dashboardContext?.dashboardName,
                 }),
             });
             return result.results.filter(
@@ -506,7 +206,6 @@ const fetchFieldSearchValues = async (
             );
         } catch {
             fieldSearchCache.delete(cacheKey);
-            // 请求失败时回退到不做交集过滤
             return [];
         }
     })();
@@ -519,155 +218,127 @@ const fetchFieldSearchValues = async (
     return requestPromise;
 };
 
+type ResolveCategoryValueArgs = {
+    filter: DashboardFilterRule;
+    filters: DashboardFilters;
+    projectUuid: string;
+    dashboardContext?: DashboardFilterContext;
+    parentValueOverride?: string | null;
+};
+
 /**
- * 异步解析类目筛选器的值
- * 先从 userCategories 获取权限范围内的候选值，
- * 再调 field/search 获取数据仓库中实际存在的值，取交集
+ * 收集 field/search 级联条件：目标筛选器左侧已有值的规则（对齐下拉 getAutocompleteFilterGroup），
+ * 并对父级类目应用 override。
+ */
+const collectFieldSearchFilters = (
+    filters: DashboardFilters,
+    filter: DashboardFilterRule,
+    parentValueOverride?: string | null,
+): DashboardFilterRule[] | undefined => {
+    const currentIndex = filters.dimensions.findIndex(
+        (dimension) => dimension.id === filter.id,
+    );
+    const leftFilters = (
+        currentIndex === -1
+            ? filters.dimensions
+            : filters.dimensions.slice(0, currentIndex)
+    ).filter(
+        (dimension) =>
+            dimension.values !== undefined && dimension.values.length > 0,
+    );
+
+    const parentFieldId = getParentFieldId(filter);
+    if (!parentFieldId) {
+        return leftFilters.length > 0 ? leftFilters : undefined;
+    }
+
+    const parentFilter = findParentFilter(filters, parentFieldId);
+    if (!parentFilter || !isCategoryField(parentFilter)) {
+        return undefined;
+    }
+
+    // parentValueOverride === null 表示用户清空了父级
+    // parentValueOverride === undefined 表示首次加载，用父级当前值
+    // parentValueOverride 有具体值表示用户切换了父级
+    const parentLabel =
+        parentValueOverride !== undefined
+            ? parentValueOverride
+            : parentFilter.values?.[0]
+              ? String(parentFilter.values[0])
+              : undefined;
+
+    if (!parentLabel) {
+        return undefined;
+    }
+
+    const parentRule: DashboardFilterRule = {
+        ...parentFilter,
+        values: [parentLabel],
+        operator: FilterOperator.EQUALS,
+    };
+
+    const withoutParent = leftFilters.filter(
+        (dimension) => dimension.target.fieldId !== parentFieldId,
+    );
+    return [...withoutParent, parentRule];
+};
+
+/**
+ * 按仓库实际类目解析筛选器值（field/search + 左侧筛选 + 父级 + dashboardSlug）
  */
 const resolveCategoryFilterValueAsync = async ({
     filter,
     filters,
-    userCategories,
     projectUuid,
+    dashboardContext,
     parentValueOverride,
-}: ResolveCategoryValueArgs & { projectUuid: string }): Promise<
-    string | undefined
-> => {
+}: ResolveCategoryValueArgs): Promise<string | undefined> => {
     if (!isCategoryField(filter)) return undefined;
 
-    const level = getCategoryLevel(filter);
-    if (!level) return undefined;
-
-    const parentFieldId = getParentFieldId(filter);
-    let availableCategories: CategoryTreeNode[] = [];
-
-    // 收集上游已确定的筛选器，用于传给 field/search 做级联过滤
-    const parentFilters: DashboardFilterRule[] = [];
-
-    // 首次加载时（parentValueOverride === undefined），如果父级没有值，
-    // 仍然获取该层级所有有权限的类目，用于验证当前值是否有效
-    let parentLabel: string | null | undefined;
-    if (parentFieldId) {
-        const parentFilter = findParentFilter(filters, parentFieldId);
-        if (!parentFilter || !isCategoryField(parentFilter)) {
-            return undefined;
-        }
-
-        // parentValueOverride === null 表示用户清空了父级筛选器
-        // parentValueOverride === undefined 表示首次加载
-        // parentValueOverride 有具体值表示用户切换了父级
-        if (parentValueOverride !== undefined) {
-            parentLabel = parentValueOverride;
-        } else {
-            parentLabel = parentFilter.values?.[0]
-                ? String(parentFilter.values[0])
-                : undefined;
-        }
-    }
-
-    // 如果父级有值，获取子级类目
-    if (parentLabel && parentFieldId) {
-        const parentFilter = findParentFilter(filters, parentFieldId);
-        if (!parentFilter) {
-            return undefined;
-        }
-
-        // 把父级筛选器加入 parentFilters，让 field/search 做级联
-        parentFilters.push({
-            ...parentFilter,
-            values: [parentLabel],
-            operator: FilterOperator.EQUALS,
-        });
-
-        const parentCategoryNode = getCategoryListForFilter(
-            parentFilter,
-            userCategories,
-        ).find((cat) => getCategoryName(cat) === parentLabel);
-
-        if (!parentCategoryNode) {
-            return undefined;
-        }
-
-        availableCategories = getChildCategoriesForLevel(
-            parentCategoryNode.categoryId,
-            userCategories,
-            level as Exclude<CategoryLevel, 1>,
-        );
-    } else {
-        // 没有父级，或父级没有值，获取该层级所有有权限的类目
-        availableCategories = getCategoriesForLevel(level, userCategories);
-    }
-
-    const categoryLabels = availableCategories
-        .map((cat) => getCategoryName(cat))
-        .filter((label): label is string => !!label);
-
-    if (categoryLabels.length === 0) {
+    const searchFilters = collectFieldSearchFilters(
+        filters,
+        filter,
+        parentValueOverride,
+    );
+    // 配置了父级但父级无值时，collect 返回 undefined，不解析
+    if (
+        getParentFieldId(filter) &&
+        searchFilters === undefined
+    ) {
         return undefined;
     }
 
-    // 调 field/search 获取数据仓库中实际存在的值
     const fieldValues = await fetchFieldSearchValues(
         projectUuid,
         filter.target.fieldId,
         filter.target.tableName,
-        parentFilters.length > 0 ? parentFilters : undefined,
+        searchFilters,
+        dashboardContext,
     );
 
-    // 取交集：权限类目 ∩ 实际字段值
-    let intersection: string[];
-    if (fieldValues.length > 0) {
-        const fieldValueSet = new Set(fieldValues);
-        intersection = categoryLabels.filter((label) =>
-            fieldValueSet.has(label),
-        );
-    } else {
-        // field/search 返回空（可能请求失败），回退到仅用权限类目
-        intersection = categoryLabels;
-    }
-
-    if (intersection.length === 0) {
+    if (fieldValues.length === 0) {
         return undefined;
     }
 
-    // 检查当前值是否在交集中（既在权限内又有数据）
     const currentValue =
         filter.values && filter.values.length > 0
             ? String(filter.values[0])
             : undefined;
 
-    if (currentValue && intersection.includes(currentValue)) {
-        // 当前值在交集中，保留当前值
+    if (currentValue && fieldValues.includes(currentValue)) {
         return currentValue;
     }
 
-    // 当前值不在交集中，从交集中按 search 顺序取第一个
-    const intersectionSet = new Set(intersection);
-    let resolvedValue: string | undefined;
-    for (const v of fieldValues) {
-        if (intersectionSet.has(v)) {
-            resolvedValue = v;
-            break;
-        }
-    }
-
-    // 如果 search 为空，回退到交集的第一个
-    if (!resolvedValue) {
-        resolvedValue = intersection[0];
-    }
-
-    return resolvedValue;
+    return fieldValues[0];
 };
 
 /**
- * 异步初始化类目筛选器
- * 按顺序处理每个类目筛选器（因为子级依赖父级的值）
- * 统一逻辑：当前值在交集中则保留，否则切换到第一个有效值
+ * 异步初始化类目筛选器：当前值在实际数据中则保留，否则取第一个有效值
  */
 export const initializeCategoryFiltersAsync = async (
     filters: DashboardFilters,
-    userCategories: UserCategoryList,
     projectUuid: string,
+    dashboardContext?: DashboardFilterContext,
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
     let hasChanges = false;
@@ -688,18 +359,13 @@ export const initializeCategoryFiltersAsync = async (
         const resolvedValue = await resolveCategoryFilterValueAsync({
             filter: currentFilter,
             filters: workingFilters,
-            userCategories,
             projectUuid,
+            dashboardContext,
         });
 
         if (!resolvedValue) {
             continue;
         }
-
-        // resolveCategoryFilterValueAsync 已经处理了：
-        // - 如果当前值在交集中 → 返回当前值
-        // - 如果当前值不在交集中 → 返回第一个有效值
-        // 所以这里只需要比较是否有变化
 
         const currentValue = currentFilter.values?.[0];
         if (currentValue && String(currentValue) === resolvedValue) {
@@ -726,15 +392,14 @@ export const initializeCategoryFiltersAsync = async (
 };
 
 /**
- * 异步处理类目筛选器联动
- * 当父级类目改变时，自动更新子级类目的可选值（与 field/search 取交集）
+ * 异步处理类目筛选器联动：父改子时按 field/search 实际类目纠正选中值
  */
 export const updateCategoryFilterCascadeAsync = async (
     filters: DashboardFilters,
     changedFilter: DashboardFilterRule,
     newValue: string | null,
-    userCategories: UserCategoryList,
     projectUuid: string,
+    dashboardContext?: DashboardFilterContext,
 ): Promise<DashboardFilters> => {
     if (!isCategoryField(changedFilter)) return filters;
 
@@ -769,8 +434,8 @@ export const updateCategoryFilterCascadeAsync = async (
             const resolvedValue = await resolveCategoryFilterValueAsync({
                 filter,
                 filters: updatedFilters,
-                userCategories,
                 projectUuid,
+                dashboardContext,
                 parentValueOverride: parentValue,
             });
 
@@ -778,29 +443,20 @@ export const updateCategoryFilterCascadeAsync = async (
                 continue;
             }
 
-            // resolveCategoryFilterValueAsync 已经处理了：
-            // - 如果当前值在交集中 → 返回当前值
-            // - 如果当前值不在交集中 → 返回第一个有效值
-            // 所以这里只需要比较是否有变化
-
             const currentValue =
                 filter.values && filter.values.length > 0
                     ? String(filter.values[0])
                     : undefined;
 
             if (currentValue && currentValue === resolvedValue) {
-                continue;
-            }
-
-            if (resolvedValue !== currentValue) {
+                // 当前值仍有效，继续向下级联
+            } else {
                 hasChanges = true;
 
                 const updatedFilter: DashboardFilterRule = {
                     ...filter,
-                    values: resolvedValue ? [resolvedValue] : undefined,
-                    operator: resolvedValue
-                        ? FilterOperator.EQUALS
-                        : filter.operator,
+                    values: [resolvedValue],
+                    operator: FilterOperator.EQUALS,
                 };
 
                 updatedFilters = {

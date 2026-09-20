@@ -11,6 +11,10 @@ import { useParams } from 'react-router';
 
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import {
+    enqueueAddFilterButtonVisibilityChanged,
+    enqueueFilterBarVisibilityChanged,
+} from '../../hooks/dashboard/dashboardOperationEventQueue';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import FiltersProvider from '../common/Filters/FiltersProvider';
@@ -68,6 +72,7 @@ const DashboardFilter: FC<Props> = ({
     const setShowTabAddFilterButton = useDashboardContext(
         (c) => c.setShowTabAddFilterButton,
     );
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     // use the appropriate filter enabled state based on filterScope
     const isFilterEnabled =
         filterScope === 'global'
@@ -270,9 +275,23 @@ const DashboardFilter: FC<Props> = ({
                     <>
                         <Checkbox
                             checked={isFilterEnabled}
-                            onChange={(event) =>
-                                setIsFilterEnabled(event.currentTarget.checked)
-                            }
+                            onChange={(event) => {
+                                const next = event.currentTarget.checked;
+                                enqueueFilterBarVisibilityChanged(
+                                    {
+                                        scope: filterScope,
+                                        tabUuid: activeTabUuid,
+                                        tabName:
+                                            dashboardTabs?.find(
+                                                (tab) =>
+                                                    tab.uuid === activeTabUuid,
+                                            )?.name ?? null,
+                                    },
+                                    isFilterEnabled,
+                                    next,
+                                );
+                                setIsFilterEnabled(next);
+                            }}
                             size="sm"
                             ml={
                                 filterScope === 'global'
@@ -295,11 +314,23 @@ const DashboardFilter: FC<Props> = ({
                             <>
                                 <Checkbox
                                     checked={showAddFilterButton}
-                                    onChange={(event) =>
-                                        setShowAddFilterButton(
-                                            event.currentTarget.checked,
-                                        )
-                                    }
+                                    onChange={(event) => {
+                                const next = event.currentTarget.checked;
+                                enqueueAddFilterButtonVisibilityChanged(
+                                    {
+                                        scope: filterScope,
+                                        tabUuid: activeTabUuid,
+                                        tabName:
+                                            dashboardTabs?.find(
+                                                (tab) =>
+                                                    tab.uuid === activeTabUuid,
+                                            )?.name ?? null,
+                                    },
+                                    showAddFilterButton,
+                                    next,
+                                );
+                                setShowAddFilterButton(next);
+                            }}
                                     size="sm"
                                     ml={'md'}
                                     styles={{

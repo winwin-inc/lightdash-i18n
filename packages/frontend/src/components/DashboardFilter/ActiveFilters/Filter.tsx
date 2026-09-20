@@ -44,6 +44,10 @@ import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
 import { FilterTabs } from '../FilterConfiguration/constants';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
+import {
+    enqueueFilterDeleted,
+    enqueueFilterUpdatedFromDiff,
+} from '../../../hooks/dashboard/dashboardOperationEventQueue';
 import { useFilterDropdownStyles } from '../filterDropdownStyles';
 import { useFilterPillStyles } from '../filterPillStyles';
 
@@ -396,11 +400,39 @@ const Filter: FC<Props> = ({
 
     const handleSaveChanges = useCallback(
         (newRule: DashboardFilterRule) => {
+            const tabName =
+                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
+                null;
+            enqueueFilterUpdatedFromDiff(filterRule, newRule, {
+                scope: filterScope,
+                tabUuid: activeTabUuid,
+                tabName,
+            });
             onUpdate(newRule);
             handleClose();
         },
-        [onUpdate, handleClose],
+        [
+            onUpdate,
+            handleClose,
+            filterRule,
+            filterScope,
+            activeTabUuid,
+            dashboardTabs,
+        ],
     );
+
+    const handleRemoveFilter = useCallback(() => {
+        const tabName =
+            dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
+            null;
+        enqueueFilterDeleted(filterRule, {
+            scope: filterScope,
+            tabUuid: activeTabUuid,
+            tabName,
+        });
+        onRemove();
+    }, [onRemove, filterRule, filterScope, activeTabUuid, dashboardTabs]);
+
 
     const appliedDashboardTabs = useMemo(() => {
         if (filterScope === 'global') {
@@ -590,7 +622,7 @@ const Filter: FC<Props> = ({
                                             {!isReadOnlyLocked && (
                                                 <CloseButton
                                                     size="sm"
-                                                    onClick={onRemove}
+                                                    onClick={handleRemoveFilter}
                                                 />
                                             )}
                                         </Group>

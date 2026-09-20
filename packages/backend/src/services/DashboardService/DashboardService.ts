@@ -1,8 +1,8 @@
 import { subject } from '@casl/ability';
+import { PROJECT_OPERATION_LOG_ACTIONS } from '@lightdash/common';
 import {
     AbilityAction,
     BulkActionable,
-    convertOrganizationRoleToProjectRole,
     CreateDashboard,
     CreateDashboardWithCharts,
     CreateSavedChart,
@@ -14,6 +14,16 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
+    OrganizationMemberRole,
+    ParameterError,
+    ProjectMemberRole,
+    SchedulerAndTargets,
+    SchedulerFormat,
+    SessionUser,
+    TogglePinnedItemInfo,
+    UpdateDashboard,
+    UpdateMultipleDashboards,
+    convertOrganizationRoleToProjectRole,
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
@@ -24,17 +34,7 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
-    OrganizationMemberRole,
-    ParameterError,
-    ProjectMemberRole,
     SCHEDULER_TASKS,
-    SchedulerAndTargets,
-    SchedulerFormat,
-    SessionUser,
-    TogglePinnedItemInfo,
-    UpdateDashboard,
-    UpdateMultipleDashboards,
-    type CategoryTreeNode,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
@@ -46,7 +46,6 @@ import {
     type ExportContentPayload,
     type ExportContentRequest,
     type SchedulerCsvOptions,
-    type UserCategoryList,
     type UserDashboardsSummary,
     type UUID,
 } from '@lightdash/common';
@@ -79,6 +78,8 @@ import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
 import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
+import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
 
 type DashboardServiceArguments = {
@@ -97,6 +98,7 @@ type DashboardServiceArguments = {
     userDashboardCategoryModel: UserDashboardCategoryModel;
     categoryRpcClient: CategoryRpcClient;
     organizationMemberProfileModel: OrganizationMemberProfileModel;
+    projectOperationLogService: ProjectOperationLogService;
 };
 
 export class DashboardService
@@ -133,6 +135,8 @@ export class DashboardService
 
     organizationMemberProfileModel: OrganizationMemberProfileModel;
 
+    projectOperationLogService: ProjectOperationLogService;
+
     constructor({
         analytics,
         dashboardModel,
@@ -149,6 +153,7 @@ export class DashboardService
         userDashboardCategoryModel,
         categoryRpcClient,
         organizationMemberProfileModel,
+        projectOperationLogService,
     }: DashboardServiceArguments) {
         super();
         this.analytics = analytics;
@@ -166,6 +171,7 @@ export class DashboardService
         this.userDashboardCategoryModel = userDashboardCategoryModel;
         this.categoryRpcClient = categoryRpcClient;
         this.organizationMemberProfileModel = organizationMemberProfileModel;
+        this.projectOperationLogService = projectOperationLogService;
     }
 
     static getCreateEventProperties(
@@ -719,6 +725,16 @@ export class DashboardService
             properties: DashboardService.getCreateEventProperties(newDashboard),
         });
 
+        await this.projectOperationLogService.record({
+            organizationUuid: space.organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_CREATED,
+            resourceType: 'dashboard',
+            resourceUuid: newDashboard.uuid,
+            resourceName: newDashboard.name,
+        });
+
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             newDashboard.uuid,
         );
@@ -937,6 +953,20 @@ export class DashboardService
             properties: { ...dashboardProperties, duplicated: true },
         });
 
+        await this.projectOperationLogService.record({
+            organizationUuid: dashboard.organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_DUPLICATED,
+            resourceType: 'dashboard',
+            resourceUuid: newDashboard.uuid,
+            resourceName: newDashboard.name,
+            summary: {
+                sourceDashboardUuid: dashboard.uuid,
+                sourceDashboardName: dashboard.name,
+            },
+        });
+
         this.analytics.track({
             event: 'duplicated_dashboard_created',
             userId: user.userUuid,
@@ -1088,6 +1118,159 @@ export class DashboardService
             updatedNewDashboard.spaceUuid,
         );
 
+        const spaceMoved =
+            isDashboardUnversionedFields(dashboard) &&
+            !!dashboard.spaceUuid &&
+            dashboard.spaceUuid !== existingDashboardDao.spaceUuid;
+
+        const baseLog = {
+            organizationUuid: existingDashboardDao.organizationUuid,
+            projectUuid: existingDashboardDao.projectUuid,
+            actor: user,
+            resourceType: 'dashboard' as const,
+            resourceUuid: existingDashboardDao.uuid,
+            resourceName: updatedNewDashboard.name,
+        };
+
+        if (spaceMoved) {
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_MOVED,
+                summary: {
+                    previousSpaceUuid: existingDashboardDao.spaceUuid,
+                    newSpaceUuid: dashboard.spaceUuid,
+                },
+            });
+        }
+
+
+        const clientEvents =
+            'clientEvents' in dashboard
+                ? (dashboard as UpdateDashboard).clientEvents
+                : undefined;
+        const hasClientEvents =
+            Array.isArray(clientEvents) && clientEvents.length > 0;
+
+        type MergedOperationChange = {
+            action: string;
+            resourceType?: string;
+            resourceUuid?: string | null;
+            resourceName?: string | null;
+            summary?: Record<string, unknown> | null;
+        };
+
+        const mergedChanges: MergedOperationChange[] = [];
+
+        if (hasClientEvents) {
+            for (const event of clientEvents!) {
+                mergedChanges.push({
+                    action: String(event.action),
+                    resourceType: event.resourceType,
+                    resourceUuid: event.resourceUuid,
+                    resourceName: event.resourceName,
+                    summary: {
+                        ...(event.summary ?? {}),
+                        source: 'client',
+                        schemaVersion: event.schemaVersion,
+                        scope: event.scope,
+                        tabUuid: event.tabUuid,
+                        tabName: event.tabName,
+                        changeKind: event.changeKind,
+                        occurredAt: event.occurredAt,
+                    },
+                });
+            }
+        }
+
+        if (isDashboardVersionedFields(dashboard)) {
+            let fineEvents = diffDashboardVersionedContent(
+                existingDashboardDao,
+                {
+                    filters: dashboard.filters ?? existingDashboardDao.filters,
+                    tiles: dashboard.tiles ?? existingDashboardDao.tiles,
+                    tabs: dashboard.tabs ?? existingDashboardDao.tabs ?? [],
+                    parameters:
+                        dashboard.parameters ?? existingDashboardDao.parameters,
+                    config: dashboard.config ?? existingDashboardDao.config,
+                },
+            );
+
+            // FE semantic events cover filters; also drop incidental
+            // config/parameters "dashboard.updated" noise on the same save.
+            if (hasClientEvents) {
+                fineEvents = fineEvents.filter(
+                    (event) =>
+                        !String(event.action).startsWith(
+                            'dashboard.filters.',
+                        ) &&
+                        event.action !==
+                            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                );
+            }
+
+            for (const event of fineEvents) {
+                mergedChanges.push({
+                    action: String(event.action),
+                    summary: {
+                        ...(event.summary ?? {}),
+                        source: 'diff',
+                    },
+                });
+            }
+
+            const dashboardContext = {
+                dashboardUuid: baseLog.resourceUuid,
+                dashboardName: baseLog.resourceName,
+            };
+
+            if (mergedChanges.length === 1) {
+                const only = mergedChanges[0];
+                await this.projectOperationLogService.record({
+                    ...baseLog,
+                    action: only.action,
+                    resourceType: only.resourceType ?? baseLog.resourceType,
+                    resourceUuid: only.resourceUuid ?? baseLog.resourceUuid,
+                    resourceName: only.resourceName ?? baseLog.resourceName,
+                    summary: {
+                        ...(only.summary ?? {}),
+                        ...dashboardContext,
+                    },
+                });
+            } else if (mergedChanges.length > 1) {
+                await this.projectOperationLogService.record({
+                    ...baseLog,
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                    summary: {
+                        kind: 'save',
+                        changeCount: mergedChanges.length,
+                        changeKinds: mergedChanges.map((c) => c.action),
+                        changes: mergedChanges.map((change) => ({
+                            ...change,
+                            summary: {
+                                ...(change.summary ?? {}),
+                                ...dashboardContext,
+                            },
+                        })),
+                        ...dashboardContext,
+                    },
+                });
+            }
+        } else if (
+            isDashboardUnversionedFields(dashboard) &&
+            !spaceMoved
+        ) {
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                summary: {
+                    kind: 'unversioned',
+                    name: dashboard.name,
+                    description: dashboard.description,
+                    ownerUserUuid: dashboard.ownerUserUuid,
+                },
+            });
+        }
+
         return {
             ...updatedNewDashboard,
             isPrivate: space.isPrivate,
@@ -1193,9 +1376,10 @@ export class DashboardService
                 targetUserUuid,
             );
 
-        const summary = await this.dashboardModel.getDashboardsSummaryByOwner(
-            targetUserUuid,
-        );
+        const summary =
+            await this.dashboardModel.getDashboardsSummaryByOwner(
+                targetUserUuid,
+            );
 
         const projectsWithoutPermission = summary.byProject
             .filter(
@@ -1329,6 +1513,23 @@ export class DashboardService
             dashboards,
         );
 
+        const { organizationUuid: projectOrganizationUuid } =
+            await this.projectModel.get(projectUuid);
+        await Promise.all(
+            updatedDashboards.map((dashboard) =>
+                this.projectOperationLogService.record({
+                    organizationUuid:
+                        dashboard.organizationUuid ?? projectOrganizationUuid,
+                    projectUuid,
+                    actor: user,
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                    resourceType: 'dashboard',
+                    resourceUuid: dashboard.uuid,
+                    resourceName: dashboard.name,
+                }),
+            ),
+        );
+
         const updatedDashboardsWithSpacesAccess = updatedDashboards.map(
             async (dashboard) => {
                 const dashboardSpace = await this.spaceModel.getSpaceSummary(
@@ -1437,6 +1638,16 @@ export class DashboardService
                 dashboardId: deletedDashboard.uuid,
                 projectId: deletedDashboard.projectUuid,
             },
+        });
+
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_DELETED,
+            resourceType: 'dashboard',
+            resourceUuid: deletedDashboard.uuid,
+            resourceName: dashboardToDelete.name,
         });
     }
 
@@ -1839,8 +2050,7 @@ export class DashboardService
     }
 
     /**
-     * 获取用户的项目角色
-     * 优先级：直接项目成员 > 组成员 > 组织角色转换
+     * (comment encoding fixed)
      */
     private async getUserProjectRole(
         user: SessionUser,
@@ -1903,308 +2113,5 @@ export class DashboardService
         }
 
         return userRole || null;
-    }
-
-    /**
-     * 获取当前用户的类目列表
-     * 根据用户在看板类目权限中的权限，构建一级、二级、三级、四级的类目树。
-     * 依赖内部后台 Admin API；未配置时返回空列表。
-     * 类目权限过滤对所有项目、所有角色生效（与客户使用模式无关；客户使用模式仅用于 UI 收敛与 VIEWER 看板白名单）。
-     * @param user 用户
-     * @param projectUuid 项目UUID
-     * @param dashboardUuid 看板UUID（可选），如果提供则只返回该看板相关的类目
-     */
-    async getUserCategories(
-        user: SessionUser,
-        projectUuid: string,
-        dashboardUuid?: string,
-    ): Promise<UserCategoryList> {
-        const emptyCategories: UserCategoryList = {
-            level1: [],
-            level2: [],
-            level3: [],
-            level4: [],
-        };
-
-        if (!this.categoryRpcClient.isConfigured()) {
-            return emptyCategories;
-        }
-
-        const db = this.userDashboardCategoryModel.getDatabase();
-        const project = await db
-            .from('projects')
-            .where('project_uuid', projectUuid)
-            .select('project_uuid')
-            .first();
-
-        if (!project) {
-            throw new ParameterError(`Project ${projectUuid} not found`);
-        }
-
-        // 类目权限过滤适用于所有用户，不区分角色
-        // 只有没有 email 或 mobile 时才返回空列表
-        // If user has no email, return empty category list
-        if (!user.email) {
-            this.logger.warn(
-                `User ${user.userUuid} has no email, returning empty category list`,
-            );
-            return {
-                level1: [],
-                level2: [],
-                level3: [],
-                level4: [],
-            };
-        }
-
-        // Extract mobile number from email (remove @ and everything after it)
-        const normalizedEmail = user.email.trim().toLowerCase();
-        const mobile = normalizedEmail.split('@')[0];
-
-        if (!mobile) {
-            this.logger.warn(
-                `User ${user.userUuid} email ${normalizedEmail} has no mobile part, returning empty category list`,
-            );
-            return {
-                level1: [],
-                level2: [],
-                level3: [],
-                level4: [],
-            };
-        }
-
-        let allowedCategoryIds: Set<string>;
-        try {
-            // Call RPC interface to get dashboards by mobile
-            const dashboardsByMobile =
-                await this.categoryRpcClient.findAllDashboardByMobile(mobile);
-
-            // Filter dashboards by projectUuid
-            let filteredDashboards = dashboardsByMobile.filter(
-                (dashboard) => dashboard.projectUuid === projectUuid,
-            );
-
-            // If dashboardUuid is provided, filter by it
-            if (dashboardUuid) {
-                filteredDashboards = filteredDashboards.filter(
-                    (dashboard) => dashboard.dashboardUuid === dashboardUuid,
-                );
-            }
-
-            // Extract all leaf category IDs from dashboards with categories
-            // Dashboards without categories (categoryLevel = 0 and leafCategories = [])
-            // should not contribute to category list - return empty categories
-            // This means no category filters are needed, frontend won't show category filters
-            allowedCategoryIds = new Set<string>();
-            filteredDashboards.forEach((dashboard) => {
-                // Skip dashboards without categories
-                // These dashboards don't need category filtering, so return empty categories
-                if (
-                    dashboard.categoryLevel === 0 &&
-                    (!dashboard.leafCategories ||
-                        dashboard.leafCategories.length === 0)
-                ) {
-                    // Dashboard without categories - skip, will return empty categories
-                    // Frontend won't show category filters for these dashboards
-                    return;
-                }
-                dashboard.leafCategories.forEach(
-                    (categoryId: string | undefined) => {
-                        if (categoryId) {
-                            allowedCategoryIds.add(categoryId);
-                        }
-                    },
-                );
-            });
-
-            if (allowedCategoryIds.size === 0) {
-                this.logger.warn(
-                    `No categories found for mobile ${mobile} in project ${projectUuid}`,
-                );
-                return { level1: [], level2: [], level3: [], level4: [] };
-            }
-        } catch (error) {
-            this.logger.error(
-                `Error fetching dashboards by mobile ${mobile}: ${
-                    error instanceof Error ? error.message : String(error)
-                }`,
-            );
-            // On error, return empty category list
-            return { level1: [], level2: [], level3: [], level4: [] };
-        }
-
-        // 调用 RPC 接口获取所有类目
-        const allCategories = await this.categoryRpcClient.findAllCategories();
-
-        this.logger.info(
-            `User ${normalizedEmail} has ${allowedCategoryIds.size} allowed category ids in project ${projectUuid}`,
-        );
-        this.logger.info(
-            `top 10 categories: ${JSON.stringify(allCategories.slice(0, 10))}`,
-        );
-
-        // 构建类目映射表
-        const categoryMap = new Map<string, CategoryTreeNode>();
-        allCategories.forEach((cat) => {
-            categoryMap.set(cat.categoryId, {
-                categoryId: cat.categoryId,
-                parentId: cat.parentId,
-                name: cat.name,
-                nameEn: cat.nameEn,
-                level: cat.level,
-                children: [],
-            });
-        });
-
-        // 找出用户有权限的类目及其所有父级和子级类目
-        const relevantCategoryIds = new Set<string>();
-
-        // 对于每个用户有权限的类目，添加其所有父级和子级
-        allowedCategoryIds.forEach((categoryId) => {
-            // 添加当前类目
-            relevantCategoryIds.add(categoryId);
-
-            // 向上查找所有父级
-            let currentId = categoryId;
-            while (currentId) {
-                const category = categoryMap.get(currentId);
-                if (!category) break;
-                relevantCategoryIds.add(category.categoryId);
-                currentId = category.parentId || '';
-            }
-
-            // 向下查找所有子级（递归）
-            const addChildren = (id: string) => {
-                allCategories.forEach((cat) => {
-                    if (cat.parentId === id) {
-                        relevantCategoryIds.add(cat.categoryId);
-                        addChildren(cat.categoryId);
-                    }
-                });
-            };
-            addChildren(categoryId);
-        });
-
-        // 构建类目树（只包含相关类目）
-        const buildTree = (parentId: string): CategoryTreeNode[] => {
-            const children: CategoryTreeNode[] = [];
-            allCategories.forEach((cat) => {
-                if (
-                    cat.parentId === parentId &&
-                    relevantCategoryIds.has(cat.categoryId)
-                ) {
-                    const node: CategoryTreeNode = {
-                        categoryId: cat.categoryId,
-                        parentId: cat.parentId,
-                        name: cat.name,
-                        nameEn: cat.nameEn,
-                        level: cat.level,
-                    };
-
-                    // 递归添加子节点
-                    const childNodes = buildTree(cat.categoryId);
-                    if (childNodes.length > 0) {
-                        node.children = childNodes;
-                    }
-
-                    children.push(node);
-                }
-            });
-            return children;
-        };
-
-        // 构建完整的类目树（从根开始）
-        const fullTree = buildTree('');
-
-        // 从完整树中提取各级类目
-        const extractByLevel = (
-            nodes: CategoryTreeNode[],
-            targetLevel: number,
-        ): CategoryTreeNode[] => {
-            const result: CategoryTreeNode[] = [];
-            const traverse = (nodeList: CategoryTreeNode[]) => {
-                nodeList.forEach((node) => {
-                    if (node.level === targetLevel) {
-                        // 创建节点副本，但不包含子节点（因为这是平铺列表）
-                        const flatNode: CategoryTreeNode = {
-                            categoryId: node.categoryId,
-                            parentId: node.parentId,
-                            name: node.name,
-                            nameEn: node.nameEn,
-                            level: node.level,
-                        };
-                        result.push(flatNode);
-                    }
-                    if (node.children) {
-                        traverse(node.children);
-                    }
-                });
-            };
-            traverse(nodes);
-            return result;
-        };
-
-        return {
-            level1: extractByLevel(fullTree, 1),
-            level2: extractByLevel(fullTree, 2),
-            level3: extractByLevel(fullTree, 3),
-            level4: extractByLevel(fullTree, 4),
-        };
-    }
-
-    /**
-     * 验证筛选器中的类目值是否在用户权限范围内
-     * 用于检查看板筛选器中绑定的类目字段（如 cls_1、cls_2）的值是否合法
-     * @param user 用户
-     * @param projectUuid 项目UUID
-     * @param categoryFieldName 类目字段名（如 'cls_1', 'cls_2'）
-     * @param categoryValue 类目值（categoryId）
-     * @returns 是否在权限范围内
-     */
-    async validateCategoryFilterValue(
-        user: SessionUser,
-        projectUuid: string,
-        categoryFieldName: string,
-        categoryValue: string,
-    ): Promise<boolean> {
-        // 获取用户的类目权限树
-        const userCategories = await this.getUserCategories(user, projectUuid);
-
-        // 根据字段名确定类目层级
-        let allowedCategoryIds: string[] = [];
-        if (categoryFieldName === 'cls_1' || categoryFieldName === 'cls1') {
-            allowedCategoryIds = userCategories.level1.map(
-                (cat) => cat.categoryId,
-            );
-        } else if (
-            categoryFieldName === 'cls_2' ||
-            categoryFieldName === 'cls2'
-        ) {
-            allowedCategoryIds = userCategories.level2.map(
-                (cat) => cat.categoryId,
-            );
-        } else if (
-            categoryFieldName === 'cls_3' ||
-            categoryFieldName === 'cls3'
-        ) {
-            allowedCategoryIds = userCategories.level3.map(
-                (cat) => cat.categoryId,
-            );
-        } else if (
-            categoryFieldName === 'cls_4' ||
-            categoryFieldName === 'cls4'
-        ) {
-            allowedCategoryIds = userCategories.level4.map(
-                (cat) => cat.categoryId,
-            );
-        } else {
-            // 如果不是已知的类目字段，返回 false
-            this.logger.warn(
-                `Unknown category field name: ${categoryFieldName} for user ${user.userUuid}`,
-            );
-            return false;
-        }
-
-        // 检查值是否在允许的类目ID列表中
-        return allowedCategoryIds.includes(categoryValue);
     }
 }

@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/mcp",
-    "version": "2.0.4",
+    "version": "2.0.8",
     "private": true,
     "license": "MIT",
     "description": "MCP for Lightdash REST API（Streamable HTTP）",

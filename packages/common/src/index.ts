@@ -11,6 +11,11 @@ import {
     type ViewStatistics,
 } from './types/analytics';
 import {
+    type ProjectOperationLogList,
+    type ProjectOperationLogListItem,
+    type ProjectOperationLogPurgeResult,
+} from './types/projectOperationLog';
+import {
     type Dashboard,
     type DashboardAvailableFilters,
     type DashboardBasicDetails,
@@ -237,7 +242,7 @@ import type { PivotValuesColumn } from './visualizations/types';
 
 dayjs.extend(utc);
 
-/** When set, DATE/TIMESTAMP raw values use this IANA timezone in API/CSV (e.g. +08:00). Otherwise UTC (…Z). */
+/** When set, DATE/TIMESTAMP raw values use this IANA timezone in API/CSV (e.g. +08:00). Otherwise UTC (鈥). */
 export type ResultFormattingOptions = {
     displayTimezone?: string;
 };
@@ -262,6 +267,7 @@ export { default as lightdashProjectConfigSchema } from './schemas/json/lightdas
 export * from './templating/template';
 export * from './types/account';
 export * from './types/analytics';
+export * from './types/projectOperationLog';
 export * from './types/any';
 export * from './types/api';
 export * from './types/api/comments';
@@ -991,6 +997,9 @@ type ApiResults =
     | UnusedContent
     | UnusedContentItem
     | ApiUnusedContent
+    | ProjectOperationLogList
+    | ProjectOperationLogListItem
+    | ProjectOperationLogPurgeResult
     | SchedulerAndTargets
     | SchedulerAndTargets[]
     | FieldValueSearchResult

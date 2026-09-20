@@ -429,7 +429,16 @@ const FilterConfiguration: FC<Props> = ({
             );
         }
 
-        if (!isDraftModifiedFromApplied) {
+        const differsFromSaved =
+            !!originalFilterRule &&
+            hasSavedFilterValueChanged(
+                originalFilterRule,
+                draftFilterRuleWithPendingExcludedValue,
+            );
+
+        // Allow Apply when only tileTargets were backfilled vs saved state,
+        // even if draft already matches defaultFilterRule (UI defaults).
+        if (!isDraftModifiedFromApplied && !differsFromSaved) {
             return true;
         }
 

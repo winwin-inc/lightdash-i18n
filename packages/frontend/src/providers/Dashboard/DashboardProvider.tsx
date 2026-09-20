@@ -62,12 +62,13 @@ import {
     isEmptyTabFilters,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
-import useHealth from '../../hooks/health/useHealth';
-import useToaster from '../../hooks/toaster/useToaster';
-import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
-import { useUserCategories } from '../../hooks/useUserCategories';
 import {
-    hasAnyUserCategories,
+    hasSavedFiltersOverrides,
+} from '../../hooks/useSavedDashboardFiltersOverrides';
+import useToaster from '../../hooks/toaster/useToaster';
+import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import {
+    hasCategoryFilters,
     initializeCategoryFiltersAsync,
     isCategoryField,
     updateCategoryFilterCascadeAsync,
@@ -174,6 +175,8 @@ const DashboardProvider: React.FC<
     const [activeTab, setActiveTab] = useState<
         Dashboard['tabs'][number] | undefined
     >();
+    const { setDashboardActiveTabUuid, getDashboardLastTabUuid } =
+        useDashboardStorage();
 
     // dashboard filter state
     const {
@@ -190,17 +193,6 @@ const DashboardProvider: React.FC<
         haveShowAddFilterButtonStatesChanged,
         setHaveShowAddFilterButtonStatesChanged,
     } = useDashboardFilterState({ dashboard });
-
-    // 类目权限依赖内部后台 Admin API；与客户使用模式无关
-    const { data: health } = useHealth();
-    const hasAdminApi = health?.hasAdminApi ?? false;
-    const { data: userCategories } = useUserCategories({
-        dashboardUuid, // 传递当前看板的 UUID，以便根据看板过滤类目
-        useQueryOptions: {
-            enabled: !!projectUuid && hasAdminApi,
-        },
-    });
-    const canApplyCategoryFilters = hasAnyUserCategories(userCategories);
 
     // 筛选器状态（含 URL override 与 reset；override hook 只在 useDashboardFilters 内实例化一次）
     const {
@@ -226,43 +218,56 @@ const DashboardProvider: React.FC<
         isFilterEnabled: isGlobalFilterEnabled,
     });
 
-    // 异步版本：与 field/search 取交集后再设值
+    // 类目联动按 field/search 实际数据（含 dashboardSlug → dbt RLS），不依赖 Admin 类目接口
+    const dashboardFilterContext = useMemo(
+        () => ({
+            dashboardSlug: (dashboard || embedDashboard)?.slug,
+            dashboardName: (dashboard || embedDashboard)?.name,
+        }),
+        [dashboard, embedDashboard],
+    );
+    // 须有 dashboardSlug，避免未就绪时按 NA 绕过 dbt 控制码
+    const canApplyCategoryFilters =
+        !isEditMode &&
+        !!projectUuid &&
+        !!(dashboard || embedDashboard)?.slug;
+
+    // 按 field/search 实际类目初始化默认值
     const initializeCategoryFiltersWithFieldSearch = useCallback(
         async (filters: DashboardFilters): Promise<DashboardFilters> => {
-            if (!canApplyCategoryFilters || !userCategories || !projectUuid)
-                return filters;
+            if (!canApplyCategoryFilters || !projectUuid) return filters;
+            if (!hasCategoryFilters(filters)) return filters;
             return initializeCategoryFiltersAsync(
                 filters,
-                userCategories,
                 projectUuid,
+                dashboardFilterContext,
             );
         },
-        [canApplyCategoryFilters, userCategories, projectUuid],
+        [canApplyCategoryFilters, projectUuid, dashboardFilterContext],
     );
 
-    // 异步联动：与 field/search 取交集
+    // 父改子联动：按 field/search 实际类目纠正选中值
     const updateCascadeWithFieldSearch = useCallback(
         async (
             filters: DashboardFilters,
             changedFilter: DashboardFilterRule,
             newValue: string | null,
         ): Promise<DashboardFilters> => {
-            if (!canApplyCategoryFilters || !userCategories || !projectUuid)
-                return filters;
+            if (!canApplyCategoryFilters || !projectUuid) return filters;
             const cascaded = await updateCategoryFilterCascadeAsync(
                 filters,
                 changedFilter,
                 newValue,
-                userCategories,
                 projectUuid,
+                dashboardFilterContext,
             );
             return initializeCategoryFiltersAsync(
                 cascaded,
-                userCategories,
                 projectUuid,
+                dashboardFilterContext,
             );
         },
-        [canApplyCategoryFilters, userCategories, projectUuid],
+        [canApplyCategoryFilters, projectUuid, dashboardFilterContext],
     );
 
     const replaceDimensionFilterAtIndex = useCallback(
@@ -541,39 +546,43 @@ const DashboardProvider: React.FC<
         return (selectable.length > 0 ? selectable : sorted)[0];
     }, [dashboardTabs, isEditMode]);
 
-    // 同步当前 tab：view 模式下 hidden tab 不可选，URL 指向 hidden 时回退到首个可见 tab
+    // 同步当前 tab：URL > 本地上次选中 > 首个可见；切 tab 时写入缓存
     useEffect(() => {
         if (!dashboardTabs?.length) return;
+
+        const rememberedTabUuid =
+            tabUuid ?? getDashboardLastTabUuid(dashboardUuid) ?? undefined;
+
+        const resolvedTab = getActiveTabForTabs(
+            dashboardTabs,
+            rememberedTabUuid,
+            isEditMode,
+            undefined,
+        );
 
         setActiveTab((currentActiveTab) =>
             getActiveTabForTabs(
                 dashboardTabs,
-                tabUuid,
+                rememberedTabUuid,
                 isEditMode,
                 currentActiveTab,
             ),
         );
 
-        if (!firstTabByOrder) return;
+        if (resolvedTab?.uuid) {
+            setDashboardActiveTabUuid(dashboardUuid, resolvedTab.uuid);
+        }
 
-        const resolvedTab = getActiveTabForTabs(
-            dashboardTabs,
-            tabUuid,
-            isEditMode,
-            undefined,
-        );
-        const needRedirect =
-            !embedToken &&
-            dashboardTabs.length > 1 &&
-            projectUuid &&
-            resolvedTab?.uuid === firstTabByOrder.uuid &&
-            (!tabUuid || tabUuid !== firstTabByOrder.uuid);
+        if (!resolvedTab || embedToken || dashboardTabs.length <= 1 || !projectUuid) {
+            return;
+        }
 
-        if (needRedirect) {
+        // URL 未带 tab，或指向不可选 tab 时，纠正到解析后的 tab（含上次缓存）
+        if (!tabUuid || tabUuid !== resolvedTab.uuid) {
             const base = `/projects/${projectUuid}/dashboards/${dashboardUuid}/${
                 mode || 'view'
             }`;
-            void navigate(`${base}/tabs/${firstTabByOrder.uuid}`, {
+            void navigate(`${base}/tabs/${resolvedTab.uuid}`, {
                 replace: true,
             });
         }
@@ -587,6 +596,8 @@ const DashboardProvider: React.FC<
         dashboardUuid,
         mode,
         navigate,
+        getDashboardLastTabUuid,
+        setDashboardActiveTabUuid,
     ]);
 
     // Apply scheduler parameters when provided (for scheduled deliveries)
@@ -940,7 +951,7 @@ const DashboardProvider: React.FC<
                 updatedDashboardFilters,
             );
 
-            // Step 4: Initialize category filters based on user permissions (when Admin API is available)
+            // Step 4: Initialize category filters from field/search actual values
             if (canApplyCategoryFilters && !isEditMode) {
                 setDashboardFilters(updatedDashboardFilters);
                 void initializeCategoryFiltersWithFieldSearch(
@@ -980,7 +991,6 @@ const DashboardProvider: React.FC<
         tabFilters,
         canApplyCategoryFilters,
         isEditMode,
-        userCategories,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
@@ -991,52 +1001,35 @@ const DashboardProvider: React.FC<
         showToastInfo,
         t,
     ]);
-    // This ensures category filters are initialized even if userCategories loads after dashboard
+    // Initialize category filters once dashboard filters and slug context are ready
     useEffect(() => {
-        if (
-            !canApplyCategoryFilters ||
-            !userCategories ||
-            !projectUuid ||
-            isEditMode
-        )
-            return;
+        if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
 
-        // 用 functional update 读取当前 filters，避免依赖 dashboardFilters 导致循环
         setDashboardFilters((currentFilters) => {
             if (currentFilters === emptyFilters) return currentFilters;
-            const hasCategoryFields = currentFilters.dimensions.some((filter) =>
-                isCategoryField(filter),
-            );
-            if (!hasCategoryFields) return currentFilters;
+            if (!hasCategoryFilters(currentFilters)) return currentFilters;
 
-            // 触发异步初始化
             void initializeCategoryFiltersAsync(
                 currentFilters,
-                userCategories,
                 projectUuid,
+                dashboardFilterContext,
             ).then((refined) => {
                 setDashboardFilters(refined);
             });
 
-            return currentFilters; // 先返回原值，等异步完成后再更新
+            return currentFilters;
         });
     }, [
         canApplyCategoryFilters,
-        userCategories,
         projectUuid,
         isEditMode,
+        dashboardFilterContext,
         setDashboardFilters,
     ]);
 
-    // Apply category filters to tab filters when userCategories loads
+    // Apply category filters to tab filters when dashboard context is ready
     useEffect(() => {
-        if (
-            !canApplyCategoryFilters ||
-            !userCategories ||
-            !projectUuid ||
-            isEditMode
-        )
-            return;
+        if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
         if (isEmptyTabFilters(tabFilters)) return;
 
         const asyncRefine = async () => {
@@ -1046,8 +1039,8 @@ const DashboardProvider: React.FC<
             for (const [uuid, filters] of Object.entries(tabFilters)) {
                 const refined = await initializeCategoryFiltersAsync(
                     filters,
-                    userCategories,
                     projectUuid,
+                    dashboardFilterContext,
                 );
                 if (refined !== filters) {
                     updated[uuid] = refined;
@@ -1062,9 +1055,9 @@ const DashboardProvider: React.FC<
         void asyncRefine();
     }, [
         canApplyCategoryFilters,
-        userCategories,
         projectUuid,
         isEditMode,
+        dashboardFilterContext,
         tabFilters,
         setTabFilters,
     ]);
@@ -1238,7 +1231,6 @@ const DashboardProvider: React.FC<
         overridesForSavedDashboardFilters,
         activeTab,
         canApplyCategoryFilters,
-        userCategories,
         isEditMode,
         initializeCategoryFiltersWithFieldSearch,
         setDashboardFilters,
@@ -1272,8 +1264,7 @@ const DashboardProvider: React.FC<
             // TODO: this should probably merge with the filters
             // from the database. This will break if they diverge,
             // meaning there is a subtle race condition here
-            // Apply category filter initialization when Admin API categories are available
-            // Note: If userCategories is not loaded yet, it will be applied in the useEffect below
+            // Apply category filter initialization from field/search actual values
             if (canApplyCategoryFilters && !isEditMode) {
                 setDashboardFilters(unsavedDashboardFilters);
                 void initializeCategoryFiltersWithFieldSearch(
@@ -1299,12 +1290,16 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce((acc, [uuid, filter]) => {
-                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
-                        filter as DashboardFiltersFromSearchParam,
-                    );
-                    return acc;
-                }, {} as Record<string, DashboardFilters>),
+                Object.entries(filters).reduce(
+                    (acc, [uuid, filter]) => {
+                        acc[uuid] =
+                            convertDashboardFiltersParamToDashboardFilters(
+                                filter as DashboardFiltersFromSearchParam,
+                            );
+                        return acc;
+                    },
+                    {} as Record<string, DashboardFilters>,
+                ),
             );
         }
     });
