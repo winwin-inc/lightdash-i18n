@@ -6,6 +6,7 @@ import {
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../api';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
 import useToaster from '../../../hooks/toaster/useToaster';
@@ -14,6 +15,7 @@ const CACHE_KEY = 'custom-roles';
 const ALL_ROLES_CACHE_KEY = 'all-roles';
 
 export const useCustomRoles = () => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
     const { data: organization } = useOrganization();
@@ -64,12 +66,12 @@ export const useCustomRoles = () => {
                 queryKey: [ALL_ROLES_CACHE_KEY, organization?.organizationUuid],
             });
             showToastSuccess({
-                title: `Custom role created successfully`,
+                title: t('ee_custom_roles.create_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to create custom role`,
+                title: t('ee_custom_roles.create_error'),
                 apiError: error,
             });
         },
@@ -94,12 +96,12 @@ export const useCustomRoles = () => {
                 queryKey: [ALL_ROLES_CACHE_KEY, organization?.organizationUuid],
             });
             showToastSuccess({
-                title: `Custom role deleted successfully`,
+                title: t('ee_custom_roles.delete_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete custom role`,
+                title: t('ee_custom_roles.delete_error'),
                 apiError: error,
             });
         },
@@ -151,12 +153,12 @@ export const useCustomRoles = () => {
                 queryKey: [ALL_ROLES_CACHE_KEY, organization?.organizationUuid],
             });
             showToastSuccess({
-                title: `Role duplicated successfully`,
+                title: t('ee_custom_roles.duplicate_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to duplicate role`,
+                title: t('ee_custom_roles.duplicate_error'),
                 apiError: error,
             });
         },

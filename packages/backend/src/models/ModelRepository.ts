@@ -2,6 +2,8 @@ import { Knex } from 'knex';
 import { LightdashConfig } from '../config/parseConfig';
 import { type UtilRepository } from '../utils/UtilRepository';
 import { AnalyticsModel } from './AnalyticsModel';
+import { AppModel } from './AppModel';
+import { OrganizationDesignModel } from './OrganizationDesignModel';
 import { CatalogModel } from './CatalogModel/CatalogModel';
 import { ChangesetModel } from './ChangesetModel';
 import { CommentModel } from './CommentModel/CommentModel';
@@ -29,6 +31,7 @@ import { OrganizationWarehouseCredentialsModel } from './OrganizationWarehouseCr
 import { PasswordResetLinkModel } from './PasswordResetLinkModel';
 import { PinnedListModel } from './PinnedListModel';
 import { ProjectModel } from './ProjectModel/ProjectModel';
+import { ProjectOperationLogModel } from './ProjectOperationLogModel/ProjectOperationLogModel';
 import { ProjectParametersModel } from './ProjectParametersModel';
 import { QueryHistoryModel } from './QueryHistoryModel/QueryHistoryModel';
 import { ResourceViewItemModel } from './ResourceViewItemModel';
@@ -57,6 +60,8 @@ import { WarehouseAvailableTablesModel } from './WarehouseAvailableTablesModel/W
 
 export type ModelManifest = {
     analyticsModel: AnalyticsModel;
+    appModel: AppModel;
+    organizationDesignModel: OrganizationDesignModel;
     commentModel: CommentModel;
     dashboardModel: DashboardModel;
     downloadFileModel: DownloadFileModel;
@@ -80,6 +85,7 @@ export type ModelManifest = {
     personalAccessTokenModel: PersonalAccessTokenModel;
     pinnedListModel: PinnedListModel;
     projectModel: ProjectModel;
+    projectOperationLogModel: ProjectOperationLogModel;
     resourceViewItemModel: ResourceViewItemModel;
     rolesModel: RolesModel;
     savedChartModel: SavedChartModel;
@@ -111,6 +117,7 @@ export type ModelManifest = {
     embedModel: unknown;
     dashboardSummaryModel: unknown;
     serviceAccountModel: unknown;
+    sandboxRegistryModel: unknown;
 };
 
 /**
@@ -211,6 +218,21 @@ export class ModelRepository
         return this.getModel(
             'analyticsModel',
             () => new AnalyticsModel({ database: this.database }),
+        );
+    }
+
+
+    public getAppModel(): AppModel {
+        return this.getModel(
+            'appModel',
+            () => new AppModel({ database: this.database }),
+        );
+    }
+
+    public getOrganizationDesignModel(): OrganizationDesignModel {
+        return this.getModel(
+            'organizationDesignModel',
+            () => new OrganizationDesignModel({ database: this.database }),
         );
     }
 
@@ -579,6 +601,10 @@ export class ModelRepository
         return this.getModel('aiAgentModel');
     }
 
+    public getSandboxRegistryModel<ModelImplT>(): ModelImplT {
+        return this.getModel('sandboxRegistryModel');
+    }
+
     public getAiOrganizationSettingsModel<ModelImplT>(): ModelImplT {
         return this.getModel('aiOrganizationSettingsModel');
     }
@@ -617,6 +643,16 @@ export class ModelRepository
         return this.getModel(
             'queryHistoryModel',
             () => new QueryHistoryModel({ database: this.database }),
+        );
+    }
+
+    public getProjectOperationLogModel(): ProjectOperationLogModel {
+        return this.getModel(
+            'projectOperationLogModel',
+            () =>
+                new ProjectOperationLogModel({
+                    database: this.database,
+                }),
         );
     }
 

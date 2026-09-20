@@ -23,11 +23,13 @@
             files: ['**/*.test.ts'],
             rules: {
                 '@typescript-eslint/no-floating-promises': 'off',
+                'no-await-in-loop': 'off',
             },
         },
         {
             files: [
                 'src/http.ts',
+                'src/http/mcpSessionRegistry.ts',
                 'src/mcp/**/*.ts',
                 'src/rest/asyncQueryPoll.ts',
                 'src/mcp/tools/registerContentTools.ts',
@@ -37,6 +39,8 @@
                 'import/extensions': 'off',
                 'no-await-in-loop': 'off',
                 'no-promise-executor-return': 'off',
+                'no-continue': 'off',
+                'prefer-destructuring': 'off',
             },
         },
         {

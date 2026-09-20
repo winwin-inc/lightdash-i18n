@@ -1,8 +1,10 @@
+import { type DataAppVizOptionValue } from '../ee/apps/dataAppVizConfigOptions';
 import assertUnreachable from '../utils/assertUnreachable';
 import { type ViewStatistics } from './analytics';
 import { type ConditionalFormattingConfig } from './conditionalFormatting';
 import { type ChartSourceType } from './content';
 import { type CompactOrAlias, type FieldId } from './field';
+import { type SavedMergeQuery } from './mergeQuery';
 import { type MetricQuery, type MetricQueryRequest } from './metricQuery';
 import { type ParametersValuesMap } from './parameters';
 // eslint-disable-next-line import/no-cycle
@@ -23,6 +25,7 @@ export enum ChartKind {
     FUNNEL = 'funnel',
     CUSTOM = 'custom',
     TREEMAP = 'treemap',
+    DATA_APP_VIZ = 'data_app_viz',
 }
 
 export enum ChartType {
@@ -33,6 +36,7 @@ export enum ChartType {
     FUNNEL = 'funnel',
     TREEMAP = 'treemap',
     CUSTOM = 'custom',
+    DATA_APP_VIZ = 'data_app_viz',
 }
 
 export enum ComparisonFormatTypes {
@@ -174,15 +178,25 @@ export type TableChart = {
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
+    /**
+     * Visually deduplicate repeated row-index dimension values across consecutive
+     * rows without showing aggregate subtotal rows. When `showSubtotals` is true,
+     * grouping is implicitly active and this flag is ignored. Defaults to false.
+     */
+    showRowGrouping?: boolean;
+    /** Warehouse OFFSET pagination for TABLE charts. Default off. */
+    enablePagination?: boolean;
+    /** Rows per page when enablePagination is true. Default 10. */
+    pageSize?: number;
     columns?: Record<string, ColumnProperties>;
     conditionalFormattings?: ConditionalFormattingConfig[];
     metricsAsRows?: boolean;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
-    /** 透视表列少时自动撑满容器宽度 */
+    /** 透视表列总宽小于容器时，均分剩余空间铺满 */
     pivotAutoFillWidth?: boolean;
-    /** 透视表行维度列拉伸上限（px），未设置表示不限制 */
+    /** 透视表行维度列最大宽度（px），未设置时使用默认上限 */
     pivotDimensionColumnMaxWidth?: number;
-    /** 透视表数据列拉伸上限（px），未设置表示不限制 */
+    /** 透视表数据列最大宽度（px），未设置时使用默认上限 */
     pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;
@@ -313,6 +327,8 @@ export type EChartsConfig = Partial<CompleteEChartsConfig>;
 
 type Axis = {
     name?: string;
+    /** Distance between axis title and axis line (ECharts nameGap, in px). */
+    nameGap?: number;
     min?: string | undefined;
     max?: string | undefined;
     minOffset?: string | undefined;
@@ -323,6 +339,12 @@ type Axis = {
 
 export type XAxis = Axis & {
     sortType?: XAxisSortType;
+    /**
+     * Maps to ECharts `xAxis.axisLine.onZero`.
+     * `true` (default): draw X axis line at y=0 when the Y scale crosses zero.
+     * `false`: keep X axis line at the bottom of the plot ("轴线置底").
+     */
+    axisLineOnZero?: boolean;
 };
 
 export enum XAxisSortType {
@@ -412,6 +434,27 @@ export type TreemapChartConfig = {
     config?: TreemapChart;
 };
 
+export type DataAppVizFieldMapping = Record<string, string>;
+
+/** Maps a declared config option's name → the value the user chose for it. */
+export type DataAppVizOptionValues = Record<string, DataAppVizOptionValue>;
+
+export type DataAppVizChart = {
+    dataAppVizUuid: string;
+    /**
+     * @isInt
+     * @minimum 1
+     */
+    dataAppVizVersion?: number;
+    fieldMapping: DataAppVizFieldMapping;
+    optionValues?: DataAppVizOptionValues;
+};
+
+export type DataAppVizChartConfig = {
+    type: ChartType.DATA_APP_VIZ;
+    config?: DataAppVizChart;
+};
+
 export type ChartConfig =
     | BigNumberConfig
     | CartesianChartConfig
@@ -419,7 +462,8 @@ export type ChartConfig =
     | PieChartConfig
     | FunnelChartConfig
     | TableChartConfig
-    | TreemapChartConfig;
+    | TreemapChartConfig
+    | DataAppVizChartConfig;
 
 export type SavedChartType = ChartType;
 
@@ -435,6 +479,11 @@ export type SavedChart = {
     pivotConfig?: {
         columns: string[];
     };
+    /**
+     * Second query this chart's query is merged with, when it has one. Absent
+     * on the overwhelming majority of charts.
+     */
+    merge?: SavedMergeQuery | null;
     chartConfig: ChartConfig;
     tableConfig: {
         columnOrder: string[];
@@ -462,6 +511,7 @@ type CreateChartBase = Pick<
     | 'tableName'
     | 'metricQuery'
     | 'pivotConfig'
+    | 'merge'
     | 'chartConfig'
     | 'tableConfig'
     | 'parameters'
@@ -526,6 +576,11 @@ export const isCartesianChartConfig = (
 ): value is CartesianChart =>
     !!value && 'layout' in value && 'eChartsConfig' in value;
 
+export const isDataAppVizChart = (
+    value: ChartConfig['config'],
+): value is DataAppVizChart =>
+    !!value && 'dataAppVizUuid' in value && 'fieldMapping' in value;
+
 export const getChartRequiresPivotResults = (
     chartConfig: ChartConfig | undefined,
     pivotConfig: SavedChartDAO['pivotConfig'] | undefined,
@@ -548,11 +603,13 @@ export const getChartRequiresPivotResults = (
 
 export const isBigNumberConfig = (
     value: ChartConfig['config'],
-): value is BigNumber => !!value && !isCartesianChartConfig(value);
+): value is BigNumber =>
+    !!value && !isCartesianChartConfig(value) && !isDataAppVizChart(value);
 
 export const isTableChartConfig = (
     value: ChartConfig['config'],
-): value is TableChart => !!value && !isCartesianChartConfig(value);
+): value is TableChart =>
+    !!value && !isCartesianChartConfig(value) && !isDataAppVizChart(value);
 
 export const isPieChartConfig = (
     value: ChartConfig['config'],
@@ -633,6 +690,8 @@ export const getChartType = (chartKind: ChartKind | undefined): ChartType => {
             return ChartType.TABLE;
         case ChartKind.TREEMAP:
             return ChartType.TREEMAP;
+        case ChartKind.DATA_APP_VIZ:
+            return ChartType.DATA_APP_VIZ;
         default:
             return ChartType.CARTESIAN;
     }
@@ -652,6 +711,8 @@ export const getChartKind = (
             return ChartKind.TABLE;
         case ChartType.CUSTOM:
             return ChartKind.CUSTOM;
+        case ChartType.DATA_APP_VIZ:
+            return ChartKind.DATA_APP_VIZ;
         case ChartType.CARTESIAN:
             if (isCartesianChartConfig(value)) {
                 const { series } = value.eChartsConfig;
@@ -803,6 +864,21 @@ export type CalculateTotalFromQuery = {
 export type ApiCalculateTotalResponse = {
     status: 'ok';
     results: Record<string, number>;
+};
+
+export type CalculateCountFromQuery = {
+    metricQuery: MetricQueryRequest;
+    explore: string;
+    parameters?: ParametersValuesMap;
+    dashboardSlug?: string;
+    dashboardName?: string;
+};
+
+export type ApiCalculateCountResponse = {
+    status: 'ok';
+    results: {
+        rowCount: number;
+    };
 };
 
 export type CalculateSubtotalsFromQuery = CalculateTotalFromQuery & {

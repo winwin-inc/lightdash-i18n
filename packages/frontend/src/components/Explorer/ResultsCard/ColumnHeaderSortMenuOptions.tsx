@@ -82,7 +82,7 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
                             'components_explorer_results_card_column_context_menu.sort',
                         )}{' '}
                         <Text span fw={500}>
-                            {getSortLabel(item, sortDirection)}
+                            {getSortLabel(item, sortDirection, t)}
                         </Text>
                     </Menu.Item>
                 ))}

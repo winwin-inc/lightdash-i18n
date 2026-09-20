@@ -320,6 +320,8 @@ export const projectWithSensitiveFields: Project = {
     },
     schedulerTimezone: 'UTC',
     createdByUserUuid: sessionAccount.user.id,
+    queryTimezone: null,
+    useProjectTimezoneInFilters: false,
 };
 
 export const projectSummary: ProjectSummary = {

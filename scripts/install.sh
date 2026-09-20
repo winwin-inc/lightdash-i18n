@@ -132,23 +132,8 @@ check_os() {
 }
 
 track() {
-  if [[ $CI == 'true' ]]; then
-    return
-  fi
-  DATA='{
-    "anonymousId":"'"$INSTALLATION_ID"'",
-    "event": "'"$1"'",
-    "properties": { "os": "'"$os"'", "setup_type": "'"$setup_type"'", "port": "'"$port"'"'$2'}
-  }'
-  URL="https://analytics.lightdash.com/v1/track"
-  HEADER='Content-Type: application/json'
-  HEADER_AUTH='Authorization: Basic MXZxa1NsV01WdFlPbDcwcmszUVNFMHYxZnFZOg=='
-
-  if has_curl; then
-      curl -sfL -d "$DATA" --header "$HEADER" --header "$HEADER_AUTH" "$URL" > /dev/null 2>&1
-  elif has_wget; then
-      wget -q --post-data="$DATA" --header="$HEADER" --header "$HEADER_AUTH" "$URL" > /dev/null 2>&1
-  fi
+  # Official install telemetry disabled for self-hosted / internal use.
+  return
 }
 
 track_error() {

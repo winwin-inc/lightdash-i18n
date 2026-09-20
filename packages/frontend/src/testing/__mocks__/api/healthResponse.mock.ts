@@ -84,6 +84,7 @@ export default function mockHealthResponse(
         hasExtendedUsageAnalytics: false,
         hasGithub: false,
         hasGitlab: false,
+        hasAdminApi: false,
         hasCacheAutocompleResults: false,
         hasMicrosoftTeams: false,
         appearance: {
@@ -99,6 +100,10 @@ export default function mockHealthResponse(
         ai: {
             analyticsProjectUuid: undefined,
             analyticsDashboardUuid: undefined,
+        },
+        dataApps: {
+            previewOrigin: null,
+            sampleDataEnabled: false,
         },
         ...overrides,
     };

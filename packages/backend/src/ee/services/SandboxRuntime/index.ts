@@ -1,0 +1,201 @@
+import { LambdaMicrovms } from '@aws-sdk/client-lambda-microvms';
+import { DefaultAzureCredential } from '@azure/identity';
+import { MissingConfigError } from '@lightdash/common';
+import {
+    AzureContainerAppsSandboxProvider,
+    AzureSandboxGroupControlPlane,
+    type AzureSandboxesConfig,
+} from './AzureContainerAppsSandboxProvider';
+import {
+    CloudRunSandboxProvider,
+    type CloudRunSandboxesConfig,
+} from './CloudRunSandboxProvider';
+import { DockerSandboxProvider } from './DockerSandboxProvider';
+import { E2bSandboxProvider } from './E2bSandboxProvider';
+import {
+    AwsMicrovmControlPlane,
+    LambdaMicroVmSandboxProvider,
+    type LambdaMicroVmConfig,
+} from './LambdaMicroVmSandboxProvider';
+import { SandboxManager, type SandboxRegistryStore } from './SandboxManager';
+import { type SnapshotStore } from './SnapshotStore';
+import { type SandboxLogger, type SandboxProvider } from './types';
+
+export * from './AzureContainerAppsSandboxProvider';
+export * from './CloudRunSandboxProvider';
+export * from './errors';
+export * from './SandboxManager';
+export * from './SnapshotStore';
+export * from './types';
+
+export type SandboxProviderKind =
+    | 'e2b'
+    | 'docker'
+    | 'lambda-microvm'
+    | 'azure-sandboxes'
+    | 'gcp-cloud-run';
+
+/** Static, non-per-sandbox config the Lambda MicroVMs provider needs. */
+export interface LambdaMicroVmProviderConfig extends LambdaMicroVmConfig {
+    region: string;
+}
+
+export interface CreateSandboxProviderOptions {
+    provider: SandboxProviderKind;
+    e2bApiKey: string | null;
+    dockerImage: string;
+    /** Required when `provider === 'lambda-microvm'`; ignored otherwise. */
+    lambdaMicroVm: LambdaMicroVmProviderConfig | null;
+    /**
+     * Required when `provider === 'azure-sandboxes'`; ignored otherwise. The
+     * per-feature sandbox group is resolved by the caller (one group + disk image
+     * per feature, like the split Docker images / Lambda ARNs).
+     */
+    azureSandboxes: AzureSandboxesConfig | null;
+    /**
+     * Required when `provider === 'gcp-cloud-run'`; ignored otherwise. The
+     * gateway URL + secret of the Cloud Run service deployed with
+     * `--sandbox-launcher` (toolchain image baked into that deployment).
+     */
+    gcpCloudRun: CloudRunSandboxesConfig | null;
+    /**
+     * Backing store for object-store snapshots. Required by the providers with
+     * no native memory snapshot (Docker, GCP Cloud Run); native-pause providers
+     * (E2B, Lambda, Azure Sandboxes) keep the snapshot in the provider and pass
+     * `null` so no S3 client is constructed on those paths.
+     */
+    snapshotStore: SnapshotStore | null;
+    logger: SandboxLogger;
+}
+
+/**
+ * Build the sandbox provider selected by `SANDBOX_PROVIDER`. Throws a clear
+ * config error when the chosen provider is missing required configuration.
+ */
+export const createSandboxProvider = (
+    options: CreateSandboxProviderOptions,
+): SandboxProvider => {
+    switch (options.provider) {
+        case 'e2b':
+            if (!options.e2bApiKey) {
+                throw new MissingConfigError(
+                    'E2B API key is not configured (E2B_API_KEY)',
+                );
+            }
+            return new E2bSandboxProvider(options.e2bApiKey);
+        case 'docker':
+            if (!options.snapshotStore) {
+                throw new MissingConfigError(
+                    'Docker sandbox provider requires an object store for snapshots',
+                );
+            }
+            return new DockerSandboxProvider(
+                options.dockerImage,
+                options.logger,
+                options.snapshotStore,
+            );
+        case 'lambda-microvm': {
+            const config = options.lambdaMicroVm;
+            if (!config) {
+                throw new MissingConfigError(
+                    'Lambda MicroVMs is not configured (LAMBDA_MICROVM_*)',
+                );
+            }
+            if (!config.ingressConnectorArn || !config.egressConnectorArn) {
+                throw new MissingConfigError(
+                    'Lambda MicroVMs ingress/egress connector ARNs are not configured',
+                );
+            }
+            const controlPlane = new AwsMicrovmControlPlane(
+                new LambdaMicrovms({ region: config.region }),
+            );
+            return new LambdaMicroVmSandboxProvider(
+                controlPlane,
+                config,
+                options.logger,
+            );
+        }
+        case 'gcp-cloud-run': {
+            const config = options.gcpCloudRun;
+            if (!config) {
+                throw new MissingConfigError(
+                    'GCP Cloud Run sandboxes are not configured (GCP_CLOUD_RUN_SANDBOX_URL / GCP_CLOUD_RUN_SANDBOX_SECRET)',
+                );
+            }
+            if (!options.snapshotStore) {
+                throw new MissingConfigError(
+                    'GCP Cloud Run sandbox provider requires an object store for snapshots',
+                );
+            }
+            return new CloudRunSandboxProvider(
+                config,
+                options.logger,
+                options.snapshotStore,
+            );
+        }
+        case 'azure-sandboxes': {
+            const config = options.azureSandboxes;
+            if (!config || !config.sandboxGroup) {
+                throw new MissingConfigError(
+                    'Azure Sandboxes is not configured (AZURE_SANDBOXES_*)',
+                );
+            }
+            // `DefaultAzureCredential` resolves the workload identity in production
+            // (the SandboxGroup Data Owner role) and env/CLI creds in dev.
+            const controlPlane = new AzureSandboxGroupControlPlane(
+                new DefaultAzureCredential(),
+                config,
+                options.logger,
+            );
+            return new AzureContainerAppsSandboxProvider(
+                controlPlane,
+                config,
+                options.logger,
+            );
+        }
+        default:
+            throw new MissingConfigError(
+                `Unknown SANDBOX_PROVIDER: ${options.provider as string}`,
+            );
+    }
+};
+
+export interface CreateSandboxManagerOptions {
+    provider: SandboxProviderKind;
+    e2bApiKey: string | null;
+    dockerImage: string;
+    lambdaMicroVm: LambdaMicroVmProviderConfig | null;
+    /** Required when `provider === 'azure-sandboxes'`. */
+    azureSandboxes: AzureSandboxesConfig | null;
+    /** Required when `provider === 'gcp-cloud-run'`. */
+    gcpCloudRun: CloudRunSandboxesConfig | null;
+    /** Forwarded to the provider; object-store backends only (null otherwise). */
+    snapshotStore: SnapshotStore | null;
+    registryModel: SandboxRegistryStore;
+    logger: SandboxLogger;
+}
+
+/**
+ * Build a {@link SandboxManager} over the configured provider. The single entry
+ * point feature services and the reaper use to get a lifecycle surface.
+ */
+export const createSandboxManager = (
+    options: CreateSandboxManagerOptions,
+): SandboxManager => {
+    const provider = createSandboxProvider({
+        provider: options.provider,
+        e2bApiKey: options.e2bApiKey,
+        dockerImage: options.dockerImage,
+        lambdaMicroVm: options.lambdaMicroVm,
+        azureSandboxes: options.azureSandboxes,
+        gcpCloudRun: options.gcpCloudRun,
+        snapshotStore: options.snapshotStore,
+        logger: options.logger,
+    });
+    return new SandboxManager({
+        provider,
+        providerKind: options.provider,
+        registryModel: options.registryModel,
+        logger: options.logger,
+    });
+};

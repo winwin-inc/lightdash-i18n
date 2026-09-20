@@ -1,0 +1,77 @@
+/*
+ * Per-file styles for FilterMultiStringInput + FilterStringAutoComplete.
+ *
+ * MultiSelect slot selectors wired through `classNames`. Every class here is
+ * referenced from BOTH files, which satisfies the
+ * `css-modules/no-unused-class` lint rule.
+ */
+
+.item {
+    /*
+     * Mantine v6 renders the creatable "+ Add <query>" row as the last
+     * sibling inside the items list (see SelectItems.js - the create
+     * option is appended to unGroupedItems at the end). It is rendered as
+     * a plain `<div class="...item...">` WITHOUT `role="option"`,
+     * `data-disabled`, or `data-selected`, while every regular candidate
+     * always carries `role="option"`. The previous sticky selector used
+     * `:not([data-value])` which silently matched every last child (no
+     * item carries that attribute) and pinned the final candidate to the
+     * bottom, looking "locked". Targeting by `:not([role="option"])`
+     * instead selects only the create row, so it sticks to the bottom of
+     * the inner ScrollArea viewport while the user scrolls candidates.
+     *
+     * Specificity is intentionally bumped (`.item:last-child:...`) to
+     * beat Mantine's `.m_xxx[data-hovered]` hover rule and keep the
+     * white background / shadow on top of scrolling content.
+     */
+}
+
+.item:last-child:not([role='option']) {
+    position: sticky;
+    bottom: 4px;
+    box-shadow: 0 4px 0 0 var(--mantine-color-white);
+}
+
+.item:last-child:not([role='option']):not([data-hovered]) {
+    background-color: var(--mantine-color-white);
+}
+
+.values {
+    max-width: 100%;
+    flex-wrap: wrap;
+    max-height: 6.4em;
+    overflow-y: auto;
+    align-content: center;
+}
+
+.value {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.input {
+    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wrapper {
+    max-width: 100%;
+}
+
+.dropdown {
+    overflow: hidden;
+}
+
+@media (max-width: 600px) {
+    .input,
+    .wrapper {
+        max-width: 80vw;
+    }
+
+    .dropdown {
+        max-width: 80vw;
+        width: 80vw;
+    }
+}

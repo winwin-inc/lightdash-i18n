@@ -30,13 +30,13 @@ import {
 } from '../../../hooks/useBigquerySSO';
 import { useFeatureFlagEnabled } from '../../../hooks/useFeatureFlagEnabled';
 import MantineIcon from '../../common/MantineIcon';
-import DocumentationHelpButton from '../../DocumentationHelpButton';
 import FormCollapseButton from '../FormCollapseButton';
 import { useFormContext } from '../formContext';
 import BooleanSwitch from '../Inputs/BooleanSwitch';
 import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { BigQueryDefaultValues } from './defaultValues';
 
 export const BigQuerySchemaInput: FC<{
@@ -83,7 +83,6 @@ export const BigQuerySchemaInput: FC<{
                         )}
                     </Anchor>
                     .
-                    <DocumentationHelpButton href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#data-set" />
                 </p>
             }
             required
@@ -289,20 +288,9 @@ const BigQueryForm: FC<{
                         label={t(
                             'components_project_connection_warehouse_form.big_query.project.label',
                         )}
-                        description={
-                            <p>
-                                <Anchor
-                                    target="_blank"
-                                    href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#project"
-                                    rel="noreferrer"
-                                >
-                                    {t(
-                                        'components_project_connection_warehouse_form.big_query.project.description',
-                                    )}
-                                </Anchor>
-                                .
-                            </p>
-                        }
+                        description={t(
+                            'components_project_connection_warehouse_form.big_query.project.description',
+                        )}
                         required
                         {...form.getInputProps('warehouse.project')}
                         disabled={disabled}
@@ -381,7 +369,6 @@ const BigQueryForm: FC<{
                                 you've set in your dbt <b>profiles.yml</b> file
                             </Anchor>
                             .
-                            <DocumentationHelpButton href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#data-set" />
                         </p>
                     }
                     placeholder={hasDatasets ? 'Choose dataset': 'Type project ID to filter datasets from BigQuery'}
@@ -424,15 +411,9 @@ const BigQueryForm: FC<{
                                     {t(
                                         'components_project_connection_warehouse_form.big_query.key_file.description.part_1',
                                     )}{' '}
-                                    <Anchor
-                                        target="_blank"
-                                        href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#key-file"
-                                        rel="noreferrer"
-                                    >
-                                        {t(
-                                            'components_project_connection_warehouse_form.big_query.key_file.description.part_2',
-                                        )}
-                                    </Anchor>
+                                    {t(
+                                        'components_project_connection_warehouse_form.big_query.key_file.description.part_2',
+                                    )}
                                     {t(
                                         'components_project_connection_warehouse_form.big_query.key_file.description.part_3',
                                     )}
@@ -679,6 +660,7 @@ const BigQueryForm: FC<{
                             disabled={disabled}
                         />
 
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
                     </Stack>
                 </FormSection>

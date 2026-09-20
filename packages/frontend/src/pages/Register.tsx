@@ -4,15 +4,7 @@ import {
     type CreateUserArgs,
     type LightdashUser,
 } from '@lightdash/common';
-import {
-    Anchor,
-    Card,
-    Divider,
-    Image,
-    Stack,
-    Text,
-    Title,
-} from '@mantine/core';
+import { Card, Divider, Image, Stack, Text, Title } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -124,7 +116,7 @@ const Register: FC = () => {
         </>
     );
     return (
-        <Page title="Register" withCenteredContent withNavbar={false}>
+        <Page title={t('pages_register.sign_up')} withCenteredContent withNavbar={false}>
             <Stack w={400} mt="4xl">
                 <Image
                     src={LightdashLogo}
@@ -139,24 +131,6 @@ const Register: FC = () => {
                     </Title>
                     {logins}
                 </Card>
-                <Text color="gray.6" ta="center">
-                    {t('pages_register.tip.part_1')}
-                    <br />
-                    {t('pages_register.tip.part_2')}{' '}
-                    <Anchor
-                        href="https://www.lightdash.com/privacy-policy"
-                        target="_blank"
-                    >
-                        {t('pages_register.tip.part_3')}
-                    </Anchor>{' '}
-                    {t('pages_register.tip.part_4')}{' '}
-                    <Anchor
-                        href="https://www.lightdash.com/terms-of-service"
-                        target="_blank"
-                    >
-                        {t('pages_register.tip.part_5')}
-                    </Anchor>
-                </Text>
             </Stack>
         </Page>
     );

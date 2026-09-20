@@ -4,7 +4,6 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useApp from '../../providers/App/useApp';
-import DocumentationHelpButton from '../DocumentationHelpButton';
 import { SettingsGridCard } from '../common/Settings/SettingsCard';
 import DbtSettingsForm from './DbtSettingsForm';
 import DbtLogo from './ProjectConnectFlow/Assets/dbt.svg';
@@ -64,11 +63,6 @@ export const ProjectForm: FC<Props> = ({
                         <Title order={5}>
                             {t('components_project_connection.warehouse.title')}
                         </Title>
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#warehouse-connection"
-                            pos="relative"
-                            top="2px"
-                        />
                     </Flex>
 
                     {health.data?.staticIp && (
@@ -99,11 +93,6 @@ export const ProjectForm: FC<Props> = ({
                                 'components_project_connection.dbt_connection.title',
                             )}
                         </Title>
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project"
-                            pos="relative"
-                            top="2px"
-                        />
                     </Flex>
                 </div>
 

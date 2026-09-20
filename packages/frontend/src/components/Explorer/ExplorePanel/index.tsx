@@ -2,11 +2,12 @@ import { subject } from '@casl/ability';
 import {
     convertReplaceableFieldMatchMapToReplaceFieldsMap,
     ExploreType,
+    FeatureFlags,
     findReplaceableCustomMetrics,
     getMetrics,
 } from '@lightdash/common';
 import { ActionIcon, Group, Menu, Skeleton, Stack, Text } from '@mantine/core';
-import { IconDots, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconDots, IconGitMerge, IconPencil, IconTrash } from '@tabler/icons-react';
 import {
     memo,
     useCallback,
@@ -23,15 +24,25 @@ import {
     explorerActions,
     selectAdditionalMetrics,
     selectIsVisualizationConfigOpen,
+    selectMetricQuery,
     selectTableName,
     useExplorerDispatch,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { MergeJoinBar } from '../../../features/mergeQuery/components/MergeJoinBar';
+import { MergeQuerySidebar } from '../../../features/mergeQuery/components/MergeQuerySidebar';
+import {
+    DEFAULT_ADDITIONAL_SOURCE_ID,
+    PRIMARY_SOURCE_ID,
+} from '../../../features/mergeQuery/constants';
+import { useMergeSafe } from '../../../features/mergeQuery/context/useMerge';
+import { isMergeSourceReady } from '../../../features/mergeQuery/utils/mergeWorkflow';
 import {
     DeleteVirtualViewModal,
     EditVirtualViewModal,
 } from '../../../features/virtualView';
 import { useExplore } from '../../../hooks/useExplore';
+import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
@@ -74,6 +85,20 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
 
     const activeTableName = useExplorerSelector(selectTableName);
     const additionalMetrics = useExplorerSelector(selectAdditionalMetrics);
+    const metricQuery = useExplorerSelector(selectMetricQuery);
+    const { data: mergeFlag } = useServerFeatureFlag(FeatureFlags.MergeQueries);
+    const merge = useMergeSafe();
+    const additionalSource = merge?.additionalSources[0];
+    const [isChoosingMergeExplore, setIsChoosingMergeExplore] = useState(
+        !additionalSource?.exploreName,
+    );
+    useEffect(() => {
+        if (!additionalSource?.exploreName) setIsChoosingMergeExplore(true);
+    }, [additionalSource?.exploreName]);
+    const isGuidedMerge =
+        mergeFlag?.enabled === true &&
+        merge?.isMerging === true &&
+        !merge.readOnly;
 
     // Keep reading these from Context for now (will migrate later)
     const chartUuid = useExplorerContext(
@@ -151,6 +176,16 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
         setIsDeleteVirtualViewOpen(true);
     }, []);
 
+    const handleAddMergeSource = useCallback(() => {
+        if (!merge) return;
+        merge.addSource(DEFAULT_ADDITIONAL_SOURCE_ID, {
+            kind: 'source',
+            sourceId: isMergeSourceReady(metricQuery)
+                ? DEFAULT_ADDITIONAL_SOURCE_ID
+                : PRIMARY_SOURCE_ID,
+        });
+    }, [merge, metricQuery]);
+
     const breadcrumbs = useMemo(() => {
         if (!explore) return [];
         const items = onBack
@@ -170,6 +205,13 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
     }
 
     if (!explore) return null;
+
+    const canMergeAnotherQuery =
+        explore.type !== ExploreType.VIRTUAL &&
+        mergeFlag?.enabled === true &&
+        !!merge &&
+        !merge.isMerging &&
+        !merge.readOnly;
 
     // Only call `onBack` for 4XX errors, otherwise we lose URL state when there's a Network error or backend is down
     if (status === 'error' && error.error.statusCode < 500) {
@@ -195,16 +237,14 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                     display: isVisualizationConfigOpen ? 'none' : 'flex',
                 }}
             >
-                <Group position="apart">
+                {merge?.isMerging && merge.readOnly && <MergeJoinBar />}
+                <Group
+                    position="apart"
+                    sx={{ display: isGuidedMerge ? 'none' : undefined }}
+                >
                     <PageBreadcrumbs size="md" items={breadcrumbs} />
-                    {explore.type === ExploreType.VIRTUAL && (
-                        <Can
-                            I="create"
-                            this={subject('VirtualView', {
-                                organizationUuid: user.data?.organizationUuid,
-                                projectUuid,
-                            })}
-                        >
+                    <Group spacing="xs">
+                        {canMergeAnotherQuery && (
                             <Menu withArrow offset={-2}>
                                 <Menu.Target>
                                     <ActionIcon variant="transparent">
@@ -213,49 +253,98 @@ const ExplorePanel: FC<ExplorePanelProps> = memo(({ onBack }) => {
                                 </Menu.Target>
                                 <Menu.Dropdown>
                                     <Menu.Item
-                                        icon={<MantineIcon icon={IconPencil} />}
-                                        onClick={handleEditVirtualView}
+                                        icon={
+                                            <MantineIcon icon={IconGitMerge} />
+                                        }
+                                        onClick={handleAddMergeSource}
                                     >
                                         <Text fz="xs" fw={500}>
-                                            {t(
-                                                'components_explorer_panel.edit_virtual_view',
-                                            )}
+                                            Merge another query
                                         </Text>
                                     </Menu.Item>
-                                    <Can
-                                        I="delete"
-                                        this={subject('VirtualView', {
-                                            organizationUuid:
-                                                user.data?.organizationUuid,
-                                            projectUuid,
-                                        })}
-                                    >
+                                </Menu.Dropdown>
+                            </Menu>
+                        )}
+                        {explore.type === ExploreType.VIRTUAL && (
+                            <Can
+                                I="create"
+                                this={subject('VirtualView', {
+                                    organizationUuid:
+                                        user.data?.organizationUuid,
+                                    projectUuid,
+                                })}
+                            >
+                                <Menu withArrow offset={-2}>
+                                    <Menu.Target>
+                                        <ActionIcon variant="transparent">
+                                            <MantineIcon icon={IconDots} />
+                                        </ActionIcon>
+                                    </Menu.Target>
+                                    <Menu.Dropdown>
                                         <Menu.Item
                                             icon={
-                                                <MantineIcon icon={IconTrash} />
+                                                <MantineIcon
+                                                    icon={IconPencil}
+                                                />
                                             }
-                                            color="red"
-                                            onClick={handleDeleteVirtualView}
+                                            onClick={handleEditVirtualView}
                                         >
                                             <Text fz="xs" fw={500}>
                                                 {t(
-                                                    'components_explorer_panel.delete',
+                                                    'components_explorer_panel.edit_virtual_view',
                                                 )}
                                             </Text>
                                         </Menu.Item>
-                                    </Can>
-                                </Menu.Dropdown>
-                            </Menu>
-                        </Can>
-                    )}
+                                        <Can
+                                            I="delete"
+                                            this={subject('VirtualView', {
+                                                organizationUuid:
+                                                    user.data?.organizationUuid,
+                                                projectUuid,
+                                            })}
+                                        >
+                                            <Menu.Item
+                                                icon={
+                                                    <MantineIcon
+                                                        icon={IconTrash}
+                                                    />
+                                                }
+                                                color="red"
+                                                onClick={
+                                                    handleDeleteVirtualView
+                                                }
+                                            >
+                                                <Text fz="xs" fw={500}>
+                                                    {t(
+                                                        'components_explorer_panel.delete',
+                                                    )}
+                                                </Text>
+                                            </Menu.Item>
+                                        </Can>
+                                    </Menu.Dropdown>
+                                </Menu>
+                            </Can>
+                        )}
+                    </Group>
                 </Group>
 
-                <ItemDetailProvider>
-                    <ExploreTree
-                        explore={explore}
-                        onSelectedFieldChange={toggleActiveField}
+                {isGuidedMerge ? (
+                    <MergeQuerySidebar
+                        primaryExplore={explore}
+                        onPrimaryFieldChange={toggleActiveField}
+                        isChoosingAdditionalExplore={isChoosingMergeExplore}
+                        setIsChoosingAdditionalExplore={
+                            setIsChoosingMergeExplore
+                        }
                     />
-                </ItemDetailProvider>
+                ) : (
+                    <ItemDetailProvider>
+                        <ExploreTree
+                            explore={explore}
+                            onSelectedFieldChange={toggleActiveField}
+                        />
+                    </ItemDetailProvider>
+                )}
 
                 {isEditVirtualViewOpen && (
                     <EditVirtualViewModal

@@ -14,6 +14,12 @@ import {
     type TableCellAlignment,
 } from '@lightdash/common';
 
+import { getFrozenColumnLayout } from '../PivotTable/getFrozenColumnLayout';
+import {
+    getGroupedDimColumnIds,
+    getRowSpanMerges,
+    type RowSpanMerge,
+} from '../PivotTable/getRowSpanMerges';
 import { ROW_NUMBER_COLUMN_ID } from '../Table/constants';
 
 const ALL_PIVOTED_SPACER_FIELD = '__pivot_spacer__';
@@ -36,11 +42,15 @@ export type PivotDataToVTableOptions = {
     columnProperties?: Record<string, ColumnProperties>;
     getField?: (fieldId: string) => ItemsMap[string] | undefined;
     pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
-    pivotAutoFillWidth?: boolean;
     pivotDimensionColumnMaxWidth?: number;
     pivotColumnMaxWidth?: number;
     cellAlignment?: TableCellAlignment;
     pivotRowDimensionAlignment?: TableCellAlignment;
+    /** Visually merge repeated row-index dimension values (grouping-only mode) */
+    showRowGrouping?: boolean;
+    showSubtotals?: boolean;
+    /** Chart column order; used to decide which index dims are grouped */
+    columnOrder?: string[];
 };
 
 /** customRender 条形图用：与 BarChartDisplay 一致的柱上/柱后文字与颜色 */
@@ -56,14 +66,19 @@ export type BarCustomRenderOptions = {
 const DATA_COLUMN_MIN_WIDTH = 88;
 /** 行维度列最小宽度，避免长维度值（如商品名称）被数据列挤压 */
 const DIMENSION_COLUMN_MIN_WIDTH = 160;
+/**
+ * 内容自适应时的默认列宽上限，防止超长列名无限撑开。
+ * 对齐 VTable `limitMaxAutoWidth` 默认值。
+ */
+export const DEFAULT_COLUMN_MAX_WIDTH = 450;
 
-const getColumnMaxWidth = (
-    pivotAutoFillWidth: boolean | undefined,
-    columnMaxWidth: number | undefined,
-): number | undefined => {
-    if (!pivotAutoFillWidth) return undefined;
+/**
+ * 解析列宽上限：显式配置优先；未设置或无效时用默认上限（非无限宽）。
+ * 与「列宽自动撑满」开关解耦，内容自适应时同样生效。
+ */
+const getColumnMaxWidth = (columnMaxWidth: number | undefined): number => {
     if (columnMaxWidth === undefined || columnMaxWidth <= 0) {
-        return undefined;
+        return DEFAULT_COLUMN_MAX_WIDTH;
     }
     return columnMaxWidth;
 };
@@ -121,18 +136,27 @@ export type VTableColumnDef = {
     style?:
         | VTableCellStyle
         | ((args: { row: number; col: number }) => VTableCellStyle);
+    headerStyle?: VTableCellStyle;
 };
 
 /** 分组表头：多级 columns */
 export type VTableColumnGroup = {
     title: string;
     columns: (VTableColumnDef | VTableColumnGroup)[];
+    headerStyle?: VTableCellStyle;
 };
 
 export type VTableListOption = {
     columns: (VTableColumnDef | VTableColumnGroup)[];
     records: Record<string, string | number | null | undefined>[];
     columnTotalsRecords?: Record<string, string | number | null | undefined>[];
+    /** Leading leaf columns to freeze (VTable frozenColCount) */
+    frozenColCount: number;
+    /**
+     * Per-column rowSpan merges for grouping-only mode.
+     * Keys are pivot column fieldIds; values are per data-row merge info.
+     */
+    rowSpanMerges: Map<string, RowSpanMerge[]> | null;
 };
 
 function getHeaderDisplay(
@@ -176,8 +200,8 @@ function makeBarCustomRender(
             record?.[fieldId] != null
                 ? String(record[fieldId])
                 : args.value != null
-                  ? String(args.value)
-                  : '-'
+                ? String(args.value)
+                : '-'
         ) as string;
         const barNum = record?.[barValueFieldId];
         const num = typeof barNum === 'number' ? barNum : Number(barNum);
@@ -204,8 +228,8 @@ function makeBarCustomRender(
         const textX = showTextOnBar
             ? BAR_TEXT_PADDING
             : showBar
-              ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
-              : BAR_TEXT_PADDING;
+            ? BAR_RENDER_PADDING + barWidthPx + BAR_TEXT_PADDING
+            : BAR_TEXT_PADDING;
         const offsetY = Math.max(0, (cellH - BAR_RENDER_HEIGHT) / 2);
         const elements: ReturnType<
             NonNullable<VTableColumnDef['customRender']>
@@ -325,13 +349,9 @@ function buildGroupedDataColumns(
         columnProperties = {},
         getField,
         cellAlignment = 'left',
-        pivotAutoFillWidth,
         pivotColumnMaxWidth,
     } = options;
-    const dataColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
-        pivotColumnMaxWidth,
-    );
+    const dataColumnMaxWidth = getColumnMaxWidth(pivotColumnMaxWidth);
     const headerValues = data.headerValues ?? [];
     const pivotColumnInfo = data.retrofitData.pivotColumnInfo;
     const nRows = headerValues.length;
@@ -351,11 +371,12 @@ function buildGroupedDataColumns(
             field: col.fieldId,
             title,
             style: { textAlign: cellAlignment },
+            headerStyle: { textAlign: cellAlignment },
         };
         if (isBarColumn) {
             const isPercentageField = hasPercentageFormat(item);
-            const minVal = isPercentageField ? 0 : (minMax?.min ?? 0);
-            const maxVal = isPercentageField ? 100 : (minMax?.max ?? 100);
+            const minVal = isPercentageField ? 0 : minMax?.min ?? 0;
+            const maxVal = isPercentageField ? 100 : minMax?.max ?? 100;
             colDef.width = BAR_RENDER_WIDTH;
             colDef.customRender = makeBarCustomRender({
                 fieldId: col.fieldId,
@@ -365,9 +386,7 @@ function buildGroupedDataColumns(
             });
         } else {
             colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-            if (dataColumnMaxWidth !== undefined) {
-                colDef.maxWidth = dataColumnMaxWidth;
-            }
+            colDef.maxWidth = dataColumnMaxWidth;
         }
         return colDef;
     };
@@ -414,10 +433,45 @@ function buildGroupedDataColumns(
                 valueColumnStart,
                 metricHeaderFirst,
             );
-            result.push({ title: g.display, columns: children });
+            result.push({
+                title: g.display,
+                columns: children,
+                headerStyle: { textAlign: cellAlignment },
+            });
         }
     }
     return result;
+}
+
+/**
+ * Flatten leaf columns in left-to-right order (for frozenColCount mapping).
+ */
+function flattenLeafColumnFields(
+    cols: (VTableColumnDef | VTableColumnGroup)[],
+): string[] {
+    const out: string[] = [];
+    for (const c of cols) {
+        if ('field' in c) out.push(c.field);
+        else out.push(...flattenLeafColumnFields(c.columns));
+    }
+    return out;
+}
+
+/**
+ * Convert sticky frozen-column layout fieldIds into a contiguous frozenColCount
+ * for VTable (freezes every leaf column up to and including the rightmost frozen).
+ */
+function frozenLayoutToColCount(
+    columns: (VTableColumnDef | VTableColumnGroup)[],
+    frozenFieldIds: Iterable<string>,
+): number {
+    const leafFields = flattenLeafColumnFields(columns);
+    let maxIdx = -1;
+    for (const fieldId of frozenFieldIds) {
+        const idx = leafFields.indexOf(fieldId);
+        if (idx > maxIdx) maxIdx = idx;
+    }
+    return maxIdx >= 0 ? maxIdx + 1 : 0;
 }
 
 /**
@@ -434,19 +488,17 @@ export function pivotDataToVTable(
         columnProperties = {},
         getField,
         pivotMetricHeaderPosition = 'bottom',
-        pivotAutoFillWidth,
         pivotDimensionColumnMaxWidth,
         pivotColumnMaxWidth,
         cellAlignment = 'left',
         pivotRowDimensionAlignment = 'left',
+        showRowGrouping = false,
+        showSubtotals = false,
+        columnOrder,
     } = options;
 
-    const dataColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
-        pivotColumnMaxWidth,
-    );
+    const dataColumnMaxWidth = getColumnMaxWidth(pivotColumnMaxWidth);
     const dimensionColumnMaxWidth = getColumnMaxWidth(
-        pivotAutoFillWidth,
         pivotDimensionColumnMaxWidth,
     );
 
@@ -508,19 +560,15 @@ export function pivotDataToVTable(
                 field: col.fieldId,
                 title: getFieldLabel(baseId) ?? col.fieldId,
                 style: { textAlign: pivotRowDimensionAlignment },
+                headerStyle: { textAlign: pivotRowDimensionAlignment },
             };
             if (shouldProtectDimensionColumnWidth) {
-                colDef.minWidth =
-                    dimensionColumnMaxWidth !== undefined
-                        ? Math.min(
-                              DIMENSION_COLUMN_MIN_WIDTH,
-                              dimensionColumnMaxWidth,
-                          )
-                        : DIMENSION_COLUMN_MIN_WIDTH;
+                colDef.minWidth = Math.min(
+                    DIMENSION_COLUMN_MIN_WIDTH,
+                    dimensionColumnMaxWidth,
+                );
             }
-            if (dimensionColumnMaxWidth !== undefined) {
-                colDef.maxWidth = dimensionColumnMaxWidth;
-            }
+            colDef.maxWidth = dimensionColumnMaxWidth;
             return colDef;
         },
     );
@@ -545,49 +593,48 @@ export function pivotDataToVTable(
                   metricHeaderFirst,
               )
             : valueColumnStart >= 0
-              ? pivotColumnInfo
-                    .slice(valueColumnStart, valueColumnEnd)
-                    .map((col) => {
-                        const baseId =
-                            col.underlyingId || col.baseId || col.fieldId;
-                        const title = getFieldLabel(baseId) ?? col.fieldId;
-                        const item = getField?.(baseId);
-                        const minMax =
-                            minMaxMap[baseId] ?? minMaxMap[col.fieldId];
-                        const isBarColumn =
-                            minMax &&
-                            columnProperties[baseId]?.displayStyle === 'bar' &&
-                            item;
-                        const colDef: VTableColumnDef = {
-                            field: col.fieldId,
-                            title,
-                            style: { textAlign: cellAlignment },
-                        };
-                        if (isBarColumn) {
-                            const isPercentageField = hasPercentageFormat(item);
-                            const minVal = isPercentageField
-                                ? 0
-                                : (minMax?.min ?? 0);
-                            const maxVal = isPercentageField
-                                ? 100
-                                : (minMax?.max ?? 100);
-                            colDef.width = BAR_RENDER_WIDTH;
-                            colDef.customRender = makeBarCustomRender({
-                                fieldId: col.fieldId,
-                                barValueFieldId:
-                                    col.fieldId + BAR_VALUE_FIELD_SUFFIX,
-                                min: minVal,
-                                max: maxVal,
-                            });
-                        } else {
-                            colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                            if (dataColumnMaxWidth !== undefined) {
-                                colDef.maxWidth = dataColumnMaxWidth;
-                            }
-                        }
-                        return colDef;
-                    })
-              : [];
+            ? pivotColumnInfo
+                  .slice(valueColumnStart, valueColumnEnd)
+                  .map((col) => {
+                      const baseId =
+                          col.underlyingId || col.baseId || col.fieldId;
+                      const title = getFieldLabel(baseId) ?? col.fieldId;
+                      const item = getField?.(baseId);
+                      const minMax =
+                          minMaxMap[baseId] ?? minMaxMap[col.fieldId];
+                      const isBarColumn =
+                          minMax &&
+                          columnProperties[baseId]?.displayStyle === 'bar' &&
+                          item;
+                      const colDef: VTableColumnDef = {
+                          field: col.fieldId,
+                          title,
+                          style: { textAlign: cellAlignment },
+                          headerStyle: { textAlign: cellAlignment },
+                      };
+                      if (isBarColumn) {
+                          const isPercentageField = hasPercentageFormat(item);
+                          const minVal = isPercentageField
+                              ? 0
+                              : minMax?.min ?? 0;
+                          const maxVal = isPercentageField
+                              ? 100
+                              : minMax?.max ?? 100;
+                          colDef.width = BAR_RENDER_WIDTH;
+                          colDef.customRender = makeBarCustomRender({
+                              fieldId: col.fieldId,
+                              barValueFieldId:
+                                  col.fieldId + BAR_VALUE_FIELD_SUFFIX,
+                              min: minVal,
+                              max: maxVal,
+                          });
+                      } else {
+                          colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
+                          colDef.maxWidth = dataColumnMaxWidth;
+                      }
+                      return colDef;
+                  })
+            : [];
 
     const rowTotalColumns: VTableColumnDef[] =
         hasRowTotal && valueColumnEnd < pivotColumnInfo.length
@@ -598,11 +645,10 @@ export function pivotDataToVTable(
                           getFieldLabel(col.baseId ?? col.fieldId) ??
                           col.fieldId,
                       style: { textAlign: cellAlignment },
+                      headerStyle: { textAlign: cellAlignment },
+                      minWidth: DATA_COLUMN_MIN_WIDTH,
+                      maxWidth: dataColumnMaxWidth,
                   };
-                  if (dataColumnMaxWidth !== undefined) {
-                      colDef.minWidth = DATA_COLUMN_MIN_WIDTH;
-                      colDef.maxWidth = dataColumnMaxWidth;
-                  }
                   return colDef;
               })
             : [];
@@ -647,16 +693,16 @@ export function pivotDataToVTable(
                         record[col.fieldId + BAR_VALUE_FIELD_SUFFIX] = barNum;
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : (value.formatted ?? String(raw ?? ''));
+                            : value.formatted ?? String(raw ?? '');
                     } else {
                         record[col.fieldId] = item
                             ? formatItemValue(item, raw)
-                            : (value.formatted ?? value.raw ?? '');
+                            : value.formatted ?? value.raw ?? '';
                     }
                 } else {
                     record[col.fieldId] = item
                         ? formatItemValue(item, value?.raw)
-                        : (value?.formatted ?? value?.raw ?? null ?? '');
+                        : value?.formatted ?? value?.raw ?? null ?? '';
                 }
             });
 
@@ -694,8 +740,8 @@ export function pivotDataToVTable(
                     record[col.fieldId] = item
                         ? formatItemValue(item, total)
                         : typeof total === 'number'
-                          ? String(total)
-                          : (total as string);
+                        ? String(total)
+                        : (total as string);
                 });
 
                 return record;
@@ -703,9 +749,60 @@ export function pivotDataToVTable(
         );
     }
 
+    // metricsAsRows: label column uses a synthetic fieldId; freeze is stored on
+    // the underlying metric fieldIds — mirror upstream PivotTable mapping.
+    let labelColumnFrozen = false;
+    if (data.pivotConfig.metricsAsRows) {
+        const labelMetricIds = new Set<string>();
+        for (const row of data.indexValues) {
+            for (const entry of row) {
+                if (entry.type === 'label') labelMetricIds.add(entry.fieldId);
+            }
+        }
+        for (const id of labelMetricIds) {
+            if (columnProperties[id]?.frozen === true) {
+                labelColumnFrozen = true;
+                break;
+            }
+        }
+    }
+
+    const frozenLayout = getFrozenColumnLayout({
+        pivotColumnInfo,
+        columnProperties,
+        rowNumberWidth: hideRowNumbers ? 0 : 48,
+        defaultColumnWidth: 100,
+        labelColumnFrozen,
+    });
+    const frozenColCount = frozenLayoutToColCount(columns, frozenLayout.keys());
+
+    // Grouping-only mode: merge repeated index-dim values without subtotal rows.
+    const groupingOnlyMode = showRowGrouping && !showSubtotals;
+    let rowSpanMerges: Map<string, RowSpanMerge[]> | null = null;
+    if (groupingOnlyMode) {
+        const orderForGrouping =
+            columnOrder && columnOrder.length > 0
+                ? columnOrder
+                : pivotColumnInfo.map((c) => c.fieldId);
+        const groupedColumnIds = getGroupedDimColumnIds(
+            data.indexValueTypes,
+            orderForGrouping,
+        );
+        if (groupedColumnIds.length > 0) {
+            const rows = data.retrofitData.allCombinedData;
+            rowSpanMerges = getRowSpanMerges(
+                rows.length,
+                groupedColumnIds,
+                (rowIndex, columnId) => rows[rowIndex]?.[columnId]?.value?.raw,
+            );
+        }
+    }
+
     return {
         columns,
         records,
         columnTotalsRecords,
+        frozenColCount,
+        rowSpanMerges,
     };
 }

@@ -13,6 +13,8 @@ export type ResponsiveLayout = {
     layoutId: ResponsiveLayoutVariant;
     variant: ResponsiveLayoutVariant;
     useStepHeight: boolean;
+    /** Discrete band width (width.step / x.scale.rangeStep) — natural width + optional H-scroll */
+    useStepWidth: boolean;
     useAutosizeNone: boolean;
     chartSize: { width: number; height: number };
     containerStyle: CSSProperties;

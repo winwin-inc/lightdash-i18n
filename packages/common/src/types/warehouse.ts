@@ -94,6 +94,12 @@ export interface WarehouseSqlBuilder {
     getMetricSql: (sql: string, metric: Metric) => string;
     concatString: (...args: string[]) => string;
     escapeString: (value: string) => string;
+    /** Cast a Date to a warehouse TIMESTAMP literal. */
+    castToTimestamp: (date: Date) => string;
+    /** Cast a Date to a warehouse DATE literal. */
+    castToDate: (date: Date) => string;
+    /** A zoneless (wall-clock) timestamp literal, e.g. BigQuery DATETIME. */
+    castToNaiveTimestamp: (date: Date) => string;
 }
 
 export interface WarehouseClient extends WarehouseSqlBuilder {

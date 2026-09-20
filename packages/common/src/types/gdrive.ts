@@ -21,4 +21,26 @@ export type UploadMetricGsheet = {
     pivotConfig?: PivotConfig;
 };
 
+export type GsheetColumnType =
+    | 'string'
+    | 'number'
+    | 'date'
+    | 'timestamp'
+    | 'boolean';
+
+export type GsheetColumn = {
+    key: string;
+    label?: string;
+    type?: GsheetColumnType;
+};
+
+export type GsheetRow = Record<string, string | number | boolean | null>;
+
+export type UploadGsheetFromRows = {
+    projectUuid: string;
+    title: string;
+    columns: GsheetColumn[];
+    rows: GsheetRow[];
+};
+
 export type UploadMetricGsheetPayload = TraceTaskBase & UploadMetricGsheet;

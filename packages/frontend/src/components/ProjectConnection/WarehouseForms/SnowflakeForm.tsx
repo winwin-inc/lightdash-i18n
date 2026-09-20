@@ -30,6 +30,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { getWarehouseIcon } from '../ProjectConnectFlow/utils';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { SnowflakeDefaultValues } from './defaultValues';
 import { getSsoLabel, PASSWORD_LABEL, PRIVATE_KEY_LABEL } from './util';
 
@@ -512,16 +513,11 @@ const SnowflakeForm: FC<{
                             {...form.getInputProps('warehouse.override', {
                                 type: 'checkbox',
                             })}
-                            documentationUrl="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#warehouse"
                             label={t(
                                 'components_project_connection_warehouse_form.snowflake.warehouse_override.label',
                             )}
-                            onLabel={t(
-                                'components_project_connection_warehouse_form.snowflake.warehouse_override.yes',
-                            )}
-                            offLabel={t(
-                                'components_project_connection_warehouse_form.snowflake.warehouse_override.no',
-                            )}
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                             disabled={disabled}
                         />
 
@@ -566,12 +562,8 @@ const SnowflakeForm: FC<{
                                             )}
                                         </p>
                                     }
-                                    onLabel={t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.yes',
-                                    )}
-                                    offLabel={t(
-                                        'components_project_connection_warehouse_form.snowflake.keep_session_alive.no',
-                                    )}
+                                    onLabel={t('common.yes')}
+                                    offLabel={t('common.no')}
                                     disabled={disabled}
                                     {...form.getInputProps(
                                         'warehouse.clientSessionKeepAlive',
@@ -626,6 +618,7 @@ const SnowflakeForm: FC<{
                                         'warehouse.accessUrl',
                                     )}
                                 />
+                                <DataTimezoneField disabled={disabled} />
                                 <StartOfWeekSelect
                                     disabled={disabled}
                                     isRedeployRequired={false}

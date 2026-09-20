@@ -7,6 +7,7 @@ import {
     type ResourceViewItem,
 } from '@lightdash/common';
 import dayjs from 'dayjs';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export const useResourceTypeName = () => {
@@ -21,6 +22,10 @@ export const useResourceTypeName = () => {
             case ResourceViewItemType.SPACE:
                 return t(
                     'components_common_resource_view_utils.resource_type_names.space',
+                );
+            case ResourceViewItemType.DATA_APP:
+                return t(
+                    'components_common_resource_view_utils.resource_type_names.data_app',
                 );
             case ResourceViewItemType.CHART:
                 switch (item.data.chartKind) {
@@ -73,6 +78,10 @@ export const useResourceTypeName = () => {
                         return t(
                             'components_common_resource_view_utils.resource_type_names.custom_visualization',
                         );
+                    case ChartKind.DATA_APP_VIZ:
+                        return t(
+                            'components_common_resource_view_utils.resource_type_names.custom_chart',
+                        );
                     default:
                         return assertUnreachable(
                             item.data.chartKind,
@@ -117,37 +126,137 @@ export const getResourceUrl = (projectUuid: string, item: ResourceViewItem) => {
             return getChartResourceUrl(projectUuid, item);
         case ResourceViewItemType.SPACE:
             return `/projects/${projectUuid}/spaces/${item.data.uuid}`;
+        case ResourceViewItemType.DATA_APP:
+            return `/projects/${projectUuid}/apps/${item.data.uuid}/view`;
         default:
             return assertUnreachable(item, `Can't get URL for ${itemType}`);
     }
 };
 
-export const getResourceName = (type: ResourceViewItemType) => {
+export const getResourceName = (
+    type: ResourceViewItemType,
+    t: (key: string) => string,
+) => {
     switch (type) {
         case ResourceViewItemType.DASHBOARD:
-            return 'Dashboard';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.dashboard',
+            );
         case ResourceViewItemType.CHART:
-            return 'Chart';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.chart',
+            );
         case ResourceViewItemType.SPACE:
-            return 'Space';
+            return t(
+                'components_common_resource_view_utils.resource_type_names.space',
+            );
+        case ResourceViewItemType.DATA_APP:
+            return t(
+                'components_common_resource_view_utils.resource_type_names.data_app',
+            );
         default:
             return assertUnreachable(type, 'Resource type not supported');
     }
 };
 
+export const useResourceGroupTitle = () => {
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
+
+    return useCallback(
+        (types: ResourceViewItemType[]) => {
+            const names = types.map((type) => {
+                switch (type) {
+                    case ResourceViewItemType.DASHBOARD:
+                        return t(
+                            'components_common_resource_view_content_type.dashboards',
+                        );
+                    case ResourceViewItemType.CHART:
+                        return t(
+                            'components_common_resource_view_content_type.charts',
+                        );
+                    case ResourceViewItemType.SPACE:
+                        return t(
+                            'components_common_resource_view_content_type.spaces',
+                        );
+                    case ResourceViewItemType.DATA_APP:
+                        return t(
+                            'components_common_resource_view_content_type.data_apps',
+                        );
+                    default:
+                        return assertUnreachable(
+                            type,
+                            'Resource type not supported',
+                        );
+                }
+            });
+
+            if (names.length <= 1) {
+                return names[0] ?? '';
+            }
+
+            if (isZh) {
+                return names.join('、');
+            }
+
+            if (names.length === 2) {
+                return `${names[0]} & ${names[1]}`;
+            }
+
+            return `${names.slice(0, -1).join(', ')} & ${
+                names[names.length - 1]
+            }`;
+        },
+        [t, isZh],
+    );
+};
+
+export const formatLocalizedDateTime = (
+    value: Date | string,
+    isZh: boolean,
+) =>
+    dayjs(value).format(isZh ? 'YYYY年M月D日 H:mm' : 'MMM D, YYYY h:mm A');
+
+type TranslateFn = (
+    key: string,
+    options?: Record<string, string | number>,
+) => string;
+
+export const formatViewsSinceDescription = ({
+    count,
+    firstViewedAt,
+    t,
+    isZh,
+}: {
+    count: number;
+    firstViewedAt: Date | string;
+    t: TranslateFn;
+    isZh: boolean;
+}) =>
+    t('components_common_resource_view_list.views_since_description', {
+        count,
+        date: formatLocalizedDateTime(firstViewedAt, isZh),
+    });
+
 export const getResourceViewsSinceWhenDescription = (
     item: ResourceViewItem,
+    t: TranslateFn,
+    isZh: boolean,
 ) => {
     if (
         item.type !== ResourceViewItemType.CHART &&
-        item.type !== ResourceViewItemType.DASHBOARD
+        item.type !== ResourceViewItemType.DASHBOARD &&
+        item.type !== ResourceViewItemType.DATA_APP
     ) {
-        throw new Error('Only supported for charts and dashboards');
+        throw new Error('Only supported for charts, dashboards and data apps');
     }
 
     return item.data.firstViewedAt
-        ? `${item.data.views} views since ${dayjs(
-              item.data.firstViewedAt,
-          ).format('MMM D, YYYY h:mm A')}`
+        ? formatViewsSinceDescription({
+              count: item.data.views,
+              firstViewedAt: item.data.firstViewedAt,
+              t,
+              isZh,
+          })
         : undefined;
 };

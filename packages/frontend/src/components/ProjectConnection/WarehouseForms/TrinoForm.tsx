@@ -16,6 +16,7 @@ import BooleanSwitch from '../Inputs/BooleanSwitch';
 import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { TrinoDefaultValues } from './defaultValues';
 
 export const TrinoSchemaInput: FC<{
@@ -176,6 +177,7 @@ const TrinoForm: FC<{
                             disabled={disabled}
                         />
 
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
                     </Stack>
                 </FormSection>

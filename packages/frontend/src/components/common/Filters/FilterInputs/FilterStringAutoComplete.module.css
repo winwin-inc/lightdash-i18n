@@ -1,32 +1,13 @@
-.actionBar {
-    border-bottom: 1px solid var(--mantine-color-gray-2);
-    background-color: var(--mantine-color-gray-0);
-}
+/*
+ * Footer row carrying cache-load metadata and a refresh button. Only used by
+ * FilterStringAutoComplete when the autocomplete results came from the cache.
+ */
 
-.actionButton {
-    display: flex;
-    align-items: center;
-    gap: var(--mantine-spacing-xxs);
-    padding: var(--mantine-spacing-xxs) var(--mantine-spacing-xs);
-    border-radius: var(--mantine-radius-sm);
-    background-color: transparent;
-    cursor: pointer;
-    transition: background-color 120ms ease;
-}
-
-.actionButton:hover:not(:disabled) {
-    background-color: var(--mantine-color-gray-1);
-}
-
-.actionButton:disabled {
-    cursor: default;
-}
-
-.refreshButton {
+.refreshRow {
     cursor: pointer;
     border-top: 1px solid var(--mantine-color-gray-2);
 }
 
-.refreshButton:hover {
+.refreshRow:hover {
     background-color: var(--mantine-color-gray-1);
 }

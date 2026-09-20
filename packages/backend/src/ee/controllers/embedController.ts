@@ -262,6 +262,8 @@ export class EmbedController extends BaseController {
             | 'pivotResults'
             | 'invalidateCache'
             | 'dateZoom'
+            | 'limit'
+            | 'offset'
         >,
     ): Promise<{
         status: 'ok';
@@ -281,6 +283,8 @@ export class EmbedController extends BaseController {
                 invalidateCache: body.invalidateCache,
                 dashboardSorts: body.dashboardSorts,
                 pivotResults: body.pivotResults,
+                limit: body.limit,
+                offset: body.offset,
             });
 
         return {

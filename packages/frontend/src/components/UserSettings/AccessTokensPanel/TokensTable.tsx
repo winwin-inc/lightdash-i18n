@@ -46,7 +46,6 @@ import {
     useDeleteAccessToken,
     useRotateAccessToken,
 } from '../../../hooks/useAccessToken';
-import DocumentationHelpButton from '../../DocumentationHelpButton';
 import MantineIcon from '../../common/MantineIcon';
 import { useExpireOptions } from './useExpireOptions';
 
@@ -471,14 +470,7 @@ export const TokensTable = () => {
                             <Text size="sm">
                                 {t(
                                     'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_2.part_1',
-                                )}{' '}
-                                <DocumentationHelpButton
-                                    href="https://docs.lightdash.com/references/personal_tokens#rotating-a-personal-access-token"
-                                    tooltipProps={{
-                                        label: 'Learn about token rotation',
-                                    }}
-                                />
-                                .{' '}
+                                )}
                                 {t(
                                     'components_user_settings_access_tokens_panel_tokens_table.token_modal.content.part_2.part_2',
                                 )}

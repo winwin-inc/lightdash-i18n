@@ -24,6 +24,7 @@ import {
     getResponsiveGridLayoutProps,
 } from '../components/DashboardTabs/gridUtils';
 import ChartTile from '../components/DashboardTiles/DashboardChartTile';
+import DataAppTile from '../components/DashboardTiles/DashboardDataAppTile';
 import LoomTile from '../components/DashboardTiles/DashboardLoomTile';
 import MarkdownTile from '../components/DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../components/DashboardTiles/DashboardSqlChartTile';
@@ -322,6 +323,14 @@ const MinimalDashboard: FC = () => {
                                 />
                             ) : tile.type === DashboardTileTypes.SQL_CHART ? (
                                 <SqlChartTile
+                                    key={tile.uuid}
+                                    tile={tile}
+                                    isEditMode={false}
+                                    onDelete={() => {}}
+                                    onEdit={() => {}}
+                                />
+                            ) : tile.type === DashboardTileTypes.DATA_APP ? (
+                                <DataAppTile
                                     key={tile.uuid}
                                     tile={tile}
                                     isEditMode={false}

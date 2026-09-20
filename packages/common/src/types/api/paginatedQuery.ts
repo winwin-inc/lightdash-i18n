@@ -3,6 +3,7 @@ import { type ParametersValuesMap, type PivotConfiguration } from '../..';
 import type { QueryExecutionContext } from '../analytics';
 import type { DownloadFileType } from '../downloadFile';
 import type { DashboardFilters, Filters } from '../filter';
+import type { MetricSourcedMergeQuery } from '../mergeQuery';
 import type { MetricQueryRequest, SortField } from '../metricQuery';
 import type { PivotConfig } from '../pivot';
 import type { DateGranularity } from '../timeFrames';
@@ -32,6 +33,7 @@ export type ExecuteAsyncSavedChartRequestParams =
         chartUuid: string;
         versionUuid?: string;
         limit?: number | null | undefined;
+        offset?: number;
         pivotResults?: boolean;
     };
 
@@ -43,7 +45,18 @@ export type ExecuteAsyncDashboardChartRequestParams =
         dashboardSorts: SortField[];
         dateZoom?: DateZoom;
         limit?: number | null | undefined;
+        offset?: number;
         pivotResults?: boolean;
+    };
+
+/** A merge run: the spec that produced it, recorded verbatim. */
+export type ExecuteAsyncMergeQueryRequestParams =
+    CommonExecuteQueryRequestParams & {
+        /**
+         * Warehouse-side merges are metric-sourced by construction.
+         */
+        mergeQuery: MetricSourcedMergeQuery;
+        pivotConfiguration?: PivotConfiguration;
     };
 
 export type ExecuteAsyncSqlQueryRequestParams =
@@ -129,4 +142,5 @@ export type ExecuteAsyncQueryRequestParams =
     | ExecuteAsyncSavedChartRequestParams
     | ExecuteAsyncDashboardChartRequestParams
     | ExecuteAsyncUnderlyingDataRequestParams
-    | ExecuteAsyncDashboardSqlChartRequestParams;
+    | ExecuteAsyncDashboardSqlChartRequestParams
+    | ExecuteAsyncMergeQueryRequestParams;

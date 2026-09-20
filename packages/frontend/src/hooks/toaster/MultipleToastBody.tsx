@@ -10,6 +10,7 @@ import {
 import { IconChevronDown, IconChevronUp, IconX } from '@tabler/icons-react';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 import MantineIcon from '../../components/common/MantineIcon';
 import ApiErrorDisplay from './ApiErrorDisplay';
@@ -23,12 +24,13 @@ const MultipleToastBody = ({
     toastsData: NotificationData[];
     onCloseError?: (errorData: NotificationData) => void;
 }) => {
+    const { t } = useTranslation();
     const [listCollapsed, setListCollapsed] = useState(true);
 
     return (
         <Stack spacing="xs" align="stretch">
             <Group>
-                <Title order={6}>Errors</Title>
+                <Title order={6}>{t('hooks_toaster.errors')}</Title>
                 <Button
                     size="xs"
                     compact
@@ -44,9 +46,14 @@ const MultipleToastBody = ({
                     }
                     onClick={() => setListCollapsed(!listCollapsed)}
                 >
-                    <Text>{`${listCollapsed ? 'Show' : 'Hide'} ${
-                        toastsData.length
-                    }`}</Text>
+                    <Text>
+                        {t(
+                            listCollapsed
+                                ? 'hooks_toaster.show_count'
+                                : 'hooks_toaster.hide_count',
+                            { count: toastsData.length },
+                        )}
+                    </Text>
                 </Button>
             </Group>
 

@@ -23,8 +23,10 @@ import {
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 
 import { useConditionalRuleLabelFromItem } from '../Filters/FilterInputs/utils';
+import type { RowSpanMerge } from '../PivotTable/getRowSpanMerges';
 import { type CellContextMenuProps } from '../Table/types';
 import {
+    DEFAULT_COLUMN_MAX_WIDTH,
     pivotDataToVTable,
     type VTableColumnDef,
     type VTableColumnGroup,
@@ -72,8 +74,8 @@ function addConditionalStyleToColumns(
                           return style;
                       }
                     : staticStyle
-                      ? () => staticStyle
-                      : undefined;
+                    ? () => staticStyle
+                    : undefined;
             result.push({
                 ...c,
                 ...(styleFn && { style: styleFn }),
@@ -122,6 +124,62 @@ function getHeaderRowCount(
     return max;
 }
 
+/**
+ * Build VTable customMergeCell callback from per-column rowSpan merges.
+ * Only applies to data body rows (not header / column-total footer rows).
+ */
+function buildCustomMergeCell(
+    leafColumns: VTableColumnDef[],
+    rowSpanMerges: Map<string, RowSpanMerge[]>,
+    headerRowCount: number,
+    dataRowCount: number,
+): (
+    col: number,
+    row: number,
+) =>
+    | {
+          range: {
+              start: { col: number; row: number };
+              end: { col: number; row: number };
+          };
+      }
+    | undefined {
+    return (col: number, row: number) => {
+        const dataRowIndex = row - headerRowCount;
+        if (dataRowIndex < 0 || dataRowIndex >= dataRowCount) return undefined;
+
+        const fieldId = leafColumns[col]?.field;
+        if (!fieldId) return undefined;
+        const spans = rowSpanMerges.get(fieldId);
+        if (!spans) return undefined;
+
+        const info = spans[dataRowIndex];
+        if (!info) return undefined;
+
+        let blockStart = dataRowIndex;
+        if (!info.isBlockStart) {
+            while (blockStart > 0 && !spans[blockStart].isBlockStart) {
+                blockStart -= 1;
+            }
+        }
+        const block = spans[blockStart];
+        if (!block || block.rowSpan <= 1) return undefined;
+
+        return {
+            range: {
+                start: {
+                    col,
+                    row: blockStart + headerRowCount,
+                },
+                end: {
+                    col,
+                    row: blockStart + headerRowCount + block.rowSpan - 1,
+                },
+            },
+        };
+    };
+}
+
 /** VTable 实例：含 on、updateOption、getCopyValue */
 type ListTableInstance = {
     on: (event: string, cb: (args: unknown) => void) => void;
@@ -138,6 +196,8 @@ export type PivotTableVTableProps = BoxProps &
         getFieldLabel: (fieldId: string) => string | undefined;
         getField: (fieldId: string) => ItemsMap[string] | undefined;
         showSubtotals?: boolean;
+        showRowGrouping?: boolean;
+        columnOrder?: string[];
         columnProperties?: Record<string, ColumnProperties>;
         pivotMetricHeaderPosition?: PivotMetricHeaderPosition;
         pivotAutoFillWidth?: boolean;
@@ -155,6 +215,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     hideRowNumbers = false,
     getFieldLabel,
     getField,
+    showSubtotals = false,
+    showRowGrouping = false,
+    columnOrder,
     columnProperties = {},
     pivotMetricHeaderPosition = 'bottom',
     pivotAutoFillWidth = false,
@@ -214,11 +277,13 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             columnProperties,
             getField,
             pivotMetricHeaderPosition,
-            pivotAutoFillWidth,
             pivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,
             cellAlignment,
             pivotRowDimensionAlignment,
+            showRowGrouping,
+            showSubtotals,
+            columnOrder,
         });
 
         const allRecords = [
@@ -233,16 +298,38 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             headerRowCount,
             0,
         );
+        const flattenedCols = flattenLeafColumns(columnsWithStyle);
         allRecordsRef.current = allRecords;
-        flattenedColsRef.current = flattenLeafColumns(columnsWithStyle);
+        flattenedColsRef.current = flattenedCols;
         originalRowsRef.current = data.retrofitData.allCombinedData;
         pivotColumnInfoRef.current = data.retrofitData.pivotColumnInfo;
         headerRowCountRef.current = headerRowCount;
 
+        const limitMaxAutoWidth =
+            pivotColumnMaxWidth !== undefined && pivotColumnMaxWidth > 0
+                ? pivotColumnMaxWidth
+                : DEFAULT_COLUMN_MAX_WIDTH;
+
         const fullOption: Record<string, unknown> = {
             columns: columnsWithStyle,
             records: allRecords,
+            // 按表头/单元格内容自适应列宽（与「撑满容器」解耦，默认开启）
+            widthMode: 'autoWidth',
+            limitMaxAutoWidth,
             ...(pivotAutoFillWidth ? { autoFillWidth: true } : {}),
+            ...(base.frozenColCount > 0
+                ? { frozenColCount: base.frozenColCount }
+                : {}),
+            ...(base.rowSpanMerges
+                ? {
+                      customMergeCell: buildCustomMergeCell(
+                          flattenedCols,
+                          base.rowSpanMerges,
+                          headerRowCount,
+                          dataRowCount,
+                      ),
+                  }
+                : {}),
             select: {
                 disableSelect: true,
             },
@@ -267,7 +354,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                     bgColor: '#f5f5f5',
                     borderColor: '#e8e8e8',
                     borderLineWidth: 1,
-                    textAlign: 'center',
+                    textAlign: cellAlignment,
                 },
                 frameStyle: {
                     borderColor: '#e8e8e8',
@@ -303,6 +390,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         pivotColumnMaxWidth,
         cellAlignment,
         pivotRowDimensionAlignment,
+        showRowGrouping,
+        showSubtotals,
+        columnOrder,
     ]);
 
     useEffect(() => {

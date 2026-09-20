@@ -300,7 +300,14 @@ describe('applyDimensionOverrides', () => {
             ];
 
             const result = applyDimensionOverrides(emptyDashboard, overrides);
-            expect(result).toEqual(overrides);
+            // New (unmatched) overrides cannot assert requirement metadata.
+            expect(result).toEqual(
+                overrides.map((o) => ({
+                    ...o,
+                    required: undefined,
+                    requiredGroupId: undefined,
+                })),
+            );
         });
 
         it('should handle filters with same id but different field properties', () => {
@@ -327,6 +334,24 @@ describe('applyDimensionOverrides', () => {
             expect(result[0]).toEqual({
                 ...overrides[0],
                 tileTargets: baseDashboardFilters.dimensions[0].tileTargets,
+                // Saved dashboard owns lock/requirement/category metadata.
+                lockedTabUuids:
+                    baseDashboardFilters.dimensions[0].lockedTabUuids,
+                required: baseDashboardFilters.dimensions[0].required,
+                requiredGroupId:
+                    baseDashboardFilters.dimensions[0].requiredGroupId,
+                categoryLevel:
+                    baseDashboardFilters.dimensions[0].categoryLevel,
+                parentFieldId:
+                    baseDashboardFilters.dimensions[0].parentFieldId,
+                excludedValues:
+                    baseDashboardFilters.dimensions[0].excludedValues,
+                allowedOperators:
+                    baseDashboardFilters.dimensions[0].allowedOperators,
+                minAllowedDate:
+                    baseDashboardFilters.dimensions[0].minAllowedDate,
+                maxAllowedDate:
+                    baseDashboardFilters.dimensions[0].maxAllowedDate,
             });
         });
 

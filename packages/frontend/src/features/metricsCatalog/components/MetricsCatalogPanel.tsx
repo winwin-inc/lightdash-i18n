@@ -150,15 +150,6 @@ const LearnMorePopover: FC<{ buttonStyles?: ButtonProps['style'] }> = ({
                         >
                             {t('features_metrics.learn_more.view_demo')}
                         </Button>
-                        <Button
-                            component="a"
-                            href="https://docs.lightdash.com/guides/metrics-catalog/"
-                            target="_blank"
-                            radius="md"
-                            sx={{ border: 'none', flexGrow: 1 }}
-                        >
-                            {t('features_metrics.learn_more.learn_more')}
-                        </Button>
                     </Group>
                 </Stack>
             </Popover.Dropdown>

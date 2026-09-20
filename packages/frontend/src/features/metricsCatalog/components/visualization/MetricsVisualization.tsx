@@ -595,7 +595,7 @@ const MetricsVisualization: FC<Props> = ({
                 )}
 
                 <Tooltip
-                    label="Drag between two points on the chart to zoom in. Use this button to reset the view."
+                    label={t('features_metrics_catalog.zoom_reset')}
                     variant="xs"
                     position="top"
                     disabled={!!zoomState.zoomedData}

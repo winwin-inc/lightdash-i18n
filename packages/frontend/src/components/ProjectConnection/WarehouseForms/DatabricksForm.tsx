@@ -1,7 +1,6 @@
 import { WarehouseTypes } from '@lightdash/common';
 import {
     ActionIcon,
-    Anchor,
     Button,
     Group,
     PasswordInput,
@@ -22,6 +21,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 
 export const DatabricksSchemaInput: FC<{
     disabled: boolean;
@@ -42,15 +42,9 @@ export const DatabricksSchemaInput: FC<{
                     {t(
                         'components_project_connection_warehouse_form.databricks.schema.description.part_1',
                     )}
-                    <Anchor
-                        target="_blank"
-                        href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project/#database-1"
-                        rel="noreferrer"
-                    >
-                        {t(
-                            'components_project_connection_warehouse_form.databricks.schema.description.part_2',
-                        )}
-                    </Anchor>
+                    {t(
+                        'components_project_connection_warehouse_form.databricks.schema.description.part_2',
+                    )}
                     {t(
                         'components_project_connection_warehouse_form.databricks.schema.description.part_3',
                     )}
@@ -105,15 +99,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.server.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#server-hostname"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.server.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.server.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.server.description.part_3',
                             )}
@@ -137,15 +125,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.http_path.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#http-path"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.http_path.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.http_path.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.http_path.description.part_3',
                             )}
@@ -168,15 +150,9 @@ const DatabricksForm: FC<{
                             {t(
                                 'components_project_connection_warehouse_form.databricks.access_token.description.part_1',
                             )}
-                            <Anchor
-                                target="_blank"
-                                href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project#personal-access-token"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_project_connection_warehouse_form.databricks.access_token.description.part_2',
-                                )}
-                            </Anchor>
+                            {t(
+                                'components_project_connection_warehouse_form.databricks.access_token.description.part_2',
+                            )}
                             {t(
                                 'components_project_connection_warehouse_form.databricks.access_token.description.part_3',
                             )}
@@ -204,6 +180,7 @@ const DatabricksForm: FC<{
                 />
                 <FormSection isOpen={isOpen} name="advanced">
                     <Stack>
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
                         <Stack spacing="xs">
                             <Stack spacing={0}>

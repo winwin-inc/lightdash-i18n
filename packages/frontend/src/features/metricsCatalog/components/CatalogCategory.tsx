@@ -2,6 +2,7 @@ import type { CatalogItem } from '@lightdash/common';
 import { ActionIcon, Badge, Group, Tooltip } from '@mantine/core';
 import { IconCode, IconX } from '@tabler/icons-react';
 import type { FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
 import { useCategoryStyles } from '../styles/useCategoryStyles';
 
@@ -22,6 +23,7 @@ export const CatalogCategory: FC<Props> = ({
     showYamlIcon = false,
 }) => {
     const { classes } = useCategoryStyles(category.color);
+    const { t } = useTranslation();
 
     return (
         <Badge
@@ -40,7 +42,9 @@ export const CatalogCategory: FC<Props> = ({
                         maw={200}
                         position="top"
                         withinPortal
-                        label="This category cannot be removed from this metric because it was defined in the .yml file."
+                        label={t(
+                            'features_metrics_catalog.yaml_cannot_remove',
+                        )}
                     >
                         <MantineIcon
                             icon={IconCode}

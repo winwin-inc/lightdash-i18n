@@ -1,22 +1,29 @@
 import { TimeFrames, formatDate } from '@lightdash/common';
 import {
+    ActionIcon,
+    Box,
     type MantineTheme,
     Popover,
     Stack,
     type Sx,
     Text,
-    TextInput,
 } from '@mantine/core';
 import { MonthPicker, type MonthPickerProps } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
+import { IconX } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import quarterOfYear from 'dayjs/plugin/quarterOfYear';
-import { type FC, useCallback, useState } from 'react';
+import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 dayjs.extend(quarterOfYear);
 
-type Props = Pick<MonthPickerProps, 'value' | 'onChange'> & {
+/** 同一时刻只允许一个季度选择弹层打开（开始/结束各一个实例） */
+let closeActiveQuarterPicker: (() => void) | null = null;
+
+type Props = Omit<MonthPickerProps, 'value' | 'onChange'> & {
+    value: Date | null;
+    onChange: (value: Date | null) => void;
     placeholder?: string;
     disabled?: boolean;
     popoverProps?: any;
@@ -43,6 +50,50 @@ const FilterQuarterPicker: FC<Props> = ({
 }) => {
     const [opened, { open, close }] = useDisclosure(false);
     const { t } = useTranslation();
+    const parentOnOpen = popoverProps?.onOpen;
+    const parentOnClose = popoverProps?.onClose;
+    const closeRef = useRef(close);
+    closeRef.current = close;
+
+    const handleClose = useCallback(() => {
+        closeRef.current();
+        if (closeActiveQuarterPicker === handleClose) {
+            closeActiveQuarterPicker = null;
+        }
+    }, []);
+
+    const handleOpen = useCallback(() => {
+        closeActiveQuarterPicker?.();
+        closeActiveQuarterPicker = handleClose;
+        open();
+    }, [handleClose, open]);
+
+    const handleToggle = useCallback(() => {
+        if (opened) {
+            handleClose();
+        } else {
+            handleOpen();
+        }
+    }, [handleClose, handleOpen, opened]);
+
+    useEffect(() => {
+        if (!opened) {
+            return undefined;
+        }
+        parentOnOpen?.();
+        return () => {
+            parentOnClose?.();
+        };
+    }, [opened, parentOnOpen, parentOnClose]);
+
+    useEffect(
+        () => () => {
+            if (closeActiveQuarterPicker === handleClose) {
+                closeActiveQuarterPicker = null;
+            }
+        },
+        [handleClose],
+    );
 
     placeholder =
         placeholder ||
@@ -89,7 +140,13 @@ const FilterQuarterPicker: FC<Props> = ({
         const quarterDate = dateObj.startOf('quarter');
 
         onChange?.(quarterDate.toDate());
-        close();
+        handleClose();
+    };
+
+    const handleClear = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onChange?.(null);
     };
 
     const getMonthControlProps = useCallback(
@@ -167,30 +224,71 @@ const FilterQuarterPicker: FC<Props> = ({
 
     return (
         <Popover
-            opened={opened}
-            onClose={close}
             position="bottom"
             shadow="md"
             withinPortal
+            zIndex={1100}
+            closeOnClickOutside
+            closeOnEscape
             {...popoverProps}
+            opened={opened}
+            onClose={handleClose}
         >
             <Popover.Target>
-                <TextInput
-                    size="xs"
-                    onClick={disabled ? undefined : open}
-                    placeholder={placeholder}
-                    value={
-                        value
-                            ? formatDate(value, TimeFrames.QUARTER)
-                            : undefined
-                    }
-                    readOnly
-                    styles={{
-                        input: {
-                            cursor: 'pointer',
-                        },
+                {/*
+                 * TODO: replace this manual Box+Box+ActionIcon with Mantine's
+                 * <TextInput rightSection={...}/> once we figure out how to
+                 * stop Mantine from re-opening the popover when the clear
+                 * button is clicked. For now this mimics the look-and-feel
+                 * of size="xs" so the clear button can be a true sibling
+                 * of the click target.
+                 */}
+                <Box
+                    onClick={disabled ? undefined : handleToggle}
+                    style={{
+                        position: 'relative',
+                        cursor: disabled ? 'default' : 'pointer',
                     }}
-                />
+                >
+                    <Box
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            height: 30, // mantine size="xs" input height
+                            padding: '0 32px 0 8px',
+                            fontSize: 12, // mantine xs font size
+                            backgroundColor: 'var(--mantine-color-default)',
+                            border: '1px solid var(--mantine-color-default-border)',
+                            borderRadius: 'var(--mantine-radius-default)',
+                            color: value
+                                ? 'var(--mantine-color-text)'
+                                : 'var(--mantine-color-placeholder)',
+                        }}
+                    >
+                        {value
+                            ? formatDate(value, TimeFrames.QUARTER)
+                            : placeholder}
+                    </Box>
+                    {value && !disabled && (
+                        <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="gray"
+                            onClick={handleClear}
+                            aria-label={t(
+                                'components_common_filters_inputs.filter_quarter_picker.clear',
+                            )}
+                            style={{
+                                position: 'absolute',
+                                right: 4,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                            }}
+                        >
+                            <IconX size={14} />
+                        </ActionIcon>
+                    )}
+                </Box>
             </Popover.Target>
             <Popover.Dropdown>
                 <Stack spacing="xs">

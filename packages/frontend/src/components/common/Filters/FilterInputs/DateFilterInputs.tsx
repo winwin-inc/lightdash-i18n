@@ -4,12 +4,12 @@ import {
     TimeFrames,
     formatDate,
     isCustomSqlDimension,
+    isDashboardFilterRule,
     isDimension,
     isFilterRule,
     parseDate,
     timeframeToUnitOfTime,
     type BaseFilterRule,
-    type DashboardFilterRule,
     type DateFilterRule,
 } from '@lightdash/common';
 import { Flex, NumberInput, Text } from '@mantine/core';
@@ -24,9 +24,10 @@ import {
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 import FilterDatePicker from './FilterDatePicker';
-import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterDateTimePicker from './FilterDateTimePicker';
 import FilterDateTimeRangePicker from './FilterDateTimeRangePicker';
+import FilterDynamicDateRangePicker from './FilterDynamicDateRangePicker';
+import FilterDynamicMonthPicker from './FilterDynamicMonthPicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterUnitOfTimeAutoComplete from './FilterUnitOfTimeAutoComplete';
@@ -37,7 +38,15 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     props: FilterInputsProps<T>,
 ) => {
     const { t } = useTranslation();
-    const { field, rule, onChange, popoverProps, disabled, filterType } = props;
+    const {
+        field,
+        rule,
+        onChange,
+        popoverProps,
+        disabled,
+        filterType,
+        isEditMode,
+    } = props;
     const { startOfWeek } = useFiltersContext();
 
     const isTimestamp =
@@ -58,16 +67,25 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         disabled: rule.disabled && !rule.values,
     });
 
-    const dashboardRule = rule as unknown as DashboardFilterRule;
+    const dashboardRule = isDashboardFilterRule(rule) ? rule : undefined;
     const timeIntervalStr =
         isDimension(field) && field.timeInterval
             ? String(field.timeInterval)
             : undefined;
+    const isRangeOperator =
+        rule.operator === FilterOperator.IN_BETWEEN ||
+        rule.operator === FilterOperator.NOT_IN_BETWEEN;
+    const boundsGranularity = isRangeOperator
+        ? dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY
+        : timeIntervalStr;
     const { minDate: cfgMin, maxDate: cfgMax } =
         getDashboardFilterDatePickerBounds(
-            dashboardRule.minAllowedDate,
-            dashboardRule.maxAllowedDate,
-            timeIntervalStr,
+            dashboardRule?.minAllowedDate,
+            dashboardRule?.maxAllowedDate,
+            boundsGranularity,
+            dayjs(),
+            true,
+            !!dashboardRule?.enableDynamicMaxAllowedDate,
         );
 
     switch (rule.operator) {
@@ -146,6 +164,28 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                             </Flex>
                         );
                     case TimeFrames.MONTH:
+                        if (rule.operator === FilterOperator.EQUALS) {
+                            return (
+                                <FilterDynamicMonthPicker
+                                    rule={
+                                        rule as unknown as Parameters<
+                                            typeof FilterDynamicMonthPicker
+                                        >[0]['rule']
+                                    }
+                                    onChange={
+                                        onChange as unknown as Parameters<
+                                            typeof FilterDynamicMonthPicker
+                                        >[0]['onChange']
+                                    }
+                                    disabled={disabled}
+                                    filterMinDate={cfgMin}
+                                    filterMaxDate={cfgMax}
+                                    placeholder={placeholder}
+                                    popoverProps={popoverProps}
+                                    isEditMode={isEditMode}
+                                />
+                            );
+                        }
                         return (
                             <Flex direction="column" gap={4} w="100%">
                                 {rule.operator ===
@@ -176,7 +216,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                                               )
                                             : null
                                     }
-                                    onChange={(value: Date) => {
+                                    onChange={(value: Date | null) => {
                                         onChange({
                                             ...rule,
                                             values: [
@@ -204,7 +244,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                                 autoFocus={true}
                                 popoverProps={popoverProps}
                                 value={parsedValue}
-                                onChange={(newDate: Date) => {
+                                onChange={(newDate: Date | null) => {
                                     onChange({
                                         ...rule,
                                         values: [
@@ -236,7 +276,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                                           )
                                         : null
                                 }
-                                onChange={(newDate: Date) => {
+                                onChange={(newDate: Date | null) => {
                                     onChange({
                                         ...rule,
                                         values: [
@@ -444,45 +484,35 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                 );
             }
 
+            // Effective granularity for the "in between" range picker.
+            // The user-chosen dateRangeGranularity (set via the date-range
+            // constraint editor in dashboard config) is the only override.
+            // Otherwise we always default to DAY — for dashboard filters
+            // the user opts in to month/quarter/year pickers via the date
+            // selector; in the explore page there is no date selector and
+            // the value-range picker is always day-based.
+            const rangeGranularity =
+                dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY;
+
             return (
-                <FilterDateRangePicker
-                    disabled={disabled}
+                <FilterDynamicDateRangePicker
+                    rule={
+                        rule as unknown as Parameters<
+                            typeof FilterDynamicDateRangePicker
+                        >[0]['rule']
+                    }
+                    onChange={
+                        onChange as unknown as Parameters<
+                            typeof FilterDynamicDateRangePicker
+                        >[0]['onChange']
+                    }
+                    granularity={rangeGranularity}
                     filterMinDate={cfgMin}
                     filterMaxDate={cfgMax}
-                    autoFocus={true}
                     firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
-                    value={
-                        rule.values && rule.values[0] && rule.values[1]
-                            ? [
-                                  parseDate(
-                                      formatDate(
-                                          rule.values[0],
-                                          TimeFrames.DAY,
-                                      ),
-                                      TimeFrames.DAY,
-                                  ),
-                                  parseDate(
-                                      formatDate(
-                                          rule.values[1],
-                                          TimeFrames.DAY,
-                                      ),
-                                      TimeFrames.DAY,
-                                  ),
-                              ]
-                            : null
-                    }
+                    disabled={disabled}
+                    isEditMode={isEditMode}
                     popoverProps={popoverProps}
-                    onChange={(value: [Date, Date] | null) => {
-                        onChange({
-                            ...rule,
-                            values: value
-                                ? [
-                                      formatDate(value[0], TimeFrames.DAY),
-                                      formatDate(value[1], TimeFrames.DAY),
-                                  ]
-                                : [],
-                        });
-                    }}
                 />
             );
         default: {

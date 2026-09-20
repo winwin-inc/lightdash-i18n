@@ -5,7 +5,6 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import usePinnedItemsContext from '../../providers/PinnedItems/usePinnedItemsContext';
 import MantineIcon from '../common/MantineIcon';
-// import MantineLinkButton from '../common/MantineLinkButton';
 import ResourceView from '../common/ResourceView';
 import { ResourceViewType } from '../common/ResourceView/types';
 
@@ -71,15 +70,6 @@ const PinnedItemsPanel: FC<Props> = ({ pinnedItems, isEnabled }) => {
                         {t('components_pinned_items_panel.no_items.tip')}
                     </Text>
                 </Group>
-                {/* <MantineLinkButton
-                    href="https://docs.lightdash.com/guides/pinning/"
-                    target="_blank"
-                    variant="subtle"
-                    compact
-                    color="gray.6"
-                >
-                    {t('components_pinned_items_panel.no_items.view')}
-                </MantineLinkButton> */}
             </Group>
         </Card>
     ) : null;

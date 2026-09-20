@@ -1,6 +1,5 @@
 import { DbtProjectType, JobStatusType, ProjectType } from '@lightdash/common';
 import {
-    Anchor,
     Badge,
     Box,
     Button,
@@ -106,36 +105,12 @@ const RefreshDbtButton: FC<{
                         <br /> {t(
                             'components_refresh_dbt_button.tip.part_3',
                         )}{' '}
-                        <Anchor
-                            href={
-                                'https://docs.lightdash.com/get-started/setup-lightdash/connect-project#2-import-a-dbt-project'
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            {t('components_refresh_dbt_button.tip.part_4')}
-                        </Anchor>
+                        {t('components_refresh_dbt_button.tip.part_4')}
                         {t('components_refresh_dbt_button.tip.part_5')}{' '}
-                        <Anchor
-                            href={
-                                'https://docs.lightdash.com/guides/cli/how-to-use-lightdash-deploy#automatically-deploy-your-changes-to-lightdash-using-a-github-action'
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            {t('components_refresh_dbt_button.tip.part_6')}
-                        </Anchor>
+                        {t('components_refresh_dbt_button.tip.part_6')}
                         <br />
                         {t('components_refresh_dbt_button.tip.part_7')}{' '}
-                        <Anchor
-                            href={
-                                'https://docs.lightdash.com/guides/cli/how-to-use-lightdash-deploy#lightdash-deploy-syncs-the-changes-in-your-dbt-project-to-lightdash'
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            {t('components_refresh_dbt_button.tip.part_8')}
-                        </Anchor>
+                        {t('components_refresh_dbt_button.tip.part_8')}
                         {t('components_refresh_dbt_button.tip.part_9')}
                     </Text>
                 </Popover.Dropdown>

@@ -85,7 +85,7 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
     const { projectUuid } = useParams<{ projectUuid: string }>();
     const { data: spaces = [] } = useSpaceSummaries(projectUuid);
     const canUserManageValidation = useValidationUserAbility(projectUuid);
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const [columnSorts, setColumnSorts] = useState<SortingStateMap>(
         defaultSort ? new Map(Object.entries(defaultSort)) : new Map(),
@@ -254,6 +254,10 @@ const ResourceViewList: FC<ResourceViewListProps> = ({
                                                 }
                                                 label={getResourceViewsSinceWhenDescription(
                                                     item,
+                                                    t,
+                                                    i18n.language
+                                                        .toLowerCase()
+                                                        .startsWith('zh'),
                                                 )}
                                             >
                                                 <span>

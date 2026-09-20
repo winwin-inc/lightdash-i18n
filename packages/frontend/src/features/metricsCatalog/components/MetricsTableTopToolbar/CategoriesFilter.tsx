@@ -176,7 +176,9 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
                                 />
                             ))}
                             <Checkbox
-                                label="Uncategorized"
+                                label={t(
+                                    'features_metrics_catalog.uncategorized',
+                                )}
                                 checked={selectedCategories.includes(
                                     UNCATEGORIZED_TAG_UUID,
                                 )}
@@ -223,7 +225,12 @@ const CategoriesFilter: FC<CategoriesFilterProps> = ({
                 </Popover.Dropdown>
             </Popover>
             {hasSelectedCategories && (
-                <Tooltip variant="xs" label="Clear all categories">
+                <Tooltip
+                    variant="xs"
+                    label={t(
+                        'features_metrics_catalog.clear_all_categories',
+                    )}
+                >
                     <ActionIcon
                         size="xs"
                         color="gray.5"

@@ -233,7 +233,7 @@ describe('tool descriptions', () => {
             /dashboard_selection_required/,
         );
         assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /candidates/);
-        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /不是报错/);
+        assert.match(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /自动选用/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /run_sql/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /也可：object/);
         assert.doesNotMatch(RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION, /docs\/mcp/);
@@ -250,7 +250,7 @@ describe('tool descriptions', () => {
             /dashboard_selection_required/,
         );
         assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /candidates/);
-        assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /不是报错/);
+        assert.match(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /自动选用/);
         assert.doesNotMatch(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /docs\/mcp/);
         assert.doesNotMatch(RUN_METRIC_QUERY_FLAT_DESCRIPTION, /详见/);
     });

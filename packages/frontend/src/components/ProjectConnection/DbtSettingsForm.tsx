@@ -5,7 +5,7 @@ import {
     FeatureFlags,
     WarehouseTypes,
 } from '@lightdash/common';
-import { Anchor, Select, Stack, TextInput } from '@mantine/core';
+import { Select, Stack, TextInput } from '@mantine/core';
 import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -111,35 +111,6 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
         }
     }, [type]);
 
-    const baseDocUrl =
-        'https://docs.lightdash.com/get-started/setup-lightdash/connect-project#';
-    const typeDocUrls = {
-        [DbtProjectType.GITHUB]: {
-            env: `environment-variables`,
-        },
-        [DbtProjectType.GITLAB]: {
-            env: `environment-variables-1`,
-        },
-        [DbtProjectType.AZURE_DEVOPS]: {
-            env: `environment-variables-2`,
-        },
-        [DbtProjectType.DBT]: {
-            env: `environment-variables-3`,
-        },
-        [DbtProjectType.BITBUCKET]: {
-            env: `environment-variables-3`,
-        },
-        [DbtProjectType.DBT_CLOUD_IDE]: {
-            env: `environment-variables`,
-        },
-        [DbtProjectType.NONE]: {
-            env: `environment-variables-3`,
-        },
-        [DbtProjectType.MANIFEST]: {
-            env: `environment-variables-3`,
-        },
-    };
-
     const WarehouseSchemaInput = useMemo(() => {
         switch (warehouseType) {
             case WarehouseTypes.BIGQUERY:
@@ -234,25 +205,9 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                         label={t(
                                             'components_project_connection_dbt_settings.advanced.selector',
                                         )}
-                                        description={
-                                            <p>
-                                                {t(
-                                                    'components_project_connection_dbt_settings.advanced.content.part_1',
-                                                )}
-                                                <Anchor
-                                                    href="https://docs.lightdash.com/get-started/setup-lightdash/connect-project/#dbt-selector"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {t(
-                                                        'components_project_connection_dbt_settings.advanced.content.part_2',
-                                                    )}
-                                                </Anchor>
-                                                {t(
-                                                    'components_project_connection_dbt_settings.advanced.content.part_3',
-                                                )}
-                                            </p>
-                                        }
+                                        description={t(
+                                            'components_project_connection_dbt_settings.advanced.content.part_1',
+                                        )}
                                         disabled={disabled}
                                         placeholder="tag:lightdash"
                                     />
@@ -263,7 +218,6 @@ const DbtSettingsForm: FC<DbtSettingsFormProps> = ({
                                     label={t(
                                         'components_project_connection_dbt_settings.environment_variables',
                                     )}
-                                    documentationUrl={`${baseDocUrl}${typeDocUrls[type].env}`}
                                     disabled={disabled}
                                 />
                             </Stack>

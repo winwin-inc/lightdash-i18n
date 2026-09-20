@@ -66,7 +66,7 @@ const Spaces: FC = () => {
 
     return (
         <Page
-            title="Spaces"
+            title={t('pages_spaces.spaces')}
             withCenteredRoot
             withCenteredContent
             withXLargePaddedContent

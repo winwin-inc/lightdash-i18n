@@ -1,5 +1,5 @@
 import { subject } from '@casl/ability';
-import { CommercialFeatureFlags, FeatureFlags } from '@lightdash/common';
+import { FeatureFlags } from '@lightdash/common';
 import { Box, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import {
     IconBrain,
@@ -7,6 +7,7 @@ import {
     IconBuildingSkyscraper,
     IconCalendarStats,
     IconChecklist,
+    IconClock,
     IconDatabase,
     IconDatabaseCog,
     IconDatabaseExport,
@@ -21,6 +22,7 @@ import {
     IconUserCircle,
     IconUserCode,
     IconUserPlus,
+    IconClipboardList,
     IconUsers,
     IconUserShield,
     IconVariable,
@@ -67,10 +69,7 @@ import { CustomRoleEdit } from '../ee/pages/customRoles/CustomRoleEdit';
 import { CustomRoles } from '../ee/pages/customRoles/CustomRoles';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import { useActiveProjectUuid } from '../hooks/useActiveProject';
-import {
-    useFeatureFlag,
-    useFeatureFlagEnabled,
-} from '../hooks/useFeatureFlagEnabled';
+import { useFeatureFlag } from '../hooks/useFeatureFlagEnabled';
 import { useProject } from '../hooks/useProject';
 import { Can } from '../providers/Ability';
 import useApp from '../providers/App/useApp';
@@ -82,13 +81,10 @@ import ProjectSettings from './ProjectSettings';
 const Settings: FC = () => {
     const { t } = useTranslation();
 
-    const { data: embeddingEnabled } = useFeatureFlag(
-        CommercialFeatureFlags.Embedding,
-    );
-
-    const { data: isScimTokenManagementEnabled } = useFeatureFlag(
-        CommercialFeatureFlags.Scim,
-    );
+    // 免费版不启用商业功能，不请求 CommercialFeatureFlags（无 LICENSE 时 /api/v2/feature-flag/* 会 404）
+    const embeddingEnabled = false;
+    const isScimTokenManagementEnabled = false;
+    const isWarehouseCredentialsEnabled = false;
 
     // 禁用 AI Organization Settings 请求（非 EE 模块不需要）
     const aiOrganizationSettingsQuery = useAiOrganizationSettings({
@@ -98,10 +94,6 @@ const Settings: FC = () => {
         (aiOrganizationSettingsQuery.isSuccess &&
             aiOrganizationSettingsQuery.data?.isCopilotEnabled) ||
         aiOrganizationSettingsQuery.data?.isTrial;
-
-    const isServiceAccountFeatureFlagEnabled = useFeatureFlagEnabled(
-        CommercialFeatureFlags.ServiceAccounts,
-    );
 
     const {
         health: {
@@ -151,13 +143,8 @@ const Settings: FC = () => {
         userGroupsFeatureFlagQuery.isSuccess &&
         userGroupsFeatureFlagQuery.data.enabled;
 
-    // This allows us to enable service accounts in the UI for on-premise installations
-    const isServiceAccountsEnabled =
-        health?.isServiceAccountEnabled || isServiceAccountFeatureFlagEnabled;
-
-    const isWarehouseCredentialsEnabled = useFeatureFlagEnabled(
-        CommercialFeatureFlags.OrganizationWarehouseCredentials,
-    );
+    // 免费版不请求 ServiceAccounts 商业 FF；仅保留 health 开关（无 LICENSE 时通常为假）
+    const isServiceAccountsEnabled = !!health?.isServiceAccountEnabled;
 
     const routes = useMemo<RouteObject[]>(() => {
         const allowedRoutes: RouteObject[] = [
@@ -379,7 +366,7 @@ const Settings: FC = () => {
         // Commercial route
         if (
             user?.ability.can('manage', 'Organization') &&
-            isScimTokenManagementEnabled?.enabled
+            isScimTokenManagementEnabled
         ) {
             allowedRoutes.push({
                 path: '/scimAccessTokens',
@@ -418,7 +405,7 @@ const Settings: FC = () => {
         return allowedRoutes;
     }, [
         isServiceAccountsEnabled,
-        isScimTokenManagementEnabled?.enabled,
+        isScimTokenManagementEnabled,
         allowPasswordAuthentication,
         hasSocialLogin,
         user,
@@ -442,6 +429,12 @@ const Settings: FC = () => {
             !matchPath(
                 {
                     path: '/generalSettings/projectManagement/:projectUuid/scheduledDeliveries',
+                },
+                location.pathname,
+            ) &&
+            !matchPath(
+                {
+                    path: '/generalSettings/projectManagement/:projectUuid/queryTimezone',
                 },
                 location.pathname,
             )
@@ -702,7 +695,7 @@ const Settings: FC = () => {
                                     )}
 
                                 {user.ability.can('manage', 'Organization') &&
-                                    isScimTokenManagementEnabled?.enabled && (
+                                    isScimTokenManagementEnabled && (
                                         <RouterNavLink
                                             label={t(
                                                 'pages_settings.scroll_area_box_create.navs.scim_access_tokens',
@@ -821,6 +814,19 @@ const Settings: FC = () => {
 
                                     <RouterNavLink
                                         label={t(
+                                            'pages_settings.scroll_area_box_update.navs.results_caching',
+                                        )}
+                                        exact
+                                        to={`/generalSettings/projectManagement/${project.projectUuid}/caching`}
+                                        icon={
+                                            <MantineIcon
+                                                icon={IconDatabaseExport}
+                                            />
+                                        }
+                                    />
+
+                                    <RouterNavLink
+                                        label={t(
                                             'pages_settings.scroll_area_box_update.navs.project_access',
                                         )}
                                         exact
@@ -855,7 +861,30 @@ const Settings: FC = () => {
                                         />
                                     ) : null}
 
-                                    <RouterNavLink
+                                    
+                                    {user.ability.can(
+                                        'manage',
+                                        subject('Project', {
+                                            organizationUuid:
+                                                organization.organizationUuid,
+                                            projectUuid: project.projectUuid,
+                                        }),
+                                    ) ? (
+                                        <RouterNavLink
+                                            label={t(
+                                                'pages_settings.scroll_area_box_update.navs.operation_logs',
+                                            )}
+                                            exact
+                                            to={`/generalSettings/projectManagement/${project.projectUuid}/operationLogs`}
+                                            icon={
+                                                <MantineIcon
+                                                    icon={IconClipboardList}
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+
+<RouterNavLink
                                         label={t(
                                             'pages_settings.scroll_area_box_update.navs.syncs_scheduled_deliveries',
                                         )}
@@ -868,6 +897,17 @@ const Settings: FC = () => {
                                         }
                                     />
 
+                                    <RouterNavLink
+                                        label={t(
+                                            'pages_settings.scroll_area_box_update.navs.query_timezone',
+                                        )}
+                                        exact
+                                        to={`/generalSettings/projectManagement/${project.projectUuid}/queryTimezone`}
+                                        icon={
+                                            <MantineIcon icon={IconClock} />
+                                        }
+                                    />
+
                                     {user.ability?.can(
                                         'update',
                                         subject('Project', {
@@ -875,7 +915,7 @@ const Settings: FC = () => {
                                                 project.organizationUuid,
                                             projectUuid: project.projectUuid,
                                         }),
-                                    ) && embeddingEnabled?.enabled ? (
+                                    ) && embeddingEnabled ? (
                                         <RouterNavLink
                                             label={t(
                                                 'pages_settings.scroll_area_box_create.navs.embed_configuration',

@@ -6,6 +6,9 @@
     },
     "references": [
         {
+            "path": "./packages/formula"
+        },
+        {
             "path": "./packages/frontend"
         },
         {

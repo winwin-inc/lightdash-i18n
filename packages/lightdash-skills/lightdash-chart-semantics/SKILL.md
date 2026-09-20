@@ -12,7 +12,7 @@ description: 当用户提到柱/线/表/KPI/大数字/饼图/漏斗/地图/PoP�
 ## 何时加载
 
 - 图表类型/版式、看板 tile、`chartSlug`、tile 标题与重命名不同步。
-- 环比/同比（PoP）或对比口径；`get_saved_chart` 后需解读 **`chartConfig.type`** + **`metricQuery`**。
+- 环比/同比（PoP）或对比口径；列表认图看 **`chartKind`**；`get_saved_chart` 默认同时有 `chartKind` 与 `chartType`（后者=`chartConfig.type`）；读完整配置时可用 `full: true` 看 **`chartConfig`** + **`metricQuery`**（勿把 `chartType`/`chartConfig.type` 当成折线/柱状）。
 
 不重写完整工具链；下表用于**参数**与**解读**。
 
@@ -21,12 +21,15 @@ description: 当用户提到柱/线/表/KPI/大数字/饼图/漏斗/地图/PoP�
 | 用户意图 | 优先策略 | MCP 顺序 |
 |----------|----------|----------|
 | 已有保存图/看板 | 复用服务端 viz | `find_charts` / `find_dashboards` 或 `find_content` → `get_saved_chart` → `run_saved_chart` |
+| 统计看板图表形态（含「自定义」） | 列表 `chartKind` | `list_charts` / `get_dashboard_tiles` → 数 `chartKind==="custom"` 等 |
 | 自定义且心中有图形态 | 临时查询 | `list_explores` → `run_semantic_metric_query`（Explorer JSON；维度/指标取**最小集**） |
 | 浏览器打开 | 人工 | 工具返回的 **`webUrl`**，禁手拼 |
 
 **效率：** 同一意图勿重复 `list_explores`（explore 无误时）；遵守 router 调用上限。
 
 ## 图表类型与最小 `metricQuery`
+
+**认图**用 MCP 返回的 **`chartKind`**（如 `line` / `custom`）。`get_saved_chart` 另有 **`chartType`**（=`chartConfig.type`）表示配置结构；下表用于**写/读配置**。`cartesian` 可对应多种 `chartKind`。
 
 未用 `run_saved_chart` 时，`metricQuery.dimensions` 中每维须对 viz 有意义（多余维改分组、易扭指标）。
 
@@ -36,6 +39,7 @@ description: 当用户提到柱/线/表/KPI/大数字/饼图/漏斗/地图/PoP�
 | 数字表、多字段 | `table` | 列上要的 dimensions + metrics；控 `limit` |
 | 单一大数字 | `big_number` | 常仅 metrics 或 1 维细分；`limit` 宜小 |
 | 部分与整体 | `pie` | 常见 1 维 + 1 metric |
+| Vega-Lite 自定义（UI「自定义」） | `custom` | 对应 `chartKind: custom`；列表统计用 `chartKind` |
 | PoP | 图 + 附加 metrics | 优先保存图；否则见 [chart-families-mcp.md#pop](./resources/chart-families-mcp.md#pop) |
 
 各族细节（笛卡尔/表/KPI/饼/PoP/看板 tile）：**[chart-families-mcp.md](./resources/chart-families-mcp.md)**（可用锚点 `#cartesian`、`#table`、`#big-number`、`#pie`、`#pop`、`#dashboard-tiles`）。

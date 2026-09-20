@@ -1,4 +1,7 @@
-import { isField, type SortField } from '@lightdash/common';
+import {
+    getItemLabelWithoutTableName,
+    type SortField,
+} from '@lightdash/common';
 import { Badge, Group, Popover, Text } from '@mantine/core';
 import {
     IconArrowDown,
@@ -28,7 +31,7 @@ const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
             const column = columns.find((c) => c.id === sort.fieldId);
             const item = column?.meta?.item;
             if (!item) return t('components_sort_button.field');
-            return isField(item) ? item.label : item.name;
+            return getItemLabelWithoutTableName(item);
         }
         return `${sorts.length} ${t('components_sort_button.fields')}`;
     };

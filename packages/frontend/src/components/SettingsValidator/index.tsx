@@ -27,7 +27,7 @@ import {
 import { useForm } from '@mantine/form';
 import { IconCheck } from '@tabler/icons-react';
 import { useMemo, useState, type FC } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useExplores } from '../../hooks/useExplores';
 import { useSavedQuery } from '../../hooks/useSavedQuery';
@@ -151,7 +151,11 @@ const FixValidationErrorModal: FC<{
     return (
         <Modal
             size="lg"
-            title={<Title order={4}>Fix validation error</Title>}
+            title={
+                <Title order={4}>
+                    {t('components_settings_validator_modal.fix_title')}
+                </Title>
+            }
             opened={!!validationError}
             onClose={handleClose}
             styles={() => ({
@@ -159,11 +163,13 @@ const FixValidationErrorModal: FC<{
             })}
         >
             <Text>
-                Fix{' '}
-                <Text span fw={500}>
-                    {validationError.source}
-                </Text>{' '}
-                error:
+                <Trans
+                    i18nKey="components_settings_validator_modal.fix_error"
+                    values={{ source: validationError.source }}
+                    components={{
+                        bold: <Text span fw={500} />,
+                    }}
+                />
                 <Anchor
                     href={getLinkToResource(
                         validationError,

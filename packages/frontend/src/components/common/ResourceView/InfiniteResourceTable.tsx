@@ -253,12 +253,16 @@ const InfiniteResourceTable = ({
                         <AttributeCount
                             Icon={IconLayoutDashboard}
                             count={dashboardCount}
-                            name="Dashboards"
+                            name={t(
+                                'components_common_resource_view_content_type.dashboards',
+                            )}
                         />
                         <AttributeCount
                             Icon={IconChartBar}
                             count={chartCount}
-                            name="Charts"
+                            name={t(
+                                'components_common_resource_view_content_type.charts',
+                            )}
                         />
                     </Group>
                 );
@@ -859,6 +863,11 @@ const InfiniteResourceTable = ({
                             return {
                                 uuid: item.data.uuid,
                                 contentType: ContentType.SPACE,
+                            };
+                        case ContentType.DATA_APP:
+                            return {
+                                uuid: item.data.uuid,
+                                contentType: ContentType.DATA_APP,
                             };
                         default:
                             return assertUnreachable(

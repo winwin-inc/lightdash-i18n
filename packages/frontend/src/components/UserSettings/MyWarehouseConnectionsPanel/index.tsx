@@ -1,5 +1,5 @@
 import { type UserWarehouseCredentials } from '@lightdash/common';
-import { Anchor, Button, Group, Stack, Text, Title } from '@mantine/core';
+import { Button, Group, Stack, Text, Title } from '@mantine/core';
 import { IconDatabaseCog, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,19 +27,6 @@ export const MyWarehouseConnectionsPanel = () => {
         <Text c="dimmed">
             {t(
                 'components_user_settings_my_warehouse_connections_panel.empty.personal_connections_callout',
-            )}{' '}
-            <Anchor
-                role="button"
-                href="https://docs.lightdash.com/references/personal-warehouse-connections"
-                target="_blank"
-                rel="noreferrer"
-            >
-                {t(
-                    'components_user_settings_my_warehouse_connections_panel.empty.learn_more',
-                )}
-            </Anchor>
-            {t(
-                'components_user_settings_my_warehouse_connections_panel.empty.dot',
             )}
         </Text>
     );

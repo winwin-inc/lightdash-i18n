@@ -327,12 +327,12 @@ const EmbedUrlForm: FC<{
                 <Switch
                     {...form.getInputProps(`canExplore`)}
                     labelPosition="left"
-                    label={`Can explore charts`}
+                    label={t('ai_embed_url_form.can_explore')}
                 />
                 <Switch
                     {...form.getInputProps(`canViewUnderlyingData`)}
                     labelPosition="left"
-                    label={`Can view underlying data`}
+                    label={t('ai_embed_url_form.can_view_underlying_data')}
                 />
                 <Flex justify="flex-end" gap="sm">
                     <Button

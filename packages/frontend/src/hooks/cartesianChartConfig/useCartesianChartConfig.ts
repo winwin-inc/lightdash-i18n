@@ -300,6 +300,23 @@ const useCartesianChartConfig = ({
         });
     }, []);
 
+    const setYAxisNameGap = useCallback(
+        (index: number, value: number | undefined) => {
+            setDirtyEchartsConfig((prevState) => {
+                return {
+                    ...prevState,
+                    yAxis: [
+                        prevState?.yAxis?.[0] || {},
+                        prevState?.yAxis?.[1] || {},
+                    ].map((axis, axisIndex) =>
+                        axisIndex === index ? { ...axis, nameGap: value } : axis,
+                    ),
+                };
+            });
+        },
+        [],
+    );
+
     const setYMinValue = useCallback(
         (index: number, value: string | undefined) => {
             setDirtyEchartsConfig((prevState) => {
@@ -453,6 +470,15 @@ const useCartesianChartConfig = ({
             return {
                 ...prevState,
                 xAxis: [{ ...firstAxis, rotate: rotation }, ...axes],
+            };
+        });
+    }, []);
+    const setXAxisLineOnZero = useCallback((axisLineOnZero: boolean) => {
+        setDirtyEchartsConfig((prevState) => {
+            const [firstAxis, ...axes] = prevState?.xAxis || [];
+            return {
+                ...prevState,
+                xAxis: [{ ...firstAxis, axisLineOnZero }, ...axes],
             };
         });
     }, []);
@@ -1131,6 +1157,7 @@ const useCartesianChartConfig = ({
         setType,
         setXAxisName,
         setYAxisName,
+        setYAxisNameGap,
         setStacking,
         isStacked,
         addSingleSeries,
@@ -1154,6 +1181,7 @@ const useCartesianChartConfig = ({
         setShowYAxis,
         setXAxisSort,
         setXAxisLabelRotation,
+        setXAxisLineOnZero,
         setBarMaxWidth,
         setBarMaxWidthMobile,
         updateSeries,

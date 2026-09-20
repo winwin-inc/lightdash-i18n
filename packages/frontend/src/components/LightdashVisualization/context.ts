@@ -15,6 +15,22 @@ import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import { type VisualizationConfig } from './types';
 
+/**
+ * Warehouse row-count / pagination for TABLE charts.
+ * - enabled: true → OFFSET/LIMIT pager + optional total from calculate-count
+ * - enabled: false → count-only (showResultsTotal without pagination); page* fields omitted
+ */
+export type TablePaginationState = {
+    enabled: boolean;
+    totalRowCount: number | undefined;
+    isCountLoading: boolean;
+    isCountError: boolean;
+    pageIndex?: number;
+    pageSize?: number;
+    onPageChange?: (pageIndex: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
+};
+
 type VisualizationContext = {
     minimal: boolean;
     isDashboard: boolean;
@@ -43,10 +59,15 @@ type VisualizationContext = {
 
     getSeriesColor: (seriesLike: SeriesLike) => string;
     getGroupColor: (groupPrefix: string, groupName: string) => string;
+    getGroupColors: (
+        groupPrefix: string,
+        identifiers: string[],
+    ) => Record<string, string>;
     colorPalette: string[];
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;
     useHashBased: boolean;
+    tablePagination?: TablePaginationState;
 };
 
 const Context = createContext<VisualizationContext | undefined>(undefined);

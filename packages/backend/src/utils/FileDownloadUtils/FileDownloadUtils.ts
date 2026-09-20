@@ -83,6 +83,17 @@ export function generateGenericFileId({
 }
 
 /**
+ * Strip compact/unit hints from export headers (e.g. `(M:百万)`, `（K:千）`)
+ * so raw downloads do not imply scaled values.
+ */
+export function stripCompactUnitHintsFromHeader(header: string): string {
+    return header
+        .replace(/[（(]\s*[KMBT]\s*[:：][^）)]*[）)]/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+/**
  * Processes fields for file export, handling column ordering, filtering, and header generation
  * This utility is shared between CSV and Excel export services to avoid duplication
  */
@@ -93,6 +104,7 @@ export function processFieldsForExport(
         customLabels?: Record<string, string>;
         columnOrder?: string[];
         hiddenFields?: string[];
+        onlyRaw?: boolean;
     },
 ) {
     const {
@@ -100,6 +112,7 @@ export function processFieldsForExport(
         customLabels = {},
         columnOrder = [],
         hiddenFields = [],
+        onlyRaw = false,
     } = options;
 
     // Filter out hidden fields and apply column ordering
@@ -118,16 +131,20 @@ export function processFieldsForExport(
             : availableFieldIds;
 
     const headers = sortedFieldIds.map((fieldId) => {
+        let header: string;
         if (customLabels[fieldId]) {
-            return customLabels[fieldId];
+            header = customLabels[fieldId];
+        } else {
+            const item = fields[fieldId];
+            if (!item) {
+                header = fieldId;
+            } else {
+                header = showTableNames
+                    ? getItemLabel(item)
+                    : getItemLabelWithoutTableName(item);
+            }
         }
-        const item = fields[fieldId];
-        if (!item) {
-            return fieldId;
-        }
-        return showTableNames
-            ? getItemLabel(item)
-            : getItemLabelWithoutTableName(item);
+        return onlyRaw ? stripCompactUnitHintsFromHeader(header) : header;
     });
 
     return { sortedFieldIds, headers };

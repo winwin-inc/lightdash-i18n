@@ -223,27 +223,6 @@ const UserAttributesPanel: FC = () => {
                                   'components_user_settings_attributes_panel.user_attributes',
                               )}
                     </Title>
-                    <Tooltip
-                        multiline
-                        w={400}
-                        withArrow
-                        label={
-                            <Box>
-                                {t(
-                                    'components_user_settings_attributes_panel.tooltip.label',
-                                )}
-                            </Box>
-                        }
-                    >
-                        <ActionIcon
-                            component="a"
-                            href="https://docs.lightdash.com/references/user-attributes"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            <MantineIcon icon={IconInfoCircle} />
-                        </ActionIcon>
-                    </Tooltip>
                 </Group>
                 <>
                     <Button

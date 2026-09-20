@@ -15,10 +15,16 @@ export type SchedulerCsvOptions = {
     formatted: boolean;
     limit: 'table' | 'all' | number;
     asAttachment?: boolean;
+    /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
+    xlsxFileLayout?: 'zip' | 'workbook';
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 
 export type SchedulerImageOptions = {
     withPdf?: boolean;
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 
 export type SchedulerGsheetsOptions = {
@@ -27,6 +33,8 @@ export type SchedulerGsheetsOptions = {
     gdriveOrganizationName: string;
     url: string;
     tabName?: string;
+    /** UI language for delivery emails; missing => zh */
+    locale?: string;
 };
 export type SchedulerOptions =
     | SchedulerCsvOptions
@@ -525,6 +533,33 @@ export type ExportCsvDashboardPayload = TraceTaskBase & {
     dashboardUuid: string;
     dashboardFilters: DashboardFilters;
     dateZoomGranularity?: DateGranularity;
+};
+
+/** Dashboard one-click export (CSV/XLSX). Image stays on the legacy /export route. */
+export type ExportContentFormat =
+    | SchedulerFormat.CSV
+    | SchedulerFormat.XLSX;
+
+export type ExportContentPayload = TraceTaskBase & {
+    resourceType: 'dashboard';
+    resourceUuid: string;
+    format: ExportContentFormat;
+    options: SchedulerCsvOptions;
+    dashboardFilters?: DashboardFilters;
+    dateZoomGranularity?: DateGranularity | string;
+    customViewportWidth?: number;
+    selectedTabs?: string[] | null;
+    parameters?: ParametersValuesMap;
+};
+
+export type ExportContentRequest = {
+    format: ExportContentFormat;
+    options?: SchedulerCsvOptions;
+    dashboardFilters?: DashboardFilters;
+    dateZoomGranularity?: DateGranularity | string;
+    customViewportWidth?: number;
+    selectedTabs?: string[] | null;
+    parameters?: ParametersValuesMap;
 };
 
 export type DownloadAsyncQueryResultsPayload = TraceTaskBase & {

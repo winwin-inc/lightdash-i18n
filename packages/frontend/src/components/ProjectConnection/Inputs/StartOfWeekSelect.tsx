@@ -6,16 +6,6 @@ import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../common/MantineIcon';
 import { useFormContext } from '../formContext';
 
-const daysOfWeekOptions = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-].map((x, index) => ({ value: index.toString(), label: x }));
-
 const StartOfWeekSelect: FC<{
     disabled: boolean;
     isRedeployRequired?: boolean;
@@ -24,12 +14,24 @@ const StartOfWeekSelect: FC<{
     const field = form.getInputProps('warehouse.startOfWeek');
     const { t } = useTranslation();
 
+    const daysOfWeekOptions = [
+        t('components_project_connection_warehouse_form.days_of_week.monday'),
+        t('components_project_connection_warehouse_form.days_of_week.tuesday'),
+        t(
+            'components_project_connection_warehouse_form.days_of_week.wednesday',
+        ),
+        t('components_project_connection_warehouse_form.days_of_week.thursday'),
+        t('components_project_connection_warehouse_form.days_of_week.friday'),
+        t('components_project_connection_warehouse_form.days_of_week.saturday'),
+        t('components_project_connection_warehouse_form.days_of_week.sunday'),
+    ].map((label, index) => ({ value: index.toString(), label }));
+
     return (
         <>
             <Select
                 name="warehouse.startOfWeek"
                 clearable
-                placeholder="Auto"
+                placeholder={t('common.auto')}
                 label={t(
                     'components_project_connection_warehouse_form.inputs.label',
                 )}

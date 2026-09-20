@@ -12,6 +12,7 @@ import {
     type MetricQuery,
 } from '@lightdash/common';
 import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     useLocation,
     useNavigate,
@@ -190,21 +191,36 @@ export const useExplorerRoute = () => {
     const [searchParams] = useSearchParams();
     const fromDashboard =
         fromDashboardFromRedux ?? searchParams.get('fromDashboard');
+    // Primitive deps so chart-version URL sync does not loop on searchParams identity
+    const focusParam = searchParams.get('focus');
+    const tablesSearchParam = searchParams.get('search');
 
     // Update url params based on pristine state
     // Only sync URL when we're actually on a table page (pathParams.tableId exists)
     useEffect(() => {
         if (pathParams.tableId && metricQuery && tableName) {
+            const nextUrl = getExplorerUrlFromCreateSavedChartVersion(
+                pathParams.projectUuid,
+                {
+                    ...mergedUnsavedChartVersion,
+                    metricQuery,
+                },
+                false,
+                fromDashboard,
+            );
+            // Preserve tables-list restore params that getExplorerUrl* does not know about
+            const nextParams = new URLSearchParams(nextUrl.search);
+            if (focusParam) {
+                nextParams.set('focus', focusParam);
+            }
+            if (tablesSearchParam) {
+                nextParams.set('search', tablesSearchParam);
+            }
             void navigate(
-                getExplorerUrlFromCreateSavedChartVersion(
-                    pathParams.projectUuid,
-                    {
-                        ...mergedUnsavedChartVersion,
-                        metricQuery,
-                    },
-                    false,
-                    fromDashboard,
-                ),
+                {
+                    pathname: nextUrl.pathname,
+                    search: nextParams.toString(),
+                },
                 { replace: true },
             );
         }
@@ -216,6 +232,8 @@ export const useExplorerRoute = () => {
         mergedUnsavedChartVersion,
         tableName,
         fromDashboard,
+        focusParam,
+        tablesSearchParam,
     ]);
 
     useEffect(() => {
@@ -231,6 +249,7 @@ export const useExplorerRoute = () => {
 
 export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
     const { showToastError } = useToaster();
+    const { t } = useTranslation();
     const { search } = useLocation();
     const pathParams = useParams<{
         projectUuid: string;
@@ -293,20 +312,29 @@ export const useExplorerUrlState = (): ExplorerReduceState | undefined => {
                         itemDetail: {
                             isOpen: false,
                         },
+                        periodOverPeriodComparison: {
+                            isOpen: false,
+                        },
                     },
                     parameters: {},
                     fromDashboard: fromDashboard ?? undefined,
                     queryExecution: defaultQueryExecution,
+                    chartTablePagination: null,
                 };
             } catch (e: any) {
                 const errorMessage = e.message ? ` Error: "${e.message}"` : '';
                 showToastError({
-                    title: 'Error parsing url',
-                    subtitle: `URL is invalid or incomplete.${errorMessage}`,
+                    title: t('hooks_explorer_route.parse_url_error'),
+                    subtitle: t(
+                        'hooks_explorer_route.parse_url_error_subtitle',
+                        {
+                            errorMessage,
+                        },
+                    ),
                 });
             }
         }
-    }, [pathParams, search, showToastError, fromDashboard]);
+    }, [pathParams, search, showToastError, fromDashboard, t]);
 };
 
 export const createMetricPreviewUnsavedChartVersion = (

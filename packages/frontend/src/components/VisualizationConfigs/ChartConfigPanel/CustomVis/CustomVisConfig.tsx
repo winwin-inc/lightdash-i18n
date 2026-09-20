@@ -26,10 +26,10 @@ import {
     isEffectiveMobileSpec,
     type VegaSpec,
 } from '../../../CustomVisualization/responsive';
-import DocumentationHelpButton from '../../../DocumentationHelpButton';
 import { isCustomVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../../common/Config';
+import { CopyCustomVisConfigButton } from './components/CopyCustomVisConfigButton';
 import { SelectTemplate } from './components/CustomVisTemplate';
 import { type Schema } from './types/types';
 
@@ -315,11 +315,6 @@ export const ConfigTabs: React.FC = memo(() => {
                         <Config.Heading>
                             <Flex justify="space-between" gap="xs">
                                 <Text>Vega-Lite JSON</Text>
-                                <DocumentationHelpButton
-                                    pos="relative"
-                                    top="2px"
-                                    href="https://docs.lightdash.com/references/custom-charts#custom-charts"
-                                />
                             </Flex>
                         </Config.Heading>
 
@@ -347,11 +342,19 @@ export const ConfigTabs: React.FC = memo(() => {
                                 ]}
                             />
 
-                            <Button.Group style={{ flexShrink: 0 }}>
-                                <SelectTemplate
-                                    setEditorConfig={setEditorValue}
-                                />
-                            </Button.Group>
+                            <Group
+                                ml="auto"
+                                spacing="xs"
+                                noWrap
+                                style={{ flexShrink: 0 }}
+                            >
+                                <Button.Group>
+                                    <SelectTemplate
+                                        setEditorConfig={setEditorValue}
+                                    />
+                                </Button.Group>
+                                <CopyCustomVisConfigButton />
+                            </Group>
                         </Flex>
                     </Config.Group>
                 </Config.Section>

@@ -18,7 +18,11 @@ export type ResolvedDashboardContext = {
     dashboardUuid: string;
     dashboardSlug: string;
     dashboardName: string;
-    source: 'explicitDashboardUuid';
+    /** explicit：调用方传入；unique*：反查仅 1 个候选时自动选用 */
+    source:
+        | 'explicitDashboardUuid'
+        | 'uniqueExploreContext'
+        | 'uniqueChartContext';
     candidateCount: number;
 };
 
@@ -191,6 +195,19 @@ export function createDashboardContextResolver(
                     hint: '未找到 chart 关联 dashboard，将按原 saved chart / 无看板上下文逻辑执行',
                 };
             }
+            if (contexts.length === 1) {
+                const only = contexts[0]!;
+                return {
+                    status: 'resolved',
+                    context: {
+                        dashboardUuid: only.dashboardUuid,
+                        dashboardSlug: only.dashboardSlug,
+                        dashboardName: only.dashboardName,
+                        source: 'uniqueChartContext',
+                        candidateCount: 1,
+                    },
+                };
+            }
             return {
                 status: 'needs_selection',
                 source: 'chartUuid',
@@ -208,6 +225,19 @@ export function createDashboardContextResolver(
                 return {
                     status: 'none',
                     hint: '未找到 explore 关联 dashboard，将按原语义查询逻辑执行（可能使用 dashboardSlug=NA）',
+                };
+            }
+            if (contexts.length === 1) {
+                const only = contexts[0]!;
+                return {
+                    status: 'resolved',
+                    context: {
+                        dashboardUuid: only.dashboardUuid,
+                        dashboardSlug: only.dashboardSlug,
+                        dashboardName: only.dashboardName,
+                        source: 'uniqueExploreContext',
+                        candidateCount: 1,
+                    },
                 };
             }
             return {

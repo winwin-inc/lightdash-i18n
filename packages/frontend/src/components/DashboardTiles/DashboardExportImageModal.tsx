@@ -3,23 +3,25 @@ import {
     Button,
     Group,
     Modal,
+    NumberInput,
     SegmentedControl,
     Stack,
     Text,
 } from '@mantine/core';
 import { useLocalStorage } from '@mantine/hooks';
 import { IconPhoto } from '@tabler/icons-react';
-import { type FC, type RefObject, useCallback, useMemo } from 'react';
+import { type RefObject, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import MantineIcon from '../common/MantineIcon';
 import {
     computeExportDimensions,
     downloadImage,
     ExportAspectRatio,
+    ExportPixelRatio,
     getExportFileBaseName,
     letterboxImageToCanvas,
 } from '../common/ChartDownload/chartDownloadUtils';
+import MantineIcon from '../common/MantineIcon';
 
 const svgElementToBase64 = (svg: SVGSVGElement): string => {
     const serializer = new XMLSerializer();
@@ -58,11 +60,17 @@ const getSvgHeight = (svg: SVGSVGElement, fallbackWidth: number): number => {
 type ChartExportOptions = {
     aspectRatio: ExportAspectRatio;
     isBackgroundTransparent: boolean;
+    customWidth: number;
+    customHeight: number;
+    pixelRatio: ExportPixelRatio;
 };
 
 const DEFAULT_OPTIONS: ChartExportOptions = {
     aspectRatio: ExportAspectRatio.A16x9,
     isBackgroundTransparent: false,
+    customWidth: 1920,
+    customHeight: 1080,
+    pixelRatio: ExportPixelRatio.X1,
 };
 
 const PREFERENCES_KEY = 'lightdash-dashboard-chart-export-preferences';
@@ -73,6 +81,9 @@ const downloadChartImage = async (
     chartName: string,
     aspectRatio: ExportAspectRatio,
     isBackgroundTransparent: boolean,
+    pixelRatio: ExportPixelRatio,
+    customWidth: number,
+    customHeight: number,
 ) => {
     try {
         let base64Image = '';
@@ -134,12 +145,16 @@ const downloadChartImage = async (
             aspectRatio,
             isBackgroundTransparent,
             'png',
+            pixelRatio,
+            customWidth,
+            customHeight,
         );
 
         const fileName = `${getExportFileBaseName(
             aspectRatio,
             chartName,
             isBackgroundTransparent,
+            pixelRatio,
         )}.png`;
         downloadImage(finalBase64, fileName);
     } catch (error) {
@@ -153,8 +168,10 @@ const readSourceDimensions = (
 ): { srcW: number; srcH: number } => {
     const ref = echartRef?.current;
     if (chartType === ChartType.CUSTOM) {
-        const container = ref?.vegaEmbed?.current?.containerRef
-            ?.current as HTMLElement | null | undefined;
+        const container = ref?.vegaEmbed?.current?.containerRef?.current as
+            | HTMLElement
+            | null
+            | undefined;
         const canvas = container?.querySelector('canvas');
         if (canvas) {
             return { srcW: canvas.width, srcH: canvas.height };
@@ -184,41 +201,24 @@ type DashboardExportImageModalProps = {
     chartName: string;
 };
 
-const DashboardExportImageModal: FC<DashboardExportImageModalProps> = ({
-    isOpen,
+function DashboardExportImageModalBody({
     onClose,
     chartType,
     echartRef,
     chartName,
-}) => {
-    const { t } = useTranslation();
-
-    // Mirror the ExportDataModal pattern: only mount the Modal when open.
-    // Without this early return, the Modal is created on first render and
-    // its internal state can flash open/close when other modals in the same
-    // tree change.
-    if (!isOpen) return null;
-
-    return (
-        <DashboardExportImageModalBody
-            onClose={onClose}
-            chartType={chartType}
-            echartRef={echartRef}
-            chartName={chartName}
-        />
-    );
-};
-
-const DashboardExportImageModalBody: FC<Omit<
-    DashboardExportImageModalProps,
-    'isOpen'
->> = ({ onClose, chartType, echartRef, chartName }) => {
+}: Omit<DashboardExportImageModalProps, 'isOpen'>) {
     const { t } = useTranslation();
     const [options, setOptions] = useLocalStorage<ChartExportOptions>({
         key: PREFERENCES_KEY,
         defaultValue: DEFAULT_OPTIONS,
     });
-    const { aspectRatio, isBackgroundTransparent } = options;
+    const {
+        aspectRatio,
+        isBackgroundTransparent,
+        customWidth,
+        customHeight,
+        pixelRatio,
+    } = options;
 
     const setAspectRatio = useCallback(
         (next: ExportAspectRatio) =>
@@ -233,6 +233,21 @@ const DashboardExportImageModalBody: FC<Omit<
             })),
         [setOptions],
     );
+    const setCustomWidth = useCallback(
+        (next: number) =>
+            setOptions((prev) => ({ ...prev, customWidth: next })),
+        [setOptions],
+    );
+    const setCustomHeight = useCallback(
+        (next: number) =>
+            setOptions((prev) => ({ ...prev, customHeight: next })),
+        [setOptions],
+    );
+    const setPixelRatio = useCallback(
+        (next: ExportPixelRatio) =>
+            setOptions((prev) => ({ ...prev, pixelRatio: next })),
+        [setOptions],
+    );
 
     const outputDimensions = useMemo(() => {
         const { srcW, srcH } = readSourceDimensions(chartType, echartRef);
@@ -240,9 +255,19 @@ const DashboardExportImageModalBody: FC<Omit<
             srcW || 800,
             srcH || 600,
             aspectRatio,
+            customWidth,
+            customHeight,
         );
-        return { w: dims.targetW, h: dims.targetH };
-    }, [aspectRatio, chartType, echartRef]);
+        const scale = pixelRatio === ExportPixelRatio.X2 ? 2 : 1;
+        return { w: dims.targetW * scale, h: dims.targetH * scale };
+    }, [
+        aspectRatio,
+        chartType,
+        customHeight,
+        customWidth,
+        echartRef,
+        pixelRatio,
+    ]);
 
     const onDownload = useCallback(() => {
         void downloadChartImage(
@@ -251,15 +276,21 @@ const DashboardExportImageModalBody: FC<Omit<
             chartName,
             aspectRatio,
             isBackgroundTransparent,
+            pixelRatio,
+            customWidth,
+            customHeight,
         );
         onClose();
     }, [
         aspectRatio,
         chartName,
         chartType,
+        customHeight,
+        customWidth,
         echartRef,
         isBackgroundTransparent,
         onClose,
+        pixelRatio,
     ]);
 
     return (
@@ -316,6 +347,90 @@ const DashboardExportImageModalBody: FC<Omit<
                                     'components_dashboard_tiles_dashboard_export_image.aspect_ratio.9x16',
                                 ),
                             },
+                            {
+                                value: ExportAspectRatio.A4x3,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.4x3',
+                                ),
+                            },
+                            {
+                                value: ExportAspectRatio.A3x4,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.3x4',
+                                ),
+                            },
+                            {
+                                value: ExportAspectRatio.CUSTOM,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.aspect_ratio.custom',
+                                ),
+                            },
+                        ]}
+                    />
+                    {aspectRatio === ExportAspectRatio.CUSTOM && (
+                        <Group spacing="xs" grow>
+                            <NumberInput
+                                size="xs"
+                                label={t(
+                                    'components_dashboard_tiles_dashboard_export_image.custom_width',
+                                )}
+                                value={customWidth}
+                                onChange={(value) =>
+                                    setCustomWidth(
+                                        typeof value === 'number'
+                                            ? value
+                                            : Number(value) || 0,
+                                    )
+                                }
+                                min={1}
+                                max={20000}
+                                step={10}
+                            />
+                            <NumberInput
+                                size="xs"
+                                label={t(
+                                    'components_dashboard_tiles_dashboard_export_image.custom_height',
+                                )}
+                                value={customHeight}
+                                onChange={(value) =>
+                                    setCustomHeight(
+                                        typeof value === 'number'
+                                            ? value
+                                            : Number(value) || 0,
+                                    )
+                                }
+                                min={1}
+                                max={20000}
+                                step={10}
+                            />
+                        </Group>
+                    )}
+                </Stack>
+                <Stack spacing="xs">
+                    <Text fz="xs" c="dimmed">
+                        {t(
+                            'components_dashboard_tiles_dashboard_export_image.pixel_ratio',
+                        )}
+                    </Text>
+                    <SegmentedControl
+                        size="xs"
+                        value={pixelRatio}
+                        onChange={(value) =>
+                            setPixelRatio(value as ExportPixelRatio)
+                        }
+                        data={[
+                            {
+                                value: ExportPixelRatio.X1,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.pixel_ratio.1x',
+                                ),
+                            },
+                            {
+                                value: ExportPixelRatio.X2,
+                                label: t(
+                                    'components_dashboard_tiles_dashboard_export_image.pixel_ratio.2x',
+                                ),
+                            },
                         ]}
                     />
                 </Stack>
@@ -327,7 +442,9 @@ const DashboardExportImageModalBody: FC<Omit<
                     </Text>
                     <SegmentedControl
                         size="xs"
-                        value={isBackgroundTransparent ? 'Transparent' : 'White'}
+                        value={
+                            isBackgroundTransparent ? 'Transparent' : 'White'
+                        }
                         onChange={(value) =>
                             setBackgroundTransparent(value === 'Transparent')
                         }
@@ -371,6 +488,29 @@ const DashboardExportImageModalBody: FC<Omit<
             </Stack>
         </Modal>
     );
-};
+}
+
+function DashboardExportImageModal({
+    isOpen,
+    onClose,
+    chartType,
+    echartRef,
+    chartName,
+}: DashboardExportImageModalProps) {
+    // Mirror the ExportDataModal pattern: only mount the Modal when open.
+    // Without this early return, the Modal is created on first render and
+    // its internal state can flash open/close when other modals in the same
+    // tree change.
+    if (!isOpen) return null;
+
+    return (
+        <DashboardExportImageModalBody
+            onClose={onClose}
+            chartType={chartType}
+            echartRef={echartRef}
+            chartName={chartName}
+        />
+    );
+}
 
 export default DashboardExportImageModal;

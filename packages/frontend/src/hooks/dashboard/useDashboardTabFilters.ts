@@ -11,8 +11,53 @@ interface DashboardTabFilterProps {
     dashboard?: Dashboard;
     dashboardFilters: DashboardFilters;
     dashboardTemporaryFilters: DashboardFilters;
+    isGlobalFilterEnabled: boolean;
     isFilterEnabled: (tabUuid: string) => boolean;
 }
+
+const concatFilters = (
+    ...filterSets: Array<DashboardFilters | undefined>
+): DashboardFilters => ({
+    dimensions: filterSets.flatMap((filters) => filters?.dimensions ?? []),
+    metrics: filterSets.flatMap((filters) => filters?.metrics ?? []),
+    tableCalculations: filterSets.flatMap(
+        (filters) => filters?.tableCalculations ?? [],
+    ),
+});
+
+/**
+ * Merge global and tab dashboard filters, honoring each layer's enable flag.
+ * Disabled layers keep their saved definitions but are omitted from queries.
+ */
+export const mergeFiltersForTab = ({
+    globalFilters,
+    globalTemporaryFilters,
+    tabFilters,
+    tabTemporaryFilters,
+    isGlobalFilterEnabled,
+    isTabFilterEnabled,
+}: {
+    globalFilters: DashboardFilters;
+    globalTemporaryFilters?: DashboardFilters;
+    tabFilters: DashboardFilters;
+    tabTemporaryFilters?: DashboardFilters;
+    isGlobalFilterEnabled: boolean;
+    isTabFilterEnabled: boolean;
+}): DashboardFilters => {
+    const resolvedGlobalFilters = isGlobalFilterEnabled
+        ? concatFilters(globalFilters, globalTemporaryFilters)
+        : emptyFilters;
+
+    if (!isTabFilterEnabled) {
+        return resolvedGlobalFilters;
+    }
+
+    return concatFilters(
+        resolvedGlobalFilters,
+        tabFilters,
+        tabTemporaryFilters,
+    );
+};
 
 export const isEmptyTabFilters = (
     tabFilters: Record<string, DashboardFilters>,
@@ -27,6 +72,7 @@ export const useDashboardTabFilters = ({
     dashboard,
     dashboardFilters,
     dashboardTemporaryFilters,
+    isGlobalFilterEnabled,
     isFilterEnabled,
 }: DashboardTabFilterProps) => {
     const [tabFilters, setTabFilters] = useState<
@@ -52,46 +98,25 @@ export const useDashboardTabFilters = ({
         [tabTemporaryFilters],
     );
 
-    const getMergedFiltersForTab = (tabUuid: string) => {
-        const globalFilters = {
-            dimensions: [
-                ...dashboardFilters.dimensions,
-                ...dashboardTemporaryFilters?.dimensions,
-            ],
-            metrics: [
-                ...dashboardFilters.metrics,
-                ...dashboardTemporaryFilters?.metrics,
-            ],
-            tableCalculations: [
-                ...dashboardFilters.tableCalculations,
-                ...dashboardTemporaryFilters?.tableCalculations,
-            ],
-        };
-
-        if (!isFilterEnabled(tabUuid)) return globalFilters;
-
-        const tabSpecificFilters = getActiveTabFilters(tabUuid);
-        const tabSpecificTemporaryFilters =
-            getActiveTabTemporaryFilters(tabUuid);
-
-        return {
-            dimensions: [
-                ...globalFilters.dimensions,
-                ...tabSpecificFilters.dimensions,
-                ...tabSpecificTemporaryFilters.dimensions,
-            ],
-            metrics: [
-                ...globalFilters.metrics,
-                ...tabSpecificFilters.metrics,
-                ...tabSpecificTemporaryFilters.metrics,
-            ],
-            tableCalculations: [
-                ...globalFilters.tableCalculations,
-                ...tabSpecificFilters.tableCalculations,
-                ...tabSpecificTemporaryFilters.tableCalculations,
-            ],
-        };
-    };
+    const getMergedFiltersForTab = useCallback(
+        (tabUuid: string) =>
+            mergeFiltersForTab({
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: getActiveTabFilters(tabUuid),
+                tabTemporaryFilters: getActiveTabTemporaryFilters(tabUuid),
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isFilterEnabled(tabUuid),
+            }),
+        [
+            dashboardFilters,
+            dashboardTemporaryFilters,
+            getActiveTabFilters,
+            getActiveTabTemporaryFilters,
+            isGlobalFilterEnabled,
+            isFilterEnabled,
+        ],
+    );
 
     const addTabDimensionFilter = (
         tabUuid: string,

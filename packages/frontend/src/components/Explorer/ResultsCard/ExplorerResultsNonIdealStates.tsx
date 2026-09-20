@@ -1,14 +1,13 @@
 import { type ApiErrorDetail } from '@lightdash/common';
-import { Anchor, createStyles, keyframes, Loader, Text } from '@mantine/core';
+import { createStyles, keyframes, Loader, Text } from '@mantine/core';
 import { IconTableOff } from '@tabler/icons-react';
-import { Fragment, type FC } from 'react';
+import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TrackSection } from '../../../providers/Tracking/TrackingProvider';
 import NoTableIcon from '../../../svgs/emptystate-no-table.svg?react';
 import { SectionName } from '../../../types/Events';
 import { EmptyState } from '../../common/EmptyState';
 import MantineIcon from '../../common/MantineIcon';
-import DocumentationHelpButton from '../../DocumentationHelpButton';
 import { RefreshButton } from '../../RefreshButton';
 
 const animationKeyframes = keyframes`
@@ -69,9 +68,6 @@ const useAnimatedTextStyles = createStyles((theme) => ({
     },
 }));
 
-const ExploreDocumentationUrl =
-    'https://docs.lightdash.com/get-started/exploring-data/using-explores/';
-
 export const EmptyStateNoColumns = () => {
     const { classes } = useAnimatedTextStyles();
     const { t } = useTranslation();
@@ -82,13 +78,7 @@ export const EmptyStateNoColumns = () => {
                 <>
                     {t(
                         'components_explorer_results_card_non_ideal_state.empty_no_columns.title',
-                    )}{' '}
-                    <DocumentationHelpButton
-                        href={ExploreDocumentationUrl}
-                        pos="relative"
-                        top={2}
-                        iconProps={{ size: 'lg' }}
-                    />
+                    )}
                 </>
             }
             description={
@@ -204,19 +194,7 @@ export const EmptyStateNoTableData: FC<{ description: React.ReactNode }> = ({
     description,
 }) => (
     <TrackSection name={SectionName.EMPTY_RESULTS_TABLE}>
-        <EmptyState
-            maw={500}
-            description={
-                <>
-                    {description}{' '}
-                    <DocumentationHelpButton
-                        href={ExploreDocumentationUrl}
-                        pos="relative"
-                        top={2}
-                    />
-                </>
-            }
-        >
+        <EmptyState maw={500} description={description}>
             <RefreshButton size={'xs'} />
         </EmptyState>
     </TrackSection>
@@ -232,18 +210,9 @@ export const NoTableSelected = () => {
             title={t(
                 'components_explorer_results_card_non_ideal_state.empty_no_table.title',
             )}
-            description={
-                <>
-                    {t(
-                        'components_explorer_results_card_non_ideal_state.empty_no_table.description',
-                    )}{' '}
-                    <DocumentationHelpButton
-                        href={ExploreDocumentationUrl}
-                        pos="relative"
-                        top={2}
-                    />
-                </>
-            }
+            description={t(
+                'components_explorer_results_card_non_ideal_state.empty_no_table.description',
+            )}
         />
     );
 };
@@ -317,28 +286,12 @@ export const ExploreErrorState = ({
                 'components_explorer_results_card_non_ideal_state.explore_error_state.title',
             )}
             description={
-                <Fragment>
-                    <Text style={{ whiteSpace: 'pre-wrap' }}>
-                        {errorDetail?.message ||
-                            t(
-                                'components_explorer_results_card_non_ideal_state.explore_error_state.description',
-                            )}
-                    </Text>
-                    {errorDetail?.data.documentationUrl && (
-                        <Fragment>
-                            <br />
-                            <Anchor
-                                href={errorDetail.data.documentationUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                {t(
-                                    'components_explorer_results_card_non_ideal_state.explore_error_state.detail',
-                                )}
-                            </Anchor>
-                        </Fragment>
-                    )}
-                </Fragment>
+                <Text style={{ whiteSpace: 'pre-wrap' }}>
+                    {errorDetail?.message ||
+                        t(
+                            'components_explorer_results_card_non_ideal_state.explore_error_state.description',
+                        )}
+                </Text>
             }
         />
     );

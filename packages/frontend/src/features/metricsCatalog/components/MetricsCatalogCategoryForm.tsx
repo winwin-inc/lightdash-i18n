@@ -130,8 +130,12 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                     });
                 } catch (error) {
                     showToastError({
-                        title: 'Error adding category',
-                        subtitle: 'Unable to add category to metric.',
+                        title: t(
+                            'features_metrics_catalog_category_form.add_error',
+                        ),
+                        subtitle: t(
+                            'features_metrics_catalog_category_form.add_error_subtitle',
+                        ),
                     });
                 }
             },
@@ -146,6 +150,7 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                 tagColor,
                 createTagMutation,
                 showToastError,
+                t,
             ],
         );
 
@@ -161,8 +166,12 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                     });
                 } catch (error) {
                     showToastError({
-                        title: 'Error removing category',
-                        subtitle: 'Unable to remove category from metric.',
+                        title: t(
+                            'features_metrics_catalog_category_form.remove_error',
+                        ),
+                        subtitle: t(
+                            'features_metrics_catalog_category_form.remove_error_subtitle',
+                        ),
                     });
                 }
             },
@@ -171,6 +180,7 @@ export const MetricsCatalogCategoryForm: FC<Props> = memo(
                 untagCatalogItemMutation,
                 catalogSearchUuid,
                 showToastError,
+                t,
             ],
         );
 

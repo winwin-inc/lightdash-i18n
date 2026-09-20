@@ -178,6 +178,21 @@ export class BigquerySqlBuilder extends WarehouseBaseSqlBuilder {
                 .replaceAll('\0', '')
         );
     }
+
+    castToTimestamp(date: Date): string {
+        // BigQuery uses TIMESTAMP function with ISO 8601 format
+        return `TIMESTAMP('${date.toISOString()}')`;
+    }
+
+    castToDate(date: Date): string {
+        // BigQuery does not coerce between DATE and TIMESTAMP
+        return `DATE '${date.toISOString().slice(0, 10)}'`;
+    }
+
+    castToNaiveTimestamp(date: Date): string {
+        // DATETIME is BigQuery's zoneless timestamp type
+        return `DATETIME '${date.toISOString().slice(0, 19).replace('T', ' ')}'`;
+    }
 }
 
 export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryCredentials> {
@@ -199,7 +214,7 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                           // In this case we should rely on ADC at runtime and not pass explicit credentials.
                       }
                     : { credentials: credentials.keyfileContents }),
-            });
+            } as ConstructorParameters<typeof BigQuery>[0]);
         } catch (e: unknown) {
             throw new WarehouseConnectionError(
                 `Failed connection to ${credentials.project} in ${
@@ -686,7 +701,7 @@ export class BigqueryWarehouseClient extends WarehouseBaseClient<CreateBigqueryC
                 client_secret: process.env.AUTH_GOOGLE_OAUTH2_CLIENT_SECRET,
                 refresh_token,
             },
-        });
+        } as ConstructorParameters<typeof BigQuery>[0]);
 
         const datasets = await bigqueryClient.getDatasets();
         const databases = datasets[0].map((d) => ({

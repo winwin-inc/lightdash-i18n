@@ -11,6 +11,8 @@ import {
     ApiOrganizationMemberProfiles,
     ApiOrganizationProjects,
     ApiSuccessEmpty,
+    ApiUserDashboardsSummaryResponse,
+    ApiReassignUserDashboardsResponse,
     CreateColorPalette,
     CreateGroup,
     CreateOrganization,
@@ -18,6 +20,7 @@ import {
     KnexPaginateArgs,
     LightdashRequestMethodHeader,
     OrganizationMemberProfileUpdate,
+    ReassignUserDashboardsRequest,
     UpdateAllowedEmailDomains,
     UpdateColorPalette,
     UpdateOrganization,
@@ -309,6 +312,60 @@ export class OrganizationController extends BaseController {
         return {
             status: 'ok',
             results: undefined,
+        };
+    }
+
+    /**
+     * Gets a summary of dashboards owned by a user across all projects
+     * @summary Get user dashboards
+     * @param req express request
+     * @param userUuid the uuid of the user
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @Get('/user/{userUuid}/dashboards-summary')
+    @OperationId('GetUserDashboardsSummary')
+    async getUserDashboardsSummary(
+        @Request() req: express.Request,
+        @Path() userUuid: UUID,
+    ): Promise<ApiUserDashboardsSummaryResponse> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getDashboardService()
+                .getUserDashboardsSummary(req.user!, userUuid),
+        };
+    }
+
+    /**
+     * Transfers ownership of all dashboards from one user to another
+     * @summary Reassign dashboards
+     * @param req express request
+     * @param userUuid the uuid of the user whose dashboards will be reassigned
+     * @param body the new owner details
+     */
+    @Middlewares([
+        allowApiKeyAuthentication,
+        isAuthenticated,
+        unauthorisedInDemo,
+    ])
+    @Patch('/user/{userUuid}/reassign-dashboards')
+    @OperationId('ReassignUserDashboards')
+    async reassignUserDashboards(
+        @Request() req: express.Request,
+        @Path() userUuid: UUID,
+        @Body() body: ReassignUserDashboardsRequest,
+    ): Promise<ApiReassignUserDashboardsResponse> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getDashboardService()
+                .reassignUserDashboards(
+                    req.user!,
+                    userUuid,
+                    body.newOwnerUserUuid,
+                ),
         };
     }
 

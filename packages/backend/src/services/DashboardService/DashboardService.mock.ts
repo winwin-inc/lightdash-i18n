@@ -121,6 +121,7 @@ export const dashboard: Dashboard = {
     isPrivate: false,
     access: [],
     tabs: [],
+    owner: null,
 };
 
 export const chart: SavedChart = {

@@ -22,7 +22,9 @@ import {
     type ParameterDefinitions,
     type ParametersValuesMap,
     type SchedulerAndTargets,
+    type SchedulerCsvOptions,
 } from '@lightdash/common';
+import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
     Anchor,
     Box,
@@ -103,6 +105,9 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
+        xlsxFileLayout: 'zip' as NonNullable<
+            SchedulerCsvOptions['xlsxFileLayout']
+        >,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -167,6 +172,7 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             formOptions.customLimit = options.limit as number;
         }
         formOptions.asAttachment = options.asAttachment || false;
+        formOptions.xlsxFileLayout = options.xlsxFileLayout ?? 'zip';
     } else if (isSchedulerImageOptions(options)) {
         formOptions.withPdf = options.withPdf || false;
     }
@@ -217,14 +223,8 @@ const SlackErrorContent: FC<{ slackState: SlackStates }> = ({ slackState }) => {
                     {t('features_scheduler_form.no_slack.part_1')}
                 </Text>
                 <Text>
-                    {t('features_scheduler_form.no_slack.part_2')}
-                    <Anchor
-                        target="_blank"
-                        href="https://docs.lightdash.com/self-host/customize-deployment/configure-a-slack-app-for-lightdash"
-                    >
-                        {' '}
-                        {t('features_scheduler_form.no_slack.part_3')}{' '}
-                    </Anchor>
+                    {t('features_scheduler_form.no_slack.part_2')}{' '}
+                    {t('features_scheduler_form.no_slack.part_3')}{' '}
                     {t('features_scheduler_form.no_slack.part_4')}
                 </Text>
             </>
@@ -343,7 +343,7 @@ const SchedulerForm: FC<Props> = ({
     currentParameterValues,
     availableParameters,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const thresholdOperatorOptions = [
         {
@@ -427,19 +427,39 @@ const SchedulerForm: FC<Props> = ({
                         : null;
                 },
             },
-            filters: (value: DashboardFilterRule[] | null) => {
-                if (!value) {
-                    // Dashboard filters are null for charts
+            filters: (value: DashboardFilterRule[] | null, values: any) => {
+                if (!isDashboard) {
                     return null;
                 }
-                const requiredFiltersWithoutValues = value.filter(
-                    (filter) =>
-                        filter.required &&
-                        (!filter.values || filter.values.length === 0),
-                );
+                // Tab-scoped requirements: filters that only apply to tabs left
+                // out of the delivery must not block it. Without per-tile
+                // filterable fields we still evaluate against the full dashboard.
+                const { unmetRequirements, filtersWithUnmetRequirements } =
+                    getSchedulerFilterRequirements(
+                        dashboard?.filters,
+                        value ?? undefined,
+                        dashboard
+                            ? {
+                                  tiles: dashboard.tiles,
+                                  tabUuids: dashboard.tabs.map(
+                                      (tab) => tab.uuid,
+                                  ),
+                                  filterableFieldsByTileUuid: undefined,
+                                  selectedTabs: values.selectedTabs ?? null,
+                              }
+                            : undefined,
+                    );
 
-                if (requiredFiltersWithoutValues.length > 0) {
-                    return `Required filters must have values`;
+                if (filtersWithUnmetRequirements.length > 0) {
+                    return unmetRequirements.every(
+                        (requirement) => requirement.type === 'group',
+                    )
+                        ? t(
+                              'features_scheduler_form.validate_tips.requirement_group',
+                          )
+                        : t(
+                              'features_scheduler_form.validate_tips.required_filters',
+                          );
                 }
                 return null;
             },
@@ -450,7 +470,9 @@ const SchedulerForm: FC<Props> = ({
             },
             selectedTabs: (value: string[] | null) => {
                 if (value && value.length === 0) {
-                    return 'Selected tabs should not be empty';
+                    return t(
+                        'features_scheduler_form.form.tabs_panel_setup.tabs.error',
+                    );
                 }
                 return null;
             },
@@ -475,10 +497,29 @@ const SchedulerForm: FC<Props> = ({
                         values.emailTargets.length > 0
                             ? values.options.asAttachment
                             : false,
+                    xlsxFileLayout:
+                        values.format === SchedulerFormat.XLSX &&
+                        resource?.type === 'dashboard'
+                            ? values.options.xlsxFileLayout
+                            : undefined,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             } else if (values.format === SchedulerFormat.IMAGE) {
                 options = {
                     withPdf: values.options.withPdf,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
+                };
+            } else {
+                // gsheets / other formats still carry UI locale for any email fallbacks
+                options = {
+                    ...options,
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 };
             }
 
@@ -542,7 +583,7 @@ const SchedulerForm: FC<Props> = ({
         Array<{
             label: string;
             value: string;
-            group: 'Private channels';
+            group: string;
         }>
     >([]);
 
@@ -584,14 +625,20 @@ const SchedulerForm: FC<Props> = ({
                     label: channel.name,
                     group:
                         channelPrefix === '#'
-                            ? 'Channels'
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.channels',
+                              )
                             : channelPrefix === '@'
-                            ? 'Users'
-                            : 'Private channels',
+                            ? t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.users',
+                              )
+                            : t(
+                                  'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                              ),
                 };
             })
             .concat(privateChannels);
-    }, [slackChannelsQuery?.data, privateChannels]);
+    }, [slackChannelsQuery?.data, privateChannels, t]);
 
     let responsiveChannelsSearchEnabled =
         slackChannels.length >= MAX_SLACK_CHANNELS || search.length > 0; // enable responvive channel search if there are more than MAX_SLACK_CHANNELS defined channels
@@ -650,7 +697,11 @@ const SchedulerForm: FC<Props> = ({
                                     </Text>
                                 )}
                             </Tabs.Tab>
-                            <Tabs.Tab value="parameters">Parameters</Tabs.Tab>
+                            <Tabs.Tab value="parameters">
+                                {t(
+                                    'features_scheduler_form.form.tabs_list.parameters',
+                                )}
+                            </Tabs.Tab>
                         </>
                     ) : null}
 
@@ -883,9 +934,11 @@ const SchedulerForm: FC<Props> = ({
                                     <TimeZonePicker
                                         size="sm"
                                         style={{ flexGrow: 1 }}
-                                        placeholder={`Project Default ${
+                                        placeholder={`${t(
+                                            'features_scheduler_form.form.tabs_panel_setup.default_project',
+                                        )}${
                                             projectDefaultOffsetString
-                                                ? `(UTC ${projectDefaultOffsetString})`
+                                                ? ` (UTC ${projectDefaultOffsetString})`
                                                 : ''
                                         }`}
                                         maw={350}
@@ -904,7 +957,7 @@ const SchedulerForm: FC<Props> = ({
                                         'features_scheduler_form.form.tabs_panel_setup.format',
                                     )}
                                 </Input.Label>
-                                <Group spacing="xs" noWrap>
+                                <Group spacing="xs" noWrap align="center">
                                     <SegmentedControl
                                         data={[
                                             {
@@ -916,13 +969,14 @@ const SchedulerForm: FC<Props> = ({
                                                 value: SchedulerFormat.XLSX,
                                             },
                                             {
-                                                label: 'Image',
+                                                label: t(
+                                                    'features_scheduler_form.form.tabs_panel_setup.format_image',
+                                                ),
                                                 value: SchedulerFormat.IMAGE,
                                                 disabled: isImageDisabled,
                                             },
                                         ]}
                                         w="50%"
-                                        mb="xs"
                                         {...form.getInputProps('format')}
                                     />
                                     {isImageDisabled && (
@@ -930,17 +984,13 @@ const SchedulerForm: FC<Props> = ({
                                             size="xs"
                                             color="gray.6"
                                             w="30%"
-                                            sx={{ alignSelf: 'start' }}
                                         >
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_1',
-                                            )}
-                                            <Anchor href="https://docs.lightdash.com/self-host/customize-deployment/enable-headless-browser-for-lightdash">
-                                                {' '}
-                                                {t(
-                                                    'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
-                                                )}{' '}
-                                            </Anchor>
+                                            )}{' '}
+                                            {t(
+                                                'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_2',
+                                            )}{' '}
                                             {t(
                                                 'features_scheduler_form.form.tabs_panel_setup.image_disabled.part_3',
                                             )}
@@ -968,7 +1018,9 @@ const SchedulerForm: FC<Props> = ({
                                         {form.values.format ===
                                             SchedulerFormat.CSV && (
                                             <Tooltip
-                                                label="You must have at least one email target to attach a file to emails"
+                                                label={t(
+                                                    'features_scheduler_form.attach_file_disabled',
+                                                )}
                                                 position="top"
                                                 withinPortal
                                                 disabled={
@@ -981,7 +1033,9 @@ const SchedulerForm: FC<Props> = ({
                                                     w="fit-content"
                                                 >
                                                     <Checkbox
-                                                        label="Attach file to emails"
+                                                        label={t(
+                                                            'features_scheduler_form.attach_file',
+                                                        )}
                                                         labelPosition="left"
                                                         {...form.getInputProps(
                                                             'options.asAttachment',
@@ -1129,6 +1183,40 @@ const SchedulerForm: FC<Props> = ({
                                                     )}
                                                 </Stack>
                                             </Group>
+                                            {form.values.format ===
+                                                SchedulerFormat.XLSX &&
+                                                isDashboard && (
+                                                    <Radio.Group
+                                                        mt="sm"
+                                                        label={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
+                                                        )}
+                                                        description={t(
+                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
+                                                        )}
+                                                        {...form.getInputProps(
+                                                            'options.xlsxFileLayout',
+                                                        )}
+                                                    >
+                                                        <Stack
+                                                            spacing="xxs"
+                                                            pt="xs"
+                                                        >
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
+                                                                )}
+                                                                value="zip"
+                                                            />
+                                                            <Radio
+                                                                label={t(
+                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
+                                                                )}
+                                                                value="workbook"
+                                                            />
+                                                        </Stack>
+                                                    </Radio.Group>
+                                                )}
                                         </Collapse>
                                     </Stack>
                                 )}
@@ -1138,7 +1226,9 @@ const SchedulerForm: FC<Props> = ({
                         {isDashboardTabsAvailable && !isThresholdAlert && (
                             <Stack spacing={10}>
                                 <Input.Label>
-                                    Tabs
+                                    {t(
+                                        'features_scheduler_form.form.tabs_panel_setup.tabs.title',
+                                    )}
                                     <Tooltip
                                         withinPortal={true}
                                         maw={400}
@@ -1285,16 +1375,10 @@ const SchedulerForm: FC<Props> = ({
                                                 <Text>
                                                     {t(
                                                         'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_2',
-                                                    )}
-                                                    <Anchor
-                                                        target="_blank"
-                                                        href="https://docs.lightdash.com/references/environmentVariables"
-                                                    >
-                                                        {' '}
-                                                        {t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
-                                                        )}{' '}
-                                                    </Anchor>
+                                                    )}{' '}
+                                                    {t(
+                                                        'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_3',
+                                                    )}{' '}
                                                     {t(
                                                         'features_scheduler_form.form.tabs_panel_setup.no_email_integration.part_4',
                                                     )}
@@ -1365,7 +1449,9 @@ const SchedulerForm: FC<Props> = ({
                                                                     {
                                                                         label: newItem,
                                                                         value: newItem,
-                                                                        group: 'Private channels',
+                                                                        group: t(
+                                                                            'features_scheduler_form.form.tabs_panel_setup.slack_group.private_channels',
+                                                                        ),
                                                                     },
                                                                 ],
                                                             );
@@ -1547,7 +1633,9 @@ const SchedulerForm: FC<Props> = ({
                 }
                 disabledMessage={
                     requiredFiltersWithoutValues.length > 0
-                        ? 'Some required filters are missing values'
+                        ? t(
+                              'features_scheduler_form.validate_tips.required_filters_missing',
+                          )
                         : undefined
                 }
                 onBack={onBack}

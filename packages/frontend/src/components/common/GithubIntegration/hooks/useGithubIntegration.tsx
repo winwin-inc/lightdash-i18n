@@ -5,6 +5,7 @@ import {
 } from '@lightdash/common';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../../api';
 import useToaster from '../../../../hooks/toaster/useToaster';
 
@@ -16,6 +17,7 @@ const getGithubConfig = async () =>
     });
 
 export const useGithubConfig = () => {
+    const { t } = useTranslation();
     const { showToastApiError } = useToaster();
 
     return useQuery<GitIntegrationConfiguration, ApiError>({
@@ -26,7 +28,7 @@ export const useGithubConfig = () => {
             if (error.statusCode === 404 || error.statusCode === 401) return; // Ignore missing installation errors or unauthorized in demo
 
             showToastApiError({
-                title: 'Failed to get GitHub integration',
+                title: t('hooks_github_integration.get_error'),
                 apiError: error,
             });
         },
@@ -41,6 +43,7 @@ const getGithubRepositories = async () =>
     });
 
 export const useGitHubRepositories = () => {
+    const { t } = useTranslation();
     const { showToastApiError } = useToaster();
 
     return useQuery<GitRepo[], ApiError>({
@@ -51,7 +54,7 @@ export const useGitHubRepositories = () => {
             if (error.statusCode === 404 || error.statusCode === 401) return; // Ignore missing installation errors or unauthorized in demo
 
             showToastApiError({
-                title: 'Failed to get GitHub integration',
+                title: t('hooks_github_integration.get_error'),
                 apiError: error,
             });
         },
@@ -65,6 +68,7 @@ const deleteGithubInstallation = async () =>
     });
 
 export const useDeleteGithubInstallationMutation = () => {
+    const { t } = useTranslation();
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
     return useMutation<null, ApiError>(
@@ -74,14 +78,15 @@ export const useDeleteGithubInstallationMutation = () => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['github_branches']);
                 showToastSuccess({
-                    title: 'GitHub integration deleted',
-                    subtitle:
-                        'You have successfully deleted your GitHub integration.',
+                    title: t('hooks_github_integration.delete_success'),
+                    subtitle: t(
+                        'hooks_github_integration.delete_success_subtitle',
+                    ),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Failed to delete GitHub integration',
+                    title: t('hooks_github_integration.delete_error'),
                     apiError: error,
                 });
             },

@@ -1,5 +1,4 @@
 import {
-    Anchor,
     Button,
     Group,
     Stack,
@@ -64,12 +63,6 @@ const ScimAccessTokensPanel: FC = () => {
                             'ai_scim_access_tokens_panel_main.connect_your_identity_provider_to_lightdash_via_scim',
                         )}
                     </Text>
-                    <Anchor
-                        href="https://docs.lightdash.com/references/scim-integration/"
-                        target="_blank"
-                    >
-                        {t('ai_scim_access_tokens_panel_main.learn_more')}
-                    </Anchor>
                 </Stack>
                 <TextInput
                     value={scimURL}

@@ -42,6 +42,7 @@ const usePylon = () => {
 
     useEffect(
         function initPylon() {
+            // 自托管硬关 pylon.appId 后不会进入
             if (health.data?.pylon?.appId && user.data) {
                 // @ts-ignore
                 window.pylon = {
@@ -124,27 +125,38 @@ const ThirdPartyServicesEnabledProvider: FC<React.PropsWithChildren<{}>> = ({
     useSentry(health?.data?.sentry, user.data);
     usePylon();
 
+    const intercomAppId = health.data?.intercom.appId || '';
+    const posthogApiKey = health.data?.posthog?.projectApiKey;
+
+    const inner = (
+        <>
+            <Intercom />
+            <Clarity />
+            {children}
+        </>
+    );
+
     return (
         <IntercomProvider
-            appId={health.data?.intercom.appId || ''}
-            shouldInitialize={!!health.data?.intercom.appId}
+            appId={intercomAppId}
+            shouldInitialize={!!intercomAppId}
             apiBase={health.data?.intercom.apiBase || ''}
             autoBoot
         >
-            <PostHogProvider
-                apiKey={health.data?.posthog?.projectApiKey || ''}
-                options={{
-                    api_host: health.data?.posthog?.feApiHost,
-                    autocapture: false,
-                    capture_pageview: false,
-                }}
-            >
-                <PosthogIdentified>
-                    <Intercom />
-                    <Clarity />
-                    {children}
-                </PosthogIdentified>
-            </PostHogProvider>
+            {posthogApiKey ? (
+                <PostHogProvider
+                    apiKey={posthogApiKey}
+                    options={{
+                        api_host: health.data?.posthog?.feApiHost,
+                        autocapture: false,
+                        capture_pageview: false,
+                    }}
+                >
+                    <PosthogIdentified>{inner}</PosthogIdentified>
+                </PostHogProvider>
+            ) : (
+                inner
+            )}
         </IntercomProvider>
     );
 };

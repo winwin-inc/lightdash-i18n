@@ -37,7 +37,6 @@ import useApp from '../../../../providers/App/useApp';
 import useTracking from '../../../../providers/Tracking/useTracking';
 import { EventName } from '../../../../types/Events';
 import MantineIcon from '../../../common/MantineIcon';
-import DocumentationHelpButton from '../../../DocumentationHelpButton';
 import { TreeProvider } from './Tree/TreeProvider';
 import TreeRoot from './Tree/TreeRoot';
 
@@ -342,34 +341,6 @@ const TableTreeSections: FC<Props> = ({
                     <Text fw={600} color="yellow.9">
                         {t('components_explorer_tree.tooltip_metrics.title')}
                     </Text>
-
-                    {hasMetrics ? null : (
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/guides/how-to-create-metrics"
-                            tooltipProps={{
-                                label: (
-                                    <>
-                                        {t(
-                                            'components_explorer_tree.tooltip_metrics.label.part_1',
-                                        )}
-                                        <br />
-                                        {t(
-                                            'components_explorer_tree.tooltip_metrics.label.part_2',
-                                        )}{' '}
-                                        <Text component="span" fw={600}>
-                                            {t(
-                                                'components_explorer_tree.tooltip_metrics.label.part_3',
-                                            )}
-                                        </Text>{' '}
-                                        {t(
-                                            'components_explorer_tree.tooltip_metrics.label.part_4',
-                                        )}
-                                    </>
-                                ),
-                                multiline: true,
-                            }}
-                        />
-                    )}
                 </Group>
             )}
 
@@ -395,24 +366,6 @@ const TableTreeSections: FC<Props> = ({
                                 'components_explorer_tree.tooltip_custom_metrics.title',
                             )}
                         </Text>
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/guides/how-to-create-metrics#-adding-custom-metrics-in-the-explore-view"
-                            tooltipProps={{
-                                label: (
-                                    <>
-                                        {t(
-                                            'components_explorer_tree.tooltip_custom_metrics.label.part_1',
-                                        )}{' '}
-                                        <Text component="span" fw={600}>
-                                            {t(
-                                                'components_explorer_tree.tooltip_custom_metrics.label.part_2',
-                                            )}
-                                        </Text>
-                                    </>
-                                ),
-                                multiline: true,
-                            }}
-                        />
                     </Group>
                     {hasCustomMetrics && (
                         <Tooltip
@@ -455,25 +408,6 @@ const TableTreeSections: FC<Props> = ({
                                 'components_explorer_tree.tooltip_custom_dimensions.title',
                             )}
                         </Text>
-
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/guides/how-to-create-metrics#-adding-custom-metrics-in-the-explore-view"
-                            tooltipProps={{
-                                label: (
-                                    <>
-                                        {t(
-                                            'components_explorer_tree.tooltip_custom_dimensions.label.part_1',
-                                        )}{' '}
-                                        <Text component="span" fw={600}>
-                                            {t(
-                                                'components_explorer_tree.tooltip_custom_dimensions.label.part_2',
-                                            )}
-                                        </Text>
-                                    </>
-                                ),
-                                multiline: true,
-                            }}
-                        />
                     </Group>
                     {hasCustomDimensionsToWriteBack && (
                         <Tooltip

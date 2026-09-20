@@ -184,7 +184,9 @@ export const UserAccessMultiSelect: FC<UserAccessMultiSelectProps> = ({
                                 color="gray.6"
                                 fz="8px"
                             >
-                                {user.roleLabel}
+                                {t(`components_project_access.roles.${user.role}`, {
+                                    defaultValue: user.roleLabel,
+                                })}
                             </Badge>
                         </Group>
                         <Text size="xs" c="dimmed" fw={400}>

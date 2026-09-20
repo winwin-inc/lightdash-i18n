@@ -1,10 +1,13 @@
 import {
     type ApiError,
     type ApiJobStartedResults,
+    type ApiDataTimezonePreviewResults,
     type CreateProject,
+    type DataTimezonePreviewRequest,
     type MostPopularAndRecentlyUpdated,
     type Project,
     type UpdateProject,
+    type UpdateQueryTimezoneSettings,
     type UpdateSchedulerSettings,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -140,3 +143,40 @@ export const useProjectUpdateSchedulerSettings = (uuid: string) => {
         },
     );
 };
+
+const updateQueryTimezoneSettings = async (
+    uuid: string,
+    data: UpdateQueryTimezoneSettings,
+) =>
+    lightdashApi<undefined>({
+        url: `/projects/${uuid}/queryTimezoneSettings`,
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+
+export const useProjectUpdateQueryTimezoneSettings = (uuid: string) => {
+    const queryClient = useQueryClient();
+    return useMutation<undefined, ApiError, UpdateQueryTimezoneSettings>(
+        (data) => updateQueryTimezoneSettings(uuid, data),
+        {
+            mutationKey: ['project_query_timezone_settings_update', uuid],
+            onSuccess: async () => {
+                await queryClient.invalidateQueries(['project', uuid]);
+            },
+        },
+    );
+};
+
+const postDataTimezonePreview = async (body: DataTimezonePreviewRequest) =>
+    lightdashApi<ApiDataTimezonePreviewResults>({
+        url: `/projects/preview-data-timezone`,
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+
+export const useDataTimezonePreviewMutation = () =>
+    useMutation<
+        ApiDataTimezonePreviewResults,
+        ApiError,
+        DataTimezonePreviewRequest
+    >(postDataTimezonePreview);

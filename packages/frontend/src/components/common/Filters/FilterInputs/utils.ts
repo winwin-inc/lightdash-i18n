@@ -10,23 +10,35 @@ import {
     getLocalTimeDisplay,
     isCustomSqlDimension,
     isDashboardFilterRule,
+    isDateRangeDynamic,
     isDimension,
     isField,
     isFilterableItem,
     isFilterRule,
     isMomentInput,
+    isSingleDateDynamic,
+    resolveDateRangeValues,
+    resolveSingleDateValue,
+    TimeFrames,
+    type AnyType,
     type BaseFilterRule,
     type ConditionalRuleLabel,
     type CustomSqlDimension,
     type DashboardFilterableField,
+    type DateRangeSetting,
     type Field,
     type FilterableItem,
+    type SingleDateSetting,
     type TableCalculation,
 } from '@lightdash/common';
 import isEmpty from 'lodash/isEmpty';
 import uniq from 'lodash/uniq';
 import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
+import {
+    clampDateRangeValuesToBounds,
+    getDashboardFilterDatePickerBounds,
+} from '../utils/filterDateUtils';
 import { useFilterOperatorLabel } from './constants';
 import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
 
@@ -138,6 +150,146 @@ export const useFilterOperatorOptions = () => {
     };
 };
 
+// Effective display granularity for a date filter chip.
+// The user-chosen `dateRangeGranularity` on the dashboard rule wins;
+// otherwise we always default to DAY. Field timeInterval is intentionally
+// not used as a fallback — the user opts in to month/quarter/year display
+// via the date selector, and exploring a day-typed field with no override
+// should always show day-level dates.
+const getEffectiveDateInterval = (rule: BaseFilterRule): TimeFrames => {
+    if (rule.dateRangeGranularity) return rule.dateRangeGranularity;
+    return TimeFrames.DAY;
+};
+
+/**
+ * Keep a dynamic rule's current values while preventing downstream consumers
+ * from resolving its saved dynamic default again.
+ */
+export const getDateRangeRuleWithFixedValues = <
+    T extends BaseFilterRule & {
+        settings?: { dateRange?: DateRangeSetting };
+    },
+>(
+    rule: T,
+): T => {
+    if (!isDateRangeDynamic(rule) || !rule.settings) return rule;
+
+    const { dateRange: _drop, ...settings } = rule.settings;
+
+    return {
+        ...rule,
+        settings,
+    } as T;
+};
+
+/**
+ * Strip `settings.singleDate` so a viewer override becomes a fixed value
+ * for the rest of the session (saved dynamic default is not rewritten).
+ */
+export const getSingleDateRuleWithFixedValues = <
+    T extends BaseFilterRule & {
+        settings?: { singleDate?: SingleDateSetting };
+    },
+>(
+    rule: T,
+): T => {
+    if (!isSingleDateDynamic(rule) || !rule.settings) return rule;
+
+    const { singleDate: _drop, ...settings } = rule.settings;
+
+    return {
+        ...rule,
+        settings,
+    } as T;
+};
+
+/**
+ * If the rule has a dynamic date range or single-date default, re-resolve
+ * `values` from settings using the current date so the displayed chip label
+ * always reflects "now" rather than the stale values saved at config time.
+ * Returns the original `values` for non-dynamic rules.
+ */
+export const resolveDisplayValues = (
+    rule: BaseFilterRule & {
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
+        minAllowedDate?: string;
+        maxAllowedDate?: string;
+        dateRangeGranularity?: TimeFrames;
+        enableDynamicMaxAllowedDate?: boolean;
+    },
+    now: Date = new Date(),
+): AnyType[] | undefined => {
+    if (isSingleDateDynamic(rule) && rule.operator === FilterOperator.EQUALS) {
+        const resolved = resolveSingleDateValue(rule, now);
+        return resolved != null ? [resolved] : rule.values;
+    }
+    if (!isDateRangeDynamic(rule)) return rule.values;
+    const dr = rule.settings?.dateRange;
+    if (!dr) return rule.values;
+    const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
+    const resolved = resolveDateRangeValues(rule, granularity, now).filter(
+        (value): value is string => value !== null,
+    );
+    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
+        rule.minAllowedDate,
+        rule.maxAllowedDate,
+        granularity,
+        now,
+        true,
+        !!rule.enableDynamicMaxAllowedDate,
+    );
+    return clampDateRangeValuesToBounds(
+        resolved,
+        minDate,
+        maxDate,
+        granularity,
+    );
+};
+
+/**
+ * Returns a new rule with `values` re-resolved from dynamic settings if
+ * present. Non-dynamic rules are returned as-is.
+ */
+export const resolveDynamicDateRangeRule = <
+    T extends BaseFilterRule & {
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
+    },
+>(
+    rule: T,
+    now: Date = new Date(),
+): T => {
+    if (isSingleDateDynamic(rule) && rule.operator !== FilterOperator.EQUALS) {
+        // Stale singleDate after operator change — drop without resolving
+        return getSingleDateRuleWithFixedValues(rule);
+    }
+    if (!isDateRangeDynamic(rule) && !isSingleDateDynamic(rule)) return rule;
+    const resolved = resolveDisplayValues(rule, now);
+    if (resolved === rule.values) return rule;
+    return { ...rule, values: resolved };
+};
+
+/** 查询前解析动态日期并去掉动态 settings，保证接口参数与筛选器展示一致 */
+export const prepareDashboardFilterRuleForQuery = <
+    T extends BaseFilterRule & {
+        settings?: {
+            dateRange?: DateRangeSetting;
+            singleDate?: SingleDateSetting;
+        };
+    },
+>(
+    rule: T,
+    now: Date = new Date(),
+): T =>
+    getSingleDateRuleWithFixedValues(
+        getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now)),
+    );
+
 const useValueAsString = () => {
     const { t } = useTranslation();
     const { formatRelativeTimeDisplay } = useUnitOfTimeLabels();
@@ -147,7 +299,8 @@ const useValueAsString = () => {
         rule: BaseFilterRule,
         field?: Field | TableCalculation | CustomSqlDimension,
     ) => {
-        const { operator, values } = rule;
+        const { operator } = rule;
+        const values = resolveDisplayValues(rule);
         const firstValue = values?.[0];
         const secondValue = values?.[1];
 
@@ -177,9 +330,11 @@ const useValueAsString = () => {
                         if (!isFilterRule(rule)) {
                             throw new Error('Invalid rule');
                         }
-                        return `${firstValue ?? ''} ${rule.settings?.unitOfTime ?? ''}`.trim();
+                        return `${firstValue ?? ''} ${
+                            rule.settings?.unitOfTime ?? ''
+                        }`.trim();
                     }
-                    case FilterOperator.IN_BETWEEN:
+                    case FilterOperator.IN_BETWEEN: {
                         if (
                             isDimension(field) &&
                             isMomentInput(firstValue) &&
@@ -189,12 +344,13 @@ const useValueAsString = () => {
                             const rangeSeparator = t(
                                 'components_common_filters_inputs.date_range.and',
                             );
+                            const interval = getEffectiveDateInterval(rule);
                             return `${formatDate(
                                 firstValue as MomentInput,
-                                field.timeInterval,
+                                interval,
                             )} ${rangeSeparator} ${formatDate(
                                 secondValue as MomentInput,
-                                field.timeInterval,
+                                interval,
                             )}`;
                         }
                         {
@@ -208,6 +364,7 @@ const useValueAsString = () => {
                                 secondValue as MomentInput,
                             )}`;
                         }
+                    }
                     case FilterOperator.FROM_START_TO_LATEST_MONTH: {
                         const startDisplay =
                             isDimension(field) &&
@@ -215,14 +372,14 @@ const useValueAsString = () => {
                             field.type === DimensionType.DATE
                                 ? formatDate(
                                       firstValue as MomentInput,
-                                      field.timeInterval,
+                                      getEffectiveDateInterval(rule),
                                   )
                                 : isMomentInput(firstValue)
-                                  ? getLocalTimeDisplay(
-                                        firstValue as MomentInput,
-                                        false,
-                                    )
-                                  : String(firstValue ?? '');
+                                ? getLocalTimeDisplay(
+                                      firstValue as MomentInput,
+                                      false,
+                                  )
+                                : String(firstValue ?? '');
                         return t(
                             'components_common_filters_inputs.to_latest_month_chip',
                             { start: startDisplay },
@@ -260,7 +417,7 @@ const useValueAsString = () => {
                                 ) {
                                     return formatDate(
                                         value,
-                                        field.timeInterval,
+                                        getEffectiveDateInterval(rule),
                                     );
                                 } else {
                                     return value;

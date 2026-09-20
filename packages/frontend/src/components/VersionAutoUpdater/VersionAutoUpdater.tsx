@@ -24,7 +24,9 @@ const VersionAutoUpdater: FC = () => {
                     autoClose: false,
                     title: t('components_version_auto_updater.title'),
                     action: {
-                        children: 'Use new version',
+                        children: t(
+                            'components_version_auto_updater.use_new_version',
+                        ),
                         icon: IconReload,
                         onClick: () => window.location.reload(),
                     },

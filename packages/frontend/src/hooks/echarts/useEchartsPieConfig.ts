@@ -13,6 +13,7 @@ import { type EChartsOption, type PieSeriesOption } from 'echarts';
 import { useMemo } from 'react';
 import { isPieVisualizationConfig } from '../../components/LightdashVisualization/types';
 import { useVisualizationContext } from '../../components/LightdashVisualization/useVisualizationContext';
+import { pieSliceColorKey } from '../../hooks/useChartColorConfig/colorSyncKeys';
 import {
     formatPercentForLabel,
     formatPieSliceLabel,
@@ -56,6 +57,7 @@ const useEchartsPieConfig = (
         visualizationConfig,
         itemsMap,
         getGroupColor,
+        getGroupColors,
         minimal,
         useHashBased,
     } = useVisualizationContext();
@@ -98,94 +100,101 @@ const useEchartsPieConfig = (
 
         if (!selectedMetric) return;
 
-        return data
-            .sort(
-                ({ name: nameA }, { name: nameB }) =>
-                    sortedGroupLabels.indexOf(nameA) -
-                    sortedGroupLabels.indexOf(nameB),
-            )
-            .map(({ name, value, meta }) => {
-                const valueLabel =
-                    groupValueOptionsMap?.[name]?.valueLabel ??
-                    valueLabelDefault;
-                const showValue =
-                    groupValueOptionsMap?.[name]?.showValue ?? showValueDefault;
-                const showPercentage =
-                    groupValueOptionsMap?.[name]?.showPercentage ??
-                    showPercentageDefault;
-                const useCustomFormat =
-                    groupValueOptionsMap?.[name]?.useCustomFormat ??
-                    useCustomFormatDefault ??
-                    false;
-                const labelTemplate =
-                    groupValueOptionsMap?.[name]?.labelTemplate ??
-                    valueLabelTemplateDefault;
+        const sortedData = data.sort(
+            ({ name: nameA }, { name: nameB }) =>
+                sortedGroupLabels.indexOf(nameA) -
+                sortedGroupLabels.indexOf(nameB),
+        );
+        const groupPrefix = groupFieldIds.join('_');
+        const colorKeys = sortedData.map(({ name, meta }) =>
+            useHashBased
+                ? pieSliceColorKey(name, meta.rows, groupFieldIds)
+                : name,
+        );
+        const groupColors = getGroupColors(groupPrefix, colorKeys);
 
-                const groupPrefix = groupFieldIds.join('_');
-                const itemColor = useHashBased
-                    ? getGroupColor(groupPrefix, name)
-                    : (groupColorOverrides?.[name] ??
-                      getGroupColor(groupPrefix, name));
+        return sortedData.map(({ name, value, meta }, index) => {
+            const valueLabel =
+                groupValueOptionsMap?.[name]?.valueLabel ?? valueLabelDefault;
+            const showValue =
+                groupValueOptionsMap?.[name]?.showValue ?? showValueDefault;
+            const showPercentage =
+                groupValueOptionsMap?.[name]?.showPercentage ??
+                showPercentageDefault;
+            const useCustomFormat =
+                groupValueOptionsMap?.[name]?.useCustomFormat ??
+                useCustomFormatDefault ??
+                false;
+            const labelTemplate =
+                groupValueOptionsMap?.[name]?.labelTemplate ??
+                valueLabelTemplateDefault;
 
-                const isOutsideLabel = valueLabel === 'outside';
-                const isMobileOutsideLabel = isMobile && isOutsideLabel;
+            const colorKey = colorKeys[index];
+            const itemColor = useHashBased
+                ? groupColors[colorKey]
+                : (groupColorOverrides?.[name] ??
+                  groupColors[colorKey] ??
+                  getGroupColor(groupPrefix, colorKey));
 
-                const config: PieSeriesDataPoint = {
-                    id: name,
-                    groupId: name,
-                    name: groupLabelOverrides?.[name] ?? name,
-                    value: value,
-                    itemStyle: {
-                        color: itemColor,
+            const isOutsideLabel = valueLabel === 'outside';
+            const isMobileOutsideLabel = isMobile && isOutsideLabel;
+
+            const config: PieSeriesDataPoint = {
+                id: name,
+                groupId: name,
+                name: groupLabelOverrides?.[name] ?? name,
+                value: value,
+                itemStyle: {
+                    color: itemColor,
+                },
+                label: {
+                    show: valueLabel !== 'hidden',
+                    position: isOutsideLabel ? 'outside' : 'inside',
+                    ...(isMobileOutsideLabel
+                        ? {
+                              alignTo: 'edge',
+                              align: 'left',
+                              edgeDistance: 4,
+                              distanceToLabelLine: 4,
+                              bleedMargin: 6,
+                              fontSize: 10,
+                              lineHeight: 15,
+                              overflow: 'break',
+                              padding: [2, 0],
+                              width: 76,
+                          }
+                        : {}),
+                    formatter: (params) => {
+                        const percentValue =
+                            typeof params.percent === 'number'
+                                ? params.percent
+                                : Number(params.percent) || 0;
+
+                        const rawValueFromParams =
+                            typeof params.value === 'number'
+                                ? params.value
+                                : Number(params.value) || 0;
+
+                        return formatPieSliceLabel({
+                            name: params.name ?? '',
+                            percentValue,
+                            formattedValue: meta.value.formatted ?? '',
+                            rawValue: meta.value.raw ?? rawValueFromParams,
+                            valueLabel: valueLabel ?? 'outside',
+                            showValue: showValue ?? false,
+                            showPercentage: showPercentage ?? false,
+                            useCustomFormat,
+                            labelTemplate,
+                            wrapLongLines: isMobileOutsideLabel,
+                        });
                     },
-                    label: {
-                        show: valueLabel !== 'hidden',
-                        position: isOutsideLabel ? 'outside' : 'inside',
-                        ...(isMobileOutsideLabel
-                            ? {
-                                  alignTo: 'edge',
-                                  align: 'left',
-                                  edgeDistance: 4,
-                                  distanceToLabelLine: 4,
-                                  bleedMargin: 6,
-                                  fontSize: 10,
-                                  lineHeight: 15,
-                                  overflow: 'break',
-                                  padding: [2, 0],
-                                  width: 76,
-                              }
-                            : {}),
-                        formatter: (params) => {
-                            const percentValue =
-                                typeof params.percent === 'number'
-                                    ? params.percent
-                                    : Number(params.percent) || 0;
+                },
+                meta,
+            };
 
-                            const rawValueFromParams =
-                                typeof params.value === 'number'
-                                    ? params.value
-                                    : Number(params.value) || 0;
-
-                            return formatPieSliceLabel({
-                                name: params.name ?? '',
-                                percentValue,
-                                formattedValue: meta.value.formatted ?? '',
-                                rawValue: meta.value.raw ?? rawValueFromParams,
-                                valueLabel: valueLabel ?? 'outside',
-                                showValue: showValue ?? false,
-                                showPercentage: showPercentage ?? false,
-                                useCustomFormat,
-                                labelTemplate,
-                                wrapLongLines: isMobileOutsideLabel,
-                            });
-                        },
-                    },
-                    meta,
-                };
-
-                return config;
-            });
-    }, [chartConfig, getGroupColor, isMobile, useHashBased]);
+            return config;
+        });
+    }, [chartConfig, getGroupColor, getGroupColors, isMobile, useHashBased]);
 
     const pieSeriesOption: PieSeriesOption | undefined = useMemo(() => {
         if (!chartConfig) return;

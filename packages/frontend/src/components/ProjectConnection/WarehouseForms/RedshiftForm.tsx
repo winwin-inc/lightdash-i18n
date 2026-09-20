@@ -22,6 +22,7 @@ import FormSection from '../Inputs/FormSection';
 import StartOfWeekSelect from '../Inputs/StartOfWeekSelect';
 import { useFormContext } from '../formContext';
 import { useProjectFormContext } from '../useProjectFormContext';
+import DataTimezoneField from './DataTimezoneField';
 import { RedshiftDefaultValues } from './defaultValues';
 import { useCreateSshKeyPair } from './sshHooks';
 
@@ -254,14 +255,11 @@ const RedshiftForm: FC<{
                             {...form.getInputProps('warehouse.ra3Node', {
                                 type: 'checkbox',
                             })}
-                            onLabel={t(
-                                'components_project_connection_warehouse_form.redshift.ra3_node.yes',
-                            )}
-                            offLabel={t(
-                                'components_project_connection_warehouse_form.redshift.ra3_node.no',
-                            )}
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                         />
 
+                        <DataTimezoneField disabled={disabled} />
                         <StartOfWeekSelect disabled={disabled} />
 
                         <NumberInput
@@ -293,8 +291,8 @@ const RedshiftForm: FC<{
                             {...form.getInputProps('warehouse.useSshTunnel', {
                                 type: 'checkbox',
                             })}
-                            onLabel="Yes"
-                            offLabel="No"
+                            onLabel={t('common.yes')}
+                            offLabel={t('common.no')}
                             defaultChecked={RedshiftDefaultValues.useSshTunnel}
                         />
 

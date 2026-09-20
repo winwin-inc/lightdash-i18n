@@ -155,6 +155,7 @@ const SchedulerParameters: FC<SchedulerParametersProps> = ({
     onChange,
     isLoading,
 }) => {
+    const { t } = useTranslation();
     const handleParameterChange = useCallback(
         (
             paramKey: string,
@@ -203,7 +204,9 @@ const SchedulerParameters: FC<SchedulerParametersProps> = ({
         return (
             <Center component={Stack} h={100}>
                 <Loader color="gray" />
-                <Text color="dimmed">Loading parameters...</Text>
+                <Text color="dimmed">
+                    {t('features_scheduler_parameters.loading')}
+                </Text>
             </Center>
         );
     }
@@ -212,7 +215,7 @@ const SchedulerParameters: FC<SchedulerParametersProps> = ({
         return (
             <Center component={Stack} h={100}>
                 <Text color="dimmed">
-                    No parameters defined for this project.
+                    {t('features_scheduler_parameters.no_parameters')}
                 </Text>
             </Center>
         );

@@ -1,5 +1,6 @@
 import moment from 'moment/moment';
 import { FilterOperator, UnitOfTime } from '../types/filter';
+import { TimeFrames } from '../types/timeFrames';
 import { WeekDay } from '../utils/timeFrames';
 import {
     renderBooleanFilterSql,
@@ -92,6 +93,84 @@ describe('Filter SQL', () => {
     });
     afterAll(() => {
         jest.useFakeTimers();
+    });
+    test('should resolve dynamic date ranges in the query timezone', () => {
+        jest.setSystemTime(new Date('2026-09-01T00:30:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    ...InBetweenPastTwoYearsFilter,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    settings: {
+                        dateRange: {
+                            mode: 'dynamic',
+                            start: {
+                                direction: 'ago',
+                                count: 0,
+                                unit: UnitOfTime.months,
+                            },
+                            end: {
+                                direction: 'ago',
+                                count: 0,
+                                unit: UnitOfTime.months,
+                            },
+                        },
+                    },
+                },
+                adapterType.default,
+                'America/Los_Angeles',
+            ),
+        ).toBe(
+            `((customers.created) >= ('2026-08-01') AND (customers.created) <= ('2026-08-31'))`,
+        );
+    });
+    test('should resolve dynamic lastAvailableMonth equals before the 4th', () => {
+        jest.setSystemTime(new Date('2026-07-03T12:00:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    id: 'filter-id',
+                    target: { fieldId: 'customers_created' },
+                    operator: FilterOperator.EQUALS,
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                adapterType.default,
+                'UTC',
+            ),
+        ).toBe(`(customers.created) = ('2026-05-01')`);
+    });
+    test('should resolve dynamic lastAvailableMonth equals on or after the 4th', () => {
+        jest.setSystemTime(new Date('2026-07-04T12:00:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    id: 'filter-id',
+                    target: { fieldId: 'customers_created' },
+                    operator: FilterOperator.EQUALS,
+                    values: ['2020-01'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                },
+                adapterType.default,
+                'UTC',
+            ),
+        ).toBe(`(customers.created) = ('2026-06-01')`);
     });
     test.each(Object.values(FilterOperator))(
         'should return number filter sql for operator %s',

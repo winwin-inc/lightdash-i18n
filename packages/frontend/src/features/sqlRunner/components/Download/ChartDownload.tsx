@@ -14,6 +14,7 @@ import {
 import { IconDownload, IconPhoto, IconTableExport } from '@tabler/icons-react';
 import { type EChartsInstance } from 'echarts-for-react';
 import { memo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ChartDownloadOptions from '../../../../components/common/ChartDownload/ChartDownloadOptions';
 import { DownloadType } from '../../../../components/common/ChartDownload/chartDownloadUtils';
@@ -29,7 +30,8 @@ type Props = ExportResultsProps & {
 };
 
 export const ChartDownload: React.FC<Props> = memo(
-    ({ disabled, vizTableConfig, echartsInstance, ...rest }) => {
+            ({ disabled, vizTableConfig, echartsInstance, ...rest }) => {
+        const { t } = useTranslation();
         const [downloadFormat, setDownloadFormat] = useState<
             DownloadFileType.CSV | DownloadFileType.IMAGE
         >(DownloadFileType.CSV);
@@ -43,7 +45,7 @@ export const ChartDownload: React.FC<Props> = memo(
                 <Popover.Dropdown miw={250}>
                     <Stack spacing="xs">
                         <Stack spacing="xs">
-                            <Text fw={500}>Download as</Text>
+                            <Text fw={500}>{t('features_sql_runner_download.download_as')}</Text>
                             <SegmentedControl
                                 size="xs"
                                 value={downloadFormat}
@@ -60,7 +62,7 @@ export const ChartDownload: React.FC<Props> = memo(
                                                 <MantineIcon
                                                     icon={IconTableExport}
                                                 />
-                                                <Text ml={'xs'}>Results</Text>
+                                                <Text ml={'xs'}>{t('features_sql_runner_download.results')}</Text>
                                             </Center>
                                         ),
                                     },

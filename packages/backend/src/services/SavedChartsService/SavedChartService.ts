@@ -36,6 +36,7 @@ import {
     isConditionalFormattingConfigWithColorRange,
     isConditionalFormattingConfigWithSingleColor,
     isCustomSqlDimension,
+    isSqlTableCalculation,
     isJwtUser,
     isUserWithOrg,
     isValidFrequency,
@@ -437,6 +438,21 @@ export class SavedChartService
             );
         }
 
+        if (
+            data.metricQuery.tableCalculations?.some(isSqlTableCalculation) &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                'User cannot save queries with SQL table calculations',
+            );
+        }
+
         const savedChart = await this.savedChartModel.createVersion(
             savedChartUuid,
             data,
@@ -814,6 +830,8 @@ export class SavedChartService
     async get(
         savedChartUuidOrSlug: string,
         account: Account,
+        // Optional project scoping (upstream); ignored until model supports it.
+        _options?: { projectUuid?: string },
     ): Promise<SavedChart> {
         const savedChart = await this.savedChartModel.get(savedChartUuidOrSlug);
         const space = await this.spaceModel.getSpaceSummary(
@@ -890,6 +908,37 @@ export class SavedChartService
             )
         ) {
             throw new ForbiddenError();
+        }
+
+        if (
+            savedChart.metricQuery.customDimensions?.some(
+                isCustomSqlDimension,
+            ) &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', { organizationUuid, projectUuid }),
+            )
+        ) {
+            throw new ForbiddenError(
+                'User cannot save queries with custom SQL dimensions',
+            );
+        }
+
+        if (
+            savedChart.metricQuery.tableCalculations?.some(
+                isSqlTableCalculation,
+            ) &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSqlTableCalculations', {
+                    organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                'User cannot save queries with SQL table calculations',
+            );
         }
 
         const newSavedChart = await this.savedChartModel.create(

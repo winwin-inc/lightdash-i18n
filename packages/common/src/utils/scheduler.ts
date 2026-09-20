@@ -1,5 +1,16 @@
 import cronstrue from 'cronstrue';
+// Side-effect import so zh_CN locale is registered for cronstrue.toString
+import 'cronstrue/locales/zh_CN';
 import { getArrayValue } from './accessors';
+
+export type SchedulerCronLocale = 'zh' | 'en';
+
+export function normalizeSchedulerCronLocale(
+    value: string | null | undefined,
+): SchedulerCronLocale {
+    if (!value) return 'zh';
+    return value.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+}
 
 export function getTzMinutesOffset(oldTz: string, newTz: string) {
     const date = new Date();
@@ -43,18 +54,29 @@ export function getTimezoneLabel(timezone: string | undefined) {
 export function getHumanReadableCronExpression(
     cronExpression: string,
     timezone: string,
+    locale: string | null | undefined = 'zh',
 ) {
+    const resolved = normalizeSchedulerCronLocale(locale);
     const value = cronstrue.toString(cronExpression, {
         verbose: true,
         throwExceptionOnParseError: false,
+        locale: resolved === 'zh' ? 'zh_CN' : 'en',
     });
 
     const minsOffset = getTzMinutesOffset('UTC', timezone);
     const offsetString = formatMinutesOffset(minsOffset);
 
-    const valueWithTimezone = value
-        .replaceAll(' PM', ` PM (UTC ${offsetString})`)
-        .replaceAll(' AM', ` AM (UTC ${offsetString})`);
+    // English cronstrue uses AM/PM; Chinese uses 上午/下午 — only rewrite English markers.
+    const valueWithTimezone =
+        resolved === 'en'
+            ? value
+                  .replaceAll(' PM', ` PM (UTC ${offsetString})`)
+                  .replaceAll(' AM', ` AM (UTC ${offsetString})`)
+            : `${value} (UTC ${offsetString})`;
+
+    if (resolved === 'zh') {
+        return valueWithTimezone;
+    }
 
     return (
         getArrayValue(valueWithTimezone, 0).toLowerCase() +

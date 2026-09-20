@@ -25,7 +25,7 @@ module.exports = {
             '@semantic-release/exec',
             {
                 prepareCmd:
-                    'node scripts/set-workspace-version.mjs ${nextRelease.version}',
+                    'node scripts/bump-workspace-version.mjs ${nextRelease.version} --no-commit',
             },
         ],
 

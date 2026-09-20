@@ -141,7 +141,7 @@ const { replacedSql, usedParameters } = safeReplaceParametersWithSqlBuilder(
 **Key Technical Details:**
 
 -   **MetricQueryBuilder** handles complex joins, window functions, and warehouse-specific SQL generation
--   Maximum 60 pivot columns (MAX_PIVOT_COLUMN_LIMIT) to prevent performance issues
+-   Maximum 150 pivot columns (MAX_PIVOT_COLUMN_LIMIT) to prevent performance issues
 -   Pivot results are streamed and transformed during processing, not after loading all data
 -   Parameter replacement supports both safe (typed) and raw replacement modes
 -   The module supports multiple warehouse dialects (BigQuery, Snowflake, Postgres, etc.)

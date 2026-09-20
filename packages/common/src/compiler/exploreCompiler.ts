@@ -84,7 +84,9 @@ export type UncompiledExplore = {
     label: string;
     tags: string[];
     baseTable: string;
+    /** @deprecated Use groups instead */
     groupLabel?: string;
+    groups?: string[];
     joinedTables: ExploreJoin[];
     tables: Record<string, Table>;
     targetDatabase: SupportedDbtAdapter;
@@ -136,6 +138,7 @@ export class ExploreCompiler {
         databricksCompute,
         aiHint,
         projectParameters,
+        groups,
     }: UncompiledExplore): Explore {
         // Check that base table and joined tables exist
         if (!tables[baseTable]) {
@@ -327,6 +330,7 @@ export class ExploreCompiler {
             tables: compiledTables,
             targetDatabase,
             groupLabel,
+            ...(groups && groups.length > 0 ? { groups } : {}),
             warehouse,
             ymlPath,
             sqlPath,

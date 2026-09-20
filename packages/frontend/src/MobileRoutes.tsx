@@ -113,7 +113,11 @@ export const MobileNavBar: FC = () => {
         refetchOnMount: true,
     });
     const logout = () => {
-        posthog.reset();
+        try {
+            posthog.reset();
+        } catch {
+            // PostHog 未初始化时忽略
+        }
         window.location.href = '/api/v1/logout/federated';
     };
 
@@ -191,7 +195,7 @@ export const MobileNavBar: FC = () => {
                 {isAiAgentButtonVisible && (
                     <RouterNavLink
                         exact
-                        label="Ask AI"
+                        label={t('mobile_navbar.ask_ai')}
                         to={`/projects/${activeProjectUuid}/ai-agents`}
                         icon={<MantineIcon icon={IconRobot} />}
                         onClick={toggleMenu}

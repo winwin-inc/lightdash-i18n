@@ -6,6 +6,7 @@ import {
 import { ActionIcon, Popover, Tooltip } from '@mantine/core';
 import { IconDownload } from '@tabler/icons-react';
 import { type FC, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../../components/common/MantineIcon';
 import ExportResults from '../../../../components/ExportResults';
 
@@ -28,6 +29,7 @@ const ResultsDownloadButton: FC<Props> = ({
     getDownloadQueryUuid,
     chartName,
 }) => {
+    const { t } = useTranslation();
     const [downloadCustomLabels, downloadHiddenColumns] = useMemo(() => {
         const customLabels = getCustomLabelsFromVizTableConfig(vizTableConfig);
         const hiddenColumns = getHiddenFieldsFromVizTableConfig(vizTableConfig);
@@ -37,7 +39,7 @@ const ResultsDownloadButton: FC<Props> = ({
     return (
         <Popover withArrow disabled={disabled}>
             <Popover.Target>
-                <Tooltip variant="xs" label="Download results">
+                <Tooltip variant="xs" label={t('features_sql_runner_download.download_results')}>
                     <ActionIcon variant="default" disabled={disabled}>
                         <MantineIcon icon={IconDownload} />
                     </ActionIcon>

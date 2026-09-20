@@ -430,6 +430,8 @@ export const renameChartConfigType = (
                 },
             };
 
+        case ChartType.DATA_APP_VIZ:
+            return chartConfig;
         default:
             assertUnreachable(
                 chartType,

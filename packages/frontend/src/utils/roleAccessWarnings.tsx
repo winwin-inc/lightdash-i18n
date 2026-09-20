@@ -6,7 +6,9 @@ import {
     type RoleAssignment,
 } from '@lightdash/common';
 import { Text } from '@mantine/core';
+import { type TFunction } from 'i18next';
 import { type ReactNode } from 'react';
+import { Trans } from 'react-i18next';
 
 export const systemRolesOrder: string[] = Object.values(OrganizationMemberRole);
 
@@ -21,7 +23,11 @@ export interface AccessWarningParams {
     hasProjectRole: boolean;
     projectRole?: ProjectMemberRole | null;
     userGroupAccess?: UserGroupAccess | null;
+    t: TFunction;
 }
+
+const translateSystemRole = (role: string, t: TFunction) =>
+    t(`components_project_access.roles.${role}`, { defaultValue: role });
 
 /* 
   The accessWarning shows alerts when role conflicts or inheritance may cause permission issues:
@@ -42,6 +48,7 @@ export const getAccessWarning = ({
     hasProjectRole,
     projectRole,
     userGroupAccess,
+    t,
 }: AccessWarningParams): ReactNode | undefined => {
     try {
         // Check for organization role warnings (existing logic)
@@ -58,15 +65,16 @@ export const getAccessWarning = ({
             ) {
                 return (
                     <Text fw={300}>
-                        User inherits role{' '}
-                        <Text fw={600} span>
-                            {userGroupAccess.roleName}
-                        </Text>{' '}
-                        from group{' '}
-                        <Text fw={600} span>
-                            {userGroupAccess.group.name}
-                        </Text>
-                        .
+                        <Trans
+                            i18nKey="components_project_access_row_v2.access_warning.inherit_from_group"
+                            values={{
+                                roleName: userGroupAccess.roleName,
+                                groupName: userGroupAccess.group.name,
+                            }}
+                            components={{
+                                bold: <Text fw={600} span />,
+                            }}
+                        />
                     </Text>
                 );
             }
@@ -78,11 +86,18 @@ export const getAccessWarning = ({
             ) {
                 return (
                     <Text fw={300}>
-                        User inherits higher role{' '}
-                        <Text fw={600} span>
-                            {organizationRole}
-                        </Text>{' '}
-                        from organization.
+                        <Trans
+                            i18nKey="components_project_access_row_v2.access_warning.inherit_higher_from_org"
+                            values={{
+                                role: translateSystemRole(
+                                    organizationRole,
+                                    t,
+                                ),
+                            }}
+                            components={{
+                                bold: <Text fw={600} span />,
+                            }}
+                        />
                     </Text>
                 );
             }
@@ -96,22 +111,31 @@ export const getAccessWarning = ({
             return (
                 <>
                     <Text fw={300}>
-                        This user belongs to a group{' '}
-                        <Text fw={600} span>
-                            {userGroupAccess.group.name}
-                        </Text>{' '}
+                        <Trans
+                            i18nKey="components_project_access_row_v2.access_warning.custom_group_belongs"
+                            values={{
+                                groupName: userGroupAccess.group.name,
+                            }}
+                            components={{
+                                bold: <Text fw={600} span />,
+                            }}
+                        />
                     </Text>
                     <Text fw={300}>
-                        which has a custom role
-                        <Text fw={600} span>
-                            {' '}
-                            {userGroupAccess.roleName}
-                        </Text>{' '}
-                        assigned.{' '}
+                        <Trans
+                            i18nKey="components_project_access_row_v2.access_warning.custom_group_has_role"
+                            values={{
+                                roleName: userGroupAccess.roleName,
+                            }}
+                            components={{
+                                bold: <Text fw={600} span />,
+                            }}
+                        />
                     </Text>
                     <Text fw={300}>
-                        Make sure the organization or project role doesn't
-                        override the group role permissions.
+                        {t(
+                            'components_project_access_row_v2.access_warning.custom_group_override',
+                        )}
                     </Text>
                 </>
             );
@@ -122,15 +146,23 @@ export const getAccessWarning = ({
             return (
                 <>
                     <Text fw={300}>
-                        This user has a custom role and an organization role{' '}
-                        <Text fw={600} span>
-                            {organizationRole}
-                        </Text>{' '}
-                        assigned.{' '}
+                        <Trans
+                            i18nKey="components_project_access_row_v2.access_warning.custom_project_has_org"
+                            values={{
+                                role: translateSystemRole(
+                                    organizationRole,
+                                    t,
+                                ),
+                            }}
+                            components={{
+                                bold: <Text fw={600} span />,
+                            }}
+                        />
                     </Text>
                     <Text fw={300}>
-                        Make sure the organization or group role doesn't
-                        override the project role permissions.
+                        {t(
+                            'components_project_access_row_v2.access_warning.custom_project_override',
+                        )}
                     </Text>
                 </>
             );

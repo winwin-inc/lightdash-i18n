@@ -34,7 +34,6 @@ import {
     IconSend,
     IconTrash,
 } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
@@ -62,6 +61,7 @@ import SlugInfo from '../PageHeader/SlugInfo';
 import SpaceAndDashboardInfo from '../PageHeader/SpaceAndDashboardInfo';
 import { UpdatedInfo } from '../PageHeader/UpdatedInfo';
 import ViewInfo from '../PageHeader/ViewInfo';
+import { formatLocalizedDateTime } from '../ResourceView/resourceUtils';
 import SpaceActionModal from '../SpaceActionModal';
 import { ActionType } from '../SpaceActionModal/types';
 import TransferItemsModal from '../TransferItemsModal/TransferItemsModal';
@@ -116,7 +116,8 @@ const DashboardHeader = ({
     setAddingTab,
     onEditClicked,
 }: DashboardHeaderProps) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
 
     const isDashboardSummariesEnabled = useFeatureFlagEnabled(
         'ai-dashboard-summary' as FeatureFlags,
@@ -363,9 +364,7 @@ const DashboardHeader = ({
                 >
                     {t('components_common_dashboard_header.oldest_cache_time')}
                     <Text fw={700}>
-                        {dayjs(oldestCacheTime).format(
-                            'MMM D, YYYY h:mm A',
-                        )}{' '}
+                        {formatLocalizedDateTime(oldestCacheTime, isZh)}{' '}
                     </Text>
                 </Text>
             )}

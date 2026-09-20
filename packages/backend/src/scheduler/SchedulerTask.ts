@@ -13,6 +13,7 @@ import {
     DownloadFileType,
     EmailNotificationPayload,
     ExportCsvDashboardPayload,
+    type ExportContentPayload,
     FeatureFlags,
     FieldReferenceError,
     ForbiddenError,
@@ -24,6 +25,7 @@ import {
     NotEnoughResults,
     NotificationFrequency,
     NotificationPayloadBase,
+    ParameterError,
     ParametersValuesMap,
     QueryExecutionContext,
     ReadFileError,
@@ -86,9 +88,15 @@ import {
     operatorActionValue,
     pivotResultsAsCsv,
     setUuidParam,
+    type DateGranularity,
 } from '@lightdash/common';
+import archiver from 'archiver';
+import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
+import { Readable } from 'stream';
+import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
+import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import slackifyMarkdown from 'slackify-markdown';
 import {
     DownloadCsv,
@@ -675,6 +683,13 @@ export default class SchedulerTask {
                             ...csvForChartPromises,
                             ...csvForSqlChartPromises,
                         ]).then(getFulfilledValues);
+
+                        if (csvOptions?.xlsxFileLayout === 'workbook') {
+                            csvUrls = await this.buildWorkbookCsvUrls({
+                                files: csvUrls,
+                                workbookNameBase: dashboard.name,
+                            });
+                        }
 
                         this.analytics.trackAccount(account, {
                             event: 'download_results.completed',
@@ -1710,6 +1725,70 @@ export default class SchedulerTask {
         }
     }
 
+    /**
+     * Collapses per-tile XLSX files into one multi-sheet workbook for delivery.
+     * Default layout remains a zip of separate files when xlsxFileLayout !== 'workbook'.
+     */
+    private async buildWorkbookCsvUrls({
+        files,
+        workbookNameBase,
+    }: {
+        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
+        workbookNameBase: string;
+    }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
+        if (!this.s3Client.isEnabled()) {
+            throw new MissingConfigError('Cloud storage is not enabled');
+        }
+        if (files.length === 0) {
+            throw new UnexpectedServerError('No files to include in workbook');
+        }
+
+        const workbookPath = `/tmp/${nanoid()}.xlsx`;
+        try {
+            const workbookResult = await WorkbookExportHelper.createWorkbookFile(
+                {
+                    files: files.map((file) => ({
+                        filename: file.filename,
+                        sheetName: file.filename,
+                        localPath: file.localPath,
+                    })),
+                    outputPath: workbookPath,
+                    onFileError: (filename, error) => {
+                        Logger.warn(
+                            `Failed to add XLSX file "${filename}" to workbook: ${error}`,
+                        );
+                    },
+                },
+            );
+
+            if (workbookResult.worksheetCount === 0) {
+                throw new UnexpectedServerError(
+                    'All XLSX downloads failed — no files to include in workbook',
+                );
+            }
+
+            const workbookFileName = `${sanitizeGenericFileName(
+                workbookNameBase,
+            )}-${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+
+            const url = await this.s3Client.uploadExcel(
+                fsSync.createReadStream(workbookPath),
+                workbookFileName,
+            );
+
+            return [
+                {
+                    filename: workbookNameBase,
+                    path: url,
+                    localPath: url,
+                    truncated: false,
+                },
+            ];
+        } finally {
+            await fs.unlink(workbookPath).catch(() => undefined);
+        }
+    }
+
     protected async downloadCsv(
         jobId: string,
         scheduledTime: Date,
@@ -2085,6 +2164,15 @@ export default class SchedulerTask {
                     schedulerUuid,
                 );
 
+            const emailLocale =
+                (scheduler.options as { locale?: string } | undefined)
+                    ?.locale ?? 'zh';
+            const humanCron = getHumanReadableCronExpression(
+                scheduler.cron,
+                scheduler.timezone || defaultSchedulerTimezone,
+                emailLocale,
+            );
+
             if (thresholds !== undefined && thresholds.length > 0) {
                 // We assume the threshold is possitive , so we don't need to get results here
                 if (imageUrl === undefined) {
@@ -2111,23 +2199,27 @@ export default class SchedulerTask {
                 }** triggered the following alerts:\n${thresholdMessageList.join(
                     '\n',
                 )}`;
+                const alertCopy = (
+                    await import('../clients/EmailClient/emailCopy')
+                ).getEmailCopy(emailLocale);
                 await this.emailClient.sendImageNotificationEmail(
                     recipient,
-                    `Lightdash Data Alert`,
+                    alertCopy.dataAlertSubject,
                     name,
                     details.description || '',
                     thresholdMessage,
-                    new Date().toLocaleDateString('en-GB'),
-                    `For security reasons, delivered files expire after ${
-                        this.s3Client.getExpirationWarning()?.days || 3
-                    } days`,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
+                    ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     undefined, // expiration days
-                    'This is a data alert sent by Lightdash',
+                    alertCopy.dataAlertDeliveryType,
+                    emailLocale,
                 );
             } else if (format === SchedulerFormat.IMAGE) {
                 if (imageUrl === undefined) {
@@ -2139,17 +2231,18 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     imageUrl,
                     url,
                     schedulerUrl,
                     includeLinks,
                     pdfFile?.source,
                     this.s3Client.getExpirationWarning()?.days,
+                    undefined,
+                    emailLocale,
                 );
             } else if (savedChartUuid) {
                 if (csvUrl === undefined) {
@@ -2162,11 +2255,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrl,
                     url,
                     schedulerUrl,
@@ -2174,6 +2266,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else if (dashboardUuid) {
                 if (csvUrls === undefined) {
@@ -2187,11 +2280,10 @@ export default class SchedulerTask {
                     details.name,
                     details.description || '',
                     scheduler.message,
-                    new Date().toLocaleDateString('en-GB'),
-                    getHumanReadableCronExpression(
-                        scheduler.cron,
-                        scheduler.timezone || defaultSchedulerTimezone,
+                    new Date().toLocaleDateString(
+                        emailLocale === 'en' ? 'en-GB' : 'zh-CN',
                     ),
+                    humanCron,
                     csvUrls,
                     url,
                     schedulerUrl,
@@ -2199,6 +2291,7 @@ export default class SchedulerTask {
                     this.s3Client.getExpirationWarning()?.days,
                     csvOptions?.asAttachment,
                     format,
+                    emailLocale,
                 );
             } else {
                 throw new Error('Not implemented');
@@ -3171,6 +3264,230 @@ export default class SchedulerTask {
                 return { url };
             },
         );
+    }
+
+    /**
+     * One-click dashboard CSV/XLSX export. Reuses scheduled-delivery generation
+     * for XLSX (including workbook collapse) and CsvService for CSV zip.
+     */
+    protected async exportContent(
+        jobId: string,
+        scheduledTime: Date,
+        payload: ExportContentPayload,
+    ) {
+        await this.logWrapper(
+            {
+                task: SCHEDULER_TASKS.EXPORT_CONTENT,
+                jobId,
+                scheduledTime,
+                details: {
+                    createdByUserUuid: payload.userUuid,
+                    projectUuid: payload.projectUuid,
+                    organizationUuid: payload.organizationUuid,
+                },
+            },
+            async () => {
+                if (payload.resourceType !== 'dashboard') {
+                    throw new ParameterError(
+                        'Only dashboard export is supported',
+                    );
+                }
+                if (!this.s3Client.isEnabled()) {
+                    throw new MissingConfigError('Cloud storage is not enabled');
+                }
+
+                if (payload.format === SchedulerFormat.CSV) {
+                    const user = await this.userService.getSessionByUserUuid(
+                        payload.userUuid,
+                    );
+                    const options = isSchedulerCsvOptions(payload.options)
+                        ? payload.options
+                        : { formatted: true, limit: 'table' as const };
+
+                    const csvFiles = await this.csvService
+                        .getCsvsForDashboard({
+                            jobId,
+                            user,
+                            dashboardUuid: payload.resourceUuid,
+                            options,
+                            overrideDashboardFilters: payload.dashboardFilters,
+                            dateZoomGranularity:
+                                payload.dateZoomGranularity as
+                                    | DateGranularity
+                                    | undefined,
+                            selectedTabs: payload.selectedTabs ?? null,
+                            invalidateCache: true,
+                            schedulerParameters: payload.parameters,
+                        })
+                        .then((urls) =>
+                            urls.filter((url) => url.path !== '#no-results'),
+                        );
+
+                    const dashboard =
+                        await this.schedulerService.dashboardModel.getByIdOrSlug(
+                            payload.resourceUuid,
+                        );
+
+                    const url = await this.createExportZipDownloadUrl({
+                        files: csvFiles.map((file) => ({
+                            entryNameBase: file.filename,
+                            localPath: file.localPath,
+                        })),
+                        fileExtension: 'csv',
+                        zipNameBase: dashboard.name,
+                    });
+                    return { url, fileType: 'zip' };
+                }
+
+                if (payload.format === SchedulerFormat.XLSX) {
+                    const scheduler = {
+                        name: 'Content export',
+                        createdBy: payload.userUuid,
+                        format: SchedulerFormat.XLSX,
+                        options: payload.options,
+                        cron: '* * * * *',
+                        timezone: 'UTC',
+                        savedChartUuid: null,
+                        dashboardUuid: payload.resourceUuid,
+                        enabled: true,
+                        includeLinks: false,
+                        targets: [],
+                        customViewportWidth: payload.customViewportWidth,
+                        selectedTabs: payload.selectedTabs ?? null,
+                        filters: payload.dashboardFilters?.dimensions,
+                        parameters: payload.parameters,
+                    } satisfies CreateSchedulerAndTargets & {
+                        dashboardUuid: string;
+                        selectedTabs: string[] | null;
+                        filters?: DashboardFilterRule[];
+                        parameters?: ParametersValuesMap;
+                        customViewportWidth?: number;
+                    };
+
+                    const page = await this.getNotificationPageData(
+                        scheduler,
+                        jobId,
+                    );
+
+                    if (!page.csvUrls || page.csvUrls.length === 0) {
+                        throw new UnexpectedServerError(
+                            'Dashboard data export failed',
+                        );
+                    }
+
+                    const shouldCreateWorkbook =
+                        isSchedulerCsvOptions(payload.options) &&
+                        payload.options.xlsxFileLayout === 'workbook';
+
+                    if (shouldCreateWorkbook) {
+                        const workbookUrl = page.csvUrls[0]?.path;
+                        if (!workbookUrl) {
+                            throw new UnexpectedServerError(
+                                'Dashboard workbook export failed',
+                            );
+                        }
+                        return {
+                            url: workbookUrl,
+                            fileType: DownloadFileType.XLSX,
+                        };
+                    }
+
+                    const url = await this.createExportZipDownloadUrl({
+                        files: page.csvUrls.map((file) => ({
+                            entryNameBase: file.filename,
+                            localPath: file.localPath,
+                        })),
+                        fileExtension: 'xlsx',
+                        zipNameBase: page.details.name,
+                    });
+                    return { url, fileType: 'zip' };
+                }
+
+                return assertUnreachable(
+                    payload.format,
+                    `Format ${payload.format} is not supported for export`,
+                );
+            },
+        );
+    }
+
+    private async createExportZipDownloadUrl({
+        files,
+        fileExtension,
+        zipNameBase,
+    }: {
+        files: Array<{ entryNameBase: string; localPath: string }>;
+        fileExtension: 'csv' | 'xlsx';
+        zipNameBase: string;
+    }): Promise<string> {
+        if (files.length === 0) {
+            throw new UnexpectedServerError('No files to include in zip');
+        }
+
+        const zipPath = `/tmp/${nanoid()}.zip`;
+        try {
+            const output = fsSync.createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            const zipDone = new Promise<void>((resolve, reject) => {
+                output.on('close', () => resolve());
+                archive.on('error', reject);
+            });
+            archive.pipe(output);
+
+            const usedNames = new Set<string>();
+            const dedupeName = (baseName: string) => {
+                const extension = `.${fileExtension}`;
+                const base = sanitizeGenericFileName(baseName);
+                let name = `${base}${extension}`;
+                if (usedNames.has(name)) {
+                    let suffix = 2;
+                    while (usedNames.has(`${base}_${suffix}${extension}`)) {
+                        suffix += 1;
+                    }
+                    name = `${base}_${suffix}${extension}`;
+                }
+                usedNames.add(name);
+                return name;
+            };
+
+            await Promise.all(
+                files.map(async (file) => {
+                    const entryName = dedupeName(file.entryNameBase);
+                    if (
+                        file.localPath.startsWith('http://') ||
+                        file.localPath.startsWith('https://')
+                    ) {
+                        const response = await fetch(file.localPath);
+                        if (!response.ok || !response.body) {
+                            throw new UnexpectedServerError(
+                                `Failed to download export file "${file.entryNameBase}"`,
+                            );
+                        }
+                        const buffer = Buffer.from(
+                            await response.arrayBuffer(),
+                        );
+                        archive.append(Readable.from(buffer), {
+                            name: entryName,
+                        });
+                    } else {
+                        archive.file(file.localPath, { name: entryName });
+                    }
+                }),
+            );
+
+            await archive.finalize();
+            await zipDone;
+
+            const zipFileName = `${sanitizeGenericFileName(
+                zipNameBase,
+            )}-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+            return this.s3Client.uploadZip(
+                fsSync.createReadStream(zipPath),
+                zipFileName,
+            );
+        } finally {
+            await fs.unlink(zipPath).catch(() => undefined);
+        }
     }
 
     protected async replaceCustomFields(

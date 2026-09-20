@@ -1,3 +1,4 @@
+import { type TimezoneSetting } from '@lightdash/common';
 import {
     Button,
     Divider,
@@ -9,6 +10,7 @@ import {
 import { useClickOutside, useDisclosure } from '@mantine-8/hooks';
 import { IconChevronDown } from '@tabler/icons-react';
 import { memo, useEffect, useState, type FC } from 'react';
+import ChartTimezoneSelect from '../common/ChartTimezoneSelect';
 import MantineIcon from '../common/MantineIcon';
 import AutoFetchResultsSwitch from './AutoFetchResultsSwitch';
 import LimitInput from './LimitInput';
@@ -20,6 +22,9 @@ export type Props = {
     limit: number;
     onLimitChange: (value: number) => void;
     showAutoFetchSetting?: boolean;
+    showTimezoneSetting?: boolean;
+    timezone?: string | null;
+    onTimezoneChange?: (value: TimezoneSetting) => void;
     targetProps?: ButtonProps;
 };
 
@@ -31,6 +36,9 @@ const RunQuerySettings: FC<Props> = memo(
         limit,
         onLimitChange,
         showAutoFetchSetting = false,
+        showTimezoneSetting = false,
+        timezone,
+        onTimezoneChange,
         targetProps,
     }) => {
         const [opened, { open, close }] = useDisclosure(false);
@@ -79,7 +87,7 @@ const RunQuerySettings: FC<Props> = memo(
                 </Popover.Target>
 
                 <Popover.Dropdown>
-                    <Stack ref={ref}>
+                    <Stack ref={ref} gap="sm" w={232}>
                         {showAutoFetchSetting && (
                             <AutoFetchResultsSwitch size={size} />
                         )}
@@ -93,6 +101,14 @@ const RunQuerySettings: FC<Props> = memo(
                                 onBlur: handleLimitBlur,
                             }}
                         />
+                        {showTimezoneSetting && onTimezoneChange && (
+                            <ChartTimezoneSelect
+                                label="Timezone"
+                                value={timezone ?? undefined}
+                                onChange={onTimezoneChange}
+                                w="100%"
+                            />
+                        )}
                     </Stack>
                 </Popover.Dropdown>
             </Popover>

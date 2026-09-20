@@ -43,7 +43,7 @@ const TrackingProviderMain: FC<React.PropsWithChildren<TrackingData>> = ({
                 name: LIGHTDASH_APP_NAME,
                 version,
                 build: version,
-            } as any as rudderSDK.apiObject),
+            }) as any as rudderSDK.apiObject,
         [version],
     );
 
@@ -74,6 +74,7 @@ const TrackingProviderMain: FC<React.PropsWithChildren<TrackingData>> = ({
     );
 
     useEffect(() => {
+        // 自托管：health 不下发 writeKey/dataPlaneUrl 时不加载官方 Rudder SDK
         if (rudder) {
             setRudderAnalytics(rudder);
         } else if (writeKey && dataPlaneUrl) {

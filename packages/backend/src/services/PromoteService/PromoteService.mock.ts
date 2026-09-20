@@ -217,6 +217,7 @@ export const promotedDashboard: PromotedDashboard = {
         firstViewedAt: new Date(),
         updatedByUser,
         slug: 'dashboard',
+        owner: null,
     },
     projectUuid: promotedProjectUuid,
     space: promotedSpace,

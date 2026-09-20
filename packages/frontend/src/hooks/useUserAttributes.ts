@@ -4,6 +4,7 @@ import {
     type UserAttribute,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 import useQueryError from './useQueryError';
@@ -34,6 +35,7 @@ const createUserAttributes = async (data: CreateUserAttribute) =>
 export const useCreateUserAtributesMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<null, ApiError, CreateUserAttribute>(
         createUserAttributes,
@@ -42,12 +44,12 @@ export const useCreateUserAtributesMutation = () => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['user_attributes']);
                 showToastSuccess({
-                    title: `Success! user attribute was created.`,
+                    title: t('hooks_user_attributes.create_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to create user attribute`,
+                    title: t('hooks_user_attributes.create_error'),
                     apiError: error,
                 });
             },
@@ -68,6 +70,7 @@ const updateUserAttributes = async (
 export const useUpdateUserAtributesMutation = (userAttributeUuuid?: string) => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
 
     return useMutation<null, ApiError, CreateUserAttribute>(
         (data) => updateUserAttributes(userAttributeUuuid || '', data),
@@ -77,12 +80,12 @@ export const useUpdateUserAtributesMutation = (userAttributeUuuid?: string) => {
             onSuccess: async () => {
                 await queryClient.invalidateQueries(['user_attributes']);
                 showToastSuccess({
-                    title: `Success! user attribute was updated.`,
+                    title: t('hooks_user_attributes.update_success'),
                 });
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: `Failed to update user attribute`,
+                    title: t('hooks_user_attributes.update_error'),
                     apiError: error,
                 });
             },
@@ -100,17 +103,18 @@ const deleteUserAttributes = async (uuid: string) =>
 export const useUserAttributesDeleteMutation = () => {
     const queryClient = useQueryClient();
     const { showToastSuccess, showToastApiError } = useToaster();
+    const { t } = useTranslation();
     return useMutation<null, ApiError, string>(deleteUserAttributes, {
         mutationKey: ['delete_user_attributes'],
         onSuccess: async () => {
             await queryClient.invalidateQueries(['user_attributes']);
             showToastSuccess({
-                title: `Success! user attribute was deleted.`,
+                title: t('hooks_user_attributes.delete_success'),
             });
         },
         onError: ({ error }) => {
             showToastApiError({
-                title: `Failed to delete user attribute`,
+                title: t('hooks_user_attributes.delete_error'),
                 apiError: error,
             });
         },

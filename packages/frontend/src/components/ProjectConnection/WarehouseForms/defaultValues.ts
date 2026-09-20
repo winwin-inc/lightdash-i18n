@@ -28,6 +28,7 @@ export const BigQueryDefaultValues: CreateBigqueryCredentials = {
     maximumBytesBilled: 1000000000,
     // we need to set it as undefined to avoid overwritting saved value
     startOfWeek: undefined,
+    dataTimezone: undefined,
 };
 
 const DatabricksDefaultValues: CreateDatabricksCredentials = {
@@ -39,6 +40,7 @@ const DatabricksDefaultValues: CreateDatabricksCredentials = {
     catalog: '',
     compute: [],
     startOfWeek: undefined,
+    dataTimezone: undefined,
 };
 
 export const PostgresDefaultValues: CreatePostgresCredentials = {
@@ -67,6 +69,7 @@ export const PostgresDefaultValues: CreatePostgresCredentials = {
     sshTunnelUser: '',
     sshTunnelPublicKey: '',
     startOfWeek: undefined,
+    dataTimezone: undefined,
 };
 
 export const RedshiftDefaultValues: CreateRedshiftCredentials = {
@@ -88,6 +91,7 @@ export const RedshiftDefaultValues: CreateRedshiftCredentials = {
     sshTunnelUser: '',
     sshTunnelPublicKey: '',
     startOfWeek: undefined,
+    dataTimezone: undefined,
 };
 
 export const SnowflakeDefaultValues: CreateSnowflakeCredentials = {
@@ -108,6 +112,7 @@ export const SnowflakeDefaultValues: CreateSnowflakeCredentials = {
     authenticationType: undefined,
     privateKey: '',
     privateKeyPass: '',
+    dataTimezone: undefined,
 };
 
 export const TrinoDefaultValues: CreateTrinoCredentials = {
@@ -120,6 +125,7 @@ export const TrinoDefaultValues: CreateTrinoCredentials = {
     port: 443,
     dbname: '',
     http_scheme: 'https',
+    dataTimezone: undefined,
 };
 
 export const ClickhouseDefaultValues: CreateClickhouseCredentials = {
@@ -133,6 +139,7 @@ export const ClickhouseDefaultValues: CreateClickhouseCredentials = {
     secure: true,
     startOfWeek: undefined,
     timeoutSeconds: 300,
+    dataTimezone: undefined,
 };
 
 export const warehouseDefaultValues = {

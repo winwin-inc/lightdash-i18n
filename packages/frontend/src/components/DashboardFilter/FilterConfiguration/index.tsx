@@ -42,10 +42,9 @@ import {
     type MouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
 
+import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
-import { useProject } from '../../../hooks/useProject';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { isCategoryField } from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
@@ -63,6 +62,7 @@ import {
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     removeValuesExcludedFromFilterRule,
+    validateDashboardFilterDynamicDateRange,
 } from './utils';
 
 interface Props {
@@ -112,9 +112,7 @@ const FilterConfiguration: FC<Props> = ({
     onSelectedTabChange,
 }) => {
     const { t } = useTranslation();
-    const { projectUuid } = useParams<{ projectUuid: string }>();
-    const { data: project } = useProject(projectUuid);
-    const isCustomerUse = project?.isCustomerUse ?? false;
+    const { showToastError } = useToaster();
     const isMobileDevice = useIsMobileDevice();
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
@@ -221,8 +219,8 @@ const FilterConfiguration: FC<Props> = ({
             const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
                 ? false
                 : isEditMode
-                  ? newFilterRule.disabled
-                  : true;
+                ? newFilterRule.disabled
+                : true;
             const updatedRule = {
                 ...newFilterRule,
                 disabled: isNewFilterDisabled,
@@ -431,7 +429,16 @@ const FilterConfiguration: FC<Props> = ({
             );
         }
 
-        if (!isDraftModifiedFromApplied) {
+        const differsFromSaved =
+            !!originalFilterRule &&
+            hasSavedFilterValueChanged(
+                originalFilterRule,
+                draftFilterRuleWithPendingExcludedValue,
+            );
+
+        // Allow Apply when only tileTargets were backfilled vs saved state,
+        // even if draft already matches defaultFilterRule (UI defaults).
+        if (!isDraftModifiedFromApplied && !differsFromSaved) {
             return true;
         }
 
@@ -460,14 +467,14 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : (allFiltersFromContext?.dimensions ?? []);
+                : allFiltersFromContext?.dimensions ?? [];
 
         const sourceFilters =
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
-                  : [];
+                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+                : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -651,7 +658,7 @@ const FilterConfiguration: FC<Props> = ({
                                         }}
                                     />
                                 )
-                            ) : selectedField ? (
+                            ) : selectedField && isEditMode ? (
                                 <Group spacing="xs">
                                     <FieldIcon item={selectedField} />
                                     {originalFilterRule?.label &&
@@ -663,7 +670,7 @@ const FilterConfiguration: FC<Props> = ({
                                         <FieldLabel item={selectedField} />
                                     )}
                                 </Group>
-                            ) : (
+                            ) : isEditMode ? (
                                 <Group spacing="xs">
                                     <MantineIcon
                                         icon={IconSql}
@@ -684,7 +691,7 @@ const FilterConfiguration: FC<Props> = ({
                                         </Text>
                                     )}
                                 </Group>
-                            )}
+                            ) : null}
 
                             {draftFilterRule && (
                                 <FilterSettings
@@ -699,7 +706,6 @@ const FilterConfiguration: FC<Props> = ({
                                         setPendingExcludedValue
                                     }
                                     popoverProps={popoverProps}
-                                    isCustomerUse={isCustomerUse}
                                     parentFilterOptions={parentFilterOptions}
                                 />
                             )}
@@ -781,7 +787,6 @@ const FilterConfiguration: FC<Props> = ({
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
-                                    popoverProps?.onClose?.();
                                     if (draftFilterRule) {
                                         const ruleToSave =
                                             removeValuesExcludedFromFilterRule(
@@ -793,6 +798,36 @@ const FilterConfiguration: FC<Props> = ({
                                                     pendingExcludedValue,
                                                 ),
                                             );
+
+                                        if (isEditMode || isCreatingNew) {
+                                            const validationError =
+                                                validateDashboardFilterDynamicDateRange(
+                                                    ruleToSave,
+                                                );
+                                            if (validationError) {
+                                                const messageKey =
+                                                    validationError ===
+                                                    'start_after_end'
+                                                        ? 'components_dashboard_filter.configuration.date_range.start_after_end'
+                                                        : 'components_dashboard_filter.configuration.date_range.default_out_of_range';
+                                                const defaultMessage =
+                                                    validationError ===
+                                                    'start_after_end'
+                                                        ? '开始日期不能晚于结束日期'
+                                                        : '默认值日期超出了限制范围';
+                                                showToastError({
+                                                    key: 'dashboard-filter-date-range-validation',
+                                                    title: t(
+                                                        messageKey,
+                                                        defaultMessage,
+                                                    ),
+                                                    autoClose: 3000,
+                                                });
+                                                return;
+                                            }
+                                        }
+
+                                        popoverProps?.onClose?.();
                                         onSave(ruleToSave);
                                         setPendingExcludedValue('');
                                     }

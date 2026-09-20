@@ -7,6 +7,7 @@ import {
 } from '@lightdash/common/src/pivot/pivotQueryResults.mock';
 
 import {
+    DEFAULT_COLUMN_MAX_WIDTH,
     pivotDataToVTable,
     type VTableColumnDef,
     type VTableColumnGroup,
@@ -200,7 +201,13 @@ describe('pivotDataToVTable', () => {
             { textAlign: 'left' },
         ]);
         expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'left' }]);
+        expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.headerStyle),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
     });
 
@@ -215,6 +222,9 @@ describe('pivotDataToVTable', () => {
             { textAlign: 'center' },
         ]);
         expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'center' }]);
+        expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'right' })));
     });
@@ -228,6 +238,9 @@ describe('pivotDataToVTable', () => {
         expect(getDimensionColumns(columns).map((col) => col.style)).toEqual([
             { textAlign: 'left' },
         ]);
+        expect(
+            getDimensionColumns(columns).map((col) => col.headerStyle),
+        ).toEqual([{ textAlign: 'left' }]);
     });
 
     it('数据列默认左对齐', () => {
@@ -235,6 +248,9 @@ describe('pivotDataToVTable', () => {
 
         expect(
             getMetricValueLeafColumns(columns).map((col) => col.style),
+        ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'left' })));
+        expect(
+            getMetricValueLeafColumns(columns).map((col) => col.headerStyle),
         ).toEqual(Array.from({ length: 6 }, () => ({ textAlign: 'left' })));
     });
 
@@ -271,33 +287,27 @@ describe('pivotDataToVTable', () => {
         );
     });
 
-    it('默认或未开启自动撑满时不设置数据列 maxWidth', () => {
+    it('默认数据列使用默认 maxWidth 封顶（内容自适应）', () => {
         const { columns: defaultColumns } = pivotDataToVTable(
             pivotData,
             baseOptions,
         );
-        const { columns: disabledColumns } = pivotDataToVTable(pivotData, {
-            ...baseOptions,
-            pivotAutoFillWidth: false,
-            pivotColumnMaxWidth: 240,
-        });
 
         expect(
             getMetricValueLeafColumns(defaultColumns).map(
                 (col) => col.maxWidth,
             ),
-        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        ).toEqual(Array.from({ length: 6 }, () => DEFAULT_COLUMN_MAX_WIDTH));
         expect(
-            getMetricValueLeafColumns(disabledColumns).map(
-                (col) => col.maxWidth,
+            getMetricValueLeafColumns(defaultColumns).map(
+                (col) => col.minWidth,
             ),
-        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        ).toEqual(Array.from({ length: 6 }, () => 88));
     });
 
-    it('开启自动撑满且设置最大宽度时，数据列带 maxWidth', () => {
+    it('显式设置数据列最大宽度时覆盖默认上限', () => {
         const { columns } = pivotDataToVTable(pivotData, {
             ...baseOptions,
-            pivotAutoFillWidth: true,
             pivotColumnMaxWidth: 240,
         });
 
@@ -309,10 +319,9 @@ describe('pivotDataToVTable', () => {
         ).toEqual(Array.from({ length: 6 }, () => 88));
     });
 
-    it('开启自动撑满且设置最大宽度时，行维度列带 maxWidth', () => {
+    it('显式设置行维度列最大宽度时覆盖默认上限', () => {
         const { columns } = pivotDataToVTable(twoDimensionPivotData, {
             ...baseOptions,
-            pivotAutoFillWidth: true,
             pivotDimensionColumnMaxWidth: 300,
         });
 
@@ -321,11 +330,20 @@ describe('pivotDataToVTable', () => {
         );
     });
 
+    it('未配置行维度列最大宽度时使用默认上限', () => {
+        const { columns } = pivotDataToVTable(twoDimensionPivotData, {
+            ...baseOptions,
+        });
+
+        expect(getDimensionColumns(columns).map((col) => col.maxWidth)).toEqual(
+            [DEFAULT_COLUMN_MAX_WIDTH],
+        );
+    });
+
     it('行维度列 maxWidth 小于默认 minWidth 保护值时，minWidth 随 maxWidth 下调', () => {
         const { columns } = pivotDataToVTable(twoDimensionPivotData, {
             ...baseOptions,
             pivotMetricHeaderPosition: 'top',
-            pivotAutoFillWidth: true,
             pivotDimensionColumnMaxWidth: 120,
         });
 
@@ -334,23 +352,63 @@ describe('pivotDataToVTable', () => {
         ]);
     });
 
-    it('开启自动撑满且最大宽度为 0 或未设置时不限制数据列 maxWidth', () => {
+    it('最大宽度为 0 或未设置时回退到默认上限', () => {
         const { columns: zeroColumns } = pivotDataToVTable(pivotData, {
             ...baseOptions,
-            pivotAutoFillWidth: true,
             pivotColumnMaxWidth: 0,
         });
         const { columns: unsetColumns } = pivotDataToVTable(pivotData, {
             ...baseOptions,
-            pivotAutoFillWidth: true,
             pivotColumnMaxWidth: undefined,
         });
 
         expect(
             getMetricValueLeafColumns(zeroColumns).map((col) => col.maxWidth),
-        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        ).toEqual(Array.from({ length: 6 }, () => DEFAULT_COLUMN_MAX_WIDTH));
         expect(
             getMetricValueLeafColumns(unsetColumns).map((col) => col.maxWidth),
-        ).toEqual(Array.from({ length: 6 }, () => undefined));
+        ).toEqual(Array.from({ length: 6 }, () => DEFAULT_COLUMN_MAX_WIDTH));
+    });
+
+    it('读取 columnProperties.frozen 计算 frozenColCount', () => {
+        const indexFieldId =
+            threeDimensionPivotData.retrofitData.pivotColumnInfo.find(
+                (col) => col.columnType === 'indexValue',
+            )?.fieldId;
+        expect(indexFieldId).toBeTruthy();
+
+        const { frozenColCount } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            hideRowNumbers: false,
+            columnProperties: {
+                [indexFieldId!]: { frozen: true },
+            },
+        });
+
+        // row number (#) + first frozen index column
+        expect(frozenColCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('showRowGrouping 开启且无小计时返回行合并信息', () => {
+        const { rowSpanMerges } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            showRowGrouping: true,
+            showSubtotals: false,
+            columnOrder: ['site', 'region', 'page'],
+        });
+
+        expect(rowSpanMerges).not.toBeNull();
+        expect(rowSpanMerges!.size).toBeGreaterThan(0);
+    });
+
+    it('showSubtotals 开启时不进入 grouping-only 行合并', () => {
+        const { rowSpanMerges } = pivotDataToVTable(threeDimensionPivotData, {
+            ...baseOptions,
+            showRowGrouping: true,
+            showSubtotals: true,
+            columnOrder: ['site', 'region', 'page'],
+        });
+
+        expect(rowSpanMerges).toBeNull();
     });
 });

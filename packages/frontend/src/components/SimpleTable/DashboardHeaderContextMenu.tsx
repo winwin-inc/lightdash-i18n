@@ -66,7 +66,7 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, tileUuid }) => {
                     >
                         {t('components_simple_table.sort')}{' '}
                         <Text span fw={500}>
-                            {getSortLabel(item, sortDirection)}
+                            {getSortLabel(item, sortDirection, t)}
                         </Text>
                     </Menu.Item>
                 ))}

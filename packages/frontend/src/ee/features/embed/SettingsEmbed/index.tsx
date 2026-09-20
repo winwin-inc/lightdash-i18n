@@ -4,7 +4,6 @@ import {
     type UpdateEmbed,
 } from '@lightdash/common';
 import {
-    Anchor,
     Button,
     Flex,
     Paper,
@@ -200,14 +199,6 @@ const SettingsEmbed: FC<{ projectUuid: string }> = ({ projectUuid }) => {
                     </Title>
                     <Text color="dimmed">
                         {t('ai_embed_settings_embed.embed_secret_description')}
-                    </Text>
-                    <Text color="dimmed" fz="xs">
-                        {t('ai_embed_settings_embed.embed_secret_read_more')}{' '}
-                        <Anchor href="https://docs.lightdash.com/references/embedding">
-                            {t(
-                                'ai_embed_settings_embed.embed_secret_docs_guide',
-                            )}
-                        </Anchor>
                     </Text>
                 </Stack>
                 <Stack>

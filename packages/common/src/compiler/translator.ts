@@ -831,6 +831,9 @@ export const convertExplores = async (
                     label: meta.label || friendlyName(model.name),
                     tags,
                     groupLabel: meta.group_label,
+                    ...(meta.groups && meta.groups.length > 0
+                        ? { groups: meta.groups }
+                        : {}),
                     errors: [
                         {
                             type:
@@ -877,6 +880,9 @@ export const convertExplores = async (
                 name: model.name,
                 label: meta.label || friendlyName(model.name),
                 groupLabel: meta.group_label,
+                ...(meta.groups && meta.groups.length > 0
+                    ? { groups: meta.groups }
+                    : {}),
                 joins: meta?.joins || [],
                 description: meta.description,
                 tables: tableLookup,
@@ -889,6 +895,13 @@ export const convertExplores = async (
                               exploreConfig.label || friendlyName(exploreName),
                           groupLabel:
                               exploreConfig.group_label || meta.group_label,
+                          ...((exploreConfig.groups && exploreConfig.groups.length > 0) ||
+                          (meta.groups && meta.groups.length > 0)
+                              ? {
+                                    groups:
+                                        exploreConfig.groups || meta.groups,
+                                }
+                              : {}),
                           joins: exploreConfig.joins || [],
                           description: exploreConfig.description,
                           tables: {
@@ -920,6 +933,10 @@ export const convertExplores = async (
                     tags: tags || [],
                     baseTable: model.name,
                     groupLabel: exploreToCreate.groupLabel,
+                    ...(exploreToCreate.groups &&
+                    exploreToCreate.groups.length > 0
+                        ? { groups: exploreToCreate.groups }
+                        : {}),
                     joinedTables: exploreToCreate.joins.map((join) => ({
                         table: join.join,
                         sqlOn: join.sql_on,
@@ -955,6 +972,10 @@ export const convertExplores = async (
                     name: exploreToCreate.name,
                     label: exploreToCreate.label,
                     groupLabel: exploreToCreate.groupLabel,
+                    ...(exploreToCreate.groups &&
+                    exploreToCreate.groups.length > 0
+                        ? { groups: exploreToCreate.groups }
+                        : {}),
                     errors: [
                         {
                             // TODO improve parsing of error type

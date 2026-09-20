@@ -274,6 +274,71 @@ export const getAxisDefaultMinValue = ({
     return undefined;
 };
 
+/**
+ * Non-flipped charts always create a placeholder top xAxis that is never bound
+ * to series. Hide its chrome so ECharts does not draw a stray top border line.
+ * Flip-axes charts may use xAxis[1] as a real secondary axis — do not hide there.
+ */
+export const isUnusedTopXAxis = ({
+    flipAxes,
+    topAxisXId,
+}: {
+    flipAxes?: boolean;
+    topAxisXId?: string;
+}): boolean => !flipAxes && !topAxisXId;
+
+export const getTopXAxisVisualOverrides = ({
+    flipAxes,
+    topAxisXId,
+    defaultSplitLineShow,
+}: {
+    flipAxes?: boolean;
+    topAxisXId?: string;
+    defaultSplitLineShow: boolean;
+}): {
+    axisLine?: { show: false };
+    axisTick?: { show: false };
+    axisLabel?: { show: false };
+    splitLine: { show: boolean };
+} => {
+    if (isUnusedTopXAxis({ flipAxes, topAxisXId })) {
+        return {
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { show: false },
+            splitLine: { show: false },
+        };
+    }
+
+    return {
+        splitLine: { show: defaultSplitLineShow },
+    };
+};
+
+/**
+ * Resolve ECharts xAxis.axisLine.onZero from saved chart config.
+ * Unset defaults to true (ECharts / historical behavior: stick to y=0).
+ * false = "轴线置底" (axis line at bottom of the plot).
+ */
+export const resolveXAxisLineOnZero = (
+    axisLineOnZero: boolean | undefined,
+): boolean => axisLineOnZero ?? true;
+
+export const getXAxisLineConfig = ({
+    axisLineOnZero,
+    existingAxisLine,
+}: {
+    axisLineOnZero: boolean | undefined;
+    existingAxisLine?: { show?: boolean } | Record<string, unknown>;
+}): { axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown> } => ({
+    axisLine: {
+        ...(existingAxisLine && typeof existingAxisLine === 'object'
+            ? existingAxisLine
+            : {}),
+        onZero: resolveXAxisLineOnZero(axisLineOnZero),
+    },
+});
+
 const maybeGetAxisDefaultMinValue = (allowFunction: boolean) =>
     allowFunction ? getAxisDefaultMinValue : undefined;
 
@@ -909,6 +974,9 @@ const getEchartsSeriesFromPivotedData = (
             if (valuesColumn) {
                 return valuesColumn.pivotColumnName;
             }
+
+            // Match failed — keep a distinct per-series key (not bare metric field)
+            return hashFieldReference(yRef);
         }
 
         // For non-pivoted fields (like the index column), use the field name directly
@@ -1194,6 +1262,104 @@ const getPivotIndexAndGroupByKeySet = (
     return keys;
 };
 
+/**
+ * Wide-pivot dashboard dataset where category labels live in series/pivot columns,
+ * not as a multi-row category field in the dataset.
+ * - flipAxes (horizontal bar): category is encode.y, value is encode.x
+ * - vertical bar: category is encode.x, value is encode.y
+ */
+const isWidePivotBarDataset = ({
+    layout,
+    series,
+    datasetRows,
+    pivotDetails,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows?: Record<string, unknown>[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+}): boolean => {
+    if (!datasetRows?.length || !pivotDetails) {
+        return false;
+    }
+
+    const flipAxes = Boolean(layout.flipAxes);
+    const categoryEncodeKey = flipAxes ? 'y' : 'x';
+    const valueEncodeKey = flipAxes ? 'x' : 'y';
+
+    const categoryEncode = series.find(
+        (s) => typeof s.encode?.[categoryEncodeKey] === 'string',
+    )?.encode?.[categoryEncodeKey];
+    if (typeof categoryEncode !== 'string') return false;
+
+    const categoryHasValues = datasetRows.some(
+        (row) =>
+            row[categoryEncode] !== undefined && row[categoryEncode] !== null,
+    );
+    if (categoryHasValues) return false;
+
+    const indexKeys = getPivotIndexAndGroupByKeySet(pivotDetails);
+    const valueColumnCount = Object.keys(datasetRows[0] ?? {}).filter(
+        (key) => !indexKeys.has(key),
+    ).length;
+    const barSeriesCount = series.filter(
+        (s) =>
+            s.type === CartesianSeriesType.BAR &&
+            typeof s.encode?.[valueEncodeKey] === 'string',
+    ).length;
+
+    return valueColumnCount > 0 && barSeriesCount > 0;
+};
+
+/**
+ * Vertical BAR_TOTALS should inject series labels into xAxis.data only when
+ * category identity lives in series/pivot (Shape B / wide-pivot), not when
+ * xField is a true multi-value dimension distinct from the pivot (Shape A).
+ */
+export const shouldInjectSeriesCategoryAxis = ({
+    layout,
+    series,
+    datasetRows,
+    pivotDetails,
+    pivotDimensions,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    datasetRows?: Record<string, unknown>[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+    pivotDimensions?: string[] | null;
+}): boolean => {
+    if (layout.flipAxes) return false;
+
+    const xField = layout.xField;
+    if (!xField) return false;
+
+    // Shape B: X axis field is the pivot/group dimension (one series ≈ one bar)
+    if (pivotDimensions?.includes(xField)) {
+        return true;
+    }
+
+    const pivotFieldsFromSeries = new Set(
+        series.flatMap(
+            (serie) =>
+                serie.pivotReference?.pivotValues?.map(({ field }) => field) ??
+                [],
+        ),
+    );
+    if (pivotFieldsFromSeries.has(xField)) {
+        return true;
+    }
+
+    // Wide SQL pivot: category labels are not present as a dataset column
+    return isWidePivotBarDataset({
+        layout,
+        series,
+        datasetRows,
+        pivotDetails,
+    });
+};
+
+/** @deprecated Use isWidePivotBarDataset — kept for flipAxes-only call sites during rename */
 const isFlipAxesWidePivotDataset = ({
     layout,
     series,
@@ -1205,28 +1371,26 @@ const isFlipAxesWidePivotDataset = ({
     datasetRows?: Record<string, unknown>[];
     pivotDetails?: InfiniteQueryResults['pivotDetails'];
 }): boolean => {
-    if (!layout.flipAxes || !datasetRows?.length || !pivotDetails) {
-        return false;
-    }
-
-    const encodeY = series.find((s) => s.encode?.y)?.encode?.y;
-    if (!encodeY) return false;
-
-    const encodeYHasValues = datasetRows.some(
-        (row) => row[encodeY] !== undefined && row[encodeY] !== null,
-    );
-    if (encodeYHasValues) return false;
-
-    const indexKeys = getPivotIndexAndGroupByKeySet(pivotDetails);
-    const valueColumnCount = Object.keys(datasetRows[0] ?? {}).filter(
-        (key) => !indexKeys.has(key),
-    ).length;
-    const barSeriesCount = series.filter(
-        (s) => s.type === CartesianSeriesType.BAR && s.encode?.x,
-    ).length;
-
-    return valueColumnCount > 0 && barSeriesCount > 0;
+    if (!layout.flipAxes) return false;
+    return isWidePivotBarDataset({
+        layout,
+        series,
+        datasetRows,
+        pivotDetails,
+    });
 };
+
+const getWidePivotBarValueColumnKey = (
+    serie: EChartSeries,
+    flipAxes: boolean,
+): string | undefined => {
+    const valueEncode = flipAxes ? serie.encode?.x : serie.encode?.y;
+    return typeof valueEncode === 'string' ? valueEncode : undefined;
+};
+
+const isWidePivotBarSerie = (serie: EChartSeries, flipAxes: boolean): boolean =>
+    serie.type === CartesianSeriesType.BAR &&
+    Boolean(getWidePivotBarValueColumnKey(serie, flipAxes));
 
 const getPivotSeriesCategoryLabel = ({
     serie,
@@ -1277,24 +1441,22 @@ const getPivotSeriesCategoryLabel = ({
     );
 };
 
-const getFlipAxesCategoryAxisDataFromWidePivot = ({
+const getWidePivotCategoryAxisDataFromWidePivot = ({
     series,
     itemsMap,
     pivotValuesColumnsMap,
+    flipAxes,
 }: {
     series: EChartSeries[];
     itemsMap: ItemsMap;
     pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+    flipAxes: boolean;
 }): unknown[] | undefined => {
     const barSeries = series
-        .filter(
-            (s) =>
-                s.type === CartesianSeriesType.BAR &&
-                typeof s.encode?.x === 'string',
-        )
+        .filter((s) => isWidePivotBarSerie(s, flipAxes))
         .sort((a, b) => {
-            const aColumnKey = a.encode!.x as string;
-            const bColumnKey = b.encode!.x as string;
+            const aColumnKey = getWidePivotBarValueColumnKey(a, flipAxes)!;
+            const bColumnKey = getWidePivotBarValueColumnKey(b, flipAxes)!;
             const aIndex =
                 pivotValuesColumnsMap?.[aColumnKey]?.columnIndex ?? 0;
             const bIndex =
@@ -1307,49 +1469,131 @@ const getFlipAxesCategoryAxisDataFromWidePivot = ({
     return barSeries.map((serie) =>
         getPivotSeriesCategoryLabel({
             serie,
-            columnKey: serie.encode!.x as string,
+            columnKey: getWidePivotBarValueColumnKey(serie, flipAxes)!,
             itemsMap,
             pivotValuesColumnsMap,
         }),
     );
 };
 
-const isWidePivotFlipAxesBarSerie = (serie: EChartSeries): boolean =>
-    serie.type === CartesianSeriesType.BAR &&
-    typeof serie.encode?.x === 'string';
+const getFlipAxesCategoryAxisDataFromWidePivot = ({
+    series,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    series: EChartSeries[];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): unknown[] | undefined =>
+    getWidePivotCategoryAxisDataFromWidePivot({
+        series,
+        itemsMap,
+        pivotValuesColumnsMap,
+        flipAxes: true,
+    });
+
+/**
+ * Read a series value from a result row.
+ * Prefers pivoted column hash; falls back to long-format
+ * metric.dim.category encode when dashboard rows are not pivoted yet.
+ */
+export const getSeriesValueFromRow = (
+    row: ResultRow,
+    hash: string | undefined,
+): number => {
+    if (!hash) return 0;
+
+    let value = row[hash]?.value?.raw;
+
+    if (value === undefined) {
+        const parts = hash.split('.');
+        if (parts.length >= 3) {
+            const metricField = parts[0];
+            const dimensionField = parts[1];
+            const categoryValue = parts.slice(2).join('.');
+            if (row[dimensionField]?.value?.raw === categoryValue) {
+                value = row[metricField]?.value?.raw;
+            }
+        }
+    }
+
+    const numberValue = toNumber(value);
+    return Number.isNaN(numberValue) ? 0 : numberValue;
+};
 
 const getSerieTotalFromRows = (
     serie: EChartSeries,
     rows: ResultRow[],
     flipAxes: boolean,
 ): number => {
-    let total = 0;
     const yFieldHash = flipAxes ? serie.encode?.x : serie.encode?.y;
-
     if (!yFieldHash) return 0;
 
-    rows.forEach((row) => {
-        let value = row[yFieldHash]?.value?.raw;
+    return rows.reduce(
+        (total, row) => total + getSeriesValueFromRow(row, yFieldHash),
+        0,
+    );
+};
 
-        if (value === undefined) {
-            const parts = yFieldHash.split('.');
-            if (parts.length >= 3) {
-                const metricField = parts[0];
-                const dimensionField = parts[1];
-                const categoryValue = parts.slice(2).join('.');
-                if (row[dimensionField]?.value?.raw === categoryValue) {
-                    value = row[metricField]?.value?.raw;
-                }
+/**
+ * Sum series values from long-format rows/dataset using pivotReference
+ * (metric field + pivot dimension values). Returns null when no row matched.
+ */
+const getSerieTotalFromPivotReference = ({
+    serie,
+    rows,
+    datasetRows,
+}: {
+    serie: EChartSeries;
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+}): number | null => {
+    const pivotRef = serie.pivotReference;
+    if (
+        !pivotRef?.field ||
+        !pivotRef.pivotValues ||
+        pivotRef.pivotValues.length === 0
+    ) {
+        return null;
+    }
+
+    const metricField = pivotRef.field;
+    let matched = false;
+    let total = 0;
+
+    const rowMatchesPivot = (
+        getDimValue: (field: string) => unknown,
+    ): boolean =>
+        pivotRef.pivotValues!.every(({ field, value }) => {
+            const raw = getDimValue(field);
+            return raw === value || String(raw) === String(value);
+        });
+
+    if (rows.length > 0) {
+        for (const row of rows) {
+            if (!rowMatchesPivot((field) => row[field]?.value?.raw)) {
+                continue;
             }
+            matched = true;
+            const num = toNumber(row[metricField]?.value?.raw);
+            if (Number.isFinite(num)) total += num;
         }
+        return matched ? total : null;
+    }
 
-        const numValue = toNumber(value);
-        if (!isNaN(numValue)) {
-            total += numValue;
+    if (datasetRows.length > 0) {
+        for (const row of datasetRows) {
+            if (!rowMatchesPivot((field) => row[field])) {
+                continue;
+            }
+            matched = true;
+            const num = toNumber(row[metricField]);
+            if (Number.isFinite(num)) total += num;
         }
-    });
+        return matched ? total : null;
+    }
 
-    return total;
+    return null;
 };
 
 const getSerieTotalForSort = ({
@@ -1364,9 +1608,10 @@ const getSerieTotalForSort = ({
     flipAxes: boolean;
 }): number => {
     const valueField = flipAxes ? serie.encode?.x : serie.encode?.y;
-    if (!valueField || typeof valueField !== 'string') return 0;
 
     if (
+        valueField &&
+        typeof valueField === 'string' &&
         datasetRows.length > 0 &&
         datasetRows.some((row) => row[valueField] !== undefined)
     ) {
@@ -1375,6 +1620,19 @@ const getSerieTotalForSort = ({
             return sum + (Number.isFinite(num) ? num : 0);
         }, 0);
     }
+
+    // Dashboard long-format: encode.y may be pivotColumnName (missing on rows).
+    // Resolve via pivotReference (metric + dimension values).
+    const fromPivotRef = getSerieTotalFromPivotReference({
+        serie,
+        rows,
+        datasetRows,
+    });
+    if (fromPivotRef !== null) {
+        return fromPivotRef;
+    }
+
+    if (!valueField || typeof valueField !== 'string') return 0;
 
     return getSerieTotalFromRows(serie, rows, flipAxes);
 };
@@ -1545,8 +1803,11 @@ const sortStackedBarSeriesByTotalValue = ({
 };
 
 /**
- * Legend/tooltip order for stacked bars sorted by total value.
- * Does not reorder series — stack layer rendering stays unchanged.
+ * Legend/tooltip name order for stacked bars sorted by total value.
+ * Returns names only; does not mutate the input series array.
+ * Config order O belongs on legend/tooltip. For ECharts paint, reverse stacked
+ * bars via `reverseStackedBarSeriesForPaint` so top-of-bar matches top-of-tooltip
+ * (ECharts places series[0] at the bottom of the stack).
  */
 export const getStackedBarLegendOrder = ({
     series,
@@ -1573,10 +1834,42 @@ export const getStackedBarLegendOrder = ({
 };
 
 /**
- * Sorts stacked bar series by total value (series array order).
- * Prefer getStackedBarLegendOrder when only legend/tooltip order should change.
+ * Sorts stacked bar series by total value (config / legend / tooltip order O).
+ * Do not pass this array directly to ECharts when aligning visual top with
+ * tooltip — use `reverseStackedBarSeriesForPaint` after setting legend from O.
  */
 export const sortStackedBarSeriesByValue = sortStackedBarSeriesByTotalValue;
+
+/**
+ * Reverse stacked bar series within each stack for ECharts paint.
+ * ECharts draws series[0] at the stack bottom; legend/tooltip list series[0]
+ * at the top. Reversing paint order makes top-of-bar match top-of-tooltip
+ * while legend/tooltip keep config order O.
+ */
+export const reverseStackedBarSeriesForPaint = (
+    series: EChartSeries[],
+): EChartSeries[] => {
+    const seriesByStack = new Map<string, EChartSeries[]>();
+    const seriesWithoutStack: EChartSeries[] = [];
+
+    series.forEach((serie) => {
+        if (serie.stack && serie.type === CartesianSeriesType.BAR) {
+            if (!seriesByStack.has(serie.stack)) {
+                seriesByStack.set(serie.stack, []);
+            }
+            seriesByStack.get(serie.stack)!.push(serie);
+        } else {
+            seriesWithoutStack.push(serie);
+        }
+    });
+
+    const reversedStacks: EChartSeries[] = [];
+    seriesByStack.forEach((stackSeries) => {
+        reversedStacks.push(...[...stackSeries].reverse());
+    });
+
+    return [...reversedStacks, ...seriesWithoutStack];
+};
 
 /**
  * Sorts line/area series by total value across all X-axis points.
@@ -1663,16 +1956,19 @@ export const getLineLegendOrder = ({
 };
 
 /**
- * BAR_TOTALS axis sort for flipAxes + SQL pivot wide table (dashboard).
- * Sorts bar series by pivot column value; category order flows via stackSortCategoryAxisData.
+ * BAR_TOTALS axis sort for SQL pivot wide table (dashboard).
+ * Works for both horizontal (flipAxes) and vertical bar charts when categories
+ * live in pivot columns. Sorts bar series by pivot column value; category order
+ * flows via stackSortCategoryAxisData.
  */
-export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
+export const sortWidePivotBarSeriesByBarTotals = ({
     layout,
     series,
     datasetRows,
     pivotDetails,
     itemsMap,
     pivotValuesColumnsMap,
+    descending = false,
 }: {
     layout: CartesianChart['layout'];
     series: EChartSeries[];
@@ -1680,11 +1976,12 @@ export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
     pivotDetails?: InfiniteQueryResults['pivotDetails'];
     itemsMap: ItemsMap;
     pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+    descending?: boolean;
 }):
     | { sortedSeries: EChartSeries[]; sortedCategoryLabels: unknown[] }
     | undefined => {
     if (
-        !isFlipAxesWidePivotDataset({
+        !isWidePivotBarDataset({
             layout,
             series,
             datasetRows,
@@ -1694,19 +1991,26 @@ export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
         return undefined;
     }
 
-    const datasetRow = datasetRows[0];
-    if (!datasetRow) return undefined;
+    if (datasetRows.length === 0) return undefined;
 
-    const barSeries = series.filter(isWidePivotFlipAxesBarSerie);
+    const flipAxes = Boolean(layout.flipAxes);
+    const barSeries = series.filter((serie) =>
+        isWidePivotBarSerie(serie, flipAxes),
+    );
     if (!barSeries.length) return undefined;
 
     const sortedEntries = barSeries
         .map((serie, originalIndex) => {
-            const columnKey = serie.encode!.x as string;
-            const numValue = toNumber(datasetRow[columnKey]);
+            const columnKey = getWidePivotBarValueColumnKey(serie, flipAxes)!;
+            // Sum across all rows — must match getSerieTotalForSort / bar heights
+            // (first-row-only caused descending order to disagree with column totals).
+            const value = datasetRows.reduce((acc, row) => {
+                const numValue = toNumber(row[columnKey]);
+                return acc + (Number.isFinite(numValue) ? numValue : 0);
+            }, 0);
             return {
                 serie,
-                value: Number.isFinite(numValue) ? numValue : 0,
+                value,
                 categoryLabel: getPivotSeriesCategoryLabel({
                     serie,
                     columnKey,
@@ -1717,24 +2021,130 @@ export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
             };
         })
         .sort((a, b) => {
-            const diff = a.value - b.value;
+            const diff = descending ? b.value - a.value : a.value - b.value;
             if (diff !== 0) return diff;
             return a.originalIndex - b.originalIndex;
         });
+
+    // All zeros means keys did not resolve — do not claim a meaningful value sort
+    if (!sortedEntries.some((entry) => entry.value !== 0)) {
+        return undefined;
+    }
 
     const sortedBarSeries = sortedEntries.map((entry) => entry.serie);
     const sortedCategoryLabels = sortedEntries.map(
         (entry) => entry.categoryLabel,
     );
     const sortedBarColumnKeys = new Set(
-        sortedBarSeries.map((s) => s.encode!.x as string),
+        sortedBarSeries.map((s) => getWidePivotBarValueColumnKey(s, flipAxes)!),
     );
 
     let barBlockInserted = false;
     const sortedSeries = series.reduce<EChartSeries[]>((acc, serie) => {
+        const valueKey = getWidePivotBarValueColumnKey(serie, flipAxes);
         if (
-            isWidePivotFlipAxesBarSerie(serie) &&
-            sortedBarColumnKeys.has(serie.encode!.x as string)
+            isWidePivotBarSerie(serie, flipAxes) &&
+            valueKey &&
+            sortedBarColumnKeys.has(valueKey)
+        ) {
+            if (!barBlockInserted) {
+                acc.push(...sortedBarSeries);
+                barBlockInserted = true;
+            }
+            return acc;
+        }
+        acc.push(serie);
+        return acc;
+    }, []);
+
+    return { sortedSeries, sortedCategoryLabels };
+};
+
+/** @deprecated Prefer sortWidePivotBarSeriesByBarTotals */
+export const sortFlipAxesWidePivotBarSeriesByBarTotals =
+    sortWidePivotBarSeriesByBarTotals;
+
+/**
+ * Vertical bar BAR_TOTALS axis sort without requiring SQL pivotDetails.
+ * Uses getSerieTotalForSort (dataset columns + long-format hash fallback).
+ * When descending is true, series/labels are high→low (LTR visual order).
+ */
+export const sortVerticalBarSeriesByBarTotals = ({
+    series,
+    rows,
+    datasetRows,
+    itemsMap,
+    pivotValuesColumnsMap,
+    descending = false,
+}: {
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+    descending?: boolean;
+}):
+    | { sortedSeries: EChartSeries[]; sortedCategoryLabels: unknown[] }
+    | undefined => {
+    if (rows.length === 0 && datasetRows.length === 0) {
+        return undefined;
+    }
+
+    const barSeries = series.filter(
+        (serie) =>
+            serie.type === CartesianSeriesType.BAR &&
+            typeof serie.encode?.y === 'string',
+    );
+    if (!barSeries.length) return undefined;
+
+    const sortedEntries = barSeries
+        .map((serie, originalIndex) => {
+            const columnKey = serie.encode!.y as string;
+            const value = getSerieTotalForSort({
+                serie,
+                rows,
+                datasetRows,
+                flipAxes: false,
+            });
+            return {
+                serie,
+                value,
+                categoryLabel: getPivotSeriesCategoryLabel({
+                    serie,
+                    columnKey,
+                    itemsMap,
+                    pivotValuesColumnsMap,
+                }),
+                originalIndex,
+            };
+        })
+        .sort((a, b) => {
+            const diff = descending ? b.value - a.value : a.value - b.value;
+            if (diff !== 0) return diff;
+            return a.originalIndex - b.originalIndex;
+        });
+
+    // All zeros means keys did not resolve — do not claim a meaningful value sort
+    if (!sortedEntries.some((entry) => entry.value !== 0)) {
+        return undefined;
+    }
+
+    const sortedBarSeries = sortedEntries.map((entry) => entry.serie);
+    const sortedCategoryLabels = sortedEntries.map(
+        (entry) => entry.categoryLabel,
+    );
+    const sortedBarColumnKeys = new Set(
+        sortedBarSeries.map((s) => s.encode!.y as string),
+    );
+
+    let barBlockInserted = false;
+    const sortedSeries = series.reduce<EChartSeries[]>((acc, serie) => {
+        const valueKey =
+            typeof serie.encode?.y === 'string' ? serie.encode.y : undefined;
+        if (
+            serie.type === CartesianSeriesType.BAR &&
+            valueKey &&
+            sortedBarColumnKeys.has(valueKey)
         ) {
             if (!barBlockInserted) {
                 acc.push(...sortedBarSeries);
@@ -1750,11 +2160,12 @@ export const sortFlipAxesWidePivotBarSeriesByBarTotals = ({
 };
 
 /**
- * Wide pivot + flipAxes: category lives in series (pivot columns), not in a dataset
- * column. Injecting yAxis.data alone breaks bars because encode.y no longer matches.
- * Map each bar series to inline [value, categoryLabel] aligned with yAxis.data.
+ * Wide pivot: category lives in series (pivot columns), not in a dataset
+ * column. Injecting axis.data alone breaks bars because encode no longer matches.
+ * Map each bar series to inline [value, category] (flipAxes) or
+ * [category, value] (vertical) aligned with axis.data.
  */
-const applyFlipAxesWidePivotSeriesData = ({
+export const applyWidePivotBarSeriesData = ({
     layout,
     series,
     datasetRows,
@@ -1770,7 +2181,7 @@ const applyFlipAxesWidePivotSeriesData = ({
     pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
 }): EChartSeries[] => {
     if (
-        !isFlipAxesWidePivotDataset({
+        !isWidePivotBarDataset({
             layout,
             series,
             datasetRows,
@@ -1780,16 +2191,18 @@ const applyFlipAxesWidePivotSeriesData = ({
         return series;
     }
 
+    const flipAxes = Boolean(layout.flipAxes);
+
     return series.map((serie) => {
+        const valueColumnKey = getWidePivotBarValueColumnKey(serie, flipAxes);
         if (
             serie.type !== CartesianSeriesType.BAR ||
-            typeof serie.encode?.x !== 'string' ||
+            !valueColumnKey ||
             Array.isArray(serie.data)
         ) {
             return serie;
         }
 
-        const valueColumnKey = serie.encode.x;
         const categoryLabel = getPivotSeriesCategoryLabel({
             serie,
             columnKey: valueColumnKey,
@@ -1797,10 +2210,135 @@ const applyFlipAxesWidePivotSeriesData = ({
             pivotValuesColumnsMap,
         });
 
-        const inlineData = datasetRows.map((row) => [
-            row[valueColumnKey],
-            categoryLabel,
-        ]);
+        const inlineData = datasetRows.map((row) =>
+            flipAxes
+                ? [row[valueColumnKey], categoryLabel]
+                : [categoryLabel, row[valueColumnKey]],
+        );
+
+        const metricFieldId =
+            pivotValuesColumnsMap?.[valueColumnKey]?.referenceField ??
+            layout.yField?.[0];
+        const metricItem =
+            metricFieldId && itemsMap[metricFieldId]
+                ? itemsMap[metricFieldId]
+                : undefined;
+
+        const valueIndex = flipAxes ? 0 : 1;
+
+        return {
+            ...serie,
+            data: inlineData,
+            encode: {
+                ...serie.encode,
+                x: 0,
+                y: 1,
+                tooltip: [valueIndex],
+            } as unknown as EChartSeries['encode'],
+            ...(serie.label?.show &&
+                metricItem && {
+                    label: {
+                        ...serie.label,
+                        formatter: (params: {
+                            value?: unknown[] | { value?: unknown[] };
+                        }) => {
+                            const rawValue = Array.isArray(params.value)
+                                ? params.value[valueIndex]
+                                : params.value?.value?.[valueIndex];
+                            return seriesValueFormatter(metricItem, rawValue);
+                        },
+                    },
+                }),
+        } as EChartSeries;
+    });
+};
+
+/**
+ * When vertical BAR_TOTALS wrote category labels, align each bar series to a
+ * single [category, value] point so xAxis.data order controls column order
+ * even without SQL pivotDetails / wide-pivot detection.
+ *
+ * Always one point per series — never map long-format rows onto the same
+ * category (that produced scrambled columns).
+ *
+ * When orderedCategoryLabels is provided (same array as xAxis.data), use those
+ * exact strings for data[0][0] so ECharts category alignment cannot drift.
+ */
+export const applyVerticalBarAxisSortSeriesData = ({
+    layout,
+    series,
+    rows,
+    datasetRows,
+    itemsMap,
+    pivotValuesColumnsMap,
+    orderedCategoryLabels,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows: Record<string, unknown>[];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+    orderedCategoryLabels?: unknown[];
+}): EChartSeries[] => {
+    if (layout.flipAxes) return series;
+
+    let orderedBarIndex = 0;
+
+    return series.map((serie) => {
+        // Wide inject rewrites encode.y to 0/1; fall back to seriesName (column key).
+        const valueColumnKey =
+            getWidePivotBarValueColumnKey(serie, false) ??
+            (typeof serie.encode?.seriesName === 'string'
+                ? serie.encode.seriesName
+                : undefined);
+        if (serie.type !== CartesianSeriesType.BAR || !valueColumnKey) {
+            return serie;
+        }
+
+        const categoryLabel =
+            orderedCategoryLabels &&
+            orderedBarIndex < orderedCategoryLabels.length
+                ? orderedCategoryLabels[orderedBarIndex]
+                : getPivotSeriesCategoryLabel({
+                      serie,
+                      columnKey: valueColumnKey,
+                      itemsMap,
+                      pivotValuesColumnsMap,
+                  });
+        orderedBarIndex += 1;
+
+        // Single-row wide table: read the column directly.
+        // Otherwise use aggregated total (long-format / multi-row safe).
+        // Always overwrite any prior serie.data (e.g. wide multi-point inject).
+        const isSingleRowWide =
+            datasetRows.length === 1 &&
+            datasetRows[0]?.[valueColumnKey] !== undefined;
+
+        const value = isSingleRowWide
+            ? datasetRows[0][valueColumnKey]
+            : getSerieTotalForSort({
+                  serie: {
+                      ...serie,
+                      encode: {
+                          x:
+                              typeof serie.encode?.x === 'string'
+                                  ? serie.encode.x
+                                  : '',
+                          y: valueColumnKey,
+                          tooltip: serie.encode?.tooltip ?? [valueColumnKey],
+                          seriesName:
+                              typeof serie.encode?.seriesName === 'string'
+                                  ? serie.encode.seriesName
+                                  : valueColumnKey,
+                      },
+                  },
+                  rows,
+                  datasetRows,
+                  flipAxes: false,
+              });
+
+        const inlineData = [[categoryLabel, value]];
 
         const metricFieldId =
             pivotValuesColumnsMap?.[valueColumnKey]?.referenceField ??
@@ -1817,7 +2355,7 @@ const applyFlipAxesWidePivotSeriesData = ({
                 ...serie.encode,
                 x: 0,
                 y: 1,
-                tooltip: [0],
+                tooltip: [1],
             } as unknown as EChartSeries['encode'],
             ...(serie.label?.show &&
                 metricItem && {
@@ -1827,8 +2365,8 @@ const applyFlipAxesWidePivotSeriesData = ({
                             value?: unknown[] | { value?: unknown[] };
                         }) => {
                             const rawValue = Array.isArray(params.value)
-                                ? params.value[0]
-                                : params.value?.value?.[0];
+                                ? params.value[1]
+                                : params.value?.value?.[1];
                             return seriesValueFormatter(metricItem, rawValue);
                         },
                     },
@@ -1947,6 +2485,64 @@ const resolveFlipAxesCategoryAxisData = ({
     return undefined;
 };
 
+const resolveWidePivotCategoryAxisData = ({
+    layout,
+    series,
+    rows,
+    datasetRows,
+    stackSortCategoryAxisData,
+    pivotDetails,
+    itemsMap,
+    pivotValuesColumnsMap,
+}: {
+    layout: CartesianChart['layout'];
+    series: EChartSeries[];
+    rows: ResultRow[];
+    datasetRows?: Record<string, unknown>[];
+    stackSortCategoryAxisData?: unknown[];
+    pivotDetails?: InfiniteQueryResults['pivotDetails'];
+    itemsMap: ItemsMap;
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
+}): unknown[] | undefined => {
+    // BAR_TOTALS wide-pivot sort writes sorted labels here — must win over columnIndex
+    if (stackSortCategoryAxisData && stackSortCategoryAxisData.length > 0) {
+        return stackSortCategoryAxisData;
+    }
+
+    const flipAxes = Boolean(layout.flipAxes);
+
+    if (
+        isWidePivotBarDataset({
+            layout,
+            series,
+            datasetRows,
+            pivotDetails,
+        })
+    ) {
+        return getWidePivotCategoryAxisDataFromWidePivot({
+            series,
+            itemsMap,
+            pivotValuesColumnsMap,
+            flipAxes,
+        });
+    }
+
+    // Long-format / dataset category column path is flipAxes-only today
+    // (vertical charts use sortedResults / dataset source for category order).
+    if (!flipAxes) return undefined;
+
+    return resolveFlipAxesCategoryAxisData({
+        layout,
+        series,
+        rows,
+        datasetRows,
+        stackSortCategoryAxisData,
+        pivotDetails,
+        itemsMap,
+        pivotValuesColumnsMap,
+    });
+};
+
 const getWeekAxisConfig = (
     axisId?: string,
     axisField?: Field | TableCalculation | CustomDimension,
@@ -1974,6 +2570,53 @@ const getWeekAxisConfig = (
     } else {
         return {};
     }
+};
+
+/**
+ * ECharts time axes auto-expand when there is only one timestamp (min === max),
+ * which creates extra ticks and misaligned points (e.g. single-month filters).
+ * Switch to a category axis so the sole value sits on its tick.
+ * Keep time when an axis reference line is present (same constraint as WEEK).
+ */
+export const getSinglePointTimeAxisConfig = ({
+    axisId,
+    rows,
+    axisType,
+    hasReferenceLine = false,
+}: {
+    axisId?: string;
+    rows?: ResultRow[];
+    axisType?: string;
+    hasReferenceLine?: boolean;
+}): {
+    axisType?: 'category';
+    data?: string[];
+    axisTick?: { alignWithLabel: true; interval: 0 };
+    minInterval?: undefined;
+} => {
+    if (!axisId || !rows || axisType !== 'time' || hasReferenceLine) {
+        return {};
+    }
+
+    const uniqueValues = new Set<string>();
+    for (const row of rows) {
+        const raw = row[axisId]?.value.raw;
+        if (raw !== undefined && raw !== null && raw !== '') {
+            uniqueValues.add(String(raw));
+        }
+    }
+
+    if (uniqueValues.size !== 1) {
+        return {};
+    }
+
+    return {
+        axisType: 'category',
+        data: Array.from(uniqueValues),
+        axisTick: { alignWithLabel: true, interval: 0 },
+        // Clear time-axis minInterval from getCartesianAxisFormatterConfig
+        minInterval: undefined,
+    };
 };
 
 const getEchartAxes = ({
@@ -2112,7 +2755,7 @@ const getEchartAxes = ({
         ? itemsMap[bottomAxisXId]
         : undefined;
 
-    const { bottomAxisType, topAxisType, rightAxisType, leftAxisType } =
+    let { bottomAxisType, topAxisType, rightAxisType, leftAxisType } =
         getAxisType({
             validCartesianConfig,
             itemsMap,
@@ -2141,30 +2784,100 @@ const getEchartAxes = ({
         validCartesianConfig.eChartsConfig.series,
         itemsMap,
     );
-    const bottomAxisExtraConfig = getWeekAxisConfig(
-        bottomAxisXId,
-        bottomAxisXField,
-        axisRows,
-        bottomAxisType,
-    );
-    const topAxisExtraConfig = getWeekAxisConfig(
-        topAxisXId,
-        topAxisXField,
-        axisRows,
-        topAxisType,
-    );
-    const rightAxisExtraConfig = getWeekAxisConfig(
-        rightAxisYId,
-        rightAxisYField,
-        axisRows,
-        rightAxisType,
-    );
-    const leftAxisExtraConfig = getWeekAxisConfig(
-        leftAxisYId,
-        leftAxisYField,
-        axisRows,
-        leftAxisType,
-    );
+
+    const seriesHasXReferenceLine =
+        validCartesianConfig.eChartsConfig.series?.some((serie) =>
+            serie.markLine?.data?.some(
+                (markData) => markData.xAxis !== undefined,
+            ),
+        ) ?? false;
+    const seriesHasYReferenceLine =
+        validCartesianConfig.eChartsConfig.series?.some((serie) =>
+            serie.markLine?.data?.some(
+                (markData) => markData.yAxis !== undefined,
+            ),
+        ) ?? false;
+
+    const bottomSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: bottomAxisXId,
+        rows: axisRows,
+        axisType: bottomAxisType,
+        hasReferenceLine: seriesHasXReferenceLine,
+    });
+    const topSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: topAxisXId,
+        rows: axisRows,
+        axisType: topAxisType,
+        hasReferenceLine: seriesHasXReferenceLine,
+    });
+    const rightSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: rightAxisYId,
+        rows: axisRows,
+        axisType: rightAxisType,
+        hasReferenceLine: seriesHasYReferenceLine,
+    });
+    const leftSinglePointConfig = getSinglePointTimeAxisConfig({
+        axisId: leftAxisYId,
+        rows: axisRows,
+        axisType: leftAxisType,
+        hasReferenceLine: seriesHasYReferenceLine,
+    });
+
+    if (bottomSinglePointConfig.axisType) {
+        bottomAxisType = bottomSinglePointConfig.axisType;
+    }
+    if (topSinglePointConfig.axisType) {
+        topAxisType = topSinglePointConfig.axisType;
+    }
+    if (rightSinglePointConfig.axisType) {
+        rightAxisType = rightSinglePointConfig.axisType;
+    }
+    if (leftSinglePointConfig.axisType) {
+        leftAxisType = leftSinglePointConfig.axisType;
+    }
+
+    const toSinglePointAxisExtraConfig = (
+        config: ReturnType<typeof getSinglePointTimeAxisConfig>,
+    ) =>
+        config.axisType
+            ? {
+                  data: config.data,
+                  axisTick: config.axisTick,
+                  minInterval: config.minInterval,
+              }
+            : {};
+
+    const bottomAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            bottomAxisXId,
+            bottomAxisXField,
+            axisRows,
+            bottomAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(bottomSinglePointConfig),
+    };
+    const topAxisExtraConfig = {
+        ...getWeekAxisConfig(topAxisXId, topAxisXField, axisRows, topAxisType),
+        ...toSinglePointAxisExtraConfig(topSinglePointConfig),
+    };
+    const rightAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            rightAxisYId,
+            rightAxisYField,
+            axisRows,
+            rightAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(rightSinglePointConfig),
+    };
+    const leftAxisExtraConfig = {
+        ...getWeekAxisConfig(
+            leftAxisYId,
+            leftAxisYField,
+            axisRows,
+            leftAxisType,
+        ),
+        ...toSinglePointAxisExtraConfig(leftSinglePointConfig),
+    };
 
     const bottomAxisOffset = {
         enabled:
@@ -2653,6 +3366,14 @@ const getEchartAxes = ({
         showYAxis,
     });
 
+    const bottomAxisFormatterConfig = getAxisFormatterConfig({
+        axisItem: bottomAxisXField,
+        longestLabelWidth: calculateWidthText(longestValueXAxisBottom),
+        rotate: xAxisConfiguration?.[0]?.rotate,
+        defaultNameGap: 30,
+        show: showXAxis,
+    });
+
     return {
         xAxis: [
             {
@@ -2681,14 +3402,21 @@ const getEchartAxes = ({
                           },
                       }
                     : {}),
-                ...getAxisFormatterConfig({
-                    axisItem: bottomAxisXField,
-                    longestLabelWidth: calculateWidthText(
-                        longestValueXAxisBottom,
-                    ),
-                    rotate: xAxisConfiguration?.[0]?.rotate,
-                    defaultNameGap: 30,
-                    show: showXAxis,
+                ...bottomAxisFormatterConfig,
+                ...getXAxisLineConfig({
+                    // axisLineOnZero lives on XAxis only; when flipAxes the
+                    // visual bottom axis is yAxis (Axis) and the UI hides this option.
+                    axisLineOnZero: validCartesianConfig.layout.flipAxes
+                        ? undefined
+                        : validCartesianConfig.eChartsConfig?.xAxis?.[0]
+                              ?.axisLineOnZero,
+                    existingAxisLine:
+                        bottomAxisFormatterConfig.axisLine &&
+                        typeof bottomAxisFormatterConfig.axisLine === 'object'
+                            ? (bottomAxisFormatterConfig.axisLine as {
+                                  show?: boolean;
+                              })
+                            : undefined,
                 }),
                 splitLine: {
                     show: validCartesianConfig.layout.flipAxes
@@ -2750,10 +3478,12 @@ const getEchartAxes = ({
                     defaultNameGap: 30,
                     show: showXAxis,
                 }),
-                splitLine: {
-                    show: isAxisTheSameForAllSeries,
-                },
                 ...topAxisExtraConfig,
+                ...getTopXAxisVisualOverrides({
+                    flipAxes: validCartesianConfig.layout.flipAxes,
+                    topAxisXId,
+                    defaultSplitLineShow: isAxisTheSameForAllSeries,
+                }),
             },
         ],
         yAxis: [
@@ -2851,6 +3581,13 @@ const getEchartAxes = ({
                         };
                     }
 
+                    if (yAxisConfiguration?.[0]?.nameGap !== undefined) {
+                        config = {
+                            ...config,
+                            nameGap: yAxisConfiguration[0].nameGap,
+                        };
+                    }
+
                     return config;
                 })(),
                 ...(flipAxesCategoryAxisData?.length
@@ -2921,6 +3658,9 @@ const getEchartAxes = ({
                     defaultNameGap: rightYaxisGap + defaultAxisLabelGap,
                     show: showYAxis && hasRightAxisSeries,
                 }),
+                ...(yAxisConfiguration?.[1]?.nameGap !== undefined
+                    ? { nameGap: yAxisConfiguration[1].nameGap }
+                    : {}),
                 splitLine: {
                     show: isAxisTheSameForAllSeries && hasRightAxisSeries,
                 },
@@ -2953,27 +3693,10 @@ const getSerieValuesByCategory = (
     const yFieldHash = flipAxes ? serie.encode?.x : serie.encode?.y;
     if (!yFieldHash) return [];
 
-    return rows.map((row) => {
-        let value = row[yFieldHash]?.value?.raw;
-
-        if (value === undefined) {
-            const parts = yFieldHash.split('.');
-            if (parts.length >= 3) {
-                const metricField = parts[0];
-                const dimensionField = parts[1];
-                const categoryValue = parts.slice(2).join('.');
-                if (row[dimensionField]?.value?.raw === categoryValue) {
-                    value = row[metricField]?.value?.raw;
-                }
-            }
-        }
-
-        const num = toNumber(value);
-        return Number.isFinite(num) ? num : 0;
-    });
+    return rows.map((row) => getSeriesValueFromRow(row, yFieldHash));
 };
 
-const calculateStackTotal = (
+export const calculateStackTotal = (
     row: ResultRow,
     series: EChartSeries[],
     flipAxis: boolean | undefined,
@@ -2988,11 +3711,10 @@ const calculateStackTotal = (
                 selected = selectedLegendNames[key];
             }
         }
-        const numberValue =
-            hash && selected ? toNumber(row[hash]?.value.raw) : 0;
-        if (!Number.isNaN(numberValue)) {
-            acc += numberValue;
+        if (!selected) {
+            return acc;
         }
+        acc += getSeriesValueFromRow(row, hash);
         return acc;
     }, 0);
 };
@@ -3264,19 +3986,23 @@ const useEchartsCartesianConfig = (
             validCartesianConfig?.eChartsConfig.series,
         );
 
-        // Stack series sort: legend + tooltip order only — keep series render order.
+        // Stack series sort: config order O for legend/tooltip; reverse paint so
+        // ECharts stack top matches tooltip top (series[0] is drawn at bottom).
         let sortedSeries = seriesWithValidStack;
         if (
             sortDirection &&
             (rows.length > 0 || datasetRowsForValueSort.length > 0)
         ) {
-            stackSortLegendData = getStackedBarLegendOrder({
+            sortedSeries = sortStackedBarSeriesByValue({
                 series: seriesWithValidStack,
                 rows,
                 datasetRows: datasetRowsForValueSort,
                 sortDirection,
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
+            stackSortLegendData = sortedSeries
+                .map(getEchartsSeriesLegendName)
+                .filter((name) => name.length > 0);
 
             // 当 rows 没有 pivot 但 series 使用 pivot encode 时，直接注入数据到 series
             // 避免 ECharts 因 dataset 列名和 encode 不匹配导致渲染错误
@@ -3375,6 +4101,8 @@ const useEchartsCartesianConfig = (
                     }
                 }
             }
+
+            sortedSeries = reverseStackedBarSeriesForPaint(sortedSeries);
         }
 
         const seriesSortDirection = getSeriesSortDirection(
@@ -3405,24 +4133,56 @@ const useEchartsCartesianConfig = (
         const xAxisConfig = validCartesianConfig?.eChartsConfig.xAxis?.[0];
 
         if (
-            validCartesianConfig?.layout.flipAxes &&
+            validCartesianConfig &&
             xAxisConfig?.sortType === XAxisSortType.BAR_TOTALS &&
-            datasetRowsForValueSort.length > 0
+            (datasetRowsForValueSort.length > 0 || rows.length > 0)
         ) {
-            const widePivotSortResult =
-                sortFlipAxesWidePivotBarSeriesByBarTotals({
+            // Vertical descending: bake high→low into category/series order
+            // (do not rely on xAxis.inverse after injecting xAxis.data).
+            const descending = !flipAxes && Boolean(xAxisConfig.inverse);
+
+            // Shape A (X ≠ pivot): do not inject series labels onto xAxis —
+            // rely on sortedResultsByTotals + inverse instead.
+            // Shape B / wide-pivot: sort series and write category labels.
+            const canInjectSeriesCategoryAxis =
+                flipAxes ||
+                shouldInjectSeriesCategoryAxis({
                     layout: validCartesianConfig.layout,
                     series: sortedSeries,
                     datasetRows: datasetRowsForValueSort,
                     pivotDetails: resultsData?.pivotDetails,
-                    itemsMap,
-                    pivotValuesColumnsMap,
+                    pivotDimensions,
                 });
 
-            if (widePivotSortResult) {
-                sortedSeries = widePivotSortResult.sortedSeries;
-                stackSortCategoryAxisData =
-                    widePivotSortResult.sortedCategoryLabels;
+            if (canInjectSeriesCategoryAxis) {
+                // Vertical: always sort via getSerieTotalForSort (cross-row totals),
+                // never prefer sortWide which historically used only the first row and
+                // disagreed with bar heights on multi-row wide pivots.
+                // Horizontal (flipAxes): keep wide-pivot column sort (now also summed).
+                const barTotalsSortResult = flipAxes
+                    ? sortWidePivotBarSeriesByBarTotals({
+                          layout: validCartesianConfig.layout,
+                          series: sortedSeries,
+                          datasetRows: datasetRowsForValueSort,
+                          pivotDetails: resultsData?.pivotDetails,
+                          itemsMap,
+                          pivotValuesColumnsMap,
+                          descending,
+                      })
+                    : sortVerticalBarSeriesByBarTotals({
+                          series: sortedSeries,
+                          rows,
+                          datasetRows: datasetRowsForValueSort,
+                          itemsMap,
+                          pivotValuesColumnsMap,
+                          descending,
+                      });
+
+                if (barTotalsSortResult) {
+                    sortedSeries = barTotalsSortResult.sortedSeries;
+                    stackSortCategoryAxisData =
+                        barTotalsSortResult.sortedCategoryLabels;
+                }
             }
         }
 
@@ -3490,11 +4250,10 @@ const useEchartsCartesianConfig = (
         series,
         rows,
         itemsMap,
-        validCartesianConfig?.layout,
-        validCartesianConfig?.eChartsConfig.series,
-        validCartesianConfig?.eChartsConfig.xAxis,
+        validCartesianConfig,
         resultsData?.pivotDetails,
         pivotValuesColumnsMap,
+        pivotDimensions,
         validCartesianConfigLegend,
         getSeriesColor,
         barWidthConfig,
@@ -3740,16 +4499,12 @@ const useEchartsCartesianConfig = (
         sortedResultsByTotals,
     ]);
 
-    const flipAxesCategoryValuesFromDataset = useMemo(() => {
-        if (
-            !itemsMap ||
-            !validCartesianConfig?.layout.flipAxes ||
-            !dataToRender?.length
-        ) {
+    const widePivotCategoryValuesFromDataset = useMemo(() => {
+        if (!itemsMap || !validCartesianConfig || !dataToRender?.length) {
             return undefined;
         }
 
-        return resolveFlipAxesCategoryAxisData({
+        return resolveWidePivotCategoryAxisData({
             layout: validCartesianConfig.layout,
             series: stackedSeriesWithColorAssignments ?? series,
             rows,
@@ -3768,8 +4523,12 @@ const useEchartsCartesianConfig = (
         resultsData?.pivotDetails,
         pivotValuesColumnsMap,
         itemsMap,
-        validCartesianConfig?.layout,
+        validCartesianConfig,
     ]);
+
+    // Keep flipAxes alias used by padding/layout helpers
+    const flipAxesCategoryValuesFromDataset =
+        widePivotCategoryValuesFromDataset;
 
     const tooltip = useMemo<TooltipOption>(
         () => ({
@@ -4087,7 +4846,57 @@ const useEchartsCartesianConfig = (
         valueSortLegendData,
     ]);
 
+    const verticalBarTotalsRender = useMemo(() => {
+        if (
+            !validCartesianConfig ||
+            validCartesianConfig.layout.flipAxes ||
+            validCartesianConfig.eChartsConfig.xAxis?.[0]?.sortType !==
+                XAxisSortType.BAR_TOTALS ||
+            !stackSortCategoryAxisData?.length ||
+            !stackedSeriesWithColorAssignments?.length ||
+            !itemsMap
+        ) {
+            return undefined;
+        }
+
+        // Prefer dataToRender; fall back to rows so empty dataToRender cannot
+        // skip single-point inject (legend sorted, bars still on dataset order).
+        const datasetRows: Record<string, unknown>[] =
+            dataToRender && dataToRender.length > 0
+                ? (dataToRender as Record<string, unknown>[])
+                : (getResultValueArray(rows, true, true).results as Record<
+                      string,
+                      unknown
+                  >[]);
+
+        const categoryData = stackSortCategoryAxisData;
+        const verticalBarSeries = applyVerticalBarAxisSortSeriesData({
+            layout: validCartesianConfig.layout,
+            series: stackedSeriesWithColorAssignments,
+            rows,
+            datasetRows,
+            itemsMap,
+            pivotValuesColumnsMap,
+            orderedCategoryLabels: categoryData,
+        });
+
+        return { categoryData, series: verticalBarSeries };
+    }, [
+        validCartesianConfig,
+        stackSortCategoryAxisData,
+        stackedSeriesWithColorAssignments,
+        itemsMap,
+        dataToRender,
+        rows,
+        pivotValuesColumnsMap,
+    ]);
+
     const seriesForRender = useMemo(() => {
+        // Vertical BAR_TOTALS: never fall back to wide multi-point inject.
+        if (verticalBarTotalsRender) {
+            return verticalBarTotalsRender.series;
+        }
+
         if (
             !stackedSeriesWithColorAssignments?.length ||
             !dataToRender?.length ||
@@ -4097,7 +4906,7 @@ const useEchartsCartesianConfig = (
             return stackedSeriesWithColorAssignments;
         }
 
-        return applyFlipAxesWidePivotSeriesData({
+        return applyWidePivotBarSeriesData({
             layout: validCartesianConfig.layout,
             series: stackedSeriesWithColorAssignments,
             datasetRows: dataToRender as Record<string, unknown>[],
@@ -4106,6 +4915,7 @@ const useEchartsCartesianConfig = (
             pivotValuesColumnsMap,
         });
     }, [
+        verticalBarTotalsRender,
         stackedSeriesWithColorAssignments,
         dataToRender,
         itemsMap,
@@ -4114,9 +4924,49 @@ const useEchartsCartesianConfig = (
         pivotValuesColumnsMap,
     ]);
 
+    const verticalBarTotalsCategoryData = verticalBarTotalsRender?.categoryData;
+
     const eChartsOptions = useMemo(
         () => ({
-            xAxis: axes?.xAxis || [],
+            xAxis: (axes?.xAxis || []).map((axis, index) => {
+                const categoryData =
+                    verticalBarTotalsCategoryData ??
+                    widePivotCategoryValuesFromDataset;
+                const canInjectCategoryData = Boolean(
+                    index === 0 &&
+                        categoryData?.length &&
+                        !validCartesianConfig?.layout.flipAxes &&
+                        axis.type === 'category',
+                );
+
+                if (!canInjectCategoryData) {
+                    return axis;
+                }
+
+                return {
+                    ...axis,
+                    data: categoryData,
+                    // Category order already matches visual LTR (incl. descending);
+                    // clear inverse so ECharts does not flip a second time.
+                    ...(verticalBarTotalsCategoryData
+                        ? { inverse: false }
+                        : {}),
+                    axisLabel: {
+                        ...('axisLabel' in axis &&
+                        axis.axisLabel &&
+                        typeof axis.axisLabel === 'object'
+                            ? axis.axisLabel
+                            : {}),
+                        show: true,
+                        hideOverlap: false,
+                        interval: 0,
+                    },
+                    axisTick: {
+                        show: true,
+                        alignWithLabel: true,
+                    },
+                };
+            }),
             yAxis: (axes?.yAxis || []).map((axis, index) => {
                 const canInjectCategoryData = Boolean(
                     index === 0 &&
@@ -4167,6 +5017,8 @@ const useEchartsCartesianConfig = (
         [
             axes?.xAxis,
             axes?.yAxis,
+            verticalBarTotalsCategoryData,
+            widePivotCategoryValuesFromDataset,
             flipAxesCategoryValuesFromDataset,
             validCartesianConfig?.layout.flipAxes,
             seriesForRender,

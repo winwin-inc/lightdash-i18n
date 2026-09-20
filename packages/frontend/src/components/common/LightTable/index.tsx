@@ -382,11 +382,14 @@ const BaseCell = (
             const isSelected = selectedCell === cellId;
 
             const { showToastSuccess } = useToaster();
+            const { t } = useTranslation();
 
             const handleCopy = useCallback(() => {
                 clipboard.copy(withValue === undefined ? '' : withValue);
-                showToastSuccess({ title: 'Copied to clipboard!' });
-            }, [clipboard, withValue, showToastSuccess]);
+                showToastSuccess({
+                    title: t('components_common_table.copied_to_clipboard'),
+                });
+            }, [clipboard, withValue, showToastSuccess, t]);
 
             useEffect(() => {
                 const handleKeyDown = getHotkeyHandler([['mod+C', handleCopy]]);

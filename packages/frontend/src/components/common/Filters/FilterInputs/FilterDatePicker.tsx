@@ -7,7 +7,7 @@ interface Props
         'firstDayOfWeek' | 'getDayProps' | 'value' | 'onChange'
     > {
     value: Date | null;
-    onChange: (value: Date) => void;
+    onChange: (value: Date | null) => void;
     firstDayOfWeek: DayOfWeek;
 }
 
@@ -22,12 +22,16 @@ const FilterDatePicker: FC<Props> = ({
             w="100%"
             size="xs"
             {...rest}
-            popoverProps={{ shadow: 'sm', ...rest.popoverProps }}
+            popoverProps={{
+                shadow: 'sm',
+                withinPortal: true,
+                zIndex: 1100,
+                ...rest.popoverProps,
+            }}
             firstDayOfWeek={firstDayOfWeek}
             value={value}
             onChange={(date) => {
-                if (!date) return;
-                onChange(date);
+                onChange(date ?? null);
             }}
         />
     );

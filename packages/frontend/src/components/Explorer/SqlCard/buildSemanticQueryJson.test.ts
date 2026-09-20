@@ -58,4 +58,22 @@ describe('buildSemanticQueryJson', () => {
         });
         expect(JSON.parse(json)).toEqual(metricQuery);
     });
+
+    it('places limit and offset adjacent at the end', () => {
+        const projectUuid = '3667f682-4080-44a4-8365-49f405936e09';
+        const json = buildSemanticQueryJson(
+            {
+                exploreName: 'orders',
+                sorts: [{ fieldId: 'orders_id', descending: false }],
+                limit: 500,
+                metrics: ['orders_count'],
+                offset: 0,
+            },
+            { projectUuid },
+        );
+        const keys = Object.keys(JSON.parse(json) as Record<string, unknown>);
+        expect(keys.slice(-2)).toEqual(['limit', 'offset']);
+        expect(keys.indexOf('limit')).toBeLessThan(keys.indexOf('offset'));
+        expect(keys[0]).toBe('projectUuid');
+    });
 });

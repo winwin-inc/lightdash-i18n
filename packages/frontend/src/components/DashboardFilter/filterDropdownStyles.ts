@@ -23,9 +23,9 @@ export const useFilterDropdownStyles = createStyles(() => ({
         display: 'flex',
         flexDirection: 'column',
     },
-    /** 编辑模式：内容本身较高，仅补全 minHeight，不压到 60vh 避免展开下拉时出现滚动条 */
+    /** 编辑模式：内容本身较高，让弹窗按内容自然撑开（不要固定 minHeight，否则跟 Stack height:100% + flex 形成循环依赖，把弹窗压在 520px 裁掉底部控件） */
     dropdownWithSubOpenEdit: {
-        minHeight: 'min(520px, 60vh)',
+        minHeight: 0,
         maxHeight: 'none',
         display: 'flex',
         flexDirection: 'column',

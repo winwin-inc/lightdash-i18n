@@ -254,7 +254,9 @@ const UserActivity: FC = () => {
                         },
                     ]}
                 />
-                <Tooltip label="Export raw chart and dashboard user views in a CSV format">
+                <Tooltip
+                    label={t('pages_user_activity.export_csv_tooltip')}
+                >
                     <Button
                         variant="outline"
                         disabled={isDownloadingCsv}
@@ -277,7 +279,9 @@ const UserActivity: FC = () => {
                                     .catch(console.error);
                         }}
                     >
-                        {isDownloadingCsv ? 'Exporting...' : 'Export CSV'}
+                        {isDownloadingCsv
+                            ? t('pages_user_activity.exporting_csv')
+                            : t('pages_user_activity.export_csv')}
                     </Button>
                 </Tooltip>
             </Group>

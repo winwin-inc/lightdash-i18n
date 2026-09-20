@@ -1,0 +1,53 @@
+/*
+ * Action row appended at the bottom of the dropdown via the `dropdownComponent`
+ * override. Provides the Add-All and Clear bulk buttons rendered by
+ * FilterMultiValueActions. Every class here is referenced from that file.
+ */
+
+.actionList {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--mantine-color-gray-2);
+    background-color: var(--mantine-color-white);
+}
+
+.actionButton {
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-xs);
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-size: var(--mantine-font-size-xs);
+    color: inherit;
+    cursor: pointer;
+    user-select: none;
+}
+
+.actionButton:hover:not(:disabled) {
+    background-color: var(--mantine-color-gray-0);
+}
+
+.actionButton:focus-visible {
+    outline: 2px solid var(--mantine-color-blue-filled);
+    outline-offset: -2px;
+}
+
+.actionButton:disabled {
+    cursor: default;
+    color: var(--mantine-color-dimmed);
+}
+
+.primary {
+    color: var(--mantine-color-blue-filled);
+}
+
+.danger {
+    color: var(--mantine-color-red-filled);
+}
+
+.actionIcon {
+    flex-shrink: 0;
+}

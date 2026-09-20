@@ -103,25 +103,7 @@ const ShareSpaceModal: FC<ShareSpaceProps> = ({ space, projectUuid }) => {
                                             'components_common_share_space_modal.private.part_3',
                                         )}
                                     </>
-                                ) : (
-                                    <>
-                                        {t(
-                                            'components_common_share_space_modal.private.part_4',
-                                        )}
-                                        <Anchor
-                                            href="https://docs.lightdash.com/references/roles"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            {t(
-                                                'components_common_share_space_modal.private.part_5',
-                                            )}
-                                        </Anchor>
-                                        {t(
-                                            'components_common_share_space_modal.private.part_6',
-                                        )}
-                                    </>
-                                )}
+                                ) : null}
                             </Text>
                         </Box>
                     ) : null

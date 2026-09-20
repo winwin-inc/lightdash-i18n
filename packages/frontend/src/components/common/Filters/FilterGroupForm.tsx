@@ -89,22 +89,34 @@ const FilterGroupForm: FC<Props> = ({
         // If the group is an OR group, we can only use fields that are of the same type
         const filters = getFiltersFromGroup(filterGroup, fields);
         if (filters.dimensions) {
-            setConditionLabel('dimension');
+            setConditionLabel(
+                t(
+                    'components_common_filters.group_form.condition_label.dimension',
+                ),
+            );
             return dimensions;
         }
 
         if (filters.metrics) {
-            setConditionLabel('metric');
+            setConditionLabel(
+                t(
+                    'components_common_filters.group_form.condition_label.metric',
+                ),
+            );
             return metrics;
         }
 
         if (filters.tableCalculations) {
-            setConditionLabel('table calculation');
+            setConditionLabel(
+                t(
+                    'components_common_filters.group_form.condition_label.table_calculation',
+                ),
+            );
             return tableCalculations;
         }
 
         return [];
-    }, [dimensions, fields, filterGroup, metrics, tableCalculations]);
+    }, [dimensions, fields, filterGroup, metrics, t, tableCalculations]);
 
     const onDeleteItem = useCallback(
         (index: number) => {
@@ -183,11 +195,15 @@ const FilterGroupForm: FC<Props> = ({
                         data={[
                             {
                                 value: FilterGroupOperator.and,
-                                label: 'All',
+                                label: t(
+                                    'components_common_filters.group_form.operator_options.all',
+                                ),
                             },
                             {
                                 value: FilterGroupOperator.or,
-                                label: 'Any',
+                                label: t(
+                                    'components_common_filters.group_form.operator_options.any',
+                                ),
                             },
                         ]}
                         value={

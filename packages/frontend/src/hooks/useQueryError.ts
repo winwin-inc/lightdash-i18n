@@ -2,6 +2,7 @@ import { InvalidUser, PaginationError, type ApiError } from '@lightdash/common';
 import { captureException } from '@sentry/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import useToaster from './toaster/useToaster';
 
 type opts = {
@@ -18,6 +19,7 @@ const useQueryError = ({
     const queryClient = useQueryClient();
     const [errorResponse, setErrorResponse] = useState<ApiError | undefined>();
     const { showToastError, addToastError } = useToaster();
+    const { t } = useTranslation();
     useEffect(() => {
         (async function doIfError() {
             const { error } = errorResponse || {};
@@ -32,7 +34,9 @@ const useQueryError = ({
 
                     if (forceToastOnForbidden) {
                         addToastError({
-                            title: forbiddenToastTitle ?? 'Forbidden',
+                            title:
+                                forbiddenToastTitle ??
+                                t('hooks_query_error.forbidden'),
                             apiError: error,
                         });
                     }
@@ -59,12 +63,20 @@ const useQueryError = ({
                         ).map(({ value }) => value);
                         const keys: string[] = Object.keys(validationData);
                         showToastError({
-                            title: 'Validation error',
-                            subtitle: `Invalid field ${keys} with value ${values}. The team has been already notified, we'll fix it soon`,
+                            title: t('hooks_query_error.validation_error'),
+                            subtitle: t(
+                                'hooks_query_error.validation_error_subtitle',
+                                {
+                                    keys: keys.join(', '),
+                                    values: values.join(', '),
+                                },
+                            ),
                         });
                     } catch (parseError) {
                         showToastError({
-                            title: 'Unknown validation error',
+                            title: t(
+                                'hooks_query_error.unknown_validation_error',
+                            ),
                             subtitle: JSON.stringify(error),
                         });
                     }
@@ -75,7 +87,9 @@ const useQueryError = ({
                 } else {
                     addToastError({
                         title: chartName
-                            ? `Chart '${chartName}': Error`
+                            ? t('hooks_query_error.chart_error', {
+                                  chartName,
+                              })
                             : undefined,
                         apiError: error,
                     });
@@ -90,6 +104,7 @@ const useQueryError = ({
         queryClient,
         showToastError,
         addToastError,
+        t,
     ]);
     return setErrorResponse;
 };

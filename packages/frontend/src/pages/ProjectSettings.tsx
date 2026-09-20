@@ -9,9 +9,12 @@ import { DataOps } from '../components/DataOps';
 import ProjectUserAccess from '../components/ProjectAccess';
 import { UpdateProjectConnection } from '../components/ProjectConnection';
 import ProjectParameters from '../components/ProjectParameters';
+import ProjectResultsCache from '../components/ProjectResultsCache';
 import ProjectTablesConfiguration from '../components/ProjectTablesConfiguration/ProjectTablesConfiguration';
 import SettingsScheduler from '../components/SettingsScheduler';
+import SettingsQueryTimezone from '../components/SettingsQueryTimezone';
 import SettingsUsageAnalytics from '../components/SettingsUsageAnalytics';
+import SettingsOperationLogs from '../components/SettingsOperationLogs';
 import { SettingsValidator } from '../components/SettingsValidator';
 import SettingsEmbed from '../ee/features/embed/SettingsEmbed';
 import { ProjectChangesets } from '../features/changesets/components/ProjectChangesets';
@@ -53,8 +56,16 @@ const ProjectSettings: FC = () => {
                 element: <SettingsUsageAnalytics projectUuid={projectUuid} />,
             },
             {
+                path: `/operationLogs`,
+                element: <SettingsOperationLogs projectUuid={projectUuid} />,
+            },
+            {
                 path: `/scheduledDeliveries`,
                 element: <SettingsScheduler projectUuid={projectUuid} />,
+            },
+            {
+                path: `/queryTimezone`,
+                element: <SettingsQueryTimezone projectUuid={projectUuid} />,
             },
             {
                 path: `/validator`,
@@ -67,6 +78,10 @@ const ProjectSettings: FC = () => {
             {
                 path: `/parameters`,
                 element: <ProjectParameters projectUuid={projectUuid} />,
+            },
+            {
+                path: `/caching`,
+                element: <ProjectResultsCache projectUuid={projectUuid} />,
             },
             {
                 path: '*',

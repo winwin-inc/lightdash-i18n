@@ -163,13 +163,20 @@ const ProjectAccessRowV2: FC<Props> = ({
         };
     }, [userGroupAccess, organizationRole, t]);
 
-    // Helper function to get role name from roleId
+    // Helper function to get role name from roleId or system role name
     const getRoleName = useCallback(
         (roleId: string) => {
-            const role = organizationRoles.find((r) => r.value === roleId);
-            return role?.label || roleId;
+            const role = organizationRoles.find(
+                (r) => r.value === roleId || r.name === roleId,
+            );
+            if (role?.label) {
+                return role.label;
+            }
+            return t(`components_project_access.roles.${roleId}`, {
+                defaultValue: roleId,
+            });
         },
-        [organizationRoles],
+        [organizationRoles, t],
     );
 
     const accessWarning = useMemo(() => {
@@ -178,8 +185,15 @@ const ProjectAccessRowV2: FC<Props> = ({
             hasProjectRole,
             projectRole: user.projectRole,
             userGroupAccess,
+            t,
         });
-    }, [organizationRole, hasProjectRole, user.projectRole, userGroupAccess]);
+    }, [
+        organizationRole,
+        hasProjectRole,
+        user.projectRole,
+        userGroupAccess,
+        t,
+    ]);
 
     const userRoleSummary = useMemo(() => {
         return (
@@ -198,7 +212,7 @@ const ProjectAccessRowV2: FC<Props> = ({
                         </Text>
                         :{' '}
                         <Text fw={600} span>
-                            {userGroupAccess.roleName}
+                            {getRoleName(userGroupAccess.access.roleId)}
                         </Text>
                     </Text>
                 ) : null}
@@ -209,7 +223,7 @@ const ProjectAccessRowV2: FC<Props> = ({
                             'components_project_access_row_v2.project_role',
                         )}:{' '}
                         <Text fw={600} span>
-                            {user.projectRole}
+                            {getRoleName(user.projectRole ?? '')}
                         </Text>
                     </Text>
                 ) : null}
@@ -251,10 +265,8 @@ const ProjectAccessRowV2: FC<Props> = ({
                                 <Text>
                                     {t(
                                         'components_project_access_row_v2.user_inherits_this_role_from',
-                                    )}{' '}
-                                    <Text span fw={600}>
-                                        {highestRoleType}
-                                    </Text>
+                                        { source: highestRoleType },
+                                    )}
                                 </Text>
                             }
                         >

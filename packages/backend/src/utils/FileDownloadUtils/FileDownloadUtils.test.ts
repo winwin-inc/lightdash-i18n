@@ -1,9 +1,71 @@
 import {
     createContentDispositionHeader,
+    processFieldsForExport,
     sanitizeGenericFileName,
+    stripCompactUnitHintsFromHeader,
 } from './FileDownloadUtils';
 
 describe('FileDownloadUtils', () => {
+    describe('stripCompactUnitHintsFromHeader', () => {
+        it('should remove Chinese million unit hints', () => {
+            expect(stripCompactUnitHintsFromHeader('本期销售额(M:百万)')).toBe(
+                '本期销售额',
+            );
+            expect(
+                stripCompactUnitHintsFromHeader('本期销售额（M:百万）'),
+            ).toBe('本期销售额');
+        });
+
+        it('should remove other compact unit hints', () => {
+            expect(stripCompactUnitHintsFromHeader('销量(K:千)')).toBe('销量');
+            expect(stripCompactUnitHintsFromHeader('GMV(B:十亿)')).toBe('GMV');
+        });
+
+        it('should leave headers without unit hints unchanged', () => {
+            expect(stripCompactUnitHintsFromHeader('销售额')).toBe('销售额');
+            expect(stripCompactUnitHintsFromHeader('Data (2024)')).toBe(
+                'Data (2024)',
+            );
+        });
+    });
+
+    describe('processFieldsForExport', () => {
+        const fields = {
+            sales: {
+                name: 'sales',
+                label: '本期销售额',
+                table: 't',
+                tableLabel: 't',
+                sql: '${TABLE}.sales',
+                hidden: false,
+                fieldType: 'metric' as const,
+                type: 'number' as const,
+            },
+        };
+
+        it('should strip compact unit hints from headers when onlyRaw is true', () => {
+            const { headers } = processFieldsForExport(fields as never, {
+                onlyRaw: true,
+                customLabels: {
+                    sales: '本期销售额(M:百万)',
+                },
+            });
+
+            expect(headers).toEqual(['本期销售额']);
+        });
+
+        it('should keep compact unit hints when onlyRaw is false', () => {
+            const { headers } = processFieldsForExport(fields as never, {
+                onlyRaw: false,
+                customLabels: {
+                    sales: '本期销售额(M:百万)',
+                },
+            });
+
+            expect(headers).toEqual(['本期销售额(M:百万)']);
+        });
+    });
+
     describe('sanitizeGenericFileName', () => {
         // Test cases as data arrays for faster execution
         const preserveTestCases = [

@@ -28,6 +28,7 @@ import {
     type ReactNode,
     type RefObject,
 } from 'react';
+import { type TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
@@ -52,14 +53,20 @@ const Icon = ({ validationError }: { validationError: ValidationResponse }) => {
     return <IconBox icon={IconTable} color="indigo.6" />;
 };
 
-const getErrorName = (validationError: ValidationResponse) => {
+const getErrorName = (
+    validationError: ValidationResponse,
+    t: TFunction,
+) => {
     if (
         isChartValidationError(validationError) ||
         isDashboardValidationError(validationError)
     )
         return validationError.name;
     if (isTableValidationError(validationError))
-        return validationError.name ?? 'Table';
+        return (
+            validationError.name ??
+            t('components_settings_validator_table.table')
+        );
 };
 
 const getViews = (
@@ -133,12 +140,12 @@ const TableValidationItem = forwardRef<
                                     }
                                 >
                                     <Text fw={600} color={'gray.6'}>
-                                        {getErrorName(validationError)}
+                                        {getErrorName(validationError, t)}
                                     </Text>
                                 </Tooltip>
                             ) : (
                                 <Text fw={600}>
-                                    {getErrorName(validationError)}
+                                    {getErrorName(validationError, t)}
                                 </Text>
                             )}
 

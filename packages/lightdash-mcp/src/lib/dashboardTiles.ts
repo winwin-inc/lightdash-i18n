@@ -36,6 +36,9 @@ export function extractDashboardChartTiles(
                     properties.savedSqlUuid ??
                     null,
                 chartName: properties.chartName ?? null,
+                chartKind: properties.lastVersionChartKind ?? null,
+                tabUuid: row.tabUuid ?? null,
+                chartSlug: properties.chartSlug ?? null,
             };
         });
 }

@@ -1,16 +1,21 @@
 import {
     AnyType,
+    applyCustomFormat,
     DimensionType,
     DownloadFileType,
     FieldType,
     formatItemValue,
     formatRows,
+    getCustomFormat,
     getErrorMessage,
     getFormatExpression,
+    hasFormatOptions,
+    isDimension,
     ItemsMap,
     MetricQuery,
     PivotConfig,
     pivotResultsAsCsv,
+    TimeFrames,
     type ReadyQueryResultsPage,
 } from '@lightdash/common';
 import * as Excel from 'exceljs';
@@ -30,6 +35,101 @@ import {
 
 export class ExcelService {
     private static readonly EXCEL_ROW_LIMIT = 1_000_000;
+
+    /**
+     * Excel format expressions encode SI compact scaling as trailing commas
+     * before a quoted suffix, e.g. `#,##0,,"M"` or `0," K"`.
+     */
+    private static readonly COMPACT_FORMAT_EXPRESSION_REGEX =
+        /,{1,4}\s*"[^"]*"/;
+
+    static itemHasCompactFormat(item: ItemsMap[string] | undefined): boolean {
+        if (!item) {
+            return false;
+        }
+        if ('compact' in item && item.compact) {
+            return true;
+        }
+        const customFormat = getCustomFormat(
+            item as Parameters<typeof getCustomFormat>[0],
+        );
+        if (customFormat?.compact) {
+            return true;
+        }
+        const formatExpression = getFormatExpression(
+            item as Parameters<typeof getFormatExpression>[0],
+        );
+        return (
+            !!formatExpression &&
+            ExcelService.COMPACT_FORMAT_EXPRESSION_REGEX.test(formatExpression)
+        );
+    }
+
+    /**
+     * Format cell value the same way as the dashboard / CSV formatted export.
+     * Prefer formatOptions (chart metric overrides) over format expressions so
+     * compact/prefix match the UI's applyCustomFormat path.
+     */
+    private static formatValueForDisplay(
+        item: ItemsMap[string] | undefined,
+        rawValue: unknown,
+    ): string {
+        if (
+            item &&
+            hasFormatOptions(item) &&
+            item.formatOptions !== undefined
+        ) {
+            return applyCustomFormat(rawValue, item.formatOptions);
+        }
+        return formatItemValue(item, rawValue);
+    }
+
+    /**
+     * Parse a cell value as a finite number for Excel numFmt columns.
+     *
+     * HARDENING (not the root cause of "ALL results empty metrics"):
+     * exceljs stream writer persists NaN/Infinity as blank cells. Ratio SQL
+     * without nullif can produce those values; without this guard a single cell
+     * looks "missing" while CSV still shows a formatted string.
+     * The TABLE-vs-ALL empty-metrics bug is pivotConfiguration leak on download
+     * re-run (see useExplorerQuery.getDownloadQueryUuid / #19115) — keep both fixes.
+     */
+    private static toFiniteNumber(rawValue: unknown): number | null {
+        if (typeof rawValue === 'number') {
+            return Number.isFinite(rawValue) ? rawValue : null;
+        }
+
+        const stringValue = String(rawValue).trim();
+        if (stringValue === '') {
+            return null;
+        }
+
+        const numericValue = Number(stringValue);
+        return Number.isFinite(numericValue) ? numericValue : null;
+    }
+
+    /**
+     * True when the value is NaN/Infinity (number or numeric token string).
+     * Non-numeric strings like "N/A" return false so we keep them as-is.
+     * Used with formatValueForDisplay so exceljs does not write blank cells.
+     */
+    private static isNonFiniteNumericValue(rawValue: unknown): boolean {
+        if (typeof rawValue === 'number') {
+            return !Number.isFinite(rawValue);
+        }
+
+        if (typeof rawValue !== 'string') {
+            return false;
+        }
+
+        const trimmed = rawValue.trim().toLowerCase();
+        return (
+            trimmed === 'nan' ||
+            trimmed === 'infinity' ||
+            trimmed === '+infinity' ||
+            trimmed === '-infinity'
+        );
+    }
 
     private static formatMomentByTimezone(
         value: AnyType,
@@ -65,9 +165,43 @@ export class ExcelService {
         return moment(value).format(pattern);
     }
 
-    // Helper method for date/timestamp conversion
+    /**
+     * Excel formatted month period: 2026-08 → 202608.
+     * Keep as text so Excel does not parse it as a date or add thousand separators.
+     */
+    private static toExcelMonthPeriod(value: string): string {
+        const match = /^(\d{4})-(\d{2})$/.exec(value);
+        return match ? `${match[1]}${match[2]}` : value;
+    }
+
+    /**
+     * Calendar-only display strings that must stay text.
+     * YYYYMM / YYYYMMDD are ISO-8601 basic and would otherwise become a Date.
+     */
+    private static isCalendarDateDisplayValue(value: string): boolean {
+        return (
+            /^\d{4}$/.test(value) ||
+            /^\d{6}$/.test(value) ||
+            /^\d{8}$/.test(value) ||
+            /^\d{4}-\d{2}$/.test(value) ||
+            /^\d{4}-\d{2}-\d{2}$/.test(value) ||
+            /^\d{4}-Q[1-4]$/.test(value)
+        );
+    }
+
+    /**
+     * Convert full ISO datetimes to Date. Month/day periods stay text
+     * (202608 / 20250101) so Excel does not shift timezone
+     * (2026/7/31 16:00 or 2024/12/31 in UTC+8).
+     */
     static convertToExcelDate(value: unknown): Date | unknown {
         if (typeof value === 'string') {
+            if (/^\d{4}-\d{2}$/.test(value)) {
+                return ExcelService.toExcelMonthPeriod(value);
+            }
+            if (ExcelService.isCalendarDateDisplayValue(value)) {
+                return value;
+            }
             const dateValue = moment(value, moment.ISO_8601, true);
             if (dateValue.isValid()) {
                 return dateValue.toDate();
@@ -137,35 +271,58 @@ export class ExcelService {
                 if (!isMetricField && typeof rawValue === 'number') {
                     return String(rawValue);
                 }
+                // Hardening: exceljs drops NaN/Infinity as empty cells — stringify instead.
+                if (
+                    typeof rawValue === 'number' &&
+                    !Number.isFinite(rawValue)
+                ) {
+                    return String(rawValue);
+                }
                 return rawValue;
             }
 
             // Formatted mode: preserve existing formatter behavior, using timezone-normalized temporal value.
             if (isTemporalField) {
-                return formatItemValue(item, rawValue);
+                const formatted = formatItemValue(item, rawValue);
+                if (
+                    isDimension(item) &&
+                    item.timeInterval === TimeFrames.MONTH
+                ) {
+                    return ExcelService.toExcelMonthPeriod(formatted);
+                }
+                return formatted;
             }
 
             const formatExpression = getFormatExpression(item);
-            if (formatExpression) {
-                // Convert string numbers to actual numbers for Excel formatting
-                if (!isMetricField) {
-                    return typeof rawValue === 'number'
-                        ? String(rawValue)
-                        : rawValue;
+            const hasCompact = ExcelService.itemHasCompactFormat(item);
+
+            // Compact metrics (and any non-metric with a format expression) write
+            // display strings so downloads match the dashboard (e.g. ¥718M).
+            // Non-metric strings also avoid Excel auto-detecting years as dates.
+            if (formatExpression && (!isMetricField || hasCompact)) {
+                return ExcelService.formatValueForDisplay(item, rawValue);
+            }
+
+            if (formatExpression && isMetricField) {
+                // Metric without compact: keep raw number + column numFmt.
+                // Only Number.isFinite values are safe for exceljs (see toFiniteNumber).
+                // Non-finite → display string. This is cell-level hardening for ratio
+                // metrics; do not confuse with empty ALL-export columns (pivot leak).
+                const numericValue = ExcelService.toFiniteNumber(rawValue);
+                if (numericValue !== null) {
+                    return numericValue;
                 }
-                const stringValue = String(rawValue);
-                if (
-                    stringValue.trim() !== '' &&
-                    !Number.isNaN(Number(stringValue))
-                ) {
-                    return Number(stringValue);
+
+                if (ExcelService.isNonFiniteNumericValue(rawValue)) {
+                    return ExcelService.formatValueForDisplay(item, rawValue);
                 }
+
                 return rawValue;
             }
 
             // Use standard Lightdash formatting if not onlyRaw and we have item metadata but no format expression
             if (item) {
-                return formatItemValue(item, rawValue);
+                return ExcelService.formatValueForDisplay(item, rawValue);
             }
 
             return rawValue;
@@ -404,8 +561,15 @@ export class ExcelService {
                 width: 15,
             };
 
-            // Apply number formatting at column level if available
-            if (formatExpression && isMetricField && !isTemporalField) {
+            // Apply number formatting at column level for metrics that still
+            // write raw numbers. Compact columns write display strings instead.
+            if (
+                !onlyRaw &&
+                formatExpression &&
+                isMetricField &&
+                !isTemporalField &&
+                !ExcelService.itemHasCompactFormat(item)
+            ) {
                 column.style = { numFmt: formatExpression };
             }
 
@@ -498,6 +662,7 @@ export class ExcelService {
             customLabels,
             columnOrder,
             hiddenFields,
+            onlyRaw,
         });
 
         // Create temporary file

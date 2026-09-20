@@ -15,6 +15,7 @@ export const DashboardTileChartTableName = 'dashboard_tile_charts';
 export const DashboardTileSqlChartTableName = 'dashboard_tile_sql_charts';
 export const DashboardTileMarkdownsTableName = 'dashboard_tile_markdowns';
 export const DashboardTileLoomsTableName = 'dashboard_tile_looms';
+export const DashboardTileDataAppsTableName = 'dashboard_tile_data_apps';
 export const DashboardTabsTableName = 'dashboard_tabs';
 
 export type DbDashboard = {
@@ -28,6 +29,7 @@ export type DbDashboard = {
     slug: string;
     views_count: number;
     first_viewed_at: Date | null;
+    owner_user_uuid: string | null;
 };
 
 type DbDashboardVersion = {
@@ -70,7 +72,8 @@ type DbDashboardTileChart = {
 
 export type DashboardTable = Knex.CompositeTableType<
     DbDashboard,
-    Pick<DbDashboard, 'name' | 'description' | 'space_id' | 'slug'>,
+    Pick<DbDashboard, 'name' | 'description' | 'space_id' | 'slug'> &
+        Partial<Pick<DbDashboard, 'owner_user_uuid'>>,
     Partial<
         Pick<
             DbDashboard,
@@ -80,6 +83,7 @@ export type DashboardTable = Knex.CompositeTableType<
             | 'first_viewed_at'
             | 'space_id'
             | 'slug'
+            | 'owner_user_uuid'
         >
     >
 >;
@@ -124,6 +128,18 @@ type DbDashboardTileMarkdowns = {
 
 export type DashboardTileMarkdownsTable =
     Knex.CompositeTableType<DbDashboardTileMarkdowns>;
+
+
+type DbDashboardTileDataApps = {
+    dashboard_version_id: number;
+    dashboard_tile_uuid: string;
+    app_uuid: string;
+    title: string | null;
+    hide_title: boolean | null;
+};
+
+export type DashboardTileDataAppsTable =
+    Knex.CompositeTableType<DbDashboardTileDataApps>;
 
 export type DbDashboardTabs = {
     name: string;

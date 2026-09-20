@@ -1,4 +1,4 @@
-import { FeatureFlags, getItemMap } from '@lightdash/common';
+import { getItemMap } from '@lightdash/common';
 import { Box, Text } from '@mantine/core';
 import { memo, useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,10 +11,11 @@ import {
     selectTableName,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import { useMergeSafe } from '../../../features/mergeQuery/context/useMerge';
+import { resolveMergeColumnOrder } from '../../../features/mergeQuery/utils/resolveMergeColumnOrder';
 import { useColumns } from '../../../hooks/useColumns';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerQuery } from '../../../hooks/useExplorerQuery';
-import { useFeatureFlag } from '../../../hooks/useFeatureFlagEnabled';
 import type {
     useGetReadyQueryResults,
     useInfiniteQueryResults,
@@ -82,25 +83,111 @@ export const ExplorerResults = memo(() => {
         missingRequiredParameters,
     } = useExplorerQuery();
 
-    const { data: useSqlPivotResults } = useFeatureFlag(
-        FeatureFlags.UseSqlPivotResults,
-    );
+    const merge = useMergeSafe();
+    const mergeResults = merge?.mergeResults ?? null;
 
-    const dimensions = query.data?.metricQuery?.dimensions ?? [];
-    const metrics = query.data?.metricQuery?.metrics ?? [];
+    const dimensions =
+        mergeResults?.metricQuery.dimensions ??
+        query.data?.metricQuery?.dimensions ??
+        [];
+    const metrics =
+        mergeResults?.metricQuery.metrics ??
+        query.data?.metricQuery?.metrics ??
+        [];
     const explorerColumnOrder = useExplorerSelector(selectColumnOrder);
+    const resultsColumnOrder = mergeResults
+        ? resolveMergeColumnOrder(mergeResults.columnOrder, explorerColumnOrder)
+        : explorerColumnOrder;
 
     const hasPivotConfig = useExplorerContext(
         (context) => !!context.state.unsavedChartVersion.pivotConfig,
     );
 
     const resultsData = useMemo(() => {
-        const isSqlPivotEnabled = !!useSqlPivotResults?.enabled;
+        // A configured merge is the explorer's result, so the table reads it
+        // instead of the query it was built from.
+        if (mergeResults) {
+            const unpivotedRunError = merge?.unpivotedRunError;
+            const unpivotedRunErrors = merge?.unpivotedRunErrors ?? [];
+            if (unpivotedRunError || unpivotedRunErrors.length > 0) {
+                return {
+                    rows: [],
+                    totalResults: 0,
+                    isFetchingRows: false,
+                    fetchMoreRows: () => {},
+                    status: 'error' as const,
+                    apiError:
+                        unpivotedRunError ??
+                        ({
+                            status: 'error',
+                            error: {
+                                name: 'Error',
+                                statusCode: 400,
+                                message: unpivotedRunErrors
+                                    .map((error) => error.message)
+                                    .join(' '),
+                                data: {},
+                            },
+                        } as const),
+                };
+            }
+            const rawResults =
+                mergeResults.unpivotedResults ?? mergeResults.results;
+            return {
+                rows: rawResults.rows,
+                totalResults: rawResults.totalResults,
+                isFetchingRows: rawResults.isFetchingRows && !rawResults.error,
+                fetchMoreRows: rawResults.fetchMoreRows,
+                status: rawResults.error
+                    ? ('error' as const)
+                    : ('success' as const),
+                apiError: rawResults.error ?? undefined,
+            };
+        }
+
+        if (
+            merge?.isMerging &&
+            (merge.runError || merge.runErrors.length > 0)
+        ) {
+            return {
+                rows: [],
+                totalResults: 0,
+                isFetchingRows: false,
+                fetchMoreRows: () => {},
+                status: 'error' as const,
+                apiError:
+                    merge.runError ??
+                    ({
+                        status: 'error',
+                        error: {
+                            name: 'Error',
+                            statusCode: 400,
+                            message: merge.runErrors
+                                .map((error) => error.message)
+                                .join(' '),
+                            data: {},
+                        },
+                    } as const),
+            };
+        }
+
+        if (merge?.isMerging && (merge.isRunning || merge.wasRestored)) {
+            return {
+                rows: [],
+                totalResults: undefined,
+                isFetchingRows: true,
+                fetchMoreRows: () => {},
+                status: 'loading' as const,
+                apiError: undefined,
+            };
+        }
+
         const hasUnpivotedQuery = !!unpivotedQuery?.data?.queryUuid;
 
-        // Only use unpivoted data when SQL pivot is enabled
-        const shouldUseUnpivotedData =
-            isSqlPivotEnabled && hasPivotConfig && hasUnpivotedQuery;
+        // Use unpivoted rows for the results table whenever a companion
+        // unpivoted query exists (main query may be pivoted for charts even
+        // when UseSqlPivotResults is off).
+        const shouldUseUnpivotedData = hasPivotConfig && hasUnpivotedQuery;
 
         if (shouldUseUnpivotedData) {
             return {
@@ -127,7 +214,14 @@ export const ExplorerResults = memo(() => {
 
         return result;
     }, [
-        useSqlPivotResults?.enabled,
+        mergeResults,
+        merge?.isMerging,
+        merge?.isRunning,
+        merge?.wasRestored,
+        merge?.runError,
+        merge?.runErrors,
+        merge?.unpivotedRunError,
+        merge?.unpivotedRunErrors,
         hasPivotConfig,
         query,
         queryResults,
@@ -169,6 +263,7 @@ export const ExplorerResults = memo(() => {
     };
 
     const itemsMap = useMemo(() => {
+        if (mergeResults) return mergeResults.fields;
         if (exploreData) {
             return getItemMap(
                 exploreData,
@@ -177,7 +272,7 @@ export const ExplorerResults = memo(() => {
             );
         }
         return undefined;
-    }, [exploreData, additionalMetrics, tableCalculations]);
+    }, [mergeResults, exploreData, additionalMetrics, tableCalculations]);
 
     const cellContextMenu = useCallback(
         (props: any) => (
@@ -268,7 +363,7 @@ export const ExplorerResults = memo(() => {
                     isFetchingRows={isFetchingRows}
                     fetchMoreRows={fetchMoreRows}
                     columns={columns}
-                    columnOrder={explorerColumnOrder}
+                    columnOrder={resultsColumnOrder}
                     onColumnOrderChange={setColumnOrder}
                     cellContextMenu={cellContextMenu}
                     headerContextMenu={

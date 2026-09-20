@@ -8,7 +8,7 @@ export const RUN_METRIC_QUERY_FLAT_DESCRIPTION = `【扁平 Metric Query】简�
 4. 不支持在 filters 里原样保留 Explorer 的 filters.dimensions.id / and[].id；多条件 and 链请用 run_semantic_metric_query。
 
 ## 看板上下文 dashboardUuid
-部分 explore 依赖 dashboardSlug。已知看板时传 dashboardUuid。未传且需要看板上下文时，不是报错；会返回 \`status: "dashboard_selection_required"\` 和 \`candidates\`。收到 candidates 后，选一个 dashboardUuid，再带上它重试。不依赖看板上下文时会直接查数。
+部分 explore 依赖 dashboardSlug。已知看板时传 dashboardUuid。未传且需要看板上下文时：反查若仅 1 个关联看板则自动选用并查数；多个关联看板时返回 \`status: "dashboard_selection_required"\` 和 \`candidates\`，选一个 dashboardUuid 后重试。不依赖看板上下文时会直接查数。
 
 ## 何时使用
 - 1~2 个 dimensions + 1 个 metrics + 简单 filters

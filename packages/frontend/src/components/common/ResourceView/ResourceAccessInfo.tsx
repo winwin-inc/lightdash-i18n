@@ -2,6 +2,7 @@ import { type ResourceViewSpaceItem } from '@lightdash/common';
 import { Group, Text, Tooltip } from '@mantine/core';
 import { IconLock, IconUser, IconUsers } from '@tabler/icons-react';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../MantineIcon';
 import { ResourceAccess } from './types';
 import { getResourceAccessType, useResourceAccessLabel } from './utils';
@@ -9,15 +10,15 @@ import { getResourceAccessType, useResourceAccessLabel } from './utils';
 const ResourceAccessInfoData = {
     [ResourceAccess.Private]: {
         Icon: IconLock,
-        status: 'Private',
+        statusKey: 'components_common_resource_view_access_info.status.private',
     },
     [ResourceAccess.Public]: {
         Icon: IconUsers,
-        status: 'Public',
+        statusKey: 'components_common_resource_view_access_info.status.public',
     },
     [ResourceAccess.Shared]: {
         Icon: IconUser,
-        status: 'Shared',
+        statusKey: 'components_common_resource_view_access_info.status.shared',
     },
 } as const;
 
@@ -32,8 +33,10 @@ const ResourceAccessInfo: React.FC<ResourceAccessInfoProps> = ({
     type = 'secondary',
     withTooltip = false,
 }) => {
-    const { Icon, status } =
+    const { t } = useTranslation();
+    const { Icon, statusKey } =
         ResourceAccessInfoData[getResourceAccessType(item)];
+    const status = t(statusKey);
 
     const styles = useMemo(() => {
         return {

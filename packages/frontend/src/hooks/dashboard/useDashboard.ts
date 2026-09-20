@@ -9,6 +9,7 @@ import {
     type DashboardFilters,
     type DashboardTile,
     type DateGranularity,
+    type ExportContentRequest,
     type SavedChartsInfoForDashboardAvailableFilters,
     type UpdateDashboard,
 } from '@lightdash/common';
@@ -28,7 +29,7 @@ import useToaster from '../toaster/useToaster';
 import useQueryError from '../useQueryError';
 import useDashboardStorage from './useDashboardStorage';
 
-const getDashboard = async (id: string) =>
+export const getDashboard = async (id: string) =>
     lightdashApi<Dashboard>({
         url: `/dashboards/${id}`,
         method: 'GET',
@@ -297,7 +298,9 @@ export const useExportCsvDashboard = () => {
             onMutate: (data) => {
                 showToastInfo({
                     key: 'dashboard_export_toast',
-                    title: `${data.dashboard.name} is being exported. This might take a few seconds.`,
+                    title: t('hooks_dashboard.is_being_exported', {
+                        name: data.dashboard.name,
+                    }),
                     autoClose: false,
                     loading: true,
                 });
@@ -320,7 +323,105 @@ export const useExportCsvDashboard = () => {
                             link.remove(); // Remove the link from the DOM
                             showToastSuccess({
                                 key: 'dashboard_export_toast',
-                                title: `Success! ${data.dashboard.name} was exported.`,
+                                title: t('hooks_dashboard.success_export', {
+                                    name: data.dashboard.name,
+                                }),
+                            });
+                        } else {
+                            showToastError({
+                                key: 'dashboard_export_toast',
+                                title: t('hooks_dashboard.missing_file_url', {
+                                    name: data.dashboard.name,
+                                }),
+                                subtitle: t(
+                                    'hooks_dashboard.something_went_wrong',
+                                ),
+                            });
+                        }
+                    })
+                    .catch((error: Error) => {
+                        showToastError({
+                            key: 'dashboard_export_toast',
+                            title: t('hooks_dashboard.failed_export', {
+                                name: data.dashboard.name,
+                            }),
+                            subtitle: error.message,
+                        });
+                    });
+            },
+            onError: ({ error }, data) => {
+                showToastApiError({
+                    key: 'dashboard_export_toast',
+                    title: t('hooks_dashboard.failed_export', {
+                        name: data.dashboard.name,
+                    }),
+                    apiError: error,
+                });
+            },
+        },
+    );
+};
+
+const exportDashboardContent = async (
+    id: string,
+    body: ExportContentRequest,
+) =>
+    lightdashApi<ApiJobScheduledResponse['results']>({
+        url: `/dashboards/${id}/exports`,
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+
+export const useExportDashboardContent = () => {
+    const {
+        showToastSuccess,
+        showToastError,
+        showToastApiError,
+        showToastInfo,
+    } = useToaster();
+    const { t } = useTranslation();
+
+    return useMutation<
+        ApiJobScheduledResponse['results'],
+        ApiError,
+        {
+            dashboard: Dashboard;
+            request: ExportContentRequest;
+        }
+    >(
+        (data) => exportDashboardContent(data.dashboard.uuid, data.request),
+        {
+            mutationKey: ['export_dashboard_content'],
+            onMutate: (data) => {
+                showToastInfo({
+                    key: 'dashboard_export_toast',
+                    title: t('hooks_dashboard.is_being_exported', {
+                        name: data.dashboard.name,
+                    }),
+                    autoClose: false,
+                    loading: true,
+                });
+            },
+            onSuccess: async (job, data) => {
+                pollJobStatus(job.jobId)
+                    .then(async (details) => {
+                        if (details?.url) {
+                            const link = document.createElement('a');
+                            link.href = details.url;
+                            link.setAttribute(
+                                'download',
+                                `${data.dashboard.name}-${formatDate(
+                                    Date.now(),
+                                )}`,
+                            );
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            showToastSuccess({
+                                key: 'dashboard_export_toast',
+                                title: t('hooks_dashboard.success_export', {
+                                    name: data.dashboard.name,
+                                }),
                             });
                         } else {
                             showToastError({
@@ -479,6 +580,7 @@ export const useCreateDashboardWithChartsMutation = (
     const navigate = useNavigate();
     const { showToastSuccess, showToastApiError } = useToaster();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
     return useMutation<Dashboard, ApiError, CreateDashboardWithCharts>(
         (data) =>
             projectUuid
@@ -498,9 +600,9 @@ export const useCreateDashboardWithChartsMutation = (
 
                 if (showToastOnSuccess) {
                     showToastSuccess({
-                        title: 'Dashboard created successfully!',
+                        title: t('hooks_dashboard.success_create'),
                         action: {
-                            children: 'Open dashboard',
+                            children: t('hooks_dashboard.open_dashboard'),
                             onClick: () =>
                                 navigate(
                                     `/projects/${projectUuid}/dashboards/${result.uuid}`,
@@ -511,7 +613,7 @@ export const useCreateDashboardWithChartsMutation = (
             },
             onError: ({ error }) => {
                 showToastApiError({
-                    title: 'Failed to create dashboard',
+                    title: t('hooks_dashboard.failed_to_create'),
                     apiError: error,
                 });
             },

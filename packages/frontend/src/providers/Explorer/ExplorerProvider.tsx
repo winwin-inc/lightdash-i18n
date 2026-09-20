@@ -6,8 +6,9 @@ import {
     getFieldRef,
     getItemId,
     isSqlTableCalculation,
-    isTimeZone,
     lightdashVariablePattern,
+    toTimezoneSetting,
+    type TimezoneSetting,
     maybeReplaceFieldsInChartVersion,
     removeEmptyProperties,
     removeFieldFromFilterGroup,
@@ -693,6 +694,17 @@ const ExplorerProvider: FC<
         );
     }, [unsavedChartVersion.metricQuery.limit, reduxDispatch]);
 
+    // Keep Redux timezone in sync with Context timezone
+    useEffect(() => {
+        if (unsavedChartVersion.metricQuery.timezone) {
+            reduxDispatch(
+                explorerActions.setTimeZone(
+                    toTimezoneSetting(unsavedChartVersion.metricQuery.timezone),
+                ),
+            );
+        }
+    }, [unsavedChartVersion.metricQuery.timezone, reduxDispatch]);
+
     // Keep Redux custom dimensions in sync with Context custom dimensions
     useEffect(() => {
         reduxDispatch(
@@ -760,14 +772,16 @@ const ExplorerProvider: FC<
         });
     }, []);
 
-    const setTimeZone = useCallback((timezone: string | null) => {
-        if (timezone && isTimeZone(timezone)) {
+    const setTimeZone = useCallback(
+        (timezone: TimezoneSetting) => {
             dispatch({
                 type: ActionType.SET_TIME_ZONE,
                 payload: timezone,
             });
-        }
-    }, []);
+            reduxDispatch(explorerActions.setTimeZone(timezone));
+        },
+        [reduxDispatch],
+    );
 
     const setFilters = useCallback(
         (filters: MetricQuery['filters']) => {

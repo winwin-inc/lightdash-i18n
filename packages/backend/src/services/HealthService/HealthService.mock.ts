@@ -19,6 +19,7 @@ export const BaseResponse: HealthState = {
     hasMicrosoftTeams: false,
     hasGithub: false,
     hasGitlab: false,
+    hasAdminApi: false,
     hasHeadlessBrowser: false,
     hasSlack: false,
     auth: {
@@ -98,6 +99,10 @@ export const BaseResponse: HealthState = {
     ai: {
         analyticsProjectUuid: undefined,
         analyticsDashboardUuid: undefined,
+    },
+    dataApps: {
+        previewOrigin: null,
+        sampleDataEnabled: true,
     },
 };
 

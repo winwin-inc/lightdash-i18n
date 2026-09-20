@@ -95,6 +95,9 @@ export type DashboardContextType = {
     setChartsWithDateZoomApplied: Dispatch<
         SetStateAction<Set<string> | undefined>
     >;
+    /** Chart UUIDs whose metric query includes a DATE/TIMESTAMP dimension (can be date-zoomed). */
+    chartsWithDateDimension: Set<string>;
+    setChartsWithDateDimension: Dispatch<SetStateAction<Set<string>>>;
     dashboardCommentsCheck?: ReturnType<typeof useDashboardCommentsCheck>;
     dashboardComments?: ReturnType<typeof useGetComments>['data'];
     hasTileComments: (tileUuid: string) => boolean;

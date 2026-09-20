@@ -4,6 +4,7 @@ import {
     type InviteLink,
 } from '@lightdash/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../api';
 import useToaster from './toaster/useToaster';
 
@@ -49,6 +50,7 @@ export const useInviteLink = (inviteCode: string | undefined) =>
 export const useCreateInviteLinkMutation = () => {
     const queryClient = useQueryClient();
     const { showToastApiError, showToastSuccess } = useToaster();
+    const { t } = useTranslation();
     return useMutation<
         InviteLink,
         ApiError,
@@ -57,7 +59,7 @@ export const useCreateInviteLinkMutation = () => {
         mutationKey: ['invite_link'],
         onError: ({ error }) => {
             showToastApiError({
-                title: 'Failed to create invite link',
+                title: t('hooks_invite_link.create_error'),
                 apiError: error,
             });
         },
@@ -65,7 +67,7 @@ export const useCreateInviteLinkMutation = () => {
             await queryClient.invalidateQueries(['onboarding-status']);
             await queryClient.refetchQueries(['organization_users']);
             showToastSuccess({
-                title: 'Created new invite link',
+                title: t('hooks_invite_link.create_success'),
             });
         },
     });

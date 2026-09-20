@@ -16,6 +16,8 @@ import {
     LIGHTDASH_THEME,
     MONACO_DEFAULT_OPTIONS,
 } from '../features/sqlRunner/utils/monaco';
+import { useEffectiveChartTablePagination } from '../hooks/useEffectiveChartTablePagination';
+import { applyChartTablePaginationToMetricQuery } from '../utils/applyChartTablePaginationToMetricQuery';
 import { buildSemanticQueryJson } from './Explorer/SqlCard/buildSemanticQueryJson';
 
 const MONACO_READ_ONLY: EditorProps['options'] = {
@@ -29,14 +31,25 @@ export const RenderedMetricQuery = () => {
     const tableName = useExplorerSelector(selectTableName);
     const metricQuery = useExplorerSelector(selectMetricQuery);
     const fromDashboard = useExplorerSelector(selectFromDashboard);
+    const chartTablePagination = useEffectiveChartTablePagination();
 
     const formattedJson = useMemo(() => {
         if (!tableName) return '';
-        return buildSemanticQueryJson(metricQuery, {
+        const queryForDisplay = applyChartTablePaginationToMetricQuery(
+            metricQuery,
+            chartTablePagination,
+        );
+        return buildSemanticQueryJson(queryForDisplay, {
             projectUuid,
             dashboardUuid: fromDashboard,
         });
-    }, [metricQuery, tableName, projectUuid, fromDashboard]);
+    }, [
+        metricQuery,
+        chartTablePagination,
+        tableName,
+        projectUuid,
+        fromDashboard,
+    ]);
 
     const beforeMount: BeforeMount = useCallback((monaco) => {
         monaco.editor.defineTheme('lightdash', {

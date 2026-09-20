@@ -4,7 +4,6 @@ import { IconBell, IconSend } from '@tabler/icons-react';
 import React, { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../components/common/MantineIcon';
-import DocumentationHelpButton from '../../../components/DocumentationHelpButton';
 import SchedulerModalContent from './SchedulerModalContent';
 
 const SchedulersModal: FC<
@@ -42,11 +41,6 @@ const SchedulersModal: FC<
                         <Text fw={600}>
                             {t('features_scheduler_modal.alerts')}
                         </Text>
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/guides/how-to-create-alerts"
-                            pos="relative"
-                            top="2px"
-                        />
                     </Group>
                 ) : (
                     <Group spacing="xs">
@@ -54,11 +48,6 @@ const SchedulersModal: FC<
                         <Text fw={600}>
                             {t('features_scheduler_modal.scheduled_deliveries')}
                         </Text>
-                        <DocumentationHelpButton
-                            href="https://docs.lightdash.com/guides/how-to-create-scheduled-deliveries"
-                            pos="relative"
-                            top="2px"
-                        />
                     </Group>
                 )
             }

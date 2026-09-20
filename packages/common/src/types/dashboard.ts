@@ -18,6 +18,8 @@ export enum DashboardTileTypes {
     SQL_CHART = 'sql_chart',
     MARKDOWN = 'markdown',
     LOOM = 'loom',
+    DATA_APP = 'data_app',
+    HEADING = 'heading',
 }
 
 type CreateDashboardTileBase = {
@@ -73,6 +75,17 @@ export type DashboardSqlChartTileProperties = {
     };
 };
 
+export type DashboardDataAppTileProperties = {
+    type: DashboardTileTypes.DATA_APP;
+    properties: {
+        title: string;
+        hideTitle?: boolean;
+        appUuid: string;
+        appSlug?: string | null;
+        appDeletedAt?: string | null;
+    };
+};
+
 export type CreateDashboardMarkdownTile = CreateDashboardTileBase &
     DashboardMarkdownTileProperties;
 export type DashboardMarkdownTile = DashboardTileBase &
@@ -92,6 +105,11 @@ export type CreateDashboardSqlChartTile = CreateDashboardTileBase &
 export type DashboardSqlChartTile = DashboardTileBase &
     DashboardSqlChartTileProperties;
 
+export type CreateDashboardDataAppTile = CreateDashboardTileBase &
+    DashboardDataAppTileProperties;
+export type DashboardDataAppTile = DashboardTileBase &
+    DashboardDataAppTileProperties;
+
 export type CreateDashboard = {
     name: string;
     description?: string;
@@ -100,6 +118,7 @@ export type CreateDashboard = {
         | CreateDashboardMarkdownTile
         | CreateDashboardLoomTile
         | CreateDashboardSqlChartTile
+        | CreateDashboardDataAppTile
     >;
     filters?: DashboardFilters;
     parameters?: DashboardParameters;
@@ -108,13 +127,16 @@ export type CreateDashboard = {
     spaceUuid?: string;
     tabs: DashboardTab[];
     config?: DashboardConfig;
+    /** Set to a user uuid to assign an owner, null or omitted for no owner */
+    ownerUserUuid?: string | null;
 };
 
 export type DashboardTile =
     | DashboardChartTile
     | DashboardMarkdownTile
     | DashboardLoomTile
-    | DashboardSqlChartTile;
+    | DashboardSqlChartTile
+    | DashboardDataAppTile;
 
 export const isDashboardChartTileType = (
     tile: DashboardTile,
@@ -132,11 +154,17 @@ export const isDashboardSqlChartTile = (
     tile: DashboardTileBase,
 ): tile is DashboardSqlChartTile => tile.type === DashboardTileTypes.SQL_CHART;
 
+export const isDashboardDataAppTileType = (
+    tile: DashboardTile,
+): tile is DashboardDataAppTile => tile.type === DashboardTileTypes.DATA_APP;
+
 export type DashboardTab = {
     uuid: string;
     name: string;
     order: number;
     filters?: DashboardFilters;
+    /** Hidden tabs are omitted from the tab bar in view mode. */
+    hidden?: boolean;
 };
 
 export type DashboardTabWithUrls = DashboardTab & {
@@ -146,6 +174,13 @@ export type DashboardTabWithUrls = DashboardTab & {
 };
 
 export type DashboardDAO = Omit<Dashboard, 'isPrivate' | 'access'>;
+
+export type DashboardOwner = {
+    userUuid: string;
+    firstName: string;
+    lastName: string;
+    email: string | null;
+};
 
 export type DashboardConfig = {
     pinnedParameters?: string[];
@@ -160,6 +195,8 @@ export type DashboardConfig = {
     colorPalette?: string[];
     /** 记录需要同步颜色的图表 tile uuid 列表 */
     syncChartTileUuids?: string[];
+    /** Editor-authored note shown to viewers while filter rules are unmet */
+    requiredFiltersNote?: string;
 };
 
 export type Dashboard = {
@@ -185,6 +222,7 @@ export type Dashboard = {
     access: SpaceShare[] | null;
     slug: string;
     config?: DashboardConfig;
+    owner: DashboardOwner | null;
 };
 
 export enum DashboardSummaryTone {
@@ -219,7 +257,11 @@ export type DashboardBasicDetails = Pick<
     | 'firstViewedAt'
     | 'pinnedListUuid'
     | 'pinnedListOrder'
-> & { validationErrors?: ValidationSummary[] };
+> & {
+    validationErrors?: ValidationSummary[];
+    /** Only populated by the v2 content API */
+    owner?: DashboardOwner | null;
+};
 
 export type DashboardBasicDetailsWithTileTypes = DashboardBasicDetails & {
     tileTypes: DashboardTileTypes[];
@@ -229,7 +271,7 @@ export type SpaceDashboard = DashboardBasicDetails;
 
 export type DashboardUnversionedFields = Pick<
     CreateDashboard,
-    'name' | 'description' | 'spaceUuid'
+    'name' | 'description' | 'spaceUuid' | 'ownerUserUuid'
 >;
 
 export type DashboardVersionedFields = Pick<
@@ -239,10 +281,16 @@ export type DashboardVersionedFields = Pick<
 
 export type UpdateDashboardDetails = Pick<Dashboard, 'name' | 'description'>;
 
+export type UpdateDashboardClientEvents = {
+    clientEvents?: import('./projectOperationLog').DashboardOperationClientEvent[];
+};
+
 export type UpdateDashboard =
-    | DashboardUnversionedFields
-    | DashboardVersionedFields
-    | (DashboardUnversionedFields & DashboardVersionedFields);
+    | (DashboardUnversionedFields & UpdateDashboardClientEvents)
+    | (DashboardVersionedFields & UpdateDashboardClientEvents)
+    | (DashboardUnversionedFields &
+          DashboardVersionedFields &
+          UpdateDashboardClientEvents);
 
 export type UpdateMultipleDashboards = Pick<
     Dashboard,
@@ -277,7 +325,8 @@ export const isDashboardUnversionedFields = (
     data: UpdateDashboard,
 ): data is DashboardUnversionedFields =>
     ('name' in data && !!data.name) ||
-    ('spaceUuid' in data && !!data.spaceUuid);
+    ('spaceUuid' in data && !!data.spaceUuid) ||
+    ('ownerUserUuid' in data && data.ownerUserUuid !== undefined);
 
 export const isDashboardVersionedFields = (
     data: UpdateDashboard,
@@ -364,4 +413,28 @@ export type CreateDashboardWithCharts = {
 export type ApiCreateDashboardWithChartsResponse = {
     status: 'ok';
     results: Dashboard;
+};
+
+/** Dashboards owned by a user across all projects, e.g. for offboarding */
+export type UserDashboardsSummary = {
+    totalCount: number;
+    byProject: Array<{
+        projectUuid: string;
+        projectName: string;
+        count: number;
+    }>;
+};
+
+export type ReassignUserDashboardsRequest = {
+    newOwnerUserUuid: string;
+};
+
+export type ApiUserDashboardsSummaryResponse = {
+    status: 'ok';
+    results: UserDashboardsSummary;
+};
+
+export type ApiReassignUserDashboardsResponse = {
+    status: 'ok';
+    results: { reassignedCount: number };
 };

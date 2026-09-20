@@ -37,6 +37,8 @@ export interface LightdashUser {
     updatedAt: Date;
     /* Whether the user doesn't have an authentication method (password or openId) */
     isPending?: boolean;
+    /** IANA timezone the user prefers query results rendered in. */
+    timezone?: string | null;
 }
 
 export interface LightdashSessionUser extends AccountUser {
@@ -55,6 +57,8 @@ export interface LightdashSessionUser extends AccountUser {
     updatedAt: Date;
     /* Whether the user doesn't have an authentication method (password or openId) */
     isPending?: boolean;
+    /** IANA timezone the user prefers query results rendered in. */
+    timezone?: string | null;
 }
 
 export interface ExternalUser extends AccountUser {

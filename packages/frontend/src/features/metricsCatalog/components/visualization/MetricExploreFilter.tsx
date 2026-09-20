@@ -7,6 +7,7 @@ import {
 import { Button, Group, Select, Stack, Text } from '@mantine/core';
 import { IconFilter, IconX } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../../../components/common/MantineIcon';
 import {
     useFilterSelectStyles,
@@ -36,6 +37,7 @@ export const MetricExploreFilter: FC<Props> = ({
     dimensions,
     onFilterApply,
 }) => {
+    const { t } = useTranslation();
     const { classes: filterSelectClasses, theme } = useFilterSelectStyles();
     const { classes: operatorSelectClasses } = useOperatorSelectStyles();
 
@@ -220,7 +222,7 @@ export const MetricExploreFilter: FC<Props> = ({
             >
                 <Group spacing={0} noWrap>
                     <Select
-                        placeholder="Filter by"
+                        placeholder={t('features_metrics_catalog.filter_by')}
                         icon={<MantineIcon icon={IconFilter} />}
                         searchable
                         radius="md"
@@ -243,7 +245,9 @@ export const MetricExploreFilter: FC<Props> = ({
 
                     {filterState.fieldId && (
                         <Select
-                            placeholder="Condition"
+                            placeholder={t(
+                                'features_metrics_catalog.condition',
+                            )}
                             data={operatorOptions}
                             value={filterState.operator}
                             onChange={handleOperatorChange}

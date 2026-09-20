@@ -1,10 +1,10 @@
 import { Group, HoverCard, Stack, Text, Tooltip } from '@mantine/core';
 import { IconEye, IconInfoCircle } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../MantineIcon';
+import { formatViewsSinceDescription } from '../ResourceView/resourceUtils';
 import { DashboardList } from './DashboardList';
 
 type Props = {
@@ -24,13 +24,17 @@ export const ResourceInfoPopup: FC<Props> = ({
     firstViewedAt,
     withChartData = false,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isZh = i18n.language.toLowerCase().startsWith('zh');
 
     const label =
         firstViewedAt && viewStats
-            ? `${viewStats} ${t(
-                  'components_common_resource_info_popup.views_since',
-              )} ${dayjs(firstViewedAt).format('MMM D, YYYY h:mm A')}`
+            ? formatViewsSinceDescription({
+                  count: viewStats,
+                  firstViewedAt,
+                  t,
+                  isZh,
+              })
             : undefined;
 
     if (!viewStats && !description && !withChartData) return null;
