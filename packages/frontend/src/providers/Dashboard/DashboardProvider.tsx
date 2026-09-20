@@ -73,6 +73,7 @@ import {
     isCategoryField,
     updateCategoryFilterCascadeAsync,
 } from '../../utils/categoryFilters';
+import DashboardChartColorSyncProvider from '../DashboardChartColorSync/DashboardChartColorSyncProvider';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
 
@@ -1623,7 +1624,9 @@ const DashboardProvider: React.FC<
     };
     return (
         <DashboardContext.Provider value={value}>
-            {children}
+            <DashboardChartColorSyncProvider>
+                {children}
+            </DashboardChartColorSyncProvider>
         </DashboardContext.Provider>
     );
 };

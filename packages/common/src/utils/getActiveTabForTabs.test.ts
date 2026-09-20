@@ -17,4 +17,22 @@ describe('getActiveTabForTabs', () => {
             'tab-1',
         );
     });
+
+    it('falls back to the lowest-order visible tab when the array is unsorted', () => {
+        const unsortedTabs = [
+            { uuid: 'tab-c', name: 'Third', order: 2, hidden: false },
+            {
+                uuid: 'tab-hidden',
+                name: 'Hidden first',
+                order: 0,
+                hidden: true,
+            },
+            { uuid: 'tab-a', name: 'First', order: 1, hidden: false },
+        ];
+
+        expect(
+            getActiveTabForTabs(unsortedTabs, undefined, false, undefined)
+                ?.uuid,
+        ).toBe('tab-a');
+    });
 });
