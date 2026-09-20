@@ -38,6 +38,7 @@ import { createLightdashMcpServer } from './mcp/createMcpServer';
 import { httpRequestApiKeyStore } from './lib/requestContext';
 import { writeStderrLog } from './lib/stderrLog';
 import { ensureContentTypeUtf8Charset } from './http/utf8Charset';
+import { buildOAuthProtectedResourceMetadata } from './http/oauthProtectedResourceMetadata';
 
 const patCache = createPatCache();
 
@@ -178,6 +179,19 @@ async function startFullServer(): Promise<void> {
     const app = express();
     app.disable('x-powered-by');
     app.use(express.json({ limit: '4mb' }));
+
+    const rootProtectedResourceMetadata =
+        buildOAuthProtectedResourceMetadata({
+            resourceServerUrl,
+            authorizationServerUrl: config.keycloakRealmUrl,
+            scopesSupported: config.oauthRequiredScopes,
+        });
+    app.get(
+        '/.well-known/oauth-protected-resource',
+        (_req: express.Request, res: express.Response) => {
+            res.status(200).json(rootProtectedResourceMetadata);
+        },
+    );
 
     app.use(
         mcpAuthMetadataRouter({
