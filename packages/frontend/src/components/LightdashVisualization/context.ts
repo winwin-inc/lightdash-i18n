@@ -59,6 +59,10 @@ type VisualizationContext = {
 
     getSeriesColor: (seriesLike: SeriesLike) => string;
     getGroupColor: (groupPrefix: string, groupName: string) => string;
+    getGroupColors: (
+        groupPrefix: string,
+        identifiers: string[],
+    ) => Record<string, string>;
     colorPalette: string[];
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;

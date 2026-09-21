@@ -1,5 +1,7 @@
 # 条形图分组渲染颜色重复问题修复
 
+> **适用范围：** 仅描述 **未开启** 看板「同步图表颜色」时的顺序调色板扩展（系列数超过调色板后不再循环重复）。开启同步后的品牌 / 跨 Tab 取色见 [chart-color-sync-plan.md](./chart-color-sync-plan.md) 与 [chart-color-sync-optimization.md](./chart-color-sync-optimization.md)，不要按本文的「按系列 index 取色」理解同步路径。
+
 **日期：** 2026-03-17
 **作者：** Claude Opus 4.6
 **问题：** 条形图在分组渲染时，当系列数量超过调色板大小（9种颜色）时，颜色会循环重复，导致不同系列使用相同颜色，难以区分

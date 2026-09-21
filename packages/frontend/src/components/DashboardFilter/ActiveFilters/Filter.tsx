@@ -15,6 +15,7 @@ import {
     createStyles,
     Group,
     Indicator,
+    Loader,
     Popover,
     Text,
     Tooltip,
@@ -96,6 +97,8 @@ type Props = {
     onPopoverClose: () => void;
     onUpdate: (filter: DashboardFilterRule) => void;
     onRemove: () => void;
+    /** 类目级联解析子级中：禁用交互并提示更新中 */
+    isCascadeUpdating?: boolean;
 };
 
 const Filter: FC<Props> = ({
@@ -111,6 +114,7 @@ const Filter: FC<Props> = ({
     onPopoverClose,
     onUpdate,
     onRemove,
+    isCascadeUpdating = false,
 }) => {
     const { t } = useTranslation();
 
@@ -165,8 +169,11 @@ const Filter: FC<Props> = ({
     );
     const disabled = useMemo(() => {
         // Wait for fields to be loaded unless is SQL column
-        return !allFilterableFields && !filterRule.target.isSqlColumn;
-    }, [allFilterableFields, filterRule]);
+        return (
+            (!allFilterableFields && !filterRule.target.isSqlColumn) ||
+            isCascadeUpdating
+        );
+    }, [allFilterableFields, filterRule, isCascadeUpdating]);
 
     const isFilterReadOnly = filterRule.readOnly ?? false;
     const isReadOnlyLocked = isLocked && !isEditMode && !isTemporary;
@@ -480,7 +487,12 @@ const Filter: FC<Props> = ({
                     isTilesConfigTab ? false : !isSubPopoverOpen
                 }
                 onClose={handleClose}
-                disabled={disabled || (isFilterReadOnly && !isEditMode) || isReadOnlyLocked}
+                disabled={
+                    disabled ||
+                    (isFilterReadOnly && !isEditMode) ||
+                    isReadOnlyLocked ||
+                    isCascadeUpdating
+                }
                 transitionProps={{ transition: 'pop-top-left' }}
                 withArrow
                 shadow="md"
@@ -522,17 +534,26 @@ const Filter: FC<Props> = ({
                         <Tooltip
                             fz="xs"
                             label={
-                                isReadOnlyLocked
-                                    ? hasTabs
-                                        ? t(
-                                              'components_dashboard_filter.filter.locked_on_tab',
-                                          )
-                                        : t(
-                                              'components_dashboard_filter.filter.locked',
-                                          )
-                                    : inactiveFilterInfo
+                                isCascadeUpdating
+                                    ? t(
+                                          'components_dashboard_filter.filter.cascade_updating',
+                                          '更新中',
+                                      )
+                                    : isReadOnlyLocked
+                                      ? hasTabs
+                                          ? t(
+                                                'components_dashboard_filter.filter.locked_on_tab',
+                                            )
+                                          : t(
+                                                'components_dashboard_filter.filter.locked',
+                                            )
+                                      : inactiveFilterInfo
                             }
-                            disabled={!inactiveFilterInfo && !isReadOnlyLocked}
+                            disabled={
+                                !isCascadeUpdating &&
+                                !inactiveFilterInfo &&
+                                !isReadOnlyLocked
+                            }
                             withinPortal
                         >
                             <Button
@@ -563,13 +584,17 @@ const Filter: FC<Props> = ({
                                         },
                                 }}
                                 leftIcon={
-                                    isDraggable && (
-                                        <MantineIcon
-                                            icon={IconGripVertical}
-                                            color="gray"
-                                            cursor="grab"
-                                            size="sm"
-                                        />
+                                    isCascadeUpdating ? (
+                                        <Loader size={12} />
+                                    ) : (
+                                        isDraggable && (
+                                            <MantineIcon
+                                                icon={IconGripVertical}
+                                                color="gray"
+                                                cursor="grab"
+                                                size="sm"
+                                            />
+                                        )
                                     )
                                 }
                                 rightIcon={
@@ -619,7 +644,8 @@ const Filter: FC<Props> = ({
                                                         </Tooltip>
                                                     </span>
                                                 )}
-                                            {!isReadOnlyLocked && (
+                                            {!isReadOnlyLocked &&
+                                                !isCascadeUpdating && (
                                                 <CloseButton
                                                     size="sm"
                                                     onClick={handleRemoveFilter}
