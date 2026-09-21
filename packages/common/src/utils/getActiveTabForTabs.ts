@@ -8,11 +8,19 @@ export const getActiveTabForTabs = (
 ) => {
     if (dashboardTabs.length === 0) return undefined;
 
-    const selectableTabs = isEditMode
-        ? dashboardTabs
-        : dashboardTabs.filter((tab) => !tab.hidden);
-    const tabsForFallback =
-        selectableTabs.length > 0 ? selectableTabs : dashboardTabs;
+    const byOrder = (
+        a: Dashboard['tabs'][number],
+        b: Dashboard['tabs'][number],
+    ) => a.order - b.order;
+
+    const selectableTabs = (
+        isEditMode
+            ? [...dashboardTabs]
+            : dashboardTabs.filter((tab) => !tab.hidden)
+    ).sort(byOrder);
+    const tabsForFallback = (
+        selectableTabs.length > 0 ? selectableTabs : [...dashboardTabs]
+    ).sort(byOrder);
 
     const urlMatch = selectableTabs.find((tab) => tab.uuid === tabUuid);
     if (urlMatch) return urlMatch;
