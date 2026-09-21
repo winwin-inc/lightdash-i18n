@@ -60,18 +60,20 @@ import {
 import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
 import {
     isEmptyTabFilters,
+    mergeFiltersForTab,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
-import {
-    hasSavedFiltersOverrides,
-} from '../../hooks/useSavedDashboardFiltersOverrides';
-import useToaster from '../../hooks/toaster/useToaster';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import useToaster from '../../hooks/toaster/useToaster';
+import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import {
+    buildOptimisticCategoryDisplayState,
     decideCategoryInit,
+    mergeDimensionIntoDisplayState,
     resolveActiveTabCategoryInit,
     shouldApplyCategoryInitResult,
     shouldStartCategoryInitTask,
+    type TabCategoryDisplayState,
 } from '../../utils/categoryFilterInitHelpers';
 import {
     getCategoryFiltersSignature,
@@ -524,6 +526,51 @@ const DashboardProvider: React.FC<
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
 
+    /** 类目级联期间顶部筛选项即时展示；图表仍读已提交 tabFilters */
+    const [tabCategoryDisplayFilters, setTabCategoryDisplayFilters] = useState<
+        Record<string, TabCategoryDisplayState>
+    >({});
+
+    const clearTabCategoryDisplay = useCallback((targetTabUuid: string) => {
+        setTabCategoryDisplayFilters((prev) => {
+            if (!(targetTabUuid in prev)) return prev;
+            const next = { ...prev };
+            delete next[targetTabUuid];
+            return next;
+        });
+    }, []);
+
+    const bumpTabCategoryGeneration = useCallback((targetTabUuid: string) => {
+        const generation =
+            (tabCategoryInitGenerationRef.current[targetTabUuid] ?? 0) + 1;
+        tabCategoryInitGenerationRef.current[targetTabUuid] = generation;
+        delete tabCategoryPendingSignatureRef.current[targetTabUuid];
+        return generation;
+    }, []);
+
+    const getDisplayedMergedFiltersForTab = useCallback(
+        (targetTabUuid: string) => {
+            const display = tabCategoryDisplayFilters[targetTabUuid];
+            return mergeFiltersForTab({
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: display?.filters ?? getActiveTabFilters(targetTabUuid),
+                tabTemporaryFilters: getActiveTabTemporaryFilters(targetTabUuid),
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isTabFilterEnabled[targetTabUuid] ?? true,
+            });
+        },
+        [
+            tabCategoryDisplayFilters,
+            dashboardFilters,
+            dashboardTemporaryFilters,
+            getActiveTabFilters,
+            getActiveTabTemporaryFilters,
+            isGlobalFilterEnabled,
+            isTabFilterEnabled,
+        ],
+    );
+
     const runTabCategoryInit = useCallback(
         (targetTabUuid: string, filters: DashboardFilters) => {
             const decision = resolveActiveTabCategoryInit({
@@ -630,80 +677,232 @@ const DashboardProvider: React.FC<
         ) => {
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
+            const existingDisplay = tabCategoryDisplayFilters[uuid];
+
+            // pending 期间改普通筛选：合并进展示态、同步已提交，并重启类目校验
+            if (
+                canApplyCategoryFilters &&
+                !isEditMode &&
+                !isTemporary &&
+                existingDisplay &&
+                !isCategoryField(item)
+            ) {
+                const mergedDisplay = mergeDimensionIntoDisplayState(
+                    existingDisplay.filters,
+                    item,
+                    index,
+                );
+                const updatingFilterIds = mergedDisplay.filters.dimensions
+                    .filter((filter) => isCategoryField(filter))
+                    .map((filter) => filter.id);
+                setTabCategoryDisplayFilters((prev) => ({
+                    ...prev,
+                    [uuid]: {
+                        filters: mergedDisplay.filters,
+                        updatingFilterIds,
+                    },
+                }));
+                updateTabDimensionFilter(uuid, item, index, isTemporary);
+
+                const committedBase = replaceDimensionFilterAtIndex(
+                    tabFilters[uuid] ?? emptyFilters,
+                    index,
+                    item,
+                );
+                const generation = bumpTabCategoryGeneration(uuid);
+                const requestSignature = projectUuid
+                    ? getCategoryFiltersSignature(
+                          committedBase,
+                          projectUuid,
+                          dashboardFilterContext,
+                      )
+                    : null;
+
+                void initializeCategoryFiltersAsync(
+                    mergedDisplay.filters,
+                    projectUuid!,
+                    dashboardFilterContext,
+                )
+                    .then((refined) => {
+                        if (
+                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
+                            generation
+                        ) {
+                            return;
+                        }
+                        let applied = false;
+                        setTabFilters((prev) => {
+                            const currentFilters = prev[uuid] ?? emptyFilters;
+                            if (
+                                !projectUuid ||
+                                !requestSignature ||
+                                !shouldApplyCategoryInitResult({
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        tabCategoryInitGenerationRef.current[
+                                            uuid
+                                        ] ?? 0,
+                                    requestSignature,
+                                    currentFilters,
+                                    projectUuid,
+                                    dashboardContext: dashboardFilterContext,
+                                })
+                            ) {
+                                return prev;
+                            }
+                            applied = true;
+                            markTabCategoryProcessed(uuid, refined);
+                            return { ...prev, [uuid]: refined };
+                        });
+                        if (applied) {
+                            clearTabCategoryDisplay(uuid);
+                        }
+                    })
+                    .catch(() => {
+                        if (
+                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
+                            generation
+                        ) {
+                            clearTabCategoryDisplay(uuid);
+                        }
+                    });
+                return;
+            }
 
             if (
                 !canApplyCategoryFilters ||
                 !isCategoryField(item) ||
                 isEditMode ||
-                !hasSelectedValue
+                !hasSelectedValue ||
+                isTemporary
             ) {
                 updateTabDimensionFilter(uuid, item, index, isTemporary);
                 return;
             }
 
             const newValue = String(item.values![0]);
-            const currentTabFilter = tabFilters[uuid] ?? emptyFilters;
-            const nextTabFilter = replaceDimensionFilterAtIndex(
-                currentTabFilter,
-                index,
+            // 快速连选：以最新展示态为起点，避免丢掉尚未提交的选择
+            const baseFilters =
+                existingDisplay?.filters ?? tabFilters[uuid] ?? emptyFilters;
+            const displayState = buildOptimisticCategoryDisplayState(
+                baseFilters,
                 item,
+                index,
             );
+            setTabCategoryDisplayFilters((prev) => ({
+                ...prev,
+                [uuid]: displayState,
+            }));
+            setHaveTabFiltersChanged((prev) => ({
+                ...prev,
+                [uuid]: true,
+            }));
 
-            const generation =
-                (tabCategoryInitGenerationRef.current[uuid] ?? 0) + 1;
-            tabCategoryInitGenerationRef.current[uuid] = generation;
-            // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
-            delete tabCategoryPendingSignatureRef.current[uuid];
+            const committedFilters = tabFilters[uuid] ?? emptyFilters;
+            const generation = bumpTabCategoryGeneration(uuid);
             const requestSignature = projectUuid
                 ? getCategoryFiltersSignature(
-                      currentTabFilter,
+                      committedFilters,
                       projectUuid,
                       dashboardFilterContext,
                   )
                 : null;
+
             void updateCascadeWithFieldSearch(
-                nextTabFilter,
+                displayState.filters,
                 item,
                 newValue,
-            ).then((refined) => {
-                setTabFilters((prev) => {
-                    const currentFilters = prev[uuid] ?? emptyFilters;
+            )
+                .then((refined) => {
                     if (
-                        !projectUuid ||
-                        !requestSignature ||
-                        !shouldApplyCategoryInitResult({
-                            requestGeneration: generation,
-                            currentGeneration:
-                                tabCategoryInitGenerationRef.current[uuid] ?? 0,
-                            requestSignature,
-                            currentFilters,
-                            projectUuid,
-                            dashboardContext: dashboardFilterContext,
-                        })
+                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
+                        generation
                     ) {
-                        return prev;
+                        return;
                     }
+                    let applied = false;
+                    setTabFilters((prev) => {
+                        const currentFilters = prev[uuid] ?? emptyFilters;
+                        if (
+                            !projectUuid ||
+                            !requestSignature ||
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    tabCategoryInitGenerationRef.current[
+                                        uuid
+                                    ] ?? 0,
+                                requestSignature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return prev;
+                        }
 
-                    markTabCategoryProcessed(uuid, refined);
-                    return {
-                        ...prev,
-                        [uuid]: refined,
-                    };
+                        applied = true;
+                        markTabCategoryProcessed(uuid, refined);
+                        return {
+                            ...prev,
+                            [uuid]: refined,
+                        };
+                    });
+                    if (applied) {
+                        setHaveTabFiltersChanged((prev) => ({
+                            ...prev,
+                            [uuid]: true,
+                        }));
+                        clearTabCategoryDisplay(uuid);
+                    }
+                })
+                .catch(() => {
+                    if (
+                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
+                        generation
+                    ) {
+                        clearTabCategoryDisplay(uuid);
+                    }
                 });
-            });
         },
         [
             updateTabDimensionFilter,
             canApplyCategoryFilters,
             tabFilters,
+            tabCategoryDisplayFilters,
             setTabFilters,
+            setHaveTabFiltersChanged,
             isEditMode,
             updateCascadeWithFieldSearch,
             replaceDimensionFilterAtIndex,
             markTabCategoryProcessed,
             projectUuid,
             dashboardFilterContext,
+            bumpTabCategoryGeneration,
+            clearTabCategoryDisplay,
         ],
+    );
+
+    const wrappedRemoveTabDimensionFilter = useCallback(
+        (uuid: string, index: number, isTemporary: boolean) => {
+            bumpTabCategoryGeneration(uuid);
+            clearTabCategoryDisplay(uuid);
+            removeTabDimensionFilter(uuid, index, isTemporary);
+        },
+        [
+            bumpTabCategoryGeneration,
+            clearTabCategoryDisplay,
+            removeTabDimensionFilter,
+        ],
+    );
+
+    const wrappedResetTabFilters = useCallback(
+        (uuid: string) => {
+            bumpTabCategoryGeneration(uuid);
+            clearTabCategoryDisplay(uuid);
+            resetTabFilters(uuid);
+        },
+        [bumpTabCategoryGeneration, clearTabCategoryDisplay, resetTabFilters],
     );
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -1809,10 +2008,12 @@ const DashboardProvider: React.FC<
         getActiveTabFilters,
         getActiveTabTemporaryFilters,
         getMergedFiltersForTab,
+        getDisplayedMergedFiltersForTab,
+        tabCategoryDisplayFilters,
         addTabDimensionFilter,
         updateTabDimensionFilter: wrappedUpdateTabDimensionFilter,
-        removeTabDimensionFilter,
-        resetTabFilters,
+        removeTabDimensionFilter: wrappedRemoveTabDimensionFilter,
+        resetTabFilters: wrappedResetTabFilters,
         // tab filters end
 
         // filter enabled state start

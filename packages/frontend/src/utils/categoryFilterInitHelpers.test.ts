@@ -5,7 +5,10 @@ import {
 } from '@lightdash/common';
 import { describe, expect, it } from 'vitest';
 import {
+    buildOptimisticCategoryDisplayState,
     decideCategoryInit,
+    getDescendantCategoryFilterIds,
+    mergeDimensionIntoDisplayState,
     resolveActiveTabCategoryInit,
     shouldApplyCategoryInitResult,
     shouldStartCategoryInitTask,
@@ -281,5 +284,114 @@ describe('shouldStartCategoryInitTask', () => {
                 pendingSignature: null,
             }),
         ).toBe(false);
+    });
+});
+
+describe('optimistic category display helpers', () => {
+    const l1: DashboardFilterRule = {
+        id: 'l1',
+        target: { fieldId: 'dim_categories_cls_1', tableName: 'dim_categories' },
+        operator: FilterOperator.EQUALS,
+        values: ['食品'],
+        label: undefined,
+        categoryLevel: 1,
+    };
+    const l2: DashboardFilterRule = {
+        id: 'l2',
+        target: { fieldId: 'dim_categories_cls_2', tableName: 'dim_categories' },
+        operator: FilterOperator.EQUALS,
+        values: ['乳制品'],
+        label: undefined,
+        categoryLevel: 2,
+        parentFieldId: 'dim_categories_cls_1',
+    };
+    const l3: DashboardFilterRule = {
+        id: 'l3',
+        target: { fieldId: 'dim_categories_cls_3', tableName: 'dim_categories' },
+        operator: FilterOperator.EQUALS,
+        values: ['冷饮冻食'],
+        label: undefined,
+        categoryLevel: 3,
+        parentFieldId: 'dim_categories_cls_2',
+    };
+    const timeFilter: DashboardFilterRule = {
+        id: 'time',
+        target: { fieldId: 'orders_order_date', tableName: 'orders' },
+        operator: FilterOperator.EQUALS,
+        values: ['近3个月'],
+        label: undefined,
+    };
+
+    const hierarchyFilters: DashboardFilters = {
+        dimensions: [l1, l2, l3],
+        metrics: [],
+        tableCalculations: [],
+    };
+
+    it('collects all descendant category filter ids', () => {
+        expect(
+            getDescendantCategoryFilterIds(
+                hierarchyFilters,
+                'dim_categories_cls_1',
+            ),
+        ).toEqual(['l2', 'l3']);
+        expect(
+            getDescendantCategoryFilterIds(
+                hierarchyFilters,
+                'dim_categories_cls_2',
+            ),
+        ).toEqual(['l3']);
+    });
+
+    it('builds optimistic display with new parent and updating children', () => {
+        const nextL1 = { ...l1, values: ['饮料'] };
+        const display = buildOptimisticCategoryDisplayState(
+            hierarchyFilters,
+            nextL1,
+            0,
+        );
+
+        expect(display.filters.dimensions[0].values).toEqual(['饮料']);
+        // 已提交筛选未改；展示态独立
+        expect(hierarchyFilters.dimensions[0].values).toEqual(['食品']);
+        // 子级仍显示旧值，但标记为更新中
+        expect(display.filters.dimensions[1].values).toEqual(['乳制品']);
+        expect(display.updatingFilterIds).toEqual(['l2', 'l3']);
+    });
+
+    it('merges a second category selection onto the latest display state', () => {
+        const first = buildOptimisticCategoryDisplayState(
+            hierarchyFilters,
+            { ...l1, values: ['饮料'] },
+            0,
+        );
+        const second = mergeDimensionIntoDisplayState(
+            first.filters,
+            { ...l1, values: ['休闲食品'] },
+            0,
+        );
+
+        expect(second.filters.dimensions[0].values).toEqual(['休闲食品']);
+        expect(second.updatingFilterIds).toEqual(['l2', 'l3']);
+    });
+
+    it('merges a non-category change into display without losing category selection', () => {
+        const withCategories = buildOptimisticCategoryDisplayState(
+            {
+                dimensions: [timeFilter, l1, l2, l3],
+                metrics: [],
+                tableCalculations: [],
+            },
+            { ...l1, values: ['饮料'] },
+            1,
+        );
+        const withTime = mergeDimensionIntoDisplayState(
+            withCategories.filters,
+            { ...timeFilter, values: ['近1个月'] },
+            0,
+        );
+
+        expect(withTime.filters.dimensions[0].values).toEqual(['近1个月']);
+        expect(withTime.filters.dimensions[1].values).toEqual(['饮料']);
     });
 });
