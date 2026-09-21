@@ -60,15 +60,23 @@ import {
 import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
 import {
     isEmptyTabFilters,
+    mergeFiltersForTab,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
-import {
-    hasSavedFiltersOverrides,
-} from '../../hooks/useSavedDashboardFiltersOverrides';
-import useToaster from '../../hooks/toaster/useToaster';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import useToaster from '../../hooks/toaster/useToaster';
+import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import {
-    hasCategoryFilters,
+    buildOptimisticCategoryDisplayState,
+    decideCategoryInit,
+    mergeDimensionIntoDisplayState,
+    resolveActiveTabCategoryInit,
+    shouldApplyCategoryInitResult,
+    shouldStartCategoryInitTask,
+    type TabCategoryDisplayState,
+} from '../../utils/categoryFilterInitHelpers';
+import {
+    getCategoryFiltersSignature,
     initializeCategoryFiltersAsync,
     isCategoryField,
     updateCategoryFilterCascadeAsync,
@@ -87,6 +95,7 @@ const DashboardProvider: React.FC<
         dashboardCommentsCheck?: ReturnType<typeof useDashboardCommentsCheck>;
         defaultInvalidateCache?: boolean;
         sdkFilters?: SdkFilter[];
+        mountDefaultColorSyncProvider?: boolean;
     }>
 > = ({
     schedulerFilters,
@@ -96,6 +105,7 @@ const DashboardProvider: React.FC<
     embedToken,
     dashboardCommentsCheck,
     defaultInvalidateCache,
+    mountDefaultColorSyncProvider = true,
     children,
 }) => {
     const { t } = useTranslation();
@@ -220,32 +230,133 @@ const DashboardProvider: React.FC<
     });
 
     // 类目联动按 field/search 实际数据（含 dashboardSlug → dbt RLS），不依赖 Admin 类目接口
+    const dashboardSlug = (dashboard || embedDashboard)?.slug;
+    const dashboardName = (dashboard || embedDashboard)?.name;
     const dashboardFilterContext = useMemo(
         () => ({
-            dashboardSlug: (dashboard || embedDashboard)?.slug,
-            dashboardName: (dashboard || embedDashboard)?.name,
+            dashboardSlug,
+            dashboardName,
         }),
-        [dashboard, embedDashboard],
+        [dashboardSlug, dashboardName],
     );
     // 须有 dashboardSlug，避免未就绪时按 NA 绕过 dbt 控制码
     const canApplyCategoryFilters =
-        !isEditMode &&
-        !!projectUuid &&
-        !!(dashboard || embedDashboard)?.slug;
+        !isEditMode && !!projectUuid && !!dashboardSlug;
 
-    // 按 field/search 实际类目初始化默认值
-    const initializeCategoryFiltersWithFieldSearch = useCallback(
-        async (filters: DashboardFilters): Promise<DashboardFilters> => {
-            if (!canApplyCategoryFilters || !projectUuid) return filters;
-            if (!hasCategoryFilters(filters)) return filters;
-            return initializeCategoryFiltersAsync(
+    const globalCategoryInitGenerationRef = useRef(0);
+    const globalCategoryProcessedSignatureRef = useRef<string | null>(null);
+    const globalCategoryPendingSignatureRef = useRef<string | null>(null);
+    const tabCategoryInitGenerationRef = useRef<Record<string, number>>({});
+    const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>(
+        {},
+    );
+    const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
+
+    const markGlobalCategoryProcessed = useCallback(
+        (filters: DashboardFilters) => {
+            if (!projectUuid) return;
+            globalCategoryProcessedSignatureRef.current =
+                getCategoryFiltersSignature(
+                    filters,
+                    projectUuid,
+                    dashboardFilterContext,
+                );
+        },
+        [projectUuid, dashboardFilterContext],
+    );
+
+    const markTabCategoryProcessed = useCallback(
+        (targetTabUuid: string, filters: DashboardFilters) => {
+            if (!projectUuid) return;
+            tabCategoryProcessedSignatureRef.current[targetTabUuid] =
+                getCategoryFiltersSignature(
+                    filters,
+                    projectUuid,
+                    dashboardFilterContext,
+                );
+        },
+        [projectUuid, dashboardFilterContext],
+    );
+
+    const runGlobalCategoryInit = useCallback(
+        (filters: DashboardFilters) => {
+            const decision = decideCategoryInit({
+                canApplyCategoryFilters,
+                filters,
+                projectUuid,
+                dashboardContext: dashboardFilterContext,
+                processedSignature: globalCategoryProcessedSignatureRef.current,
+            });
+
+            if (
+                !shouldStartCategoryInitTask({
+                    decision,
+                    pendingSignature:
+                        globalCategoryPendingSignatureRef.current,
+                }) ||
+                !projectUuid ||
+                decision.action !== 'start'
+            ) {
+                return;
+            }
+
+            const generation = ++globalCategoryInitGenerationRef.current;
+            const { signature } = decision;
+            globalCategoryPendingSignatureRef.current = signature;
+
+            void initializeCategoryFiltersAsync(
                 filters,
                 projectUuid,
                 dashboardFilterContext,
-            );
+            )
+                .then((refined) => {
+                    setDashboardFilters((currentFilters) => {
+                        if (
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    globalCategoryInitGenerationRef.current,
+                                requestSignature: signature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return currentFilters;
+                        }
+
+                        const nextFilters =
+                            refined === currentFilters
+                                ? currentFilters
+                                : refined;
+                        globalCategoryProcessedSignatureRef.current =
+                            getCategoryFiltersSignature(
+                                nextFilters,
+                                projectUuid,
+                                dashboardFilterContext,
+                            );
+                        return nextFilters;
+                    });
+                })
+                .finally(() => {
+                    if (
+                        globalCategoryPendingSignatureRef.current ===
+                            signature &&
+                        globalCategoryInitGenerationRef.current === generation
+                    ) {
+                        globalCategoryPendingSignatureRef.current = null;
+                    }
+                });
         },
-        [canApplyCategoryFilters, projectUuid, dashboardFilterContext],
+        [
+            canApplyCategoryFilters,
+            projectUuid,
+            dashboardFilterContext,
+            setDashboardFilters,
+        ],
     );
+
+    // 按 field/search 实际类目初始化由 runGlobalCategoryInit / runTabCategoryInit 负责
 
     // 父改子联动：按 field/search 实际类目纠正选中值
     const updateCascadeWithFieldSearch = useCallback(
@@ -296,26 +407,16 @@ const DashboardProvider: React.FC<
             ? applyInteractivityFiltering(filters)
             : filters;
 
-        if (canApplyCategoryFilters && !isEditMode) {
-            void initializeCategoryFiltersWithFieldSearch(filteredFilters).then(
-                (refined) => {
-                    setDashboardFilters(refined);
-                },
-            );
-        } else {
-            setDashboardFilters(filteredFilters);
-        }
+        // Category refine is handled by the dedicated global category effect
+        setDashboardFilters(filteredFilters);
         setDashboardTemporaryFilters(emptyFilters);
         resetSavedFilterOverrides();
     }, [
         dashboard,
         embedDashboard,
-        canApplyCategoryFilters,
-        isEditMode,
         setDashboardFilters,
         setDashboardTemporaryFilters,
         resetSavedFilterOverrides,
-        initializeCategoryFiltersWithFieldSearch,
         applyInteractivityFiltering,
     ]);
 
@@ -352,9 +453,38 @@ const DashboardProvider: React.FC<
                 item,
             );
 
+            const generation = ++globalCategoryInitGenerationRef.current;
+            // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
+            globalCategoryPendingSignatureRef.current = null;
+            const requestSignature = projectUuid
+                ? getCategoryFiltersSignature(
+                      dashboardFilters,
+                      projectUuid,
+                      dashboardFilterContext,
+                  )
+                : null;
             void updateCascadeWithFieldSearch(nextFilters, item, newValue).then(
                 (refined) => {
-                    setDashboardFilters(refined);
+                    setDashboardFilters((currentFilters) => {
+                        if (
+                            !projectUuid ||
+                            !requestSignature ||
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    globalCategoryInitGenerationRef.current,
+                                requestSignature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return currentFilters;
+                        }
+
+                        markGlobalCategoryProcessed(refined);
+                        return refined;
+                    });
                 },
             );
         },
@@ -365,6 +495,9 @@ const DashboardProvider: React.FC<
             setDashboardFilters,
             updateCascadeWithFieldSearch,
             replaceDimensionFilterAtIndex,
+            markGlobalCategoryProcessed,
+            projectUuid,
+            dashboardFilterContext,
         ],
     );
 
@@ -393,6 +526,147 @@ const DashboardProvider: React.FC<
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
 
+    /** 类目级联期间顶部筛选项即时展示；图表仍读已提交 tabFilters */
+    const [tabCategoryDisplayFilters, setTabCategoryDisplayFilters] = useState<
+        Record<string, TabCategoryDisplayState>
+    >({});
+
+    const clearTabCategoryDisplay = useCallback((targetTabUuid: string) => {
+        setTabCategoryDisplayFilters((prev) => {
+            if (!(targetTabUuid in prev)) return prev;
+            const next = { ...prev };
+            delete next[targetTabUuid];
+            return next;
+        });
+    }, []);
+
+    const bumpTabCategoryGeneration = useCallback((targetTabUuid: string) => {
+        const generation =
+            (tabCategoryInitGenerationRef.current[targetTabUuid] ?? 0) + 1;
+        tabCategoryInitGenerationRef.current[targetTabUuid] = generation;
+        delete tabCategoryPendingSignatureRef.current[targetTabUuid];
+        return generation;
+    }, []);
+
+    const getDisplayedMergedFiltersForTab = useCallback(
+        (targetTabUuid: string) => {
+            const display = tabCategoryDisplayFilters[targetTabUuid];
+            return mergeFiltersForTab({
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: display?.filters ?? getActiveTabFilters(targetTabUuid),
+                tabTemporaryFilters: getActiveTabTemporaryFilters(targetTabUuid),
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isTabFilterEnabled[targetTabUuid] ?? true,
+            });
+        },
+        [
+            tabCategoryDisplayFilters,
+            dashboardFilters,
+            dashboardTemporaryFilters,
+            getActiveTabFilters,
+            getActiveTabTemporaryFilters,
+            isGlobalFilterEnabled,
+            isTabFilterEnabled,
+        ],
+    );
+
+    const runTabCategoryInit = useCallback(
+        (targetTabUuid: string, filters: DashboardFilters) => {
+            const decision = resolveActiveTabCategoryInit({
+                tabFilters: { [targetTabUuid]: filters },
+                activeTabUuid: targetTabUuid,
+                canApplyCategoryFilters,
+                projectUuid,
+                dashboardContext: dashboardFilterContext,
+                processedSignatures: tabCategoryProcessedSignatureRef.current,
+            });
+
+            if (
+                !shouldStartCategoryInitTask({
+                    decision,
+                    pendingSignature:
+                        tabCategoryPendingSignatureRef.current[targetTabUuid],
+                }) ||
+                !projectUuid ||
+                decision.action !== 'start'
+            ) {
+                return;
+            }
+
+            const generation =
+                (tabCategoryInitGenerationRef.current[targetTabUuid] ?? 0) + 1;
+            tabCategoryInitGenerationRef.current[targetTabUuid] = generation;
+            const { signature } = decision;
+            tabCategoryPendingSignatureRef.current[targetTabUuid] = signature;
+
+            void initializeCategoryFiltersAsync(
+                filters,
+                projectUuid,
+                dashboardFilterContext,
+            )
+                .then((refined) => {
+                    setTabFilters((currentTabFilters) => {
+                        const currentFilters =
+                            currentTabFilters[targetTabUuid] ?? emptyFilters;
+                        if (
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    tabCategoryInitGenerationRef.current[
+                                        targetTabUuid
+                                    ] ?? 0,
+                                requestSignature: signature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return currentTabFilters;
+                        }
+
+                        const nextFilters =
+                            refined === currentFilters
+                                ? currentFilters
+                                : refined;
+                        tabCategoryProcessedSignatureRef.current[
+                            targetTabUuid
+                        ] = getCategoryFiltersSignature(
+                            nextFilters,
+                            projectUuid,
+                            dashboardFilterContext,
+                        );
+                        if (nextFilters === currentFilters) {
+                            return currentTabFilters;
+                        }
+                        return {
+                            ...currentTabFilters,
+                            [targetTabUuid]: nextFilters,
+                        };
+                    });
+                })
+                .finally(() => {
+                    if (
+                        tabCategoryPendingSignatureRef.current[
+                            targetTabUuid
+                        ] === signature &&
+                        (tabCategoryInitGenerationRef.current[targetTabUuid] ??
+                            0) === generation
+                    ) {
+                        delete tabCategoryPendingSignatureRef.current[
+                            targetTabUuid
+                        ];
+                    }
+                });
+        },
+        [
+            canApplyCategoryFilters,
+            projectUuid,
+            dashboardFilterContext,
+            setTabFilters,
+        ],
+    );
+
     // Wrap updateTabDimensionFilter to handle category filter cascade
     const wrappedUpdateTabDimensionFilter = useCallback(
         (
@@ -403,45 +677,232 @@ const DashboardProvider: React.FC<
         ) => {
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
+            const existingDisplay = tabCategoryDisplayFilters[uuid];
+
+            // pending 期间改普通筛选：合并进展示态、同步已提交，并重启类目校验
+            if (
+                canApplyCategoryFilters &&
+                !isEditMode &&
+                !isTemporary &&
+                existingDisplay &&
+                !isCategoryField(item)
+            ) {
+                const mergedDisplay = mergeDimensionIntoDisplayState(
+                    existingDisplay.filters,
+                    item,
+                    index,
+                );
+                const updatingFilterIds = mergedDisplay.filters.dimensions
+                    .filter((filter) => isCategoryField(filter))
+                    .map((filter) => filter.id);
+                setTabCategoryDisplayFilters((prev) => ({
+                    ...prev,
+                    [uuid]: {
+                        filters: mergedDisplay.filters,
+                        updatingFilterIds,
+                    },
+                }));
+                updateTabDimensionFilter(uuid, item, index, isTemporary);
+
+                const committedBase = replaceDimensionFilterAtIndex(
+                    tabFilters[uuid] ?? emptyFilters,
+                    index,
+                    item,
+                );
+                const generation = bumpTabCategoryGeneration(uuid);
+                const requestSignature = projectUuid
+                    ? getCategoryFiltersSignature(
+                          committedBase,
+                          projectUuid,
+                          dashboardFilterContext,
+                      )
+                    : null;
+
+                void initializeCategoryFiltersAsync(
+                    mergedDisplay.filters,
+                    projectUuid!,
+                    dashboardFilterContext,
+                )
+                    .then((refined) => {
+                        if (
+                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
+                            generation
+                        ) {
+                            return;
+                        }
+                        let applied = false;
+                        setTabFilters((prev) => {
+                            const currentFilters = prev[uuid] ?? emptyFilters;
+                            if (
+                                !projectUuid ||
+                                !requestSignature ||
+                                !shouldApplyCategoryInitResult({
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        tabCategoryInitGenerationRef.current[
+                                            uuid
+                                        ] ?? 0,
+                                    requestSignature,
+                                    currentFilters,
+                                    projectUuid,
+                                    dashboardContext: dashboardFilterContext,
+                                })
+                            ) {
+                                return prev;
+                            }
+                            applied = true;
+                            markTabCategoryProcessed(uuid, refined);
+                            return { ...prev, [uuid]: refined };
+                        });
+                        if (applied) {
+                            clearTabCategoryDisplay(uuid);
+                        }
+                    })
+                    .catch(() => {
+                        if (
+                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
+                            generation
+                        ) {
+                            clearTabCategoryDisplay(uuid);
+                        }
+                    });
+                return;
+            }
 
             if (
                 !canApplyCategoryFilters ||
                 !isCategoryField(item) ||
                 isEditMode ||
-                !hasSelectedValue
+                !hasSelectedValue ||
+                isTemporary
             ) {
                 updateTabDimensionFilter(uuid, item, index, isTemporary);
                 return;
             }
 
             const newValue = String(item.values![0]);
-            const currentTabFilter = tabFilters[uuid] ?? emptyFilters;
-            const nextTabFilter = replaceDimensionFilterAtIndex(
-                currentTabFilter,
-                index,
+            // 快速连选：以最新展示态为起点，避免丢掉尚未提交的选择
+            const baseFilters =
+                existingDisplay?.filters ?? tabFilters[uuid] ?? emptyFilters;
+            const displayState = buildOptimisticCategoryDisplayState(
+                baseFilters,
                 item,
+                index,
             );
+            setTabCategoryDisplayFilters((prev) => ({
+                ...prev,
+                [uuid]: displayState,
+            }));
+            setHaveTabFiltersChanged((prev) => ({
+                ...prev,
+                [uuid]: true,
+            }));
+
+            const committedFilters = tabFilters[uuid] ?? emptyFilters;
+            const generation = bumpTabCategoryGeneration(uuid);
+            const requestSignature = projectUuid
+                ? getCategoryFiltersSignature(
+                      committedFilters,
+                      projectUuid,
+                      dashboardFilterContext,
+                  )
+                : null;
 
             void updateCascadeWithFieldSearch(
-                nextTabFilter,
+                displayState.filters,
                 item,
                 newValue,
-            ).then((refined) => {
-                setTabFilters((prev) => ({
-                    ...prev,
-                    [uuid]: refined,
-                }));
-            });
+            )
+                .then((refined) => {
+                    if (
+                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
+                        generation
+                    ) {
+                        return;
+                    }
+                    let applied = false;
+                    setTabFilters((prev) => {
+                        const currentFilters = prev[uuid] ?? emptyFilters;
+                        if (
+                            !projectUuid ||
+                            !requestSignature ||
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    tabCategoryInitGenerationRef.current[
+                                        uuid
+                                    ] ?? 0,
+                                requestSignature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return prev;
+                        }
+
+                        applied = true;
+                        markTabCategoryProcessed(uuid, refined);
+                        return {
+                            ...prev,
+                            [uuid]: refined,
+                        };
+                    });
+                    if (applied) {
+                        setHaveTabFiltersChanged((prev) => ({
+                            ...prev,
+                            [uuid]: true,
+                        }));
+                        clearTabCategoryDisplay(uuid);
+                    }
+                })
+                .catch(() => {
+                    if (
+                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
+                        generation
+                    ) {
+                        clearTabCategoryDisplay(uuid);
+                    }
+                });
         },
         [
             updateTabDimensionFilter,
             canApplyCategoryFilters,
             tabFilters,
+            tabCategoryDisplayFilters,
             setTabFilters,
+            setHaveTabFiltersChanged,
             isEditMode,
             updateCascadeWithFieldSearch,
             replaceDimensionFilterAtIndex,
+            markTabCategoryProcessed,
+            projectUuid,
+            dashboardFilterContext,
+            bumpTabCategoryGeneration,
+            clearTabCategoryDisplay,
         ],
+    );
+
+    const wrappedRemoveTabDimensionFilter = useCallback(
+        (uuid: string, index: number, isTemporary: boolean) => {
+            bumpTabCategoryGeneration(uuid);
+            clearTabCategoryDisplay(uuid);
+            removeTabDimensionFilter(uuid, index, isTemporary);
+        },
+        [
+            bumpTabCategoryGeneration,
+            clearTabCategoryDisplay,
+            removeTabDimensionFilter,
+        ],
+    );
+
+    const wrappedResetTabFilters = useCallback(
+        (uuid: string) => {
+            bumpTabCategoryGeneration(uuid);
+            clearTabCategoryDisplay(uuid);
+            resetTabFilters(uuid);
+        },
+        [bumpTabCategoryGeneration, clearTabCategoryDisplay, resetTabFilters],
     );
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -952,17 +1413,8 @@ const DashboardProvider: React.FC<
                 updatedDashboardFilters,
             );
 
-            // Step 4: Initialize category filters from field/search actual values
-            if (canApplyCategoryFilters && !isEditMode) {
-                setDashboardFilters(updatedDashboardFilters);
-                void initializeCategoryFiltersWithFieldSearch(
-                    updatedDashboardFilters,
-                ).then((refined) => {
-                    setDashboardFilters(refined);
-                });
-            } else {
-                setDashboardFilters(updatedDashboardFilters);
-            }
+            // Step 4: Set dashboard filters; category init runs in dedicated effect
+            setDashboardFilters(updatedDashboardFilters);
 
             // tab filters
             if (
@@ -997,70 +1449,43 @@ const DashboardProvider: React.FC<
         setOriginalDashboardFilters,
         setTabFilters,
         applyInteractivityFiltering,
-        initializeCategoryFiltersWithFieldSearch,
         activeTab,
         showToastInfo,
         t,
     ]);
-    // Initialize category filters once dashboard filters and slug context are ready
+    // Initialize global category filters once dashboard filters and slug context are ready
     useEffect(() => {
-        if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
-
-        setDashboardFilters((currentFilters) => {
-            if (currentFilters === emptyFilters) return currentFilters;
-            if (!hasCategoryFilters(currentFilters)) return currentFilters;
-
-            void initializeCategoryFiltersAsync(
-                currentFilters,
-                projectUuid,
-                dashboardFilterContext,
-            ).then((refined) => {
-                setDashboardFilters(refined);
-            });
-
-            return currentFilters;
-        });
+        if (dashboardFilters === emptyFilters) return;
+        runGlobalCategoryInit(dashboardFilters);
     }, [
         canApplyCategoryFilters,
         projectUuid,
-        isEditMode,
-        dashboardFilterContext,
-        setDashboardFilters,
+        dashboardSlug,
+        dashboardName,
+        dashboardFilters,
+        runGlobalCategoryInit,
     ]);
 
-    // Apply category filters to tab filters when dashboard context is ready
+    // Lazily initialize category filters for the active tab only
+    const activeTabUuid = activeTab?.uuid;
+    const activeTabFilters = activeTabUuid
+        ? tabFilters[activeTabUuid]
+        : undefined;
+
     useEffect(() => {
         if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
-        if (isEmptyTabFilters(tabFilters)) return;
+        if (!activeTabUuid || !activeTabFilters) return;
 
-        const asyncRefine = async () => {
-            const updated = { ...tabFilters };
-            let hasChanges = false;
-
-            for (const [uuid, filters] of Object.entries(tabFilters)) {
-                const refined = await initializeCategoryFiltersAsync(
-                    filters,
-                    projectUuid,
-                    dashboardFilterContext,
-                );
-                if (refined !== filters) {
-                    updated[uuid] = refined;
-                    hasChanges = true;
-                }
-            }
-
-            if (hasChanges) {
-                setTabFilters(updated);
-            }
-        };
-        void asyncRefine();
+        runTabCategoryInit(activeTabUuid, activeTabFilters);
     }, [
         canApplyCategoryFilters,
         projectUuid,
         isEditMode,
-        dashboardFilterContext,
-        tabFilters,
-        setTabFilters,
+        dashboardSlug,
+        dashboardName,
+        activeTabUuid,
+        activeTabFilters,
+        runTabCategoryInit,
     ]);
 
     const {
@@ -1216,13 +1641,7 @@ const DashboardProvider: React.FC<
                     ),
                     metrics: applyMetricOverrides(prevFilters, safeOverrides),
                 };
-                if (canApplyCategoryFilters && !isEditMode) {
-                    void initializeCategoryFiltersWithFieldSearch(
-                        updatedFilters,
-                    ).then((refined) => {
-                        setDashboardFilters(refined);
-                    });
-                }
+                // Category refine is handled by the dedicated global category effect
                 return updatedFilters;
             });
         }
@@ -1231,9 +1650,6 @@ const DashboardProvider: React.FC<
         dashboard?.tabs,
         overridesForSavedDashboardFilters,
         activeTab,
-        canApplyCategoryFilters,
-        isEditMode,
-        initializeCategoryFiltersWithFieldSearch,
         setDashboardFilters,
     ]);
 
@@ -1265,17 +1681,8 @@ const DashboardProvider: React.FC<
             // TODO: this should probably merge with the filters
             // from the database. This will break if they diverge,
             // meaning there is a subtle race condition here
-            // Apply category filter initialization from field/search actual values
-            if (canApplyCategoryFilters && !isEditMode) {
-                setDashboardFilters(unsavedDashboardFilters);
-                void initializeCategoryFiltersWithFieldSearch(
-                    unsavedDashboardFilters,
-                ).then((refined) => {
-                    setDashboardFilters(refined);
-                });
-            } else {
-                setDashboardFilters(unsavedDashboardFilters);
-            }
+            // Category refine is handled by the dedicated global category effect
+            setDashboardFilters(unsavedDashboardFilters);
         }
         if (tempFilterSearchParam) {
             setDashboardTemporaryFilters(
@@ -1601,10 +2008,12 @@ const DashboardProvider: React.FC<
         getActiveTabFilters,
         getActiveTabTemporaryFilters,
         getMergedFiltersForTab,
+        getDisplayedMergedFiltersForTab,
+        tabCategoryDisplayFilters,
         addTabDimensionFilter,
         updateTabDimensionFilter: wrappedUpdateTabDimensionFilter,
-        removeTabDimensionFilter,
-        resetTabFilters,
+        removeTabDimensionFilter: wrappedRemoveTabDimensionFilter,
+        resetTabFilters: wrappedResetTabFilters,
         // tab filters end
 
         // filter enabled state start
@@ -1624,9 +2033,13 @@ const DashboardProvider: React.FC<
     };
     return (
         <DashboardContext.Provider value={value}>
-            <DashboardChartColorSyncProvider>
-                {children}
-            </DashboardChartColorSyncProvider>
+            {mountDefaultColorSyncProvider ? (
+                <DashboardChartColorSyncProvider>
+                    {children}
+                </DashboardChartColorSyncProvider>
+            ) : (
+                children
+            )}
         </DashboardContext.Provider>
     );
 };

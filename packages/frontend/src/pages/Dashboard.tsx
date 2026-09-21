@@ -66,6 +66,9 @@ import DashboardChartColorSyncProvider from '../providers/DashboardChartColorSyn
 import useFullscreen from '../providers/Fullscreen/useFullscreen';
 import '../styles/react-grid.css';
 
+/** 查看模式无 sync 列表时复用，避免每次 render 新建 [] 触发颜色同步 effect */
+const EMPTY_SYNC_TILE_UUIDS: string[] = [];
+
 // 预设颜色调色板
 const COLOR_PALETTE_PRESETS = [
     {
@@ -361,7 +364,7 @@ const Dashboard: FC = () => {
         : (dashboard?.config?.colorPalette ?? dashboardColorPalette);
     const resolvedSyncChartTileUuids = isEditMode
         ? syncChartTileUuids
-        : (dashboard?.config?.syncChartTileUuids ?? []);
+        : (dashboard?.config?.syncChartTileUuids ?? EMPTY_SYNC_TILE_UUIDS);
 
     const setSavedParameters = useDashboardContext((c) => c.setSavedParameters);
     const parametersHaveChanged = useDashboardContext(
@@ -1615,6 +1618,7 @@ const DashboardPage: FC = () => {
     return (
         <DashboardProvider
             projectUuid={projectUuid}
+            mountDefaultColorSyncProvider={false}
             // TODO: hide comments feature for now, need to enable it later
             dashboardCommentsCheck={{
                 canViewDashboardComments: false,

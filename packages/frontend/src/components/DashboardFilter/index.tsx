@@ -117,8 +117,8 @@ const DashboardFilter: FC<Props> = ({
     );
 
     // tab filters
-    const getMergedFiltersForTab = useDashboardContext(
-        (c) => c.getMergedFiltersForTab,
+    const getDisplayedMergedFiltersForTab = useDashboardContext(
+        (c) => c.getDisplayedMergedFiltersForTab,
     );
     const resetTabFilters = useDashboardContext((c) => c.resetTabFilters);
     const addTabDimensionFilter = useDashboardContext(
@@ -130,8 +130,13 @@ const DashboardFilter: FC<Props> = ({
         if (filterScope === 'global') {
             return allFilters;
         }
-        return getMergedFiltersForTab(activeTabUuid || '');
-    }, [filterScope, activeTabUuid, getMergedFiltersForTab, allFilters]);
+        return getDisplayedMergedFiltersForTab(activeTabUuid || '');
+    }, [
+        filterScope,
+        activeTabUuid,
+        getDisplayedMergedFiltersForTab,
+        allFilters,
+    ]);
     const appliedResetDashboardFilters = useCallback(() => {
         if (filterScope === 'global') {
             resetDashboardFilters();

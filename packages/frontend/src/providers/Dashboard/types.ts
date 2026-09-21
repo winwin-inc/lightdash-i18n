@@ -138,6 +138,16 @@ export type DashboardContextType = {
     getActiveTabFilters: (tabUuid: string) => DashboardFilters;
     getActiveTabTemporaryFilters: (tabUuid: string) => DashboardFilters;
     getMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
+    /** 顶部筛选 UI 用：存在类目级联展示态时优先展示态，图表查询仍用 getMergedFiltersForTab */
+    getDisplayedMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
+    /** Tab 类目级联即时展示态；无 pending 时为空对象 */
+    tabCategoryDisplayFilters: Record<
+        string,
+        {
+            filters: DashboardFilters;
+            updatingFilterIds: string[];
+        }
+    >;
     addTabDimensionFilter: (
         tabUuid: string,
         filter: DashboardFilterRule,

@@ -269,26 +269,63 @@ export const assignKnownHashColors = (
 
 /**
  * 本图可见名只追加：不在 known 里的按 UTF-16 排序后避让本图已见色，不回头改 known。
+ * 无未知 key 时复用 knownAssignments 引用；同一 known 对象上的相同可见集走有界缓存。
  */
+const APPEND_UNKNOWN_CACHE_MAX = 64;
+const appendUnknownCache = new WeakMap<
+    Record<string, string>,
+    Map<string, Record<string, string>>
+>();
+
+const getAppendUnknownCacheKey = (
+    visibleNormalized: string[],
+    colorPalette: string[],
+): string =>
+    `${visibleNormalized.join('\u0001')}|${colorPalette.join(',')}`;
+
 export const appendUnknownHashColors = (
     visibleKeys: string[],
     colorPalette: string[],
     knownAssignments: Record<string, string>,
 ): Record<string, string> => {
-    const assignments = { ...knownAssignments };
     const visibleNormalized = normalizeColorSyncKeys(visibleKeys);
+    const unknown = visibleNormalized.filter(
+        (key) => !lookupSyncedColor(key, knownAssignments),
+    );
+
+    if (unknown.length === 0) {
+        return knownAssignments;
+    }
+
+    const cacheKey = getAppendUnknownCacheKey(visibleNormalized, colorPalette);
+    let cacheForKnown = appendUnknownCache.get(knownAssignments);
+    const cached = cacheForKnown?.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    const assignments = { ...knownAssignments };
     const usedColors = visibleNormalized
         .map((key) => lookupSyncedColor(key, assignments))
         .filter((color): color is string => Boolean(color));
-    const unknown = visibleNormalized.filter(
-        (key) => !lookupSyncedColor(key, assignments),
-    );
 
     unknown.forEach((key) => {
         const color = pickAvoidingColor(key, colorPalette, usedColors);
         assignments[key] = color;
         usedColors.push(color);
     });
+
+    if (!cacheForKnown) {
+        cacheForKnown = new Map();
+        appendUnknownCache.set(knownAssignments, cacheForKnown);
+    }
+    if (cacheForKnown.size >= APPEND_UNKNOWN_CACHE_MAX) {
+        const oldestKey = cacheForKnown.keys().next().value;
+        if (oldestKey !== undefined) {
+            cacheForKnown.delete(oldestKey);
+        }
+    }
+    cacheForKnown.set(cacheKey, assignments);
 
     return assignments;
 };
