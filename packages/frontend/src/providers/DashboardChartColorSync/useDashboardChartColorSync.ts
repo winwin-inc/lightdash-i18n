@@ -1,21 +1,24 @@
 import { ECHARTS_DEFAULT_COLORS } from '@lightdash/common';
-import { useContext } from 'react';
+import { useContext, useContextSelector } from 'use-context-selector';
 import { useOrganization } from '../../hooks/organization/useOrganization';
 import useDashboardContext from '../Dashboard/useDashboardContext';
-import DashboardChartColorSyncContext from './context';
+import DashboardChartColorSyncContext, {
+    type DashboardChartColorSyncContextValue,
+} from './context';
 
-const EMPTY_SYNC = {
+const EMPTY_SYNC: DashboardChartColorSyncContextValue = {
     enabled: false,
-    colorPalette: [] as string[],
-    syncChartTileUuids: [] as string[],
-    manualColors: {} as Record<string, string>,
-    knownColorKeys: [] as string[],
-    hashAssignments: {} as Record<string, string>,
+    colorPalette: [],
+    syncChartTileUuids: [],
+    manualColors: {},
+    knownColorKeys: [],
+    hashAssignments: {},
 };
 
 const EMPTY_TILE_UUIDS: string[] = [];
 const EMPTY_MANUAL_COLORS: Record<string, string> = {};
 const EMPTY_HASH_ASSIGNMENTS: Record<string, string> = {};
+const EMPTY_COLOR_PALETTE: string[] = [];
 
 export const useDashboardChartColorSync = () =>
     useContext(DashboardChartColorSyncContext) ?? EMPTY_SYNC;
@@ -34,29 +37,50 @@ export const useDashboardChartTileColorSync = ({
     manualColors: Record<string, string>;
     hashAssignments: Record<string, string>;
 } => {
-    const ctx = useContext(DashboardChartColorSyncContext);
+    const enabled = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.enabled,
+    );
+    const syncChartTileUuids = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.syncChartTileUuids,
+    );
+    const manualColors = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.manualColors,
+    );
+    const hashAssignments = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.hashAssignments,
+    );
+    const contextPalette = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.colorPalette,
+    );
+
     const dashboardConfig = useDashboardContext((c) => c.dashboard?.config);
     const { data: organization } = useOrganization();
 
-    const enabled = ctx?.enabled ?? dashboardConfig?.syncChartColors ?? false;
-    const syncChartTileUuids =
-        ctx?.syncChartTileUuids ??
+    const resolvedEnabled =
+        enabled ?? dashboardConfig?.syncChartColors ?? false;
+    const resolvedSyncChartTileUuids =
+        syncChartTileUuids ??
         dashboardConfig?.syncChartTileUuids ??
         EMPTY_TILE_UUIDS;
-    const manualColors = ctx?.manualColors ?? EMPTY_MANUAL_COLORS;
-    const hashAssignments = ctx?.hashAssignments ?? EMPTY_HASH_ASSIGNMENTS;
+    const resolvedManualColors = manualColors ?? EMPTY_MANUAL_COLORS;
+    const resolvedHashAssignments = hashAssignments ?? EMPTY_HASH_ASSIGNMENTS;
 
     const isTileInSyncList =
-        syncChartTileUuids.length > 0
-            ? syncChartTileUuids.includes(tileUuid)
+        resolvedSyncChartTileUuids.length > 0
+            ? resolvedSyncChartTileUuids.includes(tileUuid)
             : true;
     const shouldSyncColors = Boolean(
-        enabled && !isCustomChart && isTileInSyncList,
+        resolvedEnabled && !isCustomChart && isTileInSyncList,
     );
 
     const dashboardPalette =
-        ctx?.colorPalette && ctx.colorPalette.length > 0
-            ? ctx.colorPalette
+        contextPalette && contextPalette.length > 0
+            ? contextPalette
             : dashboardConfig?.colorPalette;
 
     const colorPalette = shouldSyncColors
@@ -65,5 +89,10 @@ export const useDashboardChartTileColorSync = ({
             : (organization?.chartColors ?? ECHARTS_DEFAULT_COLORS)
         : chartColorPalette;
 
-    return { shouldSyncColors, colorPalette, manualColors, hashAssignments };
+    return {
+        shouldSyncColors,
+        colorPalette: colorPalette ?? EMPTY_COLOR_PALETTE,
+        manualColors: resolvedManualColors,
+        hashAssignments: resolvedHashAssignments,
+    };
 };

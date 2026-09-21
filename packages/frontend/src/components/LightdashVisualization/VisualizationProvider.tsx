@@ -366,6 +366,7 @@ const VisualizationProvider: FC<
     const getGroupColors = useCallback(
         (groupPrefix: string, identifiers: string[]) => {
             if (useHashBased) {
+                // 优先复用 chartHashAssignments；仅有未覆盖 identifier 时增量追加
                 const assigned = appendUnknownHashColors(
                     identifiers,
                     colorPalette,

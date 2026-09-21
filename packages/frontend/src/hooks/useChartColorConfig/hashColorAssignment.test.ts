@@ -234,6 +234,52 @@ describe('appendUnknownHashColors', () => {
         expect(afterFilter['中间插入品牌']).not.toBe(known['臭宝']);
         expect(afterFilter['中间插入品牌']).not.toBe(known['其他品牌']);
     });
+
+    test('reuses knownAssignments reference when there are no unknown keys', () => {
+        const known = assignKnownHashColors(['臭宝', '其他品牌'], PALETTE);
+        const result = appendUnknownHashColors(
+            ['其他品牌', '臭宝'],
+            PALETTE,
+            known,
+        );
+
+        expect(result).toBe(known);
+    });
+
+    test('caches append results for the same known map, visible keys and palette', () => {
+        const known = assignKnownHashColors(['李子柒'], PALETTE);
+        const first = appendUnknownHashColors(
+            ['臭宝', '李子柒'],
+            PALETTE,
+            known,
+        );
+        const second = appendUnknownHashColors(
+            ['臭宝', '李子柒'],
+            PALETTE,
+            known,
+        );
+
+        expect(second).toBe(first);
+        expect(first['臭宝']).toBeTruthy();
+        expect(first['李子柒']).toBe(known['李子柒']);
+    });
+
+    test('invalidates append cache when the palette changes', () => {
+        const known = assignKnownHashColors(['李子柒'], PALETTE);
+        const withDefaultPalette = appendUnknownHashColors(
+            ['臭宝', '李子柒'],
+            PALETTE,
+            known,
+        );
+        const withTinyPalette = appendUnknownHashColors(
+            ['臭宝', '李子柒'],
+            TINY_PALETTE,
+            known,
+        );
+
+        expect(withTinyPalette).not.toBe(withDefaultPalette);
+        expect(TINY_PALETTE).toContain(withTinyPalette['臭宝']);
+    });
 });
 
 describe('resolveSyncedHashColor', () => {

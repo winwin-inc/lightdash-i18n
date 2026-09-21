@@ -117,6 +117,19 @@ type FieldSearchCacheEntry = {
 
 const fieldSearchCache = new Map<string, FieldSearchCacheEntry>();
 
+/** 清除 field/search 内存缓存（仅测试使用） */
+export const clearFieldSearchCacheForTests = (): void => {
+    fieldSearchCache.clear();
+};
+
+const pruneExpiredFieldSearchCache = (now: number): void => {
+    for (const [key, entry] of fieldSearchCache.entries()) {
+        if (entry.expiresAt <= now) {
+            fieldSearchCache.delete(key);
+        }
+    }
+};
+
 const serializeFieldSearchFilters = (
     filters?: DashboardFilterRule[],
 ): string => {
@@ -150,6 +163,45 @@ const getFieldSearchCacheKey = (
     });
 
 /**
+ * 类目初始化签名：仅包含真实 field/search 依赖。
+ * collectFieldSearchFilters 会发送「目标类目左侧」的筛选，因此保留截至最后一个类目的 dimension 前缀；
+ * 最后一个类目之后的筛选不可能参与查询，排除以免误触发 init。
+ */
+export const getCategoryFiltersSignature = (
+    filters: DashboardFilters,
+    projectUuid: string,
+    dashboardContext?: DashboardFilterContext,
+): string => {
+    let lastCategoryIndex = -1;
+    filters.dimensions.forEach((filter, index) => {
+        if (isCategoryField(filter)) {
+            lastCategoryIndex = index;
+        }
+    });
+
+    const relevantDimensions =
+        lastCategoryIndex === -1
+            ? []
+            : filters.dimensions.slice(0, lastCategoryIndex + 1);
+
+    return JSON.stringify({
+        projectUuid,
+        dashboardSlug: dashboardContext?.dashboardSlug ?? null,
+        dashboardName: dashboardContext?.dashboardName ?? null,
+        dimensions: relevantDimensions.map((filter) => ({
+            id: filter.id,
+            fieldId: filter.target.fieldId,
+            tableName: filter.target.tableName,
+            operator: filter.operator,
+            values: filter.values ?? null,
+            disabled: filter.disabled ?? false,
+            categoryLevel: filter.categoryLevel ?? null,
+            parentFieldId: filter.parentFieldId ?? null,
+        })),
+    });
+};
+
+/**
  * 调用 field/search 接口获取字段的实际可用值（含看板上下文以触发 dbt sql_filter）
  */
 const fetchFieldSearchValues = async (
@@ -159,6 +211,9 @@ const fetchFieldSearchValues = async (
     filters: DashboardFilterRule[] | undefined,
     dashboardContext: DashboardFilterContext | undefined,
 ): Promise<string[]> => {
+    const now = Date.now();
+    pruneExpiredFieldSearchCache(now);
+
     const cacheKey = getFieldSearchCacheKey(
         projectUuid,
         fieldId,
@@ -166,7 +221,6 @@ const fetchFieldSearchValues = async (
         filters,
         dashboardContext,
     );
-    const now = Date.now();
     const cachedEntry = fieldSearchCache.get(cacheKey);
 
     if (cachedEntry && cachedEntry.expiresAt > now) {
