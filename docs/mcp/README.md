@@ -2,7 +2,7 @@
 
 **先看这里**
 
-1. **新接入**：读 [MCP v2 说明](./lightdash-mcp-v2.md) + [Keycloak OAuth](./lightdash-mcp-v2-keycloak-oauth.md)。
+1. **新接入**：读 [MCP v2 说明](./lightdash-mcp-v2.md) + [Keycloak OAuth](./lightdash-mcp-v2-keycloak-oauth.md)。客户端**只配 URL**，浏览器完成 Keycloak OAuth；**不要填 API Key / `x-api-key` / 长期 PAT**。
 2. Cursor / Claude 只配独立 MCP 的 `https://mcp-*.…/mcp`，**不要**配主站 `{SITE}/api/v1/mcp`。
 3. 仓库里的 [`docs/v2/`](../v2/README.md) 是 **Lightdash 产品 2.x** 升级/发版文档，**与 MCP v2 无关**（只是都叫 v2）。
 4. 旧目录 [`docs/lightdash-mcp/`](../lightdash-mcp/README.md) 已收成跳转，勿再当入口。
@@ -39,6 +39,8 @@
 |------|------|
 | [**MCP v2 说明与使用**](./lightdash-mcp-v2.md) | **当前推荐交付**（接入 → 鉴权/项目 → 工具与查询 → 与 v1 差异 → 运维） |
 | [**MCP v2 Keycloak OAuth**](./lightdash-mcp-v2-keycloak-oauth.md) | Keycloak + 邮箱换票（一人一票、TTL、失效续期） |
+| [**MCP v2 OAuth 最小配置**](./lightdash-mcp-v2-oauth-minimal.md) | 运维实操：Keycloak + 预发环境变量；客户端只配 URL |
+| [**MCP v2 OAuth 客户端接入**](./lightdash-mcp-v2-oauth-clients.md) | Claude Code / WorkBuddy / Cursor 回调与验收 |
 | [**MCP v2 运维部署（K8s + Docker 穿透）**](./lightdash-mcp-v2-deploy.md) | ConfigMap / Secret / Apisix、本地穿透 `MCP_PUBLIC_URL` |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查（Dockerfile 已指向 v2） |
 | [v2 包 README](../../packages/lightdash-mcp-v2/README.md) | 包级摘要 |
@@ -53,11 +55,13 @@
 
 ### v1 存量（Session / compat）
 
+存量文档仍写客户端 PAT / `x-api-key`。**新接入不要按其中的 API Key 配置**，改走 v2（只配 URL + OAuth）。
+
 | 文档 | 给谁 |
 |------|------|
-| [外部接入指南](./lightdash-mcp-external-guide.md) | 可转发；内容偏 v1 Session，新接入请同时读 v2 |
-| [标准客户端用法](./lightdash-mcp-client-usage.md) | 内部完整规范（Session / compat；**v1**） |
-| [Session 生命周期与并发](./lightdash-mcp-session-lifecycle.md) | 开发维护（**v1** Session 实现） |
+| [外部接入指南](./lightdash-mcp-external-guide.md) | **v1 存量**；可转发旧客户端。新接入勿按其中 PAT 配置 |
+| [标准客户端用法](./lightdash-mcp-client-usage.md) | **v1 存量**（Session / compat / `x-api-key`） |
+| [Session 生命周期与并发](./lightdash-mcp-session-lifecycle.md) | **v1 存量** Session 实现，开发维护 |
 | [v1 包 README](../../packages/lightdash-mcp/README.md) | v1 环境变量与 Session 工具 |
 
 ---

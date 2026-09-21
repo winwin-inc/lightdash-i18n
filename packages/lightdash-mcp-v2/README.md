@@ -7,6 +7,10 @@ Lightdash MCP HTTP 服务（**MCP 协议 2026-07-28 sessionless**，`legacy:stat
 
 与 `@lightdash/mcp`（v1）并行存在，互不影响。
 
+## 客户端接入
+
+只配 MCP URL，走 Keycloak OAuth。**不要**在 `.mcp.json` / `headers` 里配 `x-api-key` 或长期 PAT。详见 [MCP v2 说明 · 快速接入](../../docs/mcp/lightdash-mcp-v2.md#2-快速接入)。
+
 ## 差异（相对 v1）
 
 - `createMcpHandler(..., { legacy: 'stateless' })`：无状态兼容旧流量；服务端不保存 Session / 当前项目

@@ -97,7 +97,15 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 }
 ```
 
-首次连接会走 OAuth：浏览器打开 Keycloak（或 SSO）登录页 → 用**自己的**账号登录一次 → 客户端缓存 token。之后日常只需连 URL，不必再配 `x-api-key`。
+配置里**只写 `url`**：不要 `headers`、不要 `x-api-key`、不要长期 PAT。首次连接会走 OAuth：浏览器打开 Keycloak（或 SSO）登录页 → 用**自己的**账号登录一次 → 客户端缓存 token。运维侧 Keycloak / 环境变量见 [OAuth 最小配置](./lightdash-mcp-v2-oauth-minimal.md)。
+
+Claude Code（预发马上赢X）一键添加：
+
+```text
+claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahui.cn/mcp
+```
+
+然后在会话中执行 `/mcp` → 选择 `msyx-pre` → Authenticate。
 
 ---
 

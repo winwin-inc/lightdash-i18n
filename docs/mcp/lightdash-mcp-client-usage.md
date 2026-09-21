@@ -1,5 +1,7 @@
 # Lightdash MCP 标准客户端使用规范
 
+> **本文是 v1**（标准 Session + 客户端 PAT / `x-api-key`）。当前交付是 **MCP v2**：客户端只配 URL，浏览器完成 Keycloak OAuth，**不要按本文填写 API Key**。新接入请读 [MCP v2 说明](./lightdash-mcp-v2.md)。
+
 面向：**接入 MCP 的应用开发者、平台运维、自研 HTTP 客户端维护者**。  
 说明推荐的标准调用方式，以及存量无 Session 客户端的兼容行为。
 
