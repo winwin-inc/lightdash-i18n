@@ -132,6 +132,7 @@
         "query-sdk-build": "pnpm -F @lightdash/query-sdk build",
         "query-sdk-test": "pnpm -F @lightdash/query-sdk test",
         "query-sdk-typecheck": "pnpm -F @lightdash/query-sdk typecheck",
+        "create-data-app": "node ./scripts/create-data-app.mjs",
         "typecheck": "pnpm -r --stream --sequential -F @lightdash/formula -F @lightdash/query-sdk -F common -F warehouses -F cli -F backend -F frontend typecheck",
         "lint": "pnpm -r --stream --sequential -F @lightdash/formula -F @lightdash/query-sdk -F common -F warehouses -F backend -F frontend -F e2e -F cli lint",
         "format": "pnpm -r --stream --sequential -F common -F warehouses -F backend -F frontend -F e2e -F cli format",

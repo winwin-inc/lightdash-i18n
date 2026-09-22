@@ -36,6 +36,17 @@ const getDashboardsContainingChart = async (
         body: undefined,
     });
 
+const getDashboardsContainingApp = async (
+    projectUuid: string,
+    appUuid: string,
+    includePrivate: boolean,
+) =>
+    lightdashApi<DashboardBasicDetailsWithTileTypes[]>({
+        url: `/projects/${projectUuid}/dashboards?appUuid=${appUuid}&includePrivate=${includePrivate}`,
+        method: 'GET',
+        body: undefined,
+    });
+
 export const useDashboards = (
     projectUuid?: string,
     useQueryOptions?: UseQueryOptions<
@@ -81,6 +92,30 @@ export const useDashboardsContainingChart = (
             ),
         onError: (result) => setErrorResponse(result),
         enabled: !!projectUuid && !!chartId,
+    });
+};
+
+export const useDashboardsContainingApp = (
+    projectUuid?: string,
+    appUuid?: string,
+    includePrivate = true,
+) => {
+    const setErrorResponse = useQueryError();
+    return useQuery<DashboardBasicDetailsWithTileTypes[], ApiError>({
+        queryKey: [
+            'dashboards-containing-app',
+            projectUuid,
+            appUuid,
+            includePrivate,
+        ],
+        queryFn: () =>
+            getDashboardsContainingApp(
+                projectUuid!,
+                appUuid!,
+                includePrivate,
+            ),
+        onError: (result) => setErrorResponse(result),
+        enabled: !!projectUuid && !!appUuid,
     });
 };
 

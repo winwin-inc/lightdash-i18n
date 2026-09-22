@@ -16,6 +16,7 @@ import { useCallback, useEffect, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import AppUploadModal from '../../../features/apps/components/AppUploadModal';
 import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
 import { useAppPinningMutation } from '../../../features/apps/hooks/useAppPinningMutation';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
@@ -368,6 +369,17 @@ const ResourceActionHandlers: FC<ResourceActionHandlersProps> = ({
                         await moveToSpace(action.item, spaceUuid);
                         handleReset();
                     }}
+                />
+            );
+
+        case ResourceViewItemAction.UPLOAD_PACKAGE:
+            return (
+                <AppUploadModal
+                    opened
+                    projectUuid={projectUuid}
+                    targetAppUuid={action.item.data.uuid}
+                    onClose={handleReset}
+                    onUploaded={handleReset}
                 />
             );
 

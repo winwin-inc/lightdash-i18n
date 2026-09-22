@@ -1,15 +1,17 @@
 import { subject } from '@casl/ability';
 import { ContentType, FeatureFlags } from '@lightdash/common';
-import { Group, Stack, Button } from '@mantine-8/core';
-import { IconPlus } from '@tabler/icons-react';
+import { Button, Group, Stack } from '@mantine-8/core';
+import { IconUpload } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 import Page from '../components/common/Page/Page';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import InfiniteResourceTable from '../components/common/ResourceView/InfiniteResourceTable';
+import AppUploadModal from '../features/apps/components/AppUploadModal';
+import { canAdminUploadDataApp } from '../features/apps/utils/canAdminUploadDataApp';
 import { useProjectUuid } from '../hooks/useProjectUuid';
 import { useServerFeatureFlag } from '../hooks/useServerOrClientFeatureFlag';
-import { Can } from '../providers/Ability';
 import useApp from '../providers/App/useApp';
 import { FavoritesProvider } from '../providers/Favorites/FavoritesProvider';
 
@@ -18,6 +20,30 @@ const SavedApps = () => {
     const projectUuid = useProjectUuid();
     const { user } = useApp();
     const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [uploadOpen, setUploadOpen] = useState(
+        searchParams.get('upload') === '1',
+    );
+
+    const canView =
+        !!user.data?.ability?.can(
+            'view',
+            subject('DataApp', {
+                organizationUuid: user.data?.organizationUuid,
+                projectUuid,
+            }),
+        ) || !!user.data?.ability?.can('view', 'DataApp');
+    const canUpload =
+        !!projectUuid && canAdminUploadDataApp(user.data, projectUuid);
+
+    useEffect(() => {
+        if (searchParams.get('upload') === '1' && canUpload) {
+            setUploadOpen(true);
+            const next = new URLSearchParams(searchParams);
+            next.delete('upload');
+            setSearchParams(next, { replace: true });
+        }
+    }, [canUpload, searchParams, setSearchParams]);
 
     if (!projectUuid) {
         return null;
@@ -27,7 +53,7 @@ const SavedApps = () => {
         return null;
     }
 
-    if (!dataAppsFlag.data?.enabled) {
+    if (!dataAppsFlag.data?.enabled || !canView) {
         return <Navigate to={`/projects/${projectUuid}/home`} replace />;
     }
 
@@ -49,42 +75,38 @@ const SavedApps = () => {
                                     to: '/home',
                                 },
                                 {
-                                    title: t(
-                                        'pages_saved_apps.breadcrumb_all',
-                                    ),
+                                    title: t('pages_saved_apps.breadcrumb_all'),
                                     active: true,
                                 },
                             ]}
                         />
 
-                        <Can
-                            I="create"
-                            this={subject('DataApp', {
-                                organizationUuid: user.data?.organizationUuid,
-                                projectUuid,
-                            })}
-                        >
+                        {canUpload && (
                             <Button
-                                component={Link}
-                                to={`/projects/${projectUuid}/apps/generate`}
-                                leftSection={<IconPlus size={18} />}
+                                leftSection={<IconUpload size={18} />}
+                                onClick={() => setUploadOpen(true)}
                             >
-                                {t('pages_saved_apps.create')}
+                                {t('pages_saved_apps.upload')}
                             </Button>
-                        </Can>
+                        )}
                     </Group>
 
                     <InfiniteResourceTable
-                        // showDataAppVersionStatus — STUB until InfiniteResourceTable column is ported
                         filters={{
                             projectUuid,
                             contentTypes: [ContentType.DATA_APP],
-                            // includePersonalDataApps / dataAppVizsFilter — STUB until ContentArgs wired
                         }}
                         isCustomerUse={false}
                     />
                 </Stack>
             </Page>
+            {canUpload && (
+                <AppUploadModal
+                    opened={uploadOpen}
+                    projectUuid={projectUuid}
+                    onClose={() => setUploadOpen(false)}
+                />
+            )}
         </FavoritesProvider>
     );
 };

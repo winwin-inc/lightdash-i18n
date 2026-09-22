@@ -3788,7 +3788,7 @@
       },
       "data_app": {
         "title": "Data App",
-        "description": "Build an interactive app powered by your data."
+        "description": "Upload a locally built React app and add it to dashboards."
       },
       "space": {
         "title": "Space",
@@ -4058,6 +4058,15 @@
         "create": "Create new space"
       }
     }
+  },
+  "components_common_modal_app_delete": {
+    "title": "Delete app",
+    "tip": "Delete ",
+    "tip_suffix": "? This app and all of its versions will be permanently deleted, including any built artifacts in storage.",
+    "content": "This app is used on {{length}} dashboard(s):",
+    "warning": "Those tiles will stay on the dashboard but become unavailable. Edit each tile to pick another app, or remove the tile.",
+    "cancel": "Cancel",
+    "delete": "Delete"
   },
   "components_common_modal_chart_delete": {
     "title": "Delete Chart",
@@ -6414,6 +6423,9 @@
         "space": {
           "label": "Space"
         },
+        "status": {
+          "label": "Status"
+        },
         "updated": {
           "label": "Last Edited"
         }
@@ -6476,6 +6488,9 @@
       },
       "delete": {
         "title": "Delete {{type}}"
+      },
+      "upload_package": {
+        "title": "Update package"
       }
     }
   },
@@ -8428,12 +8443,33 @@
     "or": "OR",
     "sign_up": "Sign up"
   },
-  "pages_saved_apps": {
-    "title": "Data apps",
-    "breadcrumb_home": "Home",
-    "breadcrumb_all": "All data apps",
-    "create": "Create data app"
-  },
+    "pages_saved_apps": {
+        "title": "Data apps",
+        "breadcrumb_home": "Home",
+        "breadcrumb_all": "All data apps",
+        "create": "Create data app",
+        "upload": "Upload app"
+    },
+    "features_apps_upload": {
+        "title": "Upload data app",
+        "update_title": "Update package",
+        "hint": "Select the local template folder after pnpm build. It must include src/, dist/index.html, and lightdash-app.yml. Cloud sandbox is not used for manual uploads.",
+        "folder_label": "App folder",
+        "folder_placeholder": "Choose the built app folder",
+        "folder_description": "Use the folder picker so src/ and dist/ keep their relative paths.",
+        "pick_folder": "Choose folder",
+        "file_count": "{{count}} files selected",
+        "need_folder": "Choose a folder that contains src/, dist/, and lightdash-app.yml",
+        "parse_failed": "Could not read the selected folder",
+        "error": "Upload failed",
+        "submit": "Upload",
+        "status_ready": "Ready",
+        "status_unavailable": "No ready version",
+        "toast_created": "App uploaded",
+        "toast_append": "New version uploaded",
+        "toast_unchanged": "App unchanged; current version kept",
+        "toast_failed": "Failed to upload data app"
+    },
   "pages_app_generate": {
     "title": "Build a Data App",
     "subtitle": "Pick a starting point, then describe what you want to build.",

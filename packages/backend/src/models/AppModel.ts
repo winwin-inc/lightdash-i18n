@@ -1728,13 +1728,16 @@ export class AppModel {
     /**
      * Returns candidate dashboard UUIDs whose latest version contains a tile
      * referencing `appUuid`. Old versions are intentionally ignored.
+     * When `dashboardUuids` is omitted, searches the whole project.
      */
     async findDashboardsContainingApp(
         appUuid: string,
         projectUuid: string,
-        dashboardUuids: string[],
+        dashboardUuids?: string[],
     ): Promise<string[]> {
-        if (dashboardUuids.length === 0) return [];
+        if (dashboardUuids !== undefined && dashboardUuids.length === 0) {
+            return [];
+        }
 
         const latestVersionsCte = 'latest_dashboard_versions';
         const rows = await this.database
@@ -1765,10 +1768,14 @@ export class AppModel {
                         `${DashboardVersionsTableName}.dashboard_id`,
                     )
                     .where(`${ProjectTableName}.project_uuid`, projectUuid)
-                    .whereIn(
-                        `${DashboardsTableName}.dashboard_uuid`,
-                        dashboardUuids,
-                    )
+                    .modify((builder) => {
+                        if (dashboardUuids !== undefined) {
+                            void builder.whereIn(
+                                `${DashboardsTableName}.dashboard_uuid`,
+                                dashboardUuids,
+                            );
+                        }
+                    })
                     .whereNull(`${DashboardsTableName}.deleted_at`)
                     .groupBy(`${DashboardsTableName}.dashboard_uuid`);
             })

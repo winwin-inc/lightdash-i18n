@@ -124,3 +124,7 @@ testings/
 
 # dist
 **/dist/**/*
+
+# generated data apps (keep the folder)
+/data-apps/*
+!/data-apps/.gitkeep
