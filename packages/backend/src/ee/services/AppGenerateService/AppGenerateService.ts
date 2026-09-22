@@ -51,7 +51,6 @@ import {
     sanitizeAppPackageJsonScripts,
     splitDataAppUploadFiles,
     themeLimitMessage,
-    TooManyRequestsError,
     validateDataAppCode,
     validateDataAppDependencies,
     type Account,
@@ -71,7 +70,6 @@ import {
     type AppVersionResources,
     type AppVersionStatusHistoryEntry,
     type AppVersionStatusHistoryEntryKind,
-    type ChartConfig,
     type ChartReference,
     type ChartSampleData,
     type CompiledExploreJoin,
@@ -105,7 +103,6 @@ import {
     type KnexPaginateArgs,
     type KnexPaginatedData,
     type LightdashProjectParameter,
-    type MetricQuery,
     type ModelRequiredFilterRule,
     type MyAppsSortBy,
     type PersistedDataAppDataReferences,
@@ -216,7 +213,6 @@ import { getBundleServableChecker } from './appBundleStorage';
 import {
     buildManifest,
     contentTypeForPath,
-    s3KeyToRelPath,
     versionPrefix,
 } from './appCode';
 import {
@@ -11256,14 +11252,10 @@ export class AppGenerateService extends BaseService {
                                 Buffer.byteLength(file.contentBase64, 'base64'),
                             0,
                         ),
-                        hasCustomDependencies: dependencySummary !== undefined,
-                        customDependencyCount:
-                            dependencySummary?.custom.length ?? 0,
-                        customDependencies: dependencySummary?.custom ?? [],
+                        hasCustomDependencies: false,
+                        customDependencyCount: 0,
+                        customDependencies: [],
                         identitySource,
-                        ...(dependencySummary !== undefined
-                            ? { lockfileHash: dependencySummary.lockfileHash }
-                            : {}),
                     },
                 });
                 return {
@@ -11535,13 +11527,10 @@ export class AppGenerateService extends BaseService {
                 template: code.manifest.template,
                 sourceFileCount: sourceFiles.length,
                 sourceBytes: sourceTar.length,
-                hasCustomDependencies: dependencySummary !== undefined,
-                customDependencyCount: dependencySummary?.custom.length ?? 0,
-                customDependencies: dependencySummary?.custom ?? [],
+                hasCustomDependencies: false,
+                customDependencyCount: 0,
+                customDependencies: [],
                 identitySource,
-                ...(dependencySummary !== undefined
-                    ? { lockfileHash: dependencySummary.lockfileHash }
-                    : {}),
             },
         });
 
