@@ -1,3 +1,4 @@
+import { maskApiKey } from './authAndCache';
 import { writeStderrLog } from '../lib/stderrLog';
 
 export type TokenExchangeResult = {
@@ -111,23 +112,38 @@ export async function exchangeEmailForPat(options: {
     } catch (error) {
         const message =
             error instanceof Error ? error.message : String(error);
-        throw new Error(
-            `token-exchange failed with network error: ${message}`,
+        const wrapped = `token-exchange failed with network error: ${message}`;
+        writeStderrLog(
+            `[TokenExchange] failed | ${options.email} | network | ${message}`,
+            'warn',
         );
+        throw new Error(wrapped);
     }
 
     if (response.status === 404) {
+        writeStderrLog(
+            `[TokenExchange] failed | ${options.email} | user not found`,
+            'warn',
+        );
         throw new Error(
             `token-exchange user not found for email: ${options.email}`,
         );
     }
     if (response.status === 401 || response.status === 403) {
+        writeStderrLog(
+            `[TokenExchange] failed | ${options.email} | unauthorized (${response.status})`,
+            'warn',
+        );
         throw new Error(
             `token-exchange unauthorized (${response.status}) — check LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`,
         );
     }
     if (!response.ok) {
         const bodyText = await response.text().catch(() => '');
+        writeStderrLog(
+            `[TokenExchange] failed | ${options.email} | ${response.status} | ${bodyText}`,
+            'warn',
+        );
         throw new Error(
             `token-exchange failed with ${response.status}: ${bodyText}`,
         );
@@ -170,6 +186,10 @@ export async function getOrExchangePat(options: {
     });
     const expiresAtMs = Date.parse(exchanged.expiresAt);
     if (!Number.isFinite(expiresAtMs)) {
+        writeStderrLog(
+            `[TokenExchange] failed | ${options.email} | invalid expiresAt=${exchanged.expiresAt}`,
+            'warn',
+        );
         throw new Error(
             `token-exchange returned invalid expiresAt: ${exchanged.expiresAt}`,
         );
@@ -182,5 +202,11 @@ export async function getOrExchangePat(options: {
         email: exchanged.email,
     };
     options.cache.set(key, entry);
+    writeStderrLog(
+        `[TokenExchange] ok | ${entry.email} | userUuid=${entry.userUuid} | key=${maskApiKey(entry.accessToken)} | expiresAt=${exchanged.expiresAt}${
+            options.forceRefresh ? ' | force' : ''
+        }`,
+        'info',
+    );
     return entry;
 }

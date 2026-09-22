@@ -229,7 +229,7 @@ v1 里 `set_project` 的 tags 只用于目录过滤。v2 在 `find_explores` / `
 | `LIGHTDASH_PROJECT_UUID` | 建议（单项目） | 默认项目；不设则工具须带 `projectUuid` |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | 默认 `3333` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 单次 limit 上限，默认 `5000` |
-| `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error` / `warn` / `info` / `debug`，默认 `info` |
+| `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error` / `warn` / `info` / `debug`，默认 `info`。默认 info 即可区分「没打到容器」与「验签 401 / 换票失败」，不必开 debug；对照见 [500 恢复 · 查日志](./lightdash-mcp-v2-500-client-recovery.md#5-发版后仍-401-时查什么) |
 
 Backend 另需同名 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，以及可选 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）/ `LIGHTDASH_MCP_PAT_TTL_MAX_SECONDS`（默认 86400）。详见 [Keycloak 专题 · 环境变量](./lightdash-mcp-v2-keycloak-oauth.md#3-环境变量)。
 

@@ -12,6 +12,7 @@ import {
     type AuthInfo,
 } from '@modelcontextprotocol/server';
 import type { OAuthTokenVerifier } from '@modelcontextprotocol/express';
+import { writeStderrLog } from '../lib/stderrLog';
 
 export type KeycloakJwtClaims = {
     email: string;
@@ -112,11 +113,19 @@ export async function verifyKeycloakAccessToken(
         }
         const message = errorMessage(error);
         if (isJwksInfrastructureError(error)) {
+            writeStderrLog(
+                `[Auth] JWKS unavailable: ${message}`,
+                'error',
+            );
             throw new OAuthError(
                 OAuthErrorCode.ServerError,
                 `Failed to fetch Keycloak JWKS: ${message}`,
             );
         }
+        writeStderrLog(
+            `[Auth] JWT verification failed: ${message}`,
+            'warn',
+        );
         throw new OAuthError(
             OAuthErrorCode.InvalidToken,
             `Keycloak JWT verification failed: ${message}`,
@@ -128,6 +137,10 @@ export async function verifyKeycloakAccessToken(
         (requiredScope) => !scopes.includes(requiredScope),
     );
     if (missingScopes.length > 0) {
+        writeStderrLog(
+            `[Auth] JWT missing required scopes: ${missingScopes.join(', ')}`,
+            'warn',
+        );
         throw new OAuthError(
             OAuthErrorCode.InvalidToken,
             `OAuth token missing required scopes: ${missingScopes.join(', ')}`,
@@ -136,6 +149,7 @@ export async function verifyKeycloakAccessToken(
 
     const email = extractEmail(payload);
     if (!email) {
+        writeStderrLog('[Auth] JWT missing email claim', 'warn');
         throw new OAuthError(
             OAuthErrorCode.InvalidToken,
             'OAuth token missing email claim (email or preferred_username)',

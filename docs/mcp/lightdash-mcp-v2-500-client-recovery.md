@@ -100,7 +100,17 @@ curl -i -X POST https://mcp-x.pre.banmahui.cn/mcp \
 | 元数据（建议） | Keycloak `scopes_supported` 勾上 `mcp:read` 的 Include in OpenID Provider Metadata |
 | 换票 | MCP 与 Backend 共用 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET` |
 
-Keycloak 界面步骤见 [OAuth 最小配置](./lightdash-mcp-v2-oauth-minimal.md)。
+默认 `LIGHTDASH_MCP_LOG_LEVEL=info` 即可区分「没打到容器」和「验签/换票失败」（不必开 debug）：
+
+| 同一时间容器里 | 含义 |
+|---|---|
+| 没有任何 `[Auth]` / `[TokenExchange]` / `[RequestLog]` | 请求没到 MCP（Keycloak / 本机回调 / WSL） |
+| `[Auth] JWT verification failed: ...` 或 missing scopes / email | 票到了，aud / scope / 过期不对 |
+| `[TokenExchange] failed \| email \| user not found` | 预发 Lightdash 无该主邮箱 |
+| `[TokenExchange] ok \| email \| userUuid=...` | 换票成功 |
+| `[OfficialTool]` / `[ToolCall]` | 链路已通 |
+
+`POST /mcp` 成功握手仍是 debug，避免刷屏。Keycloak 界面步骤见 [OAuth 最小配置](./lightdash-mcp-v2-oauth-minimal.md)。
 
 ---
 
