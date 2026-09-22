@@ -16,6 +16,7 @@ import {
     IconPin,
     IconPinnedOff,
     IconTrash,
+    IconUpload,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +31,7 @@ import {
     usePromoteDashboardDiffMutation,
     usePromoteDashboardMutation,
 } from '../../../features/promotion/hooks/usePromoteDashboard';
+import { canAdminUploadDataApp } from '../../../features/apps/utils/canAdminUploadDataApp';
 import { useProject } from '../../../hooks/useProject';
 import { useSpaceSummaries } from '../../../hooks/useSpaces';
 import useApp from '../../../providers/App/useApp';
@@ -255,6 +257,26 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                             'components_common_resource_view_action_menu.menus.rename.title',
                         )}
                     </Menu.Item>
+
+                    {item.type === ResourceViewItemType.DATA_APP &&
+                    projectUuid &&
+                    canAdminUploadDataApp(user.data, projectUuid) ? (
+                        <Menu.Item
+                            component="button"
+                            role="menuitem"
+                            icon={<IconUpload size={18} />}
+                            onClick={() => {
+                                onAction({
+                                    type: ResourceViewItemAction.UPLOAD_PACKAGE,
+                                    item,
+                                });
+                            }}
+                        >
+                            {t(
+                                'components_common_resource_view_action_menu.menus.upload_package.title',
+                            )}
+                        </Menu.Item>
+                    ) : null}
 
                     {item.type === ResourceViewItemType.CHART ||
                     item.type === ResourceViewItemType.DASHBOARD ? (

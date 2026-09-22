@@ -3826,7 +3826,7 @@
       },
       "data_app": {
         "title": "数据应用",
-        "description": "基于你的数据构建交互式应用。"
+        "description": "上传本地构建的 React 应用，并嵌到看板中。"
       },
       "space": {
         "title": "空间",
@@ -4095,6 +4095,15 @@
         "create": "创建新空间"
       }
     }
+  },
+  "components_common_modal_app_delete": {
+    "title": "删除应用",
+    "tip": "确定删除 ",
+    "tip_suffix": "？应用及其全部版本和构建产物将被永久删除。",
+    "content": "该应用已被 {{length}} 个看板引用：",
+    "warning": "删除后这些看板中的图块仍在，但无法再使用。请编辑图块另选应用，或删掉图块。",
+    "cancel": "取消",
+    "delete": "删除"
   },
   "components_common_modal_chart_delete": {
     "title": "删除图表",
@@ -6444,6 +6453,9 @@
         "space": {
           "label": "空间"
         },
+        "status": {
+          "label": "状态"
+        },
         "updated": {
           "label": "最后编辑时间"
         }
@@ -6506,6 +6518,9 @@
       },
       "delete": {
         "title": "删除{{type}}"
+      },
+      "upload_package": {
+        "title": "更新包"
       }
     }
   },
@@ -8459,12 +8474,33 @@
     "or": "或",
     "sign_up": "注册"
   },
-  "pages_saved_apps": {
-    "title": "数据应用",
-    "breadcrumb_home": "首页",
-    "breadcrumb_all": "全部数据应用",
-    "create": "创建数据应用"
-  },
+    "pages_saved_apps": {
+        "title": "数据应用",
+        "breadcrumb_home": "首页",
+        "breadcrumb_all": "全部数据应用",
+        "create": "创建数据应用",
+        "upload": "上传应用"
+    },
+    "features_apps_upload": {
+        "title": "上传数据应用",
+        "update_title": "更新包",
+        "hint": "请选择本地模板目录（先执行 pnpm build）。须包含 src/、dist/index.html 与 lightdash-app.yml。人工上传不走云端 sandbox。",
+        "folder_label": "应用目录",
+        "folder_placeholder": "选择已构建的应用目录",
+        "folder_description": "请用目录选择器，以便保留 src/ 与 dist/ 的相对路径。",
+        "pick_folder": "选择目录",
+        "file_count": "已选择 {{count}} 个文件",
+        "need_folder": "请选择包含 src/、dist/ 与 lightdash-app.yml 的目录",
+        "parse_failed": "无法读取所选目录",
+        "error": "上传失败",
+        "submit": "上传",
+        "status_ready": "可使用",
+        "status_unavailable": "无可用版本",
+        "toast_created": "应用已上传",
+        "toast_append": "已上传新版本",
+        "toast_unchanged": "应用未变化，已保留当前版本",
+        "toast_failed": "上传数据应用失败"
+    },
   "pages_app_generate": {
     "title": "创建数据应用",
     "subtitle": "选择一个起点，然后描述你想构建的内容。",

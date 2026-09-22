@@ -49,6 +49,7 @@ import {
     QueryExecutionContext,
     resolveDefaultVisibleDataAppClaudeModel,
     sanitizeAppPackageJsonScripts,
+    splitDataAppUploadFiles,
     themeLimitMessage,
     TooManyRequestsError,
     validateDataAppCode,
@@ -671,6 +672,33 @@ export class AppGenerateService extends BaseService {
                 );
             })
         );
+    }
+
+    /**
+     * Manual upload is admin-only: org/project manage:DataApp with no
+     * space, createdBy, or preview-project conditions. Editors have
+     * create:DataApp and creators have manage on their own apps; neither
+     * is enough to upload or overwrite a package.
+     */
+    private assertAdminCanUploadDataApp(
+        user: SessionUser,
+        organizationUuid: string,
+        projectUuid: string,
+    ): void {
+        const auditedAbility = this.createAuditedAbility(user);
+        const canOrgAdmin = auditedAbility.can(
+            'manage',
+            subject('DataApp', { organizationUuid }),
+        );
+        const canProjectAdmin = auditedAbility.can(
+            'manage',
+            subject('DataApp', { projectUuid }),
+        );
+        if (!canOrgAdmin && !canProjectAdmin) {
+            throw new ForbiddenError(
+                'Only project or organization admins can upload data apps',
+            );
+        }
     }
 
     /**
@@ -4418,6 +4446,33 @@ export class AppGenerateService extends BaseService {
             `App ${appUuid}: S3 upload completed (files=${distResult.fileCount + 1}, totalBytes=${totalBytes}, ${durationMs}ms)`,
         );
         return durationMs;
+    }
+
+    private async uploadPrebuiltDistToS3(
+        s3Client: S3Client,
+        bucket: string,
+        appUuid: string,
+        version: number,
+        distFiles: DataAppCodeFile[],
+    ): Promise<void> {
+        const s3Prefix = versionPrefix(appUuid, version);
+        await Promise.all(
+            distFiles.map(async (file) => {
+                const relativePath = file.path.replace(/^dist\//, '');
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: bucket,
+                        Key: `${s3Prefix}${relativePath}`,
+                        Body: Buffer.from(file.contentBase64, 'base64'),
+                        ContentType:
+                            AppGenerateService.getContentType(relativePath),
+                    }),
+                );
+            }),
+        );
+        this.logger.info(
+            `App ${appUuid}: uploaded prebuilt dist (${distFiles.length} files) for version ${version}`,
+        );
     }
 
     private static shouldRunStage(
@@ -10885,17 +10940,24 @@ export class AppGenerateService extends BaseService {
         warnings: string[];
     }> {
         await this.assertDataAppsEnabled(user);
+        const uploadProjectContext =
+            await this.getDataAppProjectContext(projectUuid);
+        this.assertAdminCanUploadDataApp(
+            user,
+            uploadProjectContext.organizationUuid,
+            projectUuid,
+        );
 
         const code = validateDataAppCode(body.code);
-        const sourceFiles = code.files.filter((f) => f.path.startsWith('src/'));
-        if (sourceFiles.length === 0) {
-            throw new ParameterError(
-                'Uploaded bundle has no src/ files to build',
-            );
+        let sourceFiles: DataAppCodeFile[];
+        let distFiles: DataAppCodeFile[];
+        try {
+            ({ sourceFiles, distFiles } = splitDataAppUploadFiles(code.files));
+        } catch (err) {
+            throw new ParameterError(getErrorMessage(err));
         }
 
-        const { organizationUuid } =
-            await this.getDataAppProjectContext(projectUuid);
+        const { organizationUuid } = uploadProjectContext;
 
         // Resolve manifest external-connection links up front so a broken
         // bundle rejects before creating anything.
@@ -11079,6 +11141,12 @@ export class AppGenerateService extends BaseService {
             }
         }
 
+        if (dependencySummary !== undefined) {
+            throw new ParameterError(
+                'Custom app dependencies are not supported for manual uploads. Use only the template dependency set.',
+            );
+        }
+
         // Identity resolution (charts-as-code pattern): the manifest slug is
         // matched against the TARGET project — found → append a version,
         // missing → create with that exact slug. targetAppUuid remains as the
@@ -11208,14 +11276,6 @@ export class AppGenerateService extends BaseService {
             }
         }
 
-        const inProgressCount =
-            await this.appModel.countInProgressVersionsForProject(projectUuid);
-        if (inProgressCount >= MAX_CONCURRENT_APP_BUILDS_PER_PROJECT) {
-            throw new TooManyRequestsError(
-                `Too many app builds in progress for this project (${inProgressCount}/${MAX_CONCURRENT_APP_BUILDS_PER_PROJECT}). Wait for some to finish and try again.`,
-            );
-        }
-
         let newAppUuid: string;
         let newAppSlug: string;
         let newVersion: number;
@@ -11281,7 +11341,7 @@ export class AppGenerateService extends BaseService {
             await this.appModel.createVersion(
                 existingApp.app_id,
                 { version: newVersion, prompt: '' },
-                'pending',
+                'ready',
                 user.userUuid,
                 AppGenerateService.buildCopiedResources(null),
                 dependencySummary,
@@ -11352,7 +11412,7 @@ export class AppGenerateService extends BaseService {
                         : {}),
                 },
                 { version: newVersion, prompt: '' },
-                'pending',
+                'ready',
                 AppGenerateService.buildCopiedResources(null),
                 dependencySummary,
                 code.manifest.template === DATA_APP_VIZ_TEMPLATE
@@ -11450,14 +11510,18 @@ export class AppGenerateService extends BaseService {
             );
         }
 
-        // Enqueue the build-only pipeline
-        await this.schedulerClient.appBuildFromSource({
-            appUuid: newAppUuid,
-            version: newVersion,
-            projectUuid,
-            organizationUuid,
-            userUuid: user.userUuid,
-        });
+        await this.uploadPrebuiltDistToS3(
+            client,
+            bucket,
+            newAppUuid,
+            newVersion,
+            distFiles,
+        );
+        await this.appModel.updateStatusMessage(
+            newAppUuid,
+            newVersion,
+            'Uploaded prebuilt bundle',
+        );
 
         this.analytics.track({
             event: 'data_app.uploaded',

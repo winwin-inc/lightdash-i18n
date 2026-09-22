@@ -401,10 +401,12 @@ export class DashboardService
         projectUuid: string,
         chartUuid?: string,
         includePrivate?: boolean,
+        appUuid?: string,
     ): Promise<DashboardBasicDetailsWithTileTypes[]> {
         const dashboards = await this.dashboardModel.getAllByProject(
             projectUuid,
             chartUuid,
+            appUuid,
         );
         const spaceUuids = [
             ...new Set(dashboards.map((dashboard) => dashboard.spaceUuid)),

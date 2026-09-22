@@ -1967,3 +1967,36 @@ describe('Project member permissions', () => {
         });
     });
 });
+
+describe('Data app manual upload (admin-only manage)', () => {
+    const canAdminUpload = (roleMember: typeof PROJECT_ADMIN) => {
+        const ability = defineAbilityForProjectMember(roleMember);
+        return ability.can(
+            'manage',
+            subject('DataApp', { projectUuid: roleMember.projectUuid }),
+        );
+    };
+
+    it('allows project admin', () => {
+        expect(canAdminUpload(PROJECT_ADMIN)).toEqual(true);
+    });
+
+    it('denies editor even though they can create data apps', () => {
+        const ability = defineAbilityForProjectMember(PROJECT_EDITOR);
+        expect(
+            ability.can(
+                'create',
+                subject('DataApp', { projectUuid: PROJECT_EDITOR.projectUuid }),
+            ),
+        ).toEqual(true);
+        expect(canAdminUpload(PROJECT_EDITOR)).toEqual(false);
+    });
+
+    it('denies developer on a regular project', () => {
+        expect(canAdminUpload(PROJECT_DEVELOPER)).toEqual(false);
+    });
+
+    it('denies interactive viewer', () => {
+        expect(canAdminUpload(PROJECT_INTERACTIVE_VIEWER)).toEqual(false);
+    });
+});

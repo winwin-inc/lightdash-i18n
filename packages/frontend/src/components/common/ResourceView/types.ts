@@ -16,6 +16,7 @@ export enum ResourceViewItemAction {
     CREATE_SPACE,
     PIN_TO_HOMEPAGE,
     TRANSFER_TO_SPACE,
+    UPLOAD_PACKAGE,
 }
 
 export enum ResourceViewType {
@@ -63,6 +64,10 @@ export type ResourceViewItemActionState =
               | ResourceViewDashboardItem
               | ResourceViewSpaceItem
               | ResourceViewDataAppItem;
+      }
+    | {
+          type: ResourceViewItemAction.UPLOAD_PACKAGE;
+          item: ResourceViewDataAppItem;
       };
 
 type TabType = {
@@ -103,6 +108,7 @@ export enum ColumnVisibility {
     UPDATED_AT = 'updatedAt',
     ACCESS = 'access',
     CONTENT = 'content',
+    STATUS = 'status',
 }
 
 export type ColumnVisibilityConfig = {
@@ -111,6 +117,7 @@ export type ColumnVisibilityConfig = {
     [ColumnVisibility.UPDATED_AT]?: boolean;
     [ColumnVisibility.ACCESS]?: boolean;
     [ColumnVisibility.CONTENT]?: boolean;
+    [ColumnVisibility.STATUS]?: boolean;
 };
 
 export enum ResourceAccess {

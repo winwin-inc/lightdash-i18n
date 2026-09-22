@@ -674,11 +674,22 @@ export class ProjectController extends BaseController {
                 ? req.query.chartUuid.toString()
                 : undefined;
 
+        const appUuid: string | undefined =
+            typeof req.query.appUuid === 'string'
+                ? req.query.appUuid.toString()
+                : undefined;
+
         const includePrivate = req.query.includePrivate !== 'false';
 
         const results = await this.services
             .getDashboardService()
-            .getAllByProject(req.user!, projectUuid, chartUuid, includePrivate);
+            .getAllByProject(
+                req.user!,
+                projectUuid,
+                chartUuid,
+                includePrivate,
+                appUuid,
+            );
 
         return {
             status: 'ok',

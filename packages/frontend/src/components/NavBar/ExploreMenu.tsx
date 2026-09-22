@@ -17,6 +17,7 @@ import useCreateInAnySpaceAccess from '../../hooks/user/useCreateInAnySpaceAcces
 import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
+import { canAdminUploadDataApp } from '../../features/apps/utils/canAdminUploadDataApp';
 import LargeMenuItem from '../common/LargeMenuItem';
 import MantineIcon from '../common/MantineIcon';
 import SpaceActionModal from '../common/SpaceActionModal';
@@ -142,15 +143,8 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             />
                         )}
 
-                        {dataAppsFlag.data?.enabled && (
-                            <Can
-                                I="create"
-                                this={subject('DataApp', {
-                                    organizationUuid:
-                                        user.data?.organizationUuid,
-                                    projectUuid,
-                                })}
-                            >
+                        {dataAppsFlag.data?.enabled &&
+                            canAdminUploadDataApp(user.data, projectUuid) && (
                                 <LargeMenuItem
                                     component={Link}
                                     title={t(
@@ -159,11 +153,10 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                     description={t(
                                         'components_navbar_explore_menu.menus.data_app.description',
                                     )}
-                                    to={`/projects/${projectUuid}/apps/generate`}
+                                    to={`/projects/${projectUuid}/apps?upload=1`}
                                     icon={IconAppWindow}
                                 />
-                            </Can>
-                        )}
+                            )}
 
                         <Can
                             I="create"
