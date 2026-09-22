@@ -113,25 +113,44 @@ flowchart LR
 
 ---
 
-## 5. 本地脚手架
+## 5. 开发与上传规范
 
-包：[`packages/data-app-template/`](../../packages/data-app-template/)（不打进主站 bundle）。
+| 东西 | 角色 |
+|------|------|
+| [`packages/query-sdk`](../../packages/query-sdk/) | 取数库，不是 dapp。本期不改、嵌看板不用配 Key |
+| [`packages/data-app-template`](../../packages/data-app-template/) | 工程母版，不要在这里写业务 |
+| `data-apps/<slug>/` | 脚本生成的最小 dapp（不进 workspace、不打进主站 bundle） |
+
+```bash
+pnpm install
+pnpm --filter @lightdash/query-sdk build
+pnpm create-data-app my-sales-kpi
+cd data-apps/my-sales-kpi
+pnpm install
+# 改 src/App.jsx 的 EXPLORE / METRIC
+pnpm build
+```
+
+`createClient()`：嵌看板走 `#transport=postMessage`，不用 API Key。只有本机 `pnpm dev` 才在该 dapp 目录配 `VITE_LIGHTDASH_*`。
+
+**最小可上传目录**
 
 ```
-my-kpi-app/
+<slug>/
   lightdash-app.yml
   package.json
   src/main.jsx
   src/App.jsx
-  dist/                 # pnpm build 后随包上传
+  dist/                 # 必须有 dist/index.html
 ```
 
-1. 仓库根目录 `pnpm install` 且 `pnpm --filter @lightdash/query-sdk build`
-2. `cd packages/data-app-template`，改 `src/App.jsx` 的 `EXPLORE` / `METRIC`
-3. `pnpm build`
-4. 管理员在「全部数据应用」上传该目录
+**上传清单**
 
-嵌在 iframe 里时 SDK 走 postMessage，不需要本地 API Key。
+- 产品里选**整个应用目录**（不是 zip、不是仓库根）
+- 实际提交：`lightdash-app.yml` + `src/**` + `dist/**`
+- 不要传 `node_modules/`、`.git/`
+- 依赖白名单：query-sdk、React、Vite；自定义 npm 会被拒
+- 覆盖已有应用：保持 `slug` 或行菜单「更新包」。不要删了再传（看板绑 `appUuid`）
 
 ---
 
@@ -203,6 +222,8 @@ my-kpi-app/
 | 上传 API | `packages/backend/src/ee/services/AppGenerateService/AppGenerateService.ts`（`importAppCode`） |
 | 包校验 | `packages/common/src/ee/apps/code.ts`（`splitDataAppUploadFiles`） |
 | SDK | `packages/query-sdk/` |
+| 母版脚手架 | `packages/data-app-template/` |
+| 生成脚本 | `scripts/create-data-app.mjs`（`pnpm create-data-app <slug>`） |
 | 建表 migration | `packages/backend/src/database/migrations/20260330120000_create_apps_tables.ts` 起 |
 
 ---
@@ -214,3 +235,4 @@ my-kpi-app/
 | 2026-09-10 | 初版：交付边界、用法、手写能力、筛选联动、预发缺列踩坑、跟进清单 |
 | 2026-09-10 | 补记：`spaces.deleted_at` 缺列与 soft-delete migration 回填 |
 | 2026-09-22 | 人工主路径：本地模板构建上传、跳过 sandbox、隐藏 AI、管理员上传、磁贴读回 |
+| 2026-09-22 | 开发规范：template vs query-sdk、`pnpm create-data-app`、上传清单 |
