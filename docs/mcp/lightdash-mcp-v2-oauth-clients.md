@@ -256,6 +256,8 @@ Realm 示例：`https://keycloak.dev.banmahui.cn/realms/mcp`
 
 新建（或确认）Client Scope `mcp:read`，并加入 Anonymous 策略允许列表。
 
+**Type 必须是 `Default`，禁止 `Optional`。** Audience Mapper 挂在该 scope 上；Optional 时新版 Claude 重连 / refresh 常不申请 `mcp:read`，access token 没有 `aud`，MCP 验签 401（`missing required "aud" claim`）。改 Type 只影响之后新 DCR 的客户端：已有动态 client 须把 `mcp:read` 加到 Default 或删除后重新 Authenticate。
+
 Audience Mapper（示例）：
 
 | 字段 | 值 |
@@ -394,8 +396,9 @@ claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahu
 | `Trusted Hosts` / `URI doesn't match` | DCR 的 redirect_uris 未放行 | 按 §4 补 Trusted Hosts；看 Keycloak 日志中的完整 URI 列表 |
 | metadata 根路径 404 | 旧镜像无根路径兼容 | 部署含 `/.well-known/oauth-protected-resource` 的 MCP 镜像 |
 | 登录成功但 MCP 401 缺 email | token 无 email claim | §5.3 Email Mapper + 用户资料 |
-| 缺 `mcp:read` | scope 未申请或未允许 | §5.2 + `OAUTH_REQUIRED_SCOPES` |
-| aud 校验失败 | Audience Mapper 与 `MCP_OAUTH_AUDIENCE` 不一致 | §5.2 与 §6.1 |
+| 缺 `mcp:read` | scope 未申请或 Type 仍是 Optional | §5.2：Type 改 **Default** + `OAUTH_REQUIRED_SCOPES` |
+| `missing required "aud" claim` | `mcp:read` 为 Optional，票上无 aud | §5.2：Type=**Default**；旧 DCR client 补 Default 后 Re-authenticate |
+| aud 值不对 | Audience Mapper 与 `MCP_OAUTH_AUDIENCE` 不一致 | §5.2 与 §6.1 |
 | token-exchange 404 | Lightdash 无该邮箱用户 | 先在主站建同邮箱账号 |
 | token-exchange 401 | 共享密钥不一致或未注入 | 检查两边 Secret |
 | `/health` 503 + `missingEnv` | MCP 缺必填环境变量 | 补 ConfigMap/Secret 并重建 Pod |
@@ -404,10 +407,10 @@ claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahu
 
 ## 10. 部署顺序建议
 
-1. Keycloak：Trusted Hosts + scopes + email/audience mapper（§5）。
+1. Keycloak：Trusted Hosts + `mcp:read`（**Default**）+ email/audience mapper（§5）。
 2. Backend：换票密钥与 TTL（§6.2）。
 3. 发布含根路径 metadata 的 MCP 镜像，注入 §6.1 环境变量。
 4. 用 Claude Code / WorkBuddy 走完整登录与工具调用（§8）。
 5. （可选）再补 Cursor 回调白名单。
 
-*文档版本：2026-09-20 · 独立成篇，可直接转发运维 / 接入方。*
+*文档版本：2026-09-22 · `mcp:read` 必须 Default；独立成篇，可直接转发运维 / 接入方。*

@@ -25,13 +25,17 @@ OAuth Audience：https://mcp-x.pre.banmahui.cn/mcp
 |------|------|
 | Name | `mcp:read` |
 | Description | `Lightdash MCP read access`（可选） |
-| Type | `Optional` |
+| Type | **`Default`（必须，禁止 Optional）** |
 | Protocol | `OpenID Connect` |
 | Display on consent screen | On |
 | Include in token scope | **On** |
 | Include in OpenID Provider Metadata | On |
 
 Save。
+
+**Type 必须是 Default。** Audience Mapper 挂在 `mcp:read` 上：Optional 时只有客户端显式申请才会进 access token；新版 Claude Code 重连 / refresh 常不带这个 scope，票上就没有 `aud`，MCP 报 `missing required "aud" claim`。Default 则登录和 refresh 都会带上 `mcp:read` 和 `aud`。
+
+已存在的 DCR 客户端**不会**因改 Type 自动变成 Default。改完后：在 **Clients** 里把该 client 的 `mcp:read` 加到 Default（或删掉动态 client），再让 Claude **Clear authentication → Re-authenticate**（只点 reconnect 无效）。
 
 ### 2. 给 `mcp:read` 加 Audience Mapper
 
@@ -54,7 +58,7 @@ Save。
 https://keycloak.dev.banmahui.cn/realms/mcp/.well-known/openid-configuration
 ```
 
-`scopes_supported` 必须出现 **`mcp:read`**。
+`scopes_supported` 必须出现 **`mcp:read`**。Client scopes 列表里 `mcp:read` 的 Type 必须是 **Default**。
 
 ### 3. Trusted Hosts（回调白名单，含 WorkBuddy / Cursor）
 
@@ -245,16 +249,17 @@ Keycloak 侧：Trusted Hosts 已含 `localhost`、`www.cursor.com`、`cursor.com
 
 1. `GET https://mcp-x.pre.banmahui.cn/health` → `ok: true`
 2. `GET https://mcp-x.pre.banmahui.cn/.well-known/oauth-protected-resource` → 含 `authorization_servers`
-3. Keycloak `scopes_supported` 含 `mcp:read`
+3. Keycloak `scopes_supported` 含 `mcp:read`，且 `mcp:read` Type 为 **Default**
 4. Claude DCR 成功，浏览器出现 Keycloak 登录页，回调 `localhost` 正常
-5. Lightdash 日志 `POST /api/v1/mcp/token-exchange` → **200**
-6. Claude `/mcp` 显示 `msyx-pre` **connected**，能调用如 `list_projects`
+5. 登录后 access token 含 `aud=https://mcp-x.pre.banmahui.cn/mcp`，`scope` 含 `mcp:read`
+6. Lightdash 日志 `POST /api/v1/mcp/token-exchange` → **200**
+7. Claude `/mcp` 显示 `msyx-pre` **connected**，能调用如 `list_projects`
 
 ---
 
 ## 六、配置顺序（推荐）
 
-1. Keycloak：`mcp:read` + Audience Mapper + Trusted Hosts  
+1. Keycloak：`mcp:read`（**Type=Default**）+ Audience Mapper + Trusted Hosts  
 2. （建议）Allowed Client Scopes 勾全 5 项  
 3. 应用 MCP ConfigMap 并重建 Pod  
 4. 确认 Lightdash / Keycloak 同邮箱账号  
@@ -268,10 +273,11 @@ Keycloak 侧：Trusted Hosts 已含 `localhost`、`www.cursor.com`、`cursor.com
 | 现象 | 处理 |
 |------|------|
 | `Invalid scopes: ... mcp:read` | 创建 `mcp:read` 并出现在 `scopes_supported` |
+| `[Auth] missing required "aud" claim` / 新版 Claude 重连被拒 | `mcp:read` 仍是 Optional。Type 改 **Default**；旧 DCR client 补 Default 或删除后 **Re-authenticate** |
 | `Trusted Hosts` / URI doesn't match | 按客户端补 Hosts；看拒绝日志中的完整 `redirect_uris` |
 | `Allowed Client Scopes` rejected | 白名单补全 5 项，或临时删策略 |
 | token-exchange 404 无用户 | Keycloak / Lightdash 邮箱不一致 |
 | 一直停在 Lightdash 邮箱验证页 | 会话未退出 + 邮箱改错；logout URL 或改 `emails` 表 |
 | 回调到 localhost | **正常**，本机 Claude 收授权码 |
 
-*文档版本：2026-09-20 · 基于预发 Claude Code 实跑通整理*
+*文档版本：2026-09-22 · `mcp:read` 必须 Default；基于预发 Claude Code 实跑整理*

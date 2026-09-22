@@ -169,8 +169,8 @@ Realm URL 用环境变量 `KEYCLOAK_REALM_URL`，**不写死**。
 
 - Keycloak **≥ 26.6.0**（DCR 兼容）
 - 开启 Dynamic Client Registration；Trusted Hosts 允许 MCP / 客户端 redirect（本地 `localhost`、Cursor 等）
-- Audience mapper：`aud` = MCP public resource URL（与 `MCP_OAUTH_AUDIENCE` 一致）
-- Client scope 含约定 scopes，并 **Include in token scope**
+- Audience mapper：`aud` = MCP public resource URL（与 `MCP_OAUTH_AUDIENCE` 一致），挂在 `mcp:read` 上
+- Client scope `mcp:read` **Type 必须是 Default**（禁止 Optional）；并 **Include in token scope**。Optional 时新版 Claude refresh 后票无 `aud`，MCP 401
 - 每个 Keycloak 用户的 **email claim** 必须等于其在 Lightdash 中已有账号的主邮箱
 
 ---
