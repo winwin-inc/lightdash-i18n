@@ -268,6 +268,43 @@ export const assignKnownHashColors = (
 };
 
 /**
+ * 看板级追加未知名：只给还没有颜色的名字分配。
+ * 占色范围是全部已知色 + 已经追加过的未知名，不看当前图还剩哪些系列。
+ * 已有名字原样返回；无新 key 时复用 appendedAssignments 引用。
+ */
+export const appendDashboardUnknownHashColors = (
+    incomingKeys: string[],
+    colorPalette: string[],
+    knownAssignments: Record<string, string>,
+    appendedAssignments: Record<string, string>,
+): Record<string, string> => {
+    const incoming = normalizeColorSyncKeys(incomingKeys);
+    const unknown = incoming.filter(
+        (key) =>
+            !lookupSyncedColor(key, knownAssignments) &&
+            !lookupSyncedColor(key, appendedAssignments),
+    );
+
+    if (unknown.length === 0) {
+        return appendedAssignments;
+    }
+
+    const next = { ...appendedAssignments };
+    const usedColors = [
+        ...Object.values(knownAssignments),
+        ...Object.values(next),
+    ];
+
+    unknown.forEach((key) => {
+        const color = pickAvoidingColor(key, colorPalette, usedColors);
+        next[key] = color;
+        usedColors.push(color);
+    });
+
+    return next;
+};
+
+/**
  * 本图可见名只追加：不在 known 里的按 UTF-16 排序后避让本图已见色，不回头改 known。
  * 无未知 key 时复用 knownAssignments 引用；同一 known 对象上的相同可见集走有界缓存。
  */
