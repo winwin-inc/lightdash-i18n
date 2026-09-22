@@ -41,6 +41,7 @@
 | [**MCP v2 Keycloak OAuth**](./lightdash-mcp-v2-keycloak-oauth.md) | Keycloak + 邮箱换票（一人一票、TTL、失效续期） |
 | [**MCP v2 OAuth 最小配置**](./lightdash-mcp-v2-oauth-minimal.md) | 运维实操：Keycloak + 预发环境变量；客户端只配 URL |
 | [**MCP v2 OAuth 客户端接入**](./lightdash-mcp-v2-oauth-clients.md) | Claude Code / WorkBuddy / Cursor 回调与验收 |
+| [**MCP v2 扫码后 500**](./lightdash-mcp-v2-500-client-recovery.md) | 客户只配 URL、验票 500→401、运维验收 |
 | [**MCP v2 运维部署（K8s + Docker 穿透）**](./lightdash-mcp-v2-deploy.md) | ConfigMap / Secret / Apisix、本地穿透 `MCP_PUBLIC_URL` |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查（Dockerfile 已指向 v2） |
 | [v2 包 README](../../packages/lightdash-mcp-v2/README.md) | 包级摘要 |
