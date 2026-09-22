@@ -21,6 +21,7 @@ import omit from 'lodash/omit';
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -33,10 +34,7 @@ import {
     lookupSyncedColor,
     pieRowColorKeys,
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
-import {
-    appendUnknownHashColors,
-    resolveSyncedHashColor,
-} from '../../hooks/useChartColorConfig/hashColorAssignment';
+import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -49,6 +47,7 @@ import {
 } from '../../hooks/useFeatureFlagEnabled';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
 import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
+import { useRegisterDashboardVisibleColorKeys } from '../../providers/DashboardChartColorSync/useDashboardChartColorSync';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import VisualizationBigNumberConfig from './VisualizationBigNumberConfig';
 import VisualizationCartesianConfig from './VisualizationConfigCartesian';
@@ -98,7 +97,7 @@ export type VisualizationProviderProps = {
     useHashBased?: boolean;
     /** 看板级系列手配色，跨 Tab 预取后传入 */
     manualColorMap?: Record<string, string>;
-    /** 看板已知系列名的确定性哈希色，筛选新系列只避让这些槽 */
+    /** 看板已知系列 + 筛选后追加未知名的合并色表 */
     hashAssignments?: Record<string, string>;
     tablePagination?: TablePaginationState;
 };
@@ -213,14 +212,14 @@ const VisualizationProvider: FC<
         return keys;
     }, [chartConfig, computedSeries, resultsData]);
 
-    const chartHashAssignments = useMemo(() => {
-        if (!useHashBased) return hashAssignments;
-        return appendUnknownHashColors(
-            visibleColorKeys,
-            colorPalette,
-            hashAssignments,
-        );
-    }, [useHashBased, visibleColorKeys, colorPalette, hashAssignments]);
+    const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
+
+    useLayoutEffect(() => {
+        if (!useHashBased) return;
+        registerVisibleColorKeys(visibleColorKeys);
+    }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
+
+    const chartHashAssignments = hashAssignments;
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
         useChartColorConfig({
@@ -276,7 +275,7 @@ const VisualizationProvider: FC<
             .map((series) => calculateSeriesLikeIdentifier(series).join('|'))
             .sort((a, b) => b.localeCompare(a));
 
-        // 当 useHashBased 开启时，以看板 hashAssignments 为准，未知名只追加
+        // 当 useHashBased 开启时，以看板级合并色表为准
         if (useHashBased) {
             return Object.fromEntries(
                 sortedSeriesIdentifiers.map((identifier) => {
@@ -366,21 +365,14 @@ const VisualizationProvider: FC<
     const getGroupColors = useCallback(
         (groupPrefix: string, identifiers: string[]) => {
             if (useHashBased) {
-                // 优先复用 chartHashAssignments；仅有未覆盖 identifier 时增量追加
-                const assigned = appendUnknownHashColors(
-                    identifiers,
-                    colorPalette,
-                    chartHashAssignments,
-                );
                 return Object.fromEntries(
                     identifiers.map((identifier) => [
                         identifier,
-                        lookupSyncedColor(identifier, assigned) ??
-                            resolveSyncedHashColor(
-                                identifier,
-                                colorPalette,
-                                assigned,
-                            ),
+                        resolveSyncedHashColor(
+                            identifier,
+                            colorPalette,
+                            chartHashAssignments,
+                        ),
                     ]),
                 );
             }

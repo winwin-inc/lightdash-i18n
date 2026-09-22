@@ -1,7 +1,17 @@
 import { ECHARTS_DEFAULT_COLORS } from '@lightdash/common';
-import { useMemo, type FC, type PropsWithChildren } from 'react';
+import {
+    useCallback,
+    useMemo,
+    useRef,
+    useState,
+    type FC,
+    type PropsWithChildren,
+} from 'react';
 import { useOrganization } from '../../hooks/organization/useOrganization';
-import { assignKnownHashColors } from '../../hooks/useChartColorConfig/hashColorAssignment';
+import {
+    appendDashboardUnknownHashColors,
+    assignKnownHashColors,
+} from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { useDashboardColorSyncMap } from '../../hooks/useChartColorConfig/useDashboardColorSyncMap';
 import useDashboardContext from '../Dashboard/useDashboardContext';
 import DashboardChartColorSyncContext, {
@@ -16,6 +26,7 @@ type DashboardChartColorSyncProviderProps = {
 };
 
 const EMPTY_SYNC_TILE_UUIDS: string[] = [];
+const EMPTY_APPENDED: Record<string, string> = {};
 
 const DashboardChartColorSyncProvider: FC<
     PropsWithChildren<DashboardChartColorSyncProviderProps>
@@ -44,7 +55,7 @@ const DashboardChartColorSyncProvider: FC<
             syncChartTileUuids: resolvedTileUuids,
         });
 
-    const hashAssignments = useMemo(
+    const knownHashAssignments = useMemo(
         () =>
             assignKnownHashColors(
                 knownColorKeys,
@@ -55,6 +66,52 @@ const DashboardChartColorSyncProvider: FC<
         [knownColorKeys, resolvedPalette, chartColorKeyGroups],
     );
 
+    const knownStoreKey = useMemo(
+        () =>
+            `${resolvedPalette.join(',')}|${JSON.stringify(
+                knownHashAssignments,
+            )}`,
+        [knownHashAssignments, resolvedPalette],
+    );
+
+    const [storeKey, setStoreKey] = useState(knownStoreKey);
+    const [appendedAssignments, setAppendedAssignments] =
+        useState<Record<string, string>>(EMPTY_APPENDED);
+    const appendedRef = useRef(appendedAssignments);
+
+    const shouldResetAppended = storeKey !== knownStoreKey;
+    if (shouldResetAppended) {
+        setStoreKey(knownStoreKey);
+        setAppendedAssignments(EMPTY_APPENDED);
+        appendedRef.current = EMPTY_APPENDED;
+    }
+    const effectiveAppended = shouldResetAppended
+        ? EMPTY_APPENDED
+        : appendedAssignments;
+
+    const registerVisibleColorKeys = useCallback(
+        (keys: string[]) => {
+            const next = appendDashboardUnknownHashColors(
+                keys,
+                resolvedPalette,
+                knownHashAssignments,
+                appendedRef.current,
+            );
+            if (next === appendedRef.current) return;
+            appendedRef.current = next;
+            setAppendedAssignments(next);
+        },
+        [knownHashAssignments, resolvedPalette],
+    );
+
+    const hashAssignments = useMemo(
+        () =>
+            Object.keys(effectiveAppended).length === 0
+                ? knownHashAssignments
+                : { ...knownHashAssignments, ...effectiveAppended },
+        [effectiveAppended, knownHashAssignments],
+    );
+
     const value: DashboardChartColorSyncContextValue = useMemo(
         () => ({
             enabled: resolvedEnabled,
@@ -63,6 +120,7 @@ const DashboardChartColorSyncProvider: FC<
             manualColors,
             knownColorKeys,
             hashAssignments,
+            registerVisibleColorKeys,
         }),
         [
             resolvedEnabled,
@@ -71,6 +129,7 @@ const DashboardChartColorSyncProvider: FC<
             manualColors,
             knownColorKeys,
             hashAssignments,
+            registerVisibleColorKeys,
         ],
     );
 

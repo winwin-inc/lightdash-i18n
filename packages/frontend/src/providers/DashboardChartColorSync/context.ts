@@ -8,8 +8,10 @@ export type DashboardChartColorSyncContextValue = {
     manualColors: Record<string, string>;
     /** 看板已保存配置里出现过的系列名，UTF-16 排序 */
     knownColorKeys: string[];
-    /** known 系列名的确定性哈希色（含手配），筛选新系列只避让这些槽 */
+    /** known + 看板级追加未知名后的合并色表 */
     hashAssignments: Record<string, string>;
+    /** 把当前图可见系列名追加进看板色表；切 Tab / 改筛选不清空 */
+    registerVisibleColorKeys: (keys: string[]) => void;
 };
 
 const DashboardChartColorSyncContext =
