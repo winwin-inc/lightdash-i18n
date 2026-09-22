@@ -1,8 +1,8 @@
 import { subject } from '@casl/ability';
-import { type SessionUser } from '@lightdash/common';
+import { type UserWithAbility } from '../../../hooks/user/useUser';
 
 export const canAdminUploadDataApp = (
-    user: Pick<SessionUser, 'ability' | 'organizationUuid'> | undefined,
+    user: Pick<UserWithAbility, 'ability' | 'organizationUuid'> | undefined,
     projectUuid: string,
 ): boolean => {
     if (!user?.ability || !user.organizationUuid) {

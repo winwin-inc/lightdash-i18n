@@ -65,22 +65,27 @@ export const parseDataAppUploadFiles = async (
     }
 
     const manifestText = await manifestEntry.file.text();
-    const parsed = load(manifestText) as Partial<DataAppManifest> | undefined;
+    // YAML may still carry `template: custom`; DataAppManifest stores that as null.
+    const parsed = load(manifestText) as
+        | (Partial<Omit<DataAppManifest, 'template'>> & {
+              template?: DataAppTemplate | null;
+          })
+        | undefined;
     if (!parsed || typeof parsed !== 'object') {
         throw new Error('lightdash-app.yml 无法解析');
     }
 
-    const template = parsed.template === 'custom' ? null : parsed.template;
+    const template: Exclude<DataAppTemplate, 'custom'> =
+        parsed.template === 'custom' || parsed.template == null
+            ? 'dashboard'
+            : parsed.template;
     const manifest: DataAppManifest = {
         codeVersion: 1,
         slug: parsed.slug,
         version: parsed.version ?? 1,
         name: parsed.name ?? 'Untitled app',
         description: parsed.description ?? '',
-        template: (template ?? 'dashboard') as Exclude<
-            DataAppTemplate,
-            'custom'
-        >,
+        template,
         downloadedAt: parsed.downloadedAt ?? new Date().toISOString(),
         spaceSlug: parsed.spaceSlug,
     };
