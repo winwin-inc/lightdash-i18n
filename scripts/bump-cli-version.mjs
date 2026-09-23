@@ -13,6 +13,7 @@
  * 本地不 push；推送 tag 后触发 .github/workflows/build-docker-cli.yml
  *   - ACR winwin/tool:lightdash-cli-X.Y.Z
  *   - GitHub Release cli-vX.Y.Z 挂 lightdash-cli-X.Y.Z.tgz（不标 Latest）
+ *   - OSS/CDN：msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
  *
  * 若本地/远端已有旧的 cli-v2.1.6（只打了 tag、没改 version），先删再重打：
  *   git tag -d cli-v2.1.6
@@ -52,6 +53,7 @@ function usage() {
 触发 CI：.github/workflows/build-docker-cli.yml
 镜像：registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-X.Y.Z
 Release：cli-vX.Y.Z 挂 lightdash-cli-X.Y.Z.tgz（不标 Latest）
+CDN：https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
 主仓 bump-version 不会改本文件。
 
 若 tag 已存在（例如先前只打了 tag、没改 version）：
@@ -194,6 +196,9 @@ function printNextSteps(tagName, willTag, version) {
         );
         process.stdout.write(
             `GitHub Release: ${tagName} 挂 lightdash-cli-${version}.tgz（不标 Latest）\n`,
+        );
+        process.stdout.write(
+            `CDN: https://img0.banmahui.cn/msy-x/cli/${version}/lightdash-cli-${version}.tgz\n`,
         );
     } else {
         process.stdout.write(
