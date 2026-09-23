@@ -2,17 +2,19 @@ import { subject } from '@casl/ability';
 import {
     ApiChartAsCodeListResponse,
     ApiDashboardAsCodeListResponse,
-    ApiSqlChartAsCodeListResponse,
     ApiSpaceAsCodeListResponse,
+    ApiSqlChartAsCodeListResponse,
     ApiVirtualViewAsCodeListResponse,
     ChartAsCode,
     ChartAsCodeInternalization,
     ChartSummary,
     ContentAsCodeType,
     CreateSavedChart,
+    createTemporaryVirtualView,
     currentVersion,
     DashboardAsCode,
     DashboardAsCodeInternalization,
+    DashboardAsCodeUpsertResult,
     DashboardDAO,
     DashboardTab,
     DashboardTile,
@@ -39,7 +41,6 @@ import {
     SqlChartAsCode,
     UpdatedByUser,
     VirtualViewAsCode,
-    createTemporaryVirtualView,
     type DashboardTileWithSlug,
     type MetricQuery,
     type WarehouseClient,
@@ -58,6 +59,17 @@ import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { BaseService } from '../BaseService';
 import { PromoteService } from '../PromoteService/PromoteService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
+import {
+    applyResolvedTabUuidsToTiles,
+    getConfigWithLocalRefs,
+    getConfigWithPortableRefs,
+    getDashboardTabSlug,
+    getFiltersWithLocalLockedTabs,
+    getFiltersWithPortableLockedTabs,
+    getTileTabSlug,
+    resolveDashboardTabs,
+    toAsCodeTabs,
+} from './dashboardAsCodeReferences';
 
 type CoderServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -142,7 +154,12 @@ export class CoderService extends BaseService {
     }
 
     private static assertCanDownload(user: SessionUser, project: Project) {
-        if (user.ability.cannot('view', CoderService.contentAsCodeSubject(project))) {
+        if (
+            user.ability.cannot(
+                'view',
+                CoderService.contentAsCodeSubject(project),
+            )
+        ) {
             throw new ForbiddenError(
                 'You are not allowed to download content as code',
             );
@@ -287,10 +304,10 @@ export class CoderService extends BaseService {
                 };
             });
 
-        return {
+        return getFiltersWithPortableLockedTabs(dashboard, {
             ...dashboard.filters,
             dimensions: dimensionFiltersWithoutUuids,
-        };
+        });
     }
 
     /* Convert dashboard filters from tile slugs to tile uuids
@@ -377,11 +394,12 @@ export class CoderService extends BaseService {
 
             return {
                 ...tab,
-                filters: {
+                slug: getDashboardTabSlug(dashboard, tab.uuid),
+                filters: getFiltersWithPortableLockedTabs(dashboard, {
                     ...tab.filters,
                     dimensions: dimensionFiltersWithoutUuids,
-                },
-            } as DashboardTab; // Type assertion: id removed for export format
+                }),
+            } as unknown as DashboardTab; // Type assertion: id removed for export format
         }) as DashboardAsCode['tabs'];
     }
 
@@ -391,12 +409,17 @@ export class CoderService extends BaseService {
     static getTabFiltersWithTileUuids(
         dashboardAsCode: DashboardAsCode,
         tilesWithUuids: DashboardTileWithSlug[],
+        existingTabs: DashboardDAO['tabs'] = [],
     ): DashboardDAO['tabs'] {
-        return (dashboardAsCode.tabs || []).map((tab): DashboardTab => {
-            const uuid = tab.uuid || uuidv4();
-            if (!tab.filters) {
+        const resolvedTabs = resolveDashboardTabs(
+            dashboardAsCode.tabs || [],
+            existingTabs,
+        );
+        return resolvedTabs.map((tab, index): DashboardTab => {
+            const incoming = dashboardAsCode.tabs?.[index];
+            if (!incoming?.filters) {
                 return {
-                    uuid,
+                    uuid: tab.uuid,
                     name: tab.name,
                     order: tab.order,
                     hidden: tab.hidden,
@@ -427,7 +450,12 @@ export class CoderService extends BaseService {
                 }, {});
             };
 
-            const dimensionFiltersWithUuids = tab.filters.dimensions.map(
+            const incomingFilters = getFiltersWithLocalLockedTabs(
+                incoming.filters,
+                resolvedTabs,
+                [],
+            );
+            const dimensionFiltersWithUuids = incomingFilters.dimensions.map(
                 (filter) => ({
                     ...filter,
                     id: uuidv4(),
@@ -435,7 +463,7 @@ export class CoderService extends BaseService {
                 }),
             );
 
-            const metricFiltersWithUuids = (tab.filters.metrics || []).map(
+            const metricFiltersWithUuids = (incomingFilters.metrics || []).map(
                 (filter) => ({
                     ...filter,
                     id: uuidv4(),
@@ -444,7 +472,7 @@ export class CoderService extends BaseService {
             );
 
             const tableCalculationFiltersWithUuids = (
-                tab.filters.tableCalculations || []
+                incomingFilters.tableCalculations || []
             ).map((filter) => ({
                 ...filter,
                 id: uuidv4(),
@@ -452,7 +480,7 @@ export class CoderService extends BaseService {
             }));
 
             return {
-                uuid,
+                uuid: tab.uuid,
                 name: tab.name,
                 order: tab.order,
                 hidden: tab.hidden,
@@ -480,9 +508,7 @@ export class CoderService extends BaseService {
 
         const tilesWithoutUuids: DashboardTileAsCode[] = dashboard.tiles.map(
             (tile): DashboardTileAsCode => {
-                const tab = dashboard.tabs.find(
-                    (dashboardTab) => dashboardTab.uuid === tile.tabUuid,
-                );
+                const tabSlug = getTileTabSlug(dashboard, tile);
                 if (isAnyChartTile(tile)) {
                     return {
                         ...tile,
@@ -491,7 +517,7 @@ export class CoderService extends BaseService {
                             dashboard,
                             tile.uuid,
                         ),
-                        tabSlug: tab?.uuid ?? tile.tabUuid,
+                        tabSlug,
                         tabUuid: tile.tabUuid,
                         properties: {
                             title: tile.properties.title,
@@ -507,7 +533,7 @@ export class CoderService extends BaseService {
                     ...tile,
                     tileSlug: undefined,
                     uuid: undefined,
-                    tabSlug: tab?.uuid ?? tile.tabUuid,
+                    tabSlug,
                     tabUuid: tile.tabUuid,
                 };
             },
@@ -521,12 +547,17 @@ export class CoderService extends BaseService {
             tiles: tilesWithoutUuids,
 
             filters: CoderService.getFiltersWithTileSlugs(dashboard),
-            tabs: CoderService.getTabFiltersWithTileSlugs(
+            tabs: toAsCodeTabs(
                 dashboard,
-                dashboard.tabs,
+                CoderService.getTabFiltersWithTileSlugs(
+                    dashboard,
+                    dashboard.tabs,
+                ),
             ),
             slug: dashboard.slug,
-            config: dashboard.config,
+            config: getConfigWithPortableRefs(dashboard, (tileUuid) =>
+                CoderService.getChartSlugForTileUuid(dashboard, tileUuid),
+            ),
 
             spaceSlug,
             version: currentVersion,
@@ -542,6 +573,7 @@ export class CoderService extends BaseService {
     async convertTileWithSlugsToUuids(
         projectUuid: string,
         tiles: DashboardTileAsCode[],
+        warnings: string[] = [],
     ): Promise<DashboardTileWithSlug[]> {
         const getAsCodeChartSlug = (
             tile: DashboardTileAsCode,
@@ -582,20 +614,21 @@ export class CoderService extends BaseService {
                     (chart) => chart.slug === chartSlug,
                 );
                 if (!sqlChart) {
-                    throw new NotFoundError(
-                        `SQL chart with slug ${chartSlug} not found`,
+                    warnings.push(
+                        `Chart "${chartSlug}" was not found in this project — the tile was saved without a chart. Upload the chart first, then re-upload the dashboard.`,
                     );
                 }
                 return {
                     ...tile,
                     uuid: uuidv4(),
                     tileSlug: tile.tileSlug,
-                    tabUuid: tile.tabUuid ?? tile.tabSlug ?? undefined,
+                    tabUuid: tile.tabUuid,
+                    tabSlug: tile.tabSlug,
                     properties: {
                         ...tile.properties,
-                        savedSqlUuid: sqlChart.savedSqlUuid,
+                        savedSqlUuid: sqlChart?.savedSqlUuid ?? null,
                     },
-                } as DashboardTileWithSlug;
+                } as unknown as DashboardTileWithSlug;
             }
 
             if (isAnyChartTile(tile)) {
@@ -605,27 +638,29 @@ export class CoderService extends BaseService {
                 );
 
                 if (!savedChart) {
-                    throw new NotFoundError(
-                        `Chart with slug ${chartSlug} not found`,
+                    warnings.push(
+                        `Chart "${chartSlug}" was not found in this project — the tile was saved without a chart. Upload the chart first, then re-upload the dashboard.`,
                     );
                 }
                 return {
                     ...tile,
                     uuid: uuidv4(),
                     tileSlug: tile.tileSlug, // Preserve tileSlug for filter matching
-                    tabUuid: tile.tabUuid ?? tile.tabSlug ?? undefined,
+                    tabUuid: tile.tabUuid,
+                    tabSlug: tile.tabSlug,
                     properties: {
                         ...tile.properties,
-                        savedChartUuid: savedChart.uuid,
+                        savedChartUuid: savedChart?.uuid ?? null,
                     },
-                } as DashboardTileWithSlug;
+                } as unknown as DashboardTileWithSlug;
             }
 
             return {
                 ...tile,
                 tileSlug: tile.tileSlug, // Preserve tileSlug even for non-chart tiles
-                tabUuid: tile.tabUuid ?? tile.tabSlug ?? undefined,
-            } as DashboardTileWithSlug;
+                tabUuid: tile.tabUuid,
+                tabSlug: tile.tabSlug,
+            } as unknown as DashboardTileWithSlug;
         });
     }
 
@@ -1245,7 +1280,7 @@ export class CoderService extends BaseService {
         skipSpaceCreate?: boolean,
         publicSpaceCreate?: boolean,
         spaceNames?: Record<string, string>,
-    ): Promise<PromotionChanges> {
+    ): Promise<DashboardAsCodeUpsertResult> {
         const project = await this.projectModel.get(projectUuid);
 
         CoderService.assertCanUpload(user, project);
@@ -1253,18 +1288,42 @@ export class CoderService extends BaseService {
             slug,
             projectUuid,
         });
-        const tilesWithUuids = await this.convertTileWithSlugsToUuids(
+        const existingDashboard = dashboardSummary
+            ? await this.dashboardModel.getByIdOrSlug(dashboardSummary.uuid)
+            : undefined;
+        const warnings: string[] = [];
+        const resolvedTiles = await this.convertTileWithSlugsToUuids(
             projectUuid,
             dashboardAsCode.tiles,
+            warnings,
+        );
+        const resolvedTabs = resolveDashboardTabs(
+            dashboardAsCode.tabs || [],
+            existingDashboard?.tabs,
+        );
+        const tilesWithUuids = applyResolvedTabUuidsToTiles(
+            resolvedTiles,
+            resolvedTabs,
         );
 
-        const dashboardFilters = CoderService.getFiltersWithTileUuids(
-            dashboardAsCode,
-            tilesWithUuids,
+        const dashboardFilters = getFiltersWithLocalLockedTabs(
+            CoderService.getFiltersWithTileUuids(
+                dashboardAsCode,
+                tilesWithUuids,
+            ),
+            resolvedTabs,
+            warnings,
         );
         const tabsWithUuids = CoderService.getTabFiltersWithTileUuids(
             dashboardAsCode,
             tilesWithUuids,
+            existingDashboard?.tabs,
+        );
+        const dashboardConfig = getConfigWithLocalRefs(
+            dashboardAsCode.config,
+            resolvedTabs,
+            tilesWithUuids,
+            warnings,
         );
 
         // If chart does not exist, we can't use promoteService,
@@ -1288,6 +1347,7 @@ export class CoderService extends BaseService {
                     tabs: tabsWithUuids,
                     forceSlug: true,
                     filters: dashboardFilters,
+                    config: dashboardConfig,
                 },
                 user,
                 projectUuid,
@@ -1310,13 +1370,11 @@ export class CoderService extends BaseService {
                 spaces: spaceCreated
                     ? [{ action: PromotionAction.CREATE, data: space }]
                     : [],
+                ...(warnings.length > 0 ? { warnings } : {}),
             };
         }
         // Use promote service to update existing dashboard
-
-        const dashboard = await this.dashboardModel.getByIdOrSlug(
-            dashboardSummary.uuid,
-        );
+        const dashboard = existingDashboard!;
 
         this.logger.info(
             `Updating dashboard "${dashboard.name}" on project ${projectUuid}`,
@@ -1326,11 +1384,13 @@ export class CoderService extends BaseService {
             ...dashboardAsCode,
             tiles: tilesWithUuids,
             tabs: tabsWithUuids,
+            config: dashboardConfig,
         };
         const mergedDashboard = {
             ...dashboard,
             ...dashboardWithUuids,
             filters: dashboardFilters,
+            config: dashboardConfig,
             projectUuid,
             organizationUuid: project.organizationUuid,
         };
@@ -1394,7 +1454,9 @@ export class CoderService extends BaseService {
         this.logger.info(
             `Finished updating dashboard "${dashboard.name}" on project ${projectUuid}: ${promotionChanges.dashboards[0].action}`,
         );
-        return promotionChanges;
+        return warnings.length > 0
+            ? { ...promotionChanges, warnings }
+            : promotionChanges;
     }
 
     async getSpaces(
@@ -1531,7 +1593,9 @@ export class CoderService extends BaseService {
         }
 
         return {
-            action: created ? SpaceAsCodeAction.CREATE : SpaceAsCodeAction.UPDATE,
+            action: created
+                ? SpaceAsCodeAction.CREATE
+                : SpaceAsCodeAction.UPDATE,
             warnings: warnings.length > 0 ? warnings : undefined,
         };
     }
@@ -1607,16 +1671,40 @@ export class CoderService extends BaseService {
         const charts = rows.map((row) =>
             SavedSqlModel.convertSelectSavedSql(row),
         );
-        const spaceUuids = [...new Set(charts.map((chart) => chart.space.uuid))];
-        const spaces = await this.spaceModel.find({ spaceUuids });
-        const spacesByUuid = new Map(spaces.map((space) => [space.uuid, space]));
-
-        const filtered = charts.filter((chart) => {
+        const filteredByIds = charts.filter((chart) => {
             if (!ids || ids.length === 0) return true;
             return ids.some(
                 (id) => id === chart.slug || id === chart.savedSqlUuid,
             );
         });
+        const spaceUuids = [
+            ...new Set(filteredByIds.map((chart) => chart.space.uuid)),
+        ];
+        const spaces = await this.spaceModel.find({ spaceUuids });
+        const spacesByUuid = new Map(
+            spaces.map((space) => [space.uuid, space]),
+        );
+        const chartsWithAccess = await this.filterPrivateContent(
+            user,
+            project,
+            filteredByIds.map((chart) => ({
+                uuid: chart.savedSqlUuid,
+                name: chart.name,
+                spaceUuid: chart.space.uuid,
+                description: chart.description ?? undefined,
+                slug: chart.slug,
+            })),
+            spaces,
+        );
+        const accessibleSlugs = new Set(
+            chartsWithAccess.map((chart) => chart.slug),
+        );
+        const filtered = filteredByIds.filter((chart) =>
+            accessibleSlugs.has(chart.slug),
+        );
+        const accessibleSpaces = spaces.filter((space) =>
+            filtered.some((chart) => chart.space.uuid === space.uuid),
+        );
 
         const maxResults = this.lightdashConfig.contentAsCode.maxDownloads;
         const offsetIndex = offset || 0;
@@ -1647,9 +1735,12 @@ export class CoderService extends BaseService {
             sqlCharts,
             missingIds: CoderService.getMissingIds(
                 ids,
-                page.map((chart) => ({ slug: chart.slug, uuid: chart.savedSqlUuid })),
+                page.map((chart) => ({
+                    slug: chart.slug,
+                    uuid: chart.savedSqlUuid,
+                })),
             ),
-            spaces: CoderService.spacesMetadataFromSummaries(spaces),
+            spaces: CoderService.spacesMetadataFromSummaries(accessibleSpaces),
             total: filtered.length,
             offset: newOffset,
         };
@@ -1786,7 +1877,10 @@ export class CoderService extends BaseService {
         const virtualViews: VirtualViewAsCode[] = Object.values(cached)
             .filter((explore) => !requested || requested.has(explore.name))
             .flatMap((explore) => {
-                if (isExploreError(explore) || explore.type !== ExploreType.VIRTUAL) {
+                if (
+                    isExploreError(explore) ||
+                    explore.type !== ExploreType.VIRTUAL
+                ) {
                     skipped.push({
                         slug: explore.name,
                         reason: 'Virtual view could not be compiled',
@@ -1795,9 +1889,10 @@ export class CoderService extends BaseService {
                 }
                 const table = explore.tables[explore.baseTable];
                 const wrappedSql = table?.sqlTable ?? '';
-                const sql = wrappedSql.startsWith('(') && wrappedSql.endsWith(')')
-                    ? wrappedSql.slice(1, -1)
-                    : wrappedSql;
+                const sql =
+                    wrappedSql.startsWith('(') && wrappedSql.endsWith(')')
+                        ? wrappedSql.slice(1, -1)
+                        : wrappedSql;
                 const columns = Object.values(table?.dimensions ?? {}).map(
                     (dimension) => ({
                         reference: dimension.name,

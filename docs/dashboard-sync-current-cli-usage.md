@@ -205,8 +205,11 @@ node ./packages/cli/dist/index.js
 
 - 导入按 `slug` 匹配。目标环境中已有相同 slug 的图表或看板时，会更新已有内容。
 - 目标环境需要有兼容的 dbt explore、字段和指标，否则导入后的图表可能无法正常查询。
+- YAML 里 Tab / tile 用 **slug** 引用，不要把手改回环境本地 UUID。`tabSlug` 由 Tab 名派生（中文名会变成 `tab-{n}`，重名加 `-1` / `-2`）；upload 时先按 `tabSlug` 对现有 Tab，再退回 `tabUuid`。
+- 颜色同步（`config.syncChartTileUuids`）、Tab 筛选开关（`tabFilterEnabled` / `showTabAddFilterButton`）、必填筛选锁 Tab（`lockedTabUuids`）会按 slug 跨环境映回；对不上的项会丢掉并记 warning，不阻断 upload。
+- 私人 space 只要调用者有权就会导出（含中文 `spaceName`）。本仓没有「个人默认目录」单独排除。跨环境不想带私人目录时，删掉本地 `lightdash/spaces/*.space.yml` 即可。无权看到的 space 会出现在接口 `skipped` 里，不会写进 `spaces[]`。
 - Tab 级筛选、看板 `config`、公式 / PoP、`--language-map` 会随 YAML 往返，不要用会剥未知字段的工具改 YAML。
 - 当前流程不同步 agents、定时任务、告警、homepages。
-- 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。
+- 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。若某个 chart 还不在目标环境，看板仍会上传，对应 tile 暂时空着，API / CLI 会给出 warning；补上 chart 后再 upload 一次即可。
 - `--force` 适合跨环境导入，因为导出的 YAML 文件可能没有本地修改时间差异，不加时可能被判断为无需上传。
 - API key 不要提交到仓库，也不要写入可共享文档。建议只放在本地 shell 会话或安全的 CI secret 中。

@@ -1,5 +1,6 @@
 import {
     ChartAsCode,
+    ChartKind,
     CustomBinDimension,
     DashboardAsCode,
     SEED_PROJECT,
@@ -320,9 +321,369 @@ describe('Content as Code new /code/* routes', () => {
                         cy.wrap(
                             downloaded.tabs[0].filters.dimensions[0].values,
                         ).should('deep.equal', ['completed']);
+                        cy.wrap(downloaded.tabs[0].slug).should(
+                            'eq',
+                            'filtered-tab',
+                        );
+                        cy.wrap(downloaded.tabs[0].slug).should(
+                            'not.match',
+                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                        );
+                        downloaded.tiles.forEach(
+                            (tile: { tabSlug?: string }) => {
+                                cy.wrap(tile.tabSlug).should(
+                                    'eq',
+                                    'filtered-tab',
+                                );
+                            },
+                        );
                     });
                 });
             },
         );
+    });
+
+    it('should round-trip dashboard config slugs and locked tabs', () => {
+        cy.readFile('./cypress/support/dashboardAsCode.yml', 'utf8').then(
+            (dashboardFile) => {
+                const dashboardAsCode = yaml.load(
+                    dashboardFile,
+                ) as DashboardAsCode;
+                const slug = `config-slugs-roundtrip-${Date.now()}`;
+                const chartSlug =
+                    'how-much-revenue-do-we-have-per-payment-method';
+                const payload = {
+                    ...dashboardAsCode,
+                    slug,
+                    force: true,
+                    tabs: [
+                        {
+                            name: 'Filtered tab',
+                            order: 0,
+                            slug: 'filtered-tab',
+                        },
+                    ],
+                    tiles: dashboardAsCode.tiles.map((tile) => ({
+                        ...tile,
+                        tabSlug: 'filtered-tab',
+                    })),
+                    filters: {
+                        dimensions: [
+                            {
+                                target: { fieldId: 'orders_status' },
+                                operator: 'equals',
+                                values: ['completed'],
+                                lockedTabUuids: ['filtered-tab'],
+                            },
+                        ],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                    config: {
+                        isDateZoomDisabled: false,
+                        syncChartColors: true,
+                        tabFilterEnabled: { 'filtered-tab': true },
+                        showTabAddFilterButton: { 'filtered-tab': false },
+                        syncChartTileUuids: [chartSlug],
+                    },
+                };
+
+                cy.request({
+                    method: 'POST',
+                    url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/dashboards/${slug}`,
+                    body: payload,
+                }).then((uploadResponse) => {
+                    cy.wrap(uploadResponse).its('status').should('eq', 200);
+
+                    cy.request({
+                        method: 'GET',
+                        url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/dashboards?ids=${slug}`,
+                    }).then((downloadResponse) => {
+                        const downloaded =
+                            downloadResponse.body.results.dashboards[0];
+                        cy.wrap(downloaded.config.tabFilterEnabled).should(
+                            'deep.equal',
+                            { 'filtered-tab': true },
+                        );
+                        cy.wrap(
+                            downloaded.config.showTabAddFilterButton,
+                        ).should('deep.equal', { 'filtered-tab': false });
+                        cy.wrap(downloaded.config.syncChartTileUuids).should(
+                            'include',
+                            chartSlug,
+                        );
+                        cy.wrap(
+                            downloaded.filters.dimensions[0].lockedTabUuids,
+                        ).should('deep.equal', ['filtered-tab']);
+                        cy.wrap(downloaded.tabs[0].name).should(
+                            'eq',
+                            'Filtered tab',
+                        );
+                        downloaded.tiles.forEach(
+                            (tile: { tabSlug?: string }) => {
+                                cy.wrap(tile.tabSlug).should(
+                                    'eq',
+                                    'filtered-tab',
+                                );
+                            },
+                        );
+                    });
+                });
+            },
+        );
+    });
+
+    it('should keep Chinese space names and export private spaces as skipped', () => {
+        const slug = `zhongwen-space-${Date.now()}`;
+        cy.request({
+            method: 'POST',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/spaces`,
+            body: {
+                contentType: 'space',
+                version: 1,
+                spaceName: '销售分析',
+                slug,
+            },
+        }).then((createResponse) => {
+            cy.wrap(createResponse).its('status').should('eq', 200);
+
+            cy.request({
+                method: 'GET',
+                url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/spaces`,
+            }).then((listResponse) => {
+                const created = listResponse.body.results.spaces.find(
+                    (space: { slug: string; spaceName: string }) =>
+                        space.slug === slug,
+                );
+                cy.wrap(created).should('exist');
+                cy.wrap(created.spaceName).should('eq', '销售分析');
+                cy.wrap(created.slug).should('eq', slug);
+            });
+        });
+
+        cy.request({
+            method: 'POST',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/spaces`,
+            headers: { 'Content-type': 'application/json' },
+            body: { name: `cac-private-${Date.now()}` },
+        }).then((spaceResponse) => {
+            const privateName = spaceResponse.body.results.name;
+            cy.request({
+                method: 'GET',
+                url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/spaces`,
+            }).then((adminList) => {
+                const privateSpace = adminList.body.results.spaces.find(
+                    (space: { spaceName: string; slug: string }) =>
+                        space.spaceName === privateName,
+                );
+                cy.wrap(privateSpace).should('exist');
+
+                cy.loginAsEditor();
+                cy.request({
+                    method: 'GET',
+                    url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/spaces`,
+                }).then((editorList) => {
+                    const inSpaces = editorList.body.results.spaces.find(
+                        (space: { slug: string }) =>
+                            space.slug === privateSpace.slug,
+                    );
+                    const skipped = editorList.body.results.skipped.find(
+                        (space: { slug: string }) =>
+                            space.slug === privateSpace.slug,
+                    );
+                    cy.wrap(inSpaces).should('not.exist');
+                    cy.wrap(skipped).should('exist');
+                    cy.wrap(skipped.reason).should('eq', 'No view access');
+                });
+            });
+        });
+    });
+
+    it('should keep tabSlug when uploading via the legacy dashboard as-code route', () => {
+        cy.readFile('./cypress/support/dashboardAsCode.yml', 'utf8').then(
+            (dashboardFile) => {
+                const dashboardAsCode = yaml.load(
+                    dashboardFile,
+                ) as DashboardAsCode;
+                const slug = `legacy-tab-slug-${Date.now()}`;
+                const payload = {
+                    ...dashboardAsCode,
+                    slug,
+                    force: true,
+                    tabs: [
+                        {
+                            name: 'Filtered tab',
+                            order: 0,
+                            slug: 'filtered-tab',
+                        },
+                    ],
+                    tiles: dashboardAsCode.tiles.map((tile) => ({
+                        ...tile,
+                        tabUuid: undefined,
+                        tabSlug: 'filtered-tab',
+                    })),
+                };
+
+                cy.request({
+                    method: 'POST',
+                    url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/dashboards/${slug}/code`,
+                    body: payload,
+                }).then((uploadResponse) => {
+                    cy.wrap(uploadResponse).its('status').should('eq', 200);
+
+                    cy.request({
+                        method: 'GET',
+                        url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/dashboards?ids=${slug}`,
+                    }).then((downloadResponse) => {
+                        const downloaded =
+                            downloadResponse.body.results.dashboards[0];
+                        cy.wrap(downloaded.tabs[0].slug).should(
+                            'eq',
+                            'filtered-tab',
+                        );
+                        downloaded.tiles.forEach(
+                            (tile: { tabSlug?: string }) => {
+                                cy.wrap(tile.tabSlug).should(
+                                    'eq',
+                                    'filtered-tab',
+                                );
+                            },
+                        );
+                    });
+                });
+            },
+        );
+    });
+
+    it('should warn and keep the dashboard when a tile chart is missing', () => {
+        cy.readFile('./cypress/support/dashboardAsCode.yml', 'utf8').then(
+            (dashboardFile) => {
+                const dashboardAsCode = yaml.load(
+                    dashboardFile,
+                ) as DashboardAsCode;
+                const slug = `missing-chart-warn-${Date.now()}`;
+                const missingChartSlug = `does-not-exist-${Date.now()}`;
+                const payload = {
+                    ...dashboardAsCode,
+                    slug,
+                    force: true,
+                    tiles: dashboardAsCode.tiles.map((tile) =>
+                        tile.type === 'saved_chart' &&
+                        tile.properties &&
+                        'chartSlug' in tile.properties &&
+                        tile.properties.chartSlug ===
+                            'how-much-revenue-do-we-have-per-payment-method'
+                            ? {
+                                  ...tile,
+                                  properties: {
+                                      ...tile.properties,
+                                      chartSlug: missingChartSlug,
+                                  },
+                              }
+                            : tile,
+                    ),
+                };
+
+                cy.request({
+                    method: 'POST',
+                    url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/dashboards/${slug}`,
+                    body: payload,
+                }).then((uploadResponse) => {
+                    cy.wrap(uploadResponse).its('status').should('eq', 200);
+                    cy.wrap(uploadResponse.body.results.warnings).should(
+                        'be.an',
+                        'array',
+                    );
+                    cy.wrap(
+                        uploadResponse.body.results.warnings.join(' '),
+                    ).should('include', missingChartSlug);
+                });
+            },
+        );
+    });
+
+    it('should hide SQL charts in private spaces from editors', () => {
+        const spaceName = `cac-private-sql-${Date.now()}`;
+        const chartName = `private-sql-chart-${Date.now()}`;
+        cy.request({
+            method: 'POST',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/spaces`,
+            headers: { 'Content-type': 'application/json' },
+            body: { name: spaceName },
+        }).then((spaceResponse) => {
+            cy.request({
+                method: 'POST',
+                url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/sqlRunner/saved`,
+                headers: { 'Content-type': 'application/json' },
+                body: {
+                    name: chartName,
+                    description: null,
+                    sql: 'SELECT 1',
+                    limit: 1,
+                    config: {
+                        display: {},
+                        metadata: { version: 1 },
+                        type: ChartKind.TABLE,
+                        columns: {},
+                    },
+                    spaceUuid: spaceResponse.body.results.uuid,
+                },
+            }).then((createResp) => {
+                cy.wrap(createResp).its('status').should('eq', 200);
+
+                cy.request({
+                    method: 'GET',
+                    url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/sqlCharts`,
+                }).then((adminList) => {
+                    const created = adminList.body.results.sqlCharts.find(
+                        (chart: { name: string; slug: string }) =>
+                            chart.name === chartName,
+                    );
+                    cy.wrap(created).should('exist');
+
+                    cy.loginAsEditor();
+                    cy.request({
+                        method: 'GET',
+                        url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/sqlCharts`,
+                    }).then((editorList) => {
+                        const leaked = editorList.body.results.sqlCharts.find(
+                            (chart: { slug: string }) =>
+                                chart.slug === created.slug,
+                        );
+                        cy.wrap(leaked).should('not.exist');
+                    });
+                });
+            });
+        });
+    });
+
+    it('should allow editors to download charts as code', () => {
+        cy.loginAsEditor();
+        cy.request({
+            method: 'GET',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/charts`,
+        }).then((response) => {
+            cy.wrap(response).its('status').should('eq', 200);
+            cy.wrap(response.body.results.charts).should('be.an', 'array');
+        });
+    });
+
+    it('should forbid viewers from downloading or uploading as code', () => {
+        cy.loginAsViewer();
+        cy.request({
+            method: 'GET',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/charts`,
+            failOnStatusCode: false,
+        }).then((response) => {
+            cy.wrap(response).its('status').should('eq', 403);
+        });
+        cy.request({
+            method: 'POST',
+            url: `/api/v1/projects/${SEED_PROJECT.project_uuid}/code/charts/viewer-forbidden`,
+            failOnStatusCode: false,
+            body: {},
+        }).then((response) => {
+            cy.wrap(response).its('status').should('eq', 403);
+        });
     });
 });

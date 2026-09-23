@@ -5,10 +5,10 @@ import {
     type ApiDashboardAsCodeListResponse,
     type ApiDashboardAsCodeUpsertResponse,
     type ApiErrorPayload,
-    type ApiSqlChartAsCodeListResponse,
-    type ApiSqlChartAsCodeUpsertResponse,
     type ApiSpaceAsCodeListResponse,
     type ApiSpaceAsCodeUpsertResponse,
+    type ApiSqlChartAsCodeListResponse,
+    type ApiSqlChartAsCodeUpsertResponse,
     type ApiVirtualViewAsCodeListResponse,
     type ApiVirtualViewAsCodeUpsertResponse,
     type ChartAsCode,
@@ -38,27 +38,8 @@ import {
     CODE_READ_MIDDLEWARES,
     CODE_WRITE_MIDDLEWARES,
     codeSuccess,
+    restoreDashboardTabFilters,
 } from './CoderControllerUtils';
-
-const restoreDashboardTabFilters = (
-    dashboard: DashboardAsCode,
-    rawBody: Partial<DashboardAsCode> & { tabs?: Array<Partial<DashboardTab>> },
-): DashboardAsCode => ({
-    ...dashboard,
-    description: dashboard.description ?? undefined,
-    tabs:
-        rawBody.tabs?.map((rawTab, index) => {
-            const parsedTab = dashboard.tabs?.[index];
-            return {
-                uuid: parsedTab?.uuid || rawTab.uuid || '',
-                name: parsedTab?.name || rawTab.name || '',
-                order: parsedTab?.order ?? rawTab.order ?? index,
-                hidden: parsedTab?.hidden ?? rawTab.hidden,
-                slug: parsedTab && 'slug' in parsedTab ? parsedTab.slug : rawTab.uuid,
-                filters: rawTab.filters || parsedTab?.filters,
-            };
-        }) || dashboard.tabs,
-});
 
 @Route('/api/v1/projects/{projectUuid}')
 @Response<ApiErrorPayload>('default', 'Error')
@@ -196,7 +177,10 @@ export class ProjectCoderController extends BaseController {
         @Path() projectUuid: string,
         @Path() slug: string,
         @Body()
-        chart: Omit<ChartAsCode, 'metricQuery' | 'chartConfig' | 'description'> & {
+        chart: Omit<
+            ChartAsCode,
+            'metricQuery' | 'chartConfig' | 'description'
+        > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
             force?: boolean;
@@ -278,7 +262,10 @@ export class ProjectCoderController extends BaseController {
         @Path() projectUuid: string,
         @Path() slug: string,
         @Body()
-        dashboard: Omit<DashboardAsCode, 'filters' | 'tiles' | 'description'> & {
+        dashboard: Omit<
+            DashboardAsCode,
+            'filters' | 'tiles' | 'description'
+        > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
             force?: boolean;
@@ -291,7 +278,7 @@ export class ProjectCoderController extends BaseController {
         @Request() req: express.Request,
     ): Promise<ApiDashboardAsCodeUpsertResponse> {
         const rawBody = req.body as Partial<DashboardAsCode> & {
-            tabs?: Array<Partial<DashboardTab>>;
+            tabs?: Array<Partial<DashboardTab> & { slug?: string }>;
         };
         const dashboardWithFilters = restoreDashboardTabFilters(
             {
@@ -334,15 +321,12 @@ export class ProjectCoderController extends BaseController {
     ): Promise<ApiSpaceAsCodeUpsertResponse> {
         this.setStatus(200);
         return codeSuccess(
-            await this.services.getCoderService().upsertSpace(
-                req.user!,
-                projectUuid,
-                space,
-                {
+            await this.services
+                .getCoderService()
+                .upsertSpace(req.user!, projectUuid, space, {
                     skipSpaceCreate,
                     publicSpaceCreate,
-                },
-            ),
+                }),
         );
     }
 
