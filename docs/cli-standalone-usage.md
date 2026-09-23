@@ -4,41 +4,75 @@
 
 命令名是 `lightdash`（与官方同名）。`npm install -g` 会覆盖本机已有的官方 CLI，只在同步机或 CI 里装。
 
-仓库：[`winwin-inc/lightdash-i18n`](https://github.com/winwin-inc/lightdash-i18n)。只下 Release Assets 里的 `lightdash-cli-X.Y.Z.tgz`，源码 zip **不能**当安装包。下载必须带 tag（`cli-vX.Y.Z`），不要用不带 tag 的 `gh release download`。当前已发版示例：`cli-v2.1.6`（以最新 `cli-v*` 为准）。
+日常从 **CDN** 装独立 tgz，不用申请 npm 账号、不用搭私有仓库。当前已发版示例：`2.1.6`（以最新 `cli-v*` 为准）。
 
-`lightdash deploy` 仍用 CLI Docker 镜像，不用这个 tgz。
+```text
+https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
+```
+
+主机与前端静态资源同一套 `CDN_BASE_URL`（默认 `https://img0.banmahui.cn`）。必须是这个 `.tgz`，源码 zip / Releases 列表页不行。路径带版本且不可变，没有 `latest`。
+
+`lightdash deploy` 仍用 CLI Docker 镜像（ACR `lightdash-cli-X.Y.Z`），不用这个 tgz。
 
 YAML、权限、空 tile 见 [dashboard-sync-current-cli-usage.md](./dashboard-sync-current-cli-usage.md)。
 
-## 1. 下载 / 安装 / 更新
+## 1. 安装
 
-需要 Node.js。私有库先 `gh auth login`。
+需要 Node.js。
 
 ```bash
-# 列出最近的 CLI tag，选最新的 cli-vX.Y.Z
-gh release list -R winwin-inc/lightdash-i18n --limit 20
+# 冒烟
+npx --yes https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz --version
+npx --yes https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz lint --help
 
-gh release download cli-vX.Y.Z -R winwin-inc/lightdash-i18n -p "lightdash-cli-*.tgz"
-
-# 没有 gh 时：
-# curl -L -o lightdash-cli-X.Y.Z.tgz \
-#   https://github.com/winwin-inc/lightdash-i18n/releases/download/cli-vX.Y.Z/lightdash-cli-X.Y.Z.tgz
-
-# 可选：和 Release 页摘要对比
-sha256sum lightdash-cli-X.Y.Z.tgz
-
-# 冒烟后再全局装
-npx --yes ./lightdash-cli-X.Y.Z.tgz --version
-npx --yes ./lightdash-cli-X.Y.Z.tgz lint --help
-npm install -g ./lightdash-cli-X.Y.Z.tgz
+# 全局装
+npm install -g https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
 lightdash --version
 ```
 
-更新：再下新 tag 的 tgz，重复上面的 `npx` + `npm install -g` 即可覆盖。不要装官方 `@lightdash/cli`。
+`--version` 应等于 URL 里的 X.Y.Z。这和 `npm install -g @lightdash/cli` 不是一回事，后者仍是官方包。
+
+可选校验：
+
+```bash
+curl -fsSL -o lightdash-cli-X.Y.Z.tgz \
+  https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
+sha256sum lightdash-cli-X.Y.Z.tgz
+# 对照 https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz.sha256
+```
+
+备份（需要仓库权限）：GitHub Release `cli-vX.Y.Z` 上同一份 tgz。`gh release list -R winwin-inc/lightdash-i18n --limit 20` 后 `gh release download cli-vX.Y.Z -p "lightdash-cli-*.tgz"`，再 `npm install -g ./lightdash-cli-X.Y.Z.tgz`。不要用不带 tag 的 `gh release download`。
 
 仓库里开发可以不装包：`pnpm -F cli build` 后 `node ./packages/cli/dist/index.js --help`。
 
-## 2. 登录
+## 2. 更新
+
+CDN 没有 `latest`。升级就是换 URL 里的版本号，再 `npm install -g` 覆盖，不用先卸载。
+
+```bash
+lightdash --version   # 看当前，例如 2.1.6
+
+npm install -g https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz
+lightdash --version   # 应等于新 X.Y.Z
+```
+
+新版本号从哪来：
+
+- 发版说明 / 同事通知里的 `cli-vX.Y.Z`（日常够用，CDN 不提供目录列表）
+- 有仓库权限：`gh release list -R winwin-inc/lightdash-i18n --limit 20`，看最新 `cli-v*`
+
+不要跑 `npm update -g @lightdash/cli`，那会装到官方包。`npx` 每次带完整 URL，换版本即换 URL。Jenkins 的 `lightdash deploy` 跟 ACR 镜像 tag，和这个 tgz 升级无关。
+
+### 发新版本（维护者）
+
+1. `pnpm bump-cli -- X.Y.Z`（改 `packages/cli/package.json`、打 `cli-vX.Y.Z`）
+2. `git push && git push origin cli-vX.Y.Z`，等 `build-docker-cli`：打 tgz → 挂 GitHub Release → 传到 `msy-x/cli/X.Y.Z/`
+3. 冒烟：`npx --yes https://img0.banmahui.cn/msy-x/cli/X.Y.Z/lightdash-cli-X.Y.Z.tgz --version`
+4. 通知使用方换 URL 再装
+
+同版本不覆盖。修包必须 bump 新号。已发的包不必重打 tag，可用现有 tgz 跑 `scripts/upload-cli-tgz-to-cdn.sh`（或重跑对应 `cli-v*` workflow）。
+
+## 3. 登录
 
 PAT：Lightdash UI → User settings → Personal access tokens。只放当前 shell，测完 `unset`。不要写进仓库或截图。
 
@@ -54,7 +88,7 @@ export LIGHTDASH_API_KEY="你的PAT"
 
 CLI 和服务端版本不一致（例如 `2.1.6` vs `2.1.6-test.4`）时，major 相同一般可继续。
 
-## 3. 同步
+## 4. 同步
 
 默认写到当前目录 `lightdash/`（spaces / charts / dashboards）。冒烟够用 download + lint。不要一上来对生产全量 `upload --force`。
 
@@ -104,14 +138,13 @@ lightdash upload --project "target-project-uuid" -d "$DASHBOARD_SLUG" --include-
 unset LIGHTDASH_API_KEY LIGHTDASH_URL
 ```
 
-## 4. CI
+## 5. CI
 
 ```yaml
-- run: gh release download "$CLI_RELEASE_TAG" -R winwin-inc/lightdash-i18n -p "lightdash-cli-*.tgz"
-- run: npm install -g ./lightdash-cli-*.tgz
+- run: npm install -g https://img0.banmahui.cn/msy-x/cli/${CLI_VERSION}/lightdash-cli-${CLI_VERSION}.tgz
 - run: lightdash login "$SITE_URL" --token "$LIGHTDASH_PAT"
 - run: lightdash lint --path ./lightdash
 - run: lightdash upload --project "$PROJECT_UUID" --force
 ```
 
-`CLI_RELEASE_TAG` 形如 `cli-vX.Y.Z`。`SITE_URL`、`LIGHTDASH_PAT`、`PROJECT_UUID` 用 secret，不要进 git。
+`CLI_VERSION` 形如 `2.1.6`。`SITE_URL`、`LIGHTDASH_PAT`、`PROJECT_UUID` 用 secret，不要进 git。
