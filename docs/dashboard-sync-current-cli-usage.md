@@ -1,177 +1,45 @@
-# 使用现有 CLI 跨环境同步看板
+# 本仓看板 YAML 与同步说明
 
-## 概述
+命令、安装、更新见 [cli-standalone-usage.md](./cli-standalone-usage.md)。本文只写 YAML、权限、以及和官方的差异。
 
-当前不需要开发新功能，也可以通过 Lightdash CLI 的 `download` 和 `upload` 完成“从一个环境导出看板，再导入到另一个环境”的流程。
+## YAML
 
-核心思路：
+后端走 `/api/v1/projects/{id}/code/{spaces,charts,sqlCharts,dashboards}`。看板 YAML 在官方字段之外还有：
 
-1. 使用源环境的 `LIGHTDASH_URL`、`LIGHTDASH_API_KEY`、`project uuid` 执行 `lightdash download`。
-2. CLI 将看板和依赖图表导出为本地 YAML 文件。
-3. 切换为目标环境的 `LIGHTDASH_URL`、`LIGHTDASH_API_KEY`、`project uuid` 执行 `lightdash upload`。
-4. CLI 按 slug 在目标环境创建或更新图表、看板和 space。
+- Tab / tile 用 **slug**（不要手抄环境本地 UUID）
+- `tabs[].filters`：Tab 级筛选
+- `tabSlug`：由 Tab 名派生（中文名会变成 `tab-{n}`，重名加 `-1` / `-2`）；upload 先按 `tabSlug`，再退回 `tabUuid`
+- `config`：颜色同步、Tab 筛选开关、必填筛选锁 Tab（`lockedTabUuids` 按 slug 映回）
+- 公式 / PoP、`--language-map`
 
-## 当前 CLI 已支持的能力
+导入按 `slug` 匹配。目标环境要有兼容的 dbt explore / 字段 / 指标。对不上的 slug 会丢掉并 warning，不阻断 upload。不要用会剥未知字段的工具改 YAML。
 
-### 导出
+download 有时会写出 `config: null`。本仓 lint 要求 `config` 是 object，要绿就删掉该字段或改成 `{}`。不要为了过官方 lint 去剥 `tab.filters`。
 
-```bash
-lightdash download
-```
+## 权限
 
-常用参数：
+| 角色 | download | upload |
+|---|---|---|
+| Viewer / Interactive viewer | 否 | 否 |
+| Editor | 是 | 是 |
+| Developer / Admin / 现有 Service Account | 是 | 是 |
+| 自定义角色只勾 `view:ContentAsCode` | 是 | 否 |
 
-- `--project <project_uuid>`：指定从哪个项目导出。
-- `--dashboards <dashboard...>`：只导出指定看板，支持 slug、uuid 或 URL。
-- `--charts <chart...>`：只导出指定图表，支持 slug、uuid 或 URL。
-- `--path <path>`：指定导出目录，默认是当前目录下的 `lightdash`。
-- `--language-map`：同时导出多语言映射文件。
+只读同步：自定义角色只授 `view:ContentAsCode` + PAT。已落库的旧自定义角色不会自动多出 view/create。空间权限仍在：进不了的 private space 下不了、也建不进去。跨环境 space ACL 按 email / group name 对齐，对不上警告并跳过。
 
-当使用 `--dashboards` 只导出指定看板时，CLI 会自动把这些看板依赖的 chart 一起下载到本地。
+## 同步时会警告、不会中断
 
-### 导入
+- 缺依赖 chart：看板仍上传，对应 tile 暂时空着。补上 chart 再 upload。
+- spaces 失败：跳过，不影响 charts / dashboards。
+- SQL chart 走 space ACL：无权私人目录里的 SQL 图拉不到。
+- 私人 space 只要调用者有权就会导出。跨环境不想带时，删掉本地 `spaces/*.space.yml`。无权看到的 space 在接口 `skipped` 里，不会写进 YAML。
 
-```bash
-lightdash upload
-```
+## 范围
 
-常用参数：
+- `download` / `upload`：看板、图表、SQL 图表、space。`lightdash deploy` 是 dbt explores / table-groups，不要混用。
+- 默认 download 会打 `/code/spaces`（404/403 警告继续）、`/code/charts`、`/code/sqlCharts`、`/code/dashboards`。旧路径 `/charts/code`、`/dashboards/code` 仍给 MCP / 旧脚本用。
+- 本仓有 `/code/virtualViews`，CLI 默认不拉，也没有 `--include-virtual-views`。
+- 不做：组织级 users / groups / roles as-code、agents、定时任务、告警、homepages、`--include-all`、官方 lint 整仓门禁。
+- `.lightdash-metadata.json` 是 CLI 写在本地的，服务端不会生成。
 
-- `--project <project_uuid>`：指定导入到哪个目标项目。
-- `--dashboards <dashboard...>`：只导入指定看板 slug。
-- `--charts <chart...>`：只导入指定图表 slug。
-- `--path <path>`：指定从哪个目录读取 YAML 文件。
-- `--include-charts`：导入看板时，同时导入看板依赖的 charts。
-- `--force`：即使本地文件没有变更，也强制上传。跨环境导入时建议使用。
-- `--skip-space-create`：如果目标环境不存在对应 space，则跳过创建。
-
-跨环境导入时通常需要加 `--include-charts --force`，否则只导入 dashboard 时可能因为目标环境缺少依赖 chart 而失败。
-
-## 环境变量
-
-CLI 当前只有一个运行上下文，目标环境由环境变量或本地登录配置决定。跨环境时推荐用环境变量显式指定，避免反复 `login` 或切换本地配置。
-
-支持的环境变量：
-
-- `LIGHTDASH_URL`：Lightdash 服务地址。
-- `LIGHTDASH_API_KEY`：Personal Access Token 或 Service Account Token。
-- `LIGHTDASH_PROJECT`：默认项目 UUID。也可以用命令参数 `--project` 覆盖。
-- `LIGHTDASH_PROXY_AUTHORIZATION`：如环境需要代理鉴权时使用。
-
-## PowerShell 示例
-
-以下示例将线上环境的 `sales-overview` 看板同步到预发环境。
-
-### 1. 设置公共变量
-
-```powershell
-$ExportPath = ".\lightdash-dashboard-export"
-$DashboardSlug = "sales-overview"
-```
-
-### 2. 从源环境导出
-
-```powershell
-$env:LIGHTDASH_URL = "https://prod.example.com"
-$env:LIGHTDASH_API_KEY = "prod_api_key"
-
-lightdash download `
-  --project "source-project-uuid" `
-  --dashboards $DashboardSlug `
-  --path $ExportPath
-```
-
-导出后会生成类似目录：
-
-```text
-lightdash-dashboard-export/
-  charts/
-    xxx.yml
-  dashboards/
-    sales-overview.yml
-```
-
-### 3. 导入到目标环境
-
-```powershell
-$env:LIGHTDASH_URL = "https://staging.example.com"
-$env:LIGHTDASH_API_KEY = "staging_api_key"
-
-lightdash upload `
-  --project "target-project-uuid" `
-  --dashboards $DashboardSlug `
-  --include-charts `
-  --force `
-  --path $ExportPath
-```
-
-### 4. 清理当前 PowerShell 会话中的敏感变量
-
-```powershell
-Remove-Item Env:\LIGHTDASH_API_KEY
-Remove-Item Env:\LIGHTDASH_URL
-```
-
-## Bash 示例
-
-```bash
-EXPORT_PATH="./lightdash-dashboard-export"
-DASHBOARD_SLUG="sales-overview"
-
-LIGHTDASH_URL="https://prod.example.com" \
-LIGHTDASH_API_KEY="prod_api_key" \
-lightdash download \
-  --project "source-project-uuid" \
-  --dashboards "$DASHBOARD_SLUG" \
-  --path "$EXPORT_PATH"
-
-LIGHTDASH_URL="https://staging.example.com" \
-LIGHTDASH_API_KEY="staging_api_key" \
-lightdash upload \
-  --project "target-project-uuid" \
-  --dashboards "$DASHBOARD_SLUG" \
-  --include-charts \
-  --force \
-  --path "$EXPORT_PATH"
-```
-
-## 本地开发运行 CLI
-
-如果没有全局安装 `lightdash`，可以在仓库根目录先构建 CLI：
-
-```bash
-pnpm -F cli build
-```
-
-然后用构建产物执行命令：
-
-```bash
-node ./packages/cli/dist/index.js download --help
-node ./packages/cli/dist/index.js upload --help
-```
-
-跨环境同步时，把上文中的 `lightdash` 替换为：
-
-```bash
-node ./packages/cli/dist/index.js
-```
-
-## 注意事项
-
-- 导入按 `slug` 匹配。目标环境中已有相同 slug 的图表或看板时，会更新已有内容。
-- 目标环境需要有兼容的 dbt explore、字段和指标，否则导入后的图表可能无法正常查询。
-- 当前流程同步的是 as-code 支持的看板和图表配置，不包含定时任务、权限、收藏等运行态配置。
-- 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。
-- `--force` 适合跨环境导入，因为导出的 YAML 文件可能没有本地修改时间差异，不加时可能被判断为无需上传。
-- API key 不要提交到仓库，也不要写入可共享文档。建议只放在本地 shell 会话或安全的 CI secret 中。
-
-## 什么时候需要开发新功能
-
-当前 CLI 已能完成跨环境同步，只是需要手动切换环境变量并执行两条命令。
-
-如果后续需要以下能力，再考虑新增 CLI 功能：
-
-- 同时保存多个环境 profile，不需要手动切换 key。
-- 自动列出源环境所有看板并交互多选。
-- 一条命令完成源环境导出和目标环境导入。
-- 在导入前展示 diff 或 dry-run 预览。
+官方 CLI 仅作对照，不要当操作命令：官方 `lint` 不认 `tabs[].filters`；官方较新版本 `-d` 也会带 SQL 图，本仓现在同样会带（upload 仍靠本地 `*.sql.yml`，先 download 再 `--include-charts`）。

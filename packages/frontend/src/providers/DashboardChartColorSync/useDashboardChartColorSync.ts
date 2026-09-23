@@ -6,6 +6,8 @@ import DashboardChartColorSyncContext, {
     type DashboardChartColorSyncContextValue,
 } from './context';
 
+const NOOP_REGISTER_VISIBLE_COLOR_KEYS = (_keys: string[]) => undefined;
+
 const EMPTY_SYNC: DashboardChartColorSyncContextValue = {
     enabled: false,
     colorPalette: [],
@@ -13,6 +15,7 @@ const EMPTY_SYNC: DashboardChartColorSyncContextValue = {
     manualColors: {},
     knownColorKeys: [],
     hashAssignments: {},
+    registerVisibleColorKeys: NOOP_REGISTER_VISIBLE_COLOR_KEYS,
 };
 
 const EMPTY_TILE_UUIDS: string[] = [];
@@ -22,6 +25,12 @@ const EMPTY_COLOR_PALETTE: string[] = [];
 
 export const useDashboardChartColorSync = () =>
     useContext(DashboardChartColorSyncContext) ?? EMPTY_SYNC;
+
+export const useRegisterDashboardVisibleColorKeys = () =>
+    useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.registerVisibleColorKeys,
+    ) ?? NOOP_REGISTER_VISIBLE_COLOR_KEYS;
 
 export const useDashboardChartTileColorSync = ({
     tileUuid,

@@ -2,23 +2,31 @@ import { subject } from '@casl/ability';
 import {
     ApiChartAsCodeListResponse,
     ApiDashboardAsCodeListResponse,
+    ApiSpaceAsCodeListResponse,
+    ApiSqlChartAsCodeListResponse,
+    ApiVirtualViewAsCodeListResponse,
     ChartAsCode,
     ChartAsCodeInternalization,
     ChartSummary,
+    ContentAsCodeType,
     CreateSavedChart,
+    createTemporaryVirtualView,
     currentVersion,
     DashboardAsCode,
     DashboardAsCodeInternalization,
+    DashboardAsCodeUpsertResult,
     DashboardDAO,
     DashboardTab,
     DashboardTile,
     DashboardTileAsCode,
     DashboardTileTarget,
     DashboardTileTypes,
+    ExploreType,
     ForbiddenError,
     friendlyName,
     getContentAsCodePathFromLtreePath,
     getLtreePathFromContentAsCodePath,
+    isExploreError,
     NotFoundError,
     Project,
     PromotionAction,
@@ -26,22 +34,43 @@ import {
     SavedChartDAO,
     SessionUser,
     Space,
+    SpaceAsCode,
+    SpaceAsCodeAction,
     SpaceMemberRole,
     SpaceSummary,
+    SqlChartAsCode,
     UpdatedByUser,
+    VirtualViewAsCode,
     type DashboardTileWithSlug,
+    type MetricQuery,
+    type WarehouseClient,
 } from '@lightdash/common';
 import { v4 as uuidv4 } from 'uuid';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../config/parseConfig';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
+import { GroupsModel } from '../../models/GroupsModel';
+import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberProfileModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { BaseService } from '../BaseService';
 import { PromoteService } from '../PromoteService/PromoteService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
+import {
+    applyResolvedTabUuidsToTiles,
+    getConfigWithLocalRefs,
+    getConfigWithPortableRefs,
+    getDashboardTabSlug,
+    getFiltersWithLocalLockedTabs,
+    getFiltersWithPortableLockedTabs,
+    getTileTabSlug,
+    isEmptyDashboardFilters,
+    resolveDashboardTabs,
+    toAsCodeTabs,
+} from './dashboardAsCodeReferences';
 
 type CoderServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -52,6 +81,9 @@ type CoderServiceArguments = {
     spaceModel: SpaceModel;
     schedulerClient: SchedulerClient;
     promoteService: PromoteService;
+    savedSqlModel: SavedSqlModel;
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
+    groupsModel: GroupsModel;
 };
 
 const isAnyChartTile = (
@@ -79,6 +111,12 @@ export class CoderService extends BaseService {
 
     promoteService: PromoteService;
 
+    savedSqlModel: SavedSqlModel;
+
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
+
+    groupsModel: GroupsModel;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -88,6 +126,9 @@ export class CoderService extends BaseService {
         spaceModel,
         schedulerClient,
         promoteService,
+        savedSqlModel,
+        organizationMemberProfileModel,
+        groupsModel,
     }: CoderServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -98,6 +139,69 @@ export class CoderService extends BaseService {
         this.spaceModel = spaceModel;
         this.schedulerClient = schedulerClient;
         this.promoteService = promoteService;
+        this.savedSqlModel = savedSqlModel;
+        this.organizationMemberProfileModel = organizationMemberProfileModel;
+        this.groupsModel = groupsModel;
+    }
+
+    private static contentAsCodeSubject(project: Project) {
+        return subject('ContentAsCode', {
+            projectUuid: project.projectUuid,
+            organizationUuid: project.organizationUuid,
+            type: project.type,
+            createdByUserUuid: project.createdByUserUuid,
+            upstreamProjectUuid: project.upstreamProjectUuid,
+        });
+    }
+
+    private static assertCanDownload(user: SessionUser, project: Project) {
+        if (
+            user.ability.cannot(
+                'view',
+                CoderService.contentAsCodeSubject(project),
+            )
+        ) {
+            throw new ForbiddenError(
+                'You are not allowed to download content as code',
+            );
+        }
+    }
+
+    private static assertCanUpload(user: SessionUser, project: Project) {
+        if (
+            user.ability.cannot(
+                'create',
+                CoderService.contentAsCodeSubject(project),
+            )
+        ) {
+            throw new ForbiddenError(
+                'You are not allowed to upload content as code',
+            );
+        }
+    }
+
+    private static toSpaceAsCode(
+        space: Pick<SpaceSummary, 'name' | 'path'>,
+        access?: SpaceAsCode['access'],
+    ): SpaceAsCode {
+        return {
+            contentType: ContentAsCodeType.SPACE,
+            version: 1,
+            spaceName: space.name,
+            slug: getContentAsCodePathFromLtreePath(space.path),
+            ...(access ? { access } : {}),
+        };
+    }
+
+    private static spacesMetadataFromSummaries(
+        spaces: Pick<SpaceSummary, 'name' | 'path'>[],
+    ): SpaceAsCode[] {
+        const unique = new Map<string, SpaceAsCode>();
+        spaces.forEach((space) => {
+            const encoded = CoderService.toSpaceAsCode(space);
+            unique.set(encoded.slug, encoded);
+        });
+        return [...unique.values()];
     }
 
     private static transformChart(
@@ -130,6 +234,9 @@ export class CoderService extends BaseService {
             spaceSlug,
             version: currentVersion,
             downloadedAt: new Date(),
+            contentType: ContentAsCodeType.CHART,
+            parameters: chart.parameters,
+            merge: chart.merge,
         };
     }
 
@@ -198,10 +305,10 @@ export class CoderService extends BaseService {
                 };
             });
 
-        return {
+        return getFiltersWithPortableLockedTabs(dashboard, {
             ...dashboard.filters,
             dimensions: dimensionFiltersWithoutUuids,
-        };
+        });
     }
 
     /* Convert dashboard filters from tile slugs to tile uuids
@@ -257,7 +364,14 @@ export class CoderService extends BaseService {
         tabs: DashboardDAO['tabs'],
     ): DashboardAsCode['tabs'] {
         return tabs.map((tab) => {
-            if (!tab.filters) return tab;
+            if (!tab.filters || isEmptyDashboardFilters(tab.filters)) {
+                return {
+                    uuid: tab.uuid,
+                    name: tab.name,
+                    order: tab.order,
+                    hidden: tab.hidden,
+                };
+            }
 
             const dimensionFiltersWithoutUuids = tab.filters.dimensions.map(
                 (filter) => {
@@ -288,11 +402,12 @@ export class CoderService extends BaseService {
 
             return {
                 ...tab,
-                filters: {
+                slug: getDashboardTabSlug(dashboard, tab.uuid),
+                filters: getFiltersWithPortableLockedTabs(dashboard, {
                     ...tab.filters,
                     dimensions: dimensionFiltersWithoutUuids,
-                },
-            } as DashboardTab; // Type assertion: id removed for export format
+                }),
+            } as unknown as DashboardTab; // Type assertion: id removed for export format
         }) as DashboardAsCode['tabs'];
     }
 
@@ -302,10 +417,21 @@ export class CoderService extends BaseService {
     static getTabFiltersWithTileUuids(
         dashboardAsCode: DashboardAsCode,
         tilesWithUuids: DashboardTileWithSlug[],
+        existingTabs: DashboardDAO['tabs'] = [],
     ): DashboardDAO['tabs'] {
-        return (dashboardAsCode.tabs || []).map((tab) => {
-            if (!tab.filters) {
-                return tab;
+        const resolvedTabs = resolveDashboardTabs(
+            dashboardAsCode.tabs || [],
+            existingTabs,
+        );
+        return resolvedTabs.map((tab, index): DashboardTab => {
+            const incoming = dashboardAsCode.tabs?.[index];
+            if (!incoming?.filters) {
+                return {
+                    uuid: tab.uuid,
+                    name: tab.name,
+                    order: tab.order,
+                    hidden: tab.hidden,
+                };
             }
 
             const convertTileTargets = (
@@ -332,7 +458,12 @@ export class CoderService extends BaseService {
                 }, {});
             };
 
-            const dimensionFiltersWithUuids = tab.filters.dimensions.map(
+            const incomingFilters = getFiltersWithLocalLockedTabs(
+                incoming.filters,
+                resolvedTabs,
+                [],
+            );
+            const dimensionFiltersWithUuids = incomingFilters.dimensions.map(
                 (filter) => ({
                     ...filter,
                     id: uuidv4(),
@@ -340,7 +471,7 @@ export class CoderService extends BaseService {
                 }),
             );
 
-            const metricFiltersWithUuids = (tab.filters.metrics || []).map(
+            const metricFiltersWithUuids = (incomingFilters.metrics || []).map(
                 (filter) => ({
                     ...filter,
                     id: uuidv4(),
@@ -349,7 +480,7 @@ export class CoderService extends BaseService {
             );
 
             const tableCalculationFiltersWithUuids = (
-                tab.filters.tableCalculations || []
+                incomingFilters.tableCalculations || []
             ).map((filter) => ({
                 ...filter,
                 id: uuidv4(),
@@ -357,7 +488,10 @@ export class CoderService extends BaseService {
             }));
 
             return {
-                ...tab,
+                uuid: tab.uuid,
+                name: tab.name,
+                order: tab.order,
+                hidden: tab.hidden,
                 filters: {
                     dimensions: dimensionFiltersWithUuids,
                     metrics: metricFiltersWithUuids,
@@ -382,6 +516,7 @@ export class CoderService extends BaseService {
 
         const tilesWithoutUuids: DashboardTileAsCode[] = dashboard.tiles.map(
             (tile): DashboardTileAsCode => {
+                const tabSlug = getTileTabSlug(dashboard, tile);
                 if (isAnyChartTile(tile)) {
                     return {
                         ...tile,
@@ -390,6 +525,8 @@ export class CoderService extends BaseService {
                             dashboard,
                             tile.uuid,
                         ),
+                        tabSlug,
+                        tabUuid: tile.tabUuid,
                         properties: {
                             title: tile.properties.title,
                             hideTitle: tile.properties.hideTitle,
@@ -404,6 +541,8 @@ export class CoderService extends BaseService {
                     ...tile,
                     tileSlug: undefined,
                     uuid: undefined,
+                    tabSlug,
+                    tabUuid: tile.tabUuid,
                 };
             },
             [],
@@ -416,16 +555,24 @@ export class CoderService extends BaseService {
             tiles: tilesWithoutUuids,
 
             filters: CoderService.getFiltersWithTileSlugs(dashboard),
-            tabs: CoderService.getTabFiltersWithTileSlugs(
+            tabs: toAsCodeTabs(
                 dashboard,
-                dashboard.tabs,
+                CoderService.getTabFiltersWithTileSlugs(
+                    dashboard,
+                    dashboard.tabs,
+                ),
             ),
             slug: dashboard.slug,
-            config: dashboard.config,
+            config: getConfigWithPortableRefs(dashboard, (tileUuid) =>
+                CoderService.getChartSlugForTileUuid(dashboard, tileUuid),
+            ),
 
             spaceSlug,
             version: currentVersion,
             downloadedAt: new Date(),
+            contentType: ContentAsCodeType.DASHBOARD,
+            parameters: dashboard.parameters,
+            ownerEmail: dashboard.owner?.email ?? null,
         };
 
         return dashboardAsCode;
@@ -434,48 +581,94 @@ export class CoderService extends BaseService {
     async convertTileWithSlugsToUuids(
         projectUuid: string,
         tiles: DashboardTileAsCode[],
+        warnings: string[] = [],
     ): Promise<DashboardTileWithSlug[]> {
-        const chartSlugs: string[] = tiles.reduce<string[]>(
-            (acc, tile) =>
-                isAnyChartTile(tile)
-                    ? [...acc, tile.properties.chartSlug]
-                    : acc,
-            [],
-        );
+        const getAsCodeChartSlug = (
+            tile: DashboardTileAsCode,
+        ): string | undefined =>
+            'chartSlug' in tile.properties
+                ? tile.properties.chartSlug ?? undefined
+                : undefined;
 
-        const charts = await this.savedChartModel.find({
-            slugs: chartSlugs,
-            projectUuid,
-            excludeChartsSavedInDashboard: false,
-            includeOrphanChartsWithinDashboard: true,
-        });
+        const savedChartSlugs = tiles
+            .filter((tile) => tile.type === DashboardTileTypes.SAVED_CHART)
+            .map(getAsCodeChartSlug)
+            .filter((slug): slug is string => Boolean(slug));
+        const sqlChartSlugs = tiles
+            .filter((tile) => tile.type === DashboardTileTypes.SQL_CHART)
+            .map(getAsCodeChartSlug)
+            .filter((slug): slug is string => Boolean(slug));
+
+        const charts =
+            savedChartSlugs.length > 0
+                ? await this.savedChartModel.find({
+                      slugs: savedChartSlugs,
+                      projectUuid,
+                      excludeChartsSavedInDashboard: false,
+                      includeOrphanChartsWithinDashboard: true,
+                  })
+                : [];
+        const sqlCharts =
+            sqlChartSlugs.length > 0
+                ? (await this.savedSqlModel.find({ projectUuid }))
+                      .map((row) => SavedSqlModel.convertSelectSavedSql(row))
+                      .filter((chart) => sqlChartSlugs.includes(chart.slug))
+                : [];
 
         return tiles.map((tile) => {
+            if (tile.type === DashboardTileTypes.SQL_CHART) {
+                const chartSlug = getAsCodeChartSlug(tile);
+                const sqlChart = sqlCharts.find(
+                    (chart) => chart.slug === chartSlug,
+                );
+                if (!sqlChart) {
+                    warnings.push(
+                        `Chart "${chartSlug}" was not found in this project — the tile was saved without a chart. Upload the chart first, then re-upload the dashboard.`,
+                    );
+                }
+                return {
+                    ...tile,
+                    uuid: uuidv4(),
+                    tileSlug: tile.tileSlug,
+                    tabUuid: tile.tabUuid,
+                    tabSlug: tile.tabSlug,
+                    properties: {
+                        ...tile.properties,
+                        savedSqlUuid: sqlChart?.savedSqlUuid ?? null,
+                    },
+                } as unknown as DashboardTileWithSlug;
+            }
+
             if (isAnyChartTile(tile)) {
+                const chartSlug = getAsCodeChartSlug(tile);
                 const savedChart = charts.find(
-                    (chart) => chart.slug === tile.properties.chartSlug,
+                    (chart) => chart.slug === chartSlug,
                 );
 
                 if (!savedChart) {
-                    throw new NotFoundError(
-                        `Chart with slug ${tile.properties.chartSlug} not found`,
+                    warnings.push(
+                        `Chart "${chartSlug}" was not found in this project — the tile was saved without a chart. Upload the chart first, then re-upload the dashboard.`,
                     );
                 }
                 return {
                     ...tile,
                     uuid: uuidv4(),
                     tileSlug: tile.tileSlug, // Preserve tileSlug for filter matching
+                    tabUuid: tile.tabUuid,
+                    tabSlug: tile.tabSlug,
                     properties: {
                         ...tile.properties,
-                        savedChartUuid: savedChart.uuid,
+                        savedChartUuid: savedChart?.uuid ?? null,
                     },
-                } as DashboardTileWithSlug;
+                } as unknown as DashboardTileWithSlug;
             }
 
             return {
                 ...tile,
                 tileSlug: tile.tileSlug, // Preserve tileSlug even for non-chart tiles
-            } as DashboardTileWithSlug;
+                tabUuid: tile.tabUuid,
+                tabSlug: tile.tabSlug,
+            } as unknown as DashboardTileWithSlug;
         });
     }
 
@@ -584,19 +777,7 @@ export class CoderService extends BaseService {
             throw new NotFoundError(`Project ${projectUuid} not found`);
         }
 
-        if (
-            user.ability.cannot(
-                'manage',
-                subject('ContentAsCode', {
-                    projectUuid: project.projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError(
-                'You are not allowed to download dashboards',
-            );
-        }
+        CoderService.assertCanDownload(user, project);
 
         const slugs = await this.convertIdsToSlugs('dashboard', dashboardIds);
 
@@ -610,6 +791,7 @@ export class CoderService extends BaseService {
                 dashboards: [],
                 languageMap: undefined,
                 missingIds: dashboardIds || [],
+                spaces: [],
                 total: 0,
                 offset: 0,
             };
@@ -684,6 +866,7 @@ export class CoderService extends BaseService {
                   })
                 : undefined,
             missingIds,
+            spaces: CoderService.spacesMetadataFromSummaries(spaces),
             total: dashboardSummariesWithAccess.length,
             offset: newOffset,
         };
@@ -701,18 +884,7 @@ export class CoderService extends BaseService {
             throw new NotFoundError(`Project ${projectUuid} not found`);
         }
 
-        // Filter charts based on user permissions (from private spaces)
-        if (
-            user.ability.cannot(
-                'manage',
-                subject('ContentAsCode', {
-                    projectUuid: project.projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError('You are not allowed to download charts');
-        }
+        CoderService.assertCanDownload(user, project);
 
         const slugs = await this.convertIdsToSlugs('chart', chartIds);
         if (slugs?.length === 0) {
@@ -725,6 +897,7 @@ export class CoderService extends BaseService {
                 charts: [],
                 languageMap: undefined,
                 missingIds: chartIds || [],
+                spaces: [],
                 total: 0,
                 offset: 0,
             };
@@ -797,6 +970,7 @@ export class CoderService extends BaseService {
                   })
                 : undefined,
             missingIds,
+            spaces: CoderService.spacesMetadataFromSummaries(spaces),
             total: chartsSummariesWithAccess.length,
             offset: newOffset,
         };
@@ -808,20 +982,12 @@ export class CoderService extends BaseService {
         slug: string,
         chartAsCode: ChartAsCode,
         skipSpaceCreate?: boolean,
+        publicSpaceCreate?: boolean,
+        spaceNames?: Record<string, string>,
     ) {
         const project = await this.projectModel.get(projectUuid);
 
-        if (
-            user.ability.cannot(
-                'manage',
-                subject('ContentAsCode', {
-                    projectUuid: project.projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
+        CoderService.assertCanUpload(user, project);
         const [chart] = await this.savedChartModel.find({
             slug,
             projectUuid,
@@ -838,6 +1004,8 @@ export class CoderService extends BaseService {
                     chartAsCode.spaceSlug,
                     user,
                     skipSpaceCreate,
+                    publicSpaceCreate,
+                    spaceNames,
                 );
 
             console.info(
@@ -882,6 +1050,7 @@ export class CoderService extends BaseService {
                 }
                 createChart = {
                     ...chartAsCode,
+                    metricQuery: chartAsCode.metricQuery as MetricQuery,
                     spaceUuid: null,
                     dashboardUuid,
                     updatedByUser: user,
@@ -890,6 +1059,7 @@ export class CoderService extends BaseService {
             } else {
                 createChart = {
                     ...chartAsCode,
+                    metricQuery: chartAsCode.metricQuery as MetricQuery,
                     spaceUuid: space.uuid,
                     dashboardUuid: null,
                     updatedByUser: user,
@@ -938,6 +1108,8 @@ export class CoderService extends BaseService {
             chartAsCode.spaceSlug,
             user,
             skipSpaceCreate,
+            publicSpaceCreate,
+            spaceNames,
         );
 
         const { promotedChart, upstreamChart } =
@@ -952,6 +1124,7 @@ export class CoderService extends BaseService {
             chart: {
                 ...promotedChart.chart,
                 ...chartAsCode,
+                metricQuery: chartAsCode.metricQuery as MetricQuery,
                 projectUuid,
                 organizationUuid: project.organizationUuid,
             },
@@ -1113,36 +1286,52 @@ export class CoderService extends BaseService {
         slug: string,
         dashboardAsCode: DashboardAsCode,
         skipSpaceCreate?: boolean,
-    ): Promise<PromotionChanges> {
+        publicSpaceCreate?: boolean,
+        spaceNames?: Record<string, string>,
+    ): Promise<DashboardAsCodeUpsertResult> {
         const project = await this.projectModel.get(projectUuid);
 
-        if (
-            user.ability.cannot(
-                'manage',
-                subject('ContentAsCode', {
-                    projectUuid: project.projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
+        CoderService.assertCanUpload(user, project);
         const [dashboardSummary] = await this.dashboardModel.find({
             slug,
             projectUuid,
         });
-        const tilesWithUuids = await this.convertTileWithSlugsToUuids(
+        const existingDashboard = dashboardSummary
+            ? await this.dashboardModel.getByIdOrSlug(dashboardSummary.uuid)
+            : undefined;
+        const warnings: string[] = [];
+        const resolvedTiles = await this.convertTileWithSlugsToUuids(
             projectUuid,
             dashboardAsCode.tiles,
+            warnings,
+        );
+        const resolvedTabs = resolveDashboardTabs(
+            dashboardAsCode.tabs || [],
+            existingDashboard?.tabs,
+        );
+        const tilesWithUuids = applyResolvedTabUuidsToTiles(
+            resolvedTiles,
+            resolvedTabs,
         );
 
-        const dashboardFilters = CoderService.getFiltersWithTileUuids(
-            dashboardAsCode,
-            tilesWithUuids,
+        const dashboardFilters = getFiltersWithLocalLockedTabs(
+            CoderService.getFiltersWithTileUuids(
+                dashboardAsCode,
+                tilesWithUuids,
+            ),
+            resolvedTabs,
+            warnings,
         );
         const tabsWithUuids = CoderService.getTabFiltersWithTileUuids(
             dashboardAsCode,
             tilesWithUuids,
+            existingDashboard?.tabs,
+        );
+        const dashboardConfig = getConfigWithLocalRefs(
+            dashboardAsCode.config,
+            resolvedTabs,
+            tilesWithUuids,
+            warnings,
         );
 
         // If chart does not exist, we can't use promoteService,
@@ -1154,6 +1343,8 @@ export class CoderService extends BaseService {
                     dashboardAsCode.spaceSlug,
                     user,
                     skipSpaceCreate,
+                    publicSpaceCreate,
+                    spaceNames,
                 );
 
             const newDashboard = await this.dashboardModel.create(
@@ -1164,6 +1355,7 @@ export class CoderService extends BaseService {
                     tabs: tabsWithUuids,
                     forceSlug: true,
                     filters: dashboardFilters,
+                    config: dashboardConfig,
                 },
                 user,
                 projectUuid,
@@ -1186,13 +1378,11 @@ export class CoderService extends BaseService {
                 spaces: spaceCreated
                     ? [{ action: PromotionAction.CREATE, data: space }]
                     : [],
+                ...(warnings.length > 0 ? { warnings } : {}),
             };
         }
         // Use promote service to update existing dashboard
-
-        const dashboard = await this.dashboardModel.getByIdOrSlug(
-            dashboardSummary.uuid,
-        );
+        const dashboard = existingDashboard!;
 
         this.logger.info(
             `Updating dashboard "${dashboard.name}" on project ${projectUuid}`,
@@ -1202,11 +1392,13 @@ export class CoderService extends BaseService {
             ...dashboardAsCode,
             tiles: tilesWithUuids,
             tabs: tabsWithUuids,
+            config: dashboardConfig,
         };
         const mergedDashboard = {
             ...dashboard,
             ...dashboardWithUuids,
             filters: dashboardFilters,
+            config: dashboardConfig,
             projectUuid,
             organizationUuid: project.organizationUuid,
         };
@@ -1230,6 +1422,8 @@ export class CoderService extends BaseService {
             dashboardAsCode.spaceSlug,
             user,
             skipSpaceCreate,
+            publicSpaceCreate,
+            spaceNames,
         );
 
         //  we force the new space on the upstreamDashboard
@@ -1268,6 +1462,542 @@ export class CoderService extends BaseService {
         this.logger.info(
             `Finished updating dashboard "${dashboard.name}" on project ${projectUuid}: ${promotionChanges.dashboards[0].action}`,
         );
-        return promotionChanges;
+        return warnings.length > 0
+            ? { ...promotionChanges, warnings }
+            : promotionChanges;
+    }
+
+    async getSpaces(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<ApiSpaceAsCodeListResponse['results']> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanDownload(user, project);
+
+        const projectSpaces = await this.spaceModel.find({ projectUuid });
+        const skipped: ApiSpaceAsCodeListResponse['results']['skipped'] = [];
+        const spaces: SpaceAsCode[] = [];
+
+        const spacesAccess = await this.spaceModel.getUserSpacesAccess(
+            user.userUuid,
+            projectSpaces.map((space) => space.uuid),
+        );
+
+        const exported = await Promise.all(
+            projectSpaces.map(async (space) => {
+                if (
+                    !hasViewAccessToSpace(
+                        user,
+                        space,
+                        spacesAccess[space.uuid] ?? [],
+                    )
+                ) {
+                    return {
+                        skipped: {
+                            slug: getContentAsCodePathFromLtreePath(space.path),
+                            reason: 'No view access',
+                        },
+                        space: undefined,
+                    };
+                }
+
+                let access: SpaceAsCode['access'];
+                try {
+                    const fullSpace = await this.spaceModel.getFullSpace(
+                        space.uuid,
+                    );
+                    access = {
+                        inheritParentPermissions:
+                            space.parentSpaceUuid !== null,
+                        projectMemberAccessRole: null,
+                        users: fullSpace.access
+                            .filter(
+                                (member) =>
+                                    member.hasDirectAccess && member.email,
+                            )
+                            .map((member) => ({
+                                email: member.email,
+                                role: member.role,
+                            })),
+                        groups: fullSpace.groupsAccess
+                            .filter((group) => group.groupName)
+                            .map((group) => ({
+                                name: group.groupName,
+                                role: group.spaceRole,
+                            })),
+                    };
+                } catch (error) {
+                    this.logger.warn(
+                        `Could not export access for space ${space.uuid}: ${error}`,
+                    );
+                }
+
+                return {
+                    skipped: undefined,
+                    space: CoderService.toSpaceAsCode(space, access),
+                };
+            }),
+        );
+
+        exported.forEach((item) => {
+            if (item.skipped) {
+                skipped.push(item.skipped);
+            }
+            if (item.space) {
+                spaces.push(item.space);
+            }
+        });
+
+        return { spaces, skipped };
+    }
+
+    async upsertSpace(
+        user: SessionUser,
+        projectUuid: string,
+        spaceAsCode: SpaceAsCode,
+        options?: {
+            skipSpaceCreate?: boolean;
+            publicSpaceCreate?: boolean;
+        },
+    ): Promise<{
+        action: SpaceAsCodeAction;
+        warnings?: string[];
+    }> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanUpload(user, project);
+
+        const warnings: string[] = [];
+        let created = false;
+        try {
+            const result = await this.getOrCreateSpace(
+                projectUuid,
+                spaceAsCode.slug,
+                user,
+                options?.skipSpaceCreate,
+                options?.publicSpaceCreate,
+            );
+            created = result.created;
+
+            if (result.space.name !== spaceAsCode.spaceName) {
+                await this.spaceModel.update(result.space.uuid, {
+                    name: spaceAsCode.spaceName,
+                });
+            }
+
+            if (spaceAsCode.access) {
+                await this.applySpaceAccess(
+                    project.organizationUuid,
+                    result.space.uuid,
+                    spaceAsCode,
+                    warnings,
+                );
+            }
+        } catch (error) {
+            if (error instanceof NotFoundError && options?.skipSpaceCreate) {
+                warnings.push(error.message);
+                return { action: SpaceAsCodeAction.NO_CHANGES, warnings };
+            }
+            throw error;
+        }
+
+        return {
+            action: created
+                ? SpaceAsCodeAction.CREATE
+                : SpaceAsCodeAction.UPDATE,
+            warnings: warnings.length > 0 ? warnings : undefined,
+        };
+    }
+
+    private async applySpaceAccess(
+        organizationUuid: string,
+        spaceUuid: string,
+        spaceAsCode: SpaceAsCode,
+        warnings: string[],
+    ): Promise<void> {
+        const { access } = spaceAsCode;
+        if (!access) return;
+
+        const userWarnings = await Promise.all(
+            access.users.map(async (userAccess) => {
+                try {
+                    const member =
+                        await this.organizationMemberProfileModel.getOrganizationMemberByEmail(
+                            organizationUuid,
+                            userAccess.email,
+                        );
+                    await this.spaceModel.addSpaceAccess(
+                        spaceUuid,
+                        member.userUuid,
+                        userAccess.role,
+                    );
+                    return undefined;
+                } catch {
+                    return `Skipped user access for ${userAccess.email} in space "${spaceAsCode.slug}"`;
+                }
+            }),
+        );
+
+        const groupWarnings = await Promise.all(
+            access.groups.map(async (groupAccess) => {
+                try {
+                    const { data: groups } = await this.groupsModel.find({
+                        organizationUuid,
+                        name: groupAccess.name,
+                    });
+                    if (groups.length !== 1) {
+                        return `Skipped group access for "${groupAccess.name}" in space "${spaceAsCode.slug}"`;
+                    }
+                    await this.spaceModel.addSpaceGroupAccess(
+                        spaceUuid,
+                        groups[0].uuid,
+                        groupAccess.role,
+                    );
+                    return undefined;
+                } catch {
+                    return `Skipped group access for "${groupAccess.name}" in space "${spaceAsCode.slug}"`;
+                }
+            }),
+        );
+
+        [...userWarnings, ...groupWarnings].forEach((warning) => {
+            if (warning) {
+                warnings.push(warning);
+            }
+        });
+    }
+
+    async getSqlCharts(
+        user: SessionUser,
+        projectUuid: string,
+        ids?: string[],
+        offset?: number,
+    ): Promise<ApiSqlChartAsCodeListResponse['results']> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanDownload(user, project);
+
+        const rows = await this.savedSqlModel.find({ projectUuid });
+        const charts = rows.map((row) =>
+            SavedSqlModel.convertSelectSavedSql(row),
+        );
+        const filteredByIds = charts.filter((chart) => {
+            if (!ids || ids.length === 0) return true;
+            return ids.some(
+                (id) => id === chart.slug || id === chart.savedSqlUuid,
+            );
+        });
+        const spaceUuids = [
+            ...new Set(filteredByIds.map((chart) => chart.space.uuid)),
+        ];
+        const spaces = await this.spaceModel.find({ spaceUuids });
+        const spacesByUuid = new Map(
+            spaces.map((space) => [space.uuid, space]),
+        );
+        const chartsWithAccess = await this.filterPrivateContent(
+            user,
+            project,
+            filteredByIds.map((chart) => ({
+                uuid: chart.savedSqlUuid,
+                name: chart.name,
+                spaceUuid: chart.space.uuid,
+                description: chart.description ?? undefined,
+                slug: chart.slug,
+            })),
+            spaces,
+        );
+        const accessibleSlugs = new Set(
+            chartsWithAccess.map((chart) => chart.slug),
+        );
+        const filtered = filteredByIds.filter((chart) =>
+            accessibleSlugs.has(chart.slug),
+        );
+        const accessibleSpaces = spaces.filter((space) =>
+            filtered.some((chart) => chart.space.uuid === space.uuid),
+        );
+
+        const maxResults = this.lightdashConfig.contentAsCode.maxDownloads;
+        const offsetIndex = offset || 0;
+        const newOffset = Math.min(offsetIndex + maxResults, filtered.length);
+        const page = filtered.slice(offsetIndex, newOffset);
+
+        const sqlCharts: SqlChartAsCode[] = page.map((chart) => {
+            const space = spacesByUuid.get(chart.space.uuid);
+            return {
+                name: chart.name,
+                description: chart.description,
+                slug: chart.slug,
+                sql: chart.sql,
+                limit: chart.limit,
+                config: chart.config,
+                chartKind: chart.chartKind,
+                version: currentVersion,
+                contentType: ContentAsCodeType.SQL_CHART,
+                spaceSlug: space
+                    ? getContentAsCodePathFromLtreePath(space.path)
+                    : chart.space.name,
+                updatedAt: chart.lastUpdatedAt,
+                downloadedAt: new Date(),
+            };
+        });
+
+        return {
+            sqlCharts,
+            missingIds: CoderService.getMissingIds(
+                ids,
+                page.map((chart) => ({
+                    slug: chart.slug,
+                    uuid: chart.savedSqlUuid,
+                })),
+            ),
+            spaces: CoderService.spacesMetadataFromSummaries(accessibleSpaces),
+            total: filtered.length,
+            offset: newOffset,
+        };
+    }
+
+    async upsertSqlChart(
+        user: SessionUser,
+        projectUuid: string,
+        slug: string,
+        sqlChartAsCode: SqlChartAsCode,
+        skipSpaceCreate?: boolean,
+        publicSpaceCreate?: boolean,
+        _force?: boolean,
+        spaceNames?: Record<string, string>,
+    ): Promise<PromotionChanges> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanUpload(user, project);
+
+        const { space, created: spaceCreated } = await this.getOrCreateSpace(
+            projectUuid,
+            sqlChartAsCode.spaceSlug,
+            user,
+            skipSpaceCreate,
+            publicSpaceCreate,
+            spaceNames,
+        );
+
+        const existing = await this.savedSqlModel.find({
+            projectUuid,
+            slug,
+        });
+        const [existingRow] = existing;
+
+        if (!existingRow) {
+            const created = await this.savedSqlModel.create(
+                user.userUuid,
+                projectUuid,
+                {
+                    name: sqlChartAsCode.name,
+                    description: sqlChartAsCode.description,
+                    sql: sqlChartAsCode.sql,
+                    limit: sqlChartAsCode.limit,
+                    config: sqlChartAsCode.config,
+                    spaceUuid: space.uuid,
+                    slug,
+                },
+            );
+            return {
+                charts: [
+                    {
+                        action: PromotionAction.CREATE,
+                        data: {
+                            uuid: created.savedSqlUuid,
+                            name: sqlChartAsCode.name,
+                            slug,
+                            spaceSlug: sqlChartAsCode.spaceSlug,
+                            spacePath: getContentAsCodePathFromLtreePath(
+                                sqlChartAsCode.spaceSlug,
+                            ),
+                            oldUuid: created.savedSqlUuid,
+                        } as PromotionChanges['charts'][number]['data'],
+                    },
+                ],
+                dashboards: [],
+                spaces: spaceCreated
+                    ? [{ action: PromotionAction.CREATE, data: space }]
+                    : [],
+            };
+        }
+
+        const existingChart = SavedSqlModel.convertSelectSavedSql(existingRow);
+        await this.savedSqlModel.update({
+            userUuid: user.userUuid,
+            savedSqlUuid: existingChart.savedSqlUuid,
+            sqlChart: {
+                unversionedData: {
+                    name: sqlChartAsCode.name,
+                    description: sqlChartAsCode.description,
+                    spaceUuid: space.uuid,
+                },
+                versionedData: {
+                    sql: sqlChartAsCode.sql,
+                    limit: sqlChartAsCode.limit,
+                    config: sqlChartAsCode.config,
+                },
+            },
+        });
+
+        return {
+            charts: [
+                {
+                    action: PromotionAction.UPDATE,
+                    data: {
+                        uuid: existingChart.savedSqlUuid,
+                        name: sqlChartAsCode.name,
+                        slug,
+                        spaceSlug: sqlChartAsCode.spaceSlug,
+                        spacePath: getContentAsCodePathFromLtreePath(
+                            sqlChartAsCode.spaceSlug,
+                        ),
+                        oldUuid: existingChart.savedSqlUuid,
+                    } as PromotionChanges['charts'][number]['data'],
+                },
+            ],
+            dashboards: [],
+            spaces: [],
+        };
+    }
+
+    async getVirtualViews(
+        user: SessionUser,
+        projectUuid: string,
+        slugs?: string[],
+    ): Promise<ApiVirtualViewAsCodeListResponse['results']> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanDownload(user, project);
+
+        const cached = await this.projectModel.findVirtualViewsFromCache(
+            projectUuid,
+        );
+        const missingSlugs: string[] = [];
+        const skipped: ApiVirtualViewAsCodeListResponse['results']['skipped'] =
+            [];
+        const requested = slugs && slugs.length > 0 ? new Set(slugs) : null;
+
+        if (requested) {
+            requested.forEach((slug) => {
+                if (!cached[slug]) {
+                    missingSlugs.push(slug);
+                }
+            });
+        }
+
+        const virtualViews: VirtualViewAsCode[] = Object.values(cached)
+            .filter((explore) => !requested || requested.has(explore.name))
+            .flatMap((explore) => {
+                if (
+                    isExploreError(explore) ||
+                    explore.type !== ExploreType.VIRTUAL
+                ) {
+                    skipped.push({
+                        slug: explore.name,
+                        reason: 'Virtual view could not be compiled',
+                    });
+                    return [];
+                }
+                const table = explore.tables[explore.baseTable];
+                const wrappedSql = table?.sqlTable ?? '';
+                const sql =
+                    wrappedSql.startsWith('(') && wrappedSql.endsWith(')')
+                        ? wrappedSql.slice(1, -1)
+                        : wrappedSql;
+                const columns = Object.values(table?.dimensions ?? {}).map(
+                    (dimension) => ({
+                        reference: dimension.name,
+                        type: dimension.type,
+                    }),
+                );
+                return [
+                    {
+                        contentType: ContentAsCodeType.VIRTUAL_VIEW,
+                        version: currentVersion,
+                        slug: explore.name,
+                        name: explore.label,
+                        sql,
+                        columns,
+                    },
+                ];
+            });
+
+        return { virtualViews, skipped, missingSlugs };
+    }
+
+    async upsertVirtualView(
+        user: SessionUser,
+        projectUuid: string,
+        slug: string,
+        virtualView: VirtualViewAsCode,
+    ): Promise<{
+        action: PromotionAction.CREATE | PromotionAction.UPDATE;
+    }> {
+        const project = await this.projectModel.get(projectUuid);
+        CoderService.assertCanUpload(user, project);
+
+        const cached = await this.projectModel.findVirtualViewsFromCache(
+            projectUuid,
+        );
+        const exists = Boolean(cached[slug]);
+        const compiled = createTemporaryVirtualView(
+            slug,
+            virtualView.sql,
+            virtualView.columns,
+        );
+        const warehouseClient = {
+            getAdapterType: () => compiled.targetDatabase,
+            getFieldQuoteChar: () => '"',
+            getStringQuoteChar: () => "'",
+            getEscapeStringQuoteChar: () => "''",
+            getFloatingType: () => 'FLOAT',
+            getMetricSql: () => '',
+            concatString: (...args: string[]) => args.join(''),
+            getStartOfWeek: () => undefined,
+            credentials: { type: 'bigquery' },
+            getCatalog: async () => ({}),
+            streamQuery: async () => undefined,
+            runQuery: async () => ({ fields: {}, rows: [] }),
+            test: async () => undefined,
+            getAllTables: async () => [],
+            getFields: async () => ({}),
+            executeAsyncQuery: async () => ({
+                queryId: null,
+                queryMetadata: null,
+                totalRows: 0,
+                durationMs: 0,
+            }),
+            getAsyncQueryResults: async () => ({
+                queryId: null,
+                queryMetadata: null,
+                totalRows: 0,
+                durationMs: 0,
+                fields: {},
+                pageCount: 0,
+                rows: [],
+            }),
+        } as unknown as WarehouseClient;
+
+        if (exists) {
+            await this.projectModel.updateVirtualView(
+                projectUuid,
+                slug,
+                {
+                    name: virtualView.name,
+                    sql: virtualView.sql,
+                    columns: virtualView.columns,
+                },
+                warehouseClient,
+            );
+            return { action: PromotionAction.UPDATE };
+        }
+
+        await this.projectModel.createVirtualView(
+            projectUuid,
+            {
+                name: slug,
+                sql: virtualView.sql,
+                columns: virtualView.columns,
+            },
+            warehouseClient,
+        );
+        return { action: PromotionAction.CREATE };
     }
 }

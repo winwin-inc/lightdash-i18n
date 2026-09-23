@@ -13,9 +13,13 @@ import {
     Role,
     RoleAssignment,
     RoleWithScopes,
+    SessionUser,
     UpdateRole,
     UpdateRoleAssignmentRequest,
     UpsertUserRoleAssignmentRequest,
+    type CustomRoleAsCode,
+    type UserAsCode,
+    type UserAsCodeRole,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { DatabaseError } from 'pg';
@@ -23,6 +27,7 @@ import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
 import EmailClient from '../../clients/EmailClient/EmailClient';
 import { LightdashConfig } from '../../config/parseConfig';
 import { GroupsModel } from '../../models/GroupsModel';
+import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberProfileModel';
 import { OrganizationModel } from '../../models/OrganizationModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { RolesModel } from '../../models/RolesModel';
@@ -38,6 +43,7 @@ type RolesServiceArguments = {
     groupsModel: GroupsModel;
     projectModel: ProjectModel;
     emailClient: EmailClient;
+    organizationMemberProfileModel: OrganizationMemberProfileModel;
 };
 
 export class RolesService extends BaseService {
@@ -57,6 +63,8 @@ export class RolesService extends BaseService {
 
     private readonly emailClient: EmailClient;
 
+    private readonly organizationMemberProfileModel: OrganizationMemberProfileModel;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -66,6 +74,7 @@ export class RolesService extends BaseService {
         groupsModel,
         projectModel,
         emailClient,
+        organizationMemberProfileModel,
     }: RolesServiceArguments) {
         super({ serviceName: 'RolesService' });
         this.lightdashConfig = lightdashConfig;
@@ -76,6 +85,85 @@ export class RolesService extends BaseService {
         this.groupsModel = groupsModel;
         this.projectModel = projectModel;
         this.emailClient = emailClient;
+        this.organizationMemberProfileModel = organizationMemberProfileModel;
+    }
+
+    private static assertOrganizationManage(
+        user: SessionUser,
+        organizationUuid: string,
+    ): void {
+        if (user.organizationUuid !== organizationUuid) {
+            throw new ForbiddenError();
+        }
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('Organization', { organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+    }
+
+    async getCustomRolesAsCode(
+        user: SessionUser,
+        organizationUuid: string,
+    ): Promise<CustomRoleAsCode[]> {
+        RolesService.assertOrganizationManage(user, organizationUuid);
+        const roles =
+            await this.rolesModel.getRolesWithScopesByOrganizationUuid(
+                organizationUuid,
+                'user',
+            );
+
+        return roles.map((role) => ({
+            version: 1,
+            name: role.name,
+            description: role.description,
+            level: 'organization',
+            scopes: [...role.scopes].sort(),
+        }));
+    }
+
+    async getUsersAsCode(
+        user: SessionUser,
+        organizationUuid: string,
+    ): Promise<UserAsCode[]> {
+        RolesService.assertOrganizationManage(user, organizationUuid);
+
+        const [{ data: members }, customRoles] = await Promise.all([
+            this.organizationMemberProfileModel.getOrganizationMembers({
+                organizationUuid,
+            }),
+            this.rolesModel.getRolesWithScopesByOrganizationUuid(
+                organizationUuid,
+                'user',
+            ),
+        ]);
+        const customRoleNames = new Map(
+            customRoles.map((role) => [role.roleUuid, role.name]),
+        );
+
+        return members.map((member): UserAsCode => {
+            let role: UserAsCodeRole;
+            if (member.roleUuid) {
+                const customRoleName = customRoleNames.get(member.roleUuid);
+                if (!customRoleName) {
+                    throw new ParameterError(
+                        `Organization custom role ${member.roleUuid} assigned to ${member.email} was not found`,
+                    );
+                }
+                role = { type: 'custom', name: customRoleName };
+            } else {
+                role = { type: 'system', name: member.role };
+            }
+            return {
+                version: 1,
+                email: member.email.toLowerCase(),
+                disabled: !member.isActive,
+                role,
+            };
+        });
     }
 
     private static validateOrganizationAccess(

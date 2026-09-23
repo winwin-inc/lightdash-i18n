@@ -36,6 +36,11 @@ describe('Content as Code CLI', () => {
             const fileCount = parseInt(result.stdout, 10);
             cy.wrap(fileCount).should('be.gt', 0);
         });
+
+        cy.exec(`ls ${lightdashDir}/spaces | wc -l`).then((result) => {
+            const fileCount = parseInt(result.stdout, 10);
+            cy.wrap(fileCount).should('be.gte', 0);
+        });
     });
 
     it('should download charts and dashboards using slugs', () => {

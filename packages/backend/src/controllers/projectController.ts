@@ -10,7 +10,9 @@ import {
     ApiCreateTagResponse,
     ApiDashboardAsCodeListResponse,
     ApiDashboardAsCodeUpsertResponse,
+    ApiDataTimezonePreview,
     ApiErrorPayload,
+    ApiExecuteAsyncMetricQueryResults,
     ApiGetProjectGroupAccesses,
     ApiGetProjectMemberResponse,
     ApiProjectAccessListResponse,
@@ -18,8 +20,6 @@ import {
     ApiSpaceSummaryListResponse,
     ApiSqlQueryResults,
     ApiSuccessEmpty,
-    ApiExecuteAsyncMetricQueryResults,
-    ApiDataTimezonePreview,
     CalculateCountFromQuery,
     CalculateTotalFromQuery,
     ChartAsCode,
@@ -31,13 +31,13 @@ import {
     DbtProjectEnvironmentVariable,
     LightdashRequestMethodHeader,
     ParameterError,
-    formatMergeQueryRefusal,
     QueryExecutionContext,
     RequestMethod,
     RunMergeQueryRequest,
     UpdateMetadata,
     UpdateProjectMember,
     UserWarehouseCredentials,
+    formatMergeQueryRefusal,
     getRequestMethod,
     isDuplicateDashboardParams,
     type ApiCalculateSubtotalsResponse,
@@ -48,20 +48,20 @@ import {
     type ApiGetDashboardsResponse,
     type ApiGetTagsResponse,
     type ApiRefreshResults,
+    type ApiResultsCacheProjectSettingsResponse,
     type ApiSuccess,
     type ApiTableGroupsResults,
-    type ApiResultsCacheProjectSettingsResponse,
-    type UpdateResultsCacheProjectSettings,
     type ApiUpdateDashboardsResponse,
     type CalculateSubtotalsFromQuery,
     type CreateDashboard,
     type CreateDashboardWithCharts,
+    type DataTimezonePreviewRequest,
     type DuplicateDashboardParams,
     type Tag,
     type UpdateMultipleDashboards,
     type UpdateQueryTimezoneSettings,
+    type UpdateResultsCacheProjectSettings,
     type UpdateSchedulerSettings,
-    type DataTimezonePreviewRequest,
 } from '@lightdash/common';
 import {
     Body,
@@ -91,6 +91,7 @@ import {
     unauthorisedInDemo,
 } from './authentication';
 import { BaseController } from './baseController';
+import { restoreDashboardTabFilters } from './CoderControllerUtils';
 
 @Route('/api/v1/projects')
 @Response<ApiErrorPayload>('default', 'Error')
@@ -674,11 +675,22 @@ export class ProjectController extends BaseController {
                 ? req.query.chartUuid.toString()
                 : undefined;
 
+        const appUuid: string | undefined =
+            typeof req.query.appUuid === 'string'
+                ? req.query.appUuid.toString()
+                : undefined;
+
         const includePrivate = req.query.includePrivate !== 'false';
 
         const results = await this.services
             .getDashboardService()
-            .getAllByProject(req.user!, projectUuid, chartUuid, includePrivate);
+            .getAllByProject(
+                req.user!,
+                projectUuid,
+                chartUuid,
+                includePrivate,
+                appUuid,
+            );
 
         return {
             status: 'ok',
@@ -1270,26 +1282,15 @@ export class ProjectController extends BaseController {
         // Fix: TSOA validation strips filters from tabs due to complex nested types
         // Restore tabs with filters from raw request body
         const rawBody = req.body as Partial<DashboardAsCode> & {
-            tabs?: Array<Partial<DashboardTab>>;
+            tabs?: Array<Partial<DashboardTab> & { slug?: string }>;
         };
-        const dashboardWithFilters: DashboardAsCode = {
-            ...dashboard,
-            description: dashboard.description ?? undefined,
-            // Restore tabs with filters from raw body if they exist
-            tabs:
-                rawBody.tabs?.map(
-                    (rawTab: Partial<DashboardTab>, index: number) => {
-                        const parsedTab = dashboard.tabs?.[index];
-                        return {
-                            uuid: parsedTab?.uuid || rawTab.uuid || '',
-                            name: parsedTab?.name || rawTab.name || '',
-                            order: parsedTab?.order ?? rawTab.order ?? index,
-                            // Restore filters from raw body - TSOA strips them during validation
-                            filters: rawTab.filters || parsedTab?.filters,
-                        };
-                    },
-                ) || dashboard.tabs,
-        };
+        const dashboardWithFilters = restoreDashboardTabFilters(
+            {
+                ...dashboard,
+                description: dashboard.description ?? undefined,
+            },
+            rawBody,
+        );
         this.setStatus(200);
         return {
             status: 'ok',

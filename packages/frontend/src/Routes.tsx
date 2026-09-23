@@ -15,7 +15,6 @@ import ProjectRoute from './components/ProjectRoute';
 import UserCompletionModal from './components/UserCompletionModal';
 import { MetricCatalogView } from './features/metricsCatalog/types';
 import AuthPopupResult from './pages/AuthPopupResult';
-import AppGenerate from './pages/AppGenerate';
 import AppPreviewTest from './pages/AppPreviewTest';
 import Catalog from './pages/Catalog';
 import ChartHistory from './pages/ChartHistory';
@@ -62,6 +61,24 @@ const DashboardPageWrapper: FC = () => {
                 <Dashboard key={dashboardUuid} />
             </TrackPage>
         </>
+    );
+};
+
+const AppGenerateHiddenRedirect: FC = () => {
+    const { projectUuid } = useParams<{ projectUuid: string }>();
+    return <Navigate to={`/projects/${projectUuid}/apps`} replace />;
+};
+
+const AppEditorHiddenRedirect: FC = () => {
+    const { projectUuid, appUuid } = useParams<{
+        projectUuid: string;
+        appUuid: string;
+    }>();
+    return (
+        <Navigate
+            to={`/projects/${projectUuid}/apps/${appUuid}/view`}
+            replace
+        />
     );
 };
 
@@ -291,21 +308,11 @@ const DATA_APP_ROUTES: RouteObject[] = [
     },
     {
         path: '/projects/:projectUuid/apps/generate',
-        element: (
-            <>
-                <NavBar />
-                <AppGenerate />
-            </>
-        ),
+        element: <AppGenerateHiddenRedirect />,
     },
     {
         path: '/projects/:projectUuid/apps/:appUuid',
-        element: (
-            <>
-                <NavBar />
-                <AppGenerate />
-            </>
-        ),
+        element: <AppEditorHiddenRedirect />,
     },
     {
         path: '/projects/:projectUuid/apps/:appUuid/view',

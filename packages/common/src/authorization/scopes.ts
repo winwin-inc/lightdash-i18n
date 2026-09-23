@@ -415,11 +415,40 @@ const scopes: Scope[] = [
         getConditions: addDefaultUuidCondition,
     },
     {
-        name: 'manage:ContentAsCode',
-        description: 'Manage content as code features',
+        name: 'view:ContentAsCode',
+        description: 'Download content as code',
         isEnterprise: true,
-        group: ScopeGroup.ORGANIZATION_MANAGEMENT,
+        group: ScopeGroup.CONTENT,
         getConditions: addDefaultUuidCondition,
+    },
+    {
+        name: 'create:ContentAsCode',
+        description:
+            'Upload charts, dashboards and spaces as code. Respects space and SQL permissions',
+        isEnterprise: true,
+        group: ScopeGroup.CONTENT,
+        getConditions: addDefaultUuidCondition,
+    },
+    {
+        name: 'manage:ContentAsCode',
+        description: 'Download and upload any content as code',
+        isEnterprise: true,
+        group: ScopeGroup.CONTENT,
+        getConditions: addDefaultUuidCondition,
+    },
+    {
+        name: 'manage:ContentAsCode@self',
+        description:
+            'Upload content as code to preview projects created by the user',
+        isEnterprise: true,
+        group: ScopeGroup.CONTENT,
+        getConditions: (context) => [
+            {
+                ...addUuidCondition(context),
+                type: ProjectType.PREVIEW,
+                createdByUserUuid: context.userUuid,
+            },
+        ],
     },
     {
         name: 'manage:PersonalAccessToken',

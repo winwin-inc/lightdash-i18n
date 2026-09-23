@@ -996,11 +996,53 @@ describe('Project member permissions', () => {
                     ).toEqual(false);
                 });
             });
+
+            it('can view and create content as code, but cannot manage it', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+            });
         });
 
         describe('when user is an developer', () => {
             beforeEach(() => {
                 ability = defineAbilityForProjectMember(PROJECT_DEVELOPER);
+            });
+
+            it('can manage content as code, which implies view and create', () => {
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
             });
 
             it('can use SQL runner', () => {
@@ -1122,6 +1164,27 @@ describe('Project member permissions', () => {
         describe('when user is a viewer', () => {
             beforeEach(() => {
                 ability = defineAbilityForProjectMember(PROJECT_VIEWER);
+            });
+
+            it('cannot download or upload content as code', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
             });
 
             it('can only view public & accessable dashboards', () => {
@@ -1965,5 +2028,38 @@ describe('Project member permissions', () => {
                 ).toEqual(false);
             });
         });
+    });
+});
+
+describe('Data app manual upload (admin-only manage)', () => {
+    const canAdminUpload = (roleMember: typeof PROJECT_ADMIN) => {
+        const ability = defineAbilityForProjectMember(roleMember);
+        return ability.can(
+            'manage',
+            subject('DataApp', { projectUuid: roleMember.projectUuid }),
+        );
+    };
+
+    it('allows project admin', () => {
+        expect(canAdminUpload(PROJECT_ADMIN)).toEqual(true);
+    });
+
+    it('denies editor even though they can create data apps', () => {
+        const ability = defineAbilityForProjectMember(PROJECT_EDITOR);
+        expect(
+            ability.can(
+                'create',
+                subject('DataApp', { projectUuid: PROJECT_EDITOR.projectUuid }),
+            ),
+        ).toEqual(true);
+        expect(canAdminUpload(PROJECT_EDITOR)).toEqual(false);
+    });
+
+    it('denies developer on a regular project', () => {
+        expect(canAdminUpload(PROJECT_DEVELOPER)).toEqual(false);
+    });
+
+    it('denies interactive viewer', () => {
+        expect(canAdminUpload(PROJECT_INTERACTIVE_VIEWER)).toEqual(false);
     });
 });

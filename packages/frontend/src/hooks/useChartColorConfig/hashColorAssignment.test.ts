@@ -1,6 +1,7 @@
 import { ECHARTS_DEFAULT_COLORS } from '@lightdash/common';
 import { describe, expect, test } from 'vitest';
 import {
+    appendDashboardUnknownHashColors,
     appendUnknownHashColors,
     assignKnownHashColors,
     colorDifference,
@@ -204,22 +205,6 @@ describe('appendUnknownHashColors', () => {
         expectThemeColors(assigned);
     });
 
-    test('unknown names only avoid visible known colors', () => {
-        const known = {
-            李子柒: TINY_PALETTE[0],
-            臭宝: TINY_PALETTE[1],
-        };
-        const afterFilter = appendUnknownHashColors(
-            ['原味', '李子柒'],
-            TINY_PALETTE,
-            known,
-        );
-
-        expect(afterFilter['李子柒']).toBe(TINY_PALETTE[0]);
-        expect(afterFilter['臭宝']).toBe(TINY_PALETTE[1]);
-        expect(afterFilter['原味']).toBe(TINY_PALETTE[1]);
-    });
-
     test('adding a filter-only name does not change known colors', () => {
         const known = assignKnownHashColors(['臭宝', '其他品牌'], PALETTE);
         const afterFilter = appendUnknownHashColors(
@@ -279,6 +264,93 @@ describe('appendUnknownHashColors', () => {
 
         expect(withTinyPalette).not.toBe(withDefaultPalette);
         expect(TINY_PALETTE).toContain(withTinyPalette['臭宝']);
+    });
+});
+
+describe('appendDashboardUnknownHashColors', () => {
+    test('same unknown name stays the same color across different visible sets', () => {
+        const known = assignKnownHashColors(['李子柒', '臭宝'], PALETTE);
+        const afterBrandTab = appendDashboardUnknownHashColors(
+            ['佳味螺', '品牌甲', '李子柒'],
+            PALETTE,
+            known,
+            {},
+        );
+        const afterRadarTab = appendDashboardUnknownHashColors(
+            ['佳味螺', '品牌乙', '臭宝'],
+            PALETTE,
+            known,
+            afterBrandTab,
+        );
+
+        expect(afterRadarTab['佳味螺']).toBe(afterBrandTab['佳味螺']);
+        expect(afterRadarTab['品牌甲']).toBe(afterBrandTab['品牌甲']);
+        expect(afterRadarTab['品牌乙']).toBeTruthy();
+        expect(afterRadarTab['品牌乙']).not.toBe(afterRadarTab['佳味螺']);
+    });
+
+    test('does not rewrite known or previously appended colors', () => {
+        const known = assignKnownHashColors(['李子柒'], PALETTE);
+        const first = appendDashboardUnknownHashColors(
+            ['佳味螺', '李子柒'],
+            PALETTE,
+            known,
+            {},
+        );
+        const second = appendDashboardUnknownHashColors(
+            ['佳味螺', '新品牌', '李子柒'],
+            PALETTE,
+            known,
+            first,
+        );
+
+        expect(first['李子柒']).toBeUndefined();
+        expect(second['佳味螺']).toBe(first['佳味螺']);
+        expect(known['李子柒']).toBe(
+            assignKnownHashColors(['李子柒'], PALETTE)['李子柒'],
+        );
+        expect(second['新品牌']).toBeTruthy();
+        expect(second['新品牌']).not.toBe(first['佳味螺']);
+        expect(second['新品牌']).not.toBe(known['李子柒']);
+    });
+
+    test('avoids all known colors, including names not in the incoming set', () => {
+        const known = {
+            李子柒: TINY_PALETTE[0],
+            臭宝: TINY_PALETTE[1],
+        };
+        const appended = appendDashboardUnknownHashColors(
+            ['原味'],
+            TINY_PALETTE,
+            known,
+            {},
+        );
+
+        expect(TINY_PALETTE).not.toContain(appended['原味']);
+        expect(colorDifference(appended['原味'], TINY_PALETTE[0])).toBeGreaterThanOrEqual(
+            MIN_COLOR_DIFF,
+        );
+        expect(colorDifference(appended['原味'], TINY_PALETTE[1])).toBeGreaterThanOrEqual(
+            MIN_COLOR_DIFF,
+        );
+    });
+
+    test('reuses appendedAssignments reference when there are no new keys', () => {
+        const known = assignKnownHashColors(['李子柒'], PALETTE);
+        const first = appendDashboardUnknownHashColors(
+            ['佳味螺'],
+            PALETTE,
+            known,
+            {},
+        );
+        const second = appendDashboardUnknownHashColors(
+            ['佳味螺', '李子柒'],
+            PALETTE,
+            known,
+            first,
+        );
+
+        expect(second).toBe(first);
     });
 });
 

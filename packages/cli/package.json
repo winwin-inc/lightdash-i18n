@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/cli",
-    "version": "2.1.4",
+    "version": "2.1.7",
     "license": "MIT",
     "bin": {
         "lightdash": "dist/index.js"
@@ -54,6 +54,7 @@
         "dev": "ts-node src/index.ts",
         "build": "tsc --build tsconfig.json",
         "bundle": "ncc build dist/index.js -o bundle && cp ../warehouses/src/warehouseClients/ca-bundle-*.crt ../warehouses/src/warehouseClients/ca-bundle-*.pem bundle/",
+        "pack:standalone": "pnpm bundle && node scripts/pack-standalone.mjs",
         "build:binary": "pnpm bundle && npx @yao-pkg/pkg bundle/index.js --config pkg.config.json --targets node20-macos-x64,node20-macos-arm64 --output bin/lightdash --compress Brotli",
         "typecheck": "tsc --project tsconfig.json --noEmit",
         "linter": "eslint -c .eslintrc.js --ignore-path ./../../.gitignore",
