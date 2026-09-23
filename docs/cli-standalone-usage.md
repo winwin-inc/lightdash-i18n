@@ -119,7 +119,7 @@ lightdash download --project <项目UUID> --language-map
 
 注意：
 
-- `-d` 只保证带 **saved chart**。看板里的 **SQL 图** 不会当依赖自动拉。SQL 图要同步时，用全量 `download`，或再 `-c` 把对应 SQL 图 slug 拉下来。
+- `-d` 会带 tile 上的 **saved chart** 和同 slug 的 **SQL 图**。对不上的 slug 会警告并跳过。全量 `download`（不带 `-d`/`-c`）本来就会拉全部 SQL 图。
 - 缺图时 upload 不会 500，对应 tile 会空，命令会打 warning。先补下图表再传。
 - spaces 失败时命令会警告并跳过，不影响 charts / dashboards。
 - 后端必须已经部署本仓的 `/code/*` 接口。可用 `lightdash diagnostics` 看登录和版本，但它成功不代表 download 一定能用。

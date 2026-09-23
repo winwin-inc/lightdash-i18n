@@ -449,6 +449,28 @@ export const downloadHandler = async (
                 spinner.succeed(
                     `Downloaded ${totalCharts} charts linked to dashboards`,
                 );
+
+                try {
+                    const sqlTotal = await downloadSqlCharts(
+                        chartSlugs,
+                        projectId,
+                        options.path,
+                    );
+                    if (sqlTotal > 0) {
+                        console.info(
+                            `Downloaded ${sqlTotal} SQL charts linked to dashboards`,
+                        );
+                    }
+                } catch (error) {
+                    if (
+                        !(
+                            error instanceof LightdashError &&
+                            error.statusCode === 404
+                        )
+                    ) {
+                        throw error;
+                    }
+                }
             }
         }
 

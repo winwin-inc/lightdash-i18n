@@ -79,6 +79,6 @@ lightdash lint --path ./lightdash
 官方 CLI 仅作对照，不作为操作命令。
 
 - 官方 `@lightdash/cli@2.58.0` 的 `lint` 不认 `tabs[].filters`，带 Tab 筛选的本仓 YAML 必红
-- 官方 `--dashboards` 会把依赖的 saved chart **和** SQL chart 一起下载；本仓 CLI 的 `-d` 只带 saved chart
+- 本仓 CLI 的 `-d` 会把依赖的 saved chart **和** 同 slug 的 SQL 图一起下载；upload 仍靠本地 `*.sql.yml`，先 download 再 `--include-charts`
 - 官方默认 download 也不会拉 virtual views；官方需要 `--include-virtual-views`，本仓 CLI 没有该 flag
 - 官方 npm CLI 只比对 major 版本（都是 `2.x`），`diagnostics` 成功不代表 download 能用
