@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/data-app-template",
-    "version": "2.1.6-test.3",
+    "version": "2.1.6-test.4",
     "private": true,
     "type": "module",
     "scripts": {
