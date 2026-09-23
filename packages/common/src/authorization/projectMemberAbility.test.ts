@@ -996,11 +996,53 @@ describe('Project member permissions', () => {
                     ).toEqual(false);
                 });
             });
+
+            it('can view and create content as code, but cannot manage it', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+            });
         });
 
         describe('when user is an developer', () => {
             beforeEach(() => {
                 ability = defineAbilityForProjectMember(PROJECT_DEVELOPER);
+            });
+
+            it('can manage content as code, which implies view and create', () => {
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(true);
             });
 
             it('can use SQL runner', () => {
@@ -1122,6 +1164,27 @@ describe('Project member permissions', () => {
         describe('when user is a viewer', () => {
             beforeEach(() => {
                 ability = defineAbilityForProjectMember(PROJECT_VIEWER);
+            });
+
+            it('cannot download or upload content as code', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', { projectUuid }),
+                    ),
+                ).toEqual(false);
             });
 
             it('can only view public & accessable dashboards', () => {

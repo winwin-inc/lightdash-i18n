@@ -296,11 +296,13 @@ export class SavedSqlModel {
                 SavedSqlTableName,
             ).insert(
                 {
-                    slug: await generateUniqueSlug(
-                        trx,
-                        SavedSqlTableName,
-                        data.name,
-                    ),
+                    slug:
+                        data.slug ??
+                        (await generateUniqueSlug(
+                            trx,
+                            SavedSqlTableName,
+                            data.name,
+                        )),
                     name: data.name,
                     description: data.description,
                     created_by_user_uuid: userUuid,

@@ -1,17 +1,57 @@
-# 使用现有 CLI 跨环境同步看板
+# 使用 CLI 跨环境同步看板
 
 ## 概述
 
-当前不需要开发新功能，也可以通过 Lightdash CLI 的 `download` 和 `upload` 完成“从一个环境导出看板，再导入到另一个环境”的流程。
+可以通过 Lightdash CLI 的 `download` 和 `upload` 完成「从一个环境导出看板，再导入到另一个环境」的流程。本实例已对齐官方 Content as Code 路由 `/api/v1/projects/{id}/code/*`。
 
 核心思路：
 
 1. 使用源环境的 `LIGHTDASH_URL`、`LIGHTDASH_API_KEY`、`project uuid` 执行 `lightdash download`。
-2. CLI 将看板和依赖图表导出为本地 YAML 文件。
+2. CLI 将看板、图表、SQL 图表和 space 导出为本地 YAML 文件。
 3. 切换为目标环境的 `LIGHTDASH_URL`、`LIGHTDASH_API_KEY`、`project uuid` 执行 `lightdash upload`。
 4. CLI 按 slug 在目标环境创建或更新图表、看板和 space。
 
+**验收请先固定官方 CLI 2.58.0。** 官方 npm CLI 只比对 major 版本（都是 `2.x`），`diagnostics` 成功不代表 download 能用。后端必须已经部署本仓的 `/code/*` 接口。
+
+```bash
+npx @lightdash/cli@2.58.0 diagnostics
+npx @lightdash/cli@2.58.0 download
+npx @lightdash/cli@2.58.0 upload --force
+```
+
+日常只用默认 `download`。不要对预发跑 `--include-all`：更新的官方 CLI 还会请求 agents / alerts / schedules / homepages，本实例未实现这些端点。
+
+## 不要和 `lightdash deploy` 混用
+
+- `download` / `upload`：看板、图表、SQL 图表、space 的 Content as Code。
+- `lightdash deploy`：dbt explores / table-groups（数据集多级分组）。
+- `.lightdash-metadata.json` 是官方 CLI 本地文件，服务端不会生成。
+
+## 不要用官方 `lightdash lint` 卡自研字段
+
+官方 CLI 包里的 `DashboardTabAsCode` schema 是 `additionalProperties: false`，且没有 `filters`。本仓看板 Tab 级筛选、看板 `config`、公式 / PoP 必须在 YAML 往返中保留。Agent 主路径是 download → 改 YAML → upload，不要用官方 lint 剥字段。
+
+## 权限
+
+| 角色 | download | upload |
+|---|---|---|
+| Viewer / Interactive viewer | 否 | 否 |
+| Editor | 是 | 是 |
+| Developer / Admin / 现有 Service Account | 是 | 是 |
+| 自定义角色只勾 `view:ContentAsCode` | 是 | 否 |
+
+只读同步给 agent 时：自定义角色只授 `view:ContentAsCode` + PAT。已落库的旧自定义角色不会自动多出 view/create，需要管理员补 scope。空间权限仍在：进不了的 private space 下不了、也建不进去。跨环境 space ACL 按 email / group name 对齐，对不上会警告并跳过，不会阻断 chart / dashboard upload。
+
 ## 当前 CLI 已支持的能力
+
+默认 download 会请求：
+
+- `GET /api/v1/projects/{id}/code/spaces`（404/403 会警告并继续）
+- `GET /api/v1/projects/{id}/code/charts`
+- `GET /api/v1/projects/{id}/code/sqlCharts`
+- `GET /api/v1/projects/{id}/code/dashboards`
+
+旧路径 `/charts/code`、`/dashboards/code` 仍可用，供 MCP / 旧脚本兼容。
 
 ### 导出
 
@@ -75,7 +115,7 @@ $DashboardSlug = "sales-overview"
 $env:LIGHTDASH_URL = "https://prod.example.com"
 $env:LIGHTDASH_API_KEY = "prod_api_key"
 
-lightdash download `
+npx @lightdash/cli@2.58.0 download `
   --project "source-project-uuid" `
   --dashboards $DashboardSlug `
   --path $ExportPath
@@ -85,8 +125,11 @@ lightdash download `
 
 ```text
 lightdash-dashboard-export/
+  spaces/
+    xxx.space.yml
   charts/
     xxx.yml
+    xxx.sql.yml
   dashboards/
     sales-overview.yml
 ```
@@ -97,7 +140,7 @@ lightdash-dashboard-export/
 $env:LIGHTDASH_URL = "https://staging.example.com"
 $env:LIGHTDASH_API_KEY = "staging_api_key"
 
-lightdash upload `
+npx @lightdash/cli@2.58.0 upload `
   --project "target-project-uuid" `
   --dashboards $DashboardSlug `
   --include-charts `
@@ -120,14 +163,14 @@ DASHBOARD_SLUG="sales-overview"
 
 LIGHTDASH_URL="https://prod.example.com" \
 LIGHTDASH_API_KEY="prod_api_key" \
-lightdash download \
+npx @lightdash/cli@2.58.0 download \
   --project "source-project-uuid" \
   --dashboards "$DASHBOARD_SLUG" \
   --path "$EXPORT_PATH"
 
 LIGHTDASH_URL="https://staging.example.com" \
 LIGHTDASH_API_KEY="staging_api_key" \
-lightdash upload \
+npx @lightdash/cli@2.58.0 upload \
   --project "target-project-uuid" \
   --dashboards "$DASHBOARD_SLUG" \
   --include-charts \
@@ -135,7 +178,7 @@ lightdash upload \
   --path "$EXPORT_PATH"
 ```
 
-## 本地开发运行 CLI
+## 本地开发运行本仓 CLI
 
 如果没有全局安装 `lightdash`，可以在仓库根目录先构建 CLI：
 
@@ -156,22 +199,14 @@ node ./packages/cli/dist/index.js upload --help
 node ./packages/cli/dist/index.js
 ```
 
+官方 npm CLI 用户不需要等本仓发 CLI 包，后端部署到预发后即可用 `@lightdash/cli@2.58.0`。
+
 ## 注意事项
 
 - 导入按 `slug` 匹配。目标环境中已有相同 slug 的图表或看板时，会更新已有内容。
 - 目标环境需要有兼容的 dbt explore、字段和指标，否则导入后的图表可能无法正常查询。
-- 当前流程同步的是 as-code 支持的看板和图表配置，不包含定时任务、权限、收藏等运行态配置。
+- Tab 级筛选、看板 `config`、公式 / PoP、`--language-map` 会随 YAML 往返，不要用会剥未知字段的工具改 YAML。
+- 当前流程不同步 agents、定时任务、告警、homepages。
 - 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。
 - `--force` 适合跨环境导入，因为导出的 YAML 文件可能没有本地修改时间差异，不加时可能被判断为无需上传。
 - API key 不要提交到仓库，也不要写入可共享文档。建议只放在本地 shell 会话或安全的 CI secret 中。
-
-## 什么时候需要开发新功能
-
-当前 CLI 已能完成跨环境同步，只是需要手动切换环境变量并执行两条命令。
-
-如果后续需要以下能力，再考虑新增 CLI 功能：
-
-- 同时保存多个环境 profile，不需要手动切换 key。
-- 自动列出源环境所有看板并交互多选。
-- 一条命令完成源环境导出和目标环境导入。
-- 在导入前展示 diff 或 dry-run 预览。

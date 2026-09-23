@@ -265,6 +265,7 @@ export type CreateSqlChart = {
     limit: number;
     config: AllVizChartConfig;
     spaceUuid: string;
+    slug?: string;
 };
 
 export type UpdateUnversionedSqlChart = {
