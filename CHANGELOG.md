@@ -6,9 +6,34 @@
 > -   生产环境上线更新次要版本号（如 v0.2092, v0.2093）
 > -   自 **v2.0** 起产品主版本独立编号
 
+## v2.1.5 ~ v2.1.6（2026-09-22 ~ 2026-09-23）
+
+当前产品版本以仓库根 `package.json` 为准（现为 **2.1.6**）。CLI 独立发版 **2.1.7**（`cli-v*`，不跟产品包一起升）。
+
+-   **新功能**
+    -   看板跨环境同步：本仓 CLI `download` / `upload` / `lint`，按 slug 同步看板、图表、SQL 图与 space；`-d` 会带上依赖图
+    -   组织级 as-code：可拉取自定义角色、用户和组
+    -   CLI 打独立 tgz，经 GitHub Release 与 OSS/CDN 分发；安装走版本路径，不用官方 `npx @lightdash/cli`
+    -   数据应用支持手动上传，并提供生成脚本
+    -   看板级未知名颜色追加，避免调色板用尽后丢色
+    -   看板 Tab 筛选可随 as-code 恢复（`tabs[].filters`）
+-   **调优**
+    -   数据应用上传权限与解析收紧；去掉 `AppGenerateService` 未使用依赖
+    -   CLI 发版脚本校验 tag 与 `packages/cli/package.json` 版本一致
+
+## @lightdash/mcp-v2 2.1.6 ~ 2.1.7（2026-09-22）
+
+-   **调优**
+    -   Keycloak JWT 验签失败、缺 scope、缺 email 改为 **401** `invalid_token`（不再打成 500）；JWKS / 出网故障仍为 500
+    -   换票与验签日志可区分「请求没到容器」「票不对」「邮箱不在 Lightdash」
+-   **文档**
+    -   扫码后 500 的客户配置与运维验收
+    -   `mcp:read` scope 类型必须为 Default
+    -   当前接入只配 MCP URL，浏览器走 Keycloak OAuth，不再填写 API Key
+
 ## v2.0.5 ~ v2.0.8（2026-09）
 
-当前产品版本以仓库根 `package.json` 为准（现为 **2.0.8**）。
+当时产品版本为 **2.0.8**。
 
 -   **新功能**
     -   看板月份筛选（month +「是」）支持动态默认「上月（4号显示）」；定时推送按同一规则解析
@@ -26,7 +51,7 @@
     -   中文等非 ASCII 结果更不易乱码（响应声明 UTF-8）
 -   **与 MCP v1 的差异（接入侧）**
     -   不再提供「记住当前项目」：无 `set_project` / `get_current_project`，需在工具参数或默认项目中带上项目
-    -   客户端在配置里带好 API Key 即可；不必再维护 Session Id
+    -   2.1.2 及更早可在客户端配置 API Key，不必再维护 Session Id；**2.1.6 起改为只配 URL + OAuth**（见上节）
 
 ## v2.0.4 (2026-09-11)
 
