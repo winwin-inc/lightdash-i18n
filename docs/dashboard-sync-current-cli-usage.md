@@ -21,11 +21,26 @@ npx @lightdash/cli@2.58.0 upload --force
 
 日常只用默认 `download`。不要对预发跑 `--include-all`：更新的官方 CLI 还会请求 agents / alerts / schedules / homepages，本实例未实现这些端点。
 
+## 这次已对齐官方、运维能直接用的
+
+对照官方约 2.58 的默认 download/upload（不含 `--include-all`）：
+
+- 后端 `/api/v1/projects/{id}/code/{spaces,charts,sqlCharts,dashboards}`，Editor 能拉能推，Viewer 403
+- YAML 里 Tab / tile 用 **slug**（不再靠环境本地 UUID）；颜色同步、Tab 筛选开关、必填锁 Tab 会按 slug 跨环境
+- 私人 space 按权限导出；无权的进接口 `skipped`，不进 `spaces[]`；中文 `spaceName` 保留
+- SQL chart 下载同样走 space ACL，Editor 拉不到无权私人目录里的 SQL 图
+- 缺依赖 chart 时看板仍会上传，tile 暂时空着；**官方 CLI 会打印 API warning**
+- 旧路径 `/charts/code`、`/dashboards/code` 仍可用
+
+本仓还有 `GET/POST /code/virtualViews`，官方 CLI **默认 download 不会拉**。需要时用 `--include-virtual-views`（不要 `--include-all`）。本仓 fork CLI 没有这条接线，跨环境 virtual view 请调 API 或等后续补 CLI。
+
+官方有、本仓**不迁**、运维默认同步也不需要的：定时推送 / 告警 / AI Agent / homepage / Google Sheets / 组织级 users-groups as-code、官方 `lightdash lint`。
+
 ## 不要和 `lightdash deploy` 混用
 
 - `download` / `upload`：看板、图表、SQL 图表、space 的 Content as Code。
 - `lightdash deploy`：dbt explores / table-groups（数据集多级分组）。
-- `.lightdash-metadata.json` 是官方 CLI 本地文件，服务端不会生成。
+- `.lightdash-metadata.json` 由**官方 CLI download 写在本地**，服务端不会生成。提交仓库或做 diff 时按团队约定处理即可。
 
 ## 不要用官方 `lightdash lint` 卡自研字段
 
@@ -67,7 +82,7 @@ lightdash download
 - `--path <path>`：指定导出目录，默认是当前目录下的 `lightdash`。
 - `--language-map`：同时导出多语言映射文件。
 
-当使用 `--dashboards` 只导出指定看板时，CLI 会自动把这些看板依赖的 chart 一起下载到本地。
+当使用 `--dashboards` 只导出指定看板时，**官方 CLI** 会自动把依赖的 chart 和 SQL chart 一起下载。本仓 fork CLI 只会带 saved chart，不带 SQL chart。跨环境请用 `@lightdash/cli@2.58.0`。
 
 ### 导入
 
@@ -201,6 +216,8 @@ node ./packages/cli/dist/index.js
 
 官方 npm CLI 用户不需要等本仓发 CLI 包，后端部署到预发后即可用 `@lightdash/cli@2.58.0`。
 
+本仓 `packages/cli` 比官方 2.58 弱：不打印看板 upload warnings、`--dashboards` 不拉 SQL chart、不支持 virtual views / `--nested`。运维和 agent 请用官方 npm 包，不要用 `node ./packages/cli/dist`。
+
 ## 注意事项
 
 - 导入按 `slug` 匹配。目标环境中已有相同 slug 的图表或看板时，会更新已有内容。
@@ -210,6 +227,6 @@ node ./packages/cli/dist/index.js
 - 私人 space 只要调用者有权就会导出（含中文 `spaceName`）。本仓没有「个人默认目录」单独排除。跨环境不想带私人目录时，删掉本地 `lightdash/spaces/*.space.yml` 即可。无权看到的 space 会出现在接口 `skipped` 里，不会写进 `spaces[]`。
 - Tab 级筛选、看板 `config`、公式 / PoP、`--language-map` 会随 YAML 往返，不要用会剥未知字段的工具改 YAML。
 - 当前流程不同步 agents、定时任务、告警、homepages。
-- 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。若某个 chart 还不在目标环境，看板仍会上传，对应 tile 暂时空着，API / CLI 会给出 warning；补上 chart 后再 upload 一次即可。
+- 导入看板前应先导入依赖图表；使用 `--include-charts` 可以让 CLI 自动处理。若某个 chart 还不在目标环境，看板仍会上传，对应 tile 暂时空着。官方 CLI 会打印 warning；本仓 fork CLI 可能吞掉。补上 chart 后再 upload 一次即可。
 - `--force` 适合跨环境导入，因为导出的 YAML 文件可能没有本地修改时间差异，不加时可能被判断为无需上传。
 - API key 不要提交到仓库，也不要写入可共享文档。建议只放在本地 shell 会话或安全的 CI secret 中。
