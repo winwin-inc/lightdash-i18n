@@ -2232,5 +2232,72 @@ describe('scopeAbilityBuilder', () => {
                 ).toBe(false);
             });
         });
+
+        describe('ContentAsCode enterprise scopes', () => {
+            const content = {
+                projectUuid: 'project-123',
+                organizationUuid: 'org-123',
+            };
+
+            it('view does not imply manage', () => {
+                const builder = new AbilityBuilder<MemberAbility>(Ability);
+                buildAbilityFromScopes(
+                    {
+                        ...baseContext,
+                        isEnterprise: true,
+                        scopes: ['view:ContentAsCode'],
+                    },
+                    builder,
+                );
+                const ability = builder.build();
+                expect(ability.can('view', subject('ContentAsCode', content))).toBe(
+                    true,
+                );
+                expect(
+                    ability.can('manage', subject('ContentAsCode', content)),
+                ).toBe(false);
+            });
+
+            it('create does not imply manage', () => {
+                const builder = new AbilityBuilder<MemberAbility>(Ability);
+                buildAbilityFromScopes(
+                    {
+                        ...baseContext,
+                        isEnterprise: true,
+                        scopes: ['view:ContentAsCode', 'create:ContentAsCode'],
+                    },
+                    builder,
+                );
+                const ability = builder.build();
+                expect(
+                    ability.can('create', subject('ContentAsCode', content)),
+                ).toBe(true);
+                expect(
+                    ability.can('manage', subject('ContentAsCode', content)),
+                ).toBe(false);
+            });
+
+            it('manage implies view and create', () => {
+                const builder = new AbilityBuilder<MemberAbility>(Ability);
+                buildAbilityFromScopes(
+                    {
+                        ...baseContext,
+                        isEnterprise: true,
+                        scopes: ['manage:ContentAsCode'],
+                    },
+                    builder,
+                );
+                const ability = builder.build();
+                expect(
+                    ability.can('manage', subject('ContentAsCode', content)),
+                ).toBe(true);
+                expect(ability.can('view', subject('ContentAsCode', content))).toBe(
+                    true,
+                );
+                expect(
+                    ability.can('create', subject('ContentAsCode', content)),
+                ).toBe(true);
+            });
+        });
     });
 });

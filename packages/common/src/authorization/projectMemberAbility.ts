@@ -228,6 +228,12 @@ export const projectMemberAbilities: Record<
             projectUuid: member.projectUuid,
             userUuid: member.userUuid,
         });
+        can('view', 'ContentAsCode', {
+            projectUuid: member.projectUuid,
+        });
+        can('create', 'ContentAsCode', {
+            projectUuid: member.projectUuid,
+        });
     },
     developer(member, { can }) {
         projectMemberAbilities.editor(member, { can });
@@ -269,6 +275,11 @@ export const projectMemberAbilities: Record<
         });
         can('manage', 'ContentAsCode', {
             projectUuid: member.projectUuid,
+        });
+        can('manage', 'ContentAsCode', {
+            projectUuid: member.projectUuid,
+            type: ProjectType.PREVIEW,
+            createdByUserUuid: member.userUuid,
         });
         can('view', 'JobStatus', {
             projectUuid: member.projectUuid,

@@ -4,14 +4,17 @@ import {
     ApiChartAsCodeListResponse,
     ApiChartAsCodeUpsertResponse,
     ApiDashboardAsCodeListResponse,
+    ApiSqlChartAsCodeListResponse,
     assertUnreachable,
     AuthorizationError,
     ChartAsCode,
+    ContentAsCodeType,
     DashboardAsCode,
     getErrorMessage,
     LightdashError,
     PromotionAction,
     PromotionChanges,
+    type SqlChartAsCode,
 } from '@lightdash/common';
 import { promises as fs } from 'fs';
 import * as yaml from 'js-yaml';
@@ -21,6 +24,12 @@ import { getConfig } from '../config';
 import GlobalState from '../globalState';
 import * as styles from '../styles';
 import { checkLightdashVersion, lightdashApi } from './dbt/apiClient';
+import {
+    downloadSpaces,
+    isSpaceAsCodeFetchError,
+    uploadSpaces,
+    writeEmbeddedSpaces,
+} from './spacesAsCode';
 
 export type DownloadHandlerOptions = {
     verbose: boolean;
@@ -64,7 +73,7 @@ const parseContentFilters = (items: string[]): string => {
 };
 
 // TODO: translations should be partials of ChartAsCode and DashboardAsCode
-type ContentAsCodeType =
+type DownloadableContent =
     | {
           type: 'chart';
           content: ChartAsCode;
@@ -75,6 +84,8 @@ type ContentAsCodeType =
           content: DashboardAsCode;
           translationMap: object | undefined;
       };
+
+const isSqlChartFile = (file: string) => file.endsWith('.sql.yml');
 
 const createDirForContent = async (
     items: (ChartAsCode | DashboardAsCode)[],
@@ -91,7 +102,7 @@ const createDirForContent = async (
 };
 
 const writeContent = async (
-    contentAsCode: ContentAsCodeType,
+    contentAsCode: DownloadableContent,
     outputDir: string,
     languageMap: boolean,
 ) => {
@@ -127,7 +138,8 @@ const readCodeFiles = async <T extends ChartAsCode | DashboardAsCode>(
         const files = await fs.readdir(inputDir);
         const yamlFiles = files
             .filter((file) => file.endsWith('.yml'))
-            .filter((file) => !file.endsWith('.language.map.yml'));
+            .filter((file) => !file.endsWith('.language.map.yml'))
+            .filter((file) => !isSqlChartFile(file));
 
         // Load each JSON file
         for (const file of yamlFiles) {
@@ -198,7 +210,7 @@ export const downloadContent = async (
             : `?${commonParams}`;
         contentAsCode = await lightdashApi({
             method: 'GET',
-            url: `/api/v1/projects/${projectId}/${type}/code${queryParams}`,
+            url: `/api/v1/projects/${projectId}/code/${type}${queryParams}`,
             body: undefined,
         });
         spinner?.start(
@@ -265,10 +277,49 @@ export const downloadContent = async (
                 );
             }
         }
+        if ('spaces' in contentAsCode) {
+            await writeEmbeddedSpaces(contentAsCode.spaces, customPath);
+        }
         offset = contentAsCode.offset;
     } while (contentAsCode.offset < contentAsCode.total);
 
     return [contentAsCode.total, [...new Set(chartSlugs)]];
+};
+
+const downloadSqlCharts = async (
+    ids: string[],
+    projectId: string,
+    customPath?: string,
+): Promise<number> => {
+    const contentFilters = parseContentFilters(ids);
+    let offset = 0;
+    let total = 0;
+    do {
+        const commonParams = `offset=${offset}`;
+        const queryParams = contentFilters
+            ? `${contentFilters}&${commonParams}`
+            : `?${commonParams}`;
+        const results = (await lightdashApi({
+            method: 'GET',
+            url: `/api/v1/projects/${projectId}/code/sqlCharts${queryParams}`,
+            body: undefined,
+        })) as unknown as ApiSqlChartAsCodeListResponse['results'];
+        const outputDir = path.join(getDownloadFolder(customPath), 'charts');
+        await fs.mkdir(outputDir, { recursive: true });
+        for (const sqlChart of results.sqlCharts) {
+            await fs.writeFile(
+                path.join(outputDir, `${sqlChart.slug}.sql.yml`),
+                yaml.dump(
+                    { ...sqlChart, contentType: ContentAsCodeType.SQL_CHART },
+                    { quotingType: '"' },
+                ),
+            );
+        }
+        await writeEmbeddedSpaces(results.spaces, customPath);
+        offset = results.offset;
+        total = results.total;
+    } while (offset < total);
+    return total;
 };
 
 export const downloadHandler = async (
@@ -310,6 +361,22 @@ export const downloadHandler = async (
         const hasFilters =
             options.charts.length > 0 || options.dashboards.length > 0;
 
+        if (!hasFilters) {
+            try {
+                const spaceTotal = await downloadSpaces(projectId, options.path);
+                console.info(`Downloaded ${spaceTotal} spaces`);
+            } catch (error) {
+                if (!isSpaceAsCodeFetchError(error)) {
+                    throw error;
+                }
+                console.warn(
+                    styles.warning(
+                        'Space access is unavailable; continuing with legacy space metadata where available.',
+                    ),
+                );
+            }
+        }
+
         // Download charts
         if (hasFilters && options.charts.length === 0) {
             console.info(
@@ -325,6 +392,25 @@ export const downloadHandler = async (
                 options.languageMap,
             );
             spinner.succeed(`Downloaded ${chartTotal} charts`);
+            try {
+                const sqlTotal = await downloadSqlCharts(
+                    options.charts,
+                    projectId,
+                    options.path,
+                );
+                if (sqlTotal > 0) {
+                    console.info(`Downloaded ${sqlTotal} SQL charts`);
+                }
+            } catch (error) {
+                if (
+                    !(
+                        error instanceof LightdashError &&
+                        error.statusCode === 404
+                    )
+                ) {
+                    throw error;
+                }
+            }
         }
         // Download dashboards
         if (hasFilters && options.dashboards.length === 0) {
@@ -379,7 +465,7 @@ export const downloadHandler = async (
                 timeToCompleted: (end - start) / 1000, // in seconds
             },
         });
-    } catch (error) {
+        } catch (error) {
         console.error(styles.error(`\nError downloading ${error}`));
         await LightdashAnalytics.track({
             event: 'download.error',
@@ -390,6 +476,7 @@ export const downloadHandler = async (
                 error: `${error}`,
             },
         });
+        throw error;
     }
 };
 
@@ -512,10 +599,12 @@ const upsertResources = async <T extends ChartAsCode | DashboardAsCode>(
                 ApiChartAsCodeUpsertResponse['results']
             >({
                 method: 'POST',
-                url: `/api/v1/projects/${projectId}/${type}/${item.slug}/code`,
+                url: `/api/v1/projects/${projectId}/code/${type}/${item.slug}`,
                 body: JSON.stringify({
                     ...item,
                     skipSpaceCreate,
+                    force,
+                    publicSpaceCreate: false,
                 }),
             });
 
@@ -559,6 +648,87 @@ const upsertResources = async <T extends ChartAsCode | DashboardAsCode>(
             }
         }
     }
+    return { changes, total: filteredItems.length };
+};
+
+const readSqlCodeFiles = async (
+    customPath?: string,
+): Promise<(SqlChartAsCode & { needsUpdating: boolean })[]> => {
+    const inputDir = path.join(getDownloadFolder(customPath), 'charts');
+    try {
+        const files = (await fs.readdir(inputDir)).filter(isSqlChartFile);
+        const items: (SqlChartAsCode & { needsUpdating: boolean })[] = [];
+        for (const file of files) {
+            const filePath = path.join(inputDir, file);
+            const item = yaml.load(await fs.readFile(filePath, 'utf-8')) as SqlChartAsCode;
+            const fileUpdatedAt = (await fs.stat(filePath)).mtime;
+            const downloadedAt = item.downloadedAt
+                ? new Date(item.downloadedAt)
+                : undefined;
+            const needsUpdating =
+                downloadedAt &&
+                Math.abs(fileUpdatedAt.getTime() - downloadedAt.getTime()) >
+                    30000;
+            items.push({
+                ...item,
+                updatedAt: needsUpdating ? fileUpdatedAt : item.updatedAt,
+                needsUpdating: needsUpdating ?? true,
+            });
+        }
+        return items;
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return [];
+        }
+        throw error;
+    }
+};
+
+const upsertSqlResources = async (
+    projectId: string,
+    changes: Record<string, number>,
+    force: boolean,
+    slugs: string[],
+    customPath?: string,
+    skipSpaceCreate?: boolean,
+): Promise<{ changes: Record<string, number>; total: number }> => {
+    const items = await readSqlCodeFiles(customPath);
+    const hasFilter = slugs.length > 0;
+    const filteredItems = hasFilter
+        ? items.filter((item) => slugs.includes(item.slug))
+        : items;
+
+    for (const item of filteredItems) {
+        try {
+            if (!force && !item.needsUpdating) {
+                changes['charts skipped'] = (changes['charts skipped'] ?? 0) + 1;
+                // eslint-disable-next-line no-continue
+                continue;
+            }
+            const upsertData = await lightdashApi<
+                ApiChartAsCodeUpsertResponse['results']
+            >({
+                method: 'POST',
+                url: `/api/v1/projects/${projectId}/code/sqlCharts/${item.slug}`,
+                body: JSON.stringify({
+                    ...item,
+                    skipSpaceCreate,
+                    force,
+                    publicSpaceCreate: false,
+                }),
+            });
+            changes = storeUploadChanges(changes, upsertData);
+        } catch (error: unknown) {
+            changes['charts with errors'] =
+                (changes['charts with errors'] ?? 0) + 1;
+            console.error(
+                styles.error(
+                    `Error upserting SQL chart: ${getErrorMessage(error)}`,
+                ),
+            );
+        }
+    }
+
     return { changes, total: filteredItems.length };
 };
 
@@ -647,6 +817,17 @@ export const uploadHandler = async (
               )
             : options.charts;
 
+        if (!hasFilters) {
+            const spaceCount = await uploadSpaces(
+                projectId,
+                options.skipSpaceCreate,
+                options.path,
+            );
+            if (spaceCount > 0) {
+                console.info(`Uploaded ${spaceCount} spaces`);
+            }
+        }
+
         if (hasFilters && chartSlugs.length === 0) {
             console.info(
                 styles.warning(`No charts filters provided, skipping`),
@@ -664,6 +845,17 @@ export const uploadHandler = async (
                 );
             changes = chartChanges;
             chartTotal = total;
+            const { changes: sqlChanges, total: sqlTotal } =
+                await upsertSqlResources(
+                    projectId,
+                    changes,
+                    options.force,
+                    chartSlugs,
+                    options.path,
+                    options.skipSpaceCreate,
+                );
+            changes = sqlChanges;
+            chartTotal = (chartTotal ?? 0) + sqlTotal;
         }
 
         if (hasFilters && options.dashboards.length === 0) {
@@ -701,7 +893,7 @@ export const uploadHandler = async (
         logUploadChanges(changes);
     } catch (error) {
         console.error(
-            styles.error(`\nError downloading: ${getErrorMessage(error)}`),
+            styles.error(`\nError uploading: ${getErrorMessage(error)}`),
         );
         await LightdashAnalytics.track({
             event: 'download.error',
@@ -712,5 +904,6 @@ export const uploadHandler = async (
                 error: getErrorMessage(error),
             },
         });
+        throw error;
     }
 };
