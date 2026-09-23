@@ -3,6 +3,7 @@ import {
     FeatureFlags,
     ForbiddenError,
     Group,
+    GroupAsCode,
     GroupMember,
     GroupMembership,
     GroupWithMembers,
@@ -51,6 +52,51 @@ export class GroupsService extends BaseService {
             featureFlagId: FeatureFlags.UserGroupsEnabled,
         });
         return featureFlag.enabled;
+    }
+
+    async getGroupsAsCode(
+        actor: SessionUser,
+        organizationUuid: string,
+    ): Promise<GroupAsCode[]> {
+        if (actor.organizationUuid !== organizationUuid) {
+            throw new ForbiddenError();
+        }
+        if (
+            actor.ability.cannot(
+                'manage',
+                subject('Group', { organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+        if (!(await this.isGroupServiceEnabled(actor))) {
+            throw new ForbiddenError('Group service is not enabled');
+        }
+
+        const { data: groups } = await this.groupsModel.find({
+            organizationUuid,
+        });
+        const { data: members } = await this.groupsModel.findGroupMembers({
+            organizationUuid,
+            groupUuids: groups.map((group) => group.uuid),
+        });
+        const membersByGroupUuid = members.reduce<Map<string, string[]>>(
+            (map, member) => {
+                const groupMembers = map.get(member.groupUuid) ?? [];
+                groupMembers.push(member.email.toLowerCase());
+                map.set(member.groupUuid, groupMembers);
+                return map;
+            },
+            new Map(),
+        );
+
+        return groups
+            .map((group) => ({
+                version: 1 as const,
+                name: group.name,
+                members: (membersByGroupUuid.get(group.uuid) ?? []).sort(),
+            }))
+            .sort((left, right) => left.name.localeCompare(right.name));
     }
 
     async addGroupMember(

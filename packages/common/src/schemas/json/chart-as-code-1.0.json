@@ -1,436 +1,2868 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://schemas.lightdash.com/lightdash/chart-as-code.json",
-    "title": "Lightdash Chart as Code",
-    "description": "Schema for defining Lightdash charts in YAML format for version control",
-    "type": "object",
-    "required": [
-        "name",
-        "tableName",
-        "metricQuery",
-        "slug",
-        "spaceSlug",
-        "version"
-    ],
-    "properties": {
-        "version": {
-            "type": "number",
-            "description": "Schema version for this chart configuration",
-            "const": 1
-        },
-        "name": {
-            "type": "string",
-            "description": "Display name of the chart",
-            "minLength": 1
-        },
-        "description": {
-            "type": "string",
-            "description": "Optional description of what this chart displays"
-        },
-        "slug": {
-            "type": "string",
-            "description": "Unique identifier slug for this chart",
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        },
-        "spaceSlug": {
-            "type": "string",
-            "description": "Path to the space containing this chart (e.g., 'sales/reports' or 'marketing')"
-        },
-        "tableName": {
-            "type": "string",
-            "description": "The explore/table name this chart queries from"
-        },
-        "dashboardSlug": {
-            "type": ["string", "null"],
-            "description": "Optional dashboard slug if this chart is saved within a dashboard",
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        },
-        "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when the chart was last updated (readonly)"
-        },
-        "downloadedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when this chart was downloaded from Lightdash (readonly)"
-        },
-        "metricQuery": {
-            "type": "object",
-            "description": "The query configuration defining what data to fetch",
-            "required": ["exploreName"],
+    "$defs": {
+        "AdditionalMetric": {
+            "additionalProperties": true,
             "properties": {
-                "exploreName": {
-                    "type": "string",
-                    "description": "The name of the explore to query"
+                "baseDimensionName": {
+                    "type": "string"
                 },
-                "dimensions": {
-                    "type": "array",
-                    "description": "List of dimension field IDs to include",
+                "baseMetricId": {
+                    "$ref": "#/$defs/FieldId",
+                    "description": "For PoP-generated metrics, the base metric id that this metric is derived from."
+                },
+                "compact": {
+                    "$ref": "#/$defs/CompactOrAlias"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "distinctKeys": {
                     "items": {
                         "type": "string"
-                    }
-                },
-                "metrics": {
-                    "type": "array",
-                    "description": "List of metric field IDs to include",
-                    "items": {
-                        "type": "string"
-                    }
+                    },
+                    "type": "array"
                 },
                 "filters": {
-                    "type": "object",
-                    "description": "Filter rules to apply to the query using 'and'/'or' filter groups",
-                    "properties": {
-                        "dimensions": {
-                            "type": "object",
-                            "description": "Dimension filter group",
-                            "properties": {
-                                "and": {
-                                    "type": "array",
-                                    "description": "Array of filters combined with AND logic",
-                                    "items": {
-                                        "type": "object",
-                                        "required": ["target", "operator"],
-                                        "properties": {
-                                            "target": {
-                                                "type": "object",
-                                                "required": ["fieldId"],
-                                                "properties": {
-                                                    "fieldId": {
-                                                        "type": "string",
-                                                        "description": "Field ID to filter on"
-                                                    }
-                                                }
-                                            },
-                                            "operator": {
-                                                "type": "string",
-                                                "description": "Filter operator",
-                                                "enum": [
-                                                    "equals",
-                                                    "notEquals",
-                                                    "isNull",
-                                                    "notNull",
-                                                    "startsWith",
-                                                    "endsWith",
-                                                    "include",
-                                                    "doesNotInclude",
-                                                    "lessThan",
-                                                    "lessThanOrEqual",
-                                                    "greaterThan",
-                                                    "greaterThanOrEqual",
-                                                    "inThePast",
-                                                    "notInThePast",
-                                                    "inTheNext",
-                                                    "inTheCurrent",
-                                                    "notInTheCurrent",
-                                                    "inBetween",
-                                                    "notInBetween"
-                                                ]
-                                            },
-                                            "values": {
-                                                "type": "array",
-                                                "description": "Values to filter by"
-                                            },
-                                            "required": {
-                                                "type": "boolean",
-                                                "description": "Whether this filter is required"
-                                            }
-                                        }
-                                    }
-                                },
-                                "or": {
-                                    "type": "array",
-                                    "description": "Array of filters combined with OR logic",
-                                    "items": {
-                                        "$ref": "#/properties/metricQuery/properties/filters/properties/dimensions/properties/and/items"
-                                    }
-                                }
-                            }
+                    "items": {
+                        "$ref": "#/$defs/MetricFilterRule"
+                    },
+                    "type": "array"
+                },
+                "format": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Format"
                         },
-                        "metrics": {
-                            "type": "object",
-                            "description": "Metric filter group",
-                            "properties": {
-                                "and": {
-                                    "$ref": "#/properties/metricQuery/properties/filters/properties/dimensions/properties/and"
-                                },
-                                "or": {
-                                    "$ref": "#/properties/metricQuery/properties/filters/properties/dimensions/properties/or"
-                                }
-                            }
-                        },
-                        "tableCalculations": {
-                            "type": "object",
-                            "description": "Table calculation filter group",
-                            "properties": {
-                                "and": {
-                                    "$ref": "#/properties/metricQuery/properties/filters/properties/dimensions/properties/and"
-                                },
-                                "or": {
-                                    "$ref": "#/properties/metricQuery/properties/filters/properties/dimensions/properties/or"
-                                }
-                            }
+                        {
+                            "type": "string"
                         }
-                    }
-                },
-                "sorts": {
-                    "type": "array",
-                    "description": "Sort configuration for query results",
-                    "items": {
-                        "type": "object",
-                        "required": ["fieldId", "descending"],
-                        "properties": {
-                            "fieldId": {
-                                "type": "string",
-                                "description": "Field ID to sort by"
-                            },
-                            "descending": {
-                                "type": "boolean",
-                                "description": "Sort in descending order"
-                            }
-                        }
-                    }
-                },
-                "limit": {
-                    "type": "number",
-                    "description": "Maximum number of rows to return",
-                    "minimum": 1
-                },
-                "metricOverrides": {
-                    "type": "object",
-                    "description": "Override formatting and display options for existing metrics",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "formatOptions": {
-                                "type": "object",
-                                "description": "Formatting configuration for the metric",
-                                "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "currency",
-                                            "number",
-                                            "percent"
-                                        ],
-                                        "description": "Format type"
-                                    },
-                                    "round": {
-                                        "type": "number",
-                                        "description": "Number of decimal places"
-                                    },
-                                    "currency": {
-                                        "type": "string",
-                                        "description": "Currency code (e.g., USD, GBP, EUR)"
-                                    },
-                                    "separator": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "commaPeriod",
-                                            "spacePeriod",
-                                            "periodComma",
-                                            "spaceComma"
-                                        ],
-                                        "description": "Thousands separator style"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "tableCalculations": {
-                    "type": "array",
-                    "description": "Custom calculations to perform on query results (like window functions)",
-                    "items": {
-                        "type": "object",
-                        "required": ["name", "displayName", "sql"],
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Internal name of the table calculation"
-                            },
-                            "displayName": {
-                                "type": "string",
-                                "description": "Display name shown in the UI"
-                            },
-                            "sql": {
-                                "type": "string",
-                                "description": "SQL expression for the calculation (can reference fields with ${table.field})"
-                            },
-                            "type": {
-                                "type": "string",
-                                "enum": ["string", "number", "date", "boolean"],
-                                "description": "Data type of the calculation result"
-                            },
-                            "format": {
-                                "type": "object",
-                                "description": "Formatting options for the calculation",
-                                "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "currency",
-                                            "number",
-                                            "percent"
-                                        ],
-                                        "description": "Format type"
-                                    },
-                                    "round": {
-                                        "type": "number",
-                                        "description": "Number of decimal places"
-                                    },
-                                    "currency": {
-                                        "type": "string",
-                                        "description": "Currency code (e.g., USD, GBP, EUR)"
-                                    },
-                                    "separator": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "commaPeriod",
-                                            "spacePeriod",
-                                            "periodComma",
-                                            "spaceComma"
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "additionalMetrics": {
-                    "type": "array",
-                    "description": "Custom metrics defined inline (ad-hoc metrics not in the dbt model)",
-                    "items": {
-                        "type": "object",
-                        "required": ["name", "label", "sql", "table", "type"],
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Internal name of the metric"
-                            },
-                            "label": {
-                                "type": "string",
-                                "description": "Display label for the metric"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Description of what the metric measures"
-                            },
-                            "sql": {
-                                "type": "string",
-                                "description": "SQL expression (e.g., ${TABLE}.column_name)"
-                            },
-                            "table": {
-                                "type": "string",
-                                "description": "Table name the metric belongs to"
-                            },
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "count",
-                                    "count_distinct",
-                                    "sum",
-                                    "average",
-                                    "min",
-                                    "max"
-                                ],
-                                "description": "Aggregation type"
-                            },
-                            "baseDimensionName": {
-                                "type": "string",
-                                "description": "Name of the base dimension/column this metric aggregates"
-                            },
-                            "formatOptions": {
-                                "type": "object",
-                                "description": "Formatting configuration",
-                                "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "currency",
-                                            "number",
-                                            "percent"
-                                        ]
-                                    },
-                                    "separator": {
-                                        "type": "string",
-                                        "enum": [
-                                            "default",
-                                            "commaPeriod",
-                                            "spacePeriod",
-                                            "periodComma",
-                                            "spaceComma"
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "customDimensions": {
-                    "type": "array",
-                    "description": "Custom dimensions defined inline",
-                    "items": {
-                        "type": "object"
-                    }
-                }
-            }
-        },
-        "chartConfig": {
-            "type": "object",
-            "description": "Visualization configuration for the chart",
-            "required": ["type"],
-            "properties": {
-                "type": {
-                    "type": "string",
-                    "description": "Type of chart visualization",
-                    "enum": [
-                        "cartesian",
-                        "pie",
-                        "table",
-                        "big_number",
-                        "funnel",
-                        "treemap",
-                        "custom"
                     ]
                 },
-                "config": {
-                    "type": "object",
-                    "description": "Chart-specific configuration (varies by chart type)"
+                "formatOptions": {
+                    "$ref": "#/$defs/CustomFormat"
+                },
+                "generationType": {
+                    "description": "Optional marker for metrics generated by the system.\nCurrently used for Period-over-Period (PoP) previous-period metrics.",
+                    "enum": ["periodOverPeriod"],
+                    "type": "string"
+                },
+                "granularity": {
+                    "$ref": "#/$defs/TimeFrames",
+                    "description": "For PoP-generated metrics, the granularity used for the comparison."
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "index": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "percentile": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "periodOffset": {
+                    "description": "For PoP-generated metrics, the number of periods to offset by (>= 1).",
+                    "format": "double",
+                    "type": "number"
+                },
+                "round": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                },
+                "timeDimensionId": {
+                    "$ref": "#/$defs/FieldId",
+                    "description": "For PoP-generated metrics, the time dimension id used for the comparison."
+                },
+                "type": {
+                    "$ref": "#/$defs/MetricType"
+                },
+                "uuid": {
+                    "type": ["string", "null"]
                 }
-            }
+            },
+            "required": ["type", "sql", "table", "name"],
+            "type": "object"
         },
-        "tableConfig": {
-            "type": "object",
-            "description": "Table view configuration",
+        "AndFilterGroup": {
             "properties": {
-                "columnOrder": {
-                    "type": "array",
-                    "description": "Order of columns in table view",
+                "and": {
+                    "items": {
+                        "$ref": "#/$defs/FilterGroupItem"
+                    },
+                    "type": "array"
+                },
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": ["and", "id"],
+            "type": "object"
+        },
+        "AndFilterGroupInput": {
+            "properties": {
+                "and": {
+                    "items": {
+                        "$ref": "#/$defs/FilterGroupItemInput"
+                    },
+                    "type": "array"
+                },
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": ["and"],
+            "type": "object"
+        },
+        "AnyType": {
+            "description": "This AnyType is an alias for any\nThe goal is to make it easier to identify any type in the codebase\nwithout having to eslint-disable all the time\nThese are only used on legacy `any` types, don't use it for new types.\nThis is added on a separate file to avoid circular dependencies."
+        },
+        "Axis": {
+            "properties": {
+                "inverse": {
+                    "type": "boolean"
+                },
+                "max": {
+                    "type": "string"
+                },
+                "maxOffset": {
+                    "type": "string"
+                },
+                "min": {
+                    "type": "string"
+                },
+                "minOffset": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nameGap": {
+                    "description": "Distance between axis title and axis line (ECharts nameGap, in px).",
+                    "format": "double",
+                    "type": "number"
+                },
+                "rotate": {
+                    "format": "double",
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "BaseFilterRule_FilterOperator.number-or-string_": {
+            "properties": {
+                "dateRangeGranularity": {
+                    "$ref": "#/$defs/TimeFrames",
+                    "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operator": {
+                    "$ref": "#/$defs/FilterOperator"
+                },
+                "values": {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "format": "double",
+                                "type": "number"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["operator", "id"],
+            "type": "object"
+        },
+        "BigNumber": {
+            "properties": {
+                "comparisonFormat": {
+                    "$ref": "#/$defs/ComparisonFormatTypes"
+                },
+                "comparisonLabel": {
+                    "type": "string"
+                },
+                "flipColors": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "layoutDirection": {
+                    "enum": ["column", "column-reverse"],
+                    "type": "string"
+                },
+                "selectedField": {
+                    "type": "string"
+                },
+                "showBigNumberLabel": {
+                    "type": "boolean"
+                },
+                "showComparison": {
+                    "type": "boolean"
+                },
+                "style": {
+                    "$ref": "#/$defs/CompactOrAlias"
+                }
+            },
+            "type": "object"
+        },
+        "BigNumberConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/BigNumber"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.BIG_NUMBER"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "BinRange": {
+            "properties": {
+                "from": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "to": {
+                    "format": "double",
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "BinType": {
+            "enum": ["fixed_number", "fixed_width", "custom_range"],
+            "type": "string"
+        },
+        "CartesianChart": {
+            "properties": {
+                "eChartsConfig": {
+                    "$ref": "#/$defs/EChartsConfig"
+                },
+                "layout": {
+                    "$ref": "#/$defs/CartesianChartLayout"
+                },
+                "metadata": {
+                    "$ref": "#/$defs/Record_string.SeriesMetadata_"
+                }
+            },
+            "required": ["eChartsConfig", "layout"],
+            "type": "object"
+        },
+        "CartesianChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/CartesianChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.CARTESIAN"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "CartesianChartLayout": {
+            "$ref": "#/$defs/Partial_CompleteCartesianChartLayout_"
+        },
+        "CartesianSeriesType": {
+            "enum": ["line", "bar", "scatter", "area"],
+            "type": "string"
+        },
+        "ChartConfig": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/BigNumberConfig"
+                },
+                {
+                    "$ref": "#/$defs/CartesianChartConfig"
+                },
+                {
+                    "$ref": "#/$defs/CustomVisConfig"
+                },
+                {
+                    "$ref": "#/$defs/PieChartConfig"
+                },
+                {
+                    "$ref": "#/$defs/FunnelChartConfig"
+                },
+                {
+                    "$ref": "#/$defs/TableChartConfig"
+                },
+                {
+                    "$ref": "#/$defs/TreemapChartConfig"
+                },
+                {
+                    "$ref": "#/$defs/DataAppVizChartConfig"
+                }
+            ]
+        },
+        "ChartType.BIG_NUMBER": {
+            "enum": ["big_number"],
+            "type": "string"
+        },
+        "ChartType.CARTESIAN": {
+            "enum": ["cartesian"],
+            "type": "string"
+        },
+        "ChartType.CUSTOM": {
+            "enum": ["custom"],
+            "type": "string"
+        },
+        "ChartType.DATA_APP_VIZ": {
+            "enum": ["data_app_viz"],
+            "type": "string"
+        },
+        "ChartType.FUNNEL": {
+            "enum": ["funnel"],
+            "type": "string"
+        },
+        "ChartType.PIE": {
+            "enum": ["pie"],
+            "type": "string"
+        },
+        "ChartType.TABLE": {
+            "enum": ["table"],
+            "type": "string"
+        },
+        "ChartType.TREEMAP": {
+            "enum": ["treemap"],
+            "type": "string"
+        },
+        "ColumnProperties": {
+            "properties": {
+                "displayStyle": {
+                    "enum": ["text", "bar"],
+                    "type": "string"
+                },
+                "frozen": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "visible": {
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "Compact": {
+            "enum": [
+                "auto",
+                "thousands",
+                "millions",
+                "billions",
+                "trillions",
+                "kilobytes",
+                "megabytes",
+                "gigabytes",
+                "terabytes",
+                "petabytes",
+                "kibibytes",
+                "mebibytes",
+                "gibibytes",
+                "tebibytes",
+                "pebibytes"
+            ],
+            "type": "string"
+        },
+        "CompactOrAlias": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/Compact"
+                },
+                {
+                    "enum": [
+                        "K",
+                        "thousand",
+                        "M",
+                        "million",
+                        "B",
+                        "billion",
+                        "T",
+                        "trillion",
+                        "KB",
+                        "kilobyte",
+                        "MB",
+                        "megabyte",
+                        "GB",
+                        "gigabyte",
+                        "TB",
+                        "terabyte",
+                        "PB",
+                        "petabyte",
+                        "KiB",
+                        "kibibyte",
+                        "MiB",
+                        "mebibyte",
+                        "GiB",
+                        "gibibyte",
+                        "TiB",
+                        "tebibyte",
+                        "PiB",
+                        "pebibyte"
+                    ],
+                    "type": "string"
+                }
+            ]
+        },
+        "ComparisonFormatTypes": {
+            "enum": ["raw", "percentage"],
+            "type": "string"
+        },
+        "ConditionalFormattingColorApplyTo": {
+            "description": "Where to apply the conditional formatting color:\n- 'background': apply color as cell background (default)\n- 'font': apply color to cell text/font",
+            "enum": ["background", "font"],
+            "type": "string"
+        },
+        "ConditionalFormattingColorRange": {
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            },
+            "required": ["end", "start"],
+            "type": "object"
+        },
+        "ConditionalFormattingConfig": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ConditionalFormattingConfigWithSingleColor"
+                },
+                {
+                    "$ref": "#/$defs/ConditionalFormattingConfigWithColorRange"
+                }
+            ]
+        },
+        "ConditionalFormattingConfigWithColorRange": {
+            "properties": {
+                "color": {
+                    "$ref": "#/$defs/ConditionalFormattingColorRange"
+                },
+                "colorApplyTo": {
+                    "$ref": "#/$defs/ConditionalFormattingColorApplyTo",
+                    "description": "Where to apply the color. Default: 'background' for backward compatibility"
+                },
+                "rule": {
+                    "$ref": "#/$defs/ConditionalFormattingMinMax_number-or-auto_"
+                },
+                "target": {
+                    "anyOf": [
+                        {
+                            "allOf": [
+                                {
+                                    "$ref": "#/$defs/FieldTarget"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": ["rule", "color", "target"],
+            "type": "object"
+        },
+        "ConditionalFormattingConfigWithSingleColor": {
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "colorApplyTo": {
+                    "$ref": "#/$defs/ConditionalFormattingColorApplyTo",
+                    "description": "Where to apply the color. Default: 'background' for backward compatibility"
+                },
+                "rules": {
+                    "items": {
+                        "$ref": "#/$defs/ConditionalFormattingWithFilterOperator"
+                    },
+                    "type": "array"
+                },
+                "target": {
+                    "anyOf": [
+                        {
+                            "allOf": [
+                                {
+                                    "$ref": "#/$defs/FieldTarget"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": ["rules", "color", "target"],
+            "type": "object"
+        },
+        "ConditionalFormattingMinMax_number-or-auto_": {
+            "properties": {
+                "max": {
+                    "anyOf": [
+                        {
+                            "format": "double",
+                            "type": "number"
+                        },
+                        {
+                            "enum": ["auto"],
+                            "type": "string"
+                        }
+                    ]
+                },
+                "min": {
+                    "anyOf": [
+                        {
+                            "format": "double",
+                            "type": "number"
+                        },
+                        {
+                            "enum": ["auto"],
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": ["max", "min"],
+            "type": "object"
+        },
+        "ConditionalFormattingWithCompareTarget_number-or-string_": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/BaseFilterRule_FilterOperator.number-or-string_"
+                },
+                {
+                    "properties": {
+                        "compareTarget": {
+                            "anyOf": [
+                                {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/$defs/FieldTarget"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        },
+                        "values": {
+                            "items": {
+                                "anyOf": [
+                                    {
+                                        "format": "double",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "required": ["compareTarget"],
+                    "type": "object"
+                }
+            ]
+        },
+        "ConditionalFormattingWithFilterOperator": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ConditionalFormattingWithValues_number-or-string_"
+                },
+                {
+                    "$ref": "#/$defs/ConditionalFormattingWithCompareTarget_number-or-string_"
+                }
+            ]
+        },
+        "ConditionalFormattingWithValues_number-or-string_": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/BaseFilterRule_FilterOperator.number-or-string_"
+                },
+                {
+                    "properties": {
+                        "values": {
+                            "items": {
+                                "anyOf": [
+                                    {
+                                        "format": "double",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "required": ["values"],
+                    "type": "object"
+                }
+            ]
+        },
+        "ContentAsCodeType.CHART": {
+            "enum": ["chart"],
+            "type": "string"
+        },
+        "CustomBinDimension": {
+            "additionalProperties": true,
+            "properties": {
+                "binNumber": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "binType": {
+                    "$ref": "#/$defs/BinType"
+                },
+                "binWidth": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "customRange": {
+                    "items": {
+                        "$ref": "#/$defs/BinRange"
+                    },
+                    "type": "array"
+                },
+                "dimensionId": {
+                    "$ref": "#/$defs/FieldId"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/$defs/CustomDimensionType.BIN"
+                }
+            },
+            "required": [
+                "id",
+                "name",
+                "table",
+                "type",
+                "dimensionId",
+                "binType"
+            ],
+            "type": "object"
+        },
+        "CustomDimension": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/CustomBinDimension"
+                },
+                {
+                    "$ref": "#/$defs/CustomSqlDimension"
+                }
+            ]
+        },
+        "CustomDimensionType.BIN": {
+            "enum": ["bin"],
+            "type": "string"
+        },
+        "CustomDimensionType.SQL": {
+            "enum": ["sql"],
+            "type": "string"
+        },
+        "CustomFormat": {
+            "additionalProperties": true,
+            "properties": {
+                "compact": {
+                    "$ref": "#/$defs/CompactOrAlias"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "custom": {
+                    "type": "string"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "round": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "separator": {
+                    "$ref": "#/$defs/NumberSeparator"
+                },
+                "suffix": {
+                    "type": "string"
+                },
+                "timeInterval": {
+                    "$ref": "#/$defs/TimeFrames"
+                },
+                "type": {
+                    "$ref": "#/$defs/CustomFormatType"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "CustomFormatType": {
+            "enum": [
+                "default",
+                "percent",
+                "currency",
+                "number",
+                "id",
+                "date",
+                "timestamp",
+                "bytes_si",
+                "bytes_iec",
+                "custom"
+            ],
+            "type": "string"
+        },
+        "CustomSqlDimension": {
+            "additionalProperties": true,
+            "properties": {
+                "dimensionType": {
+                    "$ref": "#/$defs/DimensionType"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/$defs/CustomDimensionType.SQL"
+                }
+            },
+            "required": ["id", "name", "table", "type", "sql", "dimensionType"],
+            "type": "object"
+        },
+        "CustomVis": {
+            "properties": {
+                "spec": {
+                    "$ref": "#/$defs/Record_string.unknown_"
+                }
+            },
+            "type": "object"
+        },
+        "CustomVisConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/CustomVis"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.CUSTOM"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "DataAppVizChart": {
+            "properties": {
+                "dataAppVizUuid": {
+                    "type": "string"
+                },
+                "dataAppVizVersion": {
+                    "format": "int32",
+                    "minimum": 1,
+                    "type": "integer"
+                },
+                "fieldMapping": {
+                    "$ref": "#/$defs/DataAppVizFieldMapping"
+                },
+                "optionValues": {
+                    "$ref": "#/$defs/DataAppVizOptionValues"
+                }
+            },
+            "required": ["fieldMapping", "dataAppVizUuid"],
+            "type": "object"
+        },
+        "DataAppVizChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/DataAppVizChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.DATA_APP_VIZ"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "DataAppVizFieldMapping": {
+            "$ref": "#/$defs/Record_string.string_"
+        },
+        "DataAppVizOptionValue": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "format": "double",
+                    "type": "number"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "A persisted config value; its shape is set by the option's declared `type`."
+        },
+        "DataAppVizOptionValues": {
+            "$ref": "#/$defs/Record_string.DataAppVizOptionValue_",
+            "description": "Maps a declared config option's name → the value the user chose for it."
+        },
+        "DimensionType": {
+            "enum": ["string", "number", "timestamp", "date", "boolean"],
+            "type": "string"
+        },
+        "EChartsConfig": {
+            "$ref": "#/$defs/Partial_CompleteEChartsConfig_"
+        },
+        "EchartsGrid": {
+            "properties": {
+                "bottom": {
+                    "type": "string"
+                },
+                "containLabel": {
+                    "type": "boolean"
+                },
+                "height": {
+                    "type": "string"
+                },
+                "left": {
+                    "type": "string"
+                },
+                "right": {
+                    "type": "string"
+                },
+                "top": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "EchartsLegend": {
+            "properties": {
+                "align": {
+                    "enum": ["auto", "left", "right"],
+                    "type": "string"
+                },
+                "bottom": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "string"
+                },
+                "icon": {
+                    "enum": [
+                        "circle",
+                        "rect",
+                        "roundRect",
+                        "triangle",
+                        "diamond",
+                        "pin",
+                        "arrow",
+                        "none"
+                    ],
+                    "type": "string"
+                },
+                "left": {
+                    "type": "string"
+                },
+                "orient": {
+                    "enum": ["horizontal", "vertical"],
+                    "type": "string"
+                },
+                "right": {
+                    "type": "string"
+                },
+                "show": {
+                    "type": "boolean"
+                },
+                "top": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": ["plain", "scroll"],
+                    "type": "string"
+                },
+                "width": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "FieldId": {
+            "type": "string"
+        },
+        "FieldTarget": {
+            "properties": {
+                "fieldId": {
+                    "type": "string"
+                }
+            },
+            "required": ["fieldId"],
+            "type": "object"
+        },
+        "FilterGroup": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/OrFilterGroup"
+                },
+                {
+                    "$ref": "#/$defs/AndFilterGroup"
+                }
+            ]
+        },
+        "FilterGroupInput": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/OrFilterGroupInput"
+                },
+                {
+                    "$ref": "#/$defs/AndFilterGroupInput"
+                }
+            ]
+        },
+        "FilterGroupItem": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/FilterGroup"
+                },
+                {
+                    "$ref": "#/$defs/FilterRule"
+                }
+            ]
+        },
+        "FilterGroupItemInput": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/FilterGroupInput"
+                },
+                {
+                    "$ref": "#/$defs/FilterRuleInput"
+                }
+            ]
+        },
+        "FilterOperator": {
+            "enum": [
+                "isNull",
+                "notNull",
+                "equals",
+                "notEquals",
+                "startsWith",
+                "endsWith",
+                "include",
+                "doesNotInclude",
+                "lessThan",
+                "lessThanOrEqual",
+                "greaterThan",
+                "greaterThanOrEqual",
+                "inThePast",
+                "notInThePast",
+                "inTheNext",
+                "inTheCurrent",
+                "notInTheCurrent",
+                "inBetween",
+                "notInBetween",
+                "fromStartToLatestMonth"
+            ],
+            "type": "string"
+        },
+        "FilterRule": {
+            "additionalProperties": true,
+            "properties": {
+                "dateRangeGranularity": {
+                    "$ref": "#/$defs/TimeFrames",
+                    "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operator": {
+                    "$ref": "#/$defs/FilterOperator"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "settings": {
+                    "$ref": "#/$defs/AnyType"
+                },
+                "target": {
+                    "$ref": "#/$defs/FieldTarget"
+                },
+                "values": {
+                    "items": {
+                        "$ref": "#/$defs/AnyType"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["operator", "id", "target"],
+            "type": "object"
+        },
+        "FilterRuleInput": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/Omit_FilterRule.id_"
+                },
+                {
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                }
+            ],
+            "description": "Permissive filter types for chart-as-code uploads where `id` may be omitted."
+        },
+        "Filters": {
+            "properties": {
+                "dimensions": {
+                    "$ref": "#/$defs/FilterGroup"
+                },
+                "metrics": {
+                    "$ref": "#/$defs/FilterGroup"
+                },
+                "tableCalculations": {
+                    "$ref": "#/$defs/FilterGroup"
+                }
+            },
+            "type": "object"
+        },
+        "FiltersInput": {
+            "properties": {
+                "dimensions": {
+                    "$ref": "#/$defs/FilterGroupInput"
+                },
+                "metrics": {
+                    "$ref": "#/$defs/FilterGroupInput"
+                },
+                "tableCalculations": {
+                    "$ref": "#/$defs/FilterGroupInput"
+                }
+            },
+            "type": "object"
+        },
+        "Format": {
+            "enum": [
+                "km",
+                "mi",
+                "usd",
+                "gbp",
+                "eur",
+                "jpy",
+                "dkk",
+                "id",
+                "percent"
+            ],
+            "type": "string"
+        },
+        "FormulaTableCalculation": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/TableCalculationBase"
+                },
+                {
+                    "properties": {
+                        "formula": {
+                            "description": "Spreadsheet-like formula compiled to SQL at query time",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["formula"],
+                    "type": "object"
+                }
+            ]
+        },
+        "FrameBoundary": {
+            "properties": {
+                "offset": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "type": {
+                    "$ref": "#/$defs/FrameBoundaryType"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "FrameBoundaryType": {
+            "enum": [
+                "unbounded_preceding",
+                "preceding",
+                "current_row",
+                "following",
+                "unbounded_following"
+            ],
+            "type": "string"
+        },
+        "FrameClause": {
+            "properties": {
+                "end": {
+                    "$ref": "#/$defs/FrameBoundary"
+                },
+                "frameType": {
+                    "$ref": "#/$defs/FrameType"
+                },
+                "start": {
+                    "$ref": "#/$defs/FrameBoundary"
+                }
+            },
+            "required": ["end", "frameType"],
+            "type": "object"
+        },
+        "FrameType": {
+            "enum": ["rows", "range"],
+            "type": "string"
+        },
+        "FunnelChart": {
+            "properties": {
+                "colorOverrides": {
+                    "$ref": "#/$defs/Record_string.string_"
+                },
+                "dataInput": {
+                    "$ref": "#/$defs/FunnelChartDataInput"
+                },
+                "fieldId": {
+                    "type": "string"
+                },
+                "labelOverrides": {
+                    "$ref": "#/$defs/Record_string.string_"
+                },
+                "labels": {
+                    "properties": {
+                        "position": {
+                            "$ref": "#/$defs/FunnelChartLabelPosition"
+                        },
+                        "showPercentage": {
+                            "type": "boolean"
+                        },
+                        "showValue": {
+                            "type": "boolean"
+                        }
+                    },
+                    "type": "object"
+                },
+                "legendPosition": {
+                    "$ref": "#/$defs/FunnelChartLegendPosition"
+                },
+                "metadata": {
+                    "$ref": "#/$defs/Record_string.SeriesMetadata_"
+                },
+                "showLegend": {
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "FunnelChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/FunnelChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.FUNNEL"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "FunnelChartDataInput": {
+            "enum": ["row", "column"],
+            "type": "string"
+        },
+        "FunnelChartLabelPosition": {
+            "enum": ["inside", "left", "right", "hidden"],
+            "type": "string"
+        },
+        "FunnelChartLegendPosition": {
+            "enum": ["horizontal", "vertical"],
+            "type": "string"
+        },
+        "MarkLine": {
+            "properties": {
+                "data": {
+                    "items": {
+                        "$ref": "#/$defs/MarkLineData"
+                    },
+                    "type": "array"
+                },
+                "label": {
+                    "properties": {
+                        "formatter": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "lineStyle": {
+                    "properties": {
+                        "color": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "width": {
+                            "format": "double",
+                            "type": "number"
+                        }
+                    },
+                    "required": ["type", "width", "color"],
+                    "type": "object"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            },
+            "required": ["data"],
+            "type": "object"
+        },
+        "MarkLineData": {
+            "properties": {
+                "dynamicValue": {
+                    "enum": ["average"],
+                    "type": "string"
+                },
+                "label": {
+                    "properties": {
+                        "formatter": {
+                            "type": "string"
+                        },
+                        "position": {
+                            "enum": ["start", "middle", "end"],
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "lineStyle": {
+                    "properties": {
+                        "color": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["color"],
+                    "type": "object"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                },
+                "xAxis": {
+                    "type": "string"
+                },
+                "yAxis": {
+                    "type": "string"
+                }
+            },
+            "required": ["uuid"],
+            "type": "object"
+        },
+        "MergeJoinKeyPart": {
+            "description": "One column of the join key. Sources name the same real-world key differently\n(`orders.order_date` vs `users.created_date`), so the mapping is explicit per\nsource rather than positional.",
+            "properties": {
+                "fieldIdBySourceId": {
+                    "$ref": "#/$defs/Record_string.FieldId_",
+                    "description": "The field each source joins on. Every source must have an entry."
+                },
+                "name": {
+                    "description": "Column name this key part takes in the merged result.",
+                    "type": "string"
+                }
+            },
+            "required": ["fieldIdBySourceId", "name"],
+            "type": "object"
+        },
+        "MergeJoinType": {
+            "description": "How unmatched keys survive the merge. Mirrors the SQL join it compiles to.",
+            "enum": ["full", "left", "inner"],
+            "type": "string"
+        },
+        "MergeTableCalculation": {
+            "description": "A calculation over the *merged* result, which is the only place a row-wise\ncalculation across two queries can correctly live. References name a source\nand one of its fields, `${sourceId.fieldId}`, because the merged statement\nrenames columns to keep two sources from colliding.",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
+                }
+            },
+            "required": ["sql", "displayName", "name"],
+            "type": "object"
+        },
+        "MetricFilterRule": {
+            "additionalProperties": true,
+            "properties": {
+                "dateRangeGranularity": {
+                    "$ref": "#/$defs/TimeFrames",
+                    "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operator": {
+                    "$ref": "#/$defs/FilterOperator"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "settings": {
+                    "$ref": "#/$defs/AnyType"
+                },
+                "target": {
+                    "properties": {
+                        "fieldRef": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["fieldRef"],
+                    "type": "object"
+                },
+                "values": {
+                    "items": {
+                        "$ref": "#/$defs/AnyType"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["operator", "id", "target"],
+            "type": "object"
+        },
+        "MetricOverrides": {
+            "additionalProperties": {
+                "$ref": "#/$defs/Pick_Metric.formatOptions_"
+            },
+            "properties": {},
+            "type": "object"
+        },
+        "MetricQuery": {
+            "properties": {
+                "additionalMetrics": {
+                    "items": {
+                        "$ref": "#/$defs/AdditionalMetric"
+                    },
+                    "type": "array"
+                },
+                "customDimensions": {
+                    "items": {
+                        "$ref": "#/$defs/CustomDimension"
+                    },
+                    "type": "array"
+                },
+                "dimensions": {
+                    "items": {
+                        "$ref": "#/$defs/FieldId"
+                    },
+                    "type": "array"
+                },
+                "exploreName": {
+                    "type": "string"
+                },
+                "filters": {
+                    "$ref": "#/$defs/Filters"
+                },
+                "limit": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "metadata": {
+                    "properties": {
+                        "hasADateDimension": {
+                            "$ref": "#/$defs/Pick_CompiledDimension.label-or-name-or-table_"
+                        }
+                    },
+                    "required": ["hasADateDimension"],
+                    "type": "object"
+                },
+                "metricOverrides": {
+                    "$ref": "#/$defs/MetricOverrides"
+                },
+                "metrics": {
+                    "items": {
+                        "$ref": "#/$defs/FieldId"
+                    },
+                    "type": "array"
+                },
+                "offset": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "sorts": {
+                    "items": {
+                        "$ref": "#/$defs/SortField"
+                    },
+                    "type": "array"
+                },
+                "tableCalculations": {
+                    "items": {
+                        "$ref": "#/$defs/TableCalculation"
+                    },
+                    "type": "array"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "tableCalculations",
+                "limit",
+                "sorts",
+                "filters",
+                "metrics",
+                "dimensions",
+                "exploreName"
+            ],
+            "type": "object"
+        },
+        "MetricType": {
+            "enum": [
+                "percentile",
+                "average",
+                "count",
+                "count_distinct",
+                "sum",
+                "min",
+                "max",
+                "percent_of_previous",
+                "percent_of_total",
+                "running_total",
+                "number",
+                "median",
+                "string",
+                "date",
+                "timestamp",
+                "boolean"
+            ],
+            "type": "string"
+        },
+        "NumberSeparator": {
+            "enum": [
+                "default",
+                "commaPeriod",
+                "spacePeriod",
+                "periodComma",
+                "noSeparatorPeriod"
+            ],
+            "type": "string"
+        },
+        "Omit_FilterRule.id_": {
+            "$ref": "#/$defs/Pick_FilterRule.Exclude_keyofFilterRule.id__",
+            "description": "Construct a type with the properties of T except for those in type K."
+        },
+        "Omit_MetricQuery.filters_": {
+            "$ref": "#/$defs/Pick_MetricQuery.Exclude_keyofMetricQuery.filters__",
+            "description": "Construct a type with the properties of T except for those in type K."
+        },
+        "OrFilterGroup": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "or": {
+                    "items": {
+                        "$ref": "#/$defs/FilterGroupItem"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["or", "id"],
+            "type": "object"
+        },
+        "OrFilterGroupInput": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "or": {
+                    "items": {
+                        "$ref": "#/$defs/FilterGroupItemInput"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["or"],
+            "type": "object"
+        },
+        "ParametersValuesMap": {
+            "$ref": "#/$defs/Record_string.ParameterValue_"
+        },
+        "ParameterValue": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "format": "double",
+                    "type": "number"
+                },
+                {
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
+                },
+                {
+                    "items": {
+                        "format": "double",
+                        "type": "number"
+                    },
+                    "type": "array"
                 }
-            }
+            ]
+        },
+        "Partial_CompleteCartesianChartLayout_": {
+            "description": "Make all properties in T optional",
+            "properties": {
+                "barMaxWidth": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "barMaxWidthMobile": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "flipAxes": {
+                    "type": "boolean"
+                },
+                "showGridX": {
+                    "type": "boolean"
+                },
+                "showGridY": {
+                    "type": "boolean"
+                },
+                "showXAxis": {
+                    "type": "boolean"
+                },
+                "showYAxis": {
+                    "type": "boolean"
+                },
+                "stack": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "xField": {
+                    "type": "string"
+                },
+                "yField": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "Partial_CompleteEChartsConfig_": {
+            "description": "Make all properties in T optional",
+            "properties": {
+                "grid": {
+                    "$ref": "#/$defs/EchartsGrid"
+                },
+                "legend": {
+                    "$ref": "#/$defs/EchartsLegend"
+                },
+                "series": {
+                    "items": {
+                        "$ref": "#/$defs/Series"
+                    },
+                    "type": "array"
+                },
+                "tooltip": {
+                    "type": "string"
+                },
+                "xAxis": {
+                    "items": {
+                        "$ref": "#/$defs/XAxis"
+                    },
+                    "type": "array"
+                },
+                "yAxis": {
+                    "items": {
+                        "$ref": "#/$defs/Axis"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "Partial_PieChartValueOptions_": {
+            "description": "Make all properties in T optional",
+            "properties": {
+                "labelTemplate": {
+                    "type": "string"
+                },
+                "showPercentage": {
+                    "type": "boolean"
+                },
+                "showValue": {
+                    "type": "boolean"
+                },
+                "useCustomFormat": {
+                    "type": "boolean"
+                },
+                "valueLabel": {
+                    "enum": ["hidden", "inside", "outside"],
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Pick_CompiledDimension.label-or-name-or-table_": {
+            "description": "From T, pick a set of properties whose keys are in the union K",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                }
+            },
+            "required": ["name", "label", "table"],
+            "type": "object"
+        },
+        "Pick_CompiledDimension.name-or-label-or-table_": {
+            "description": "From T, pick a set of properties whose keys are in the union K",
+            "properties": {},
+            "type": "object"
+        },
+        "Pick_FilterRule.Exclude_keyofFilterRule.id__": {
+            "description": "From T, pick a set of properties whose keys are in the union K",
+            "properties": {
+                "dateRangeGranularity": {
+                    "$ref": "#/$defs/TimeFrames",
+                    "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "operator": {
+                    "$ref": "#/$defs/FilterOperator"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "settings": {},
+                "target": {
+                    "$ref": "#/$defs/FieldTarget"
+                },
+                "values": {
+                    "items": {},
+                    "type": "array"
+                }
+            },
+            "required": ["target", "operator"],
+            "type": "object"
+        },
+        "Pick_Metric.formatOptions_": {
+            "description": "From T, pick a set of properties whose keys are in the union K",
+            "properties": {
+                "formatOptions": {
+                    "$ref": "#/$defs/CustomFormat"
+                }
+            },
+            "type": "object"
+        },
+        "Pick_MetricQuery.Exclude_keyofMetricQuery.filters__": {
+            "description": "From T, pick a set of properties whose keys are in the union K",
+            "properties": {
+                "additionalMetrics": {
+                    "items": {
+                        "$ref": "#/$defs/AdditionalMetric"
+                    },
+                    "type": "array"
+                },
+                "customDimensions": {
+                    "items": {
+                        "$ref": "#/$defs/CustomDimension"
+                    },
+                    "type": "array"
+                },
+                "dimensions": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "exploreName": {
+                    "type": "string"
+                },
+                "limit": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "metadata": {
+                    "properties": {
+                        "hasADateDimension": {
+                            "$ref": "#/$defs/Pick_CompiledDimension.name-or-label-or-table_"
+                        }
+                    },
+                    "required": ["hasADateDimension"],
+                    "type": "object"
+                },
+                "metricOverrides": {
+                    "$ref": "#/$defs/MetricOverrides"
+                },
+                "metrics": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "offset": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "sorts": {
+                    "items": {
+                        "$ref": "#/$defs/SortField"
+                    },
+                    "type": "array"
+                },
+                "tableCalculations": {
+                    "items": {
+                        "$ref": "#/$defs/TableCalculation"
+                    },
+                    "type": "array"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "limit",
+                "exploreName",
+                "dimensions",
+                "metrics",
+                "sorts",
+                "tableCalculations"
+            ],
+            "type": "object"
+        },
+        "PieChart": {
+            "properties": {
+                "groupColorOverrides": {
+                    "$ref": "#/$defs/Record_string.string_"
+                },
+                "groupFieldIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "groupLabelOverrides": {
+                    "$ref": "#/$defs/Record_string.string_"
+                },
+                "groupSortOverrides": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "groupValueOptionOverrides": {
+                    "$ref": "#/$defs/Record_string.Partial_PieChartValueOptions__"
+                },
+                "isDonut": {
+                    "type": "boolean"
+                },
+                "legendMaxItemLength": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "legendPosition": {
+                    "$ref": "#/$defs/PieChartLegendPosition"
+                },
+                "metadata": {
+                    "$ref": "#/$defs/Record_string.SeriesMetadata_"
+                },
+                "metricId": {
+                    "type": "string"
+                },
+                "showLegend": {
+                    "type": "boolean"
+                },
+                "showPercentage": {
+                    "type": "boolean"
+                },
+                "showValue": {
+                    "type": "boolean"
+                },
+                "useCustomFormat": {
+                    "type": "boolean"
+                },
+                "valueLabel": {
+                    "$ref": "#/$defs/PieChartValueLabel"
+                },
+                "valueLabelTemplate": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "PieChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/PieChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.PIE"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "PieChartLegendPosition": {
+            "enum": ["horizontal", "vertical"],
+            "type": "string"
+        },
+        "PieChartValueLabel": {
+            "enum": ["hidden", "inside", "outside"],
+            "type": "string"
+        },
+        "PivotMetricHeaderPosition": {
+            "description": "透视表列头中指标与维度值的上下层级，默认 dimension 在上",
+            "enum": ["bottom", "top"],
+            "type": "string"
+        },
+        "PivotReference": {
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "pivotValues": {
+                    "items": {
+                        "$ref": "#/$defs/PivotValue"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["field"],
+            "type": "object"
+        },
+        "PivotValue": {
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "value": {}
+            },
+            "required": ["value", "field"],
+            "type": "object"
+        },
+        "Record_string.ColumnProperties_": {
+            "additionalProperties": {
+                "$ref": "#/$defs/ColumnProperties"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.DataAppVizOptionValue_": {
+            "additionalProperties": {
+                "$ref": "#/$defs/DataAppVizOptionValue"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.FieldId_": {
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.ParameterValue_": {
+            "additionalProperties": {
+                "$ref": "#/$defs/ParameterValue"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.Partial_PieChartValueOptions__": {
+            "additionalProperties": {
+                "$ref": "#/$defs/Partial_PieChartValueOptions_"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.SeriesMetadata_": {
+            "additionalProperties": {
+                "$ref": "#/$defs/SeriesMetadata"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.string_": {
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "Record_string.unknown_": {
+            "additionalProperties": {},
+            "description": "Construct a type with a set of properties K of type T",
+            "properties": {},
+            "type": "object"
+        },
+        "SavedMergeQuery": {
+            "description": "Canonical, scalable representation of a merge stored on a chart version.",
+            "properties": {
+                "joinKey": {
+                    "items": {
+                        "$ref": "#/$defs/MergeJoinKeyPart"
+                    },
+                    "type": "array"
+                },
+                "joinType": {
+                    "$ref": "#/$defs/MergeJoinType"
+                },
+                "primarySourceId": {
+                    "description": "Source whose rows a LEFT merge preserves.",
+                    "type": "string"
+                },
+                "sources": {
+                    "items": {
+                        "$ref": "#/$defs/SavedMergeQuerySource"
+                    },
+                    "type": "array"
+                },
+                "tableCalculations": {
+                    "items": {
+                        "$ref": "#/$defs/MergeTableCalculation"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "tableCalculations",
+                "joinType",
+                "joinKey",
+                "sources",
+                "primarySourceId"
+            ],
+            "type": "object"
+        },
+        "SavedMergeQuerySource": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "kind": {
+                            "enum": ["chart"],
+                            "type": "string"
+                        }
+                    },
+                    "required": ["kind", "id"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "kind": {
+                            "enum": ["query"],
+                            "type": "string"
+                        },
+                        "metricQuery": {
+                            "$ref": "#/$defs/MetricQuery"
+                        }
+                    },
+                    "required": ["metricQuery", "kind", "id"],
+                    "type": "object"
+                }
+            ],
+            "description": "A persisted merge source.\n\nThe chart source is a reference: its metric query already lives on the chart\nversion. Every additional source owns its query. This keeps one source of\ntruth while allowing more sources without adding `thirdQuery`, `fourthQuery`,\nand so on."
+        },
+        "Series": {
+            "properties": {
+                "areaStyle": {
+                    "$ref": "#/$defs/Record_string.unknown_"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "encode": {
+                    "properties": {
+                        "x": {
+                            "type": "string"
+                        },
+                        "xRef": {
+                            "$ref": "#/$defs/PivotReference"
+                        },
+                        "y": {
+                            "type": "string"
+                        },
+                        "yRef": {
+                            "$ref": "#/$defs/PivotReference"
+                        }
+                    },
+                    "required": ["yRef", "xRef"],
+                    "type": "object"
+                },
+                "filledSymbol": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "isFilteredOut": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "properties": {
+                        "position": {
+                            "enum": [
+                                "left",
+                                "top",
+                                "right",
+                                "bottom",
+                                "inside"
+                            ],
+                            "type": "string"
+                        },
+                        "show": {
+                            "type": "boolean"
+                        }
+                    },
+                    "type": "object"
+                },
+                "markLine": {
+                    "$ref": "#/$defs/MarkLine"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "seriesSortByValue": {
+                    "enum": ["asc", "desc"],
+                    "type": "string"
+                },
+                "showSymbol": {
+                    "type": "boolean"
+                },
+                "smooth": {
+                    "type": "boolean"
+                },
+                "stack": {
+                    "type": "string"
+                },
+                "stackLabel": {
+                    "properties": {
+                        "show": {
+                            "type": "boolean"
+                        }
+                    },
+                    "type": "object"
+                },
+                "stackSeriesSortByValue": {
+                    "enum": ["asc", "desc"],
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/$defs/CartesianSeriesType"
+                },
+                "yAxisIndex": {
+                    "format": "double",
+                    "type": "number"
+                }
+            },
+            "required": ["type", "encode"],
+            "type": "object"
+        },
+        "SeriesMetadata": {
+            "properties": {
+                "color": {
+                    "type": "string"
+                }
+            },
+            "required": ["color"],
+            "type": "object"
+        },
+        "SortField": {
+            "properties": {
+                "descending": {
+                    "type": "boolean"
+                },
+                "fieldId": {
+                    "type": "string"
+                },
+                "nullsFirst": {
+                    "type": "boolean"
+                }
+            },
+            "required": ["descending", "fieldId"],
+            "type": "object"
+        },
+        "SqlTableCalculation": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/TableCalculationBase"
+                },
+                {
+                    "properties": {
+                        "sql": {
+                            "description": "SQL expression for the calculation (can reference fields with ${table.field})",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["sql"],
+                    "type": "object"
+                }
+            ]
+        },
+        "TableCalculation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SqlTableCalculation"
+                },
+                {
+                    "$ref": "#/$defs/TemplateTableCalculation"
+                },
+                {
+                    "$ref": "#/$defs/FormulaTableCalculation"
+                }
+            ]
+        },
+        "TableCalculationBase": {
+            "properties": {
+                "displayName": {
+                    "description": "Display name shown in the UI",
+                    "type": "string"
+                },
+                "format": {
+                    "$ref": "#/$defs/CustomFormat",
+                    "description": "Formatting options for the calculation"
+                },
+                "index": {
+                    "description": "Display order index",
+                    "format": "double",
+                    "type": "number"
+                },
+                "name": {
+                    "description": "Internal name of the table calculation",
+                    "type": "string"
+                },
+                "totalMode": {
+                    "$ref": "#/$defs/TableCalculationTotalMode",
+                    "description": "How column totals are computed for this calculation"
+                },
+                "type": {
+                    "$ref": "#/$defs/TableCalculationType",
+                    "description": "Data type of the calculation result"
+                }
+            },
+            "required": ["displayName", "name"],
+            "type": "object"
+        },
+        "TableCalculationTemplate": {
+            "anyOf": [
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": "string"
+                        },
+                        "orderBy": {
+                            "items": {
+                                "properties": {
+                                    "fieldId": {
+                                        "type": "string"
+                                    },
+                                    "order": {
+                                        "enum": ["asc", "desc", null],
+                                        "type": ["string", "null"]
+                                    }
+                                },
+                                "required": ["order", "fieldId"],
+                                "type": "object"
+                            },
+                            "type": "array"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.PERCENT_CHANGE_FROM_PREVIOUS"
+                        }
+                    },
+                    "required": ["orderBy", "fieldId", "type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": "string"
+                        },
+                        "orderBy": {
+                            "items": {
+                                "properties": {
+                                    "fieldId": {
+                                        "type": "string"
+                                    },
+                                    "order": {
+                                        "enum": ["asc", "desc", null],
+                                        "type": ["string", "null"]
+                                    }
+                                },
+                                "required": ["order", "fieldId"],
+                                "type": "object"
+                            },
+                            "type": "array"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.PERCENT_OF_PREVIOUS_VALUE"
+                        }
+                    },
+                    "required": ["orderBy", "fieldId", "type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": "string"
+                        },
+                        "partitionBy": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.PERCENT_OF_COLUMN_TOTAL"
+                        }
+                    },
+                    "required": ["partitionBy", "fieldId", "type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.RANK_IN_COLUMN"
+                        }
+                    },
+                    "required": ["fieldId", "type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.RUNNING_TOTAL"
+                        }
+                    },
+                    "required": ["fieldId", "type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "fieldId": {
+                            "type": ["string", "null"]
+                        },
+                        "frame": {
+                            "$ref": "#/$defs/FrameClause"
+                        },
+                        "orderBy": {
+                            "items": {
+                                "properties": {
+                                    "fieldId": {
+                                        "type": "string"
+                                    },
+                                    "order": {
+                                        "enum": ["asc", "desc", null],
+                                        "type": ["string", "null"]
+                                    }
+                                },
+                                "required": ["order", "fieldId"],
+                                "type": "object"
+                            },
+                            "type": "array"
+                        },
+                        "partitionBy": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "type": {
+                            "$ref": "#/$defs/TableCalculationTemplateType.WINDOW_FUNCTION"
+                        },
+                        "windowFunction": {
+                            "$ref": "#/$defs/WindowFunctionType"
+                        }
+                    },
+                    "required": [
+                        "partitionBy",
+                        "orderBy",
+                        "fieldId",
+                        "windowFunction",
+                        "type"
+                    ],
+                    "type": "object"
+                }
+            ]
+        },
+        "TableCalculationTemplateType.PERCENT_CHANGE_FROM_PREVIOUS": {
+            "enum": ["percent_change_from_previous"],
+            "type": "string"
+        },
+        "TableCalculationTemplateType.PERCENT_OF_COLUMN_TOTAL": {
+            "enum": ["percent_of_column_total"],
+            "type": "string"
+        },
+        "TableCalculationTemplateType.PERCENT_OF_PREVIOUS_VALUE": {
+            "enum": ["percent_of_previous_value"],
+            "type": "string"
+        },
+        "TableCalculationTemplateType.RANK_IN_COLUMN": {
+            "enum": ["rank_in_column"],
+            "type": "string"
+        },
+        "TableCalculationTemplateType.RUNNING_TOTAL": {
+            "enum": ["running_total"],
+            "type": "string"
+        },
+        "TableCalculationTemplateType.WINDOW_FUNCTION": {
+            "enum": ["window_function"],
+            "type": "string"
+        },
+        "TableCalculationTotalMode": {
+            "enum": ["formula", "sum_of_rows", "none"],
+            "type": "string"
+        },
+        "TableCalculationType": {
+            "enum": ["number", "string", "date", "timestamp", "boolean"],
+            "type": "string"
+        },
+        "TableCellAlignment": {
+            "enum": ["left", "center", "right"],
+            "type": "string"
+        },
+        "TableChart": {
+            "properties": {
+                "cellAlignment": {
+                    "$ref": "#/$defs/TableCellAlignment"
+                },
+                "columns": {
+                    "$ref": "#/$defs/Record_string.ColumnProperties_"
+                },
+                "conditionalFormattings": {
+                    "items": {
+                        "$ref": "#/$defs/ConditionalFormattingConfig"
+                    },
+                    "type": "array"
+                },
+                "enablePagination": {
+                    "description": "Warehouse OFFSET pagination for TABLE charts. Default off.",
+                    "type": "boolean"
+                },
+                "hideRowNumbers": {
+                    "type": "boolean"
+                },
+                "metricsAsRows": {
+                    "type": "boolean"
+                },
+                "pageSize": {
+                    "description": "Rows per page when enablePagination is true. Default 10.",
+                    "format": "double",
+                    "type": "number"
+                },
+                "pivotAutoFillWidth": {
+                    "description": "透视表列总宽小于容器时，均分剩余空间铺满",
+                    "type": "boolean"
+                },
+                "pivotColumnMaxWidth": {
+                    "description": "透视表数据列最大宽度（px），未设置时使用默认上限",
+                    "format": "double",
+                    "type": "number"
+                },
+                "pivotDimensionColumnMaxWidth": {
+                    "description": "透视表行维度列最大宽度（px），未设置时使用默认上限",
+                    "format": "double",
+                    "type": "number"
+                },
+                "pivotMetricHeaderPosition": {
+                    "$ref": "#/$defs/PivotMetricHeaderPosition"
+                },
+                "pivotRowDimensionAlignment": {
+                    "$ref": "#/$defs/TableCellAlignment"
+                },
+                "showColumnCalculation": {
+                    "type": "boolean"
+                },
+                "showResultsTotal": {
+                    "type": "boolean"
+                },
+                "showRowCalculation": {
+                    "type": "boolean"
+                },
+                "showRowGrouping": {
+                    "description": "Visually deduplicate repeated row-index dimension values across consecutive\nrows without showing aggregate subtotal rows. When `showSubtotals` is true,\ngrouping is implicitly active and this flag is ignored. Defaults to false.",
+                    "type": "boolean"
+                },
+                "showSubtotals": {
+                    "type": "boolean"
+                },
+                "showTableNames": {
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "TableChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/TableChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.TABLE"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "TemplateTableCalculation": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/TableCalculationBase"
+                },
+                {
+                    "properties": {
+                        "template": {
+                            "$ref": "#/$defs/TableCalculationTemplate",
+                            "description": "Template-based calculation (alternative to sql)"
+                        }
+                    },
+                    "required": ["template"],
+                    "type": "object"
+                }
+            ]
+        },
+        "TimeFrames": {
+            "enum": [
+                "RAW",
+                "YEAR",
+                "QUARTER",
+                "MONTH",
+                "WEEK",
+                "DAY",
+                "HOUR",
+                "MINUTE",
+                "SECOND",
+                "MILLISECOND",
+                "DAY_OF_WEEK_INDEX",
+                "DAY_OF_MONTH_NUM",
+                "DAY_OF_YEAR_NUM",
+                "WEEK_NUM",
+                "MONTH_NUM",
+                "QUARTER_NUM",
+                "YEAR_NUM",
+                "DAY_OF_WEEK_NAME",
+                "MONTH_NAME",
+                "QUARTER_NAME",
+                "HOUR_OF_DAY_NUM",
+                "MINUTE_OF_HOUR_NUM"
+            ],
+            "type": "string"
+        },
+        "TreemapChart": {
+            "properties": {
+                "colorMetricId": {
+                    "type": "string"
+                },
+                "endColor": {
+                    "type": "string"
+                },
+                "endColorThreshold": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "groupFieldIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "leafDepth": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "sizeMetricId": {
+                    "type": "string"
+                },
+                "startColor": {
+                    "type": "string"
+                },
+                "startColorThreshold": {
+                    "format": "double",
+                    "type": "number"
+                },
+                "useDynamicColors": {
+                    "type": "boolean"
+                },
+                "visibleMin": {
+                    "format": "double",
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
+        "TreemapChartConfig": {
+            "properties": {
+                "config": {
+                    "$ref": "#/$defs/TreemapChart"
+                },
+                "type": {
+                    "$ref": "#/$defs/ChartType.TREEMAP"
+                }
+            },
+            "required": ["type"],
+            "type": "object"
+        },
+        "WindowFunctionType": {
+            "enum": [
+                "row_number",
+                "percent_rank",
+                "cume_dist",
+                "rank",
+                "sum",
+                "avg",
+                "count",
+                "min",
+                "max"
+            ],
+            "type": "string"
+        },
+        "XAxis": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/Axis"
+                },
+                {
+                    "properties": {
+                        "axisLineOnZero": {
+                            "description": "Maps to ECharts `xAxis.axisLine.onZero`.\n`true` (default): draw X axis line at y=0 when the Y scale crosses zero.\n`false`: keep X axis line at the bottom of the plot (\"轴线置底\").",
+                            "type": "boolean"
+                        },
+                        "sortType": {
+                            "$ref": "#/$defs/XAxisSortType"
+                        }
+                    },
+                    "type": "object"
+                }
+            ]
+        },
+        "XAxisSortType": {
+            "enum": ["default", "bar_totals"],
+            "type": "string"
+        }
+    },
+    "$id": "https://schemas.lightdash.com/lightdash/chart-as-code.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "description": "From T, pick a set of properties whose keys are in the union K",
+    "properties": {
+        "chartConfig": {
+            "discriminator": {
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/BigNumber"
+                        },
+                        "type": {
+                            "const": "big_number"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/CartesianChart"
+                        },
+                        "type": {
+                            "const": "cartesian"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/CustomVis"
+                        },
+                        "type": {
+                            "const": "custom"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/PieChart"
+                        },
+                        "type": {
+                            "const": "pie"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/FunnelChart"
+                        },
+                        "type": {
+                            "const": "funnel"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/TableChart"
+                        },
+                        "type": {
+                            "const": "table"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/TreemapChart"
+                        },
+                        "type": {
+                            "const": "treemap"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "config": {
+                            "$ref": "#/$defs/DataAppVizChart"
+                        },
+                        "type": {
+                            "const": "data_app_viz"
+                        }
+                    },
+                    "required": ["type"],
+                    "type": "object"
+                }
+            ],
+            "type": "object"
+        },
+        "contentType": {
+            "$ref": "#/$defs/ContentAsCodeType.CHART"
+        },
+        "dashboardSlug": {
+            "oneOf": [
+                {
+                    "pattern": "^[a-z0-9-]+$",
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "description": {
+            "type": "string"
+        },
+        "downloadedAt": {
+            "format": "date-time",
+            "type": "string"
+        },
+        "merge": {
+            "anyOf": [
+                {
+                    "allOf": [
+                        {
+                            "$ref": "#/$defs/SavedMergeQuery"
+                        }
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "metricQuery": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/MetricQuery"
+                },
+                {
+                    "allOf": [
+                        {
+                            "$ref": "#/$defs/Omit_MetricQuery.filters_"
+                        },
+                        {
+                            "properties": {
+                                "filters": {
+                                    "$ref": "#/$defs/FiltersInput"
+                                }
+                            },
+                            "required": ["filters"],
+                            "type": "object"
+                        }
+                    ]
+                }
+            ]
+        },
+        "name": {
+            "type": "string"
+        },
+        "parameters": {
+            "$ref": "#/$defs/ParametersValuesMap"
         },
         "pivotConfig": {
-            "type": "object",
-            "description": "Pivot table configuration",
             "properties": {
                 "columns": {
-                    "type": "array",
-                    "description": "Fields to use as pivot columns",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "type": "array"
                 }
-            }
+            },
+            "required": ["columns"],
+            "type": "object"
+        },
+        "slug": {
+            "type": "string"
+        },
+        "spaceSlug": {
+            "type": "string"
+        },
+        "tableConfig": {
+            "properties": {
+                "columnOrder": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["columnOrder"],
+            "type": "object"
+        },
+        "tableName": {
+            "type": "string"
+        },
+        "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+        },
+        "verified": {
+            "description": "Ignored on upload when the instance has no verification feature.",
+            "type": "boolean"
+        },
+        "version": {
+            "const": 1,
+            "format": "double",
+            "type": "number"
         }
-    }
+    },
+    "required": [
+        "name",
+        "updatedAt",
+        "chartConfig",
+        "slug",
+        "tableName",
+        "tableConfig",
+        "spaceSlug",
+        "version",
+        "metricQuery"
+    ],
+    "title": "Lightdash Chart as Code",
+    "type": "object"
 }

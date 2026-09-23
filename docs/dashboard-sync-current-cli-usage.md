@@ -34,7 +34,7 @@ npx @lightdash/cli@2.58.0 upload --force
 
 本仓还有 `GET/POST /code/virtualViews`，官方 CLI **默认 download 不会拉**。需要时用 `--include-virtual-views`（不要 `--include-all`）。本仓 fork CLI 没有这条接线，跨环境 virtual view 请调 API 或等后续补 CLI。
 
-官方有、本仓**不迁**、运维默认同步也不需要的：定时推送 / 告警 / AI Agent / homepage / Google Sheets / 组织级 users-groups as-code、官方 `lightdash lint`。
+官方有、本仓**不迁**、运维默认同步也不需要的：定时推送 / 告警 / AI Agent / homepage / Google Sheets、组织级 as-code **upload**、官方 `lightdash lint` 整仓门禁。
 
 ## 不要和 `lightdash deploy` 混用
 
@@ -42,9 +42,41 @@ npx @lightdash/cli@2.58.0 upload --force
 - `lightdash deploy`：dbt explores / table-groups（数据集多级分组）。
 - `.lightdash-metadata.json` 由**官方 CLI download 写在本地**，服务端不会生成。提交仓库或做 diff 时按团队约定处理即可。
 
-## 不要用官方 `lightdash lint` 卡自研字段
+## Lint：本仓命令做门禁，官方 lint 只抽查
 
-官方 CLI 包里的 `DashboardTabAsCode` schema 是 `additionalProperties: false`，且没有 `filters`。本仓看板 Tab 级筛选、看板 `config`、公式 / PoP 必须在 YAML 往返中保留。Agent 主路径是 download → 改 YAML → upload，不要用官方 lint 剥字段。
+官方 `@lightdash/cli@2.58.0 lint` 用的是包里写死的 schema。`DashboardTabAsCode` 是 `additionalProperties: false` 且没有 `filters`，所以：
+
+- **能绿**：没有写出 `tabs[].filters` 的看板（download 会省略空 filters）、图表 YAML、看板级 `filters`（含 `lockedTabUuids`）、`config` 里的本仓字段
+- **必红**：YAML 里带了 `tabs[].filters` 的看板。这不是 YAML 坏了，是官方 schema 不认 Tab 级筛选
+
+整仓 CI / agent 用**本仓 lint**（schema 显式含 `tabs[].filters`）：
+
+```bash
+pnpm -F cli build
+node ./packages/cli/dist/index.js lint --path ./lightdash
+```
+
+不要用 `npx @lightdash/cli@2.58.0 lint` 扫整个 `dashboards/` 当门禁。官方 lint 只适合抽查没开 Tab 筛选的文件。
+
+不要把 Tab 筛选挪到 `config` 去骗官方 lint，也不要为了绿而去剥 `tab.filters`。
+
+## 组织级 as-code（只读导出）
+
+组织级人 / 组 / 角色和项目看板同步是两条线。本仓已提供只读接口：
+
+- `GET /api/v2/orgs/{orgUuid}/code/roles`
+- `GET /api/v2/orgs/{orgUuid}/code/users`
+- `GET /api/v2/orgs/{orgUuid}/code/groups`
+
+需要 `manage:Organization`（组还要组功能开关）。官方 CLI：
+
+```bash
+npx @lightdash/cli@2.58.0 download --organization --path ./org-export
+```
+
+会先拉 roles / users / groups。随后还会请求 `userAttributes` 和 `/api/v1/org/designs/`（themes）。这两项本仓**没有 as-code 实现**，官方 CLI 在这里可能会失败；需要完整导出时用上面三个 GET，或接受 CLI 在 userAttributes/themes 处停下。
+
+**不要**跑 `upload --organization`。本仓没有 POST，误 upload 会改对端成员和角色。themes / userAttributes / `--send-invites` 都不做。
 
 ## 权限
 
@@ -216,7 +248,7 @@ node ./packages/cli/dist/index.js
 
 官方 npm CLI 用户不需要等本仓发 CLI 包，后端部署到预发后即可用 `@lightdash/cli@2.58.0`。
 
-本仓 `packages/cli` 比官方 2.58 弱：不打印看板 upload warnings、`--dashboards` 不拉 SQL chart、不支持 virtual views / `--nested`。运维和 agent 请用官方 npm 包，不要用 `node ./packages/cli/dist`。
+本仓 `packages/cli` 比官方 2.58 弱：不打印看板 upload warnings、`--dashboards` 不拉 SQL chart、不支持 virtual views / `--nested`。跨环境 download/upload 请用官方 npm 包。**例外**：整仓 YAML 门禁用本仓 `lint`，不要用官方 `lint`。
 
 ## 注意事项
 

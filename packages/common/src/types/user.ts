@@ -3,6 +3,7 @@ import { type MemberAbility } from '../authorization/types';
 import { type AnyType } from './any';
 import { type OpenIdIdentityIssuerType } from './openIdIdentity';
 import { type OrganizationMemberRole } from './organizationMemberProfile';
+import { type PromotionAction } from './promotion';
 
 export type AccountUser = {
     id: string;
@@ -165,6 +166,41 @@ export type IntrinsicUserAttributes = {
     email?: string;
     dashboardSlug?: string;
     dashboardName?: string;
+};
+
+export type UserAsCodeRole =
+    | {
+          type: 'system';
+          name: OrganizationMemberRole;
+      }
+    | {
+          type: 'custom';
+          name: string;
+      };
+
+export type UserAsCode = {
+    version: 1;
+    email: string;
+    disabled: boolean;
+    role: UserAsCodeRole;
+    additionalRoles?: Extract<UserAsCodeRole, { type: 'custom' }>[];
+};
+
+export type ApiUserAsCodeListResponse = {
+    status: 'ok';
+    results: {
+        users: UserAsCode[];
+    };
+};
+
+export type ApiUserAsCodeUpsertResponse = {
+    status: 'ok';
+    results: {
+        action:
+            | PromotionAction.CREATE
+            | PromotionAction.UPDATE
+            | PromotionAction.NO_CHANGES;
+    };
 };
 
 export const DEFAULT_DASHBOARD_ATTRIBUTE_VALUE = 'NA';
