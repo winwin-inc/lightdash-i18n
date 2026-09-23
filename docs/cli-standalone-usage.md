@@ -22,13 +22,17 @@
 
 ## 1. 拿 CLI
 
-优先从 GitHub Release 下载 `cli-v*` 的独立 tgz（文件名形如 `lightdash-cli-*.tgz`）。源码 zip **不能**当安装包。
+优先从 GitHub Release 下载 `cli-v*` 的独立 tgz（文件名形如 `lightdash-cli-X.Y.Z.tgz`）。源码 zip **不能**当安装包。这个 tgz 用于 `download` / `upload` / `lint`。Jenkins 上的 `lightdash deploy` 继续用 CLI Docker 镜像。
+
+先看当前有哪些 CLI Release，再下载对应版本（不要用不带 tag 的 `gh release download`，CLI Release 不会标成 Latest）：
 
 ```powershell
-gh release download cli-v2.1.5 -p "lightdash-cli-*.tgz"
+gh release list --limit 20
+# 找到最新的 cli-vX.Y.Z，再：
+gh release download cli-vX.Y.Z -p "lightdash-cli-*.tgz"
 ```
 
-公开库也可以用 Release 文件 URL。私有库不要直接 npx URL（没 token 会 404），用 `gh release download`。
+公开库也可以用 Release 文件 URL。私有库需要仓库权限；不要直接 npx URL（没 token 会 404）。
 
 仓库里开发可以不装包，直接跑构建产物：
 
@@ -40,14 +44,16 @@ node ./packages/cli/dist/index.js --help
 ## 2. 安装
 
 ```powershell
-npm install -g ./lightdash-cli-2.1.5.tgz
+npm install -g ./lightdash-cli-X.Y.Z.tgz
 lightdash --version
 ```
+
+`--version` 应和 tgz 文件名里的 X.Y.Z 一致。
 
 或不装全局：
 
 ```powershell
-npx --yes ./lightdash-cli-2.1.5.tgz --help
+npx --yes ./lightdash-cli-X.Y.Z.tgz --help
 ```
 
 ## 3. 登录
@@ -212,10 +218,11 @@ YAML 字段、权限、空 tile 行为见 [dashboard-sync-current-cli-usage.md](
 ## 8. CI 示例
 
 ```yaml
-- run: npm install -g ./lightdash-cli-2.1.5.tgz
+- run: gh release download "$CLI_RELEASE_TAG" -p "lightdash-cli-*.tgz"
+- run: npm install -g ./lightdash-cli-*.tgz
 - run: lightdash login "$SITE_URL" --token "$LIGHTDASH_PAT"
 - run: lightdash lint --path ./lightdash
 - run: lightdash upload --project "$PROJECT_UUID" --force
 ```
 
-`SITE_URL`、`LIGHTDASH_PAT`、`PROJECT_UUID` 用 CI secret，不要进 git。
+`CLI_RELEASE_TAG` 形如 `cli-vX.Y.Z`。`SITE_URL`、`LIGHTDASH_PAT`、`PROJECT_UUID` 用 CI secret，不要进 git。

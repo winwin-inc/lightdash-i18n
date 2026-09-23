@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * 为 Jenkins CLI 工具镜像打 annotated tag：cli-vX.Y.Z
+ * 为 CLI 发版打 annotated tag：cli-vX.Y.Z
  *
  * CLI 与主仓共用 workspace version（由 pnpm bump-version 改写 packages/cli/package.json）。
  * 本脚本不改文件，只在当前 HEAD 打 tag；推送后触发
- * .github/workflows/build-docker-cli.yml → ACR winwin/tool:lightdash-cli-X.Y.Z
+ * .github/workflows/build-docker-cli.yml：
+ *   - ACR winwin/tool:lightdash-cli-X.Y.Z
+ *   - GitHub Release cli-vX.Y.Z 挂 lightdash-cli-X.Y.Z.tgz（不标 Latest）
  *
  * 用法：
  *   pnpm bump-cli -- 0.2107.8
@@ -12,6 +14,7 @@
  *   node scripts/bump-cli-version.mjs 0.2107.8
  *
  * 本地不 push；确认无误后：git push origin cli-v<版本号>
+ * tag 版本必须与 packages/cli/package.json 一致，否则 tgz job 会失败。
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -41,6 +44,8 @@ function usage() {
 本地不 push；确认无误后：git push origin cli-v<版本号>
 触发 CI：.github/workflows/build-docker-cli.yml
 镜像：registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-X.Y.Z
+Release：cli-vX.Y.Z 挂 lightdash-cli-X.Y.Z.tgz（不标 Latest）
+tag 须与 packages/cli/package.json 一致，否则 tgz job 失败。
 `);
 }
 
@@ -165,7 +170,7 @@ if (!rawVersion) {
     );
 } else if (version !== pkgVersion) {
     process.stdout.write(
-        `注意：tag 版本 ${version} 与 packages/cli/package.json（${pkgVersion}）不一致。\n镜像 tag 用 ${version}；容器内 lightdash --version 仍显示 ${pkgVersion}。\n如需对齐，先 pnpm bump-version -- ${version} 再打 cli tag。\n\n`,
+        `注意：tag 版本 ${version} 与 packages/cli/package.json（${pkgVersion}）不一致。\n镜像 tag 用 ${version}；容器内和 tgz 的 lightdash --version 仍显示 ${pkgVersion}。\ntgz job 会因此失败。如需对齐，先 pnpm bump-version -- ${version} 再打 cli tag。\n\n`,
     );
 }
 
@@ -182,6 +187,9 @@ process.stdout.write(
 );
 process.stdout.write(
     `镜像: registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-${version}\n`,
+);
+process.stdout.write(
+    `GitHub Release: ${tagName} 挂 lightdash-cli-${version}.tgz（不标 Latest）\n`,
 );
 process.stdout.write('主站请用: pnpm bump-version -- <version>\n');
 process.stdout.write('MCP 请用: pnpm bump-mcp -- <version>\n');
