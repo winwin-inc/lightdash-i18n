@@ -1,6 +1,6 @@
 # 本仓看板 YAML 与同步说明
 
-日常 download / upload / lint 的命令和流程见 [cli-standalone-usage.md](./cli-standalone-usage.md)。本文只说明本仓 YAML、权限、以及和官方的差异。
+日常 download / upload / lint 的命令和流程见 [cli-standalone-usage.md](./cli-standalone-usage.md)。项目 UUID 从地址栏 `/projects/<uuid>/` 抄，见主文档。本文只说明本仓 YAML、权限、以及和官方的差异。
 
 不要用官方 `npx @lightdash/cli` 做日常同步或整仓 lint。
 

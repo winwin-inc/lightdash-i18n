@@ -13,18 +13,21 @@
 推荐顺序：
 
 ```text
-拿 tgz → npm i -g → login --token
-    → download --project 源项目
-    → （可选）改 YAML / 看 language-map
+拿 tgz → npx 冒烟（--version / lint --help）
+    → 环境变量登录 → download --project 源项目
     → lint
-    → upload --project 目标项目 [--force] [--include-charts]
+    → （需要时再）upload，先预发、先 -d 一条看板
 ```
+
+冒烟够用 download + lint。不要一上来就对全项目 `upload --force`。
 
 ## 1. 拿 CLI
 
-优先从 GitHub Release 下载 `cli-v*` 的独立 tgz（文件名形如 `lightdash-cli-X.Y.Z.tgz`）。源码 zip **不能**当安装包。这个 tgz 用于 `download` / `upload` / `lint`。Jenkins 上的 `lightdash deploy` 继续用 CLI Docker 镜像。
+从 GitHub Release 下载对应 `cli-vX.Y.Z` 的 `lightdash-cli-X.Y.Z.tgz`。源码 zip **不能**当安装包。这个 tgz 用于 `download` / `upload` / `lint`。Jenkins 上的 `lightdash deploy` 继续用 CLI Docker 镜像。
 
-先看当前有哪些 CLI Release，再下载对应版本（不要用不带 tag 的 `gh release download`，CLI Release 不会标成 Latest）：
+仓库若只有这一条 CLI Release，GitHub 页面仍可能标 Latest。下载必须带 tag（`cli-vX.Y.Z`），不要用不带 tag 的 `gh release download`。
+
+有 `gh`：
 
 ```powershell
 gh release list --limit 20
@@ -32,45 +35,59 @@ gh release list --limit 20
 gh release download cli-vX.Y.Z -p "lightdash-cli-*.tgz"
 ```
 
-公开库也可以用 Release 文件 URL。私有库需要仓库权限；不要直接 npx URL（没 token 会 404）。
-
-仓库里开发可以不装包，直接跑构建产物：
+没有 `gh`：打开仓库 Releases 页，下载 Assets 里的 `lightdash-cli-X.Y.Z.tgz`。PowerShell 也可以：
 
 ```powershell
-pnpm -F cli build
-node ./packages/cli/dist/index.js --help
+Invoke-WebRequest `
+  -Uri "https://github.com/<org>/<repo>/releases/download/cli-vX.Y.Z/lightdash-cli-X.Y.Z.tgz" `
+  -OutFile "lightdash-cli-X.Y.Z.tgz"
 ```
 
+公开库可以直接下。私有库需要登录权限；不要对私有 Release URL 做无 token 的 npx。
+
+可选校验 sha256（和 Release 页或同事提供的摘要对比）：
+
+```powershell
+(Get-FileHash -Algorithm SHA256 .\lightdash-cli-X.Y.Z.tgz).Hash.ToLower()
+```
+
+仓库里开发可以不装包：`pnpm -F cli build` 后 `node ./packages/cli/dist/index.js --help`。
+
 ## 2. 安装
+
+第一次建议用 `npx`，不要急着 `npm install -g`（会盖掉本机已有的官方 `lightdash`）：
+
+```powershell
+npx --yes ./lightdash-cli-X.Y.Z.tgz --version
+npx --yes ./lightdash-cli-X.Y.Z.tgz lint --help
+```
+
+`--version` 应和文件名里的 X.Y.Z 一致。确认没问题再：
 
 ```powershell
 npm install -g ./lightdash-cli-X.Y.Z.tgz
 lightdash --version
 ```
 
-`--version` 应和 tgz 文件名里的 X.Y.Z 一致。
-
-或不装全局：
-
-```powershell
-npx --yes ./lightdash-cli-X.Y.Z.tgz --help
-```
+下文命令写成 `lightdash ...`。若没装全局，把 `lightdash` 换成 `npx --yes ./lightdash-cli-X.Y.Z.tgz` 即可。
 
 ## 3. 登录
 
-个人访问令牌：Lightdash UI → User settings → Personal access tokens。
+个人访问令牌：Lightdash UI → User settings → Personal access tokens。只放在当前 shell 的环境变量里，测完删掉。不要写进文档、仓库、截图。
 
 ```powershell
-lightdash login https://你的站点 --token 你的PAT
+$env:LIGHTDASH_URL = "https://你的站点"
+$env:LIGHTDASH_API_KEY = "你的PAT"
+# 可选：$env:LIGHTDASH_PROJECT = "项目UUID"
 ```
 
-之后命令读本机已保存的登录信息。也可以用环境变量覆盖，不必反复 `login`：
+也可以 `lightdash login https://你的站点 --token 你的PAT`，之后读本机已保存的登录信息。环境变量会覆盖本地配置。
 
-- `LIGHTDASH_URL`：服务地址
-- `LIGHTDASH_API_KEY`：Personal Access Token
-- `LIGHTDASH_PROJECT`：默认项目 UUID，可被 `--project` 覆盖
+项目 UUID 从地址栏抄：`https://<站点>/projects/<项目UUID>/...`。
 
-CI 里同样先 `login`，或注入上面三个环境变量。不要把 token 写进仓库。
+CI 里用 secret 注入这三个变量，不要进 git。
+
+若 CLI 提示和服务器版本不一致（例如 CLI `2.1.6`、服务端 `2.1.6-test.4`），major 相同一般可继续。不要因此去装官方 `npm install -g @lightdash/cli@...`。
 
 ## 4. 下载
 
@@ -117,9 +134,11 @@ lightdash lint --path ./lightdash
 lightdash lint --path ./sync-out
 ```
 
-校验 `charts/*.yml` 和 `dashboards/*.yml`。本仓 schema **允许** `tabs[].filters`，以及本仓 `config` 扩展。
+校验 `charts/*.yml` 和 `dashboards/*.yml`。本仓 schema **允许** `tabs[].filters`，以及对象形状的本仓 `config`。
 
-不要用官方 `npx @lightdash/cli lint` 校验这批文件。也不要为了过官方 lint 去剥 `tab.filters`。
+download 有时会写出 `config: null`。本仓 lint 要求 `config` 是 object，这类文件会报 `/config must be object`。要绿可以删掉该字段或改成 `{}`；不要为了过官方 lint 去剥 `tab.filters`。
+
+不要用官方 `npx @lightdash/cli lint` 校验这批文件。
 
 ## 6. 上传
 
@@ -139,6 +158,7 @@ lightdash upload --project <目标项目UUID> --path ./sync-out --force
 
 注意：
 
+- 先在预发验证。第一次只传一条：`-d <看板slug> --include-charts --force`。不要一上来对生产全量 `--force`。
 - **先有图，再有看板。** 只传看板、本地没有对应 chart YAML、或漏了 `--include-charts`，目标环境可能出现空 tile。
 - `--include-charts` 只在带 `-d` 传看板时需要显式打开；全量 `upload` 会处理目录里的 charts。
 - `--force` 用于目标项目是空的、或要覆盖远端。跨环境导入建议加上，否则本地没改动时可能被判断为无需上传。
