@@ -110,7 +110,7 @@ jobs:
                   fi
                   if [[ "${TAG_VERSION}" != "${PKG_VERSION}" ]]; then
                     echo "tag ${GITHUB_REF_NAME} != packages/cli/package.json version ${PKG_VERSION}"
-                    echo "先 pnpm bump-version -- ${TAG_VERSION} 再打 cli tag。"
+                    echo "先 pnpm bump-cli -- ${TAG_VERSION} 再打 cli tag。"
                     exit 1
                   fi
                   echo "version=${PKG_VERSION}"
