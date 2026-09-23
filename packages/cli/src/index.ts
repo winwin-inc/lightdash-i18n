@@ -23,6 +23,7 @@ import { diagnosticsHandler } from './handlers/diagnostics';
 import { downloadHandler, uploadHandler } from './handlers/download';
 import { generateHandler } from './handlers/generate';
 import { generateExposuresHandler } from './handlers/generateExposures';
+import { lintHandler } from './handlers/lint';
 import { login } from './handlers/login';
 import {
     previewHandler,
@@ -877,6 +878,32 @@ ${styles.bold('Examples:')}
         undefined,
     )
     .action(generateExposuresHandler);
+
+program
+    .command('lint')
+    .description(
+        'Validate local chart/dashboard YAML against this fork schema (includes tabs[].filters)',
+    )
+    .addHelpText(
+        'after',
+        `
+${styles.bold('Examples:')}
+  ${styles.title('⚡')}️lightdash ${styles.bold('lint')} ${styles.secondary(
+            '-- validates charts/ and dashboards/ in the current directory',
+        )}
+  ${styles.title('⚡')}️lightdash ${styles.bold(
+            'lint',
+        )} --path ./lightdash ${styles.secondary(
+            '-- validates a downloaded content folder',
+        )}
+`,
+    )
+    .option(
+        '--path <path>',
+        'Path to a file or directory to lint (defaults to current directory)',
+    )
+    .option('--verbose', undefined, false)
+    .action(lintHandler);
 
 program
     .command('diagnostics')

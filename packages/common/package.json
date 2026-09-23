@@ -57,6 +57,8 @@
         "fix-format": "pnpm run formatter ./src --write",
         "test": "TZ=UTC jest",
         "test:dev": "TZ=UTC jest --config jest.config.dev.js --onlyChanged --watch",
+        "generate:dashboard-as-code-schema": "tsx src/schemas/generateDashboardAsCodeSchema.ts && pnpm run formatter --write src/schemas/json/dashboard-as-code-1.0.json",
+        "generate:chart-as-code-schema": "tsx src/schemas/generateChartAsCodeSchema.ts && pnpm run formatter --write src/schemas/json/chart-as-code-1.0.json",
         "release": "pnpm publish --no-git-checks"
     }
 }

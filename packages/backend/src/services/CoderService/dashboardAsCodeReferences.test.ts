@@ -13,6 +13,7 @@ import {
     getFiltersWithPortableLockedTabs,
     resolveDashboardTabs,
     resolveTabUuid,
+    toAsCodeTabs,
 } from './dashboardAsCodeReferences';
 
 const dashboard: Pick<DashboardDAO, 'tabs'> = {
@@ -227,6 +228,50 @@ describe('dashboardAsCodeReferences', () => {
             );
             expect(tile.tabUuid).toBe('overview-uuid');
             expect(resolveTabUuid(tabs, 'overview')).toBe('overview-uuid');
+        });
+    });
+
+    describe('toAsCodeTabs', () => {
+        it('omits empty tab filters so official lint can pass', () => {
+            const tabs = toAsCodeTabs(
+                { tabs: dashboard.tabs } as DashboardDAO,
+                [
+                    {
+                        uuid: 'overview-uuid',
+                        name: 'Overview',
+                        order: 0,
+                        filters: {
+                            dimensions: [],
+                            metrics: [],
+                            tableCalculations: [],
+                        },
+                    },
+                    {
+                        uuid: 'revenue-costs-uuid',
+                        name: 'Revenue / Costs',
+                        order: 1,
+                        filters: {
+                            dimensions: [
+                                {
+                                    id: 'keep',
+                                    label: undefined,
+                                    operator: FilterOperator.EQUALS,
+                                    target: {
+                                        fieldId: 'orders_status',
+                                        tableName: 'orders',
+                                    },
+                                    values: ['complete'],
+                                },
+                            ],
+                            metrics: [],
+                            tableCalculations: [],
+                        },
+                    },
+                ],
+            );
+
+            expect(tabs[0]).not.toHaveProperty('filters');
+            expect(tabs[1]).toHaveProperty('filters');
         });
     });
 });

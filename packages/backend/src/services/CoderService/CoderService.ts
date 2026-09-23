@@ -67,6 +67,7 @@ import {
     getFiltersWithLocalLockedTabs,
     getFiltersWithPortableLockedTabs,
     getTileTabSlug,
+    isEmptyDashboardFilters,
     resolveDashboardTabs,
     toAsCodeTabs,
 } from './dashboardAsCodeReferences';
@@ -363,7 +364,14 @@ export class CoderService extends BaseService {
         tabs: DashboardDAO['tabs'],
     ): DashboardAsCode['tabs'] {
         return tabs.map((tab) => {
-            if (!tab.filters) return tab;
+            if (!tab.filters || isEmptyDashboardFilters(tab.filters)) {
+                return {
+                    uuid: tab.uuid,
+                    name: tab.name,
+                    order: tab.order,
+                    hidden: tab.hidden,
+                };
+            }
 
             const dimensionFiltersWithoutUuids = tab.filters.dimensions.map(
                 (filter) => {

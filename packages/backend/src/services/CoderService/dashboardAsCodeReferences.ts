@@ -286,20 +286,37 @@ export const applyResolvedTabUuidsToTiles = (
         ),
     }));
 
+export const isEmptyDashboardFilters = (
+    filters: DashboardFilters | undefined,
+): boolean =>
+    !filters ||
+    ((filters.dimensions?.length ?? 0) === 0 &&
+        (filters.metrics?.length ?? 0) === 0 &&
+        (filters.tableCalculations?.length ?? 0) === 0);
+
 export const toAsCodeTabs = (
     dashboard: DashboardDAO,
     tabs: DashboardAsCode['tabs'],
 ): DashboardAsCode['tabs'] =>
-    tabs.map((tab) => ({
-        ...tab,
-        slug:
-            ('uuid' in tab && tab.uuid
-                ? getDashboardTabSlug(dashboard, tab.uuid)
-                : undefined) ??
-            getIncomingTabSlug(tab) ??
-            getDashboardTabBaseSlug(tab),
-        uuid: tab.uuid,
-    }));
+    tabs.map((tab) => {
+        const { filters, ...tabWithoutEmptyFilters } = tab as DashboardTab & {
+            filters?: DashboardFilters;
+        };
+        const nextTab = {
+            ...tabWithoutEmptyFilters,
+            slug:
+                ('uuid' in tab && tab.uuid
+                    ? getDashboardTabSlug(dashboard, tab.uuid)
+                    : undefined) ??
+                getIncomingTabSlug(tab) ??
+                getDashboardTabBaseSlug(tab),
+            uuid: tab.uuid,
+        };
+        if (isEmptyDashboardFilters(filters)) {
+            return nextTab;
+        }
+        return { ...nextTab, filters };
+    });
 
 export const getTileTabSlug = (
     dashboard: DashboardDAO,

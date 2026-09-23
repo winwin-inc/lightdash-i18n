@@ -1024,6 +1024,8 @@ export class ServiceRepository
                     groupsModel: this.models.getGroupsModel(),
                     projectModel: this.models.getProjectModel(),
                     emailClient: this.clients.getEmailClient(),
+                    organizationMemberProfileModel:
+                        this.models.getOrganizationMemberProfileModel(),
                 }),
         );
     }
