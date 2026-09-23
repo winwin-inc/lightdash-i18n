@@ -34,7 +34,16 @@ npm install -g ./lightdash-cli-X.Y.Z.tgz
 lightdash --version
 ```
 
-更新：再下新 tag 的 tgz，重复上面的 `npx` + `npm install -g` 即可覆盖。不要装官方 `@lightdash/cli`。
+npm / npx 也可以直接装这个 tgz 的 https 地址，不必先下载、也不必申请 npm 账号或搭私有仓库。必须是 Assets 里 `.tgz` 的下载链接，不能是源码 zip 或 Releases 列表页：
+
+```bash
+npx --yes https://github.com/winwin-inc/lightdash-i18n/releases/download/cli-vX.Y.Z/lightdash-cli-X.Y.Z.tgz --version
+npm install -g https://github.com/winwin-inc/lightdash-i18n/releases/download/cli-vX.Y.Z/lightdash-cli-X.Y.Z.tgz
+```
+
+私有库匿名会 404，需要 GitHub 登录权限；不要把 token 写进文档或 CI 明文。这和 `npm install -g @lightdash/cli` 不是一回事，后者仍是官方包。
+
+更新：再下新 tag 的 tgz（或换 URL 里的版本），重复 `npx` + `npm install -g` 即可覆盖。不要装官方 `@lightdash/cli`。
 
 仓库里开发可以不装包：`pnpm -F cli build` 后 `node ./packages/cli/dist/index.js --help`。
 
