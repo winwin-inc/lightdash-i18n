@@ -23,13 +23,30 @@
 
 ## @lightdash/mcp-v2 2.1.6 ~ 2.1.7（2026-09-22）
 
--   **调优**
+-   **调优**（2.1.7）
     -   Keycloak JWT 验签失败、缺 scope、缺 email 改为 **401** `invalid_token`（不再打成 500）；JWKS / 出网故障仍为 500
     -   换票与验签日志可区分「请求没到容器」「票不对」「邮箱不在 Lightdash」
 -   **文档**
-    -   扫码后 500 的客户配置与运维验收
-    -   `mcp:read` scope 类型必须为 Default
-    -   当前接入只配 MCP URL，浏览器走 Keycloak OAuth，不再填写 API Key
+    -   2.1.7：`mcp:read` scope 类型必须为 Default
+    -   2.1.6：接入说明改为只写 URL + OAuth，删掉 API Key 配置（代码已在 2.1.3 移除）；补充扫码后 500 的客户配置与运维验收
+
+## @lightdash/mcp-v2 2.1.5（2026-09-20）
+
+-   **调优**
+    -   补齐 OAuth 受保护资源元数据（`/.well-known`）
+
+## @lightdash/mcp-v2 2.1.3 ~ 2.1.4（2026-09-18）
+
+**2.1.3 首次接入 Keycloak OAuth，并移除客户端 API Key 鉴权。**
+
+-   **新功能**（2.1.3）
+    -   客户端只配 MCP URL，浏览器完成 Keycloak 登录；MCP 用 JWT 里的邮箱向主站换短期 PAT
+    -   主站新增 `POST /api/v1/mcp/token-exchange`（共享密钥 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`）
+-   **移除**（2.1.3）
+    -   不再接受客户端 `x-api-key`、工具参数 `apiKey`，以及容器内 `LIGHTDASH_API_KEY` 兜底
+    -   2.0.0 ~ 2.1.2 的「配置里填 API Key」从本版起失效
+-   **调优**（2.1.4）
+    -   启动时检查 OAuth / 换票必填环境变量
 
 ## v2.0.5 ~ v2.0.8（2026-09）
 
@@ -51,7 +68,7 @@
     -   中文等非 ASCII 结果更不易乱码（响应声明 UTF-8）
 -   **与 MCP v1 的差异（接入侧）**
     -   不再提供「记住当前项目」：无 `set_project` / `get_current_project`，需在工具参数或默认项目中带上项目
-    -   2.1.2 及更早可在客户端配置 API Key，不必再维护 Session Id；**2.1.6 起改为只配 URL + OAuth**（见上节）
+    -   本阶段客户端仍配置 API Key，不必再维护 Session Id；**2.1.3（2026-09-18）起改为 Keycloak OAuth，并移除 API Key 鉴权**
 
 ## v2.0.4 (2026-09-11)
 
