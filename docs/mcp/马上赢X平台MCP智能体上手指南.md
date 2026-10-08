@@ -1,16 +1,18 @@
 # 马上赢 X 平台 Lightdash MCP 上手指南
 
-> **一句话**：任何支持 MCP（Model Context Protocol）的智能体——Claude Code、WorkBuddy、OpenClaw、Codex 等——接上马上赢 X 平台的 Lightdash MCP 后，就能用对话直接查生产 BI 数据（品类宝、集团说数、哪吒AI 等 647+ 张表）。
->
-> 本文以**品类宝（HSM）**与**品类洞察**两大看板为演示对象——前者服务连锁客户（大区级趋势），后者服务品牌客户（全国趋势、内容更丰富），二者同基于马上赢均衡模型150版。三个实战数字在 **2026-10-04** 于生产跑通；权限与看板自动选用在 **2026-10-08** 用线上 MCP v1（Lightdash **2.2.0**）复核。
->
-> **怎么读**：第 1~3 章人人必读（接入 + 通用套路）；第 4 章帮你选看板；之后**两个看板各成独立章节、各自自包含**——连锁客户直接读第 5 章，品牌客户直接读第 6 章，只读自己有权限的那章即可。
->
-> 实测环境：Lightdash **2.2.0**（`get_lightdash_version`）／ 站点 `https://x.brandct.com` ／ 数据窗口 MAT2609（2025-10 ~ 2026-09 滚动年）
->
-> 不传 `dashboardUuid` 时：有关联看板会**自动选中 1 个并查数**。品类宝只关联 1 张，`candidateCount=1`，`source=uniqueExploreContext`；品类洞察关联正式 + 核对共 2 张，`candidateCount=2`，随机选 1 个，完整名单在 `candidates`。**0 个候选**才返回 `dashboard_selection_required`。已知看板请显式传 `dashboardUuid`。
+任何支持 MCP（Model Context Protocol）的智能体——Claude Code、WorkBuddy、OpenClaw、Codex 等——接上马上赢 X 平台的 Lightdash MCP 后，就能用对话直接查生产 BI 数据（品类宝、集团说数、哪吒AI 等 647+ 张表）。
 
----
+本文以**品类宝（HSM）**与**品类洞察**两大看板为演示对象——前者服务连锁客户（大区级趋势），后者服务品牌客户（全国趋势、内容更丰富），二者同基于马上赢均衡模型150版。
+
+**实测环境**：Lightdash **2.2.0**（`get_lightdash_version`）／ `https://x.brandct.com` ／ MAT2609（2025-10 ~ 2026-09）。三个实战数字 **2026-10-04** 跑通，**2026-10-08** 复核未变。
+
+## 怎么读
+
+第 1~3 章人人必读（接入 + 通用套路）；第 4 章帮你选看板；之后**两个看板各成独立章节、各自自包含**——连锁客户直接读第 5 章，品牌客户直接读第 6 章，只读自己有权限的那章即可。
+
+## 查数时的看板规则
+
+不传 `dashboardUuid` 时：有关联看板会**自动选中 1 个并查数**。品类宝只关联 1 张，`candidateCount=1`，`source=uniqueExploreContext`；品类洞察关联正式 + 核对共 2 张，`candidateCount=2`，随机选 1 个，完整名单在 `candidates`。**0 个候选**才返回 `dashboard_selection_required`。已知看板请显式传 `dashboardUuid`。
 
 ## 1. 原理：一图看懂
 
@@ -194,13 +196,9 @@ WorkBuddy 客户端（官网 <https://www.codebuddy.cn/work/> 下载，微信扫
 
 两个看板答案会不一样是**特性不是 bug**——覆盖业态不同（对照实例见第 6 章实战三）。选错看板 = 口径答错问题。
 
-两章各自自包含（看板地图 + 易错点 + 实战）。**连锁客户读第 5 章，品牌客户读第 6 章**，只读自己有权限的那章即可。
-
 ---
 
 ## 5. 看板一：品类宝（HSM）—— 连锁客户
-
-**角色**：连锁客户　**场景**：品类管理　**用例**：查品类宝（HSM）看板。
 
 ### 5.1 看板与入口
 
@@ -217,28 +215,9 @@ WorkBuddy 客户端（官网 <https://www.codebuddy.cn/work/> 下载，微信扫
 
 ### 5.2 查数前先过权限门禁
 
-本文实战是临时指标查询，不是跑看板上已保存的图。先调：
+本文实战是临时指标查询。先 `get_my_access({ projectUuid: "3667f682-4080-44a4-8365-49f405936e09", includeExplores: true })`（细节见第 3 章）：`runMetricQuery` 须为 true，`pinleibaohsm_cls_top` / `pinleibaohsm_brand_trend` 须在 `explores.queryable`。
 
-```text
-get_my_access({
-  projectUuid: "3667f682-4080-44a4-8365-49f405936e09",
-  includeExplores: true
-})
-```
-
-必须同时满足：
-
-| 检查 | 通过条件 | 不通过时 |
-|---|---|---|
-| 项目能力 | 品牌CT 的 `effectiveCapabilities.runMetricQuery` 为 true（项目角色至少交互式查看者） | 只能 `run_saved_chart`，做不了 Q2 / 区域筛选 |
-| 可查表 | `pinleibaohsm_cls_top`、`pinleibaohsm_brand_trend` 在 `explores.queryable` | 在 `metadataOnly` 里同样只能跑已保存图；在 `attributeDenied` 里不要查 |
-
-通过后再查。查询顶层同时传：
-
-- `projectUuid: "3667f682-4080-44a4-8365-49f405936e09"`
-- `dashboardUuid: "d54853b1-85df-4ab3-8cdf-70a5244640e1"`
-
-查完看 `resolvedDashboardContext`：`dashboardName` 应是「品类宝（HSM）」。显式传看板时 `source` 为 `explicitDashboardUuid`。不传也会自动选中这一张：2026-10-08 生产实测 `candidateCount=1`，`source=uniqueExploreContext`，选中 `d54853b1-...`，没有 `candidates` 数组。仍建议显式传 UUID，口径更稳。
+查询顶层同时传 5.1 的 `projectUuid` 和 `dashboardUuid`。不传看板时品类宝会自动选中这一张（规则见文首），仍建议显式传，口径更稳。
 
 ### 5.3 看板背后的 7 张专属表
 
@@ -411,9 +390,9 @@ get_my_access({
 }
 ```
 
-> ⚠️ **inThePast 边界坑（实测）**：要「过去 12 个月」（202510~202609）写 `values: [12]` 只返回 11 个月——窗口从「今天 2026-10-04」往回切，边界月 2025-10 被整月吞掉。**写 13 再从结果里裁掉多余月份**，本查询实测 13 → 返回 65 行（13 月 × 5 类目），恰好完整覆盖。
+> ⚠️ **inThePast 边界坑（实测）**：窗口按「今天」往回切，不是按已物化的完整月。要 12 个完整月（202510~202609）写 `values: [12]` 常会吞掉边界月、只回 11 个月。**写 13，再按月份裁到目标窗口**。行数不要写死：2026-10-04 回到 65 行（多出 1 个月）；2026-10-08 最新月仍是 202609，同样写 13 只回 60 行（12×5）。以结果里的 `mon` 为准。
 
-**真实返回**（2026-10-04；完整 65 行未随本仓库提供，单位：百万元）：
+**真实返回**（2026-10-08 复核，与 10-04 数字一致；单位：百万元）：
 
 | 月份 | 酱油 | 蚝油 | 盐 | 辣椒酱 | 醋 |
 |---|---:|---:|---:|---:|---:|
@@ -455,8 +434,6 @@ get_my_access({
 
 ## 6. 看板二：品类洞察 —— 品牌客户
 
-**角色**：品牌客户　**场景**：市场研究　**用例**：查品类洞察看板。
-
 ### 6.1 看板与入口
 
 | 项 | 值 |
@@ -472,7 +449,7 @@ get_my_access({
 
 ### 6.2 背后的表族
 
-`find_explores({searchQuery: "cls_insight"})` 列出（认 `groupLabel`「品类机会洞察(MSY150均衡模型)看板」；`groups` 是路径 key，可能为空）：
+`find_explores({searchQuery: "cls_insight"})` 列出（认 `groupLabel`「品类机会洞察(MSY150均衡模型)看板」）：
 
 | explore（表名） | 标签 | 用途 |
 |---|---|---|
@@ -492,20 +469,20 @@ get_my_access({
 
 1. **没有区域字段**——`cls_insight_list` 只有 `period`（时间）+ `cls_1~cls_4`（类目）两类筛选维度。不是漏了，是这张看板本来就是全国口径。
 2. **图表自带 filters 全为空**——品类宝的看板图表在 metricQuery 里写死了默认筛选（如 period=近3个月），这套看板的筛选全靠看板级过滤器传入。**直接照抄图表 JSON 去查会扫全量**，必须自己带上 `period` + `cls_2` 起步。
-3. **必须显式传正式看板 UUID**——这些表同时被正式看板和一个「(核对图表和数据使用)」副本引用。未传 `dashboardUuid` 时 MCP **会直接查数**（多个候选随机选一个），返回 `resolvedDashboardContext`（含选中项和完整 `candidates`）。随机可能选到核对副本，口径会偏。解法：顶层传 `dashboardUuid: "5ad107a4-81d1-4ded-a173-ff41366122b4"`，并核对 `dashboardName` 不含「核对」。口径不对时从 `candidates` 换 UUID 重试。**0 个候选**才返回 `dashboard_selection_required` 空列表。
+3. **必须传正式看板 UUID**——不传会随机选 1 个，可能抽到核对副本甚至 0 行（见 6.4）。
 
 ### 6.4 实战三：同一问题，换品牌客户视角（全国 HSM+IS）
 
 还是「2026Q2 调味品品类趋势」，这次不用品类宝，改用**品类洞察看板**——品牌客户视角、全国口径（HSM + IS 两业态）。
 
-**不传看板时也会直接出数**（不会先报 `dashboard_selection_required`）。2026-10-08 生产实测：自动选中 1 个，`candidateCount=2`，`candidates` 里两张都在——正式 `5ad107a4-...` 和核对 `17bc978d-...`。那次随机选到了正式看板；下一次也可能选到核对副本：
+**不传看板时也会直接出数**（不会先报 `dashboard_selection_required`）。2026-10-08 两次实测都是 `candidateCount=2`，`candidates` 里正式 + 核对都在：一次抽到正式看板有数；另一次抽到核对副本，**rows 为空**——所以不要赌随机。抽到核对时形如：
 
 ```json
 {
   "source": "randomExploreContext",
   "candidateCount": 2,
-  "dashboardUuid": "5ad107a4-81d1-4ded-a173-ff41366122b4",
-  "dashboardName": "品类洞察(MSY150均衡模型）",
+  "dashboardUuid": "17bc978d-09e3-4e2d-8b2e-0643dd0a5731",
+  "dashboardName": "(核对图表和数据使用) -  品类洞察(MSY150均衡模型）",
   "candidates": [
     { "dashboardUuid": "17bc978d-09e3-4e2d-8b2e-0643dd0a5731", "dashboardName": "(核对图表和数据使用) -  品类洞察(MSY150均衡模型）" },
     { "dashboardUuid": "5ad107a4-81d1-4ded-a173-ff41366122b4", "dashboardName": "品类洞察(MSY150均衡模型）" }
@@ -513,7 +490,7 @@ get_my_access({
 }
 ```
 
-`source` 为 `randomExploreContext` 且名字带「核对」时，**不要用这批数对正式看板**。顶层传 `dashboardUuid: "5ad107a4-81d1-4ded-a173-ff41366122b4"` 重跑，`source` 应变为 `explicitDashboardUuid`。
+`source` 为 `randomExploreContext` 且名字带「核对」时，**不要用这批数（包括 0 行）对正式看板**。顶层传 `dashboardUuid: "5ad107a4-81d1-4ded-a173-ff41366122b4"` 重跑，`source` 应变为 `explicitDashboardUuid`。
 
 **查询**（注意与实战一的三处不同：表名换成 `cls_insight_list`、没有区域条件、顶层多了 dashboardUuid）：
 
@@ -572,8 +549,6 @@ get_my_access({
 | 鱼露 | +7.2% | +13.4% | 同上（全国更猛） |
 | 海带丝 | -21.5% | -21.5% | 两口径跌幅几乎一致——全国性衰退，不是渠道问题 |
 
-**给智能体的提问模板**：「用品类洞察正式看板（dashboardUuid 5ad107a4-81d1-4ded-a173-ff41366122b4），cls_insight_list，period=2026Q2，cls_2=调味品，按销售额排序取 TOP10，标出同比为正的；查完核对看板名不含核对」——一句话即可复现本节全部结果。
-
 ### 6.5 给智能体的品牌提示词
 
 后续 WorkBuddy 入驻可直接粘贴（这次不做成 skill）：
@@ -583,7 +558,7 @@ get_my_access({
 项目 projectUuid=3667f682-4080-44a4-8365-49f405936e09，正式看板 dashboardUuid=5ad107a4-81d1-4ded-a173-ff41366122b4。
 先 get_my_access(projectUuid, includeExplores=true)：runMetricQuery 必须为 true；表只从 queryable 里选 cls_insight_*（groupLabel=品类机会洞察(MSY150均衡模型)看板），不要用 _ai 后缀表。
 查数用 run_semantic_metric_query，顶层同时传上面两个 UUID。这张表没有区域字段，必须自己带 period + cls_2。
-查完核对 resolvedDashboardContext.dashboardName 是「品类洞察(MSY150均衡模型）」，不含「核对」。不传看板会随机选中 1 个（candidateCount=2），可能选到核对副本。
+查完核对 resolvedDashboardContext.dashboardName 是「品类洞察(MSY150均衡模型）」，不含「核对」。不传看板会随机选中 1 个（candidateCount=2），抽到核对副本时口径会偏或 0 行。
 ```
 
 ---
@@ -595,8 +570,8 @@ get_my_access({
 | 筛选后返回 0 行 | 维度值与库里不一致（「华南」≠「华南地区」） | 先 `search_field_values` 核对再写筛选 |
 | webUrl 打不开 | 返回的是集群内网地址 | 域名换成 `x.brandct.com`，路径不变 |
 | 排序不对 / 顺序随机 | sorts 表现不稳定 | 不传 sorts，limit 拉全量手动排序 |
-| inThePast 12 个月只回 11 个月 | 滚动窗口按「今天」切，边界整月被吞 | 窗口 +1，结果里再裁剪 |
-| 数出来了，但对不上正式看板 | 未传 `dashboardUuid`，多个候选被随机选中（品类洞察常见） | 看 `resolvedDashboardContext`；顶层传正式看板 UUID。**0 个候选**才出现 `dashboard_selection_required` |
+| inThePast 12 个月只回 11 个月，或多 1 个月 / 少整月 | 窗口按「今天」切；未物化的当月不会出现 | 写 13，按 `mon` 裁到目标 12 个月，不要假定行数 |
+| 数对不上正式看板，或 0 行但 `source=randomExploreContext` | 未传 `dashboardUuid`，随机抽到核对副本（品类洞察常见） | 见文首规则与 6.4；顶层传正式看板 UUID |
 | 搜「品类宝」查出的数和看板对不上 | 误用了 `ads_pinleibao_*` 通用表（`groupLabel` 也叫「品类宝」） | 品类宝（HSM）看板认 `pinleibaohsm_*` 前缀 + `groupLabel`「品类宝HSM」（见 5.3 易错点） |
 | 查出的数和品类洞察看板对不上 | 误用了 `_ai` 后缀表（`groupLabel`「品类洞察_msy150_ai」） | 一律用不带 `_ai` 后缀的正式表（见 6.2 易错点） |
 | 临时查询被拒 / 只能跑已保存图 | `runMetricQuery` 为 false，或表在 `metadataOnly` / `attributeDenied` | `get_my_access(..., includeExplores=true)`；开通交互式查看者后再查 |
