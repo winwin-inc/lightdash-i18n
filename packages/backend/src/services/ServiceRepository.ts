@@ -26,8 +26,8 @@ import { GroupsService } from './GroupService';
 import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { LogService } from './LogService/LogService';
-import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { McpTokenExchangeService } from './McpTokenExchangeService';
+import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
 import { OrganizationService } from './OrganizationService/OrganizationService';
@@ -435,6 +435,8 @@ export class ServiceRepository
                     groupsModel: this.models.getGroupsModel(),
                     projectModel: this.models.getProjectModel(),
                     featureFlagService: this.getFeatureFlagService(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -605,6 +607,8 @@ export class ServiceRepository
                         this.models.getProjectParametersModel(),
                     organizationWarehouseCredentialsModel:
                         this.models.getOrganizationWarehouseCredentialsModel(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -652,6 +656,8 @@ export class ServiceRepository
                     pivotTableService: this.getPivotTableService(),
                     prometheusMetrics: this.prometheusMetrics,
                     permissionsService: this.getPermissionsService(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }

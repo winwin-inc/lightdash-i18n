@@ -4,6 +4,8 @@ import {
     NotFoundError,
     OrganizationMemberRole,
     ParameterError,
+    PROJECT_OPERATION_LOG_ACTIONS,
+    ProjectMemberRole,
     SessionUser,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
@@ -97,6 +99,8 @@ const projectModel = {
         runQuery: jest.fn(async () => resultsWith1Row),
     })),
     findExploreByTableName: jest.fn(async () => validExplore),
+    getProjectAccess: jest.fn(async () => []),
+    updateProjectAccess: jest.fn(async () => undefined),
 };
 const onboardingModel = {
     getByOrganizationUuid: jest.fn(async () => ({
@@ -158,6 +162,9 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
         } as unknown as ProjectParametersModel,
         organizationWarehouseCredentialsModel:
             {} as unknown as OrganizationWarehouseCredentialsModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as never,
     });
 
 const account = buildAccount({
@@ -592,5 +599,56 @@ describe('ProjectService', () => {
                                         LIMIT 10`),
             );
         });
+    });
+
+    test('should record project_member.role_updated when changing project role', async () => {
+        const adminUser: SessionUser = {
+            ...user,
+            ability: defineUserAbility(
+                {
+                    ...user,
+                    organizationUuid: projectSummary.organizationUuid,
+                },
+                [
+                    {
+                        projectUuid,
+                        role: ProjectMemberRole.ADMIN,
+                        userUuid: user.userUuid,
+                        roleUuid: undefined,
+                    },
+                ],
+            ),
+        };
+        (projectModel.getProjectAccess as jest.Mock).mockResolvedValueOnce([
+            {
+                userUuid: 'target-user',
+                email: 'target@example.com',
+                role: ProjectMemberRole.VIEWER,
+                firstName: 'Target',
+                lastName: 'User',
+                projectUuid,
+            },
+        ]);
+
+        await service.updateProjectAccess(
+            adminUser,
+            projectUuid,
+            'target-user',
+            { role: ProjectMemberRole.INTERACTIVE_VIEWER },
+        );
+
+        expect(service.projectOperationLogService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ROLE_UPDATED,
+                resourceType: 'project_member',
+                resourceUuid: 'target-user',
+                summary: expect.objectContaining({
+                    targetUserUuid: 'target-user',
+                    targetEmail: 'target@example.com',
+                    fromRole: ProjectMemberRole.VIEWER,
+                    toRole: ProjectMemberRole.INTERACTIVE_VIEWER,
+                }),
+            }),
+        );
     });
 });

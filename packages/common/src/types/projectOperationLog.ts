@@ -44,6 +44,12 @@ export const PROJECT_OPERATION_LOG_ACTIONS = {
     DASHBOARD_FILTERS_INPUT_MODE_CHANGED:
         'dashboard.filters.input_mode_changed',
     OPERATION_LOG_PURGED: 'operation_log.purged',
+    PROJECT_MEMBER_ADDED: 'project_member.added',
+    PROJECT_MEMBER_ROLE_UPDATED: 'project_member.role_updated',
+    PROJECT_MEMBER_REMOVED: 'project_member.removed',
+    PROJECT_GROUP_ACCESS_ADDED: 'project_group_access.added',
+    PROJECT_GROUP_ACCESS_ROLE_UPDATED: 'project_group_access.role_updated',
+    PROJECT_GROUP_ACCESS_REMOVED: 'project_group_access.removed',
 } as const;
 
 export type ProjectOperationLogAction =

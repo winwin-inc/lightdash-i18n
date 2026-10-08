@@ -4,7 +4,7 @@
 
 | 能力 | 数据源 |
 |------|--------|
-| 看板可见性（客户使用模式 + VIEWER） | Admin RPC `findAllDashboardByMobile` |
+| 看板可见性（客户使用模式 + viewer / interactive_viewer） | Admin RPC `findAllDashboardByMobile`（未配置 `ADMIN_API_HOST` / `ADMIN_API_KEY` 时不调，只走 CASL） |
 | 类目默认值 / 父子联动 / 下拉选项 | `field/search`（含 `dashboardSlug` → dbt `sql_filter` / `dim_ld_employee_categories`） |
 
 类目联动**不再**调用 Admin 类目树（已移除 `GET /dashboard-categories`）。
