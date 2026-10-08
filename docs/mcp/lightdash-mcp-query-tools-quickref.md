@@ -1,13 +1,13 @@
 # Lightdash MCP 查询工具速查
 
-指标查询**二选一，勿混参**。传输层见 [标准客户端用法](./lightdash-mcp-client-usage.md)。
+指标查询**二选一，勿混参**。接入见 [MCP v2 说明](./lightdash-mcp-v2.md)（只配 URL + OAuth，不填 API Key）。
 
 | 场景 | 工具 |
 |------|------|
 | Explorer 复制整段 Metric Query、多条件 `filters.dimensions.and` | `run_semantic_metric_query` |
 | 1～2 维 + 1 指标、简单 filters | `run_metric_query` |
 
-**前置：** 每次传 `projectUuid`；PAT 用 `x-api-key`；默认 CSV。
+**前置：** v2 已登录即可；每次传 `projectUuid`；默认 CSV。
 
 ### `run_semantic_metric_query`
 

@@ -97,7 +97,15 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 }
 ```
 
-首次连接会走 OAuth：浏览器打开 Keycloak（或 SSO）登录页 → 用**自己的**账号登录一次 → 客户端缓存 token。之后日常只需连 URL，不必再配 `x-api-key`。
+配置里**只写 `url`**：不要 `headers`、不要 `x-api-key`、不要长期 PAT。首次连接会走 OAuth：浏览器打开 Keycloak（或 SSO）登录页 → 用**自己的**账号登录一次 → 客户端缓存 token。运维侧 Keycloak / 环境变量见 [OAuth 最小配置](./lightdash-mcp-v2-oauth-minimal.md)。
+
+Claude Code（预发马上赢X）一键添加：
+
+```text
+claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahui.cn/mcp
+```
+
+然后在会话中执行 `/mcp` → 选择 `msyx-pre` → Authenticate。
 
 ---
 
@@ -130,7 +138,7 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 2. 否则环境变量 **`LIGHTDASH_PROJECT_UUID`**（进程级默认）
 3. 都没有 → 报错（提示先 `list_projects`）
 
-不知道填哪个项目时：先调 **`list_projects`**（不需要 `projectUuid`，只靠鉴权），再把返回的 uuid 传给后续工具。
+不知道填哪个项目时：先调 **`get_my_access`** 看权限与可访问项目，或调 **`list_projects`**（都不需要 `projectUuid`，只靠鉴权），再把返回的 uuid 传给后续工具。
 
 单项目入口（如 msyx-pre）**建议**在服务端配置 `LIGHTDASH_PROJECT_UUID`。没有 `set_project`，服务端不会记住上次选的项目。
 
@@ -144,11 +152,11 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 
 ## 4. 工具一览
 
-固定 **23** 个业务工具（另有 prompt `lightdash-analyst`，不算 tool）。相对 v1 少 2 个：`set_project`、`get_current_project`。
+固定 **24** 个业务工具（另有 prompt `lightdash-analyst`，不算 tool）。相对 v1 少 2 个：`set_project`、`get_current_project`。
 
 | 类别 | 工具 |
 |---|---|
-| 元信息 / 文档 | `get_site_info`、`get_lightdash_version`、`get_mcp_docs`、`list_projects` |
+| 元信息 / 文档 | `get_site_info`、`get_lightdash_version`、`get_mcp_docs`、`get_my_access`、`list_projects` |
 | Explore / 字段 | `list_explores`、`find_explores`、`find_fields`、`search_field_values` |
 | 查询 | `run_metric_query`、`run_semantic_metric_query` |
 | 内容 / 看板 | `find_content`、`find_charts`、`find_dashboards`、`find_spaces`、`list_spaces`、`list_dashboards`、`list_charts`、`list_verified_content`、`get_saved_chart`、`get_dashboard_tiles`、`get_dashboard_code`、`run_saved_chart`、`run_dashboard_tiles` 等 |
@@ -161,11 +169,12 @@ v2 按 **MCP 2026-07-28** 实现，传输为 **Streamable HTTP**：
 
 推荐流程：
 
-1. 未知项目 → `list_projects`；已知或已有服务端默认则可跳过。
-2. `list_explores` / `find_explores` → `find_fields`。
-3. 需要枚举值 → `search_field_values`。
-4. 复杂查询 → `run_semantic_metric_query`；简单扁平 → `run_metric_query`。
-5. 大结果先缩小 limit / filters；不要猜 fieldId。
+1. `get_my_access` 看组织角色和各项目有效能力。要选表时再传 `includeExplores=true`（建议同时带 `projectUuid`）；临时查数只从 `queryable` 选表。
+2. 未知项目 → `list_projects`；已知或已有服务端默认则可跳过。
+3. `list_explores` / `find_explores` → `find_fields`。
+4. 需要枚举值 → `search_field_values`。
+5. 复杂查询 → `run_semantic_metric_query`；简单扁平 → `run_metric_query`。
+6. 大结果先缩小 limit / filters；不要猜 fieldId。
 
 ### 5.1 两套分页（勿混用）
 
@@ -201,7 +210,7 @@ v1 里 `set_project` 的 tags 只用于目录过滤。v2 在 `find_explores` / `
 | Catalog tags | 会话 tags | 可选工具参数 `catalogTags` |
 | 查数分页 | 主要 `limit` | **`limit` + `offset`** |
 | 查数返回 CSV | 是 | 是（相同约定） |
-| 工具数 | 25 | 23 |
+| 工具数 | 26 | 24 |
 | 镜像 CI | 曾指向 v1 Dockerfile | 打 `mcp-v*` tag 构建 v2 |
 
 协议变更影响 Session / 项目记忆；**不是**「协议把返回从 JSON 改成 CSV」。强依赖 `set_project` 的客户端需改适配或继续用 v1。
@@ -221,7 +230,7 @@ v1 里 `set_project` 的 tags 只用于目录过滤。v2 在 `find_explores` / `
 | `LIGHTDASH_PROJECT_UUID` | 建议（单项目） | 默认项目；不设则工具须带 `projectUuid` |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | 默认 `3333` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 单次 limit 上限，默认 `5000` |
-| `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error` / `warn` / `info` / `debug`，默认 `info` |
+| `LIGHTDASH_MCP_LOG_LEVEL` | 否 | `error` / `warn` / `info` / `debug`，默认 `info`。默认 info 即可区分「没打到容器」与「验签 401 / 换票失败」，不必开 debug；对照见 [500 恢复 · 查日志](./lightdash-mcp-v2-500-client-recovery.md#5-发版后仍-401-时查什么) |
 
 Backend 另需同名 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`，以及可选 `LIGHTDASH_MCP_PAT_TTL_SECONDS`（默认 3600）/ `LIGHTDASH_MCP_PAT_TTL_MAX_SECONDS`（默认 86400）。详见 [Keycloak 专题 · 环境变量](./lightdash-mcp-v2-keycloak-oauth.md#3-环境变量)。
 

@@ -18,17 +18,20 @@ const DOCS: Record<McpDocsTopic, string> = {
 - **项目怎么来**：需要项目的工具 → 工具参数 projectUuid → 否则环境变量 LIGHTDASH_PROJECT_UUID → 都没有则报错。
 - **不知道填哪个项目时**：先调用 list_projects（不需要 projectUuid），从返回列表选 uuid，再在后续工具中传入。
 - 单项目部署可在服务端配置 LIGHTDASH_PROJECT_UUID，客户端可不传 projectUuid。
+- 查当前令牌权限用 get_my_access；选表与查询步骤见 topic=query_workflow。
 - 需要细节时再调用 get_mcp_docs，topic：overview | query_workflow | content_fields | security。
 `,
 
     query_workflow: `# 查询工作流
 
-1. **项目**：若未知项目，先 list_projects（无需 projectUuid）拿到可选项目；再在后续工具传 projectUuid。若服务端已配置 LIGHTDASH_PROJECT_UUID，可省略参数。
-2. list_explores / find_explores → find_fields，确认 explore 与 fieldId。
-3. 需要枚举值时用 search_field_values。
-4. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-5. 大结果先缩小 limit / filters；不要猜测 fieldId。
-6. 看板内认图 / 统计自定义图：list_charts → get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+1. get_my_access 查看组织角色和各项目有效能力。默认不返回 explores。
+2. 要选表时再调 get_my_access，传 includeExplores=true，建议同时带 projectUuid。临时指标查询只从 queryable 选表；attributeDenied 里的表不要查。
+3. **项目**：若未知项目，先 list_projects（无需 projectUuid）拿到可选项目；再在后续工具传 projectUuid。若服务端已配置 LIGHTDASH_PROJECT_UUID，可省略参数。无 set_project。
+4. list_explores / find_explores → find_fields，确认 explore 与 fieldId。
+5. 需要枚举值时用 search_field_values。
+6. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
+7. 大结果先缩小 limit / filters；不要猜测 fieldId。
+8. 看板内认图 / 统计自定义图：list_charts → get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
 
 ## 分页约定（两套，勿混用）
 

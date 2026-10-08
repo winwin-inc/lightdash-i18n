@@ -8,9 +8,20 @@ import {
 } from './stderrLog';
 
 describe('formatLocalTimestamp', () => {
-    it('includes date and time with milliseconds in brackets', () => {
-        const s = formatLocalTimestamp(new Date(2026, 2, 14, 20, 12, 34, 789));
-        assert.match(s, /^\[2026-03-14 20:12:34\.789\]$/);
+    it('formats Asia/Shanghai with +08:00 regardless of process TZ', () => {
+        const utc = new Date('2026-09-22T03:08:03.208Z');
+        assert.equal(
+            formatLocalTimestamp(utc),
+            '[2026-09-22 11:08:03.208+08:00]',
+        );
+    });
+
+    it('zero-pads fields and milliseconds', () => {
+        const utc = new Date('2026-01-05T01:02:03.004Z');
+        assert.equal(
+            formatLocalTimestamp(utc),
+            '[2026-01-05 09:02:03.004+08:00]',
+        );
     });
 });
 

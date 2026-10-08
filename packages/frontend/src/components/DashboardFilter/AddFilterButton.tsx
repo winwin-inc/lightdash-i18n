@@ -17,11 +17,11 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useFilterDropdownStyles } from './filterDropdownStyles';
 
+import { enqueueFilterCreated } from '../../hooks/dashboard/dashboardOperationEventQueue';
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
 import FilterConfiguration from './FilterConfiguration';
-import { enqueueFilterCreated } from '../../hooks/dashboard/dashboardOperationEventQueue';
 import { FilterTabs } from './FilterConfiguration/constants';
 
 type Props = {
@@ -186,8 +186,8 @@ const AddFilterButton: FC<Props> = ({
     const handleSaveChanges = useCallback(
         (newRule: DashboardFilterRule) => {
             const tabName =
-                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
-                null;
+                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)
+                    ?.name ?? null;
             enqueueFilterCreated(newRule, {
                 scope: filterScope,
                 tabUuid: activeTabUuid,

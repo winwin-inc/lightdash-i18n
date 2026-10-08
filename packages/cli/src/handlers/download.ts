@@ -363,7 +363,10 @@ export const downloadHandler = async (
 
         if (!hasFilters) {
             try {
-                const spaceTotal = await downloadSpaces(projectId, options.path);
+                const spaceTotal = await downloadSpaces(
+                    projectId,
+                    options.path,
+                );
                 console.info(`Downloaded ${spaceTotal} spaces`);
             } catch (error) {
                 if (!isSpaceAsCodeFetchError(error)) {
@@ -487,7 +490,7 @@ export const downloadHandler = async (
                 timeToCompleted: (end - start) / 1000, // in seconds
             },
         });
-        } catch (error) {
+    } catch (error) {
         console.error(styles.error(`\nError downloading ${error}`));
         await LightdashAnalytics.track({
             event: 'download.error',
@@ -682,7 +685,9 @@ const readSqlCodeFiles = async (
         const items: (SqlChartAsCode & { needsUpdating: boolean })[] = [];
         for (const file of files) {
             const filePath = path.join(inputDir, file);
-            const item = yaml.load(await fs.readFile(filePath, 'utf-8')) as SqlChartAsCode;
+            const item = yaml.load(
+                await fs.readFile(filePath, 'utf-8'),
+            ) as SqlChartAsCode;
             const fileUpdatedAt = (await fs.stat(filePath)).mtime;
             const downloadedAt = item.downloadedAt
                 ? new Date(item.downloadedAt)
@@ -723,7 +728,8 @@ const upsertSqlResources = async (
     for (const item of filteredItems) {
         try {
             if (!force && !item.needsUpdating) {
-                changes['charts skipped'] = (changes['charts skipped'] ?? 0) + 1;
+                changes['charts skipped'] =
+                    (changes['charts skipped'] ?? 0) + 1;
                 // eslint-disable-next-line no-continue
                 continue;
             }

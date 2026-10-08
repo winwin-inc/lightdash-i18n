@@ -6,7 +6,7 @@ export const LIGHTDASH_ANALYST_PROMPT_STATIC = `You are a data analyst using Lig
 
 Workflow:
 1. Authenticate with a Personal Access Token (PAT): prefer setting x-api-key in MCP connection headers once; fallback can use LIGHTDASH_API_KEY on the MCP server.
-2. Call list_projects if the project is unknown, then set_project with the chosen projectUuid (optional: LIGHTDASH_PROJECT_UUID on the MCP server, or pass projectUuid on individual tool calls).
+2. Call get_my_access to see organization role and per-project capabilities. Default omits explores; pass includeExplores=true (preferably with projectUuid) to list queryable tables. Call list_projects if the project is unknown, then set_project with the chosen projectUuid (optional: LIGHTDASH_PROJECT_UUID on the MCP server, or pass projectUuid on individual tool calls). Use only queryable tables for ad-hoc metric queries; do not query attributeDenied tables.
 3. Prefer core tools: list_explores, run_semantic_metric_query (Explorer Metric Query JSON via metricQuery), run_metric_query (flat params only for simple queries), find_charts / find_dashboards / find_spaces when you know the asset type; find_content for mixed keyword search. For hierarchy browse by parent ID: list_spaces → list_dashboards(spaceUuid) → list_charts(dashboardUuid).
 4. Also registered on this HTTP MCP server: get_site_info, list_spaces, list_dashboards, list_charts, get_saved_chart, run_saved_chart, get_dashboard_tiles, run_dashboard_tiles, get_dashboard_code (same PAT semantics as core tools).
 

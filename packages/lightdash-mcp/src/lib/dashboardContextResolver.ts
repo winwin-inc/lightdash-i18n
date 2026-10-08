@@ -18,12 +18,16 @@ export type ResolvedDashboardContext = {
     dashboardUuid: string;
     dashboardSlug: string;
     dashboardName: string;
-    /** explicit：调用方传入；unique*：反查仅 1 个候选时自动选用 */
+    /** explicit：调用方传入；unique*：反查仅 1 个；random*：反查多个时随机选用 */
     source:
         | 'explicitDashboardUuid'
         | 'uniqueExploreContext'
-        | 'uniqueChartContext';
+        | 'uniqueChartContext'
+        | 'randomExploreContext'
+        | 'randomChartContext';
     candidateCount: number;
+    /** 多候选随机选用时返回完整可见列表（含当前选中项） */
+    candidates?: DashboardCandidate[];
 };
 
 export type DashboardContextResolveResult =
@@ -108,12 +112,42 @@ export function buildDashboardSelectionRequiredResult(params: {
     };
 }
 
+function pickContext(
+    contexts: DashboardQueryContextItem[],
+    rng: () => number,
+): DashboardQueryContextItem {
+    const index = Math.min(
+        contexts.length - 1,
+        Math.max(0, Math.floor(rng() * contexts.length)),
+    );
+    return contexts[index]!;
+}
+
+function toResolvedContext(
+    picked: DashboardQueryContextItem,
+    source: ResolvedDashboardContext['source'],
+    contexts: DashboardQueryContextItem[],
+): ResolvedDashboardContext {
+    const context: ResolvedDashboardContext = {
+        dashboardUuid: picked.dashboardUuid,
+        dashboardSlug: picked.dashboardSlug,
+        dashboardName: picked.dashboardName,
+        source,
+        candidateCount: contexts.length,
+    };
+    if (contexts.length > 1) {
+        context.candidates = toCandidates(contexts);
+    }
+    return context;
+}
+
 export function createDashboardContextResolver(
     api: LightdashRestClient,
-    options?: { cacheTtlMs?: number },
+    options?: { cacheTtlMs?: number; rng?: () => number },
 ) {
     const cache = new Map<string, CacheEntry>();
     const cacheTtlMs = options?.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+    const rng = options?.rng ?? Math.random;
 
     async function fetchContexts(
         apiKey: string,
@@ -195,25 +229,17 @@ export function createDashboardContextResolver(
                     hint: '未找到 chart 关联 dashboard，将按原 saved chart / 无看板上下文逻辑执行',
                 };
             }
-            if (contexts.length === 1) {
-                const only = contexts[0]!;
-                return {
-                    status: 'resolved',
-                    context: {
-                        dashboardUuid: only.dashboardUuid,
-                        dashboardSlug: only.dashboardSlug,
-                        dashboardName: only.dashboardName,
-                        source: 'uniqueChartContext',
-                        candidateCount: 1,
-                    },
-                };
-            }
+            const source =
+                contexts.length === 1
+                    ? 'uniqueChartContext'
+                    : 'randomChartContext';
             return {
-                status: 'needs_selection',
-                source: 'chartUuid',
-                candidateCount: contexts.length,
-                candidates: toCandidates(contexts),
-                hint: '请从 candidates 中选择 dashboardUuid 后重试',
+                status: 'resolved',
+                context: toResolvedContext(
+                    pickContext(contexts, rng),
+                    source,
+                    contexts,
+                ),
             };
         }
 
@@ -227,25 +253,17 @@ export function createDashboardContextResolver(
                     hint: '未找到 explore 关联 dashboard，将按原语义查询逻辑执行（可能使用 dashboardSlug=NA）',
                 };
             }
-            if (contexts.length === 1) {
-                const only = contexts[0]!;
-                return {
-                    status: 'resolved',
-                    context: {
-                        dashboardUuid: only.dashboardUuid,
-                        dashboardSlug: only.dashboardSlug,
-                        dashboardName: only.dashboardName,
-                        source: 'uniqueExploreContext',
-                        candidateCount: 1,
-                    },
-                };
-            }
+            const source =
+                contexts.length === 1
+                    ? 'uniqueExploreContext'
+                    : 'randomExploreContext';
             return {
-                status: 'needs_selection',
-                source: 'exploreName',
-                candidateCount: contexts.length,
-                candidates: toCandidates(contexts),
-                hint: '请从 candidates 中选择 dashboardUuid 后重试',
+                status: 'resolved',
+                context: toResolvedContext(
+                    pickContext(contexts, rng),
+                    source,
+                    contexts,
+                ),
             };
         }
 

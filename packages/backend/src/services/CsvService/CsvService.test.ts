@@ -73,6 +73,9 @@ describe('Csv service', () => {
             projectParametersModel: {} as ProjectParametersModel,
             organizationWarehouseCredentialsModel:
                 {} as OrganizationWarehouseCredentialsModel,
+            projectOperationLogService: {
+                record: jest.fn(async () => undefined),
+            } as never,
         }),
         s3Client: {} as S3Client,
         savedChartModel: {} as SavedChartModel,

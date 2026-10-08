@@ -1,12 +1,18 @@
 import {
     createLocalJWKSet,
     createRemoteJWKSet,
+    errors as joseErrors,
     jwtVerify,
     type JWTPayload,
     type JWTVerifyGetKey,
 } from 'jose';
-import type { AuthInfo } from '@modelcontextprotocol/server';
+import {
+    OAuthError,
+    OAuthErrorCode,
+    type AuthInfo,
+} from '@modelcontextprotocol/server';
 import type { OAuthTokenVerifier } from '@modelcontextprotocol/express';
+import { writeStderrLog } from '../lib/stderrLog';
 
 export type KeycloakJwtClaims = {
     email: string;
@@ -36,6 +42,35 @@ function parseScopeClaim(payload: JWTPayload): string[] {
         .split(/\s+/)
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
+}
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * JWKS 拉取 / Keycloak 不可达：服务端故障，不能伪装成 invalid_token。
+ * 签名不对、过期、aud/iss 不对走验签失败，不是这里。
+ */
+export function isJwksInfrastructureError(error: unknown): boolean {
+    if (
+        error instanceof joseErrors.JWKSTimeout ||
+        error instanceof joseErrors.JWKSInvalid
+    ) {
+        return true;
+    }
+    if (!(error instanceof Error)) {
+        return false;
+    }
+    const message = error.message.toLowerCase();
+    return (
+        message.includes('fetch') ||
+        message.includes('network') ||
+        message.includes('econnrefused') ||
+        message.includes('enotfound') ||
+        message.includes('getaddrinfo') ||
+        message.includes('request timed out')
+    );
 }
 
 function extractEmail(payload: JWTPayload): string | undefined {
@@ -73,9 +108,28 @@ export async function verifyKeycloakAccessToken(
         });
         payload = verified.payload;
     } catch (error) {
-        const message =
-            error instanceof Error ? error.message : String(error);
-        throw new Error(`Keycloak JWT verification failed: ${message}`);
+        if (error instanceof OAuthError) {
+            throw error;
+        }
+        const message = errorMessage(error);
+        if (isJwksInfrastructureError(error)) {
+            writeStderrLog(
+                `[Auth] JWKS unavailable: ${message}`,
+                'error',
+            );
+            throw new OAuthError(
+                OAuthErrorCode.ServerError,
+                `Failed to fetch Keycloak JWKS: ${message}`,
+            );
+        }
+        writeStderrLog(
+            `[Auth] JWT verification failed: ${message}`,
+            'warn',
+        );
+        throw new OAuthError(
+            OAuthErrorCode.InvalidToken,
+            `Keycloak JWT verification failed: ${message}`,
+        );
     }
 
     const scopes = parseScopeClaim(payload);
@@ -83,14 +137,21 @@ export async function verifyKeycloakAccessToken(
         (requiredScope) => !scopes.includes(requiredScope),
     );
     if (missingScopes.length > 0) {
-        throw new Error(
+        writeStderrLog(
+            `[Auth] JWT missing required scopes: ${missingScopes.join(', ')}`,
+            'warn',
+        );
+        throw new OAuthError(
+            OAuthErrorCode.InvalidToken,
             `OAuth token missing required scopes: ${missingScopes.join(', ')}`,
         );
     }
 
     const email = extractEmail(payload);
     if (!email) {
-        throw new Error(
+        writeStderrLog('[Auth] JWT missing email claim', 'warn');
+        throw new OAuthError(
+            OAuthErrorCode.InvalidToken,
             'OAuth token missing email claim (email or preferred_username)',
         );
     }

@@ -58,9 +58,7 @@ const timeFilter = (): DashboardFilterRule => ({
     label: undefined,
 });
 
-const asFilters = (
-    dimensions: DashboardFilterRule[],
-): DashboardFilters => ({
+const asFilters = (dimensions: DashboardFilterRule[]): DashboardFilters => ({
     dimensions,
     metrics: [],
     tableCalculations: [],

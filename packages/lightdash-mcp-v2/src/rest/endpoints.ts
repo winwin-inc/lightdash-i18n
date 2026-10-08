@@ -39,6 +39,14 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function getAuthenticatedUser(apiKey: string): Promise<unknown> {
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            '/api/v1/user',
+        );
+        return json.results ?? json;
+    }
+
     async function listSpaces(
         apiKey: string,
         projectUuid: string,
@@ -126,13 +134,25 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
     async function getCatalog(
         apiKey: string,
         projectUuid: string,
-        query: { search?: string; type?: 'table' | 'field'; catalogTags?: string[] },
+        query: {
+            search?: string;
+            type?: 'table' | 'field';
+            catalogTags?: string[];
+            page?: number;
+            pageSize?: number;
+        },
     ): Promise<unknown> {
         const params = new URLSearchParams();
         if (query.search) params.set('search', query.search);
         if (query.type) params.set('type', query.type);
         if (query.catalogTags?.length) {
             query.catalogTags.forEach((t) => params.append('catalogTags', t));
+        }
+        if (typeof query.page === 'number') {
+            params.set('page', String(query.page));
+        }
+        if (typeof query.pageSize === 'number') {
+            params.set('pageSize', String(query.pageSize));
         }
         const q = params.toString();
         const json = await requestJson<{ results?: unknown }>(
@@ -277,6 +297,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         listExplores,
         getExplore,
         listProjects,
+        getAuthenticatedUser,
         listSpaces,
         searchContent,
         getSavedChart,

@@ -11,11 +11,6 @@ import {
     type ViewStatistics,
 } from './types/analytics';
 import {
-    type ProjectOperationLogList,
-    type ProjectOperationLogListItem,
-    type ProjectOperationLogPurgeResult,
-} from './types/projectOperationLog';
-import {
     type Dashboard,
     type DashboardAvailableFilters,
     type DashboardBasicDetails,
@@ -58,6 +53,11 @@ import {
     type PersonalAccessToken,
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
+import {
+    type ProjectOperationLogList,
+    type ProjectOperationLogListItem,
+    type ProjectOperationLogPurgeResult,
+} from './types/projectOperationLog';
 import {
     type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
@@ -269,7 +269,6 @@ export { default as lightdashProjectConfigSchema } from './schemas/json/lightdas
 export * from './templating/template';
 export * from './types/account';
 export * from './types/analytics';
-export * from './types/projectOperationLog';
 export * from './types/any';
 export * from './types/api';
 export * from './types/api/comments';
@@ -330,6 +329,7 @@ export * from './types/pivot';
 export * from './types/projectGroupAccess';
 export * from './types/projectMemberProfile';
 export * from './types/projectMemberRole';
+export * from './types/projectOperationLog';
 export * from './types/projects';
 export * from './types/promotion';
 export * from './types/queryHistory';

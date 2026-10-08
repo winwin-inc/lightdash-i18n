@@ -30,27 +30,30 @@ export const PROJECT_OPERATION_LOG_ACTIONS = {
         'dashboard.filters.default_values_changed',
     DASHBOARD_FILTERS_TILE_BINDING_CHANGED:
         'dashboard.filters.tile_binding_changed',
-    DASHBOARD_FILTERS_DISABLED_CHANGED:
-        'dashboard.filters.disabled_changed',
+    DASHBOARD_FILTERS_DISABLED_CHANGED: 'dashboard.filters.disabled_changed',
     DASHBOARD_FILTERS_EXCLUDED_VALUES_CHANGED:
         'dashboard.filters.excluded_values_changed',
     DASHBOARD_FILTERS_BAR_VISIBILITY_CHANGED:
         'dashboard.filters.bar_visibility_changed',
     DASHBOARD_FILTERS_ADD_BUTTON_VISIBILITY_CHANGED:
         'dashboard.filters.add_button_visibility_changed',
-    DASHBOARD_FILTERS_READ_ONLY_CHANGED:
-        'dashboard.filters.read_only_changed',
-    DASHBOARD_FILTERS_HIDDEN_CHANGED:
-        'dashboard.filters.hidden_changed',
+    DASHBOARD_FILTERS_READ_ONLY_CHANGED: 'dashboard.filters.read_only_changed',
+    DASHBOARD_FILTERS_HIDDEN_CHANGED: 'dashboard.filters.hidden_changed',
     DASHBOARD_FILTERS_ALLOWED_OPERATORS_CHANGED:
         'dashboard.filters.allowed_operators_changed',
     DASHBOARD_FILTERS_INPUT_MODE_CHANGED:
         'dashboard.filters.input_mode_changed',
     OPERATION_LOG_PURGED: 'operation_log.purged',
+    PROJECT_MEMBER_ADDED: 'project_member.added',
+    PROJECT_MEMBER_ROLE_UPDATED: 'project_member.role_updated',
+    PROJECT_MEMBER_REMOVED: 'project_member.removed',
+    PROJECT_GROUP_ACCESS_ADDED: 'project_group_access.added',
+    PROJECT_GROUP_ACCESS_ROLE_UPDATED: 'project_group_access.role_updated',
+    PROJECT_GROUP_ACCESS_REMOVED: 'project_group_access.removed',
 } as const;
 
 export type ProjectOperationLogAction =
-    (typeof PROJECT_OPERATION_LOG_ACTIONS)[keyof typeof PROJECT_OPERATION_LOG_ACTIONS];
+    typeof PROJECT_OPERATION_LOG_ACTIONS[keyof typeof PROJECT_OPERATION_LOG_ACTIONS];
 
 export type ProjectOperationLogListItem = {
     operationLogUuid: string;

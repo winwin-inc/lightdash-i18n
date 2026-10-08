@@ -38,15 +38,15 @@ export const enqueueDashboardOperationEvent = (
     });
 };
 
-export const drainDashboardOperationEvents = (): DashboardOperationClientEvent[] => {
-    if (queue.length === 0) return [];
-    const events = queue.splice(0, queue.length);
-    return events;
-};
+export const drainDashboardOperationEvents =
+    (): DashboardOperationClientEvent[] => {
+        if (queue.length === 0) return [];
+        const events = queue.splice(0, queue.length);
+        return events;
+    };
 
-export const peekDashboardOperationEvents = (): DashboardOperationClientEvent[] => [
-    ...queue,
-];
+export const peekDashboardOperationEvents =
+    (): DashboardOperationClientEvent[] => [...queue];
 
 export const clearDashboardOperationEvents = (): void => {
     queue.splice(0, queue.length);
@@ -63,12 +63,11 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     required: rule.required,
     excludedValues: (rule as DashboardFilterRule & { excludedValues?: unknown })
         .excludedValues,
-    readOnly: (rule as DashboardFilterRule & { readOnly?: unknown })
-        .readOnly,
-    hidden: (rule as DashboardFilterRule & { hidden?: unknown })
-        .hidden,
-    allowedOperators: (rule as DashboardFilterRule & { allowedOperators?: unknown })
-        .allowedOperators,
+    readOnly: (rule as DashboardFilterRule & { readOnly?: unknown }).readOnly,
+    hidden: (rule as DashboardFilterRule & { hidden?: unknown }).hidden,
+    allowedOperators: (
+        rule as DashboardFilterRule & { allowedOperators?: unknown }
+    ).allowedOperators,
     singleValue: (rule as DashboardFilterRule & { singleValue?: unknown })
         .singleValue,
     categoryLevel: (rule as DashboardFilterRule & { categoryLevel?: unknown })
@@ -88,7 +87,6 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     ).dateRangeGranularity,
     tileTargetCount: Object.keys(rule.tileTargets || {}).length,
 });
-
 
 const filterResourceName = (
     rule: DashboardFilterRule,
@@ -116,8 +114,8 @@ const pushFilterEvent = (
     enqueueDashboardOperationEvent({
         action,
         scope: ctx.scope,
-        tabUuid: ctx.scope === 'tab' ? ctx.tabUuid ?? null : null,
-        tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
+        tabUuid: ctx.scope === 'tab' ? (ctx.tabUuid ?? null) : null,
+        tabName: ctx.scope === 'tab' ? (ctx.tabName ?? null) : null,
         resourceType: 'dashboard_filter',
         resourceUuid: rule.id,
         resourceName: filterResourceName(rule, ctx.tabName),
@@ -168,7 +166,9 @@ export const enqueueFilterUpdatedFromDiff = (
         next: Record<string, unknown>;
     }> = [];
 
-    if (stableJson(prevExt.categoryLevel) !== stableJson(nextExt.categoryLevel)) {
+    if (
+        stableJson(prevExt.categoryLevel) !== stableJson(nextExt.categoryLevel)
+    ) {
         changes.push({
             changeKind: 'category_level',
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_CATEGORY_LEVEL_CHANGED,
@@ -177,7 +177,9 @@ export const enqueueFilterUpdatedFromDiff = (
         });
     }
 
-    if (stableJson(prevExt.parentFieldId) !== stableJson(nextExt.parentFieldId)) {
+    if (
+        stableJson(prevExt.parentFieldId) !== stableJson(nextExt.parentFieldId)
+    ) {
         changes.push({
             changeKind: 'parent_binding',
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_PARENT_BINDING_CHANGED,
@@ -193,24 +195,38 @@ export const enqueueFilterUpdatedFromDiff = (
         'dateRangeGranularity',
         'settings',
     ] as const;
-    if (dateKeys.some((key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]))) {
+    if (
+        dateKeys.some(
+            (key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]),
+        )
+    ) {
         changes.push({
             changeKind: 'date_constraint',
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DATE_CONSTRAINT_CHANGED,
-            previous: Object.fromEntries(dateKeys.map((key) => [key, prevExt[key]])),
-            next: Object.fromEntries(dateKeys.map((key) => [key, nextExt[key]])),
+            previous: Object.fromEntries(
+                dateKeys.map((key) => [key, prevExt[key]]),
+            ),
+            next: Object.fromEntries(
+                dateKeys.map((key) => [key, nextExt[key]]),
+            ),
         });
     }
 
     const defaultKeys = ['values', 'required', 'operator'] as const;
     if (
-        defaultKeys.some((key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]))
+        defaultKeys.some(
+            (key) => stableJson(prevExt[key]) !== stableJson(nextExt[key]),
+        )
     ) {
         changes.push({
             changeKind: 'default_values',
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DEFAULT_VALUES_CHANGED,
-            previous: Object.fromEntries(defaultKeys.map((key) => [key, prevExt[key]])),
-            next: Object.fromEntries(defaultKeys.map((key) => [key, nextExt[key]])),
+            previous: Object.fromEntries(
+                defaultKeys.map((key) => [key, prevExt[key]]),
+            ),
+            next: Object.fromEntries(
+                defaultKeys.map((key) => [key, nextExt[key]]),
+            ),
         });
     }
 
@@ -339,23 +355,18 @@ export const enqueueFilterBarVisibilityChanged = (
 ): void => {
     if (previousEnabled === nextEnabled) return;
     const label =
-        ctx.scope === 'tab'
-            ? ctx.tabName?.trim() || undefined
-            : undefined;
+        ctx.scope === 'tab' ? ctx.tabName?.trim() || undefined : undefined;
     enqueueDashboardOperationEvent({
         action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_BAR_VISIBILITY_CHANGED,
         scope: ctx.scope,
-        tabUuid: ctx.scope === 'tab' ? ctx.tabUuid ?? null : null,
-        tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
+        tabUuid: ctx.scope === 'tab' ? (ctx.tabUuid ?? null) : null,
+        tabName: ctx.scope === 'tab' ? (ctx.tabName ?? null) : null,
         resourceType: 'dashboard_filter',
         resourceUuid: null,
         resourceName: label ?? (ctx.scope === 'tab' ? 'tab' : 'global'),
         changeKind: 'bar_visibility',
         summary: {
-            label:
-                ctx.scope === 'global'
-                    ? 'global'
-                    : label || 'tab',
+            label: ctx.scope === 'global' ? 'global' : label || 'tab',
             scope: ctx.scope,
             tabUuid: ctx.tabUuid ?? null,
             tabName: ctx.tabName ?? null,
@@ -372,23 +383,18 @@ export const enqueueAddFilterButtonVisibilityChanged = (
 ): void => {
     if (previousVisible === nextVisible) return;
     const label =
-        ctx.scope === 'tab'
-            ? ctx.tabName?.trim() || undefined
-            : undefined;
+        ctx.scope === 'tab' ? ctx.tabName?.trim() || undefined : undefined;
     enqueueDashboardOperationEvent({
         action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_ADD_BUTTON_VISIBILITY_CHANGED,
         scope: ctx.scope,
-        tabUuid: ctx.scope === 'tab' ? ctx.tabUuid ?? null : null,
-        tabName: ctx.scope === 'tab' ? ctx.tabName ?? null : null,
+        tabUuid: ctx.scope === 'tab' ? (ctx.tabUuid ?? null) : null,
+        tabName: ctx.scope === 'tab' ? (ctx.tabName ?? null) : null,
         resourceType: 'dashboard_filter',
         resourceUuid: null,
         resourceName: label ?? (ctx.scope === 'tab' ? 'tab' : 'global'),
         changeKind: 'add_button_visibility',
         summary: {
-            label:
-                ctx.scope === 'global'
-                    ? 'global'
-                    : label || 'tab',
+            label: ctx.scope === 'global' ? 'global' : label || 'tab',
             scope: ctx.scope,
             tabUuid: ctx.tabUuid ?? null,
             tabName: ctx.tabName ?? null,

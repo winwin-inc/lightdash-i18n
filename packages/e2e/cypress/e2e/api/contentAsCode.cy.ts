@@ -219,7 +219,9 @@ describe('Content as Code new /code/* routes', () => {
         }).then((response) => {
             cy.wrap(response).its('status').should('eq', 200);
             cy.wrap(response.body.results.charts).should('be.an', 'array');
-            cy.wrap(response.body.results.charts).its('length').should('be.gt', 0);
+            cy.wrap(response.body.results.charts)
+                .its('length')
+                .should('be.gt', 0);
             cy.wrap(response.body.results.spaces).should('be.an', 'array');
         });
     });
@@ -315,9 +317,10 @@ describe('Content as Code new /code/* routes', () => {
                             downloadResponse.body.results.dashboards[0];
                         cy.wrap(downloaded.tabs).should('have.length', 1);
                         cy.wrap(downloaded.tabs[0].filters).should('exist');
-                        cy.wrap(
-                            downloaded.tabs[0].filters.dimensions,
-                        ).should('have.length', 1);
+                        cy.wrap(downloaded.tabs[0].filters.dimensions).should(
+                            'have.length',
+                            1,
+                        );
                         cy.wrap(
                             downloaded.tabs[0].filters.dimensions[0].values,
                         ).should('deep.equal', ['completed']);

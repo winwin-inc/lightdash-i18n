@@ -407,7 +407,9 @@ export function validateDataAppDependencies(
         );
     if (Buffer.byteLength(d.lockfile, 'utf-8') > MAX_LOCKFILE_BYTES)
         throw new Error(
-            `Invalid dependencies: lockfile exceeds ${MAX_LOCKFILE_BYTES / 1024 / 1024} MB limit`,
+            `Invalid dependencies: lockfile exceeds ${
+                MAX_LOCKFILE_BYTES / 1024 / 1024
+            } MB limit`,
         );
     validateLockfileShape(d.lockfile);
     if (opts.allowedTarballHosts !== undefined) {

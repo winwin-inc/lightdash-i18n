@@ -2,7 +2,7 @@
 
 面向分析师、运营、业务同学。目标：**少记工具名，直接拿结果**。
 
-接入 / Session / 开发配置请看：[文档索引](./README.md) · [标准客户端用法](./lightdash-mcp-client-usage.md)。
+接入请看：[MCP v2 说明](./lightdash-mcp-v2.md)（只配 URL，浏览器登录，**不需要填写 API Key**）。文档总入口：[文档索引](./README.md)。
 
 ---
 
@@ -31,7 +31,7 @@
 | `run_metric_query` | 1～2 维 + 1 指标的简单扁平查询 |
 | `get_site_info` / `get_lightdash_version` | 看站点与版本 |
 
-完整参数与工具数量以 [包 README](../../packages/lightdash-mcp/README.md) 为准。  
+完整参数与工具数量以 [MCP v2 说明](./lightdash-mcp-v2.md) 为准。  
 查询选型见 [查询工具速查](./lightdash-mcp-query-tools-quickref.md)。
 
 ---
@@ -78,7 +78,8 @@
 **查询慢？** 先缩小范围（Top50、近 12 个月）。  
 **筛选失败？** 先单条件 equals，再叠加。  
 **要记住很多工具吗？** 不用；按「先图表、后自定义」提问即可。  
-**多项目 / 多环境？** 提问里写清项目；自动化场景应显式传 `projectUuid`。
+**多项目 / 多环境？** 提问里写清项目；自动化场景应显式传 `projectUuid`。  
+**需要个人访问令牌 / API Key 吗？** 不需要。连接只配 MCP URL，第一次用浏览器登录即可。
 
 ---
 
@@ -107,6 +108,6 @@
 ## 8. 相关文档
 
 - [文档索引](./README.md)
-- [标准客户端用法](./lightdash-mcp-client-usage.md)
+- [MCP v2 说明](./lightdash-mcp-v2.md)
 - [查询工具速查](./lightdash-mcp-query-tools-quickref.md)
 - [Skills](../../packages/lightdash-skills/README.md)

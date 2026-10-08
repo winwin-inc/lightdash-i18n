@@ -8,24 +8,17 @@ import {
 import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
-import {
-    memo,
-    useCallback,
-    useMemo,
-    useRef,
-    useState,
-    type FC,
-} from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
-import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
 import '../../styles/droppable.css';
 import { SectionName } from '../../types/Events';
-import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
-import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
@@ -615,49 +608,46 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                       <TabGridPanel
                                                           key={tab.uuid}
                                                           tabUuid={tab.uuid}
-                                                              tiles={
-                                                                  tilesByTab.get(
-                                                                      tab.uuid,
-                                                                  ) ?? []
-                                                              }
-                                                              layouts={
-                                                                  layoutsByTab.get(
-                                                                      tab.uuid,
-                                                                  ) ??
-                                                                  EMPTY_LAYOUTS
-                                                              }
-                                                              isActive={
-                                                                  activeTab?.uuid ===
-                                                                  tab.uuid
-                                                              }
-                                                              isEditMode={
-                                                                  isEditMode
-                                                              }
-                                                              locked={
-                                                                  hasRequiredDashboardFiltersToSet
-                                                              }
-                                                              gridProps={
-                                                                  gridProps
-                                                              }
-                                                              dashboardTabs={
-                                                                  dashboardTabs
-                                                              }
-                                                              onDragStop={
-                                                                  handleGridUpdate
-                                                              }
-                                                              onWidthChange={
-                                                                  setGridWidth
-                                                              }
-                                                              onDeleteTile={
-                                                                  handleDeleteTile
-                                                              }
-                                                              onEditTile={
-                                                                  handleEditTile
-                                                              }
-                                                              onAddTiles={
-                                                                  handleAddTiles
-                                                              }
-                                                          />
+                                                          tiles={
+                                                              tilesByTab.get(
+                                                                  tab.uuid,
+                                                              ) ?? []
+                                                          }
+                                                          layouts={
+                                                              layoutsByTab.get(
+                                                                  tab.uuid,
+                                                              ) ?? EMPTY_LAYOUTS
+                                                          }
+                                                          isActive={
+                                                              activeTab?.uuid ===
+                                                              tab.uuid
+                                                          }
+                                                          isEditMode={
+                                                              isEditMode
+                                                          }
+                                                          locked={
+                                                              hasRequiredDashboardFiltersToSet
+                                                          }
+                                                          gridProps={gridProps}
+                                                          dashboardTabs={
+                                                              dashboardTabs
+                                                          }
+                                                          onDragStop={
+                                                              handleGridUpdate
+                                                          }
+                                                          onWidthChange={
+                                                              setGridWidth
+                                                          }
+                                                          onDeleteTile={
+                                                              handleDeleteTile
+                                                          }
+                                                          onEditTile={
+                                                              handleEditTile
+                                                          }
+                                                          onAddTiles={
+                                                              handleAddTiles
+                                                          }
+                                                      />
                                                   ))
                                             : visibleTiles && (
                                                   <ErrorBoundary>

@@ -33,6 +33,10 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+    enqueueFilterDeleted,
+    enqueueFilterUpdatedFromDiff,
+} from '../../../hooks/dashboard/dashboardOperationEventQueue';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -45,10 +49,6 @@ import MantineIcon from '../../common/MantineIcon';
 import FilterConfiguration from '../FilterConfiguration';
 import { FilterTabs } from '../FilterConfiguration/constants';
 import { hasFilterValueSet } from '../FilterConfiguration/utils';
-import {
-    enqueueFilterDeleted,
-    enqueueFilterUpdatedFromDiff,
-} from '../../../hooks/dashboard/dashboardOperationEventQueue';
 import { useFilterDropdownStyles } from '../filterDropdownStyles';
 import { useFilterPillStyles } from '../filterPillStyles';
 
@@ -408,8 +408,8 @@ const Filter: FC<Props> = ({
     const handleSaveChanges = useCallback(
         (newRule: DashboardFilterRule) => {
             const tabName =
-                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
-                null;
+                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)
+                    ?.name ?? null;
             enqueueFilterUpdatedFromDiff(filterRule, newRule, {
                 scope: filterScope,
                 tabUuid: activeTabUuid,
@@ -439,7 +439,6 @@ const Filter: FC<Props> = ({
         });
         onRemove();
     }, [onRemove, filterRule, filterScope, activeTabUuid, dashboardTabs]);
-
 
     const appliedDashboardTabs = useMemo(() => {
         if (filterScope === 'global') {
@@ -646,11 +645,13 @@ const Filter: FC<Props> = ({
                                                 )}
                                             {!isReadOnlyLocked &&
                                                 !isCascadeUpdating && (
-                                                <CloseButton
-                                                    size="sm"
-                                                    onClick={handleRemoveFilter}
-                                                />
-                                            )}
+                                                    <CloseButton
+                                                        size="sm"
+                                                        onClick={
+                                                            handleRemoveFilter
+                                                        }
+                                                    />
+                                                )}
                                         </Group>
                                     )
                                 }
@@ -733,7 +734,9 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {filterRuleLabels?.operator}{' '}
+                                                    {
+                                                        filterRuleLabels?.operator
+                                                    }{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
@@ -782,7 +785,7 @@ const Filter: FC<Props> = ({
                                 filterScope={filterScope}
                                 tabUuid={
                                     filterScope === 'tab'
-                                        ? appliesToTabs[0] ?? activeTabUuid
+                                        ? (appliesToTabs[0] ?? activeTabUuid)
                                         : undefined
                                 }
                             />

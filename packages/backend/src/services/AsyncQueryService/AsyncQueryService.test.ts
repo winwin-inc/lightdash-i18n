@@ -194,6 +194,9 @@ const getMockedAsyncQueryService = (
             downloadFileModel: {} as DownloadFileModel,
         }),
         permissionsService: {} as PermissionsService,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as never,
         ...overrides,
     });
 

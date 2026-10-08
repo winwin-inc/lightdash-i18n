@@ -196,7 +196,9 @@ export async function lintHandler(options: LintOptions): Promise<void> {
         return;
     }
 
-    console.log(chalk.bold(`\nValidated ${results.length} Lightdash Code files:`));
+    console.log(
+        chalk.bold(`\nValidated ${results.length} Lightdash Code files:`),
+    );
     console.log(chalk.green(`  ${validCount} valid`));
     console.log(
         chalk.red(
@@ -208,7 +210,9 @@ export async function lintHandler(options: LintOptions): Promise<void> {
     );
 
     invalid.forEach((result) => {
-        console.log(chalk.red(`\n${path.relative(searchPath, result.filePath)}`));
+        console.log(
+            chalk.red(`\n${path.relative(searchPath, result.filePath)}`),
+        );
         result.errors?.forEach((error) => {
             const location = error.instancePath || '/';
             console.log(

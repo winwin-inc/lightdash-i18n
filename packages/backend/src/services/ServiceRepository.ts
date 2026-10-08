@@ -435,6 +435,8 @@ export class ServiceRepository
                     groupsModel: this.models.getGroupsModel(),
                     projectModel: this.models.getProjectModel(),
                     featureFlagService: this.getFeatureFlagService(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -605,6 +607,8 @@ export class ServiceRepository
                         this.models.getProjectParametersModel(),
                     organizationWarehouseCredentialsModel:
                         this.models.getOrganizationWarehouseCredentialsModel(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -652,6 +656,8 @@ export class ServiceRepository
                     pivotTableService: this.getPivotTableService(),
                     prometheusMetrics: this.prometheusMetrics,
                     permissionsService: this.getPermissionsService(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }

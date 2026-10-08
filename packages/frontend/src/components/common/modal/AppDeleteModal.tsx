@@ -1,12 +1,5 @@
 import { getAppDisplayName } from '@lightdash/common';
-import {
-    Alert,
-    Anchor,
-    Button,
-    List,
-    Loader,
-    Text,
-} from '@mantine-8/core';
+import { Alert, Anchor, Button, List, Loader, Text } from '@mantine-8/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';

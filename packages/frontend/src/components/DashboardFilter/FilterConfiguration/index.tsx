@@ -219,8 +219,8 @@ const FilterConfiguration: FC<Props> = ({
             const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
                 ? false
                 : isEditMode
-                ? newFilterRule.disabled
-                : true;
+                  ? newFilterRule.disabled
+                  : true;
             const updatedRule = {
                 ...newFilterRule,
                 disabled: isNewFilterDisabled,
@@ -467,14 +467,14 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : allFiltersFromContext?.dimensions ?? [];
+                : (allFiltersFromContext?.dimensions ?? []);
 
         const sourceFilters =
             filterScope === 'global'
                 ? globalFilters
                 : tabUuid
-                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
-                : [];
+                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
+                  : [];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;

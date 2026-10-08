@@ -171,7 +171,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'list_spaces',
-        '列出当前项目下的空间（内容文件夹）。可选 projectUuid；省略时与核心工具一致：本次参数 > projectUuid 参数 / LIGHTDASH_PROJECT_UUID 会话 > 环境 LIGHTDASH_PROJECT_UUID。',
+        '列出当前项目下的空间（内容文件夹）。可选 projectUuid；省略时与核心工具一致：本次参数 projectUuid → LIGHTDASH_PROJECT_UUID。',
         listSpacesParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);

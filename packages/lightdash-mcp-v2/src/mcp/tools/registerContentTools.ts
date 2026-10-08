@@ -158,7 +158,7 @@ export function registerContentTools(
         server,
         'core-tool',
         'list_dashboards',
-        '按 spaceUuid 列出空间下的看板（v2 content API 层级浏览，非关键词搜索）。有 spaceUuid 时用此工具；按名称搜索用 find_dashboards。可选 projectUuid；省略时与 list_spaces 一致：本次参数 > set_project > LIGHTDASH_PROJECT_UUID。',
+        '按 spaceUuid 列出空间下的看板（v2 content API 层级浏览，非关键词搜索）。有 spaceUuid 时用此工具；按名称搜索用 find_dashboards。可选 projectUuid；省略时：本次参数 projectUuid → LIGHTDASH_PROJECT_UUID。',
         {
             spaceUuid: z.string(),
             projectUuid: z.string().optional(),

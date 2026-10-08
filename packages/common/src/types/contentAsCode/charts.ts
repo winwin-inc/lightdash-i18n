@@ -18,7 +18,9 @@ export type ChartAsCode = Pick<
     | 'slug'
     | 'updatedAt'
 > & {
-    metricQuery: MetricQuery | (Omit<MetricQuery, 'filters'> & { filters: FiltersInput });
+    metricQuery:
+        | MetricQuery
+        | (Omit<MetricQuery, 'filters'> & { filters: FiltersInput });
     dashboardSlug: string | undefined;
     version: number;
     spaceSlug: string;

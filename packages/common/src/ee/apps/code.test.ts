@@ -17,9 +17,9 @@ describe('splitDataAppUploadFiles', () => {
     });
 
     it('rejects missing dist/index.html', () => {
-        expect(() =>
-            splitDataAppUploadFiles([file('src/App.jsx')]),
-        ).toThrow(/dist\/index\.html/);
+        expect(() => splitDataAppUploadFiles([file('src/App.jsx')])).toThrow(
+            /dist\/index\.html/,
+        );
     });
 
     it('rejects files outside src/ and dist/', () => {

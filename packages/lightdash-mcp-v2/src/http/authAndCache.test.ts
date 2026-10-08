@@ -7,7 +7,9 @@ import {
     parseBearerTokenFromRequest,
     parseUserAttributesHeader,
 } from './authAndCache';
+import { OAuthError, OAuthErrorCode } from '@modelcontextprotocol/server';
 import {
+    createKeycloakTokenVerifier,
     createLocalJWKSet,
     verifyKeycloakAccessToken,
 } from './keycloakJwt';
@@ -70,6 +72,20 @@ async function signTestToken(options: {
     return { token, jwks: createLocalJWKSet({ keys: [jwk] }) };
 }
 
+function assertInvalidToken(error: unknown, messagePattern: RegExp): boolean {
+    assert.ok(error instanceof OAuthError);
+    assert.equal(error.code, OAuthErrorCode.InvalidToken);
+    assert.match(error.message, messagePattern);
+    return true;
+}
+
+function assertServerError(error: unknown, messagePattern: RegExp): boolean {
+    assert.ok(error instanceof OAuthError);
+    assert.equal(error.code, OAuthErrorCode.ServerError);
+    assert.match(error.message, messagePattern);
+    return true;
+}
+
 describe('Keycloak JWT verification', () => {
     it('accepts valid token with email and required scopes', async () => {
         const issuer = 'https://keycloak.example/realms/mcp';
@@ -119,11 +135,11 @@ describe('Keycloak JWT verification', () => {
                     requiredScopes: ['openid', 'mcp:read'],
                     jwks,
                 }),
-            /missing email/,
+            (error: unknown) => assertInvalidToken(error, /missing email/),
         );
     });
 
-    it('rejects expired JWT', async () => {
+    it('rejects expired JWT as invalid_token', async () => {
         const issuer = 'https://keycloak.example/realms/mcp-expired';
         const audience = 'http://localhost:3333/mcp';
         const { token, jwks } = await signTestToken({
@@ -146,7 +162,136 @@ describe('Keycloak JWT verification', () => {
                     requiredScopes: ['openid', 'mcp:read'],
                     jwks,
                 }),
-            /JWT verification failed/,
+            (error: unknown) =>
+                assertInvalidToken(error, /JWT verification failed/),
+        );
+    });
+
+    it('rejects garbage bearer token as invalid_token not server_error', async () => {
+        const issuer = 'https://keycloak.example/realms/mcp-garbage';
+        await assert.rejects(
+            () =>
+                verifyKeycloakAccessToken('garbage.invalid.token', {
+                    keycloakRealmUrl: issuer,
+                    audience: 'http://localhost:3333/mcp',
+                    requiredScopes: ['openid', 'mcp:read'],
+                    jwks: createLocalJWKSet({ keys: [] }),
+                }),
+            (error: unknown) =>
+                assertInvalidToken(error, /JWT verification failed/),
+        );
+    });
+
+    it('rejects forged JWT signature as invalid_token', async () => {
+        const issuer = 'https://keycloak.example/realms/mcp-forged';
+        const audience = 'http://localhost:3333/mcp';
+        const signed = await signTestToken({
+            issuer,
+            audience,
+            kid: 'forged-kid',
+            claims: {
+                email: 'demo@example.com',
+                scope: 'openid mcp:read',
+                sub: 'kc-sub-4',
+            },
+            exp: '2h',
+        });
+        const other = await signTestToken({
+            issuer,
+            audience,
+            kid: 'other-kid',
+            claims: {
+                email: 'other@example.com',
+                scope: 'openid mcp:read',
+                sub: 'kc-sub-5',
+            },
+            exp: '2h',
+        });
+
+        await assert.rejects(
+            () =>
+                verifyKeycloakAccessToken(signed.token, {
+                    keycloakRealmUrl: issuer,
+                    audience,
+                    requiredScopes: ['openid', 'mcp:read'],
+                    jwks: other.jwks,
+                }),
+            (error: unknown) =>
+                assertInvalidToken(error, /JWT verification failed/),
+        );
+    });
+
+    it('rejects missing required scopes as invalid_token', async () => {
+        const issuer = 'https://keycloak.example/realms/mcp-scope';
+        const audience = 'http://localhost:3333/mcp';
+        const { token, jwks } = await signTestToken({
+            issuer,
+            audience,
+            kid: 'scope-kid',
+            claims: {
+                email: 'demo@example.com',
+                scope: 'openid',
+                sub: 'kc-sub-6',
+            },
+            exp: '2h',
+        });
+
+        await assert.rejects(
+            () =>
+                verifyKeycloakAccessToken(token, {
+                    keycloakRealmUrl: issuer,
+                    audience,
+                    requiredScopes: ['openid', 'mcp:read'],
+                    jwks,
+                }),
+            (error: unknown) =>
+                assertInvalidToken(error, /missing required scopes/),
+        );
+    });
+
+    it('maps JWKS fetch failure to server_error not invalid_token', async () => {
+        const issuer = 'https://keycloak.example/realms/mcp-jwks';
+        const audience = 'http://localhost:3333/mcp';
+        const { token } = await signTestToken({
+            issuer,
+            audience,
+            kid: 'jwks-kid',
+            claims: {
+                email: 'demo@example.com',
+                scope: 'openid mcp:read',
+                sub: 'kc-sub-7',
+            },
+            exp: '2h',
+        });
+
+        await assert.rejects(
+            () =>
+                verifyKeycloakAccessToken(token, {
+                    keycloakRealmUrl: issuer,
+                    audience,
+                    requiredScopes: ['openid', 'mcp:read'],
+                    jwks: async () => {
+                        throw new Error(
+                            'fetch failed: getaddrinfo ENOTFOUND keycloak.example',
+                        );
+                    },
+                }),
+            (error: unknown) =>
+                assertServerError(error, /Failed to fetch Keycloak JWKS/),
+        );
+    });
+
+    it('verifier verifyAccessToken throws OAuthError for garbage token', async () => {
+        const verifier = createKeycloakTokenVerifier({
+            keycloakRealmUrl: 'https://keycloak.example/realms/mcp',
+            audience: 'http://localhost:3333/mcp',
+            requiredScopes: ['openid', 'mcp:read'],
+            jwks: createLocalJWKSet({ keys: [] }),
+        });
+        await assert.rejects(
+            () => verifier.verifyAccessToken('not-a-jwt'),
+            (error: unknown) =>
+                assertInvalidToken(error, /JWT verification failed/),
         );
     });
 });

@@ -12,19 +12,19 @@ import {
 import {
     addDashboardFiltersToMetricQuery,
     addFilterRule,
-    createFilterRuleFromModelRequiredFilterRule,
     applyDefaultTileTargets,
     backfillDashboardFilterRulesTileTargets,
+    createFilterRuleFromModelRequiredFilterRule,
     findDefaultTileFilterField,
     getDashboardFilterRulesForTileAndReferences,
+    getVisibleFilterOperatorOptions,
     isFilterRuleInQuery,
     isTileFilterFieldAvailable,
     overrideChartFilter,
     reduceRequiredDimensionFiltersToFilterRules,
     resetRequiredFilterRules,
-    trackWhichTimeBasedMetricFiltersToOverride,
-    getVisibleFilterOperatorOptions,
     stripOverridesForLockedFiltersOnTab,
+    trackWhichTimeBasedMetricFiltersToOverride,
 } from './filters';
 import {
     chartAndFilterGroup,
@@ -610,7 +610,7 @@ describe('dashboard tile filter field matching', () => {
             ),
         ).toBe(false);
     });
-test('applyDefaultTileTargets backfills missing tile UUIDs without overwriting false or existing maps', () => {
+    test('applyDefaultTileTargets backfills missing tile UUIDs without overwriting false or existing maps', () => {
         const available = {
             'tile-existing': [targetProvince],
             'tile-missing': [targetProvince],
@@ -638,11 +638,7 @@ test('applyDefaultTileTargets backfills missing tile UUIDs without overwriting f
             },
         };
 
-        const result = applyDefaultTileTargets(
-            rule,
-            sourceProvince,
-            available,
-        );
+        const result = applyDefaultTileTargets(rule, sourceProvince, available);
 
         expect(result.tileTargets?.['tile-existing']).toEqual(existingTarget);
         expect(result.tileTargets?.['tile-disabled']).toBe(false);
@@ -689,7 +685,6 @@ test('applyDefaultTileTargets backfills missing tile UUIDs without overwriting f
             tableName: 'ads_octopus_province_sales',
         });
     });
-
 });
 
 describe('getVisibleFilterOperatorOptions', () => {
@@ -708,9 +703,7 @@ describe('getVisibleFilterOperatorOptions', () => {
                 true,
                 FilterOperator.IN_BETWEEN,
             ),
-        ).toEqual([
-            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
-        ]);
+        ).toEqual([{ value: FilterOperator.IN_BETWEEN, label: 'Is between' }]);
     });
 
     test('does not keep disallowed current operator in edit mode', () => {
@@ -721,9 +714,7 @@ describe('getVisibleFilterOperatorOptions', () => {
                 true,
                 FilterOperator.EQUALS,
             ),
-        ).toEqual([
-            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
-        ]);
+        ).toEqual([{ value: FilterOperator.IN_BETWEEN, label: 'Is between' }]);
     });
 
     test('returns all options in edit mode when allowedOperators is empty', () => {

@@ -355,10 +355,7 @@ const resolveCategoryFilterValueAsync = async ({
         parentValueOverride,
     );
     // 配置了父级但父级无值时，collect 返回 undefined，不解析
-    if (
-        getParentFieldId(filter) &&
-        searchFilters === undefined
-    ) {
+    if (getParentFieldId(filter) && searchFilters === undefined) {
         return undefined;
     }
 

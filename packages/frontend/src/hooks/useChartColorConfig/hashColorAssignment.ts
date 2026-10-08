@@ -317,8 +317,7 @@ const appendUnknownCache = new WeakMap<
 const getAppendUnknownCacheKey = (
     visibleNormalized: string[],
     colorPalette: string[],
-): string =>
-    `${visibleNormalized.join('\u0001')}|${colorPalette.join(',')}`;
+): string => `${visibleNormalized.join('\u0001')}|${colorPalette.join(',')}`;
 
 export const appendUnknownHashColors = (
     visibleKeys: string[],
