@@ -61,6 +61,8 @@ const BASE_ROLE_SCOPES = {
         // Enterprise scopes
         'manage:MetricsTree',
         'manage:AiAgentThread@self', // User's own threads
+        'view:ContentAsCode',
+        'create:ContentAsCode',
     ],
 
     [ProjectMemberRole.DEVELOPER]: [
@@ -79,6 +81,7 @@ const BASE_ROLE_SCOPES = {
         // Enterprise scopes
         'manage:SpotlightTableConfig',
         'manage:ContentAsCode',
+        'manage:ContentAsCode@self',
         'manage:AiAgent',
         'manage:AiAgentThread@self', // User's own threads
     ],
@@ -157,6 +160,9 @@ export const getNonEnterpriseScopesForRole = (
         'manage:AiAgent',
         'manage:AiAgentThread',
         'manage:ContentAsCode',
+        'view:ContentAsCode',
+        'create:ContentAsCode',
+        'manage:ContentAsCode@self',
         'manage:PersonalAccessToken',
     ]);
 

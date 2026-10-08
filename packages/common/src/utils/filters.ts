@@ -509,13 +509,63 @@ export const applyDefaultTileTargets = (
         DashboardFilterableField[] | undefined
     >,
 ) => {
+    const defaultTargets = getDefaultTileTargets(field, availableTileFilters);
+
     if (!filterRule.tileTargets) {
         return {
             ...filterRule,
-            tileTargets: getDefaultTileTargets(field, availableTileFilters),
+            tileTargets: defaultTargets,
         };
     }
-    return filterRule;
+
+    // Backfill missing tile UUIDs (e.g. charts copied after the filter was saved).
+    // Do not overwrite explicit disables (`false`) or existing field mappings.
+    let didBackfill = false;
+    const tileTargets = { ...filterRule.tileTargets };
+    Object.entries(defaultTargets).forEach(([tileUuid, target]) => {
+        if (tileTargets[tileUuid] === undefined) {
+            tileTargets[tileUuid] = target;
+            didBackfill = true;
+        }
+    });
+
+    if (!didBackfill) {
+        return filterRule;
+    }
+
+    return {
+        ...filterRule,
+        tileTargets,
+    };
+};
+
+/**
+ * Resolve each rule's filter field from available tile fields, then backfill
+ * missing tileTargets so query-time mapping matches the configuration UI.
+ */
+export const backfillDashboardFilterRulesTileTargets = (
+    rules: DashboardFilterRule[],
+    availableTileFilters:
+        | Record<string, DashboardFilterableField[] | undefined>
+        | undefined,
+): DashboardFilterRule[] => {
+    if (!availableTileFilters) {
+        return rules;
+    }
+
+    const allFields = Object.values(availableTileFilters).flatMap(
+        (fields) => fields ?? [],
+    );
+
+    return rules.map((rule) => {
+        const field = allFields.find(
+            (f) => getItemId(f) === rule.target.fieldId,
+        );
+        if (!field) {
+            return rule;
+        }
+        return applyDefaultTileTargets(rule, field, availableTileFilters);
+    });
 };
 
 export const createDashboardFilterRuleFromField = ({

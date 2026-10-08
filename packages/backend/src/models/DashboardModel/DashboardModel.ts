@@ -36,6 +36,7 @@ import {
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { validate as isValidUuid, v4 as uuidv4 } from 'uuid';
+import { AppsTableName } from '../../database/entities/apps';
 import {
     DashboardTable,
     DashboardTabsTableName,
@@ -365,6 +366,7 @@ export class DashboardModel {
     async getAllByProject(
         projectUuid: string,
         chartUuid?: string,
+        appUuid?: string,
     ): Promise<DashboardBasicDetailsWithTileTypes[]> {
         const cteTableName = 'cte';
         const dashboardsQuery = this.database
@@ -478,6 +480,34 @@ export class DashboardModel {
                 .andWhere(
                     `${SavedChartsTableName}.saved_query_uuid`,
                     chartUuid,
+                );
+        }
+        if (appUuid) {
+            void dashboardsQuery
+                .leftJoin(
+                    DashboardTilesTableName,
+                    `${DashboardTilesTableName}.dashboard_version_id`,
+                    `${cteTableName}.dashboard_version_id`,
+                )
+                .leftJoin(
+                    DashboardTileDataAppsTableName,
+                    function joinDashboardTileDataApps() {
+                        this.on(
+                            `${DashboardTileDataAppsTableName}.dashboard_version_id`,
+                            '=',
+                            `${DashboardTilesTableName}.dashboard_version_id`,
+                        );
+                        this.andOn(
+                            `${DashboardTileDataAppsTableName}.dashboard_tile_uuid`,
+                            '=',
+                            `${DashboardTilesTableName}.dashboard_tile_uuid`,
+                        );
+                    },
+                )
+                .distinctOn(`${cteTableName}.dashboard_uuid`)
+                .andWhere(
+                    `${DashboardTileDataAppsTableName}.app_uuid`,
+                    appUuid,
                 );
         }
         const dashboards = await dashboardsQuery.from(cteTableName);
@@ -961,6 +991,9 @@ export class DashboardModel {
                     last_version_chart_kind: string | null;
                     tab_uuid: string;
                     chart_slug: string;
+                    app_uuid: string | null;
+                    app_slug: string | null;
+                    data_app_deleted_at: Date | null;
                 }[]
             >(
                 `${DashboardTilesTableName}.x_offset`,
@@ -993,18 +1026,25 @@ export class DashboardModel {
                         ${DashboardTileChartTableName}.title,
                         ${DashboardTileLoomsTableName}.title,
                         ${DashboardTileMarkdownsTableName}.title,
-                        ${DashboardTileSqlChartTableName}.title
+                        ${DashboardTileSqlChartTableName}.title,
+                        ${DashboardTileDataAppsTableName}.title
                     ) AS title`,
                 ),
                 this.database.raw(
                     `COALESCE(
                         ${DashboardTileLoomsTableName}.hide_title,
                         ${DashboardTileChartTableName}.hide_title,
-                        ${DashboardTileSqlChartTableName}.hide_title
+                        ${DashboardTileSqlChartTableName}.hide_title,
+                        ${DashboardTileDataAppsTableName}.hide_title
                     ) AS hide_title`,
                 ),
                 `${DashboardTileLoomsTableName}.url`,
                 `${DashboardTileMarkdownsTableName}.content`,
+                `${DashboardTileDataAppsTableName}.app_uuid`,
+                this.database.raw(`${AppsTableName}.slug AS app_slug`),
+                this.database.raw(
+                    `${AppsTableName}.deleted_at AS data_app_deleted_at`,
+                ),
             )
             .leftJoin(DashboardTileChartTableName, function chartsJoin() {
                 this.on(
@@ -1064,6 +1104,25 @@ export class DashboardModel {
                 `${DashboardTileChartTableName}.saved_chart_id`,
                 `${SavedChartsTableName}.saved_query_id`,
             )
+            .leftJoin(DashboardTileDataAppsTableName, function dataAppsJoin() {
+                this.on(
+                    `${DashboardTileDataAppsTableName}.dashboard_tile_uuid`,
+                    '=',
+                    `${DashboardTilesTableName}.dashboard_tile_uuid`,
+                );
+                this.andOn(
+                    `${DashboardTileDataAppsTableName}.dashboard_version_id`,
+                    '=',
+                    `${DashboardTilesTableName}.dashboard_version_id`,
+                );
+            })
+            // Intentionally does NOT filter apps.deleted_at so the tile can
+            // show a deleted placeholder instead of a broken iframe.
+            .leftJoin(
+                AppsTableName,
+                `${DashboardTileDataAppsTableName}.app_uuid`,
+                `${AppsTableName}.app_id`,
+            )
             .where(
                 `${DashboardTilesTableName}.dashboard_version_id`,
                 dashboard.dashboard_version_id,
@@ -1121,6 +1180,9 @@ export class DashboardModel {
                     last_version_chart_kind,
                     tab_uuid,
                     chart_slug,
+                    app_uuid,
+                    app_slug,
+                    data_app_deleted_at,
                 }) => {
                     const base: Omit<
                         DashboardDAO['tiles'][number],
@@ -1188,9 +1250,11 @@ export class DashboardModel {
                                 type: DashboardTileTypes.DATA_APP,
                                 properties: {
                                     ...commonProperties,
-                                    appUuid: '', // STUB: join app uuid when tile read path is fully ported
-                                    appSlug: null,
-                                    appDeletedAt: null,
+                                    appUuid: app_uuid ?? '',
+                                    appSlug: app_slug ?? null,
+                                    appDeletedAt:
+                                        data_app_deleted_at?.toISOString() ??
+                                        null,
                                 },
                             };
                         case DashboardTileTypes.HEADING:

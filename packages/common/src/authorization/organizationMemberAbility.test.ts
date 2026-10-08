@@ -975,6 +975,36 @@ describe('Organization member permissions', () => {
                     ).toEqual(false);
                 });
             });
+
+            it('can view and create content as code, but cannot manage it', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_EDITOR.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_EDITOR.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_EDITOR.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(false);
+            });
         });
 
         describe('when user is an developer', () => {
@@ -986,6 +1016,36 @@ describe('Organization member permissions', () => {
 
             it('can run SQL Queries', () => {
                 expect(ability.can('manage', 'SqlRunner')).toEqual(true);
+            });
+
+            it('can manage content as code, which implies view and create', () => {
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_DEVELOPER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_DEVELOPER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(true);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_DEVELOPER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(true);
             });
 
             it('can use the SemanticViewer', () => {
@@ -1154,6 +1214,36 @@ describe('Organization member permissions', () => {
             beforeEach(() => {
                 ability =
                     defineAbilityForOrganizationMember(ORGANIZATION_VIEWER);
+            });
+
+            it('cannot download or upload content as code', () => {
+                expect(
+                    ability.can(
+                        'view',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_VIEWER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'create',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_VIEWER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(false);
+                expect(
+                    ability.can(
+                        'manage',
+                        subject('ContentAsCode', {
+                            organizationUuid:
+                                ORGANIZATION_VIEWER.organizationUuid,
+                        }),
+                    ),
+                ).toEqual(false);
             });
 
             it('can only view public & accessable dashboards', () => {

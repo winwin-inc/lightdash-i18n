@@ -35,6 +35,7 @@ import { PermissionsService } from './PermissionsService/PermissionsService';
 import { PersonalAccessTokenService } from './PersonalAccessTokenService';
 import { PinningService } from './PinningService/PinningService';
 import { PivotTableService } from './PivotTableService/PivotTableService';
+import { ProjectOperationLogService } from './ProjectOperationLogService/ProjectOperationLogService';
 import { ProjectParametersService } from './ProjectParametersService';
 import { ProjectService } from './ProjectService/ProjectService';
 import { PromoteService } from './PromoteService/PromoteService';
@@ -82,6 +83,7 @@ interface ServiceManifest {
     pinningService: PinningService;
     pivotTableService: PivotTableService;
     projectService: ProjectService;
+    projectOperationLogService: ProjectOperationLogService;
     savedChartService: SavedChartService;
     schedulerService: SchedulerService;
     searchService: SearchService;
@@ -345,6 +347,8 @@ export class ServiceRepository
                     categoryRpcClient: this.clients.getCategoryRpcClient(),
                     organizationMemberProfileModel:
                         this.models.getOrganizationMemberProfileModel(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -831,6 +835,10 @@ export class ServiceRepository
                     spaceModel: this.models.getSpaceModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     promoteService: this.getPromoteService(),
+                    savedSqlModel: this.models.getSavedSqlModel(),
+                    organizationMemberProfileModel:
+                        this.models.getOrganizationMemberProfileModel(),
+                    groupsModel: this.models.getGroupsModel(),
                 }),
         );
     }
@@ -890,6 +898,8 @@ export class ServiceRepository
                     savedChartModel: this.models.getSavedChartModel(),
                     spaceModel: this.models.getSpaceModel(),
                     dashboardModel: this.models.getDashboardModel(),
+                    projectOperationLogService:
+                        this.getProjectOperationLogService(),
                 }),
         );
     }
@@ -953,9 +963,12 @@ export class ServiceRepository
         );
     }
 
-    
-    public getAppGenerateService<AppGenerateServiceImplT>(): AppGenerateServiceImplT {
-        return this.getService('appGenerateService' as keyof ServiceManifest) as AppGenerateServiceImplT;
+    public getAppGenerateService<
+        AppGenerateServiceImplT,
+    >(): AppGenerateServiceImplT {
+        return this.getService(
+            'appGenerateService' as keyof ServiceManifest,
+        ) as AppGenerateServiceImplT;
     }
 
     public getEmbedService<EmbedServiceImplT>(): EmbedServiceImplT {
@@ -995,6 +1008,8 @@ export class ServiceRepository
                     groupsModel: this.models.getGroupsModel(),
                     projectModel: this.models.getProjectModel(),
                     emailClient: this.clients.getEmailClient(),
+                    organizationMemberProfileModel:
+                        this.models.getOrganizationMemberProfileModel(),
                 }),
         );
     }
@@ -1060,6 +1075,18 @@ export class ServiceRepository
         InstanceConfigurationServiceImplT,
     >(): InstanceConfigurationServiceImplT {
         return this.getService('instanceConfigurationService');
+    }
+
+    public getProjectOperationLogService(): ProjectOperationLogService {
+        return this.getService(
+            'projectOperationLogService',
+            () =>
+                new ProjectOperationLogService({
+                    projectOperationLogModel:
+                        this.models.getProjectOperationLogModel(),
+                    projectModel: this.models.getProjectModel(),
+                }),
+        );
     }
 
     public getProjectParametersService(): ProjectParametersService {

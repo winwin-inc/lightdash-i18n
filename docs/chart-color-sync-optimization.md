@@ -1,113 +1,82 @@
-# 看板颜色同步优化方案
+# 看板颜色同步：废弃色差顺延
 
-> 更新时间：2026-03-25
+> 更新时间：2026-09-20
+> 状态：按访问顺序的 `getGlobalHashColor` **已删除**，改为全 Tab 预取系列色表 + 确定性哈希避让
 
-## 问题描述
+## 旧方案在解决什么
 
-切换筛选器后，不同维度值的颜色太接近/相似。
+2026-03-25 引入「Dashboard 级全局分配器 + 色差保障」，目标是：
 
-## 问题根源
+1. 同一 identifier 跨图表同色
+2. 不同 identifier 颜色差够大（筛选后避免相邻系列撞色）
+3. 用看板主题调色板（`colorPalette`）做分配域
 
-1. **哈希碰撞**：简单哈希算法导致相邻字符串（如 "品牌A"、"品牌B"）命中相似颜色
-2. **变体不足**：9色→45色的扩展不够，相邻颜色差异小
+核心是模块级 `globalColorAssignments`：按 `dashboardUuid` 隔离，先到先得占色；新系列若与已用色 `colorDifference < MIN_COLOR_DIFF`，则顺延到下一个色。
 
-## 解决方案：全局颜色分配器 + 色差保障
+## 为何废弃
 
-### 设计思路
+色差顺延用主题色做**访问顺序分配器**，共用调色板 ≠ 系列同色。
 
-1. **Dashboard 级别全局分配器**
-   - 相同 identifier → 相同颜色（跨图表一致）
-   - 按 dashboardUuid 隔离，不同 Dashboard 独立
+| 旧机制 | 实际后果 |
+|--------|----------|
+| 先到先得 + 色差顺延 | 先打开的 Tab 占走「李子柒=紫」，后打开的 Tab 发现紫色太近就顺延，同系列变色 |
+| `ChartColorMappingContext` 按 pathname 重置 | URL 含 `/tabs/:tabUuid`，切 Tab 等于换路径，FCFS 表清空 |
+| 柱图 hash 模式仍读 `metadata.color`，饼图 hash 模式跳过 `groupColorOverrides` | 编辑器里手配色到看板上柱图 / 饼图对不上 |
+| `globalColorAssignments` 从不 reset | 筛选后系列集合变了，顺延结果粘在旧访问顺序上 |
+| `resetDashboardColorAssignments` 从未被调用 | 跨路由残留状态 |
 
-2. **色差保障机制**
-   - 分配新颜色时检测是否与已使用颜色太相似
-   - 如果相似则顺延到下一个可用颜色
-   - 确保不同维度值有明显颜色差异
+跨 Tab 可靠要求颜色是 **系列名 + 调色板 + 已保存手配色** 的纯函数，不能依赖「先看到哪张图」。适用于品牌、类目、口味等任意透视/切片维度值。
 
-3. **支持图表选择**
-   - `syncChartColors` 特性开关控制是否启用
-   - `syncChartTileUuids` 配置需要同步的图表列表
+因此删除：
 
-### 实现逻辑
+- `getGlobalHashColor`
+- `colorDifference` / `MIN_COLOR_DIFF`
+- `globalColorAssignments` / `resetDashboardColorAssignments`
+- `VisualizationProvider` 的 `dashboardUuid` 占色隔离
 
-```typescript
-// 全局颜色分配器，按 Dashboard 隔离
-const globalColorAssignments = new Map<string, Map<string, string>>();
-// key: dashboardUuid, value: Map<identifier, color>
+保留 FNV-1a `getHashColor`（扩展调色板后取模），相同 identifier + 相同 palette 永远同色。
 
-const getGlobalHashColor = (identifier, colorPalette, dashboardUuid) => {
-    // 1. 如果之前已分配过，返回相同颜色（跨图表一致）
-    if (dashboardAssignments.has(identifier)) {
-        return dashboardAssignments.get(identifier);
-    }
+## 当前流水线
 
-    // 2. 计算初始颜色
-    const hash = hashString(identifier);
-    let colorIndex = hash % expanded.length;
-    let color = expanded[colorIndex];
-
-    // 3. 检查是否与已分配颜色太相似，如果是则顺延
-    while (usedColors.some(c => colorDiff(color, c) < MIN_DIFF)) {
-        colorIndex = (colorIndex + 1) % expanded.length;
-        color = expanded[colorIndex];
-    }
-
-    // 4. 记录并返回
-    dashboardAssignments.set(identifier, color);
-    return color;
-};
+```
+全部 Tab 的 chart tiles
+        │
+        ▼
+useQueries 预取 saved_query（含未访问 Tab）
+        │
+        ▼
+extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
+  · 饼图 groupColorOverrides / metadata
+  · 透视柱图 series.color / metadata（跳过指标名键）
+        │
+        ▼
+按看板 tile 顺序 first-wins 合并 → manualColorMap
+按 UTF-16 排序分配 → hashAssignments（确定性避让）
+        │
+        ▼
+取色：manualColorMap → dimension.colors → resolveSyncedHashColor
 ```
 
-### 关键特性
+主题色（编辑态 Colors 预设，写入 `dashboard.config.colorPalette`）**仍在**：只作为哈希定义域，不再按访问顺序占坑。未手配色的系列落在该调色板（或组织色 / ECharts 默认色）上。
 
-| 特性 | 说明 |
+### 关键文件
+
+| 文件 | 职责 |
 |------|------|
-| 跨图表一致 | 相同维度值在不同图表中获得相同颜色 |
-| 色差保障 | 不同维度值颜色有明显差异（避免相似） |
-| 图表选择 | 支持选择特定图表应用颜色同步 |
-| 调色板保留 | 使用用户自定义调色板 |
-| Dashboard 隔离 | 不同 Dashboard 有独立颜色状态 |
+| `hooks/useChartColorConfig/colorSyncKeys.ts` | 系列名归一、从图表配置收集手配色、按 tile 顺序合并 |
+| `hooks/useChartColorConfig/useDashboardColorSyncMap.ts` | 预取全部同步图表的 `saved_query` |
+| `providers/DashboardChartColorSync/` | 看板级 context；编辑态开关可即时覆盖已保存配置 |
+| `VisualizationProvider.tsx` | `getSeriesColor` / `getGroupColor` 共用查找；hash 模式忽略当前图 metadata 顺序色 |
+| `hooks/useChartColorConfig/useChartColorConfig.tsx` | 仅保留纯函数 `getHashColor` |
 
----
+## 取舍
 
-## 实现内容
+- **换来的**：跨 Tab / 跨图表 / 筛选后，同系列颜色稳定
+- **放弃的**：按访问顺序拉开色差。两个不同系列仍可能手配成同色；哈希撞槽则在稳定集合上确定性避让，不再依赖谁先渲染
 
-### 步骤 1：改进哈希算法 ✅
+## 验证
 
-- 使用 FNV-1a 哈希算法（分布更均匀）
-- 扩展调色板：9色→72色（8个变体）
-
-### 步骤 2：添加色差计算函数 ✅
-
-- `colorDifference()` 计算两个颜色的欧氏距离
-- 阈值 MIN_COLOR_DIFF = 30
-
-### 步骤 3：全局颜色分配器 ✅
-
-- `globalColorAssignments` 按 dashboardUuid 隔离
-- `getGlobalHashColor()` 带色差检测和顺延逻辑
-
-### 步骤 4：传递 dashboardUuid ✅
-
-- `DashboardChartTile` 获取 `dashboardUuid`
-- 传递给 `VisualizationProvider`
-- 传递给 `useChartColorConfig`
-
----
-
-## 修改文件清单
-
-| 文件 | 修改内容 |
-|------|---------|
-| `useChartColorConfig.tsx` | 添加色差计算、全局分配器 |
-| `VisualizationProvider.tsx` | 接收 dashboardUuid，使用全局分配器 |
-| `DashboardChartTile.tsx` | 获取并传递 dashboardUuid |
-
----
-
-## 验证方式
-
-1. **跨图表一致**：不同图表相同维度值显示相同颜色
-2. **色差明显**：不同维度值颜色有明显视觉差异（如农夫山泉 vs 东鹏 vs 元气森林 vs 统一）
-3. **图表选择**：只对选中图表应用同步
-4. **筛选器切换**：相同维度值颜色保持不变
+1. 开启「同步图表颜色」后，先打开未访问过的 Tab，再对比柱图与饼图同名系列是否同色
+2. 改筛选后，已出现过的系列颜色不应被打乱
+3. 编辑态打开开关应立即生效，不必先保存
+4. `syncChartTileUuids` 为空时同步全部非 CUSTOM 图；非空时只同步勾选的 tile

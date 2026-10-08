@@ -12,17 +12,19 @@ import {
 import {
     addDashboardFiltersToMetricQuery,
     addFilterRule,
+    applyDefaultTileTargets,
+    backfillDashboardFilterRulesTileTargets,
     createFilterRuleFromModelRequiredFilterRule,
     findDefaultTileFilterField,
     getDashboardFilterRulesForTileAndReferences,
+    getVisibleFilterOperatorOptions,
     isFilterRuleInQuery,
     isTileFilterFieldAvailable,
     overrideChartFilter,
     reduceRequiredDimensionFiltersToFilterRules,
     resetRequiredFilterRules,
-    trackWhichTimeBasedMetricFiltersToOverride,
-    getVisibleFilterOperatorOptions,
     stripOverridesForLockedFiltersOnTab,
+    trackWhichTimeBasedMetricFiltersToOverride,
 } from './filters';
 import {
     chartAndFilterGroup,
@@ -608,6 +610,81 @@ describe('dashboard tile filter field matching', () => {
             ),
         ).toBe(false);
     });
+    test('applyDefaultTileTargets backfills missing tile UUIDs without overwriting false or existing maps', () => {
+        const available = {
+            'tile-existing': [targetProvince],
+            'tile-missing': [targetProvince],
+            'tile-disabled': [targetProvince],
+        };
+
+        const existingTarget = {
+            fieldId: 'ads_octopus_province_sales_province_name',
+            tableName: 'ads_octopus_province_sales',
+            fieldLabel: '省份',
+        };
+
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: undefined,
+            operator: FilterOperator.EQUALS,
+            values: ['x'],
+            target: {
+                fieldId: 'ads_chain_province_sales_province_name',
+                tableName: 'ads_chain_province_sales',
+            },
+            tileTargets: {
+                'tile-existing': existingTarget,
+                'tile-disabled': false,
+            },
+        };
+
+        const result = applyDefaultTileTargets(rule, sourceProvince, available);
+
+        expect(result.tileTargets?.['tile-existing']).toEqual(existingTarget);
+        expect(result.tileTargets?.['tile-disabled']).toBe(false);
+        expect(result.tileTargets?.['tile-missing']).toEqual(
+            expect.objectContaining({
+                fieldId: 'ads_octopus_province_sales_province_name',
+                tableName: 'ads_octopus_province_sales',
+            }),
+        );
+    });
+
+    test('backfillDashboardFilterRulesTileTargets resolves field and backfills', () => {
+        const available = {
+            'tile-a': [sourceProvince],
+            'tile-b': [targetProvince],
+        };
+
+        const rules: DashboardFilterRule[] = [
+            {
+                id: 'filter-1',
+                label: undefined,
+                operator: FilterOperator.EQUALS,
+                values: ['x'],
+                target: {
+                    fieldId: 'ads_chain_province_sales_province_name',
+                    tableName: 'ads_chain_province_sales',
+                },
+                tileTargets: {
+                    'tile-a': {
+                        fieldId: 'ads_chain_province_sales_province_name',
+                        tableName: 'ads_chain_province_sales',
+                    },
+                },
+            },
+        ];
+
+        const result = backfillDashboardFilterRulesTileTargets(
+            rules,
+            available,
+        );
+
+        expect(result[0].tileTargets?.['tile-a']).toBeDefined();
+        expect(result[0].tileTargets?.['tile-b']).toMatchObject({
+            tableName: 'ads_octopus_province_sales',
+        });
+    });
 });
 
 describe('getVisibleFilterOperatorOptions', () => {
@@ -626,9 +703,7 @@ describe('getVisibleFilterOperatorOptions', () => {
                 true,
                 FilterOperator.IN_BETWEEN,
             ),
-        ).toEqual([
-            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
-        ]);
+        ).toEqual([{ value: FilterOperator.IN_BETWEEN, label: 'Is between' }]);
     });
 
     test('does not keep disallowed current operator in edit mode', () => {
@@ -639,9 +714,7 @@ describe('getVisibleFilterOperatorOptions', () => {
                 true,
                 FilterOperator.EQUALS,
             ),
-        ).toEqual([
-            { value: FilterOperator.IN_BETWEEN, label: 'Is between' },
-        ]);
+        ).toEqual([{ value: FilterOperator.IN_BETWEEN, label: 'Is between' }]);
     });
 
     test('returns all options in edit mode when allowedOperators is empty', () => {

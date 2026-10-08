@@ -49,8 +49,8 @@ import {
     QueryExecutionContext,
     resolveDefaultVisibleDataAppClaudeModel,
     sanitizeAppPackageJsonScripts,
+    splitDataAppUploadFiles,
     themeLimitMessage,
-    TooManyRequestsError,
     validateDataAppCode,
     validateDataAppDependencies,
     type Account,
@@ -70,7 +70,6 @@ import {
     type AppVersionResources,
     type AppVersionStatusHistoryEntry,
     type AppVersionStatusHistoryEntryKind,
-    type ChartConfig,
     type ChartReference,
     type ChartSampleData,
     type CompiledExploreJoin,
@@ -104,7 +103,6 @@ import {
     type KnexPaginateArgs,
     type KnexPaginatedData,
     type LightdashProjectParameter,
-    type MetricQuery,
     type ModelRequiredFilterRule,
     type MyAppsSortBy,
     type PersistedDataAppDataReferences,
@@ -212,12 +210,7 @@ import {
     type DataAppProjectContext,
 } from './appAuthz';
 import { getBundleServableChecker } from './appBundleStorage';
-import {
-    buildManifest,
-    contentTypeForPath,
-    s3KeyToRelPath,
-    versionPrefix,
-} from './appCode';
+import { buildManifest, contentTypeForPath, versionPrefix } from './appCode';
 import {
     contextFile,
     promptHistoryToMarkdown,
@@ -671,6 +664,33 @@ export class AppGenerateService extends BaseService {
                 );
             })
         );
+    }
+
+    /**
+     * Manual upload is admin-only: org/project manage:DataApp with no
+     * space, createdBy, or preview-project conditions. Editors have
+     * create:DataApp and creators have manage on their own apps; neither
+     * is enough to upload or overwrite a package.
+     */
+    private assertAdminCanUploadDataApp(
+        user: SessionUser,
+        organizationUuid: string,
+        projectUuid: string,
+    ): void {
+        const auditedAbility = this.createAuditedAbility(user);
+        const canOrgAdmin = auditedAbility.can(
+            'manage',
+            subject('DataApp', { organizationUuid }),
+        );
+        const canProjectAdmin = auditedAbility.can(
+            'manage',
+            subject('DataApp', { projectUuid }),
+        );
+        if (!canOrgAdmin && !canProjectAdmin) {
+            throw new ForbiddenError(
+                'Only project or organization admins can upload data apps',
+            );
+        }
     }
 
     /**
@@ -1624,7 +1644,11 @@ export class AppGenerateService extends BaseService {
             return app.template;
         } catch (error) {
             this.logger.warn(
-                `App ${payload.appUuid}: could not read template for effort telemetry: ${getErrorMessage(error)}`,
+                `App ${
+                    payload.appUuid
+                }: could not read template for effort telemetry: ${getErrorMessage(
+                    error,
+                )}`,
             );
             return null;
         }
@@ -2030,7 +2054,9 @@ export class AppGenerateService extends BaseService {
 
     private static truncateEnd(text: string, maxLength: number): string {
         if (text.length <= maxLength) return text;
-        return `...[truncated ${text.length - maxLength} chars]...${text.slice(-maxLength)}`;
+        return `...[truncated ${text.length - maxLength} chars]...${text.slice(
+            -maxLength,
+        )}`;
     }
 
     private static elapsed(start: number): number {
@@ -2109,7 +2135,11 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${payload.appUuid}: failed to record generation usage for version ${payload.version}: ${getErrorMessage(error)}`,
+                `App ${
+                    payload.appUuid
+                }: failed to record generation usage for version ${
+                    payload.version
+                }: ${getErrorMessage(error)}`,
             );
         }
     }
@@ -2139,7 +2169,7 @@ export class AppGenerateService extends BaseService {
         const codingAgentModel =
             telemetry.codingAgentModel ??
             (codingAgent === 'codex'
-                ? (payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL)
+                ? payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL
                 : claudeModel);
 
         if (
@@ -2242,7 +2272,9 @@ export class AppGenerateService extends BaseService {
             return updated;
         } catch (dbError) {
             this.logger.error(
-                `App ${appUuid}: failed to persist error status: ${getErrorMessage(dbError)}`,
+                `App ${appUuid}: failed to persist error status: ${getErrorMessage(
+                    dbError,
+                )}`,
             );
             return false;
         }
@@ -2327,7 +2359,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to suspend sandbox (sandboxId=${sandbox.sandboxId}, sandboxUuid=${sandboxUuid}): ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to suspend sandbox (sandboxId=${
+                    sandbox.sandboxId
+                }, sandboxUuid=${sandboxUuid}): ${getErrorMessage(error)}`,
             );
         }
     }
@@ -2515,7 +2549,9 @@ export class AppGenerateService extends BaseService {
                 };
             } catch (error) {
                 this.logger.warn(
-                    `App ${appUuid}: sandbox resume failed, falling back to new sandbox: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: sandbox resume failed, falling back to new sandbox: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
             }
         }
@@ -2594,7 +2630,9 @@ export class AppGenerateService extends BaseService {
             }
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: could not carry the Claude session over the upgrade: ${getErrorMessage(error)}`,
+                `App ${appUuid}: could not carry the Claude session over the upgrade: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
         try {
@@ -2603,12 +2641,16 @@ export class AppGenerateService extends BaseService {
             });
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to destroy the old sandbox on upgrade: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to destroy the old sandbox on upgrade: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
         await this.appModel.updateSandboxUuid(appUuid, null);
         this.logger.info(
-            `App ${appUuid}: upgrade cold-start prepared (sessionCarried=${sessionTar !== null})`,
+            `App ${appUuid}: upgrade cold-start prepared (sessionCarried=${
+                sessionTar !== null
+            })`,
         );
         return sessionTar;
     }
@@ -2630,7 +2672,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to restore the Claude session into the new sandbox: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to restore the Claude session into the new sandbox: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -2730,7 +2774,11 @@ export class AppGenerateService extends BaseService {
             JSON.stringify(blueprint, null, 2),
         );
         this.logger.info(
-            `App ${appUuid}: wrote dashboard blueprint for "${blueprint.name}" (${describeDashboardBlueprint(blueprint)}) to ${DASHBOARD_BLUEPRINT_PATH}`,
+            `App ${appUuid}: wrote dashboard blueprint for "${
+                blueprint.name
+            }" (${describeDashboardBlueprint(
+                blueprint,
+            )}) to ${DASHBOARD_BLUEPRINT_PATH}`,
         );
         return dashboardBlueprintPromptBlock(blueprint);
     }
@@ -2805,7 +2853,11 @@ export class AppGenerateService extends BaseService {
                 fileContent,
             );
             fileEntries.push(
-                `- /tmp/external-data/${doc.alias}.json — connection "${doc.alias}" (${doc.allowedMethods.join('/')}; ${doc.samples.length} example(s))`,
+                `- /tmp/external-data/${doc.alias}.json — connection "${
+                    doc.alias
+                }" (${doc.allowedMethods.join('/')}; ${
+                    doc.samples.length
+                } example(s))`,
             );
         }
 
@@ -2897,8 +2949,9 @@ export class AppGenerateService extends BaseService {
         // Project-level parameters are global (not attached to any one explore)
         // and live in lightdash.config.yml — the location skill.md already tells
         // the agent to look. Write them there so `.parameters()` is usable.
-        const globalParameters =
-            await this.projectParametersModel.find(projectUuid);
+        const globalParameters = await this.projectParametersModel.find(
+            projectUuid,
+        );
         const configYaml =
             AppGenerateService.projectParametersToConfigYaml(globalParameters);
 
@@ -2953,8 +3006,9 @@ export class AppGenerateService extends BaseService {
         // Linked external connections: write an API-doc file per connection into
         // the sandbox and prepend a listing to the prompt so Claude knows what
         // APIs the app can call.
-        const externalLinks =
-            await this.resolveExternalConnectionSamples(appUuid);
+        const externalLinks = await this.resolveExternalConnectionSamples(
+            appUuid,
+        );
         if (externalLinks.length > 0) {
             const externalBlock = await this.writeExternalConnectionSamples(
                 sandbox,
@@ -3021,7 +3075,9 @@ export class AppGenerateService extends BaseService {
         }
 
         if (this.dataAppCodingAgent === 'codex') {
-            finalPrompt = `${codexSkillDirective(isDataAppViz)}\n\n${finalPrompt}`;
+            finalPrompt = `${codexSkillDirective(
+                isDataAppViz,
+            )}\n\n${finalPrompt}`;
         }
 
         // Write only the latest prompt — Claude is stateless between runs, but
@@ -3130,7 +3186,10 @@ export class AppGenerateService extends BaseService {
                     // carry no filename metadata — synthesize one.
                     filename:
                         filename ??
-                        `file-${fileId.slice(0, 8)}.${AppGenerateService.mimeToExt(mimeType)}`,
+                        `file-${fileId.slice(
+                            0,
+                            8,
+                        )}.${AppGenerateService.mimeToExt(mimeType)}`,
                     isImage:
                         AppGenerateService.RASTER_IMAGE_TYPES.includes(
                             mimeType,
@@ -3607,16 +3666,28 @@ export class AppGenerateService extends BaseService {
             onTelemetry?.(telemetry);
             const durationMs = AppGenerateService.elapsed(start);
             this.logger.info(
-                `App ${appUuid}: Claude code generation completed (model=${claudeModel}, effort=${claudeEffort}, exit=${result.exitCode}, toolCalls=${toolCallCount}, turns=${usage?.numTurns ?? 0}, outputTokens=${usage?.outputTokens ?? 0}, cacheReadTokens=${usage?.cacheReadInputTokens ?? 0}, ${durationMs}ms, attempt ${attempt}/${AppGenerateService.MAX_GENERATION_ATTEMPTS})`,
+                `App ${appUuid}: Claude code generation completed (model=${claudeModel}, effort=${claudeEffort}, exit=${
+                    result.exitCode
+                }, toolCalls=${toolCallCount}, turns=${
+                    usage?.numTurns ?? 0
+                }, outputTokens=${usage?.outputTokens ?? 0}, cacheReadTokens=${
+                    usage?.cacheReadInputTokens ?? 0
+                }, ${durationMs}ms, attempt ${attempt}/${
+                    AppGenerateService.MAX_GENERATION_ATTEMPTS
+                })`,
             );
             this.logger.info(
-                `App ${appUuid}: claude turn timeline (ttft=${timeToFirstTokenMs ?? 'n/a'}ms, turnsMs=[${turnDurationsMs.join(', ')}])`,
+                `App ${appUuid}: claude turn timeline (ttft=${
+                    timeToFirstTokenMs ?? 'n/a'
+                }ms, turnsMs=[${turnDurationsMs.join(', ')}])`,
             );
 
             if (result.exitCode === 0) {
                 if (attempt > 1) {
                     this.logger.info(
-                        `App ${appUuid}: Claude generation recovered after ${attempt - 1} retry(ies)`,
+                        `App ${appUuid}: Claude generation recovered after ${
+                            attempt - 1
+                        } retry(ies)`,
                     );
                 }
                 return {
@@ -3662,9 +3733,9 @@ export class AppGenerateService extends BaseService {
                 );
                 // Prefer the CLI's human-readable error over stderr, which is
                 // usually empty in stream-json mode.
-                const message = `Claude generation failed (exit ${result.exitCode}): ${
-                    classification.providerDetail ?? result.stderr
-                }`;
+                const message = `Claude generation failed (exit ${
+                    result.exitCode
+                }): ${classification.providerDetail ?? result.stderr}`;
                 throw new ClaudeGenerationError({
                     message,
                     userMessage: classification.userMessage,
@@ -3843,7 +3914,15 @@ export class AppGenerateService extends BaseService {
             onTelemetry?.(telemetry);
             const durationMs = AppGenerateService.elapsed(start);
             this.logger.info(
-                `App ${appUuid}: Codex generation completed (model=${codexEnv.DATA_APP_CODEX_MODEL}, effort=${reasoningEffort}, exit=${result.exitCode}, toolCalls=${toolCallCount}, outputTokens=${usage?.outputTokens ?? 0}, ${durationMs}ms, attempt ${attempt}/${AppGenerateService.MAX_GENERATION_ATTEMPTS})`,
+                `App ${appUuid}: Codex generation completed (model=${
+                    codexEnv.DATA_APP_CODEX_MODEL
+                }, effort=${reasoningEffort}, exit=${
+                    result.exitCode
+                }, toolCalls=${toolCallCount}, outputTokens=${
+                    usage?.outputTokens ?? 0
+                }, ${durationMs}ms, attempt ${attempt}/${
+                    AppGenerateService.MAX_GENERATION_ATTEMPTS
+                })`,
             );
 
             if (result.exitCode === 0) {
@@ -3853,7 +3932,9 @@ export class AppGenerateService extends BaseService {
                         structuredOutput = JSON.parse(responseText);
                     } catch (error) {
                         this.logger.warn(
-                            `App ${appUuid}: Codex returned invalid structured output; leaving viz_schema null: ${getErrorMessage(error)}`,
+                            `App ${appUuid}: Codex returned invalid structured output; leaving viz_schema null: ${getErrorMessage(
+                                error,
+                            )}`,
                         );
                     }
                 }
@@ -3885,7 +3966,9 @@ export class AppGenerateService extends BaseService {
                     `App ${appUuid}: Codex stdout (tail): ${stdoutTail}`,
                 );
                 throw new Error(
-                    `Codex generation failed (exit ${result.exitCode}): ${stderrTail || stdoutTail}`,
+                    `Codex generation failed (exit ${result.exitCode}): ${
+                        stderrTail || stdoutTail
+                    }`,
                 );
             }
 
@@ -3956,7 +4039,9 @@ export class AppGenerateService extends BaseService {
             .recordBuildNarration(appUuid, version, message, kind)
             .catch((e) => {
                 this.logger.warn(
-                    `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                    `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                        e,
+                    )}`,
                 );
             });
     }
@@ -3976,10 +4061,9 @@ export class AppGenerateService extends BaseService {
         projectUuid: string,
         userUuid: string,
     ): Promise<{ name: string | null; description: string }> {
-        const copilot =
-            await this.orgAiCopilotConfigResolver.getCopilotConfig(
-                organizationUuid,
-            );
+        const copilot = await this.orgAiCopilotConfigResolver.getCopilotConfig(
+            organizationUuid,
+        );
         let modelOptions;
         try {
             modelOptions =
@@ -3989,7 +4073,9 @@ export class AppGenerateService extends BaseService {
                 );
         } catch (err) {
             this.logger.info(
-                `App ${appUuid}: skipping auto-name — no LLM provider configured (${getErrorMessage(err)})`,
+                `App ${appUuid}: skipping auto-name — no LLM provider configured (${getErrorMessage(
+                    err,
+                )})`,
             );
             return { name: null, description: '' };
         }
@@ -4164,7 +4250,9 @@ export class AppGenerateService extends BaseService {
                     isBuildError
                         ? `build failed (exit ${lastResult.exitCode})`
                         : 'app renders the placeholder'
-                }, asking Claude to fix (attempt ${fixAttempts}/${AppGenerateService.MAX_BUILD_FIX_ATTEMPTS})`,
+                }, asking Claude to fix (attempt ${fixAttempts}/${
+                    AppGenerateService.MAX_BUILD_FIX_ATTEMPTS
+                })`,
             );
 
             try {
@@ -4176,7 +4264,9 @@ export class AppGenerateService extends BaseService {
                 );
             } catch (e) {
                 this.logger.warn(
-                    `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                    `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                        e,
+                    )}`,
                 );
             }
 
@@ -4249,7 +4339,9 @@ export class AppGenerateService extends BaseService {
                 );
             } catch (e) {
                 this.logger.warn(
-                    `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                    `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                        e,
+                    )}`,
                 );
             }
 
@@ -4337,7 +4429,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (e) {
             this.logger.warn(
-                `App ${appUuid}: blank-app guard failed to run, skipping: ${getErrorMessage(e)}`,
+                `App ${appUuid}: blank-app guard failed to run, skipping: ${getErrorMessage(
+                    e,
+                )}`,
             );
             return null;
         }
@@ -4415,9 +4509,38 @@ export class AppGenerateService extends BaseService {
         const durationMs = AppGenerateService.elapsed(start);
         const totalBytes = distResult.totalBytes + sourceTar.length;
         this.logger.info(
-            `App ${appUuid}: S3 upload completed (files=${distResult.fileCount + 1}, totalBytes=${totalBytes}, ${durationMs}ms)`,
+            `App ${appUuid}: S3 upload completed (files=${
+                distResult.fileCount + 1
+            }, totalBytes=${totalBytes}, ${durationMs}ms)`,
         );
         return durationMs;
+    }
+
+    private async uploadPrebuiltDistToS3(
+        s3Client: S3Client,
+        bucket: string,
+        appUuid: string,
+        version: number,
+        distFiles: DataAppCodeFile[],
+    ): Promise<void> {
+        const s3Prefix = versionPrefix(appUuid, version);
+        await Promise.all(
+            distFiles.map(async (file) => {
+                const relativePath = file.path.replace(/^dist\//, '');
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: bucket,
+                        Key: `${s3Prefix}${relativePath}`,
+                        Body: Buffer.from(file.contentBase64, 'base64'),
+                        ContentType:
+                            AppGenerateService.getContentType(relativePath),
+                    }),
+                );
+            }),
+        );
+        this.logger.info(
+            `App ${appUuid}: uploaded prebuilt dist (${distFiles.length} files) for version ${version}`,
+        );
     }
 
     private static shouldRunStage(
@@ -4487,7 +4610,9 @@ export class AppGenerateService extends BaseService {
             await this.authorizePipelineExecution(payload);
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: pipeline authorization failed for user ${payload.userUuid} on version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: pipeline authorization failed for user ${
+                    payload.userUuid
+                } on version ${version}: ${getErrorMessage(error)}`,
             );
             const marked = await this.markError(
                 appUuid,
@@ -4573,9 +4698,11 @@ export class AppGenerateService extends BaseService {
         this.logger.info(
             `App ${appUuid}: pipeline started (version=${version}, status=${currentStatus}, isIteration=${isIteration}, model=${
                 this.dataAppCodingAgent === 'codex'
-                    ? (payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL)
-                    : (payload.claudeModel ?? DEFAULT_DATA_APP_CLAUDE_MODEL)
-            }, designUuid=${payload.designUuid ?? 'none'}, llm=${this.describeCodingAgentEnv(codingAgentEnv)})`,
+                    ? payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL
+                    : payload.claudeModel ?? DEFAULT_DATA_APP_CLAUDE_MODEL
+            }, designUuid=${
+                payload.designUuid ?? 'none'
+            }, llm=${this.describeCodingAgentEnv(codingAgentEnv)})`,
         );
 
         // --- Stage: sandbox ---
@@ -4732,7 +4859,9 @@ export class AppGenerateService extends BaseService {
                 .touchVersionIfInProgress(appUuid, version)
                 .catch((e) => {
                     this.logger.warn(
-                        `App ${appUuid}: heartbeat failed: ${getErrorMessage(e)}`,
+                        `App ${appUuid}: heartbeat failed: ${getErrorMessage(
+                            e,
+                        )}`,
                     );
                 });
         }, HEARTBEAT_INTERVAL_MS);
@@ -4762,8 +4891,8 @@ export class AppGenerateService extends BaseService {
                         'app.coding_agent_model':
                             this.dataAppCodingAgent === 'codex'
                                 ? codingAgentEnv.DATA_APP_CODEX_MODEL
-                                : (payload.claudeModel ??
-                                  DEFAULT_DATA_APP_CLAUDE_MODEL),
+                                : payload.claudeModel ??
+                                  DEFAULT_DATA_APP_CLAUDE_MODEL,
                         'app.coding_agent_provider':
                             this.getCodingAgentProvider(codingAgentEnv),
                         ...(process.env.LIGHTDASH_INSTALL_ID
@@ -4835,7 +4964,7 @@ export class AppGenerateService extends BaseService {
         const claudeProvider = this.getCodingAgentProvider(codingAgentEnv);
         const codingAgentModel: DataAppCodingAgentModel =
             this.dataAppCodingAgent === 'codex'
-                ? (payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL)
+                ? payload.codexModel ?? DEFAULT_DATA_APP_CODEX_MODEL
                 : claudeModel;
         const claudeKeyManagement = resolveKeyManagement(
             copilot,
@@ -4882,7 +5011,9 @@ export class AppGenerateService extends BaseService {
                 .catch((error) => {
                     // Non-fatal — the app works fine without a name
                     this.logger.warn(
-                        `App ${appUuid}: failed to auto-generate name: ${getErrorMessage(error)}`,
+                        `App ${appUuid}: failed to auto-generate name: ${getErrorMessage(
+                            error,
+                        )}`,
                     );
                     return AppGenerateService.elapsed(metadataStart);
                 });
@@ -5049,7 +5180,9 @@ export class AppGenerateService extends BaseService {
             } catch (error) {
                 const totalMs = AppGenerateService.elapsed(overallStart);
                 this.logger.error(
-                    `App ${appUuid}: catalog failed after ${totalMs}ms: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: catalog failed after ${totalMs}ms: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
                 const marked = await this.markError(
                     appUuid,
@@ -5124,7 +5257,9 @@ export class AppGenerateService extends BaseService {
                     AppGenerateService.elapsed(generationStart);
                 const totalMs = AppGenerateService.elapsed(overallStart);
                 this.logger.error(
-                    `App ${appUuid}: generation failed after ${totalMs}ms: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: generation failed after ${totalMs}ms: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
                 // Prefer a classified upstream-API message (quota / spend
                 // limit / rate-limit / auth / overloaded). For unclassified
@@ -5202,7 +5337,9 @@ export class AppGenerateService extends BaseService {
                         );
                     } catch (e) {
                         this.logger.warn(
-                            `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                            `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                                e,
+                            )}`,
                         );
                     }
                     try {
@@ -5223,7 +5360,9 @@ export class AppGenerateService extends BaseService {
                             `App ${appUuid}: dep install failed after ${totalMs}ms`,
                         );
                         this.logger.debug(
-                            `App ${appUuid}: dep install failure detail: ${getErrorMessage(installError)}`,
+                            `App ${appUuid}: dep install failure detail: ${getErrorMessage(
+                                installError,
+                            )}`,
                         );
                         const marked = await this.markError(
                             appUuid,
@@ -5253,7 +5392,9 @@ export class AppGenerateService extends BaseService {
                         );
                     } catch (e) {
                         this.logger.warn(
-                            `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                            `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                                e,
+                            )}`,
                         );
                     }
                 }
@@ -5290,7 +5431,9 @@ export class AppGenerateService extends BaseService {
             } catch (error) {
                 const totalMs = AppGenerateService.elapsed(overallStart);
                 this.logger.error(
-                    `App ${appUuid}: build failed after ${totalMs}ms: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: build failed after ${totalMs}ms: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
                 // Auto-fix runs Claude too — a classified upstream failure
                 // there (quota, spend limit, auth) is not a compile problem.
@@ -5345,7 +5488,9 @@ export class AppGenerateService extends BaseService {
             } catch (error) {
                 const totalMs = AppGenerateService.elapsed(overallStart);
                 this.logger.error(
-                    `App ${appUuid}: deploy failed after ${totalMs}ms: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: deploy failed after ${totalMs}ms: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
                 const marked = await this.markError(
                     appUuid,
@@ -5386,7 +5531,7 @@ export class AppGenerateService extends BaseService {
                 'ready',
                 null,
                 isDataAppViz
-                    ? (payload.upgradeStatusMessage ?? 'Visualization ready')
+                    ? payload.upgradeStatusMessage ?? 'Visualization ready'
                     : responseText,
             );
             durations.dbMs = AppGenerateService.elapsed(dbStart);
@@ -5398,7 +5543,9 @@ export class AppGenerateService extends BaseService {
             }
         } catch (error) {
             this.logger.error(
-                `App ${appUuid}: failed to mark version as ready: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to mark version as ready: ${getErrorMessage(
+                    error,
+                )}`,
             );
             const marked = await this.markError(
                 appUuid,
@@ -5427,13 +5574,21 @@ export class AppGenerateService extends BaseService {
             durations.metadataMs = await metadataPromise;
         }
         this.logger.info(
-            `App ${appUuid}: generation completed successfully in ${totalMs}ms (agent=${this.dataAppCodingAgent}, model=${codingAgentModel}, ${Object.entries(
-                durations,
-            )
+            `App ${appUuid}: generation completed successfully in ${totalMs}ms (agent=${
+                this.dataAppCodingAgent
+            }, model=${codingAgentModel}, ${Object.entries(durations)
                 .map(([k, v]) => `${k}=${v}ms`)
                 .join(
                     ', ',
-                )}, generationAttempts=${generationAttemptCount}, numTurns=${generationUsage.numTurns}, inputTokens=${generationUsage.inputTokens}, outputTokens=${generationUsage.outputTokens}, cacheReadTokens=${generationUsage.cacheReadInputTokens}, cacheCreationTokens=${generationUsage.cacheCreationInputTokens}, costUsd=${generationUsage.costUsd})`,
+                )}, generationAttempts=${generationAttemptCount}, numTurns=${
+                generationUsage.numTurns
+            }, inputTokens=${generationUsage.inputTokens}, outputTokens=${
+                generationUsage.outputTokens
+            }, cacheReadTokens=${
+                generationUsage.cacheReadInputTokens
+            }, cacheCreationTokens=${
+                generationUsage.cacheCreationInputTokens
+            }, costUsd=${generationUsage.costUsd})`,
         );
 
         // Aggregated across every `claude` CLI invocation in the pipeline. The
@@ -5634,7 +5789,9 @@ export class AppGenerateService extends BaseService {
             return { status: 'available', rows, truncated };
         } catch (error) {
             this.logger.warn(
-                `Sample query failed for chart ${chartUuid}: ${getErrorMessage(error)}`,
+                `Sample query failed for chart ${chartUuid}: ${getErrorMessage(
+                    error,
+                )}`,
             );
             return {
                 status: 'unavailable',
@@ -5799,10 +5956,9 @@ export class AppGenerateService extends BaseService {
             throw new ParameterError('Prompt is required');
         }
 
-        const copilot =
-            await this.orgAiCopilotConfigResolver.getCopilotConfig(
-                organizationUuid,
-            );
+        const copilot = await this.orgAiCopilotConfigResolver.getCopilotConfig(
+            organizationUuid,
+        );
 
         let modelOptions;
         try {
@@ -5813,7 +5969,9 @@ export class AppGenerateService extends BaseService {
                 );
         } catch (err) {
             this.logger.info(
-                `Skipping app clarification: no LLM provider configured (${getErrorMessage(err)})`,
+                `Skipping app clarification: no LLM provider configured (${getErrorMessage(
+                    err,
+                )})`,
             );
             return { questions: [] };
         }
@@ -5917,7 +6075,11 @@ export class AppGenerateService extends BaseService {
             });
         } catch (err) {
             this.logger.warn(
-                `App clarify failed after ${AppGenerateService.elapsed(start)}ms (project=${projectUuid}, template=${template ?? 'custom'}, llm=${llmProvider}): ${getErrorMessage(err)}`,
+                `App clarify failed after ${AppGenerateService.elapsed(
+                    start,
+                )}ms (project=${projectUuid}, template=${
+                    template ?? 'custom'
+                }, llm=${llmProvider}): ${getErrorMessage(err)}`,
             );
             return { questions: [] };
         }
@@ -5930,7 +6092,11 @@ export class AppGenerateService extends BaseService {
             .slice(0, 4);
 
         this.logger.info(
-            `App clarify: ${questions.length} question(s) in ${elapsedMs}ms (project=${projectUuid}, template=${template ?? 'custom'}, llm=${llmProvider})`,
+            `App clarify: ${
+                questions.length
+            } question(s) in ${elapsedMs}ms (project=${projectUuid}, template=${
+                template ?? 'custom'
+            }, llm=${llmProvider})`,
         );
 
         return { questions };
@@ -5976,7 +6142,9 @@ export class AppGenerateService extends BaseService {
                 for (const uuid of result.chartUuids) uuids.add(uuid);
             } catch (error) {
                 this.logger.warn(
-                    `Clarifier: dashboard ${dashboard.uuid} could not be resolved: ${getErrorMessage(error)}`,
+                    `Clarifier: dashboard ${
+                        dashboard.uuid
+                    } could not be resolved: ${getErrorMessage(error)}`,
                 );
             }
         }
@@ -6030,7 +6198,9 @@ export class AppGenerateService extends BaseService {
             // The clarifier only sees ids — file types live on the staged S3
             // objects — so keep the wording type-agnostic.
             lines.push(
-                `- ${fileCount} file${fileCount === 1 ? '' : 's'} attached (design references or documents)`,
+                `- ${fileCount} file${
+                    fileCount === 1 ? '' : 's'
+                } attached (design references or documents)`,
             );
         }
         return lines.join('\n');
@@ -6045,8 +6215,9 @@ export class AppGenerateService extends BaseService {
     private async buildCatalogSummaryForClarifier(
         projectUuid: string,
     ): Promise<string> {
-        const items =
-            await this.catalogModel.getCatalogItemsSummary(projectUuid);
+        const items = await this.catalogModel.getCatalogItemsSummary(
+            projectUuid,
+        );
         const byTable = new Map<
             string,
             { dimensions: string[]; metrics: string[] }
@@ -6183,9 +6354,9 @@ export class AppGenerateService extends BaseService {
         );
 
         this.logger.info(
-            `App ${appUuid}: generation started (model=${codingAgentModel}, promptLength=${prompt.length}, clarifications=${
-                clarifications?.length ?? 0
-            })`,
+            `App ${appUuid}: generation started (model=${codingAgentModel}, promptLength=${
+                prompt.length
+            }, clarifications=${clarifications?.length ?? 0})`,
         );
 
         const { refs, dashboardName, dashboardBlueprint } =
@@ -6217,8 +6388,9 @@ export class AppGenerateService extends BaseService {
         let resolvedDesignUuid: string | null = null;
         let designSnapshot: AppVersionResources['design'] = null;
         if (designUuidInput === undefined) {
-            const orgDefault =
-                await this.organizationDesignModel.getDefault(organizationUuid);
+            const orgDefault = await this.organizationDesignModel.getDefault(
+                organizationUuid,
+            );
             if (orgDefault) {
                 AppGenerateService.assertThemeWithinLimits(orgDefault);
                 resolvedDesignUuid = orgDefault.designUuid;
@@ -6279,7 +6451,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.error(
-                `App ${appUuid}: failed to create app record: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to create app record: ${getErrorMessage(
+                    error,
+                )}`,
             );
             throw error;
         }
@@ -6413,10 +6587,12 @@ export class AppGenerateService extends BaseService {
         const newVersion = (latestVersion?.version ?? 0) + 1;
         const claudeEffort = resolveClaudeEffort(newVersion, app.template);
         this.logger.info(
-            `App ${appUuid}: iteration started (version=${newVersion}, model=${codingAgentModel}, promptLength=${prompt.length}, designUuidInput=${
+            `App ${appUuid}: iteration started (version=${newVersion}, model=${codingAgentModel}, promptLength=${
+                prompt.length
+            }, designUuidInput=${
                 designUuidInput === undefined
                     ? 'inherit'
-                    : (designUuidInput ?? 'none')
+                    : designUuidInput ?? 'none'
             })`,
         );
 
@@ -6576,8 +6752,9 @@ export class AppGenerateService extends BaseService {
         if (!latestDependencies) return undefined;
         const { client, bucket } = this.getS3Client();
         const toPrefix = versionPrefix(appUuid, newVersion);
-        const candidates =
-            await this.appModel.getVersionsWithDependencies(appUuid);
+        const candidates = await this.appModel.getVersionsWithDependencies(
+            appUuid,
+        );
         let copied = false;
         for (const candidate of candidates) {
             const fromPrefix = versionPrefix(appUuid, candidate.version);
@@ -6598,7 +6775,9 @@ export class AppGenerateService extends BaseService {
                 break;
             } catch (err) {
                 this.logger.warn(
-                    `App ${appUuid}: dependency files missing for version ${candidate.version}, trying an earlier version (${getErrorMessage(err)})`,
+                    `App ${appUuid}: dependency files missing for version ${
+                        candidate.version
+                    }, trying an earlier version (${getErrorMessage(err)})`,
                 );
             }
         }
@@ -6766,7 +6945,7 @@ export class AppGenerateService extends BaseService {
             undefined,
             carriedDependencies,
             app.template === DATA_APP_VIZ_TEMPLATE
-                ? (latestReady.viz_schema ?? undefined)
+                ? latestReady.viz_schema ?? undefined
                 : undefined,
         );
 
@@ -7129,7 +7308,9 @@ export class AppGenerateService extends BaseService {
             claudeCodeEnv = AppGenerateService.getClaudeCodeEnv(copilot);
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: skipping restore FYI — ${getErrorMessage(error)}`,
+                `App ${appUuid}: skipping restore FYI — ${getErrorMessage(
+                    error,
+                )}`,
             );
             return;
         }
@@ -7160,7 +7341,16 @@ export class AppGenerateService extends BaseService {
                 // sandbox hasn't generated anything before this restore).
                 // Best-effort: log and move on.
                 this.logger.warn(
-                    `App ${appUuid}: restore FYI to Claude failed (exit ${result.exitCode}): ${AppGenerateService.truncateEnd(redactSandboxEnvSecrets(result.stderr, claudeCodeEnv, CLAUDE_CODE_SECRET_ENV_KEYS), 500)}`,
+                    `App ${appUuid}: restore FYI to Claude failed (exit ${
+                        result.exitCode
+                    }): ${AppGenerateService.truncateEnd(
+                        redactSandboxEnvSecrets(
+                            result.stderr,
+                            claudeCodeEnv,
+                            CLAUDE_CODE_SECRET_ENV_KEYS,
+                        ),
+                        500,
+                    )}`,
                 );
                 return;
             }
@@ -7169,7 +7359,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: restore FYI to Claude errored: ${getErrorMessage(error)}`,
+                `App ${appUuid}: restore FYI to Claude errored: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -7207,7 +7399,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (cleanupError) {
             this.logger.warn(
-                `App ${appUuid}: failed to clean up ${keys.length} orphaned restore object(s): ${getErrorMessage(cleanupError)}`,
+                `App ${appUuid}: failed to clean up ${
+                    keys.length
+                } orphaned restore object(s): ${getErrorMessage(cleanupError)}`,
             );
         }
     }
@@ -7859,14 +8053,16 @@ export class AppGenerateService extends BaseService {
         previewProjectUuid: string,
         spaceMapping: { sourceSpaceUuid: string; previewSpaceUuid: string }[],
     ): Promise<void> {
-        const sourceApps =
-            await this.appModel.listAppsByProject(sourceProjectUuid);
+        const sourceApps = await this.appModel.listAppsByProject(
+            sourceProjectUuid,
+        );
         if (sourceApps.length === 0) {
             return;
         }
 
-        const previewProject =
-            await this.projectModel.getSummary(previewProjectUuid);
+        const previewProject = await this.projectModel.getSummary(
+            previewProjectUuid,
+        );
         const previewSpaceBySource = new Map(
             spaceMapping.map((s) => [s.sourceSpaceUuid, s.previewSpaceUuid]),
         );
@@ -7979,7 +8175,7 @@ export class AppGenerateService extends BaseService {
         // shouldn't happen (all spaces are copied first) but falls back to a
         // personal app rather than failing the copy.
         const previewSpaceUuid = sourceApp.space_uuid
-            ? (previewSpaceBySource.get(sourceApp.space_uuid) ?? null)
+            ? previewSpaceBySource.get(sourceApp.space_uuid) ?? null
             : null;
         if (sourceApp.space_uuid && !previewSpaceUuid) {
             this.logger.warn(
@@ -8074,7 +8270,9 @@ export class AppGenerateService extends BaseService {
                 copiedKeys,
             );
             this.logger.error(
-                `Preview duplication: failed to copy app ${sourceApp.app_id} into preview ${previewProjectUuid}: ${getErrorMessage(
+                `Preview duplication: failed to copy app ${
+                    sourceApp.app_id
+                } into preview ${previewProjectUuid}: ${getErrorMessage(
                     error,
                 )}`,
             );
@@ -8163,7 +8361,9 @@ export class AppGenerateService extends BaseService {
                         } catch (error) {
                             // Best-effort — the suspend must still happen.
                             this.logger.warn(
-                                `App ${appUuid}: failed to interrupt claude before suspend: ${getErrorMessage(error)}`,
+                                `App ${appUuid}: failed to interrupt claude before suspend: ${getErrorMessage(
+                                    error,
+                                )}`,
                             );
                         }
                     },
@@ -8174,7 +8374,9 @@ export class AppGenerateService extends BaseService {
             } catch (error) {
                 // Sandbox may already be dead/suspended — that's fine
                 this.logger.warn(
-                    `App ${appUuid}: failed to suspend sandbox after cancel: ${getErrorMessage(error)}`,
+                    `App ${appUuid}: failed to suspend sandbox after cancel: ${getErrorMessage(
+                        error,
+                    )}`,
                 );
             }
         }
@@ -8444,8 +8646,9 @@ export class AppGenerateService extends BaseService {
         search?: string,
     ): Promise<KnexPaginatedData<DataAppViz[]>> {
         await this.assertDataAppsEnabled(user);
-        const { organizationUuid } =
-            await this.projectModel.getSummary(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
         const auditedAbility = this.createAuditedAbility(user);
         // The library is offered to whoever can build a chart in an explore:
         // picking a renderer is part of configuring a chart, not app access.
@@ -8895,8 +9098,9 @@ export class AppGenerateService extends BaseService {
             });
         }
 
-        const pinnedList =
-            await this.pinnedListModel.getPinnedListAndItems(projectUuid);
+        const pinnedList = await this.pinnedListModel.getPinnedListAndItems(
+            projectUuid,
+        );
 
         this.analytics.track({
             event: 'pinned_list.updated',
@@ -9136,7 +9340,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to suspend sandbox during delete: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to suspend sandbox during delete: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -9153,7 +9359,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to kill sandbox during hard delete: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to kill sandbox during hard delete: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -9488,11 +9696,15 @@ export class AppGenerateService extends BaseService {
         // Parameters authored before labels existed have no label at runtime;
         // fall back to the key rather than crashing in yamlQuote(undefined).
         lines.push(
-            `${inner}label: ${AppGenerateService.yamlQuote(param.label ?? key)}`,
+            `${inner}label: ${AppGenerateService.yamlQuote(
+                param.label ?? key,
+            )}`,
         );
         if (param.description) {
             lines.push(
-                `${inner}description: ${AppGenerateService.yamlQuote(param.description)}`,
+                `${inner}description: ${AppGenerateService.yamlQuote(
+                    param.description,
+                )}`,
             );
         }
         if (param.type) {
@@ -9521,7 +9733,9 @@ export class AppGenerateService extends BaseService {
         }
         if (param.default !== undefined) {
             const rendered = Array.isArray(param.default)
-                ? `[${(param.default as Array<string | number>).map(scalar).join(', ')}]`
+                ? `[${(param.default as Array<string | number>)
+                      .map(scalar)
+                      .join(', ')}]`
                 : scalar(param.default);
             lines.push(`${inner}default: ${rendered}`);
         }
@@ -9585,7 +9799,9 @@ export class AppGenerateService extends BaseService {
         const headerLines: string[] = [`  - name: ${modelName}`];
         if (table.description) {
             headerLines.push(
-                `    description: ${AppGenerateService.yamlQuote(truncate(table.description))}`,
+                `    description: ${AppGenerateService.yamlQuote(
+                    truncate(table.description),
+                )}`,
             );
         }
 
@@ -9619,12 +9835,16 @@ export class AppGenerateService extends BaseService {
                     headerLines.push(`          type: ${m.type}`);
                     if (m.label && m.label !== m.name) {
                         headerLines.push(
-                            `          label: ${AppGenerateService.yamlQuote(m.label)}`,
+                            `          label: ${AppGenerateService.yamlQuote(
+                                m.label,
+                            )}`,
                         );
                     }
                     if (m.description) {
                         headerLines.push(
-                            `          description: ${AppGenerateService.yamlQuote(truncate(m.description))}`,
+                            `          description: ${AppGenerateService.yamlQuote(
+                                truncate(m.description),
+                            )}`,
                         );
                     }
                     const aiHints = getEffectiveFieldAiHints(m, table);
@@ -9632,7 +9852,9 @@ export class AppGenerateService extends BaseService {
                         headerLines.push(`          ai_hints:`);
                         for (const aiHint of aiHints) {
                             headerLines.push(
-                                `            - ${AppGenerateService.yamlQuote(aiHint)}`,
+                                `            - ${AppGenerateService.yamlQuote(
+                                    aiHint,
+                                )}`,
                             );
                         }
                     }
@@ -9649,14 +9871,18 @@ export class AppGenerateService extends BaseService {
                     }
                     if (j.sqlOn) {
                         headerLines.push(
-                            `          sql_on: ${AppGenerateService.yamlQuote(j.sqlOn)}`,
+                            `          sql_on: ${AppGenerateService.yamlQuote(
+                                j.sqlOn,
+                            )}`,
                         );
                     }
                 }
             }
             if (sqlFilter !== null) {
                 headerLines.push(
-                    `      sql_filter: ${AppGenerateService.yamlQuote(sqlFilter)}`,
+                    `      sql_filter: ${AppGenerateService.yamlQuote(
+                        sqlFilter,
+                    )}`,
                 );
             }
             if (requiredFilters.length > 0) {
@@ -9698,7 +9924,9 @@ export class AppGenerateService extends BaseService {
             }
             if (d.description) {
                 block.push(
-                    `        description: ${AppGenerateService.yamlQuote(truncate(d.description))}`,
+                    `        description: ${AppGenerateService.yamlQuote(
+                        truncate(d.description),
+                    )}`,
                 );
             }
             const aiHints = getEffectiveFieldAiHints(d, table);
@@ -9882,7 +10110,9 @@ export class AppGenerateService extends BaseService {
         }
 
         const base = filename.replace(/\.yml$/, '');
-        const header = `models:\n${model.headerLines.join('\n')}\n    columns:\n`;
+        const header = `models:\n${model.headerLines.join(
+            '\n',
+        )}\n    columns:\n`;
         const files: ModelFile[] = [];
         let current: string[] = [];
         let currentBytes = Buffer.byteLength(header);
@@ -9895,9 +10125,9 @@ export class AppGenerateService extends BaseService {
                 contents:
                     part === 1
                         ? `${header}${current.join('\n')}\n`
-                        : `models:\n  - name: ${model.name}\n    columns:\n${current.join(
-                              '\n',
-                          )}\n`,
+                        : `models:\n  - name: ${
+                              model.name
+                          }\n    columns:\n${current.join('\n')}\n`,
             });
             current = [];
             currentBytes = Buffer.byteLength(header);
@@ -9983,7 +10213,7 @@ export class AppGenerateService extends BaseService {
             '',
         ].join('\n');
 
-        const detailLine = (entry: (typeof ranked)[number]): string => {
+        const detailLine = (entry: typeof ranked[number]): string => {
             const { model, filename } = entry;
             const joins =
                 model.joinedTables.length > 0
@@ -10010,7 +10240,7 @@ export class AppGenerateService extends BaseService {
             return `${model.name}  ${filename}  dims=${model.dimensionCount} metrics=${model.metricCount}  joins=${joins}${filters}${description}`;
         };
 
-        const compactLine = (entry: (typeof ranked)[number]): string =>
+        const compactLine = (entry: typeof ranked[number]): string =>
             `${entry.model.name}  ${entry.filename}  dims=${entry.model.dimensionCount} metrics=${entry.model.metricCount}`;
 
         const lines: string[] = [];
@@ -10164,7 +10394,9 @@ export class AppGenerateService extends BaseService {
             return dataReferences;
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to refresh data references for version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to refresh data references for version ${version}: ${getErrorMessage(
+                    error,
+                )}`,
             );
             return null;
         }
@@ -10305,7 +10537,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to persist data references for version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to persist data references for version ${version}: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -10325,7 +10559,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to extract data references for version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to extract data references for version ${version}: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -10344,7 +10580,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: failed to read source for data-reference extraction in version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: failed to read source for data-reference extraction in version ${version}: ${getErrorMessage(
+                    error,
+                )}`,
             );
         }
     }
@@ -10475,7 +10713,10 @@ export class AppGenerateService extends BaseService {
         }
 
         const { client: s3Client, bucket } = this.getS3Client();
-        const sourceTarKey = `${versionPrefix(app.app_id, resolvedVersion)}source.tar`;
+        const sourceTarKey = `${versionPrefix(
+            app.app_id,
+            resolvedVersion,
+        )}source.tar`;
 
         // Download the single source archive for this version
         let tarBuffer: Buffer;
@@ -10566,7 +10807,10 @@ export class AppGenerateService extends BaseService {
         // dropping the files would make a re-upload build with template deps.
         let dependencies: DataAppDependencies | undefined;
         if (versionRow?.dependencies) {
-            const depsPrefix = `${versionPrefix(app.app_id, resolvedVersion)}deps/`;
+            const depsPrefix = `${versionPrefix(
+                app.app_id,
+                resolvedVersion,
+            )}deps/`;
             const [packageJsonBuffer, lockfileBuffer] = await Promise.all([
                 readS3ObjectAsBuffer(
                     s3Client,
@@ -10705,8 +10949,9 @@ export class AppGenerateService extends BaseService {
 
         const parameters = await (async () => {
             try {
-                const globalParameters =
-                    await this.projectParametersModel.find(projectUuid);
+                const globalParameters = await this.projectParametersModel.find(
+                    projectUuid,
+                );
                 const configYaml =
                     AppGenerateService.projectParametersToConfigYaml(
                         globalParameters,
@@ -10856,8 +11101,9 @@ export class AppGenerateService extends BaseService {
                 bucket,
                 `${versionPrefix(appUuid, versionRow.version)}source.tar`,
             );
-            const storedFiles =
-                await AppGenerateService.extractTarFiles(tarBuffer);
+            const storedFiles = await AppGenerateService.extractTarFiles(
+                tarBuffer,
+            );
             if (storedFiles.length !== sourceFiles.length) return false;
             const storedByPath = new Map(
                 storedFiles.map((file) => [file.path, file.contentBase64]),
@@ -10867,7 +11113,9 @@ export class AppGenerateService extends BaseService {
             );
         } catch (err) {
             this.logger.warn(
-                `App ${appUuid}: unchanged-upload check failed, proceeding with a new version: ${getErrorMessage(err)}`,
+                `App ${appUuid}: unchanged-upload check failed, proceeding with a new version: ${getErrorMessage(
+                    err,
+                )}`,
             );
             return false;
         }
@@ -10885,17 +11133,25 @@ export class AppGenerateService extends BaseService {
         warnings: string[];
     }> {
         await this.assertDataAppsEnabled(user);
+        const uploadProjectContext = await this.getDataAppProjectContext(
+            projectUuid,
+        );
+        this.assertAdminCanUploadDataApp(
+            user,
+            uploadProjectContext.organizationUuid,
+            projectUuid,
+        );
 
         const code = validateDataAppCode(body.code);
-        const sourceFiles = code.files.filter((f) => f.path.startsWith('src/'));
-        if (sourceFiles.length === 0) {
-            throw new ParameterError(
-                'Uploaded bundle has no src/ files to build',
-            );
+        let sourceFiles: DataAppCodeFile[];
+        let distFiles: DataAppCodeFile[];
+        try {
+            ({ sourceFiles, distFiles } = splitDataAppUploadFiles(code.files));
+        } catch (err) {
+            throw new ParameterError(getErrorMessage(err));
         }
 
-        const { organizationUuid } =
-            await this.getDataAppProjectContext(projectUuid);
+        const { organizationUuid } = uploadProjectContext;
 
         // Resolve manifest external-connection links up front so a broken
         // bundle rejects before creating anything.
@@ -11079,6 +11335,12 @@ export class AppGenerateService extends BaseService {
             }
         }
 
+        if (dependencySummary !== undefined) {
+            throw new ParameterError(
+                'Custom app dependencies are not supported for manual uploads. Use only the template dependency set.',
+            );
+        }
+
         // Identity resolution (charts-as-code pattern): the manifest slug is
         // matched against the TARGET project — found → append a version,
         // missing → create with that exact slug. targetAppUuid remains as the
@@ -11188,14 +11450,10 @@ export class AppGenerateService extends BaseService {
                                 Buffer.byteLength(file.contentBase64, 'base64'),
                             0,
                         ),
-                        hasCustomDependencies: dependencySummary !== undefined,
-                        customDependencyCount:
-                            dependencySummary?.custom.length ?? 0,
-                        customDependencies: dependencySummary?.custom ?? [],
+                        hasCustomDependencies: false,
+                        customDependencyCount: 0,
+                        customDependencies: [],
                         identitySource,
-                        ...(dependencySummary !== undefined
-                            ? { lockfileHash: dependencySummary.lockfileHash }
-                            : {}),
                     },
                 });
                 return {
@@ -11206,14 +11464,6 @@ export class AppGenerateService extends BaseService {
                     warnings,
                 };
             }
-        }
-
-        const inProgressCount =
-            await this.appModel.countInProgressVersionsForProject(projectUuid);
-        if (inProgressCount >= MAX_CONCURRENT_APP_BUILDS_PER_PROJECT) {
-            throw new TooManyRequestsError(
-                `Too many app builds in progress for this project (${inProgressCount}/${MAX_CONCURRENT_APP_BUILDS_PER_PROJECT}). Wait for some to finish and try again.`,
-            );
         }
 
         let newAppUuid: string;
@@ -11281,7 +11531,7 @@ export class AppGenerateService extends BaseService {
             await this.appModel.createVersion(
                 existingApp.app_id,
                 { version: newVersion, prompt: '' },
-                'pending',
+                'ready',
                 user.userUuid,
                 AppGenerateService.buildCopiedResources(null),
                 dependencySummary,
@@ -11352,7 +11602,7 @@ export class AppGenerateService extends BaseService {
                         : {}),
                 },
                 { version: newVersion, prompt: '' },
-                'pending',
+                'ready',
                 AppGenerateService.buildCopiedResources(null),
                 dependencySummary,
                 code.manifest.template === DATA_APP_VIZ_TEMPLATE
@@ -11450,14 +11700,18 @@ export class AppGenerateService extends BaseService {
             );
         }
 
-        // Enqueue the build-only pipeline
-        await this.schedulerClient.appBuildFromSource({
-            appUuid: newAppUuid,
-            version: newVersion,
-            projectUuid,
-            organizationUuid,
-            userUuid: user.userUuid,
-        });
+        await this.uploadPrebuiltDistToS3(
+            client,
+            bucket,
+            newAppUuid,
+            newVersion,
+            distFiles,
+        );
+        await this.appModel.updateStatusMessage(
+            newAppUuid,
+            newVersion,
+            'Uploaded prebuilt bundle',
+        );
 
         this.analytics.track({
             event: 'data_app.uploaded',
@@ -11471,13 +11725,10 @@ export class AppGenerateService extends BaseService {
                 template: code.manifest.template,
                 sourceFileCount: sourceFiles.length,
                 sourceBytes: sourceTar.length,
-                hasCustomDependencies: dependencySummary !== undefined,
-                customDependencyCount: dependencySummary?.custom.length ?? 0,
-                customDependencies: dependencySummary?.custom ?? [],
+                hasCustomDependencies: false,
+                customDependencyCount: 0,
+                customDependencies: [],
                 identitySource,
-                ...(dependencySummary !== undefined
-                    ? { lockfileHash: dependencySummary.lockfileHash }
-                    : {}),
             },
         });
 
@@ -11498,7 +11749,9 @@ export class AppGenerateService extends BaseService {
             await this.authorizePipelineExecution(payload);
         } catch (error) {
             this.logger.warn(
-                `App ${appUuid}: source-build authorization failed for user ${payload.userUuid} on version ${version}: ${getErrorMessage(error)}`,
+                `App ${appUuid}: source-build authorization failed for user ${
+                    payload.userUuid
+                } on version ${version}: ${getErrorMessage(error)}`,
             );
             await this.markError(
                 appUuid,
@@ -11527,7 +11780,9 @@ export class AppGenerateService extends BaseService {
                 .touchVersionIfInProgress(appUuid, version)
                 .catch((e) => {
                     this.logger.warn(
-                        `App ${appUuid}: heartbeat failed: ${getErrorMessage(e)}`,
+                        `App ${appUuid}: heartbeat failed: ${getErrorMessage(
+                            e,
+                        )}`,
                     );
                 });
         }, HEARTBEAT_INTERVAL_MS);
@@ -11583,7 +11838,9 @@ export class AppGenerateService extends BaseService {
                     );
                 } catch (e) {
                     this.logger.warn(
-                        `App ${appUuid}: failed to update status message: ${getErrorMessage(e)}`,
+                        `App ${appUuid}: failed to update status message: ${getErrorMessage(
+                            e,
+                        )}`,
                     );
                 }
                 try {

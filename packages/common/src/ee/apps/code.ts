@@ -67,9 +67,8 @@ export type DataAppDependencies = {
 export type DataAppCode = {
     manifest: DataAppManifest;
     files: DataAppCodeFile[];
-    // When present the server will install these deps in the build sandbox.
-    // Kept separate from `files` so the src-only invariant on `files` is
-    // unaffected.
+    // Optional for sandbox/AI builds. Manual uploads ignore custom deps.
+    // Kept separate from `files` so src/dist path rules stay on `files`.
     dependencies?: DataAppDependencies;
 };
 
@@ -408,7 +407,9 @@ export function validateDataAppDependencies(
         );
     if (Buffer.byteLength(d.lockfile, 'utf-8') > MAX_LOCKFILE_BYTES)
         throw new Error(
-            `Invalid dependencies: lockfile exceeds ${MAX_LOCKFILE_BYTES / 1024 / 1024} MB limit`,
+            `Invalid dependencies: lockfile exceeds ${
+                MAX_LOCKFILE_BYTES / 1024 / 1024
+            } MB limit`,
         );
     validateLockfileShape(d.lockfile);
     if (opts.allowedTarballHosts !== undefined) {
@@ -466,6 +467,38 @@ const isSafeRelPath = (p: string): boolean => {
                 segment.length > 0 && segment !== '.' && segment !== '..',
         );
 };
+
+export const DATA_APP_DIST_INDEX = 'dist/index.html';
+
+export function splitDataAppUploadFiles(files: DataAppCodeFile[]): {
+    sourceFiles: DataAppCodeFile[];
+    distFiles: DataAppCodeFile[];
+} {
+    const sourceFiles: DataAppCodeFile[] = [];
+    const distFiles: DataAppCodeFile[] = [];
+    files.forEach((file) => {
+        if (file.path.startsWith('src/')) {
+            sourceFiles.push(file);
+            return;
+        }
+        if (file.path.startsWith('dist/')) {
+            distFiles.push(file);
+            return;
+        }
+        throw new Error(
+            `Invalid app bundle: file "${file.path}" must be under src/ or dist/`,
+        );
+    });
+    if (sourceFiles.length === 0) {
+        throw new Error('Uploaded bundle has no src/ files');
+    }
+    if (!distFiles.some((file) => file.path === DATA_APP_DIST_INDEX)) {
+        throw new Error(
+            'Uploaded bundle is missing dist/index.html. Build the app locally with the data-app template (`pnpm build`) and include the dist/ output. Cloud sandbox build is not used for manual uploads.',
+        );
+    }
+    return { sourceFiles, distFiles };
+}
 
 export function validateDataAppCode(
     value: unknown,

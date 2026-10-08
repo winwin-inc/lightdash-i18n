@@ -13,15 +13,16 @@ import {
 import { memo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { canAdminUploadDataApp } from '../../features/apps/utils/canAdminUploadDataApp';
 import useCreateInAnySpaceAccess from '../../hooks/user/useCreateInAnySpaceAccess';
 import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import { Can } from '../../providers/Ability';
 import useApp from '../../providers/App/useApp';
 import LargeMenuItem from '../common/LargeMenuItem';
 import MantineIcon from '../common/MantineIcon';
+import DashboardCreateModal from '../common/modal/DashboardCreateModal';
 import SpaceActionModal from '../common/SpaceActionModal';
 import { ActionType } from '../common/SpaceActionModal/types';
-import DashboardCreateModal from '../common/modal/DashboardCreateModal';
 
 type Props = {
     projectUuid: string;
@@ -142,15 +143,8 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                             />
                         )}
 
-                        {dataAppsFlag.data?.enabled && (
-                            <Can
-                                I="create"
-                                this={subject('DataApp', {
-                                    organizationUuid:
-                                        user.data?.organizationUuid,
-                                    projectUuid,
-                                })}
-                            >
+                        {dataAppsFlag.data?.enabled &&
+                            canAdminUploadDataApp(user.data, projectUuid) && (
                                 <LargeMenuItem
                                     component={Link}
                                     title={t(
@@ -159,11 +153,10 @@ const ExploreMenu: FC<Props> = memo(({ projectUuid }) => {
                                     description={t(
                                         'components_navbar_explore_menu.menus.data_app.description',
                                     )}
-                                    to={`/projects/${projectUuid}/apps/generate`}
+                                    to={`/projects/${projectUuid}/apps?upload=1`}
                                     icon={IconAppWindow}
                                 />
-                            </Can>
-                        )}
+                            )}
 
                         <Can
                             I="create"

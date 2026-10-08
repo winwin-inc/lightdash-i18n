@@ -5,6 +5,7 @@ import {
     ContentSortByColumns,
     contentToResourceViewItem,
     ContentType,
+    isResourceViewDataAppItem,
     isResourceViewSpaceItem,
     type ResourceViewItem,
     type SpaceSummary,
@@ -12,6 +13,7 @@ import {
 import {
     ActionIcon,
     Anchor,
+    Badge,
     Box,
     Button,
     Divider,
@@ -268,6 +270,32 @@ const InfiniteResourceTable = ({
                 );
             },
         },
+        {
+            accessorKey: ColumnVisibility.STATUS,
+            enableSorting: false,
+            enableEditing: false,
+            header: t(
+                'components_common_resource_view_action_menu.infinite_resource_table.columns.status.label',
+            ),
+            Cell: ({ row }) => {
+                if (!isResourceViewDataAppItem(row.original)) {
+                    return null;
+                }
+                const ready =
+                    row.original.data.latestReadyVersionNumber !== null;
+                return (
+                    <Badge
+                        size="sm"
+                        variant="light"
+                        color={ready ? 'green' : 'gray'}
+                    >
+                        {ready
+                            ? t('features_apps_upload.status_ready')
+                            : t('features_apps_upload.status_unavailable')}
+                    </Badge>
+                );
+            },
+        },
     ];
 
     if (isCustomerUse) {
@@ -397,9 +425,12 @@ const InfiniteResourceTable = ({
             [ColumnVisibility.UPDATED_AT]: true,
             [ColumnVisibility.ACCESS]: false,
             [ColumnVisibility.CONTENT]: false,
+            [ColumnVisibility.STATUS]:
+                filters.contentTypes?.length === 1 &&
+                filters.contentTypes[0] === ContentType.DATA_APP,
             ...columnVisibility,
         }),
-        [columnVisibility],
+        [columnVisibility, filters.contentTypes],
     );
 
     const table = useMantineReactTable({

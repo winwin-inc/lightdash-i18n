@@ -9,6 +9,10 @@ import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import {
+    enqueueAddFilterButtonVisibilityChanged,
+    enqueueFilterBarVisibilityChanged,
+} from '../../hooks/dashboard/dashboardOperationEventQueue';
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -68,6 +72,7 @@ const DashboardFilter: FC<Props> = ({
     const setShowTabAddFilterButton = useDashboardContext(
         (c) => c.setShowTabAddFilterButton,
     );
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     // use the appropriate filter enabled state based on filterScope
     const isFilterEnabled =
         filterScope === 'global'
@@ -112,8 +117,8 @@ const DashboardFilter: FC<Props> = ({
     );
 
     // tab filters
-    const getMergedFiltersForTab = useDashboardContext(
-        (c) => c.getMergedFiltersForTab,
+    const getDisplayedMergedFiltersForTab = useDashboardContext(
+        (c) => c.getDisplayedMergedFiltersForTab,
     );
     const resetTabFilters = useDashboardContext((c) => c.resetTabFilters);
     const addTabDimensionFilter = useDashboardContext(
@@ -125,8 +130,13 @@ const DashboardFilter: FC<Props> = ({
         if (filterScope === 'global') {
             return allFilters;
         }
-        return getMergedFiltersForTab(activeTabUuid || '');
-    }, [filterScope, activeTabUuid, getMergedFiltersForTab, allFilters]);
+        return getDisplayedMergedFiltersForTab(activeTabUuid || '');
+    }, [
+        filterScope,
+        activeTabUuid,
+        getDisplayedMergedFiltersForTab,
+        allFilters,
+    ]);
     const appliedResetDashboardFilters = useCallback(() => {
         if (filterScope === 'global') {
             resetDashboardFilters();
@@ -270,9 +280,23 @@ const DashboardFilter: FC<Props> = ({
                     <>
                         <Checkbox
                             checked={isFilterEnabled}
-                            onChange={(event) =>
-                                setIsFilterEnabled(event.currentTarget.checked)
-                            }
+                            onChange={(event) => {
+                                const next = event.currentTarget.checked;
+                                enqueueFilterBarVisibilityChanged(
+                                    {
+                                        scope: filterScope,
+                                        tabUuid: activeTabUuid,
+                                        tabName:
+                                            dashboardTabs?.find(
+                                                (tab) =>
+                                                    tab.uuid === activeTabUuid,
+                                            )?.name ?? null,
+                                    },
+                                    isFilterEnabled,
+                                    next,
+                                );
+                                setIsFilterEnabled(next);
+                            }}
                             size="sm"
                             ml={
                                 filterScope === 'global'
@@ -295,11 +319,25 @@ const DashboardFilter: FC<Props> = ({
                             <>
                                 <Checkbox
                                     checked={showAddFilterButton}
-                                    onChange={(event) =>
-                                        setShowAddFilterButton(
-                                            event.currentTarget.checked,
-                                        )
-                                    }
+                                    onChange={(event) => {
+                                        const next =
+                                            event.currentTarget.checked;
+                                        enqueueAddFilterButtonVisibilityChanged(
+                                            {
+                                                scope: filterScope,
+                                                tabUuid: activeTabUuid,
+                                                tabName:
+                                                    dashboardTabs?.find(
+                                                        (tab) =>
+                                                            tab.uuid ===
+                                                            activeTabUuid,
+                                                    )?.name ?? null,
+                                            },
+                                            showAddFilterButton,
+                                            next,
+                                        );
+                                        setShowAddFilterButton(next);
+                                    }}
                                     size="sm"
                                     ml={'md'}
                                     styles={{

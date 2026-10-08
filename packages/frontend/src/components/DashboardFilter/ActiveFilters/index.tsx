@@ -191,6 +191,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     // tab filters
     const tabFilters = useDashboardContext((c) => c.tabFilters);
+    const tabCategoryDisplayFilters = useDashboardContext(
+        (c) => c.tabCategoryDisplayFilters,
+    );
     const tabTemporaryFilters = useDashboardContext(
         (c) => c.tabTemporaryFilters,
     );
@@ -211,13 +214,30 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
             c.tabTemporaryFilters[activeTabUuid || '']?.dimensions.length > 0,
     );
 
-    // applied variables
+    const tabDisplayState = tabCategoryDisplayFilters[activeTabUuid || ''];
+    const isCategoryCascadePending = Boolean(tabDisplayState);
+    const updatingFilterIds = useMemo(
+        () => new Set(tabDisplayState?.updatingFilterIds ?? []),
+        [tabDisplayState?.updatingFilterIds],
+    );
+
+    // applied variables — Tab 范围优先展示态，图表查询仍用已提交 tabFilters
     const appliedFilters = useMemo(() => {
         if (filterScope === 'global') {
             return dashboardFilters;
         }
-        return tabFilters[activeTabUuid || ''] ?? emptyFilters;
-    }, [filterScope, activeTabUuid, dashboardFilters, tabFilters]);
+        return (
+            tabDisplayState?.filters ??
+            tabFilters[activeTabUuid || ''] ??
+            emptyFilters
+        );
+    }, [
+        filterScope,
+        activeTabUuid,
+        dashboardFilters,
+        tabFilters,
+        tabDisplayState?.filters,
+    ]);
 
     const appliedTemporaryFilters = useMemo(() => {
         if (filterScope === 'global') {
@@ -392,6 +412,7 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
     const handleDragStart = (_event: DragStartEvent) => onPopoverClose();
 
     const handleDragEnd = (event: DragEndEvent) => {
+        if (isCategoryCascadePending) return;
         const { active, over } = event;
         if (!active || !over || active.id === over.id) return;
         const oldIndex = appliedFilters.dimensions.findIndex(
@@ -462,7 +483,11 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                             <DraggableItem
                                 key={item.id}
                                 id={item.id}
-                                disabled={!isEditMode || !!openPopoverId}
+                                disabled={
+                                    !isEditMode ||
+                                    !!openPopoverId ||
+                                    isCategoryCascadePending
+                                }
                             >
                                 {field || item.target.isSqlColumn ? (
                                     <Filter
@@ -476,6 +501,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         openPopoverId={openPopoverId}
                                         onPopoverOpen={onPopoverOpen}
                                         onPopoverClose={onPopoverClose}
+                                        isCascadeUpdating={updatingFilterIds.has(
+                                            item.id,
+                                        )}
                                         onRemove={() =>
                                             appliedRemoveDimensionFilter(
                                                 actualIndex,

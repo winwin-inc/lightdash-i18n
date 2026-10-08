@@ -13,10 +13,10 @@ import NavBar from './components/NavBar';
 import PrivateRoute from './components/PrivateRoute';
 import ProjectRoute from './components/ProjectRoute';
 import UserCompletionModal from './components/UserCompletionModal';
+import LegacyAppPreviewRedirect from './features/apps/LegacyAppPreviewRedirect';
 import { MetricCatalogView } from './features/metricsCatalog/types';
-import AuthPopupResult from './pages/AuthPopupResult';
-import AppGenerate from './pages/AppGenerate';
 import AppPreviewTest from './pages/AppPreviewTest';
+import AuthPopupResult from './pages/AuthPopupResult';
 import Catalog from './pages/Catalog';
 import ChartHistory from './pages/ChartHistory';
 import CreateProject from './pages/CreateProject';
@@ -48,7 +48,6 @@ import UnusedContent from './pages/UnusedContent';
 import UserActivity from './pages/UserActivity';
 import VerifyEmailPage from './pages/VerifyEmail';
 import ViewSqlChart from './pages/ViewSqlChart';
-import LegacyAppPreviewRedirect from './features/apps/LegacyAppPreviewRedirect';
 import { TrackPage } from './providers/Tracking/TrackingProvider';
 import { PageName } from './types/Events';
 
@@ -62,6 +61,24 @@ const DashboardPageWrapper: FC = () => {
                 <Dashboard key={dashboardUuid} />
             </TrackPage>
         </>
+    );
+};
+
+const AppGenerateHiddenRedirect: FC = () => {
+    const { projectUuid } = useParams<{ projectUuid: string }>();
+    return <Navigate to={`/projects/${projectUuid}/apps`} replace />;
+};
+
+const AppEditorHiddenRedirect: FC = () => {
+    const { projectUuid, appUuid } = useParams<{
+        projectUuid: string;
+        appUuid: string;
+    }>();
+    return (
+        <Navigate
+            to={`/projects/${projectUuid}/apps/${appUuid}/view`}
+            replace
+        />
     );
 };
 
@@ -291,21 +308,11 @@ const DATA_APP_ROUTES: RouteObject[] = [
     },
     {
         path: '/projects/:projectUuid/apps/generate',
-        element: (
-            <>
-                <NavBar />
-                <AppGenerate />
-            </>
-        ),
+        element: <AppGenerateHiddenRedirect />,
     },
     {
         path: '/projects/:projectUuid/apps/:appUuid',
-        element: (
-            <>
-                <NavBar />
-                <AppGenerate />
-            </>
-        ),
+        element: <AppEditorHiddenRedirect />,
     },
     {
         path: '/projects/:projectUuid/apps/:appUuid/view',

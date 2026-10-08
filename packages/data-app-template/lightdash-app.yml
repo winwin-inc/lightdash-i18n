@@ -1,0 +1,7 @@
+codeVersion: 1
+slug: sample-kpi-app
+version: 1
+name: 示例 KPI 应用
+description: 本地模板手写数据应用，上传后可嵌进看板
+template: dashboard
+downloadedAt: '2026-01-01T00:00:00.000Z'

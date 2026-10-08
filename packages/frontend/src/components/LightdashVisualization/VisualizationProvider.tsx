@@ -21,6 +21,7 @@ import omit from 'lodash/omit';
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -29,12 +30,13 @@ import {
 } from 'react';
 import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
-import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import {
-    getGlobalHashColor,
-    getHashColor,
-    useChartColorConfig,
-} from '../../hooks/useChartColorConfig/useChartColorConfig';
+    lookupSyncedColor,
+    pieRowColorKeys,
+} from '../../hooks/useChartColorConfig/colorSyncKeys';
+import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
+import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
+import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
     calculateSeriesLikeIdentifier,
     isGroupedSeries,
@@ -45,6 +47,7 @@ import {
 } from '../../hooks/useFeatureFlagEnabled';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
 import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
+import { useRegisterDashboardVisibleColorKeys } from '../../providers/DashboardChartColorSync/useDashboardChartColorSync';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import VisualizationBigNumberConfig from './VisualizationBigNumberConfig';
 import VisualizationCartesianConfig from './VisualizationConfigCartesian';
@@ -53,9 +56,11 @@ import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
-import { type VisualizationConfig } from './types';
 import Context, { type TablePaginationState } from './context';
+import { type VisualizationConfig } from './types';
 import { type useVisualizationContext } from './useVisualizationContext';
+
+const EMPTY_COLOR_MAP: Record<string, string> = {};
 
 export type VisualizationProviderProps = {
     minimal?: boolean;
@@ -90,8 +95,10 @@ export type VisualizationProviderProps = {
     dashboardName?: string;
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
-    /** Dashboard UUID，用于全局颜色分配器隔离 */
-    dashboardUuid?: string;
+    /** 看板级系列手配色，跨 Tab 预取后传入 */
+    manualColorMap?: Record<string, string>;
+    /** 看板已知系列 + 筛选后追加未知名的合并色表 */
+    hashAssignments?: Record<string, string>;
     tablePagination?: TablePaginationState;
 };
 
@@ -124,7 +131,7 @@ const VisualizationProvider: FC<
     dashboardSlug,
     dashboardName,
     useHashBased = false,
-    dashboardUuid,
+    hashAssignments = EMPTY_COLOR_MAP,
     tablePagination,
 }) => {
     const itemsMap = useMemo(() => {
@@ -167,7 +174,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
+            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
             : lastValidResultsData?.metricQuery,
     );
 
@@ -176,8 +183,50 @@ const VisualizationProvider: FC<
         [onChartTypeChange],
     );
 
+    const visibleColorKeys = useMemo(() => {
+        const keys: string[] = [];
+
+        if (chartConfig.type === ChartType.CARTESIAN) {
+            const allSeries =
+                computedSeries && computedSeries.length > 0
+                    ? computedSeries
+                    : chartConfig.config?.eChartsConfig.series;
+            (allSeries ?? []).forEach((series) => {
+                const completeIdentifier =
+                    calculateSeriesLikeIdentifier(series)[1];
+                if (completeIdentifier) keys.push(completeIdentifier);
+            });
+        }
+
+        if (chartConfig.type === ChartType.PIE) {
+            const pie = chartConfig.config;
+            Object.keys(pie?.groupColorOverrides ?? {}).forEach((name) =>
+                keys.push(name),
+            );
+            Object.keys(pie?.metadata ?? {}).forEach((name) => keys.push(name));
+            (pie?.groupSortOverrides ?? []).forEach((name) => keys.push(name));
+            const groupFieldIds = pie?.groupFieldIds ?? [];
+            keys.push(...pieRowColorKeys(resultsData?.rows, groupFieldIds));
+        }
+
+        return keys;
+    }, [chartConfig, computedSeries, resultsData]);
+
+    const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
+
+    useLayoutEffect(() => {
+        if (!useHashBased) return;
+        registerVisibleColorKeys(visibleColorKeys);
+    }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
+
+    const chartHashAssignments = hashAssignments;
+
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
-        useChartColorConfig({ colorPalette, useHashBased, dashboardUuid });
+        useChartColorConfig({
+            colorPalette,
+            useHashBased,
+            hashAssignments: chartHashAssignments,
+        });
 
     // cartesian config related
     const [stacking, setStacking] = useState<boolean | StackType>();
@@ -226,16 +275,17 @@ const VisualizationProvider: FC<
             .map((series) => calculateSeriesLikeIdentifier(series).join('|'))
             .sort((a, b) => b.localeCompare(a));
 
-        // 当 useHashBased 开启时，使用哈希分配颜色而非按顺序
+        // 当 useHashBased 开启时，以看板级合并色表为准
         if (useHashBased) {
             return Object.fromEntries(
                 sortedSeriesIdentifiers.map((identifier) => {
                     const parts = identifier.split('|');
-                    const value = parts[parts.length - 1];
-                    // 如果有 dashboardUuid，使用全局颜色分配器（带色差保障）
-                    const color = dashboardUuid
-                        ? getGlobalHashColor(value, colorPalette, dashboardUuid)
-                        : getHashColor(value, colorPalette);
+                    const value = parts[parts.length - 1] ?? identifier;
+                    const color = resolveSyncedHashColor(
+                        value,
+                        colorPalette,
+                        chartHashAssignments,
+                    );
                     return [identifier, color];
                 }),
             );
@@ -254,7 +304,7 @@ const VisualizationProvider: FC<
         colorPalette,
         computedSeries,
         useHashBased,
-        dashboardUuid,
+        chartHashAssignments,
     ]);
 
     const handleChartConfigChange = useCallback(
@@ -284,6 +334,14 @@ const VisualizationProvider: FC<
      */
     const getGroupColor = useCallback(
         (groupPrefix: string, identifier: string) => {
+            if (useHashBased) {
+                const mapped = lookupSyncedColor(
+                    identifier,
+                    chartHashAssignments,
+                );
+                if (mapped) return mapped;
+            }
+
             if (itemsMap) {
                 const dimension = itemsMap[groupPrefix];
                 if (dimension && isDimension(dimension)) {
@@ -296,7 +354,37 @@ const VisualizationProvider: FC<
 
             return calculateKeyColorAssignment(groupPrefix, identifier);
         },
-        [calculateKeyColorAssignment, itemsMap],
+        [
+            calculateKeyColorAssignment,
+            chartHashAssignments,
+            itemsMap,
+            useHashBased,
+        ],
+    );
+
+    const getGroupColors = useCallback(
+        (groupPrefix: string, identifiers: string[]) => {
+            if (useHashBased) {
+                return Object.fromEntries(
+                    identifiers.map((identifier) => [
+                        identifier,
+                        resolveSyncedHashColor(
+                            identifier,
+                            colorPalette,
+                            chartHashAssignments,
+                        ),
+                    ]),
+                );
+            }
+
+            return Object.fromEntries(
+                identifiers.map((identifier) => [
+                    identifier,
+                    getGroupColor(groupPrefix, identifier),
+                ]),
+            );
+        },
+        [chartHashAssignments, colorPalette, getGroupColor, useHashBased],
     );
 
     const isCalculateSeriesColorEnabled = useFeatureFlagEnabled(
@@ -308,17 +396,27 @@ const VisualizationProvider: FC<
      */
     const getSeriesColor = useCallback(
         (seriesLike: SeriesLike) => {
-            // 哈希模式下，忽略 series 预设颜色，强制走哈希分配
+            // 哈希模式下，忽略当前图的 series/metadata 顺序色，改用看板系列色表 + 哈希避让
             if (!useHashBased && seriesLike.color) return seriesLike.color;
 
-            // Check if color is stored in metadata
-            const serieId = calculateSeriesLikeIdentifier(seriesLike).join('.');
-            const metadata =
-                chartConfig.type === ChartType.CARTESIAN
-                    ? chartConfig.config?.metadata
-                    : undefined;
-            if (metadata && metadata?.[serieId]?.color) {
-                return metadata?.[serieId].color;
+            const seriesIdentifier = calculateSeriesLikeIdentifier(seriesLike);
+            const completeIdentifier = seriesIdentifier[1] ?? '';
+
+            if (useHashBased) {
+                const mapped = lookupSyncedColor(
+                    completeIdentifier,
+                    chartHashAssignments,
+                );
+                if (mapped) return mapped;
+            } else {
+                const serieId = seriesIdentifier.join('.');
+                const metadata =
+                    chartConfig.type === ChartType.CARTESIAN
+                        ? chartConfig.config?.metadata
+                        : undefined;
+                if (metadata && metadata?.[serieId]?.color) {
+                    return metadata?.[serieId].color;
+                }
             }
 
             /** Check if color is set in the dimension metadata */
@@ -352,7 +450,7 @@ const VisualizationProvider: FC<
                 ? calculateSeriesColorAssignment(seriesLike)
                 : fallbackColors[
                       // Note: we don't use getSeriesId since we may not be dealing with a Series type here
-                      calculateSeriesLikeIdentifier(seriesLike).join('|')
+                      seriesIdentifier.join('|')
                   ];
         },
 
@@ -360,6 +458,7 @@ const VisualizationProvider: FC<
             calculateSeriesColorAssignment,
             fallbackColors,
             chartConfig,
+            chartHashAssignments,
             itemsMap,
             isCalculateSeriesColorEnabled,
             useHashBased,
@@ -386,6 +485,7 @@ const VisualizationProvider: FC<
         setPivotDimensions,
         colorPalette,
         getGroupColor,
+        getGroupColors,
         getSeriesColor,
         chartConfig,
         useHashBased,

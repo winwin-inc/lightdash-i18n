@@ -262,28 +262,6 @@ projectRouter.get(
 );
 
 projectRouter.get(
-    '/dashboard-categories',
-    allowApiKeyAuthentication,
-    isAuthenticated,
-    async (req, res, next) => {
-        try {
-            const projectUuid = getObjectValue(req.params, 'projectUuid');
-            const dashboardUuid = req.query.dashboardUuid as string | undefined;
-            const results = await req.services
-                .getDashboardService()
-                .getUserCategories(req.user!, projectUuid, dashboardUuid);
-
-            res.json({
-                status: 'ok',
-                results,
-            });
-        } catch (e) {
-            next(e);
-        }
-    },
-);
-
-projectRouter.get(
     '/tablesConfiguration',
     allowApiKeyAuthentication,
     isAuthenticated,

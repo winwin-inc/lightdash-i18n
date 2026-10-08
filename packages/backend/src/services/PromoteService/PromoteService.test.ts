@@ -9,6 +9,7 @@ import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SpaceModel } from '../../models/SpaceModel';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { PromoteService } from './PromoteService';
 import {
     existingUpstreamChart,
@@ -63,6 +64,9 @@ describe('PromoteService chart changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -269,6 +273,9 @@ describe('PromoteService dashboard changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -566,6 +573,9 @@ describe('PromoteService promoting and mutating changes', () => {
         savedChartModel: savedChartModel as unknown as SavedChartModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: dashboardModel as unknown as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
     });
     afterEach(() => {
         jest.clearAllMocks();

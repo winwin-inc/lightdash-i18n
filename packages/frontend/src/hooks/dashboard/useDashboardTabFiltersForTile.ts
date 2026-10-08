@@ -1,4 +1,5 @@
 import {
+    backfillDashboardFilterRulesTileTargets,
     getDashboardFilterRulesForTile,
     type DashboardFilters,
 } from '@lightdash/common';
@@ -15,26 +16,39 @@ const useDashboardTabFiltersForTile = (
     const tabFilters = useDashboardContext((c) =>
         c.getMergedFiltersForTab(tabUuid),
     );
+    const filterableFieldsByTileUuid = useDashboardContext(
+        (c) => c.filterableFieldsByTileUuid,
+    );
 
     return useMemo(() => {
         const forQuery = (rule: (typeof tabFilters.dimensions)[number]) =>
             prepareDashboardFilterRuleForQuery(rule);
 
+        const dimensions = backfillDashboardFilterRulesTileTargets(
+            tabFilters.dimensions,
+            filterableFieldsByTileUuid,
+        );
+        const metrics = backfillDashboardFilterRulesTileTargets(
+            tabFilters.metrics,
+            filterableFieldsByTileUuid,
+        );
+        const tableCalculations = backfillDashboardFilterRulesTileTargets(
+            tabFilters.tableCalculations,
+            filterableFieldsByTileUuid,
+        );
+
         return {
             dimensions: getDashboardFilterRulesForTile(
                 tileUuid,
-                tabFilters.dimensions,
+                dimensions,
             ).map(forQuery),
-            metrics: getDashboardFilterRulesForTile(
-                tileUuid,
-                tabFilters.metrics,
-            ),
+            metrics: getDashboardFilterRulesForTile(tileUuid, metrics),
             tableCalculations: getDashboardFilterRulesForTile(
                 tileUuid,
-                tabFilters.tableCalculations,
+                tableCalculations,
             ),
         };
-    }, [tileUuid, tabFilters]);
+    }, [tileUuid, tabFilters, filterableFieldsByTileUuid]);
 };
 
 export default useDashboardTabFiltersForTile;
