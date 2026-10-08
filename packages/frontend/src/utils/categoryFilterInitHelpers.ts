@@ -1,4 +1,7 @@
-import { type DashboardFilterRule, type DashboardFilters } from '@lightdash/common';
+import {
+    type DashboardFilterRule,
+    type DashboardFilters,
+} from '@lightdash/common';
 import {
     getCategoryFiltersSignature,
     getParentFieldId,

@@ -1,5 +1,5 @@
-import type { PromotionAction } from '../promotion';
 import type { VizColumn } from '../../visualizations/types';
+import type { PromotionAction } from '../promotion';
 import type { ContentAsCodeType } from './core';
 
 export type VirtualViewAsCode = {

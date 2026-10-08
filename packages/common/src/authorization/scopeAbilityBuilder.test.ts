@@ -2250,9 +2250,9 @@ describe('scopeAbilityBuilder', () => {
                     builder,
                 );
                 const ability = builder.build();
-                expect(ability.can('view', subject('ContentAsCode', content))).toBe(
-                    true,
-                );
+                expect(
+                    ability.can('view', subject('ContentAsCode', content)),
+                ).toBe(true);
                 expect(
                     ability.can('manage', subject('ContentAsCode', content)),
                 ).toBe(false);
@@ -2291,9 +2291,9 @@ describe('scopeAbilityBuilder', () => {
                 expect(
                     ability.can('manage', subject('ContentAsCode', content)),
                 ).toBe(true);
-                expect(ability.can('view', subject('ContentAsCode', content))).toBe(
-                    true,
-                );
+                expect(
+                    ability.can('view', subject('ContentAsCode', content)),
+                ).toBe(true);
                 expect(
                     ability.can('create', subject('ContentAsCode', content)),
                 ).toBe(true);

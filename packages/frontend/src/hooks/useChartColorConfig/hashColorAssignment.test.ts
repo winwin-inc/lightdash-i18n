@@ -132,10 +132,14 @@ describe('assignKnownHashColors', () => {
     });
 
     test('dashboard theme wins over saved chart colors', () => {
-        const assignments = assignKnownHashColors(['臭宝', '其他品牌'], PALETTE, {
-            臭宝: '#ff00aa',
-            其他品牌: '#ff00aa',
-        });
+        const assignments = assignKnownHashColors(
+            ['臭宝', '其他品牌'],
+            PALETTE,
+            {
+                臭宝: '#ff00aa',
+                其他品牌: '#ff00aa',
+            },
+        );
         expect(assignments['臭宝']).not.toBe('#ff00aa');
         expect(assignments['其他品牌']).not.toBe('#ff00aa');
         expect(assignments['臭宝']).not.toBe(assignments['其他品牌']);
@@ -327,12 +331,12 @@ describe('appendDashboardUnknownHashColors', () => {
         );
 
         expect(TINY_PALETTE).not.toContain(appended['原味']);
-        expect(colorDifference(appended['原味'], TINY_PALETTE[0])).toBeGreaterThanOrEqual(
-            MIN_COLOR_DIFF,
-        );
-        expect(colorDifference(appended['原味'], TINY_PALETTE[1])).toBeGreaterThanOrEqual(
-            MIN_COLOR_DIFF,
-        );
+        expect(
+            colorDifference(appended['原味'], TINY_PALETTE[0]),
+        ).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
+        expect(
+            colorDifference(appended['原味'], TINY_PALETTE[1]),
+        ).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
     });
 
     test('reuses appendedAssignments reference when there are no new keys', () => {

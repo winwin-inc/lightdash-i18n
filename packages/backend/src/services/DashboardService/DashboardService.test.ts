@@ -22,6 +22,7 @@ import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { DashboardService } from './DashboardService';
 import {
@@ -101,7 +102,7 @@ describe('DashboardService', () => {
         organizationMemberProfileModel: {} as OrganizationMemberProfileModel,
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
-        } as any,
+        } as unknown as ProjectOperationLogService,
     });
     afterEach(() => {
         jest.clearAllMocks();

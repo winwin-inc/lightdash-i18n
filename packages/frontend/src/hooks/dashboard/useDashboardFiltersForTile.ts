@@ -23,7 +23,7 @@ const useDashboardFiltersForTile = (tileUuid: string): DashboardFilters => {
     return useMemo(() => {
         if (!isGlobalFilterEnabled) return emptyFilters;
 
-        const forQuery = (rule: typeof dashboardFilters.dimensions[number]) =>
+        const forQuery = (rule: (typeof dashboardFilters.dimensions)[number]) =>
             prepareDashboardFilterRuleForQuery(rule);
 
         const dimensions = backfillDashboardFilterRulesTileTargets(

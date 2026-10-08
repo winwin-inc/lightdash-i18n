@@ -9,12 +9,12 @@ import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
-import { useProject } from '../../hooks/useProject';
-import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import {
     enqueueAddFilterButtonVisibilityChanged,
     enqueueFilterBarVisibilityChanged,
 } from '../../hooks/dashboard/dashboardOperationEventQueue';
+import { useProject } from '../../hooks/useProject';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import FiltersProvider from '../common/Filters/FiltersProvider';
@@ -320,22 +320,24 @@ const DashboardFilter: FC<Props> = ({
                                 <Checkbox
                                     checked={showAddFilterButton}
                                     onChange={(event) => {
-                                const next = event.currentTarget.checked;
-                                enqueueAddFilterButtonVisibilityChanged(
-                                    {
-                                        scope: filterScope,
-                                        tabUuid: activeTabUuid,
-                                        tabName:
-                                            dashboardTabs?.find(
-                                                (tab) =>
-                                                    tab.uuid === activeTabUuid,
-                                            )?.name ?? null,
-                                    },
-                                    showAddFilterButton,
-                                    next,
-                                );
-                                setShowAddFilterButton(next);
-                            }}
+                                        const next =
+                                            event.currentTarget.checked;
+                                        enqueueAddFilterButtonVisibilityChanged(
+                                            {
+                                                scope: filterScope,
+                                                tabUuid: activeTabUuid,
+                                                tabName:
+                                                    dashboardTabs?.find(
+                                                        (tab) =>
+                                                            tab.uuid ===
+                                                            activeTabUuid,
+                                                    )?.name ?? null,
+                                            },
+                                            showAddFilterButton,
+                                            next,
+                                        );
+                                        setShowAddFilterButton(next);
+                                    }}
                                     size="sm"
                                     ml={'md'}
                                     styles={{

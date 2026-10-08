@@ -7,27 +7,11 @@ import {
 } from '@lightdash/common';
 import { type ReactNode } from 'react';
 
-export enum ResourceViewItemAction {
-    CLOSE,
-    UPDATE,
-    DELETE,
-    DUPLICATE,
-    ADD_TO_DASHBOARD,
-    CREATE_SPACE,
-    PIN_TO_HOMEPAGE,
-    TRANSFER_TO_SPACE,
-    UPLOAD_PACKAGE,
-}
+export enum ResourceViewItemAction
 
-export enum ResourceViewType {
-    LIST = 'list',
-    GRID = 'grid',
-}
+export enum ResourceViewType
 
-export enum ResourceSortDirection {
-    ASC = 'asc',
-    DESC = 'desc',
-}
+export enum ResourceSortDirection
 
 export type ResourceViewItemActionState =
     | {
@@ -102,14 +86,7 @@ export interface ResourceEmptyStateProps {
     action?: ReactNode;
 }
 
-export enum ColumnVisibility {
-    NAME = 'name',
-    SPACE = 'space',
-    UPDATED_AT = 'updatedAt',
-    ACCESS = 'access',
-    CONTENT = 'content',
-    STATUS = 'status',
-}
+export enum ColumnVisibility
 
 export type ColumnVisibilityConfig = {
     [ColumnVisibility.NAME]?: boolean;
@@ -120,8 +97,4 @@ export type ColumnVisibilityConfig = {
     [ColumnVisibility.STATUS]?: boolean;
 };
 
-export enum ResourceAccess {
-    Private = 'private',
-    Public = 'public',
-    Shared = 'shared',
-}
+export enum ResourceAccess

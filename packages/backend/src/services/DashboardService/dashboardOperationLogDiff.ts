@@ -1,7 +1,7 @@
 import {
-    PROJECT_OPERATION_LOG_ACTIONS,
     DashboardTileTypes,
     isDashboardFieldTarget,
+    PROJECT_OPERATION_LOG_ACTIONS,
     type CreateDashboard,
     type Dashboard,
     type DashboardFilterRule,
@@ -20,7 +20,7 @@ export type DashboardOperationLogEvent = {
 
 const FILTER_KINDS = ['dimensions', 'metrics', 'tableCalculations'] as const;
 
-type FilterKind = (typeof FILTER_KINDS)[number];
+type FilterKind = typeof FILTER_KINDS[number];
 
 const stableJson = (value: unknown): string => {
     try {
@@ -61,7 +61,8 @@ const flattenFilters = (
 };
 
 const filterCoreWithoutTileTargets = (rule: DashboardFilterRule) => {
-    const { tileTargets: _tileTargets, ...rest } = rule;
+    const rest = { ...rule };
+    delete rest.tileTargets;
     return rest;
 };
 
@@ -118,7 +119,6 @@ const diffFilterFields = (
     return changes;
 };
 
-
 const isBoundTarget = (
     target: DashboardTileTarget | undefined,
 ): target is Exclude<DashboardTileTarget, false> =>
@@ -145,33 +145,28 @@ const diffTileTargetsForFilter = (
         const prevFieldId = prevBound ? prev.fieldId : null;
         const currFieldId = currBound ? curr.fieldId : null;
 
-        if (prevBound === currBound && prevFieldId === currFieldId) {
-            if (prevBound || currBound) {
-                if (stableJson(prev) === stableJson(curr)) {
-                    continue;
-                }
-            } else {
-                const prevExplicit = prev === false;
-                const currExplicit = curr === false;
-                if (prevExplicit === currExplicit) {
-                    continue;
-                }
+        const sameBindingAndField =
+            prevBound === currBound && prevFieldId === currFieldId;
+
+        if (sameBindingAndField && !prevBound && !currBound) {
+            const prevExplicit = prev === false;
+            const currExplicit = curr === false;
+            if (prevExplicit !== currExplicit) {
                 changes.push({
                     tileUuid,
-                    tileTitle: getTileTitle(tilesByUuid.get(tileUuid), tileUuid),
+                    tileTitle: getTileTitle(
+                        tilesByUuid.get(tileUuid),
+                        tileUuid,
+                    ),
                     bound: false,
                     fieldId: null,
                     previousBound: false,
                     previousFieldId: null,
                     explicitUnbound: currExplicit,
                 });
-                continue;
             }
-        }
-
-        if (
-            prevBound !== currBound ||
-            prevFieldId !== currFieldId ||
+        } else if (
+            !sameBindingAndField ||
             stableJson(prev) !== stableJson(curr)
         ) {
             changes.push({
@@ -207,7 +202,9 @@ export const diffDashboardFilters = (
 ): DashboardOperationLogEvent[] => {
     const tilesByUuid = new Map(
         tiles
-            .filter((tile): tile is DiffableTile & { uuid: string } => !!tile.uuid)
+            .filter(
+                (tile): tile is DiffableTile & { uuid: string } => !!tile.uuid,
+            )
             .map((tile) => [tile.uuid, tile]),
     );
     const prevById = new Map(
@@ -240,43 +237,44 @@ export const diffDashboardFilters = (
             if (tileEvent) {
                 events.push(tileEvent);
             }
-            continue;
-        }
+        } else {
+            const prevCore = filterCoreWithoutTileTargets(prev);
+            const nextCore = filterCoreWithoutTileTargets(next);
+            if (stableJson(prevCore) !== stableJson(nextCore)) {
+                const fieldChanges = diffFilterFields(prev, next);
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_UPDATED,
+                    summary: {
+                        filterId: next.id,
+                        filterLabel:
+                            next.label || next.target?.fieldId || next.id,
+                        fieldId: next.target?.fieldId,
+                        filterKind: next.filterKind,
+                        changedFields: Object.keys(fieldChanges),
+                        changes: fieldChanges,
+                    },
+                });
+            }
 
-        const prevCore = filterCoreWithoutTileTargets(prev);
-        const nextCore = filterCoreWithoutTileTargets(next);
-        if (stableJson(prevCore) !== stableJson(nextCore)) {
-            const fieldChanges = diffFilterFields(prev, next);
-            events.push({
-                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_UPDATED,
-                summary: {
-                    filterId: next.id,
-                    filterLabel: next.label || next.target?.fieldId || next.id,
-                    fieldId: next.target?.fieldId,
-                    filterKind: next.filterKind,
-                    changedFields: Object.keys(fieldChanges),
-                    changes: fieldChanges,
-                },
-            });
-        }
-
-        const tileEvent = diffTileTargetsForFilter(prev, next, tilesByUuid);
-        if (tileEvent) {
-            events.push(tileEvent);
+            const tileEvent = diffTileTargetsForFilter(prev, next, tilesByUuid);
+            if (tileEvent) {
+                events.push(tileEvent);
+            }
         }
     }
 
     for (const [id, prev] of prevById) {
-        if (nextById.has(id)) continue;
-        events.push({
-            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DELETED,
-            summary: {
-                filterId: prev.id,
-                filterLabel: prev.label || prev.target?.fieldId || prev.id,
-                fieldId: prev.target?.fieldId,
-                filterKind: prev.filterKind,
-            },
-        });
+        if (!nextById.has(id)) {
+            events.push({
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_DELETED,
+                summary: {
+                    filterId: prev.id,
+                    filterLabel: prev.label || prev.target?.fieldId || prev.id,
+                    fieldId: prev.target?.fieldId,
+                    filterKind: prev.filterKind,
+                },
+            });
+        }
     }
 
     return events;
@@ -329,90 +327,89 @@ export const diffDiffableTiles = (
         const prev = prevById.get(uuid);
         if (!prev) {
             added.push(describeTile(next));
-            continue;
-        }
-
-        const prevDesc = describeTile(prev);
-        const nextDesc = describeTile(next);
-        const positionDiffers = (['x', 'y', 'w', 'h'] as const).some(
-            (key) => prevDesc[key] !== nextDesc[key],
-        );
-        if (positionDiffers) {
-            layoutChanged.push({
-                tileUuid: uuid,
-                title: nextDesc.title,
-                previous: {
-                    x: prevDesc.x,
-                    y: prevDesc.y,
-                    w: prevDesc.w,
-                    h: prevDesc.h,
-                },
-                next: {
-                    x: nextDesc.x,
-                    y: nextDesc.y,
-                    w: nextDesc.w,
-                    h: nextDesc.h,
-                },
-            });
-        }
-
-        if (prevDesc.tabUuid !== nextDesc.tabUuid) {
-            events.push({
-                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_TAB_ASSIGNMENT_CHANGED,
-                summary: {
+        } else {
+            const prevDesc = describeTile(prev);
+            const nextDesc = describeTile(next);
+            const positionDiffers = (['x', 'y', 'w', 'h'] as const).some(
+                (key) => prevDesc[key] !== nextDesc[key],
+            );
+            if (positionDiffers) {
+                layoutChanged.push({
                     tileUuid: uuid,
                     title: nextDesc.title,
-                    previousTabUuid: prevDesc.tabUuid,
-                    nextTabUuid: nextDesc.tabUuid,
-                },
-            });
-        }
+                    previous: {
+                        x: prevDesc.x,
+                        y: prevDesc.y,
+                        w: prevDesc.w,
+                        h: prevDesc.h,
+                    },
+                    next: {
+                        x: nextDesc.x,
+                        y: nextDesc.y,
+                        w: nextDesc.w,
+                        h: nextDesc.h,
+                    },
+                });
+            }
 
-        if (prev.type !== next.type) {
-            events.push({
-                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_KIND_CHANGED,
-                summary: {
-                    tileUuid: uuid,
-                    title: nextDesc.title,
-                    previousType: prev.type,
-                    nextType: next.type,
-                },
-            });
-        }
-
-        if (
-            prev.type === DashboardTileTypes.SAVED_CHART ||
-            next.type === DashboardTileTypes.SAVED_CHART
-        ) {
-            if (prevDesc.savedChartUuid !== nextDesc.savedChartUuid) {
+            if (prevDesc.tabUuid !== nextDesc.tabUuid) {
                 events.push({
-                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_LINK_CHANGED,
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_TAB_ASSIGNMENT_CHANGED,
                     summary: {
                         tileUuid: uuid,
                         title: nextDesc.title,
-                        previousSavedChartUuid: prevDesc.savedChartUuid,
-                        nextSavedChartUuid: nextDesc.savedChartUuid,
-                        previousChartName: prevDesc.chartName,
-                        nextChartName: nextDesc.chartName,
+                        previousTabUuid: prevDesc.tabUuid,
+                        nextTabUuid: nextDesc.tabUuid,
                     },
                 });
-            } else if (
-                prevDesc.chartName !== nextDesc.chartName ||
-                prevDesc.title !== nextDesc.title
-            ) {
-                chartChanged.push({
-                    tileUuid: uuid,
-                    previous: {
-                        savedChartUuid: prevDesc.savedChartUuid,
-                        chartName: prevDesc.chartName,
-                        title: prevDesc.title,
-                    },
-                    next: {
-                        savedChartUuid: nextDesc.savedChartUuid,
-                        chartName: nextDesc.chartName,
+            }
+
+            if (prev.type !== next.type) {
+                events.push({
+                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_KIND_CHANGED,
+                    summary: {
+                        tileUuid: uuid,
                         title: nextDesc.title,
+                        previousType: prev.type,
+                        nextType: next.type,
                     },
                 });
+            }
+
+            if (
+                prev.type === DashboardTileTypes.SAVED_CHART ||
+                next.type === DashboardTileTypes.SAVED_CHART
+            ) {
+                if (prevDesc.savedChartUuid !== nextDesc.savedChartUuid) {
+                    events.push({
+                        action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_TILES_CHART_LINK_CHANGED,
+                        summary: {
+                            tileUuid: uuid,
+                            title: nextDesc.title,
+                            previousSavedChartUuid: prevDesc.savedChartUuid,
+                            nextSavedChartUuid: nextDesc.savedChartUuid,
+                            previousChartName: prevDesc.chartName,
+                            nextChartName: nextDesc.chartName,
+                        },
+                    });
+                } else if (
+                    prevDesc.chartName !== nextDesc.chartName ||
+                    prevDesc.title !== nextDesc.title
+                ) {
+                    chartChanged.push({
+                        tileUuid: uuid,
+                        previous: {
+                            savedChartUuid: prevDesc.savedChartUuid,
+                            chartName: prevDesc.chartName,
+                            title: prevDesc.title,
+                        },
+                        next: {
+                            savedChartUuid: nextDesc.savedChartUuid,
+                            chartName: nextDesc.chartName,
+                            title: nextDesc.title,
+                        },
+                    });
+                }
             }
         }
     }

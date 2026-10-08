@@ -52,6 +52,8 @@
 |------|------|
 | [用户使用说明](./lightdash-mcp-user-guide.md) | 怎么提问 |
 | [查询工具速查](./lightdash-mcp-query-tools-quickref.md) | semantic vs flat |
+| [工具与权限对照](./mcp-tools-permissions.md) | 各工具最低项目角色 |
+| [权限查询 get_my_access](./mcp-get-my-access.md) | 当前令牌的组织/项目能力与可查表（目前在 v1 包） |
 | [Skills](../../packages/lightdash-skills/README.md) | 外挂技能包（`packages/lightdash-skills`） |
 
 ### v1 存量（Session / compat）

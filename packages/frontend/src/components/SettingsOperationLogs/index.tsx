@@ -27,22 +27,22 @@ import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconTrash } from '@tabler/icons-react';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState, type FC, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
 import { type TFunction } from 'i18next';
+import { useEffect, useMemo, useState, type FC, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useTableStyles } from '../../hooks/styles/useTableStyles';
-import PaginateControl from '../common/PaginateControl';
-import { TABLE_PAGINATION_PAGE_SIZES } from '../common/Table/constants';
-import { compactSelectStyles } from '../common/Table/paginationCompactStyles';
-import { ResultCount } from '../common/Table/TablePagination';
 import {
     useProjectOperationLog,
     useProjectOperationLogs,
     usePurgeProjectOperationLogs,
 } from '../../hooks/useProjectOperationLogs';
 import MantineIcon from '../common/MantineIcon';
+import PaginateControl from '../common/PaginateControl';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
+import { TABLE_PAGINATION_PAGE_SIZES } from '../common/Table/constants';
+import { compactSelectStyles } from '../common/Table/paginationCompactStyles';
+import { ResultCount } from '../common/Table/TablePagination';
 
 type Props = {
     projectUuid: string;
@@ -74,7 +74,6 @@ const useStyles = createStyles((theme) => ({
     },
 }));
 
-
 const ACTION_OPTIONS = Object.values(PROJECT_OPERATION_LOG_ACTIONS);
 
 const RESOURCE_TYPE_OPTIONS = [
@@ -85,7 +84,6 @@ const RESOURCE_TYPE_OPTIONS = [
     'operation_log',
 ] as const;
 
-
 const actionLabelKey = (action: string) =>
     `components_settings_operation_logs.actions.${action.replace(/\./g, '_')}`;
 
@@ -94,7 +92,6 @@ const resourceTypeLabelKey = (resourceType: string) =>
 
 const statusLabelKey = (status: string) =>
     `components_settings_operation_logs.statuses.${status}`;
-
 
 const looksLikeFieldPath = (value: string): boolean =>
     /^[a-zA-Z_][\w]*\.[a-zA-Z_][\w]*$/.test(value);
@@ -192,7 +189,6 @@ const getRelatedDashboard = (row: {
     return null;
 };
 
-
 const isEmptyValue = (value: unknown): boolean =>
     value === null ||
     value === undefined ||
@@ -235,10 +231,9 @@ const translateSummaryValue = (
     t: TFunction,
 ): string => {
     if (typeof value === 'boolean') {
-        return t(
-            `components_settings_operation_logs.summary_values.${value}`,
-            { defaultValue: value ? 'true' : 'false' },
-        );
+        return t(`components_settings_operation_logs.summary_values.${value}`, {
+            defaultValue: value ? 'true' : 'false',
+        });
     }
     if (typeof value === 'string') {
         if (
@@ -287,7 +282,11 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
         );
     }
 
-    if (typeof cleaned !== 'object' || cleaned === null || Array.isArray(cleaned)) {
+    if (
+        typeof cleaned !== 'object' ||
+        cleaned === null ||
+        Array.isArray(cleaned)
+    ) {
         return (
             <Text
                 size="xs"
@@ -362,8 +361,7 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
                                     ? t(
                                           `components_settings_operation_logs.summary_values.${change.changeKind}`,
                                           {
-                                              defaultValue:
-                                                  change.changeKind,
+                                              defaultValue: change.changeKind,
                                           },
                                       )
                                     : '';
@@ -484,7 +482,10 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
                     </Text>
                     <Text
                         size="xs"
-                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                        style={{
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                        }}
                     >
                         {translateSummaryValue(key, value, t)}
                     </Text>
@@ -493,7 +494,6 @@ const SummaryView: FC<{ summary: unknown }> = ({ summary }) => {
         </Stack>
     );
 };
-
 
 const ActorDisplay: FC<{
     display: string | null | undefined;
@@ -623,7 +623,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
     const totalPages = data
         ? Math.max(
               1,
-              Math.ceil(data.pagination.totalResults / data.pagination.pageSize),
+              Math.ceil(
+                  data.pagination.totalResults / data.pagination.pageSize,
+              ),
           )
         : 1;
 
@@ -636,7 +638,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
             );
             notifications.show({
                 color: 'green',
-                title: t('components_settings_operation_logs.purge_success_title'),
+                title: t(
+                    'components_settings_operation_logs.purge_success_title',
+                ),
                 message: t(
                     'components_settings_operation_logs.purge_success_message',
                     { count: result.deletedCount },
@@ -647,7 +651,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
         } catch (e) {
             notifications.show({
                 color: 'red',
-                title: t('components_settings_operation_logs.purge_error_title'),
+                title: t(
+                    'components_settings_operation_logs.purge_error_title',
+                ),
                 message:
                     e instanceof Error
                         ? e.message
@@ -685,7 +691,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                 </Button>
             </Group>
 
-                        <Grid gutter="xs" align="flex-end">
+            <Grid gutter="xs" align="flex-end">
                 <Grid.Col xs={12} sm={6} md={4} lg={3}>
                     <DatePickerInput
                         type="range"
@@ -892,9 +898,14 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                         })}
                                     </td>
                                     <td>
-                                        {t(resourceTypeLabelKey(row.resourceType), {
-                                            defaultValue: row.resourceType,
-                                        })}
+                                        {t(
+                                            resourceTypeLabelKey(
+                                                row.resourceType,
+                                            ),
+                                            {
+                                                defaultValue: row.resourceType,
+                                            },
+                                        )}
                                     </td>
                                     <td>
                                         <Stack spacing={2}>
@@ -929,8 +940,10 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                                             getRelatedDashboard(
                                                                 row,
                                                             );
-                                                        if (!related) return;
-                                                        navigate(
+                                                        if (!related) {
+                                                            return undefined;
+                                                        }
+                                                        return navigate(
                                                             `/projects/${projectUuid}/dashboards/${related.uuid}`,
                                                         );
                                                     }}
@@ -943,8 +956,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                                         },
                                                     )}
                                                     {
-                                                        getRelatedDashboard(row)!
-                                                            .name
+                                                        getRelatedDashboard(
+                                                            row,
+                                                        )!.name
                                                     }
                                                 </Anchor>
                                             ) : null}
@@ -1026,7 +1040,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                         lh={1}
                         sx={{ whiteSpace: 'nowrap' }}
                     >
-                        {t('components_common_table.pagination.page_size_prefix')}
+                        {t(
+                            'components_common_table.pagination.page_size_prefix',
+                        )}
                     </Text>
                     <Select
                         size="xs"
@@ -1050,7 +1066,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                         lh={1}
                         sx={{ whiteSpace: 'nowrap' }}
                     >
-                        {t('components_common_table.pagination.page_size_suffix')}
+                        {t(
+                            'components_common_table.pagination.page_size_suffix',
+                        )}
                     </Text>
                     <PaginateControl
                         compact
@@ -1058,7 +1076,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                         totalPages={totalPages}
                         hasPreviousPage={page > 1}
                         hasNextPage={page < totalPages}
-                        onPreviousPage={() => setPage((p) => Math.max(1, p - 1))}
+                        onPreviousPage={() =>
+                            setPage((p) => Math.max(1, p - 1))
+                        }
                         onNextPage={() =>
                             setPage((p) => Math.min(totalPages, p + 1))
                         }
@@ -1101,7 +1121,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                 'components_settings_operation_logs.columns.action',
                             )}
                         >
-                            {t(actionLabelKey(detail.action), { defaultValue: detail.action })}
+                            {t(actionLabelKey(detail.action), {
+                                defaultValue: detail.action,
+                            })}
                         </DetailRow>
                         <DetailRow
                             label={t(
@@ -1149,8 +1171,10 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                     onClick={() => {
                                         const related =
                                             getRelatedDashboard(detail);
-                                        if (!related) return;
-                                        navigate(
+                                        if (!related) {
+                                            return undefined;
+                                        }
+                                        return navigate(
                                             `/projects/${projectUuid}/dashboards/${related.uuid}`,
                                         );
                                     }}
@@ -1168,7 +1192,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                 size="sm"
                                 variant="light"
                                 color={
-                                    detail.status === 'failure' ? 'red' : 'green'
+                                    detail.status === 'failure'
+                                        ? 'red'
+                                        : 'green'
                                 }
                             >
                                 {t(statusLabelKey(detail.status), {
@@ -1196,7 +1222,9 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
             <Modal
                 opened={purgeOpened}
                 onClose={closePurge}
-                title={t('components_settings_operation_logs.purge_modal_title')}
+                title={t(
+                    'components_settings_operation_logs.purge_modal_title',
+                )}
                 size="sm"
             >
                 <Stack spacing="sm">
@@ -1260,9 +1288,7 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                                 size="xs"
                                 checked={confirmClearAll}
                                 onChange={(e) =>
-                                    setConfirmClearAll(
-                                        e.currentTarget.checked,
-                                    )
+                                    setConfirmClearAll(e.currentTarget.checked)
                                 }
                                 label={t(
                                     'components_settings_operation_logs.purge_clear_all_confirm',
@@ -1287,10 +1313,8 @@ const SettingsOperationLogs: FC<Props> = ({ projectUuid }) => {
                             color="red"
                             size="xs"
                             loading={isPurging}
-                            disabled={
-                                purgeMode === 'all' && !confirmClearAll
-                            }
-                            onClick={() => void handlePurge()}
+                            disabled={purgeMode === 'all' && !confirmClearAll}
+                            onClick={() => handlePurge()}
                         >
                             {t(
                                 'components_settings_operation_logs.purge_confirm',

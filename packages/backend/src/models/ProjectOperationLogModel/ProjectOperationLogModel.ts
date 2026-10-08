@@ -207,10 +207,7 @@ export class ProjectOperationLogModel {
         return row ? mapRow(row as DbProjectOperationLog) : undefined;
     }
 
-    async purgeBefore(
-        projectUuid: string,
-        before: Date,
-    ): Promise<number> {
+    async purgeBefore(projectUuid: string, before: Date): Promise<number> {
         const deleted = await this.database(ProjectOperationLogsTableName)
             .where('project_uuid', projectUuid)
             .andWhere('created_at', '<', before)

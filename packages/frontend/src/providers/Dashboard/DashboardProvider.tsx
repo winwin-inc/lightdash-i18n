@@ -58,12 +58,12 @@ import {
     useDashboardFilters,
 } from '../../hooks/dashboard/useDashboardFilters';
 import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
+import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import {
     isEmptyTabFilters,
     mergeFiltersForTab,
     useDashboardTabFilters,
 } from '../../hooks/dashboard/useDashboardTabFilters';
-import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import useToaster from '../../hooks/toaster/useToaster';
 import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOverrides';
 import {
@@ -247,9 +247,7 @@ const DashboardProvider: React.FC<
     const globalCategoryProcessedSignatureRef = useRef<string | null>(null);
     const globalCategoryPendingSignatureRef = useRef<string | null>(null);
     const tabCategoryInitGenerationRef = useRef<Record<string, number>>({});
-    const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>(
-        {},
-    );
+    const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>({});
     const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
 
     const markGlobalCategoryProcessed = useCallback(
@@ -291,8 +289,7 @@ const DashboardProvider: React.FC<
             if (
                 !shouldStartCategoryInitTask({
                     decision,
-                    pendingSignature:
-                        globalCategoryPendingSignatureRef.current,
+                    pendingSignature: globalCategoryPendingSignatureRef.current,
                 }) ||
                 !projectUuid ||
                 decision.action !== 'start'
@@ -554,8 +551,10 @@ const DashboardProvider: React.FC<
             return mergeFiltersForTab({
                 globalFilters: dashboardFilters,
                 globalTemporaryFilters: dashboardTemporaryFilters,
-                tabFilters: display?.filters ?? getActiveTabFilters(targetTabUuid),
-                tabTemporaryFilters: getActiveTabTemporaryFilters(targetTabUuid),
+                tabFilters:
+                    display?.filters ?? getActiveTabFilters(targetTabUuid),
+                tabTemporaryFilters:
+                    getActiveTabTemporaryFilters(targetTabUuid),
                 isGlobalFilterEnabled,
                 isTabFilterEnabled: isTabFilterEnabled[targetTabUuid] ?? true,
             });
@@ -725,8 +724,8 @@ const DashboardProvider: React.FC<
                 )
                     .then((refined) => {
                         if (
-                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
-                            generation
+                            (tabCategoryInitGenerationRef.current[uuid] ??
+                                0) !== generation
                         ) {
                             return;
                         }
@@ -760,8 +759,8 @@ const DashboardProvider: React.FC<
                     })
                     .catch(() => {
                         if (
-                            (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
-                            generation
+                            (tabCategoryInitGenerationRef.current[uuid] ??
+                                0) === generation
                         ) {
                             clearTabCategoryDisplay(uuid);
                         }
@@ -1035,7 +1034,12 @@ const DashboardProvider: React.FC<
             setDashboardActiveTabUuid(dashboardUuid, resolvedTab.uuid);
         }
 
-        if (!resolvedTab || embedToken || dashboardTabs.length <= 1 || !projectUuid) {
+        if (
+            !resolvedTab ||
+            embedToken ||
+            dashboardTabs.length <= 1 ||
+            !projectUuid
+        ) {
             return;
         }
 

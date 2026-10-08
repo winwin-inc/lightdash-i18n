@@ -71,7 +71,9 @@ const SavedApps = () => {
                         <PageBreadcrumbs
                             items={[
                                 {
-                                    title: t('pages_saved_apps.breadcrumb_home'),
+                                    title: t(
+                                        'pages_saved_apps.breadcrumb_home',
+                                    ),
                                     to: '/home',
                                 },
                                 {

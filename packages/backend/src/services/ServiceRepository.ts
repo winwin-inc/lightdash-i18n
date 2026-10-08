@@ -979,9 +979,12 @@ export class ServiceRepository
         );
     }
 
-    
-    public getAppGenerateService<AppGenerateServiceImplT>(): AppGenerateServiceImplT {
-        return this.getService('appGenerateService' as keyof ServiceManifest) as AppGenerateServiceImplT;
+    public getAppGenerateService<
+        AppGenerateServiceImplT,
+    >(): AppGenerateServiceImplT {
+        return this.getService(
+            'appGenerateService' as keyof ServiceManifest,
+        ) as AppGenerateServiceImplT;
     }
 
     public getEmbedService<EmbedServiceImplT>(): EmbedServiceImplT {

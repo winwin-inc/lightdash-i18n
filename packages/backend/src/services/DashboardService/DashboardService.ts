@@ -1,8 +1,8 @@
 import { subject } from '@casl/ability';
-import { PROJECT_OPERATION_LOG_ACTIONS } from '@lightdash/common';
 import {
     AbilityAction,
     BulkActionable,
+    convertOrganizationRoleToProjectRole,
     CreateDashboard,
     CreateDashboardWithCharts,
     CreateSavedChart,
@@ -14,16 +14,6 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
-    OrganizationMemberRole,
-    ParameterError,
-    ProjectMemberRole,
-    SchedulerAndTargets,
-    SchedulerFormat,
-    SessionUser,
-    TogglePinnedItemInfo,
-    UpdateDashboard,
-    UpdateMultipleDashboards,
-    convertOrganizationRoleToProjectRole,
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
@@ -34,7 +24,17 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    OrganizationMemberRole,
+    ParameterError,
+    PROJECT_OPERATION_LOG_ACTIONS,
+    ProjectMemberRole,
     SCHEDULER_TASKS,
+    SchedulerAndTargets,
+    SchedulerFormat,
+    SessionUser,
+    TogglePinnedItemInfo,
+    UpdateDashboard,
+    UpdateMultipleDashboards,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
@@ -49,6 +49,7 @@ import {
     type UserDashboardsSummary,
     type UUID,
 } from '@lightdash/common';
+
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
 import { v4 as uuidv4 } from 'uuid';
@@ -77,10 +78,10 @@ import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
 import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
-import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
-import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
+import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
+import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
 type DashboardServiceArguments = {
     analytics: LightdashAnalytics;
@@ -1145,7 +1146,6 @@ export class DashboardService
             });
         }
 
-
         const clientEvents =
             'clientEvents' in dashboard
                 ? (dashboard as UpdateDashboard).clientEvents
@@ -1257,10 +1257,7 @@ export class DashboardService
                     },
                 });
             }
-        } else if (
-            isDashboardUnversionedFields(dashboard) &&
-            !spaceMoved
-        ) {
+        } else if (isDashboardUnversionedFields(dashboard) && !spaceMoved) {
             await this.projectOperationLogService.record({
                 ...baseLog,
                 action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
@@ -1378,10 +1375,9 @@ export class DashboardService
                 targetUserUuid,
             );
 
-        const summary =
-            await this.dashboardModel.getDashboardsSummaryByOwner(
-                targetUserUuid,
-            );
+        const summary = await this.dashboardModel.getDashboardsSummaryByOwner(
+            targetUserUuid,
+        );
 
         const projectsWithoutPermission = summary.byProject
             .filter(

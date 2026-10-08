@@ -35,7 +35,9 @@ const stripRootFolder = (relPath: string): string => {
 };
 
 const isAllowedUploadPath = (path: string): boolean =>
-    path.startsWith('src/') || path.startsWith('dist/') || path === MANIFEST_NAME;
+    path.startsWith('src/') ||
+    path.startsWith('dist/') ||
+    path === MANIFEST_NAME;
 
 export const parseDataAppUploadFiles = async (
     fileList: FileList,
@@ -43,7 +45,9 @@ export const parseDataAppUploadFiles = async (
 ): Promise<ImportAppCodeRequestBody> => {
     const files = Array.from(fileList);
     if (files.length === 0) {
-        throw new Error('请选择包含 src/、dist/ 与 lightdash-app.yml 的应用目录');
+        throw new Error(
+            '请选择包含 src/、dist/ 与 lightdash-app.yml 的应用目录',
+        );
     }
 
     const entries = files

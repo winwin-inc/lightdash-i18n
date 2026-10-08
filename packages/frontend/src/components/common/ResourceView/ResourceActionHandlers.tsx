@@ -17,8 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import AppUploadModal from '../../../features/apps/components/AppUploadModal';
-import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
 import { useAppPinningMutation } from '../../../features/apps/hooks/useAppPinningMutation';
+import { DeleteSqlChartModal } from '../../../features/sqlRunner/components/DeleteSqlChartModal';
 import { useChartPinningMutation } from '../../../hooks/pinning/useChartPinningMutation';
 import { useDashboardPinningMutation } from '../../../hooks/pinning/useDashboardPinningMutation';
 import { useSpacePinningMutation } from '../../../hooks/pinning/useSpaceMutation';

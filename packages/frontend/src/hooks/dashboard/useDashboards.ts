@@ -109,11 +109,7 @@ export const useDashboardsContainingApp = (
             includePrivate,
         ],
         queryFn: () =>
-            getDashboardsContainingApp(
-                projectUuid!,
-                appUuid!,
-                includePrivate,
-            ),
+            getDashboardsContainingApp(projectUuid!, appUuid!, includePrivate),
         onError: (result) => setErrorResponse(result),
         enabled: !!projectUuid && !!appUuid,
     });
