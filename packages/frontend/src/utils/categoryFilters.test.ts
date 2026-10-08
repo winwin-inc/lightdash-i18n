@@ -563,3 +563,71 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(api).not.toHaveBeenCalled();
     });
 });
+
+describe('category filter leftover values', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    it('clears invalid child default values when parent changes and no replacement exists', async () => {
+        mockSearchResults([]);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            values: ['尹佬'],
+            parentFieldId: 'dim_categories_cls_1',
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result.dimensions[1].disabled).toBe(true);
+        expect(result.dimensions[1].values).toEqual([]);
+    });
+
+    it('does not send disabled leftover values to field/search', async () => {
+        mockSearchResults(['P1']);
+
+        const filters = asFilters([
+            {
+                ...timeFilter(),
+                disabled: true,
+            },
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['P0'],
+            }),
+        ]);
+
+        await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        const body = JSON.parse(String(api.mock.calls[0][0].body));
+        expect(body.filters).toBeUndefined();
+    });
+});
