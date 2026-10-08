@@ -19,18 +19,20 @@ const DOCS: Record<McpDocsTopic, string> = {
 - 标准 Session：initialize → 保存并回传 Mcp-Session-Id → 可选 GET SSE → 结束时 DELETE。
 - 无 Mcp-Session-Id 的 tools/call 走 compat 兼容通道（按鉴权身份隔离）。
 - 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | content_fields | session_lifecycle | security。
+- 查当前令牌权限用 get_my_access；选表与查询步骤见 topic=query_workflow。
 - 字段约定（chartKind / groups 等）见 topic=content_fields。
 `,
 
     query_workflow: `# 查询工作流
 
-1. get_my_access 查看组织角色、各项目有效能力和可查表（queryable）。可选 projectUuid。
-2. list_projects / set_project 或工具参数传 projectUuid。
-3. 临时指标查询只从 queryable 选表；list_explores / find_explores → find_fields，确认 explore 与 fieldId。
-4. 需要枚举值时用 search_field_values。
-5. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-6. 大结果先缩小 limit / filters；不要猜测 fieldId。
-7. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+1. get_my_access 查看组织角色和各项目有效能力。默认不返回 explores。
+2. 要选表时再调 get_my_access，传 includeExplores=true，建议同时带 projectUuid。
+3. list_projects / set_project 或工具参数传 projectUuid。
+4. 临时指标查询只从 queryable 选表；attributeDenied 里的表不要查。list_explores / find_explores → find_fields，确认 explore 与 fieldId。
+5. 需要枚举值时用 search_field_values。
+6. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
+7. 大结果先缩小 limit / filters；不要猜测 fieldId。
+8. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
 `,
 
     content_fields: `# 内容字段约定（默认 slim）

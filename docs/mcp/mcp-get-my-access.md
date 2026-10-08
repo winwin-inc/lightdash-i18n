@@ -9,8 +9,9 @@
 | 参数 | 必填 | 说明 |
 |---|---|---|
 | `projectUuid` | 否 | 只看这一个项目。不传则返回当前令牌能看到的全部项目。 |
+| `includeExplores` | 否 | 默认 `false`：不返回 `explores`，也不拉表名单。`true` 时返回三组表。建议同时传 `projectUuid`。 |
 
-两种调用的外层形状相同：始终返回 `email`、`firstName`、`lastName`、`userUuid`、`organization` 和 `projects` 数组。传入 `projectUuid` 时 `projects` 只含匹配的一项；找不到则为空数组。不跟 `set_project` 或环境变量绑死。
+两种调用的外层形状相同：始终返回 `email`、`firstName`、`lastName`、`userUuid`、`organization` 和 `projects` 数组。传入 `projectUuid` 时 `projects` 只含匹配的一项；找不到则为空数组。不跟 `set_project` 或环境变量绑死。默认项目对象没有 `explores` 字段。
 
 ## 组织权限和项目权限
 
@@ -26,7 +27,7 @@
 | `projectRole` | 只看带这个 `projectUuid` 的规则，推出 `viewer` / `interactive_viewer` / `editor`。没有则为 `null`。开发者、管理员记成 `editor`。 |
 | `effectiveAccessLevel` | 组织能力与该项目角色取并集后推出的等级。 |
 | `effectiveCapabilities` | 能不能调其他 MCP 工具，只看这一份。 |
-| `explores` | 按该项目有效的 `runMetricQuery` 分成三组。 |
+| `explores` | 仅 `includeExplores=true` 时出现。按该项目有效的 `runMetricQuery` 分成三组。 |
 
 组织能力只统计「带 `organizationUuid`、不带 `projectUuid`」的规则。例如组织是成员时，四项能力都是 false；组织是交互式查看者时，每个项目的有效 `runMetricQuery` 都是 true，即使该项目的 `projectRole` 是 `null`。
 
@@ -56,11 +57,13 @@
 | `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。 |
 | `attributeDenied` | explores 有、目录没有 | 用户属性不满足，不要用来查数。 |
 
-每项只含 `name`、`label`、`groupLabel`。没有表时对应数组为空。
+每项只含 `name`、`label`、`groupLabel`，没有字段和数据。没有表时对应数组为空。无权表只在打开 `includeExplores` 后出现在 `attributeDenied` 里，同样只有名字。
 
 本工具不返回图表 ID。看板图表查询用 `chartUuid` / `dashboardUuid`；临时指标查询用 explore 的 `name`。
 
 ## 返回 JSON
+
+### 组织成员 + 项目交互式查看者（默认）
 
 ```json
 {
@@ -90,13 +93,6 @@
         "runSavedChart": true,
         "runMetricQuery": true,
         "exportDashboardCode": false
-      },
-      "explores": {
-        "queryable": [
-          { "name": "pinleibaohsm_cls_top", "label": "类目分析&TOP商品", "groupLabel": "品类宝HSM" }
-        ],
-        "metadataOnly": [],
-        "attributeDenied": []
       }
     }
   ]
@@ -104,6 +100,71 @@
 ```
 
 `email`、`firstName`、`lastName`、`userUuid` 来自 `GET /api/v1/user`，传入 `projectUuid` 时也照常返回。姓名按接口原样给出，缺了则为 `null`。`organization.role` 用组织角色代码值（含 `member`）。`projectRole` 与 `effectiveAccessLevel` 为 `viewer`、`interactive_viewer`、`editor`，或 `null`。
+
+### 内部开发者（预发，默认）
+
+组织是开发者时，四项组织能力都是 true。没有单独项目角色的项目，`projectRole` 为 `null`，有效等级仍是 `editor`。姓名未填则为 `null`。
+
+```json
+{
+  "email": "yangzhiqiang@brandct.com",
+  "firstName": null,
+  "lastName": null,
+  "userUuid": "f27a400e-c340-41f7-9e93-71cddc511a35",
+  "organization": {
+    "organizationUuid": "64908119-d4f0-4b57-8eaa-87f42ba1bcd2",
+    "name": "马上赢",
+    "role": "developer",
+    "capabilities": {
+      "browseContent": true,
+      "runSavedChart": true,
+      "runMetricQuery": true,
+      "exportDashboardCode": true
+    }
+  },
+  "projects": [
+    {
+      "projectUuid": "2774bc2f-68bd-4671-8a92-1415206dfec2",
+      "name": "Lightdash pem",
+      "projectRole": null,
+      "effectiveAccessLevel": "editor",
+      "effectiveCapabilities": {
+        "browseContent": true,
+        "runSavedChart": true,
+        "runMetricQuery": true,
+        "exportDashboardCode": true
+      }
+    }
+  ]
+}
+```
+
+### 打开 includeExplores 之后
+
+`includeExplores=true` 且建议带 `projectUuid`。不传项目时每个可访问项目都会带完整表名单，可能很大。
+
+```json
+{
+  "projectUuid": "3667f682-4080-44a4-8365-49f405936e09",
+  "name": "品牌CT",
+  "projectRole": "interactive_viewer",
+  "effectiveAccessLevel": "interactive_viewer",
+  "effectiveCapabilities": {
+    "browseContent": true,
+    "runSavedChart": true,
+    "runMetricQuery": true,
+    "exportDashboardCode": false
+  },
+  "explores": {
+    "queryable": [
+      { "name": "pinleibaohsm_cls_top", "label": "类目分析&TOP商品", "groupLabel": "品类宝HSM" }
+    ],
+    "metadataOnly": [],
+    "attributeDenied": []
+  }
+}
+```
+
 
 ## 数据来源
 
@@ -122,4 +183,4 @@ flowchart LR
 
 - 身份与 `abilityRules`：`GET /api/v1/user`
 - 项目名单：`GET /api/v1/org/projects`
-- 表：`GET /api/v1/projects/{uuid}/dataCatalog?type=table` 与 `GET /api/v1/projects/{uuid}/explores?filtered=true` 的差集
+- 表（仅 `includeExplores=true`）：`GET /api/v1/projects/{uuid}/dataCatalog?type=table` 与 `GET /api/v1/projects/{uuid}/explores?filtered=true` 的差集

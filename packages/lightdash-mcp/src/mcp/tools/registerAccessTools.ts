@@ -12,6 +12,7 @@ import {
 import {
     classifyExplores,
     collectExploreAccessItems,
+    type ClassifiedExplores,
 } from '../access/classifyExplores';
 import { listAllCatalogTables } from '../access/listCatalogTables';
 import { resolveCoreToolsApiKey } from '../coreToolsContext';
@@ -58,12 +59,32 @@ function collectProjects(value: unknown): ProjectSummary[] {
         .filter((item): item is ProjectSummary => item !== null);
 }
 
+type ProjectAccessBase = {
+    projectUuid: string;
+    name: string;
+    projectRole: ReturnType<typeof accessLevelFromCapabilities>;
+    effectiveAccessLevel: ReturnType<typeof accessLevelFromCapabilities>;
+    effectiveCapabilities: AccessCapabilities;
+};
+
+export function withOptionalExplores(
+    project: ProjectAccessBase,
+    includeExplores: boolean,
+    explores: ClassifiedExplores | null,
+): ProjectAccessBase | (ProjectAccessBase & { explores: ClassifiedExplores }) {
+    if (!includeExplores || explores === null) {
+        return project;
+    }
+    return { ...project, explores };
+}
+
 async function buildProjectAccess(
     api: LightdashRestClient,
     apiKey: string,
     project: ProjectSummary,
     rules: ReturnType<typeof parseAbilityRules>,
     organizationCapabilities: AccessCapabilities,
+    includeExplores: boolean,
 ) {
     const projectCapabilities = capabilitiesFromRules(rules, {
         type: 'project',
@@ -73,22 +94,29 @@ async function buildProjectAccess(
         organizationCapabilities,
         projectCapabilities,
     );
-    const [exploresRaw, catalogRaw] = await Promise.all([
-        api.listExplores(apiKey, project.projectUuid, true),
-        listAllCatalogTables(api, apiKey, project.projectUuid),
-    ]);
-    return {
+    const base: ProjectAccessBase = {
         projectUuid: project.projectUuid,
         name: project.name,
         projectRole: accessLevelFromCapabilities(projectCapabilities),
         effectiveAccessLevel: accessLevelFromCapabilities(effectiveCapabilities),
         effectiveCapabilities,
-        explores: classifyExplores(
+    };
+    if (!includeExplores) {
+        return withOptionalExplores(base, false, null);
+    }
+    const [exploresRaw, catalogRaw] = await Promise.all([
+        api.listExplores(apiKey, project.projectUuid, true),
+        listAllCatalogTables(api, apiKey, project.projectUuid),
+    ]);
+    return withOptionalExplores(
+        base,
+        true,
+        classifyExplores(
             collectExploreAccessItems(exploresRaw),
             collectExploreAccessItems(catalogRaw),
             effectiveCapabilities.runMetricQuery,
         ),
-    };
+    );
 }
 
 export function registerAccessTools(
@@ -100,8 +128,16 @@ export function registerAccessTools(
         server,
         'core-tool',
         'get_my_access',
-        '返回当前 PAT 的组织角色、各项目有效能力和可查表。可选 projectUuid；不传则列出全部可访问项目。',
-        { projectUuid: z.string().optional() },
+        '返回当前 PAT 的组织角色和各项目有效能力。默认不返回 explores。要表名单时传 includeExplores=true，建议同时带 projectUuid。',
+        {
+            projectUuid: z.string().optional(),
+            includeExplores: z
+                .boolean()
+                .optional()
+                .describe(
+                    '默认 false：不返回 explores，也不拉表名单。true 时返回 queryable / metadataOnly / attributeDenied。建议同时传 projectUuid。',
+                ),
+        },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
             const [userRaw, projectsRaw] = await Promise.all([
@@ -114,6 +150,7 @@ export function registerAccessTools(
                 type: 'org',
             });
             const requestedProjectUuid = stringOrNull(args.projectUuid);
+            const includeExplores = args.includeExplores === true;
             const projects = collectProjects(projectsRaw).filter((project) =>
                 requestedProjectUuid
                     ? project.projectUuid === requestedProjectUuid
@@ -127,6 +164,7 @@ export function registerAccessTools(
                         project,
                         rules,
                         organizationCapabilities,
+                        includeExplores,
                     ),
                 ),
             );
