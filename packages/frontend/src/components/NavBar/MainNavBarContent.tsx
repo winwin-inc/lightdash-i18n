@@ -22,13 +22,13 @@ import UserMenu from './UserMenu';
 type Props = {
     activeProjectUuid: string | undefined;
     isLoadingActiveProject: boolean;
-    isCustomerUse: boolean;
+    isClientUse: boolean;
 };
 
 export const MainNavBarContent: FC<Props> = ({
     activeProjectUuid,
     isLoadingActiveProject,
-    isCustomerUse,
+    isClientUse,
 }) => {
     const { t } = useTranslation();
     const { user } = useApp();
@@ -50,7 +50,7 @@ export const MainNavBarContent: FC<Props> = ({
     );
 
     // 客户使用模式 + 查看者权限（不能 manage Project）时隐藏 Logo
-    const shouldHideLogo = isCustomerUse && !userCanManageProject;
+    const shouldHideLogo = isClientUse && !userCanManageProject;
 
     return (
         <>
@@ -72,14 +72,14 @@ export const MainNavBarContent: FC<Props> = ({
                             <ExploreMenu projectUuid={activeProjectUuid} />
                             <BrowseMenu
                                 projectUuid={activeProjectUuid}
-                                isCustomerUse={isCustomerUse}
+                                isClientUse={isClientUse}
                             />
-                            {hasMetrics && !isCustomerUse && (
+                            {hasMetrics && !isClientUse && (
                                 <MetricsLink projectUuid={activeProjectUuid} />
                             )}
                             <AiAgentsButton />
                         </Button.Group>
-                        {!isCustomerUse && (
+                        {!isClientUse && (
                             <Omnibar projectUuid={activeProjectUuid} />
                         )}
                     </>

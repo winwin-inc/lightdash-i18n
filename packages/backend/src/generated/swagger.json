@@ -17858,9 +17858,9 @@
                         "nullable": true,
                         "description": "IANA zone used as the project default for query timezone resolution"
                     },
-                    "isCustomerUse": {
+                    "isClientUse": {
                         "type": "boolean",
-                        "description": "Whether this project is for customer use\nIf true, certain features/content may be hidden"
+                        "description": "Whether this project is for client use\nIf true, certain features/content may be hidden"
                     },
                     "organizationWarehouseCredentialsUuid": {
                         "type": "string"
@@ -18881,7 +18881,7 @@
             },
             "UpdateMetadata": {
                 "properties": {
-                    "isCustomerUse": {
+                    "isClientUse": {
                         "type": "boolean"
                     },
                     "upstreamProjectUuid": {
@@ -21974,9 +21974,9 @@
             },
             "OrganizationProject": {
                 "properties": {
-                    "isCustomerUse": {
+                    "isClientUse": {
                         "type": "boolean",
-                        "description": "Whether this project is for customer use\nIf true, certain features/content may be hidden"
+                        "description": "Whether this project is for client use\nIf true, certain features/content may be hidden"
                     },
                     "requireUserCredentials": {
                         "type": "boolean"
@@ -22788,9 +22788,9 @@
                     "dbtVersion": {
                         "$ref": "#/components/schemas/DbtVersionOption"
                     },
-                    "isCustomerUse": {
+                    "isClientUse": {
                         "type": "boolean",
-                        "description": "Whether this project is for customer use\nIf true, certain features/content may be hidden"
+                        "description": "Whether this project is for client use\nIf true, certain features/content may be hidden"
                     },
                     "copyWarehouseConnectionFromUpstreamProject": {
                         "type": "boolean"

@@ -17,7 +17,7 @@ const SavedQueries: FC = () => {
     const { projectUuid } = useParams<{ projectUuid: string }>();
 
     const project = useProject(projectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const { health } = useApp();
     const navigate = useNavigate();
@@ -70,7 +70,7 @@ const SavedQueries: FC = () => {
 
                 {projectUuid ? (
                     <InfiniteResourceTable
-                        isCustomerUse={isCustomerUse}
+                        isClientUse={isClientUse}
                         filters={{
                             projectUuid,
                             contentTypes: [ContentType.CHART],

@@ -193,7 +193,7 @@ export class SearchService extends BaseService {
             results.dashboards.map(filterItem),
         );
 
-        // Filter dashboards for viewer / interactive_viewer in customer-use projects
+        // Filter dashboards for viewer / interactive_viewer in client-use projects
         const allowedDashboardUuids =
             await this.dashboardService.getAllowedDashboardUuidsForViewer(
                 user,

@@ -17,7 +17,7 @@ import {
     generateSlug,
     hasChartsInDashboard,
     isChartScheduler,
-    isCustomerUseRestrictedProjectRole,
+    isClientUseRestrictedProjectRole,
     isDashboardChartTileType,
     isDashboardScheduler,
     isDashboardUnversionedFields,
@@ -233,7 +233,7 @@ export class DashboardService
     }
 
     /**
-     * Get allowed dashboard UUIDs for viewer / interactive_viewer in customer-use projects.
+     * Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects.
      * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
      */
     async getAllowedDashboardUuidsForViewer(
@@ -254,7 +254,7 @@ export class DashboardService
         const project = await db
             .from('projects')
             .where('project_uuid', projectUuid)
-            .select('project_id', 'is_customer_use', 'organization_id')
+            .select('project_id', 'is_client_use', 'organization_id')
             .first();
         if (!project) {
             this.logger.warn(
@@ -263,10 +263,10 @@ export class DashboardService
             return undefined;
         }
 
-        const isCustomerUse = project.is_customer_use ?? false;
-        if (!isCustomerUse) {
+        const isClientUse = project.is_client_use ?? false;
+        if (!isClientUse) {
             this.logger.warn(
-                `Project ${projectUuid} is not in customer use mode, skipping RPC filtering`,
+                `Project ${projectUuid} is not in client use mode, skipping RPC filtering`,
             );
             return undefined;
         }
@@ -330,9 +330,9 @@ export class DashboardService
         }
 
         const shouldApplyRpcDashboardFilter =
-            isCustomerUseRestrictedProjectRole(userRole);
+            isClientUseRestrictedProjectRole(userRole);
 
-        // Only filter if user is viewer / interactive_viewer and project has customer use enabled
+        // Only filter if user is viewer / interactive_viewer and project has client use enabled
         if (!shouldApplyRpcDashboardFilter) {
             this.logger.warn(
                 `User ${user.userUuid} is ${userRole} in project ${projectUuid}, skipping RPC filtering`,
@@ -340,12 +340,12 @@ export class DashboardService
             return undefined;
         }
 
-        // For viewer / interactive_viewer in customer use mode, RPC interface is required
+        // For viewer / interactive_viewer in client use mode, RPC interface is required
         // If user.email is missing, cannot verify permissions via RPC
         // Return empty Set to filter out all dashboards (cannot verify = no access)
         if (!user.email) {
             this.logger.warn(
-                `User ${user.userUuid} (viewer / interactive_viewer) has no email in customer use project ${projectUuid}, filtering out all dashboards.`,
+                `User ${user.userUuid} (viewer / interactive_viewer) has no email in client use project ${projectUuid}, filtering out all dashboards.`,
             );
             return new Set<string>();
         }
@@ -356,7 +356,7 @@ export class DashboardService
 
         if (!mobile) {
             this.logger.warn(
-                `User ${user.userUuid} (viewer / interactive_viewer) email ${normalizedEmail} has no mobile part in customer use project ${projectUuid}, skipping RPC filtering`,
+                `User ${user.userUuid} (viewer / interactive_viewer) email ${normalizedEmail} has no mobile part in client use project ${projectUuid}, skipping RPC filtering`,
             );
             return undefined;
         }
@@ -400,7 +400,7 @@ export class DashboardService
                 }`,
             );
             // On error, return empty Set to filter out all dashboards
-            // For viewer / interactive_viewer in customer use mode, RPC interface is required
+            // For viewer / interactive_viewer in client use mode, RPC interface is required
             return new Set<string>();
         }
     }
@@ -430,7 +430,7 @@ export class DashboardService
             spaces.map((s) => s.uuid),
         );
 
-        // Get allowed dashboard UUIDs for viewer / interactive_viewer in customer-use projects
+        // Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects
         // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
@@ -449,8 +449,8 @@ export class DashboardService
                 }),
             );
 
-            // Filter by RPC if viewer / interactive_viewer and customer use enabled
-            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token, non-restricted roles, or non-customer-use projects)
+            // Filter by RPC if viewer / interactive_viewer and client use enabled
+            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token, non-restricted roles, or non-client-use projects)
             // If allowedDashboardUuids is defined (not undefined), it means RPC filtering is required
             // - If it's an empty Set, user has no dashboard access (RPC returned no dashboards)
             // - If it has values, check if this dashboard is in the allowed list
@@ -577,7 +577,7 @@ export class DashboardService
             access: spaceAccess,
         };
 
-        // Check dashboard permission for viewer / interactive_viewer in customer-use projects
+        // Check dashboard permission for viewer / interactive_viewer in client-use projects
         // This check should happen before CASL ability check
         // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =

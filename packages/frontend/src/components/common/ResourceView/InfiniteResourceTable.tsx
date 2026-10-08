@@ -91,7 +91,7 @@ type ResourceView2Props = Partial<MRT_TableOptions<ResourceViewItem>> & {
         defaultValue: ContentType | undefined;
         options: ContentType[];
     };
-    isCustomerUse: boolean;
+    isClientUse: boolean;
     columnVisibility?: ColumnVisibilityConfig;
     adminContentView?: boolean;
     initialAdminContentViewValue?: 'all' | 'shared';
@@ -102,7 +102,7 @@ const defaultSpaces: SpaceSummary[] = [];
 const InfiniteResourceTable = ({
     filters,
     contentTypeFilter,
-    isCustomerUse,
+    isClientUse,
     columnVisibility,
     adminContentView = false,
     initialAdminContentViewValue = 'shared',
@@ -298,7 +298,7 @@ const InfiniteResourceTable = ({
         },
     ];
 
-    if (isCustomerUse) {
+    if (isClientUse) {
         // remove
         ResourceColumns.splice(1);
     }

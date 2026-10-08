@@ -164,7 +164,7 @@ flowchart TB
         subgraph PA_2 ["2. 业务鉴权与类目权限"]
             B1["CategoryRpcClient (RPC VIEWER 看板白名单)"]
             B2["field/search 类目联动 + dbt sql_filter 行级权限"]
-            B3["is_customer_use 项目隔离 & 体验账号 (is_trial_account)"]
+            B3["is_client_use 项目隔离 & 体验账号 (is_trial_account)"]
         end
 
         subgraph PA_3 ["3. 自研独立子包"]
