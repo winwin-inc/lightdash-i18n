@@ -24,8 +24,8 @@
 | `get_mcp_docs` | 无，PAT 认证即可 |
 | `get_site_info` | 无，PAT 认证即可 |
 | `get_lightdash_version` | 无，PAT 认证即可 |
-| `set_project` | 无，PAT 认证即可 |
-| `get_current_project` | 无，PAT 认证即可 |
+| `set_project` | 无，PAT 认证即可（仅 v1） |
+| `get_current_project` | 无，PAT 认证即可（仅 v1） |
 | `get_my_access` | 无，PAT 认证即可 |
 | `list_projects` | 查看者 |
 | `list_spaces` | 查看者 |

@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import type { LightdashMcpEnvConfig } from '../config';
 import type { LightdashRestClient } from '../rest/lightdashRest';
+import { registerAccessTools } from './tools/registerAccessTools';
 import { registerContentTools } from './tools/registerContentTools';
 import { registerExploreCatalogTools } from './tools/registerExploreCatalogTools';
 import type { CoreQueryToolsDeps } from './tools/registerQueryTools';
@@ -15,6 +16,7 @@ export function registerCoreMcpTools(
     deps: CoreQueryToolsDeps,
 ): void {
     registerOrgAndHealthTools(server, config, api);
+    registerAccessTools(server, config, api);
     registerExploreCatalogTools(server, config, api);
     registerContentTools(server, config, api);
     registerQueryTools(server, config, api, deps);

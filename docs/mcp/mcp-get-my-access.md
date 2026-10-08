@@ -1,8 +1,8 @@
 # MCP 权限查询：`get_my_access`
 
-查当前 PAT 的组织角色、每个可访问项目上的有效能力，以及该项目里哪些表可以跑临时指标查询。AI 应先调这个工具，再选表，不要先打一次会 403 的查询。
+查当前令牌的组织角色、每个可访问项目上的有效能力，以及该项目里哪些表可以跑临时指标查询。AI 应先调这个工具，再选表，不要先打一次会 403 的查询。
 
-本工具加在 v1 包 `packages/lightdash-mcp`。最低要求是 PAT 已认证，不要求更高项目角色。对照表见 [mcp-tools-permissions.md](./mcp-tools-permissions.md)。
+本工具在 v1 包 `packages/lightdash-mcp` 和 v2 包 `packages/lightdash-mcp-v2` 都有。最低要求是令牌已认证，不要求更高项目角色。对照表见 [mcp-tools-permissions.md](./mcp-tools-permissions.md)。v2 无 `set_project` / `get_current_project`，项目靠工具参数 `projectUuid` 或环境变量 `LIGHTDASH_PROJECT_UUID`。
 
 ## 入参
 

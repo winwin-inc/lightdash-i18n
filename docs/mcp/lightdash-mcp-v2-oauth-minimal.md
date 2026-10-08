@@ -187,7 +187,7 @@ claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahu
 ```
 
 会话中 `/mcp` → 选 `msyx-pre` → Authenticate → Keycloak 登录。  
-成功后应为 `connected`，并可列出工具（预发实测约 23 个；`list_projects` 已跑通）。
+成功后应为 `connected`，并可列出工具（预发实测约 24 个；`list_projects` 已跑通）。
 
 ### WorkBuddy
 

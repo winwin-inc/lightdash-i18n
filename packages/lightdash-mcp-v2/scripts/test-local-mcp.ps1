@@ -90,13 +90,13 @@ foreach ($t in $need) {
 }
 
 $projectUuid = '3667f682-4080-44a4-8365-49f405936e09'
-Write-Host "`n==> 5. set_project"
+Write-Host "`n==> 5. list_projects"
 [void](Invoke-Mcp -SessionId $sessionId -ApiKey $apiKey -Body @{
     jsonrpc = '2.0'
     method  = 'tools/call'
     params  = @{
-        name      = 'set_project'
-        arguments = @{ projectUuid = $projectUuid }
+        name      = 'list_projects'
+        arguments = @{}
     }
     id = 3
 })

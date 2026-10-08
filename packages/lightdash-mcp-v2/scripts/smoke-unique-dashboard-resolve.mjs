@@ -118,7 +118,6 @@ async function liveSmoke() {
     capabilities: {},
     clientInfo: { name: 'smoke-unique-dash', version: '0.0.1' },
   });
-  await rpc('tools/call', { name: 'set_project', arguments: { projectUuid } });
   const call = await rpc('tools/call', {
     name: 'run_metric_query',
     arguments: {
