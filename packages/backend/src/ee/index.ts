@@ -23,11 +23,11 @@ import { SandboxRegistryModel } from './models/SandboxRegistryModel';
 import { ServiceAccountModel } from './models/ServiceAccountModel';
 import { CommercialSchedulerClient } from './scheduler/SchedulerClient';
 import { CommercialSchedulerWorker } from './scheduler/SchedulerWorker';
+import { OrgAiCopilotConfigResolver } from './services/ai/OrgAiCopilotConfigResolver';
 import { AiAgentAdminService } from './services/AiAgentAdminService';
 import { AiAgentService } from './services/AiAgentService';
 import { AiOrganizationSettingsService } from './services/AiOrganizationSettingsService';
 import { AiService } from './services/AiService/AiService';
-import { OrgAiCopilotConfigResolver } from './services/ai/OrgAiCopilotConfigResolver';
 import { AppGenerateService } from './services/AppGenerateService/AppGenerateService';
 import { CommercialCacheService } from './services/CommercialCacheService';
 import { CommercialSlackIntegrationService } from './services/CommercialSlackIntegrationService';
@@ -48,7 +48,9 @@ type EnterpriseAppArguments = Pick<
     | 'customExpressMiddlewares'
 >;
 
-type ServiceProviderMap = NonNullable<EnterpriseAppArguments['serviceProviders']>;
+type ServiceProviderMap = NonNullable<
+    EnterpriseAppArguments['serviceProviders']
+>;
 type ClientProviderMap = NonNullable<EnterpriseAppArguments['clientProviders']>;
 
 const appGenerateServiceProvider: ServiceProviderMap['appGenerateService'] = ({
@@ -293,7 +295,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                         models.getOrganizationWarehouseCredentialsModel(),
                     userModel: models.getUserModel(),
                 }),
-            projectService: ({ models, context, clients, utils }) =>
+            projectService: ({ models, context, clients, utils, repository }) =>
                 new ProjectService({
                     lightdashConfig: context.lightdashConfig,
                     analytics: context.lightdashAnalytics,
@@ -326,6 +328,8 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     projectParametersModel: models.getProjectParametersModel(),
                     organizationWarehouseCredentialsModel:
                         models.getOrganizationWarehouseCredentialsModel(),
+                    projectOperationLogService:
+                        repository.getProjectOperationLogService(),
                 }),
             instanceConfigurationService: ({
                 models,
@@ -396,6 +400,8 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     pivotTableService: repository.getPivotTableService(),
                     prometheusMetrics,
                     permissionsService: repository.getPermissionsService(),
+                    projectOperationLogService:
+                        repository.getProjectOperationLogService(),
                 }),
             cacheService: ({ models, clients }) =>
                 new CommercialCacheService({

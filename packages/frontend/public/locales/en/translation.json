@@ -9580,13 +9580,21 @@
       "dashboard_filters_read_only_changed": "Set filter read-only",
       "dashboard_filters_hidden_changed": "Set filter hidden",
       "dashboard_filters_allowed_operators_changed": "Change allowed operators",
-      "dashboard_filters_input_mode_changed": "Change single/multi select"
+      "dashboard_filters_input_mode_changed": "Change single/multi select",
+      "project_member_added": "Added project member",
+      "project_member_role_updated": "Updated project member role",
+      "project_member_removed": "Removed project member",
+      "project_group_access_added": "Added group project role",
+      "project_group_access_role_updated": "Updated group project role",
+      "project_group_access_removed": "Removed group project role"
     },
     "resource_types": {
       "dashboard": "Dashboard",
       "dashboard_filter": "Dashboard filter",
       "chart": "Chart",
       "project": "Project",
+      "project_member": "Project member",
+      "project_group_access": "Group project role",
       "operation_log": "Operation log"
     },
     "statuses": {
@@ -9664,7 +9672,13 @@
       "hidden": "Hidden",
       "allowedOperators": "Allowed operators",
       "singleValue": "Single value",
-      "required": "Required to run"
+      "required": "Required to run",
+      "targetUserUuid": "Target user",
+      "targetEmail": "Target email",
+      "fromRole": "Previous role",
+      "toRole": "New role",
+      "groupUuid": "Group ID",
+      "groupName": "Group name"
     },
     "summary_values": {
       "global": "Global",

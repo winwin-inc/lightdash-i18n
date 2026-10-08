@@ -9611,13 +9611,21 @@
       "dashboard_filters_read_only_changed": "设置筛选器只读",
       "dashboard_filters_hidden_changed": "设置筛选器隐藏",
       "dashboard_filters_allowed_operators_changed": "修改允许的筛选方式",
-      "dashboard_filters_input_mode_changed": "修改单选/多选"
+      "dashboard_filters_input_mode_changed": "修改单选/多选",
+      "project_member_added": "添加项目成员",
+      "project_member_role_updated": "修改项目成员角色",
+      "project_member_removed": "移除项目成员",
+      "project_group_access_added": "添加用户组项目角色",
+      "project_group_access_role_updated": "修改用户组项目角色",
+      "project_group_access_removed": "移除用户组项目角色"
     },
     "resource_types": {
       "dashboard": "看板",
       "dashboard_filter": "看板筛选器",
       "chart": "图表",
       "project": "项目",
+      "project_member": "项目成员",
+      "project_group_access": "用户组项目角色",
       "operation_log": "操作日志"
     },
     "statuses": {
@@ -9695,7 +9703,13 @@
       "hidden": "隐藏",
       "allowedOperators": "允许的筛选方式",
       "singleValue": "仅单选",
-      "required": "运行需要值"
+      "required": "运行需要值",
+      "targetUserUuid": "目标用户",
+      "targetEmail": "目标邮箱",
+      "fromRole": "原角色",
+      "toRole": "新角色",
+      "groupUuid": "用户组 ID",
+      "groupName": "用户组"
     },
     "summary_values": {
       "global": "全局",

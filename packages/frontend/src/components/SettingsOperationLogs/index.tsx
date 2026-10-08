@@ -81,6 +81,8 @@ const RESOURCE_TYPE_OPTIONS = [
     'dashboard_filter',
     'chart',
     'project',
+    'project_member',
+    'project_group_access',
     'operation_log',
 ] as const;
 

@@ -133,7 +133,7 @@ export class ContentService extends BaseService {
             paginateArgs,
         );
 
-        // Filter dashboards for viewer users in customer use projects
+        // Filter dashboards for viewer / interactive_viewer in customer-use projects
         // Only apply if contentTypes includes dashboard or is undefined (all types)
         const shouldFilterDashboards =
             !filters.contentTypes ||

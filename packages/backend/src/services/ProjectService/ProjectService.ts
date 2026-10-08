@@ -10,6 +10,7 @@ import {
     ApiCompiledMergeQueryResults,
     ApiCreatePreviewResults,
     type ApiCreateProjectResults,
+    type ApiDataTimezonePreviewResults,
     ApiFormulaValidationResults,
     ApiQueryResults,
     ApiSqlQueryResults,
@@ -17,20 +18,22 @@ import {
     assertIsAccountWithOrg,
     assertUnreachable,
     BigqueryAuthenticationType,
+    buildDataTimezonePreviewResponse,
+    buildDataTimezonePreviewSql,
+    buildMergeItems,
     CacheMetadata,
-    type CalculateSubtotalsFromQuery,
     CalculateCountFromQuery,
+    type CalculateSubtotalsFromQuery,
     CalculateTotalFromQuery,
     ChartSourceType,
     ChartSummary,
     CompiledDimension,
     ContentType,
     convertCustomMetricToDbt,
-    convertItemTypeToDimensionType,
     convertExplores,
+    convertItemTypeToDimensionType,
     countCustomDimensionsInMetricQuery,
     countTotalFilterRules,
-    buildMergeItems,
     type CreateDatabricksCredentials,
     createDimensionWithGranularity,
     CreateJob,
@@ -41,12 +44,14 @@ import {
     CreateSnowflakeCredentials,
     CreateVirtualViewPayload,
     CreateWarehouseCredentials,
+    currentUtcWallClock,
     CustomFormatType,
     CustomSqlQueryForbiddenError,
     DashboardAvailableFilters,
     DashboardBasicDetails,
     type DashboardFilterableField,
     DashboardFilters,
+    type DataTimezonePreviewRequest,
     DateZoom,
     DbtExposure,
     DbtExposureType,
@@ -61,8 +66,8 @@ import {
     Explore,
     ExploreError,
     ExploreType,
-    FieldType,
     FeatureFlags,
+    FieldType,
     FilterableDimension,
     FilterGroupItem,
     FilterOperator,
@@ -72,7 +77,9 @@ import {
     ForbiddenError,
     formatRawRows,
     formatRows,
+    getAccountUserTimezone,
     getAvailableParametersFromTables,
+    getColumnTimezone,
     getDashboardFilterRulesForTables,
     getDateDimension,
     getDimensions,
@@ -81,26 +88,17 @@ import {
     getIntrinsicUserAttributes,
     getItemId,
     getItemMap,
-    getMetrics,
     getMergeSourceTableLabel,
+    getMetrics,
     getTimezoneLabel,
-    getAccountUserTimezone,
-    resolveQueryTimezone,
-    isValidTimezone,
-    getColumnTimezone,
-    type ApiDataTimezonePreviewResults,
-    type DataTimezonePreviewRequest,
-    buildDataTimezonePreviewResponse,
-    buildDataTimezonePreviewSql,
-    currentUtcWallClock,
     GroupType,
     hasIntersection,
     hasWarehouseCredentials,
     IntrinsicUserAttributes,
     isAndFilterGroup,
     isCartesianChartConfig,
-    isCustomSqlDimension,
     isCustomDimension,
+    isCustomSqlDimension,
     isDateItem,
     isDimension,
     isExploreError,
@@ -112,6 +110,7 @@ import {
     isNotNull,
     isSqlTableCalculation,
     isUserWithOrg,
+    isValidTimezone,
     ItemsMap,
     Job,
     JobStatusType,
@@ -119,8 +118,13 @@ import {
     JobType,
     LightdashError,
     LightdashProjectConfig,
+    MAX_RESULTS_CACHE_TTL_SECONDS,
+    maybeOverrideDbtConnection,
+    maybeOverrideWarehouseConnection,
+    maybeReplaceFieldsInChartVersion,
     MERGE_TABLE_NAME,
     mergeCalculationReferencePattern,
+    mergeDashboardAvailableFiltersFromChartFilterSets,
     MergeFieldTypes,
     MergeItemEntry,
     MergeQuery,
@@ -129,14 +133,9 @@ import {
     MergeQueryField,
     MergeQueryMetricSource,
     MergeTypedColumn,
-    maybeOverrideDbtConnection,
-    maybeOverrideWarehouseConnection,
-    maybeReplaceFieldsInChartVersion,
-    mergeDashboardAvailableFiltersFromChartFilterSets,
     mergeWarehouseCredentials,
     MetricQuery,
     MetricType,
-    MAX_RESULTS_CACHE_TTL_SECONDS,
     MIN_RESULTS_CACHE_TTL_SECONDS,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
@@ -152,6 +151,7 @@ import {
     PivotConfiguration,
     PivotValuesColumn,
     Project,
+    PROJECT_OPERATION_LOG_ACTIONS,
     ProjectCatalog,
     ProjectGroupAccess,
     ProjectMemberProfile,
@@ -163,6 +163,7 @@ import {
     ReplaceCustomFieldsPayload,
     replaceDimensionInExplore,
     RequestMethod,
+    resolveQueryTimezone,
     ResultRow,
     ResultsCacheProjectSettings,
     type RunQueryTags,
@@ -191,8 +192,8 @@ import {
     UserAccessControls,
     UserAttributeValueMap,
     UserWarehouseCredentials,
-    ValuesColumn,
     validateMergeQuery,
+    ValuesColumn,
     VizColumn,
     VizIndexType,
     WarehouseClient,
@@ -266,14 +267,14 @@ import {
 import { compileFilterableCustomSqlDimensionsForExplore } from '../../utils/compileCustomSqlDimensionsForDashboard';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import {
-    CompiledQuery,
-    MetricQueryBuilder,
-} from '../../utils/QueryBuilder/MetricQueryBuilder';
-import {
     applyMergeTerminalWrapper,
     getMergeJoinKeySqlOptions,
     MergeQueryBuilder,
 } from '../../utils/QueryBuilder/MergeQueryBuilder';
+import {
+    CompiledQuery,
+    MetricQueryBuilder,
+} from '../../utils/QueryBuilder/MetricQueryBuilder';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
     applyLimitToSqlQuery,
@@ -282,6 +283,7 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
     hasDirectAccessToSpace,
     hasViewAccessToSpace,
@@ -323,6 +325,7 @@ export type ProjectServiceArguments = {
     featureFlagModel: FeatureFlagModel;
     projectParametersModel: ProjectParametersModel;
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
+    projectOperationLogService: ProjectOperationLogService;
 };
 
 export class ProjectService extends BaseService {
@@ -384,6 +387,8 @@ export class ProjectService extends BaseService {
 
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
 
+    projectOperationLogService: ProjectOperationLogService;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -413,6 +418,7 @@ export class ProjectService extends BaseService {
         featureFlagModel,
         projectParametersModel,
         organizationWarehouseCredentialsModel,
+        projectOperationLogService,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -445,6 +451,7 @@ export class ProjectService extends BaseService {
         this.projectParametersModel = projectParametersModel;
         this.organizationWarehouseCredentialsModel =
             organizationWarehouseCredentialsModel;
+        this.projectOperationLogService = projectOperationLogService;
     }
 
     static getMetricQueryExecutionProperties({
@@ -5233,6 +5240,29 @@ export class ProjectService extends BaseService {
             data.email,
             data.role,
         );
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const createdMember = members.find(
+            (member) => member.email === data.email,
+        );
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ADDED,
+            resourceType: 'project_member',
+            resourceUuid: createdMember?.userUuid ?? null,
+            resourceName:
+                createdMember != null
+                    ? `${createdMember.firstName} ${createdMember.lastName}`.trim() ||
+                      createdMember.email
+                    : data.email,
+            summary: {
+                targetUserUuid: createdMember?.userUuid ?? null,
+                targetEmail: data.email,
+                fromRole: null,
+                toRole: data.role,
+            },
+        });
         const project = await this.projectModel.getSummary(projectUuid);
         const projectUrl = new URL(
             `/projects/${projectUuid}/home`,
@@ -5269,11 +5299,32 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const existing = members.find((member) => member.userUuid === userUuid);
         await this.projectModel.updateProjectAccess(
             projectUuid,
             userUuid,
             data.role,
         );
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ROLE_UPDATED,
+            resourceType: 'project_member',
+            resourceUuid: userUuid,
+            resourceName:
+                existing != null
+                    ? `${existing.firstName} ${existing.lastName}`.trim() ||
+                      existing.email
+                    : userUuid,
+            summary: {
+                targetUserUuid: userUuid,
+                targetEmail: existing?.email ?? null,
+                fromRole: existing?.role ?? null,
+                toRole: data.role,
+            },
+        });
     }
 
     async updateMetadata(
@@ -5319,7 +5370,28 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const existing = members.find((member) => member.userUuid === userUuid);
         await this.projectModel.deleteProjectAccess(projectUuid, userUuid);
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_REMOVED,
+            resourceType: 'project_member',
+            resourceUuid: userUuid,
+            resourceName:
+                existing != null
+                    ? `${existing.firstName} ${existing.lastName}`.trim() ||
+                      existing.email
+                    : userUuid,
+            summary: {
+                targetUserUuid: userUuid,
+                targetEmail: existing?.email ?? null,
+                fromRole: existing?.role ?? null,
+                toRole: null,
+            },
+        });
     }
 
     async getProjectGroupAccesses(
@@ -5715,7 +5787,7 @@ export class ProjectService extends BaseService {
         );
     }
 
-    async _getCalculateTotalQuery(
+    static async _getCalculateTotalQuery(
         userAttributes: UserAttributeValueMap,
         intrinsicUserAttributes: IntrinsicUserAttributes,
         explore: Explore,
@@ -5794,7 +5866,7 @@ export class ProjectService extends BaseService {
         });
 
         try {
-            const { query } = await this._getCalculateTotalQuery(
+            const { query } = await ProjectService._getCalculateTotalQuery(
                 userAttributes,
                 intrinsicUserAttributes,
                 explore,
@@ -5872,17 +5944,18 @@ export class ProjectService extends BaseService {
         });
 
         try {
-            const { query, totalQuery } = await this._getCalculateTotalQuery(
-                userAttributes,
-                intrinsicUserAttributes,
-                explore,
-                metricQuery,
-                warehouseClient,
-                availableParameterDefinitions,
-                parameters,
-                timezone,
-                useTimezoneAwareDateTrunc,
-            );
+            const { query, totalQuery } =
+                await ProjectService._getCalculateTotalQuery(
+                    userAttributes,
+                    intrinsicUserAttributes,
+                    explore,
+                    metricQuery,
+                    warehouseClient,
+                    availableParameterDefinitions,
+                    parameters,
+                    timezone,
+                    useTimezoneAwareDateTrunc,
+                );
 
             const queryTags: RunQueryTags = {
                 ...this.getUserQueryTags(account),
@@ -7051,8 +7124,9 @@ export class ProjectService extends BaseService {
     }
 
     async getQueryTimezoneForProject(projectUuid: string): Promise<string> {
-        const projectTimezone =
-            await this.projectModel.getQueryTimezone(projectUuid);
+        const projectTimezone = await this.projectModel.getQueryTimezone(
+            projectUuid,
+        );
         return projectTimezone ?? this.lightdashConfig.query.timezone ?? 'UTC';
     }
 
@@ -7068,8 +7142,9 @@ export class ProjectService extends BaseService {
         if (!enabled) {
             return this.lightdashConfig.query.timezone || 'UTC';
         }
-        const projectTimezone =
-            await this.getQueryTimezoneForProject(projectUuid);
+        const projectTimezone = await this.getQueryTimezoneForProject(
+            projectUuid,
+        );
         return resolveQueryTimezone({
             sessionTimezone: null,
             metricQuery,
@@ -7314,8 +7389,9 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        const settings =
-            await this.projectModel.getResultsCacheSettings(projectUuid);
+        const settings = await this.projectModel.getResultsCacheSettings(
+            projectUuid,
+        );
         return {
             projectUuid,
             ...settings,
@@ -7760,7 +7836,7 @@ export class ProjectService extends BaseService {
         };
     }
 
-    protected getMergeJoinFieldTypes(
+    protected static getMergeJoinFieldTypes(
         mergeQuery: MergeQuery,
         itemMapBySourceId: Record<string, ItemsMap>,
     ): MergeFieldTypes {
@@ -7780,7 +7856,7 @@ export class ProjectService extends BaseService {
                     fieldTypes[sourceId][fieldId] = {
                         type: convertItemTypeToDimensionType(dimension),
                         timeInterval: isDimension(dimension)
-                            ? (dimension.timeInterval ?? null)
+                            ? dimension.timeInterval ?? null
                             : null,
                         timestampDomain: isDimension(dimension)
                             ? dimension.timestampDomain
@@ -7835,8 +7911,9 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError('Merge queries are not enabled');
         }
 
-        const { organizationUuid } =
-            await this.projectModel.getSummary(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
         if (
             account.user.ability.cannot(
                 'view',
@@ -7916,7 +7993,7 @@ export class ProjectService extends BaseService {
         const itemMapBySourceId = Object.fromEntries(
             resolvedSources.map(({ source, itemMap }) => [source.id, itemMap]),
         );
-        const fieldTypes = this.getMergeJoinFieldTypes(
+        const fieldTypes = ProjectService.getMergeJoinFieldTypes(
             mergeQuery,
             itemMapBySourceId,
         );
@@ -7932,7 +8009,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.UNSUPPORTED_TABLE_CALCULATION,
                               sourceId: source.id,
                               fieldIds: unsupported,
-                              message: `Query "${source.id}" uses ${unsupported.join(
+                              message: `Query "${
+                                  source.id
+                              }" uses ${unsupported.join(
                                   ', ',
                               )}, which depend on that query's complete row set and cannot be carried across a merge.`,
                           },
@@ -8004,9 +8083,7 @@ export class ProjectService extends BaseService {
 
         const parameterReferences = Array.from(
             new Set(
-                compiledSources.flatMap(
-                    (source) => source.parameterReferences,
-                ),
+                compiledSources.flatMap((source) => source.parameterReferences),
             ),
         );
         const usedParametersValues = Object.assign(
@@ -8022,7 +8099,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.MISSING_PARAMETERS,
                               sourceId: source.id,
                               fieldIds: source.missingParameters,
-                              message: `Query "${source.id}" is missing values for: ${source.missingParameters.join(
+                              message: `Query "${
+                                  source.id
+                              }" is missing values for: ${source.missingParameters.join(
                                   ', ',
                               )}.`,
                           },
@@ -8076,8 +8155,7 @@ export class ProjectService extends BaseService {
                 ]
                     .map((match) => match[1])
                     .filter(
-                        (reference) =>
-                            !availableReferences.includes(reference),
+                        (reference) => !availableReferences.includes(reference),
                     );
                 return unresolved.length === 0
                     ? []
@@ -8086,7 +8164,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.UNRESOLVED_CALCULATION_REFERENCE,
                               sourceId: null,
                               fieldIds: unresolved,
-                              message: `Calculation "${calculation.name}" references unavailable fields: ${unresolved.join(
+                              message: `Calculation "${
+                                  calculation.name
+                              }" references unavailable fields: ${unresolved.join(
                                   ', ',
                               )}.`,
                           },
@@ -8141,7 +8221,7 @@ export class ProjectService extends BaseService {
                     label:
                         origin && !isCustomDimension(origin)
                             ? origin.label
-                            : (origin?.name ?? part.name),
+                            : origin?.name ?? part.name,
                     sql: '',
                     hidden: false,
                 },
@@ -8155,7 +8235,7 @@ export class ProjectService extends BaseService {
                 label:
                     origin && !isCustomDimension(origin)
                         ? origin.label
-                        : (origin?.name ?? part.name),
+                        : origin?.name ?? part.name,
                 kind: 'dimension',
                 type,
                 sourceId: null,
@@ -8189,12 +8269,12 @@ export class ProjectService extends BaseService {
                             });
                             return;
                         }
-                        const label =
-                            origin && 'label' in origin
-                                ? origin.label
-                                : origin && 'displayName' in origin
-                                  ? origin.displayName
-                                  : (origin?.name ?? sourceFieldId);
+                        let label = origin?.name ?? sourceFieldId;
+                        if (origin && 'label' in origin) {
+                            label = origin.label;
+                        } else if (origin && 'displayName' in origin) {
+                            label = origin.displayName;
+                        }
                         entries.push({
                             column,
                             item: isOriginMetric

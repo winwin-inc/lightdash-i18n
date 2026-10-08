@@ -8,8 +8,9 @@
 
 - 从看板页面发起语义查询时，页面直接透传当前 `dashboardUuid`（Dashboard UI 本身已有该值，无需 MCP 反查）。
 - 看板图表查询使用 dashboard-aware 接口，确保携带 `dashboardUuid`。
-- 非看板入口的语义化查询，仅在数据集依赖 `dashboardSlug` 且未传 `dashboardUuid` 时，才返回候选看板让用户选择。
-- 返回候选看板前，由后端过滤到当前用户可见的看板。
+- 非看板入口的语义化查询，仅在数据集依赖 `dashboardSlug` 且未传 `dashboardUuid` 时，才反查关联看板。
+- 有候选则选用并查数（多个时随机选一个）；完整可见候选仍返回。0 个候选才返回空列表、不跑数。
+- 返回候选前，由后端过滤到当前用户可见的看板。随机只在过滤后的列表上做。
 - 不依赖 `dashboardSlug` 的查询保持原有 MCP 语义。
 
 ## 页面注入优先路径
@@ -54,8 +55,9 @@ flowchart TD
   hasFilter -->|"否"| normalQuery["按原语义查询执行"]
   hasFilter -->|"是"| findDashboards["反查关联看板"]
   findDashboards --> permissionFilter["按用户权限过滤"]
-  permissionFilter --> chooseDashboard["返回 candidates"]
-  chooseDashboard --> retry["用户选择 dashboardUuid 后重试"]
+  permissionFilter --> pick["随机选一个并查数"]
+  pick --> echo["返回选中项 + candidates"]
+  echo --> retry["口径不对时可带 dashboardUuid 重试"]
   retry --> mcpUseUuid
 ```
 
@@ -66,7 +68,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   contexts["explore/chart 关联看板"] --> casl["CASL + Space 权限过滤"]
-  casl --> customerUse{"customer-use 项目且用户是 VIEWER"}
+  casl --> customerUse{"customer-use 且项目角色是 viewer 或 interactive_viewer"}
   customerUse -->|"否"| visible["返回可见候选看板"]
   customerUse -->|"是"| extractMobile["从 email 提取 mobile"]
   extractMobile --> rpc["调用 findAllDashboardByMobile"]
@@ -77,9 +79,10 @@ flowchart TD
 
 说明：
 
-- 非 VIEWER：只应用 Lightdash 自身的 CASL/Space 权限。
-- VIEWER 且 customer-use 项目：额外调用 `findAllDashboardByMobile`，按 email 提取 mobile 后过滤可见看板。
-- MCP 收到的 `candidates` 已经是“关联该数据集/图表，并且当前用户可见”的集合。
+- 所有角色先走 CASL + Space：没有 `view Dashboard` 的丢掉。
+- 项目角色 `viewer` 或 `interactive_viewer` 且 customer-use：再调 `findAllDashboardByMobile`，按 email 提取 mobile 后过滤可见看板。
+- 编辑者 / 开发者 / 管理员、组织 member、以及 API token / MCP PAT：不走 RPC，只剩 CASL。
+- MCP 收到的 `candidates` 已经是“关联该数据集/图表，并且当前用户可见”的集合。随机只在这份列表上做。
 
 ## 规则
 
@@ -88,9 +91,9 @@ flowchart TD
 | 看板页面语义查询 | 页面注入当前 `dashboardUuid`，MCP 直接使用 |
 | `run_dashboard_tiles` | 使用 `/query/dashboard-chart` 跑图表 |
 | `run_saved_chart` 不依赖 `dashboardSlug` | 保持普通 saved chart 查询 |
-| `run_saved_chart` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 返回候选看板 |
+| `run_saved_chart` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 有候选则随机选用并跑数，返回选中项 + candidates |
 | `run_metric_query` / `run_semantic_metric_query` 不依赖 `dashboardSlug` | 保持原查询 |
-| `run_metric_query` / `run_semantic_metric_query` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 返回候选看板，不直接跑数 |
+| `run_metric_query` / `run_semantic_metric_query` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 有候选则随机选用并跑数，返回选中项 + candidates；0 个候选才返回空列表 |
 | 已显式传入 `dashboardUuid` | 始终优先，后端据此解析 `dashboardSlug` |
 
 语义查询参数：
@@ -107,14 +110,14 @@ flowchart TD
 - **页面侧**：从看板进入时（`fromDashboard`），「语义查询」面板 JSON 自动注入 `dashboardUuid`。
 - **MCP**：`prepareSemanticMetricQueryBody` 从 metricQuery JSON 解析 `dashboardUuid` 并在送 API 前剥离；独立参数优先。
 - `DashboardService.getDashboardContexts`：按 `exploreName` / `chartUuid` 查关联看板，并做权限过滤。
-- `DashboardService.getAllowedDashboardUuidsForViewer`：VIEWER customer-use 场景下获取可见看板 UUID。
+- `DashboardService.getAllowedDashboardUuidsForViewer`：customer-use 且项目角色为 viewer / interactive_viewer 时获取可见看板 UUID。
 - `CategoryRpcClient.findAllDashboardByMobile`：调用外部 RPC 按 mobile 查询看板权限。
-- `dashboardContextResolver`：MCP 内部解析候选看板，不暴露新 tool；显式 `dashboardUuid` 优先。
+- `dashboardContextResolver`：MCP 内部解析候选看板，不暴露新 tool；显式 `dashboardUuid` 优先；N>=1 自动选用（N>1 随机）。
 - `exploreRequiresDashboardContext`：判断 Explore 是否依赖 `dashboardSlug`。
 
 ## 边界
 
-- 不默认选择看板，避免使用错误权限上下文。
+- 默认随机选一个可见关联看板并查数；完整候选仍返回，口径不对时可带 `dashboardUuid` 重试。
 - 不处理 dbt 权限模型自身的 fan-out 问题。
 - 不修改非看板入口、非 `dashboardSlug` 数据集的原查询行为。
 - 当前只检查 base table；如果未来 joined table 也依赖 `dashboardSlug`，需要扩展检测范围。
