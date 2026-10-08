@@ -7,6 +7,8 @@
 | [Session 生命周期与并发设计](./lightdash-mcp-session-lifecycle.md) | 开发维护（连接、内存状态、竞态与回收实现） |
 | [用户使用说明](./lightdash-mcp-user-guide.md) | 分析师怎么提问 |
 | [查询工具速查](./lightdash-mcp-query-tools-quickref.md) | semantic vs flat |
+| [工具与权限对照](./mcp-tools-permissions.md) | 各工具最低项目角色 |
+| [权限查询 get_my_access](./mcp-get-my-access.md) | 当前令牌的组织/项目能力与可查表 |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查 |
 | [包 README](../../packages/lightdash-mcp/README.md) | 环境变量、工具清单、构建 |
 | [Skills](../lightdash-mcp-skills/README.md) | 对外挂技能 |

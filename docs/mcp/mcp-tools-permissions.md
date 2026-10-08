@@ -26,6 +26,7 @@
 | `get_lightdash_version` | 无，PAT 认证即可 |
 | `set_project` | 无，PAT 认证即可 |
 | `get_current_project` | 无，PAT 认证即可 |
+| `get_my_access` | 无，PAT 认证即可 |
 | `list_projects` | 查看者 |
 | `list_spaces` | 查看者 |
 | `find_spaces` | 查看者 |
@@ -58,6 +59,7 @@
 | `get_lightdash_version` | 返回实例健康信息与版本 |
 | `set_project` | 在当前 PAT 会话里记住默认项目 |
 | `get_current_project` | 读取当前会话里的默认项目 |
+| `get_my_access` | 返回当前令牌的组织角色、各项目有效能力和可查表。设计见 [mcp-get-my-access.md](./mcp-get-my-access.md) |
 
 ## 查看者即可
 

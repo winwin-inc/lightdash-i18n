@@ -24,12 +24,13 @@ const DOCS: Record<McpDocsTopic, string> = {
 
     query_workflow: `# 查询工作流
 
-1. list_projects / set_project 或工具参数传 projectUuid。
-2. list_explores / find_explores → find_fields，确认 explore 与 fieldId。
-3. 需要枚举值时用 search_field_values。
-4. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-5. 大结果先缩小 limit / filters；不要猜测 fieldId。
-6. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+1. get_my_access 查看组织角色、各项目有效能力和可查表（queryable）。可选 projectUuid。
+2. list_projects / set_project 或工具参数传 projectUuid。
+3. 临时指标查询只从 queryable 选表；list_explores / find_explores → find_fields，确认 explore 与 fieldId。
+4. 需要枚举值时用 search_field_values。
+5. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
+6. 大结果先缩小 limit / filters；不要猜测 fieldId。
+7. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
 `,
 
     content_fields: `# 内容字段约定（默认 slim）
