@@ -298,7 +298,9 @@ const collectFieldSearchFilters = (
             : filters.dimensions.slice(0, currentIndex)
     ).filter(
         (dimension) =>
-            dimension.values !== undefined && dimension.values.length > 0,
+            !dimension.disabled &&
+            dimension.values !== undefined &&
+            dimension.values.length > 0,
     );
 
     const parentFieldId = getParentFieldId(filter);
@@ -317,9 +319,11 @@ const collectFieldSearchFilters = (
     const parentLabel =
         parentValueOverride !== undefined
             ? parentValueOverride
-            : parentFilter.values?.[0]
-              ? String(parentFilter.values[0])
-              : undefined;
+            : parentFilter.disabled
+              ? undefined
+              : parentFilter.values?.[0]
+                ? String(parentFilter.values[0])
+                : undefined;
 
     if (!parentLabel) {
         return undefined;
@@ -491,6 +495,34 @@ export const updateCategoryFilterCascadeAsync = async (
             });
 
             if (!resolvedValue) {
+                const hasDefaultValue =
+                    filter.values !== undefined && filter.values.length > 0;
+                if (!hasDefaultValue) {
+                    continue;
+                }
+
+                hasChanges = true;
+                const clearedFilter: DashboardFilterRule = {
+                    ...filter,
+                    values: [],
+                    disabled: true,
+                };
+
+                updatedFilters = {
+                    ...updatedFilters,
+                    dimensions: updatedFilters.dimensions.map((d) =>
+                        d.id === filter.id ? clearedFilter : d,
+                    ),
+                };
+
+                const childResult = await cascadeChildren(
+                    updatedFilters,
+                    clearedFilter.target.fieldId,
+                    null,
+                );
+                if (childResult.hasChanges) {
+                    updatedFilters = childResult.filters;
+                }
                 continue;
             }
 
