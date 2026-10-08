@@ -68,9 +68,9 @@ flowchart TD
 ```mermaid
 flowchart TD
   contexts["explore/chart 关联看板"] --> casl["CASL + Space 权限过滤"]
-  casl --> customerUse{"customer-use 且项目角色是 viewer 或 interactive_viewer"}
-  customerUse -->|"否"| visible["返回可见候选看板"]
-  customerUse -->|"是"| rpcConfigured{"ADMIN_API_HOST 与 ADMIN_API_KEY 已配置"}
+  casl --> clientUse{"client-use 且项目角色是 viewer 或 interactive_viewer"}
+  clientUse -->|"否"| visible["返回可见候选看板"]
+  clientUse -->|"是"| rpcConfigured{"ADMIN_API_HOST 与 ADMIN_API_KEY 已配置"}
   rpcConfigured -->|"否"| visible
   rpcConfigured -->|"是"| extractMobile["从 email 提取 mobile"]
   extractMobile --> rpc["调用 findAllDashboardByMobile"]
@@ -82,7 +82,7 @@ flowchart TD
 说明：
 
 - 所有角色先走 CASL + Space：没有 `view Dashboard` 的丢掉。
-- 项目角色 `viewer` 或 `interactive_viewer` 且 customer-use：再看 Admin RPC 是否配置（`CategoryRpcClient.isConfigured()`，即 `ADMIN_API_HOST` + `ADMIN_API_KEY`）。
+- 项目角色 `viewer` 或 `interactive_viewer` 且 client-use：再看 Admin RPC 是否配置（`CategoryRpcClient.isConfigured()`，即 `ADMIN_API_HOST` + `ADMIN_API_KEY`）。
 - 未配置：不调远端、不收窄，只剩 CASL。
 - 已配置：按 email 提取 mobile，调 `findAllDashboardByMobile` 后与关联看板取交集。RPC 失败仍是空集合（一张都看不到）。
 - 编辑者 / 开发者 / 管理员、组织 member、以及 API token / MCP PAT：不走 RPC，只剩 CASL。
@@ -114,7 +114,7 @@ flowchart TD
 - **页面侧**：从看板进入时（`fromDashboard`），「语义查询」面板 JSON 自动注入 `dashboardUuid`。
 - **MCP**：`prepareSemanticMetricQueryBody` 从 metricQuery JSON 解析 `dashboardUuid` 并在送 API 前剥离；独立参数优先。
 - `DashboardService.getDashboardContexts`：按 `exploreName` / `chartUuid` 查关联看板，并做权限过滤。
-- `DashboardService.getAllowedDashboardUuidsForViewer`：customer-use 且项目角色为 viewer / interactive_viewer 时获取可见看板 UUID；未配置 Admin RPC 则跳过。
+- `DashboardService.getAllowedDashboardUuidsForViewer`：client-use 且项目角色为 viewer / interactive_viewer 时获取可见看板 UUID；未配置 Admin RPC 则跳过。
 - `CategoryRpcClient.findAllDashboardByMobile`：已配置 `ADMIN_API_HOST` + `ADMIN_API_KEY` 时，按 mobile 查外部 RPC 看板权限。
 - `dashboardContextResolver`：MCP 内部解析候选看板，不暴露新 tool；显式 `dashboardUuid` 优先；N>=1 自动选用（N>1 随机）。
 - `exploreRequiresDashboardContext`：判断 Explore 是否依赖 `dashboardSlug`。

@@ -17,10 +17,7 @@ import { DashboardExplorerBanner } from './DashboardExplorerBanner';
 import { MainNavBarContent } from './MainNavBarContent';
 import { PreviewBanner } from './PreviewBanner';
 
-enum NavBarMode {
-    DEFAULT = 'default',
-    EDITING_DASHBOARD_CHART = 'editingDashboardChart',
-}
+enum NavBarMode
 
 const defaultNavbarStyles = {
     alignItems: 'center',
@@ -53,9 +50,9 @@ const NavBar = memo(() => {
             project.projectUuid === activeProjectUuid &&
             project.type === ProjectType.PREVIEW,
     );
-    const isCustomerUse =
+    const isClientUse =
         projects?.find((project) => project.projectUuid === activeProjectUuid)
-            ?.isCustomerUse ?? false;
+            ?.isClientUse ?? false;
 
     const getHeaderStyles = useCallback(
         (theme: MantineTheme) => ({
@@ -81,7 +78,7 @@ const NavBar = memo(() => {
                     <MainNavBarContent
                         activeProjectUuid={activeProjectUuid}
                         isLoadingActiveProject={isLoadingActiveProject}
-                        isCustomerUse={isCustomerUse}
+                        isClientUse={isClientUse}
                     />
                 );
             default:

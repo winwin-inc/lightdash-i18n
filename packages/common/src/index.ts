@@ -806,7 +806,7 @@ export type UpdateProjectMember = {
 
 export type UpdateMetadata = {
     upstreamProjectUuid?: string | null; // null means we unset this value
-    isCustomerUse?: boolean;
+    isClientUse?: boolean;
 };
 export type ApiCompiledQueryResults = {
     query: string;

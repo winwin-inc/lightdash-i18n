@@ -169,7 +169,7 @@ const DashboardHeader = ({
         toggleDashboardPinning({ uuid: dashboardUuid });
     }, [dashboardUuid, toggleDashboardPinning]);
 
-    const isCustomerUse = project?.isCustomerUse ?? false;
+    const isClientUse = project?.isClientUse ?? false;
 
     const { user } = useApp();
     const userCanManageDashboard = user.data?.ability.can(
@@ -257,7 +257,7 @@ const DashboardHeader = ({
                     {dashboard.name}
                 </Title>
 
-                {(!isCustomerUse ||
+                {(!isClientUse ||
                     user.data?.role === OrganizationMemberRole.ADMIN) && (
                     <Popover
                         withinPortal

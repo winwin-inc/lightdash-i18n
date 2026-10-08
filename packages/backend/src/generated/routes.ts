@@ -16850,7 +16850,7 @@ const models: TsoaRoute.Models = {
                     ],
                     required: true,
                 },
-                isCustomerUse: { dataType: 'boolean' },
+                isClientUse: { dataType: 'boolean' },
                 organizationWarehouseCredentialsUuid: { dataType: 'string' },
                 createdByUserUuid: {
                     dataType: 'union',
@@ -17768,7 +17768,7 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
-                isCustomerUse: { dataType: 'boolean' },
+                isClientUse: { dataType: 'boolean' },
                 upstreamProjectUuid: {
                     dataType: 'union',
                     subSchemas: [
@@ -21000,7 +21000,7 @@ const models: TsoaRoute.Models = {
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
-                isCustomerUse: { dataType: 'boolean' },
+                isClientUse: { dataType: 'boolean' },
                 requireUserCredentials: { dataType: 'boolean' },
                 warehouseType: { ref: 'WarehouseTypes' },
                 upstreamProjectUuid: {
@@ -21737,7 +21737,7 @@ const models: TsoaRoute.Models = {
                     ],
                 },
                 dbtVersion: { ref: 'DbtVersionOption', required: true },
-                isCustomerUse: {
+                isClientUse: {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'boolean' },

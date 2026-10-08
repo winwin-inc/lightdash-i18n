@@ -28,7 +28,7 @@ export type DbProject = {
     dbt_version: string;
     scheduler_timezone: string;
     created_by_user_uuid: string | null;
-    is_customer_use: boolean;
+    is_client_use: boolean;
     table_groups: Record<string, GroupType> | null;
     results_cache_ttl_seconds: number | null;
     query_timezone: string | null;
@@ -48,7 +48,7 @@ type CreateDbProject = Pick<
     | 'organization_warehouse_credentials_uuid'
 > & {
     scheduler_timezone?: string; // On create it will default to 'UTC' as per migration
-    is_customer_use?: boolean; // On create it will default to false as per migration
+    is_client_use?: boolean; // On create it will default to false as per migration
 };
 type UpdateDbProject = Partial<
     Pick<
@@ -62,7 +62,7 @@ type UpdateDbProject = Partial<
         | 'dbt_version'
         | 'copied_from_project_uuid'
         | 'scheduler_timezone'
-        | 'is_customer_use'
+        | 'is_client_use'
         | 'table_groups'
         | 'results_cache_ttl_seconds'
         | 'query_timezone'

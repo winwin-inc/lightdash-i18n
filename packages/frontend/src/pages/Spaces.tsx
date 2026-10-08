@@ -24,7 +24,7 @@ const Spaces: FC = () => {
         projectUuid: string;
     };
     const project = useProject(projectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const { user, health } = useApp();
 
@@ -93,7 +93,7 @@ const Spaces: FC = () => {
                     </Group>
                 </Group>
                 <InfiniteResourceTable
-                    isCustomerUse={isCustomerUse}
+                    isClientUse={isClientUse}
                     filters={{
                         projectUuid,
                         spaceUuids: [],
