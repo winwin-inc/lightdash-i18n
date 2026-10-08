@@ -260,7 +260,11 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
     );
 };
 
-enum TabsValue
+enum TabsValue {
+    ALL = 'all',
+    DEFAULT = 'default',
+    PREVIEW = 'preview',
+}
 
 const ProjectManagementPanel: FC = () => {
     const { t } = useTranslation();

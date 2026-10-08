@@ -17,7 +17,10 @@ import { DashboardExplorerBanner } from './DashboardExplorerBanner';
 import { MainNavBarContent } from './MainNavBarContent';
 import { PreviewBanner } from './PreviewBanner';
 
-enum NavBarMode
+enum NavBarMode {
+    DEFAULT = 'default',
+    EDITING_DASHBOARD_CHART = 'editingDashboardChart',
+}
 
 const defaultNavbarStyles = {
     alignItems: 'center',
