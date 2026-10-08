@@ -361,6 +361,13 @@ export class DashboardService
             return undefined;
         }
 
+        if (!this.categoryRpcClient.isConfigured()) {
+            this.logger.warn(
+                `Admin RPC is not configured, skipping dashboard RPC filtering for project ${projectUuid}`,
+            );
+            return undefined;
+        }
+
         try {
             // Call RPC interface to get dashboards by mobile
             const dashboardsByMobile =
