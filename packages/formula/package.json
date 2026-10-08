@@ -12,8 +12,8 @@
         "typecheck": "tsc --project tsconfig.json --noEmit",
         "format": "prettier --check ./src ./tests --ignore-unknown",
         "fix-format": "prettier --write ./src ./tests --ignore-unknown",
-        "lint": "eslint -c ../../.eslintrc.js --ext .ts src/",
-        "fix-lint": "eslint -c ../../.eslintrc.js --ext .ts --fix src/",
+        "lint": "eslint -c ./.eslintrc.js --ext .ts src/",
+        "fix-lint": "eslint -c ./.eslintrc.js --ext .ts --fix src/",
         "test": "vitest run"
     },
     "devDependencies": {
