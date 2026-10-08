@@ -574,7 +574,10 @@ class DataReferenceExtractor {
         for (const stmt of statements) {
             switch (stmt.type) {
                 case 'VariableDeclaration':
-                    this.declareVariableDeclaration(stmt, scope);
+                    DataReferenceExtractor.declareVariableDeclaration(
+                        stmt,
+                        scope,
+                    );
                     break;
                 case 'FunctionDeclaration':
                 case 'ClassDeclaration':
@@ -582,7 +585,7 @@ class DataReferenceExtractor {
                         scope.bindings.set(stmt.id.name, { kind: 'opaque' });
                     break;
                 case 'ImportDeclaration':
-                    this.declareImport(stmt, scope);
+                    DataReferenceExtractor.declareImport(stmt, scope);
                     break;
                 case 'ExportNamedDeclaration':
                     if (stmt.declaration) {
@@ -623,13 +626,13 @@ class DataReferenceExtractor {
         }
     }
 
-    private declareVariableDeclaration(
+    private static declareVariableDeclaration(
         decl: t.VariableDeclaration,
         scope: Scope,
     ): void {
         for (const declarator of decl.declarations) {
             if (declarator.id.type !== 'VoidPattern') {
-                this.declarePattern(
+                DataReferenceExtractor.declarePattern(
                     declarator.id,
                     declarator.init ?? null,
                     scope,
@@ -638,7 +641,7 @@ class DataReferenceExtractor {
         }
     }
 
-    private declarePattern(
+    private static declarePattern(
         id: t.LVal,
         init: t.Node | null,
         scope: Scope,
@@ -715,7 +718,10 @@ class DataReferenceExtractor {
         }
     }
 
-    private declareImport(stmt: t.ImportDeclaration, scope: Scope): void {
+    private static declareImport(
+        stmt: t.ImportDeclaration,
+        scope: Scope,
+    ): void {
         const source = stmt.source.value;
         for (const spec of stmt.specifiers) {
             if (spec.type === 'ImportSpecifier') {
@@ -742,7 +748,7 @@ class DataReferenceExtractor {
         }
     }
 
-    private lookupBinding(name: string, scope: Scope): Binding | null {
+    private static lookupBinding(name: string, scope: Scope): Binding | null {
         let current: Scope | null = scope;
         while (current) {
             const binding = current.bindings.get(name);
@@ -833,8 +839,12 @@ class DataReferenceExtractor {
 
     /** True when `name` refers to the SDK export: imported (possibly
      *  aliased) or unbound (doc snippets omit imports). Local bindings win. */
-    private isSdkName(name: string, scope: Scope, exportName: string): boolean {
-        const binding = this.lookupBinding(name, scope);
+    private static isSdkName(
+        name: string,
+        scope: Scope,
+        exportName: string,
+    ): boolean {
+        const binding = DataReferenceExtractor.lookupBinding(name, scope);
         if (!binding) return name === exportName;
         return (
             binding.kind === 'import' &&
@@ -845,7 +855,7 @@ class DataReferenceExtractor {
 
     // -- Walk ---------------------------------------------------------------
 
-    private getArrayElementSource(
+    private static getArrayElementSource(
         node: t.Node,
         scope: Scope,
         parent: t.Node | null,
@@ -898,12 +908,13 @@ class DataReferenceExtractor {
                 module: scope.module,
                 bindings: new Map(),
             };
-            const arrayElementSource = this.getArrayElementSource(
-                node,
-                scope,
-                parent,
-                parentKey,
-            );
+            const arrayElementSource =
+                DataReferenceExtractor.getArrayElementSource(
+                    node,
+                    scope,
+                    parent,
+                    parentKey,
+                );
             for (const [index, param] of node.params.entries()) {
                 for (const name of patternNames(param)) {
                     childScope.bindings.set(
@@ -951,7 +962,10 @@ class DataReferenceExtractor {
                 (parent && isCall(parent) && parentKey === 'callee') ||
                 (isMember(parent) && parentKey === 'property');
             if (!isDirectCallee) {
-                const binding = this.lookupBinding(node.name, childScope);
+                const binding = DataReferenceExtractor.lookupBinding(
+                    node.name,
+                    childScope,
+                );
                 if (binding?.kind === 'stateSetter') {
                     binding.target.setterEscapes = true;
                 }
@@ -992,7 +1006,10 @@ class DataReferenceExtractor {
         const callee = unwrapExpression(call.callee);
 
         if (callee.type === 'Identifier') {
-            const binding = this.lookupBinding(callee.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                callee.name,
+                scope,
+            );
             if (binding?.kind === 'stateSetter') {
                 const arg = call.arguments[0];
                 if (arg && isNode(arg) && arg.type !== 'ArgumentPlaceholder') {
@@ -1010,7 +1027,13 @@ class DataReferenceExtractor {
                 return;
             }
 
-            if (this.isSdkName(callee.name, scope, 'drillDown')) {
+            if (
+                DataReferenceExtractor.isSdkName(
+                    callee.name,
+                    scope,
+                    'drillDown',
+                )
+            ) {
                 this.processDrillDown(call, scope);
                 return;
             }
@@ -1182,12 +1205,24 @@ class DataReferenceExtractor {
         if (isCall(expr)) {
             const callee = unwrapExpression(expr.callee);
             if (callee.type === 'Identifier') {
-                if (this.isSdkName(callee.name, scope, 'query')) {
+                if (
+                    DataReferenceExtractor.isSdkName(
+                        callee.name,
+                        scope,
+                        'query',
+                    )
+                ) {
                     return {
                         root: { type: 'query', call: expr, scope },
                     };
                 }
-                if (this.isSdkName(callee.name, scope, 'savedChart')) {
+                if (
+                    DataReferenceExtractor.isSdkName(
+                        callee.name,
+                        scope,
+                        'savedChart',
+                    )
+                ) {
                     return {
                         root: {
                             type: 'savedChart',
@@ -1237,7 +1272,10 @@ class DataReferenceExtractor {
         }
 
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (!binding) return null;
             if (binding.kind === 'init' && binding.init) {
                 return this.resolveChainRootThroughChain(
@@ -1299,12 +1337,23 @@ class DataReferenceExtractor {
             const callee = unwrapExpression(node.callee);
             return (
                 callee.type === 'Identifier' &&
-                (this.isSdkName(callee.name, scope, 'createClient') ||
-                    this.isSdkName(callee.name, scope, 'useLightdashClient'))
+                (DataReferenceExtractor.isSdkName(
+                    callee.name,
+                    scope,
+                    'createClient',
+                ) ||
+                    DataReferenceExtractor.isSdkName(
+                        callee.name,
+                        scope,
+                        'useLightdashClient',
+                    ))
             );
         }
         if (node.type === 'Identifier') {
-            const binding = this.lookupBinding(node.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                node.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.isSdkClient(binding.init, binding.scope, depth + 1);
             }
@@ -1727,7 +1776,10 @@ class DataReferenceExtractor {
         if (depth > MAX_RESOLUTION_DEPTH) return unresolvedStrings();
         const expr = unwrapExpression(node);
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'arrayElement') {
                 return this.resolveQueryColumnArray(
                     binding.source.node,
@@ -1750,7 +1802,10 @@ class DataReferenceExtractor {
             if (property === null || state.type !== 'Identifier') {
                 return unresolvedStrings();
             }
-            const binding = this.lookupBinding(state.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                state.name,
+                scope,
+            );
             if (binding?.kind !== 'useState') return unresolvedStrings();
 
             const candidates: ScopedNode[] = binding.init
@@ -1820,11 +1875,14 @@ class DataReferenceExtractor {
             return unresolvedStrings();
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (
                 binding?.kind === 'callProp' &&
                 binding.prop === 'columns' &&
-                this.isSdkName(
+                DataReferenceExtractor.isSdkName(
                     binding.calleeName,
                     binding.scope,
                     'useLightdash',
@@ -1918,7 +1976,10 @@ class DataReferenceExtractor {
                 };
             }
             case 'Identifier': {
-                const binding = this.lookupBinding(expr.name, scope);
+                const binding = DataReferenceExtractor.lookupBinding(
+                    expr.name,
+                    scope,
+                );
                 if (!binding) return unresolvedStrings();
                 if (binding.kind === 'init') {
                     return binding.init
@@ -2106,7 +2167,10 @@ class DataReferenceExtractor {
             };
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.resolveContainers(
                     binding.init,
@@ -2220,7 +2284,10 @@ class DataReferenceExtractor {
             };
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.resolveStringArray(
                     binding.init,
@@ -2303,7 +2370,7 @@ class DataReferenceExtractor {
             return this.resolveFilterFields(memoized, scope, depth + 1);
         }
 
-        if (this.isGlobalFiltersCall(expr, scope)) {
+        if (DataReferenceExtractor.isGlobalFiltersCall(expr, scope)) {
             return { values: new Set(), complete: true };
         }
         if (expr.type === 'ArrayExpression') {
@@ -2346,7 +2413,10 @@ class DataReferenceExtractor {
             };
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.resolveFilterFields(
                     binding.init,
@@ -2411,11 +2481,14 @@ class DataReferenceExtractor {
     }
 
     /** `filtersFor(...)` traced to `useGlobalFilters()` (or unbound). */
-    private isGlobalFiltersCall(expr: t.Node, scope: Scope): boolean {
+    private static isGlobalFiltersCall(expr: t.Node, scope: Scope): boolean {
         if (!isCall(expr)) return false;
         const callee = unwrapExpression(expr.callee);
         if (callee.type !== 'Identifier') return false;
-        const binding = this.lookupBinding(callee.name, scope);
+        const binding = DataReferenceExtractor.lookupBinding(
+            callee.name,
+            scope,
+        );
         if (!binding) return callee.name === 'filtersFor';
         return (
             binding.kind === 'callProp' &&
@@ -2550,7 +2623,10 @@ class DataReferenceExtractor {
             return { values, complete };
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.resolveDefinitionNames(
                     binding.init,
@@ -2594,7 +2670,10 @@ class DataReferenceExtractor {
             );
         }
         if (expr.type === 'Identifier') {
-            const binding = this.lookupBinding(expr.name, scope);
+            const binding = DataReferenceExtractor.lookupBinding(
+                expr.name,
+                scope,
+            );
             if (binding?.kind === 'init' && binding.init) {
                 return this.collectCustomSqlDefinitions(
                     binding.init,
