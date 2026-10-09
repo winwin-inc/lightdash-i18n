@@ -82,7 +82,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
         useUpdateActiveProjectMutation();
     const { t } = useTranslation();
 
-    const { mutate: updateCustomerUse, isLoading: isUpdatingCustomerUse } =
+    const { mutate: updateClientUse, isLoading: isUpdatingClientUse } =
         useMutation<null, ApiError, UpdateMetadata>(
             (data) => updateProjectMetadata(project.projectUuid, data),
             {
@@ -91,14 +91,14 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
                     await queryClient.invalidateQueries(['projects']);
                     showToastSuccess({
                         title: t(
-                            'components_user_settings_project_management_panel.customer_use_updated',
+                            'components_user_settings_project_management_panel.client_use_updated',
                         ),
                     });
                 },
                 onError: (error) => {
                     showToastError({
                         title: t(
-                            'components_user_settings_project_management_panel.customer_use_update_error',
+                            'components_user_settings_project_management_panel.client_use_update_error',
                         ),
                         subtitle: error.error.message,
                     });
@@ -106,11 +106,11 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
             },
         );
 
-    const handleCustomerUseToggle = useCallback(
+    const handleClientUseToggle = useCallback(
         (checked: boolean) => {
-            updateCustomerUse({ isCustomerUse: checked });
+            updateClientUse({ isClientUse: checked });
         },
-        [updateCustomerUse],
+        [updateClientUse],
     );
 
     const handleProjectSettingsClick = async () => {
@@ -183,13 +183,13 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
                             })}
                         >
                             <Switch
-                                checked={project.isCustomerUse ?? false}
+                                checked={project.isClientUse ?? false}
                                 onChange={(e) =>
-                                    handleCustomerUseToggle(
+                                    handleClientUseToggle(
                                         e.currentTarget.checked,
                                     )
                                 }
-                                disabled={isUpdatingCustomerUse}
+                                disabled={isUpdatingClientUse}
                                 size="sm"
                             />
                         </Can>
@@ -260,11 +260,7 @@ const ProjectListItem: FC<ProjectListItemProps> = ({
     );
 };
 
-enum TabsValue {
-    ALL = 'all',
-    DEFAULT = 'default',
-    PREVIEW = 'preview',
-}
+enum TabsValue
 
 const ProjectManagementPanel: FC = () => {
     const { t } = useTranslation();
@@ -512,7 +508,7 @@ const ProjectManagementPanel: FC = () => {
                                     }}
                                 >
                                     {t(
-                                        'components_user_settings_project_management_panel.table.customer_use',
+                                        'components_user_settings_project_management_panel.table.client_use',
                                     )}
                                 </th>
                             )}

@@ -1114,7 +1114,7 @@ export class EmbedService extends BaseService {
 
         try {
             const { totalQuery: totalMetricQuery } =
-                await this.projectService._getCalculateTotalQuery(
+                await ProjectService._getCalculateTotalQuery(
                     userAttributes,
                     intrinsicUserAttributes,
                     explore,

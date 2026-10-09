@@ -2,17 +2,17 @@ import { ProjectMemberRole } from '../types/projectMemberRole';
 import { SpaceMemberRole } from '../types/space';
 import {
     getHighestSpaceRole,
-    isCustomerUseRestrictedProjectRole,
+    isClientUseRestrictedProjectRole,
 } from './projectMemberRole';
 
 describe('projectMemberRole', () => {
-    describe('isCustomerUseRestrictedProjectRole', () => {
+    describe('isClientUseRestrictedProjectRole', () => {
         it('returns true for viewer and interactive_viewer', () => {
             expect(
-                isCustomerUseRestrictedProjectRole(ProjectMemberRole.VIEWER),
+                isClientUseRestrictedProjectRole(ProjectMemberRole.VIEWER),
             ).toBe(true);
             expect(
-                isCustomerUseRestrictedProjectRole(
+                isClientUseRestrictedProjectRole(
                     ProjectMemberRole.INTERACTIVE_VIEWER,
                 ),
             ).toBe(true);
@@ -20,15 +20,15 @@ describe('projectMemberRole', () => {
 
         it('returns false for editor, developer, admin and undefined', () => {
             expect(
-                isCustomerUseRestrictedProjectRole(ProjectMemberRole.EDITOR),
+                isClientUseRestrictedProjectRole(ProjectMemberRole.EDITOR),
             ).toBe(false);
             expect(
-                isCustomerUseRestrictedProjectRole(ProjectMemberRole.DEVELOPER),
+                isClientUseRestrictedProjectRole(ProjectMemberRole.DEVELOPER),
             ).toBe(false);
             expect(
-                isCustomerUseRestrictedProjectRole(ProjectMemberRole.ADMIN),
+                isClientUseRestrictedProjectRole(ProjectMemberRole.ADMIN),
             ).toBe(false);
-            expect(isCustomerUseRestrictedProjectRole(undefined)).toBe(false);
+            expect(isClientUseRestrictedProjectRole(undefined)).toBe(false);
         });
     });
     describe('getHighestSpaceRole', () => {

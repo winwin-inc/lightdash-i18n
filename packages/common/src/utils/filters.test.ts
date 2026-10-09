@@ -16,7 +16,9 @@ import {
     backfillDashboardFilterRulesTileTargets,
     createFilterRuleFromModelRequiredFilterRule,
     findDefaultTileFilterField,
+    getDashboardFilterRulesForTile,
     getDashboardFilterRulesForTileAndReferences,
+    getFilterRulesFromGroup,
     getVisibleFilterOperatorOptions,
     isFilterRuleInQuery,
     isTileFilterFieldAvailable,
@@ -66,6 +68,88 @@ describe('addDashboardFiltersToMetricQuery', () => {
             dashboardFilters,
         );
         expect(result).toEqual(expectedChartWithOverrideDashboardORFilters);
+    });
+    test('should remove chart dimension filters matching a disabled category dashboard filter', () => {
+        const result = addDashboardFiltersToMetricQuery(
+            metricQueryWithAndFilters,
+            {
+                dimensions: [
+                    {
+                        id: '4',
+                        label: undefined,
+                        target: {
+                            fieldId: 'a_dim1',
+                            tableName: 'test',
+                        },
+                        operator: FilterOperator.EQUALS,
+                        values: ['尹佬'],
+                        disabled: true,
+                        categoryLevel: 2,
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            },
+        );
+
+        expect(getFilterRulesFromGroup(result.filters.dimensions)).toEqual([]);
+    });
+});
+
+describe('getDashboardFilterRulesForTile', () => {
+    const tileUuid = 'tile-1';
+    const enabledRule: DashboardFilterRule = {
+        id: 'enabled',
+        label: undefined,
+        target: { fieldId: 'a_dim1', tableName: 'test' },
+        operator: FilterOperator.EQUALS,
+        values: ['A'],
+    };
+    const disabledCategoryRule: DashboardFilterRule = {
+        id: 'disabled-category',
+        label: undefined,
+        target: { fieldId: 'a_dim2', tableName: 'test' },
+        operator: FilterOperator.EQUALS,
+        values: ['尹佬'],
+        disabled: true,
+        categoryLevel: 2,
+    };
+    const disabledPlainRule: DashboardFilterRule = {
+        id: 'disabled-plain',
+        label: undefined,
+        target: { fieldId: 'a_dim3', tableName: 'test' },
+        operator: FilterOperator.EQUALS,
+        values: ['B'],
+        disabled: true,
+    };
+
+    test('keeps disabled category rules and clears leftover values', () => {
+        const result = getDashboardFilterRulesForTile(tileUuid, [
+            enabledRule,
+            disabledCategoryRule,
+            disabledPlainRule,
+        ]);
+
+        expect(result).toHaveLength(2);
+        expect(result.map((rule) => rule.id)).toEqual([
+            'enabled',
+            'disabled-category',
+        ]);
+        expect(result[1].values).toEqual([]);
+        expect(result[1].disabled).toBe(true);
+    });
+
+    test('still drops disabled category rules excluded from the tile', () => {
+        const result = getDashboardFilterRulesForTile(tileUuid, [
+            {
+                ...disabledCategoryRule,
+                tileTargets: {
+                    [tileUuid]: false,
+                },
+            },
+        ]);
+
+        expect(result).toHaveLength(0);
     });
 });
 describe('overrideChartFilter', () => {

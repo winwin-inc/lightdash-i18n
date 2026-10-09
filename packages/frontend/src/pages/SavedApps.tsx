@@ -98,7 +98,7 @@ const SavedApps = () => {
                             projectUuid,
                             contentTypes: [ContentType.DATA_APP],
                         }}
-                        isCustomerUse={false}
+                        isClientUse={false}
                     />
                 </Stack>
             </Page>

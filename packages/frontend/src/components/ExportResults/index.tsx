@@ -42,10 +42,7 @@ type ExportCsvRenderProps = {
     isExporting: boolean;
 };
 
-enum Values {
-    FORMATTED = 'formatted',
-    RAW = 'raw',
-}
+enum Values
 
 export type ExportResultsProps = {
     projectUuid: string;
@@ -99,18 +96,18 @@ const ExportResults: FC<ExportResultsProps> = memo(
                 }),
             ) ?? false;
 
-        // Determine default limit based on isCustomerUse and permissions
-        // If isCustomerUse and user doesn't have permission to see limit options, default to ALL
+        // Determine default limit based on isClientUse and permissions
+        // If isClientUse and user doesn't have permission to see limit options, default to ALL
         // Otherwise, default to TABLE
-        const isCustomerUse = project?.isCustomerUse ?? false;
+        const isClientUse = project?.isClientUse ?? false;
         const defaultLimit = useMemo(() => {
-            if (isCustomerUse && !canChangeCsvResults) {
+            if (isClientUse && !canChangeCsvResults) {
                 // User mode without permission to see limit options, default to all results
                 return Limit.ALL;
             }
             // User can see limit options, default to table results
             return Limit.TABLE;
-        }, [isCustomerUse, canChangeCsvResults]);
+        }, [isClientUse, canChangeCsvResults]);
 
         const [limit, setLimit] = useState<Limit>(defaultLimit);
         const [customLimit, setCustomLimit] = useState<number>(1);
@@ -344,13 +341,11 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                     </Text>
                                 </Alert>
                             )}
-                            {(limit === Limit.ALL ||
-                                limit === Limit.CUSTOM) &&
+                            {(limit === Limit.ALL || limit === Limit.CUSTOM) &&
                                 !isPivotTable && (
                                     <Alert color="gray" p="xs">
                                         <Text size="xs">
-                                            {fileType ===
-                                            DownloadFileType.XLSX
+                                            {fileType === DownloadFileType.XLSX
                                                 ? t(
                                                       'components_export_results.limit',
                                                   )

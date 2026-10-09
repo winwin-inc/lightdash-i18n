@@ -12,7 +12,7 @@ import {
 import { SpaceMemberRole } from '../types/space';
 import assertUnreachable from './assertUnreachable';
 
-export const isCustomerUseRestrictedProjectRole = (
+export const isClientUseRestrictedProjectRole = (
     role: ProjectMemberRole | undefined,
 ): boolean =>
     role === ProjectMemberRole.VIEWER ||

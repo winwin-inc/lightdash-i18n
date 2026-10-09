@@ -122,7 +122,7 @@ export const MobileNavBar: FC = () => {
     };
 
     const project = useProject(activeProjectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const isAiAgentButtonVisible = useAiAgentButtonVisibility();
 
@@ -167,7 +167,7 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconHome} />}
                     onClick={toggleMenu}
                 />
-                {!isCustomerUse && (
+                {!isClientUse && (
                     <RouterNavLink
                         exact
                         label={t('mobile_navbar.spaces')}
@@ -183,7 +183,7 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconLayoutDashboard} />}
                     onClick={toggleMenu}
                 />
-                {!isCustomerUse && (
+                {!isClientUse && (
                     <RouterNavLink
                         exact
                         label={t('mobile_navbar.charts')}

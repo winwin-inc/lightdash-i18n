@@ -50,6 +50,7 @@
 
 | 文档 | 给谁 |
 |------|------|
+| [马上赢 X 平台 MCP 智能体上手指南](./马上赢X平台MCP智能体上手指南.md) | 连锁/品牌客户查品类宝与品类洞察（WorkBuddy 入驻底稿） |
 | [用户使用说明](./lightdash-mcp-user-guide.md) | 怎么提问 |
 | [查询工具速查](./lightdash-mcp-query-tools-quickref.md) | semantic vs flat |
 | [工具与权限对照](./mcp-tools-permissions.md) | 各工具最低项目角色 |
