@@ -48,6 +48,6 @@
 ## Notes
 
 - `get_mcp_docs` 返回内置静态使用说明（overview / query_workflow / content_fields / session_lifecycle / security），不读本地 `docs/mcp`、不访问远程 URL、不接受密钥。字段约定（`chartKind` / `groups`）见 `content_fields`。
-- `get_my_access` 返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回 `queryable` / `metadataOnly` / `attributeDenied`，建议同时传 `projectUuid`。设计见 `docs/mcp/mcp-get-my-access.md`。
+- `get_my_access` 返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回 `queryable` / `metadataOnly` / `attributeDenied`，建议同时传 `projectUuid`。`run_metric_query` / `run_semantic_metric_query` 对非 `queryable` 表会拒绝查询；`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 与未知表。设计见 `docs/mcp/mcp-get-my-access.md`。
 - `get_dashboard_tiles` / `run_dashboard_tiles` / `get_dashboard_code` 为本包扩展能力，不属于上游 EE 内置 MCP 工具集。
 - 多数列表与查询工具默认返回精简结构（认图用 `chartKind`）；`get_saved_chart` 默认同时含 `chartKind` 与 `chartType`（=`chartConfig.type`）；传 `full: true` 返回完整字段。

@@ -1,3 +1,4 @@
+import { ForbiddenError } from '@lightdash/common';
 import {
     EXPLORE_FILTERED_WITH_ACCESS_LEVEL_1_2,
     EXPLORE_FILTERED_WITH_ACCESS_LEVEL_1_2_3,
@@ -98,7 +99,15 @@ describe('getFilteredExplore', () => {
                 EXPLORE_WITH_TABLE_AND_DIMENSION_REQUIRED_ATTRIBUTES,
                 { access_level: ['1'] },
             ),
-        ).toThrow("You don't have authorization to access this explore");
+        ).toThrow(ForbiddenError);
+        expect(() =>
+            getFilteredExplore(
+                EXPLORE_WITH_TABLE_AND_DIMENSION_REQUIRED_ATTRIBUTES,
+                { access_level: ['1'] },
+            ),
+        ).toThrow(
+            `You don't have access to the explore ${EXPLORE_WITH_TABLE_AND_DIMENSION_REQUIRED_ATTRIBUTES.name}`,
+        );
     });
     test('should return filtered explore based on user attributes', () => {
         expect(

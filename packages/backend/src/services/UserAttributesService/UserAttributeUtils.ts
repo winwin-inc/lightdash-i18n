@@ -1,7 +1,7 @@
 import {
-    AuthorizationError,
     CompiledDimension,
     Explore,
+    ForbiddenError,
     getDimensions,
     UserAttributeValueMap,
 } from '@lightdash/common';
@@ -61,8 +61,8 @@ export const getFilteredExplore = (
             userAttributes,
         )
     ) {
-        throw new AuthorizationError(
-            "You don't have authorization to access this explore",
+        throw new ForbiddenError(
+            `You don't have access to the explore ${explore.name}`,
         );
     }
 
