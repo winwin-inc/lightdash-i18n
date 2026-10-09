@@ -176,6 +176,10 @@ claude mcp add --transport http --scope local msyx-pre https://mcp-x.pre.banmahu
 5. 复杂查询 → `run_semantic_metric_query`；简单扁平 → `run_metric_query`。
 6. 大结果先缩小 limit / filters；不要猜 fieldId。
 
+### 5.0 看板上下文
+
+部分 explore 的 `sql_filter` 依赖 `dashboardSlug`。已知看板时传 `dashboardUuid`（语义查询也可写在 metricQuery JSON 内，顶层参数优先）。未传且需要看板上下文时：有候选则自动选用并查数（多个时随机选一个），返回 `resolvedDashboardContext`（多候选时含完整 `candidates`）；**0 个候选**才返回 `dashboard_selection_required` 空列表。口径不对时可再带其中一个 `dashboardUuid` 重试。详见 [MCP Dashboard 上下文查询](../mcp-dashboard-context.md)。
+
 ### 5.1 两套分页（勿混用）
 
 **查数**（`run_metric_query` / `run_semantic_metric_query`）：用 **`limit` + `offset`**。客户端可固定 limit、递增 offset，直到本页行数 < limit。使用 offset 时请带**稳定 sorts**。不要用 `page` / `pageSize` 做查数翻页；`pageSize` 只影响异步结果拉取块大小。
