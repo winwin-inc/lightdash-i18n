@@ -1,6 +1,6 @@
 # MCP 权限查询：`get_my_access`
 
-查当前 PAT 的组织角色、每个可访问项目上的有效能力，以及该项目里哪些表可以跑临时指标查询。AI 应先调这个工具，再选表，不要先打一次会 403 的查询。
+查当前 PAT 的组织角色、每个可访问项目上的有效能力，以及该项目里哪些表可以跑临时指标查询。AI 应先调这个工具，再选表。`run_metric_query` / `run_semantic_metric_query` 对非 `queryable` 表会拒绝查询，不会返回空结果。`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 和未知表。
 
 本工具加在 v1 包 `packages/lightdash-mcp`。最低要求是 PAT 已认证，不要求更高项目角色。对照表见 [mcp-tools-permissions.md](./mcp-tools-permissions.md)。
 
@@ -53,9 +53,11 @@
 
 | 分组 | 规则 | 用法 |
 |---|---|---|
-| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。同一指标出现在两张表时，只用这里的那张。 |
-| `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。 |
+| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。同一指标出现在两张表时，只用这里的那张。`search_field_values` 也可以用这里的表。 |
+| `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。`search_field_values` 可以用这里的表。 |
 | `attributeDenied` | explores 有、目录没有 | 用户属性不满足，不要用来查数。 |
+
+`run_metric_query`、`run_semantic_metric_query` 会按这三组预检：不在 `queryable` 里的表会**拒绝查询**，不会返回空结果。`search_field_values` 允许 `queryable` 和 `metadataOnly`，`attributeDenied` 与未知表仍拒绝。请先 `get_my_access(..., includeExplores=true)` 再选表。行级 `sql_filter` 滤成 0 行仍可能是「表本身没数据」，与表级无权不同。
 
 每项只含 `name`、`label`、`groupLabel`，没有字段和数据。没有表时对应数组为空。无权表只在打开 `includeExplores` 后出现在 `attributeDenied` 里，同样只有名字。
 

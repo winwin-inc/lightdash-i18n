@@ -2,12 +2,13 @@
 export const RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION = `【语义 Metric Query】执行 Explorer 复制的整段 Metric Query（v2 异步 + 轮询，首条 CSV）。
 
 ## 强制规则（违反会报错或查不出数）
-1. 必须用本工具 run_semantic_metric_query，不要用 run_metric_query 承载整段 Explorer JSON。
-2. metricQuery 为 **JSON 字符串**：Explorer「复制 Metric Query」后整段粘贴，禁止拆成键值对或平铺到工具顶层。
-3. dimensions、metrics 在 JSON 内必须是字符串数组，禁止写成单个字符串。
-4. 改筛选只改 filters.dimensions.and[i].values；保留 target.fieldId、operator、id；类目文案须与 Explorer 下拉完全一致。
-5. 空 tableCalculations / additionalMetrics / customDimensions / metricOverrides 可省略（传空 []/{} 也会自动去掉）。
-6. 需要项目时：metricQuery JSON 可含 projectUuid；也可用顶层 projectUuid 或先 set_project（顶层参数优先于 JSON 内字段，再回退 set_project / LIGHTDASH_PROJECT_UUID）。
+1. exploreName 必须来自 get_my_access(includeExplores=true) 的 explores.queryable。非 queryable 表会拒绝查询，不会返回空结果。
+2. 必须用本工具 run_semantic_metric_query，不要用 run_metric_query 承载整段 Explorer JSON。
+3. metricQuery 为 **JSON 字符串**：Explorer「复制 Metric Query」后整段粘贴，禁止拆成键值对或平铺到工具顶层。
+4. dimensions、metrics 在 JSON 内必须是字符串数组，禁止写成单个字符串。
+5. 改筛选只改 filters.dimensions.and[i].values；保留 target.fieldId、operator、id；类目文案须与 Explorer 下拉完全一致。
+6. 空 tableCalculations / additionalMetrics / customDimensions / metricOverrides 可省略（传空 []/{} 也会自动去掉）。
+7. 需要项目时：metricQuery JSON 可含 projectUuid；也可用顶层 projectUuid 或先 set_project（顶层参数优先于 JSON 内字段，再回退 set_project / LIGHTDASH_PROJECT_UUID）。
 
 ## 项目上下文 projectUuid
 - 已知项目时传 projectUuid；可放在 metricQuery JSON 内，也可用顶层参数（顶层优先）。

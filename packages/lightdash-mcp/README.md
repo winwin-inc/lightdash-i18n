@@ -203,7 +203,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 - `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `content_fields` / `session_lifecycle` / `security`）。`content_fields` 说明 `chartKind`（认图）与 `chartConfig.type`（仅 full）、`groups` 等。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
-- `get_my_access`：返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回表名单，建议同时传 `projectUuid`。见 [`docs/mcp/mcp-get-my-access.md`](../../docs/mcp/mcp-get-my-access.md)。
+- `get_my_access`：返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回表名单，建议同时传 `projectUuid`。非 `queryable` 表用 `run_metric_query` / `run_semantic_metric_query` 会拒绝查询；`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 与未知表。见 [`docs/mcp/mcp-get-my-access.md`](../../docs/mcp/mcp-get-my-access.md)。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。默认 slim 图表项含 **`chartKind`**（认图；UI「自定义」=`custom`）；勿把 `chartConfig.type`（仅 `full`）当成折线/柱状。
 - `list_explores`：默认精简含 **`groups`**（嵌套 path keys）与 `groupLabel`；完整嵌套分组以本工具为准（`find_explores` 的 catalog 可能无 `groups`）。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
