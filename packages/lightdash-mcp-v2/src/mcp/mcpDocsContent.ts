@@ -30,8 +30,9 @@ const DOCS: Record<McpDocsTopic, string> = {
 4. list_explores / find_explores → find_fields，确认 explore 与 fieldId。
 5. 需要枚举值时用 search_field_values。
 6. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-7. 大结果先缩小 limit / filters；不要猜测 fieldId。
-8. 看板内认图 / 统计自定义图：list_charts → get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+7. 已知看板传 dashboardUuid。未传时有候选会自动选用（多个则随机），看 resolvedDashboardContext；不要干等 dashboard_selection_required（仅 0 个候选才返回）。
+8. 大结果先缩小 limit / filters；不要猜测 fieldId。
+9. 看板内认图 / 统计自定义图：list_charts → get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
 
 ## 分页约定（两套，勿混用）
 

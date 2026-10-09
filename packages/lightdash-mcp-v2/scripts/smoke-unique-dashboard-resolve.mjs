@@ -23,23 +23,23 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(__dirname, '..');
 
-function resolveLikeMcp(contexts) {
+function resolveLikeMcp(contexts, rng = Math.random) {
   if (!contexts.length) return { status: 'none' };
-  if (contexts.length === 1) {
-    const only = contexts[0];
-    return {
-      status: 'resolved',
-      context: {
-        dashboardUuid: only.dashboardUuid,
-        source: 'uniqueExploreContext',
-        candidateCount: 1,
-      },
-    };
-  }
+  const index = Math.min(
+    contexts.length - 1,
+    Math.max(0, Math.floor(rng() * contexts.length)),
+  );
+  const picked = contexts[index];
+  const source =
+    contexts.length === 1 ? 'uniqueExploreContext' : 'randomExploreContext';
   return {
-    status: 'needs_selection',
-    candidateCount: contexts.length,
-    candidates: contexts,
+    status: 'resolved',
+    context: {
+      dashboardUuid: picked.dashboardUuid,
+      source,
+      candidateCount: contexts.length,
+      ...(contexts.length > 1 ? { candidates: contexts } : {}),
+    },
   };
 }
 
@@ -54,16 +54,22 @@ function inlineUnit() {
   assert.equal(unique.status, 'resolved');
   assert.equal(unique.context.source, 'uniqueExploreContext');
 
-  const multi = resolveLikeMcp([
-    { dashboardUuid: 'a', dashboardName: 'A' },
-    { dashboardUuid: 'b', dashboardName: 'B' },
-  ]);
-  assert.equal(multi.status, 'needs_selection');
-  assert.equal(multi.candidateCount, 2);
+  const multi = resolveLikeMcp(
+    [
+      { dashboardUuid: 'a', dashboardName: 'A' },
+      { dashboardUuid: 'b', dashboardName: 'B' },
+    ],
+    () => 0.99,
+  );
+  assert.equal(multi.status, 'resolved');
+  assert.equal(multi.context.source, 'randomExploreContext');
+  assert.equal(multi.context.candidateCount, 2);
+  assert.equal(multi.context.dashboardUuid, 'b');
+  assert.equal(multi.context.candidates.length, 2);
 
   const none = resolveLikeMcp([]);
   assert.equal(none.status, 'none');
-  console.log('OK inline policy: unique→resolved, multi→needs_selection, none→none');
+  console.log('OK inline policy: unique→resolved, multi→random, none→none');
 }
 
 function runOfficialUnit() {

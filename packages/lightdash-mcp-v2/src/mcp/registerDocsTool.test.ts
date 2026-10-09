@@ -32,6 +32,7 @@ describe('get_mcp_docs content', () => {
         assert.match(getMcpDocsText('query_workflow'), /limit \+ offset/);
         assert.match(getMcpDocsText('query_workflow'), /稳定 sorts/);
         assert.match(getMcpDocsText('query_workflow'), /page（从 1）/);
+        assert.match(getMcpDocsText('query_workflow'), /dashboardUuid/);
         assert.match(getMcpDocsText('content_fields'), /chartKind/);
         assert.match(getMcpDocsText('content_fields'), /groups/);
         assert.match(getMcpDocsText('content_fields'), /custom/);
