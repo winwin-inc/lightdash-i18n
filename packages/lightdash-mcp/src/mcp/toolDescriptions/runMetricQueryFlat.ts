@@ -2,10 +2,11 @@
 export const RUN_METRIC_QUERY_FLAT_DESCRIPTION = `【扁平 Metric Query】简单指标查询（v2 异步 + 轮询，首条 CSV）。
 
 ## 强制规则
-1. 仅使用顶层扁平参数：exploreName（必填）、dimensions[]、metrics[]、filters、sorts、limit 等。
-2. 禁止传 metricQuery、queryConfig、config；整段 Explorer JSON 须用 run_semantic_metric_query（metricQuery 为 JSON 字符串）。
-3. dimensions、metrics 必须是字符串数组。
-4. 不支持在 filters 里原样保留 Explorer 的 filters.dimensions.id / and[].id；多条件 and 链请用 run_semantic_metric_query。
+1. exploreName 必须来自 get_my_access(includeExplores=true) 的 explores.queryable。非 queryable 表会拒绝查询，不会返回空结果。
+2. 仅使用顶层扁平参数：exploreName（必填）、dimensions[]、metrics[]、filters、sorts、limit 等。
+3. 禁止传 metricQuery、queryConfig、config；整段 Explorer JSON 须用 run_semantic_metric_query（metricQuery 为 JSON 字符串）。
+4. dimensions、metrics 必须是字符串数组。
+5. 不支持在 filters 里原样保留 Explorer 的 filters.dimensions.id / and[].id；多条件 and 链请用 run_semantic_metric_query。
 
 ## 看板上下文 dashboardUuid
 部分 explore 依赖 dashboardSlug。已知看板时传 dashboardUuid。未传且需要看板上下文时：反查有候选则自动选用并查数（多个时随机选一个）；返回 \`resolvedDashboardContext\`（含选中项，多个时还有完整 \`candidates\`）。0 个候选时返回 \`status: "dashboard_selection_required"\` 空列表。口径不对时可再带其中一个 dashboardUuid 重试。不依赖看板上下文时会直接查数。

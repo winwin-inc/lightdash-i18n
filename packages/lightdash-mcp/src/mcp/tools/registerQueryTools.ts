@@ -8,11 +8,12 @@ import {
 } from '../../lib/dashboardContextResolver';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
-import { registerToolTyped } from '../registerToolTyped';
+import { assertExploreQueryable } from '../access/assertExploreQueryable';
 import {
     resolveCoreToolsApiKey,
     resolveCoreToolsProjectUuid,
 } from '../coreToolsContext';
+import { registerToolTyped } from '../registerToolTyped';
 import { RUN_METRIC_QUERY_FLAT_DESCRIPTION } from '../toolDescriptions/runMetricQueryFlat';
 import { RUN_SEMANTIC_METRIC_QUERY_DESCRIPTION } from '../toolDescriptions/runSemanticMetricQuery';
 import {
@@ -68,14 +69,20 @@ function buildMissingFilterErrorMessage(params: {
     ].join('\n');
 }
 
+function isExploreQueryDeniedMessage(message: string): boolean {
+    return message.includes('已拒绝查询');
+}
+
 function formatFlatMetricQueryError(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('filters.dimensions.and')) return message;
+    if (isExploreQueryDeniedMessage(message)) return message;
     return `run_metric_query 执行失败：${message}\n请检查 exploreName、dimensions、metrics、filters、sorts 与字段拼写；Explorer 整段 JSON 请用 run_semantic_metric_query。`;
 }
 
 function formatSemanticMetricQueryError(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
+    if (isExploreQueryDeniedMessage(message)) return message;
     return `run_semantic_metric_query 执行失败：${message}\n校验由 Lightdash API 完成；422 时请修改 metricQuery 后重试。`;
 }
 
@@ -171,7 +178,7 @@ export function registerQueryTools(
         server,
         'core-tool',
         'search_field_values',
-        '搜索某维度字段取值（优先走项目 field search 接口）。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
+        '搜索某维度字段取值（优先走项目 field search 接口）。table 须在 get_my_access 的 explores.queryable 或 metadataOnly；attributeDenied 与未知表会拒绝查询，不会返回空结果。query 可空字符串表示不限。若接口不可用，将回退到 SQL DISTINCT（再失败则回退 metric-query）。',
         {
             projectUuid: z.string().optional(),
             table: z.string(),
@@ -186,6 +193,13 @@ export function registerQueryTools(
                 config,
                 apiKey,
                 args.projectUuid as string | undefined,
+            );
+            await assertExploreQueryable(
+                api,
+                apiKey,
+                projectUuid,
+                args.table as string,
+                'fieldValues',
             );
             const full = (args.full as boolean | undefined) ?? false;
             const queryText =
@@ -433,6 +447,14 @@ export function registerQueryTools(
                     typeof queryBody.exploreName === 'string'
                         ? queryBody.exploreName
                         : undefined;
+                if (exploreName) {
+                    await assertExploreQueryable(
+                        api,
+                        apiKey,
+                        projectUuid,
+                        exploreName,
+                    );
+                }
                 const requiresDashboardContext = exploreName
                     ? (
                           await deps.getExploreMetadata(
@@ -552,6 +574,12 @@ export function registerQueryTools(
                 (args.pollIntervalMs as number | undefined) ??
                 poll.pollIntervalMs;
             const exploreName = args.exploreName as string;
+            await assertExploreQueryable(
+                api,
+                apiKey,
+                projectUuid,
+                exploreName,
+            );
             const exploreMetadata = await deps.getExploreMetadata(
                 apiKey,
                 projectUuid,

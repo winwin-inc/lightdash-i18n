@@ -27,6 +27,7 @@ describe('get_mcp_docs content', () => {
         assert.match(getMcpDocsText('session_lifecycle'), /DELETE/);
         assert.match(getMcpDocsText('query_workflow'), /projectUuid/);
         assert.match(getMcpDocsText('query_workflow'), /includeExplores/);
+        assert.match(getMcpDocsText('query_workflow'), /拒绝查询/);
         assert.match(getMcpDocsText('query_workflow'), /resolvedDashboardContext/);
         assert.match(getMcpDocsText('query_workflow'), /dashboardUuid/);
         assert.match(getMcpDocsText('overview'), /get_my_access/);
