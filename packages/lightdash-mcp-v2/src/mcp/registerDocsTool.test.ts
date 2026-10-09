@@ -28,6 +28,8 @@ describe('get_mcp_docs content', () => {
         assert.match(getMcpDocsText('overview'), /get_my_access/);
         assert.match(getMcpDocsText('query_workflow'), /get_my_access/);
         assert.match(getMcpDocsText('query_workflow'), /queryable/);
+        assert.match(getMcpDocsText('query_workflow'), /拒绝查询/);
+        assert.match(getMcpDocsText('query_workflow'), /metadataOnly/);
         assert.match(getMcpDocsText('query_workflow'), /projectUuid/);
         assert.match(getMcpDocsText('query_workflow'), /limit \+ offset/);
         assert.match(getMcpDocsText('query_workflow'), /稳定 sorts/);
