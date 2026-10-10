@@ -80,7 +80,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 
 - 浏览器打开第 5 / 6 章的链接，打得开就能看看板
 - `find_dashboards` 搜「品类宝」/「品类洞察」，搜不到就是未开通
-- `get_my_access({ projectUuid: "3667f682-4080-44a4-8365-49f405936e09", includeExplores: true })`：`runMetricQuery` 为 true，且表在 `explores.queryable`，才能自己写筛选。否则只能 `run_saved_chart` 跑已保存图表
+- 接入时调一次 `get_my_access({ projectUuid: "3667f682-4080-44a4-8365-49f405936e09" })`，看 `runMetricQuery` 是否为 true。为 false 时只能 `run_saved_chart`。不必每次查询都调，更不必默认带 `includeExplores=true`（品牌CT 的表名单约 70KB）
 
 未开通找项目经理或客服 **17612234299**。PAT 不进 git、不发群，泄漏就到令牌页作废重建。
 
@@ -88,7 +88,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 
 ```text
 ① list_projects / set_project   锁定品牌CT（或每次查询带 projectUuid）
-② get_my_access                 includeExplores=true；表只从 queryable 里选
+② 表用本文给出的名字             不确定能不能查时，再 get_my_access 看 runMetricQuery
 ③ find_explores / find_fields   拿字段 ID（fieldId = 表名_字段名）
 ④ search_field_values           核对取值（「华南地区」不是「华南」）
 ⑤ run_semantic_metric_query     执行查询。简单查询可用 run_metric_query
@@ -100,7 +100,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 
 | 工具 | 做什么 |
 |---|---|
-| `get_my_access` | 能不能临时查数；`includeExplores=true` 才列出可查的表 |
+| `get_my_access` | 接入时看一次能不能临时查数。只有选表拿不准时才加 `includeExplores=true` |
 | `find_explores` / `find_fields` | 找表、拿字段 ID |
 | `search_field_values` | 查维度的真实取值 |
 | `run_semantic_metric_query` | 多条件查询（本文主用） |
@@ -109,7 +109,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 | `find_dashboards` | 搜看板，结果里的 `webUrl` 可直接打开 |
 | `get_saved_chart` | 看官方图表用了哪些字段（`full=true`） |
 
-提示词可以这么说：「用马上赢X平台 MCP，项目固定品牌CT（`3667f682-4080-44a4-8365-49f405936e09`），先 `get_my_access` 确认能查，再 `search_field_values` 核对取值」。
+提示词可以这么说：「用马上赢X平台 MCP，项目固定品牌CT（`3667f682-4080-44a4-8365-49f405936e09`），表用文中的 `pinleibaohsm_*` 或 `cls_insight_*`，先 `search_field_values` 核对取值」。查询若因表不可查被拒绝，再 `get_my_access` 看 `runMetricQuery`。
 
 ## 4. 两大看板，选哪个？
 
