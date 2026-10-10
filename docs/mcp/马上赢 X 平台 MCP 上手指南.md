@@ -385,7 +385,7 @@ TOP10 里 8 个类目同比为负，酱油约占调味品四分之一。菜谱�
 | 现象 | 处理 |
 |---|---|
 | 筛选后 0 行 | 先 `search_field_values`。区域要「华南地区」 |
-| 临时查询被拒 | `get_my_access`：`runMetricQuery` 为 true，表在 `queryable`。否则用 `run_saved_chart` |
+| 临时查询被拒 | 工具返回「已拒绝查询」。`get_my_access`：`runMetricQuery` 为 true，表在 `queryable`。否则用 `run_saved_chart` |
 | 排序乱 | 不传 `sorts`，拉全量自己排 |
 | `inThePast` 少一个月 | 窗口 +1，再裁掉边界月 |
 | 和品类宝对不上 | 用 `pinleibaohsm_*`，不用 `ads_pinleibao_*` |
