@@ -46,8 +46,20 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
         config.oauthRequiredScopes.length > 0
             ? config.oauthRequiredScopes.join(',')
             : '(empty)';
+    const publicEnvSet = Boolean(
+        process.env.LIGHTDASH_PUBLIC_SITE_URL?.trim(),
+    );
+    const publicSource = publicEnvSet
+        ? 'env LIGHTDASH_PUBLIC_SITE_URL'
+        : 'fallback LIGHTDASH_SITE_URL';
     writeStderrLog(
-        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}`,
+        `[Config] @lightdash/mcp=${getMcpPackageVersion()}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_SITE_URL (API)=${config.baseUrl}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_PUBLIC_SITE_URL (webUrl)=${config.publicBaseUrl} | source=${publicSource} | set=${publicEnvSet}`,
     );
     writeStderrLog(
         `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}`,
@@ -81,9 +93,35 @@ function handleSessionNotFound(
     writeStderrLog(
         `[McpSession] 404 ${formatSessionMissingReason(reason)}${sessionTag} | ${userEmail}`,
     );
+    const hints: Record<
+        SessionMissingReason,
+        { code: string; message: string; hint: string }
+    > = {
+        'missing-header': {
+            code: 'mcp_session_missing_header',
+            message: '缺少 Mcp-Session-Id',
+            hint: '请先 POST /mcp method=initialize（不要带 Session-Id），保存响应头里的 Mcp-Session-Id 再调用；或走无 Session 的 legacy compat（tools/call 不带 Session-Id）。',
+        },
+        'unknown-session': {
+            code: 'mcp_session_not_found',
+            message: 'Session 不存在或已失效（常见于服务重启/滚动发布后）',
+            hint: '请丢弃旧的 Mcp-Session-Id，重新 POST initialize 获取新 Session，再重试请求。',
+        },
+        'owner-mismatch': {
+            code: 'mcp_session_owner_mismatch',
+            message: 'Session 与当前鉴权身份不匹配',
+            hint: '请使用创建该 Session 时的同一 API Key/账号；或重新 initialize 新建 Session。',
+        },
+    };
+    const body = hints[reason] ?? {
+        code: 'mcp_session_not_found',
+        message: 'Session not found',
+        hint: '请重新 POST initialize（不带旧 Session-Id）后再试。',
+    };
     res.status(404).json({
         error: 'Session not found',
-        hint: 'Send POST initialize without Mcp-Session-Id to start a new session, or POST tools/call without Session-Id for legacy compat mode',
+        reason,
+        ...body,
     });
 }
 
