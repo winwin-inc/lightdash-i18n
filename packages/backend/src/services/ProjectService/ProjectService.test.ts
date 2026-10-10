@@ -266,7 +266,15 @@ describe('ProjectService', () => {
             ).mockResolvedValueOnce(new Set(['other_explore']));
 
             await expect(
-                service.assertExploreAllowedForAdhocQuery(
+                (
+                    service as unknown as {
+                        assertExploreAllowedForAdhocQuery: (
+                            sessionUser: typeof user,
+                            uuid: string,
+                            exploreName: string,
+                        ) => Promise<void>;
+                    }
+                ).assertExploreAllowedForAdhocQuery(
                     user,
                     projectUuid,
                     'valid_explore',
@@ -281,7 +289,15 @@ describe('ProjectService', () => {
             ).mockResolvedValueOnce(new Set(['valid_explore']));
 
             await expect(
-                service.assertExploreAllowedForAdhocQuery(
+                (
+                    service as unknown as {
+                        assertExploreAllowedForAdhocQuery: (
+                            sessionUser: typeof user,
+                            uuid: string,
+                            exploreName: string,
+                        ) => Promise<void>;
+                    }
+                ).assertExploreAllowedForAdhocQuery(
                     user,
                     projectUuid,
                     'valid_explore',

@@ -15,7 +15,9 @@ import { CatalogService } from './CatalogService';
 
 const getMockedCatalogService = () => {
     const dashboardService = {
-        getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
+        getAllowedExploreNamesForViewer: jest.fn(
+            async (): Promise<Set<string> | undefined> => undefined,
+        ),
     };
 
     const catalogModel = {

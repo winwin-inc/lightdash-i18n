@@ -334,17 +334,10 @@ export default class App {
                 ? `${staticFilesVersion}/`
                 : '';
 
-        Logger.info(
-            `[CDN] Rewriting static asset URLs to ${fullCdnUrl} (no base tag)`,
-        );
-
         let processedHtml = html;
-        let conversionCount = 0;
 
-        const toCdn = (assetPath: string) => {
-            conversionCount += 1;
-            return fullCdnUrl + assetPath.replace(/^\//, '');
-        };
+        const toCdn = (assetPath: string) =>
+            fullCdnUrl + assetPath.replace(/^\//, '');
 
         // /assets/... -> full CDN URL
         processedHtml = processedHtml.replace(
@@ -385,30 +378,24 @@ export default class App {
                     `([a-z]+)=["']${prefixPattern}(assets/[^"']+)["']`,
                     'gi',
                 ),
-                (match, attr, assetPath) => {
-                    conversionCount += 1;
-                    return `${attr}="${fullCdnUrl}${assetPath}"`;
-                },
+                (_match, attr, assetPath) =>
+                    `${attr}="${fullCdnUrl}${assetPath}"`,
             );
             processedHtml = processedHtml.replace(
                 new RegExp(
                     `([a-z]+)=["']${prefixPattern}(locales/[^"']+)["']`,
                     'gi',
                 ),
-                (match, attr, assetPath) => {
-                    conversionCount += 1;
-                    return `${attr}="${fullCdnUrl}${assetPath}"`;
-                },
+                (_match, attr, assetPath) =>
+                    `${attr}="${fullCdnUrl}${assetPath}"`,
             );
             processedHtml = processedHtml.replace(
                 new RegExp(
                     `([a-z]+)=["']${prefixPattern}((?:favicon|manifest|apple-touch-icon|monacoeditorwork|fonts)[^"']*)["']`,
                     'gi',
                 ),
-                (match, attr, assetPath) => {
-                    conversionCount += 1;
-                    return `${attr}="${fullCdnUrl}${assetPath}"`;
-                },
+                (_match, attr, assetPath) =>
+                    `${attr}="${fullCdnUrl}${assetPath}"`,
             );
             // Monaco inline script
             processedHtml = processedHtml.replace(
@@ -416,16 +403,7 @@ export default class App {
                     `(["']json["']\\s*:\\s*["'])${prefixPattern}(monacoeditorwork/[^"']+)["']`,
                     'gi',
                 ),
-                (_, prefix, assetPath) => {
-                    conversionCount += 1;
-                    return `${prefix}${fullCdnUrl}${assetPath}"`;
-                },
-            );
-        }
-
-        if (conversionCount > 0) {
-            Logger.info(
-                `[CDN] Rewrote ${conversionCount} static asset URLs to CDN`,
+                (_, prefix, assetPath) => `${prefix}${fullCdnUrl}${assetPath}"`,
             );
         }
 
@@ -818,7 +796,7 @@ export default class App {
         );
 
         // handling api 404s before frontend catch all
-        
+
         // Data Apps preview bundles (token-gated). Same-origin when previewOrigin is null.
         if (this.lightdashConfig.appRuntime) {
             const previewFrameAncestors = [
@@ -838,6 +816,8 @@ export default class App {
                             .getAnalyticsModel()
                             .addAppViewEvent(p.appUuid, p.userUuid);
                         this.analytics.track({
+                            // Event not in TypedEvent yet (Data Apps stub)
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             event: 'data_app.view' as any,
                             userId: p.userUuid,
                             properties: {
