@@ -84,6 +84,9 @@ import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
 import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
+/** Fields needed to resolve client-use dashboard / explore allow-lists. */
+export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
+
 type DashboardServiceArguments = {
     analytics: LightdashAnalytics;
     dashboardModel: DashboardModel;
@@ -238,7 +241,7 @@ export class DashboardService
      * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
      */
     async getAllowedDashboardUuidsForViewer(
-        user: SessionUser,
+        user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
         const db = this.userDashboardCategoryModel.getDatabase();
@@ -394,6 +397,24 @@ export class DashboardService
             );
             return new Set<string>();
         }
+    }
+
+    /**
+     * Explores used by allow-listed dashboards for client-use viewer / interactive_viewer.
+     * undefined: skip this layer. Set (including empty): restrict list and ad-hoc query.
+     */
+    async getAllowedExploreNamesForViewer(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (allowedDashboardUuids === undefined) {
+            return undefined;
+        }
+        return this.dashboardModel.getExploreNamesByDashboardUuids([
+            ...allowedDashboardUuids,
+        ]);
     }
 
     /**

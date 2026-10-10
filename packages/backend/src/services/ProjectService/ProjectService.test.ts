@@ -1,6 +1,7 @@
 import {
     defineUserAbility,
     FilterOperator,
+    ForbiddenError,
     NotFoundError,
     OrganizationMemberRole,
     ParameterError,
@@ -167,6 +168,7 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
         } as never,
         dashboardService: {
             getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
+            getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
             getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
         } as never,
     });
@@ -182,6 +184,10 @@ describe('ProjectService', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+        (
+            service.dashboardService
+                .getAllowedExploreNamesForViewer as jest.Mock
+        ).mockResolvedValue(undefined);
     });
     test('should run sql query', async () => {
         jest.spyOn(analyticsMock, 'track');
@@ -251,6 +257,36 @@ describe('ProjectService', () => {
                 null,
             );
             expect(result).toEqual(expectedApiQueryResultsWith501Rows);
+        });
+
+        test('should reject ad-hoc query when explore is not on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['other_explore']));
+
+            await expect(
+                service.assertExploreAllowedForAdhocQuery(
+                    user,
+                    projectUuid,
+                    'valid_explore',
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should allow ad-hoc query when explore is on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+
+            await expect(
+                service.assertExploreAllowedForAdhocQuery(
+                    user,
+                    projectUuid,
+                    'valid_explore',
+                ),
+            ).resolves.toBeUndefined();
         });
     });
     describe('getAllExploresSummary', () => {
@@ -422,6 +458,52 @@ describe('ProjectService', () => {
             expect(result.map((e) => e.name)).toContain(
                 'explore_with_required_attributes',
             );
+        });
+
+        test('should keep explores when viewer allow-list is undefined', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(undefined);
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toEqual(expectedAllExploreSummary);
+        });
+
+        test('should keep only explores on the viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toEqual('valid_explore');
+        });
+
+        test('should return no explores when viewer allow-list is empty', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toEqual([]);
         });
     });
     describe('getJobStatus', () => {
@@ -602,6 +684,25 @@ describe('ProjectService', () => {
                                         ORDER BY "a_dim1"
                                         LIMIT 10`),
             );
+        });
+
+        test('should reject field values when table is not on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                ),
+            ).rejects.toThrow(ForbiddenError);
         });
     });
 

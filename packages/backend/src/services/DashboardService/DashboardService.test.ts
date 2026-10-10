@@ -56,6 +56,8 @@ const dashboardModel = {
     addVersion: jest.fn(async () => dashboard),
 
     getOrphanedCharts: jest.fn(async () => []),
+
+    getExploreNamesByDashboardUuids: jest.fn(async () => new Set<string>()),
 };
 
 const spaceModel = {
@@ -104,9 +106,65 @@ describe('DashboardService', () => {
             record: jest.fn(async () => undefined),
         } as unknown as ProjectOperationLogService,
     });
+    service.getAllowedDashboardUuidsForViewer = jest.fn(async () => undefined);
     afterEach(() => {
         jest.clearAllMocks();
+        (
+            service.getAllowedDashboardUuidsForViewer as jest.Mock
+        ).mockResolvedValue(undefined);
     });
+    describe('getAllowedExploreNamesForViewer', () => {
+        test('should skip when dashboard allow-list is undefined', async () => {
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toBeUndefined();
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).not.toHaveBeenCalled();
+        });
+
+        test('should reverse-lookup explores from allow-listed dashboards', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual(new Set(['orders']));
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).toHaveBeenCalledWith(['dash-1']);
+        });
+
+        test('should return empty set when dashboard allow-list is empty', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual(new Set());
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).toHaveBeenCalledWith([]);
+        });
+    });
+
     test('should get dashboard by uuid', async () => {
         const result = await service.getByIdOrSlug(user, dashboard.uuid);
 
@@ -127,6 +185,7 @@ describe('DashboardService', () => {
         expect(dashboardModel.getAllByProject).toHaveBeenCalledTimes(1);
         expect(dashboardModel.getAllByProject).toHaveBeenCalledWith(
             projectUuid,
+            undefined,
             undefined,
         );
     });
@@ -331,6 +390,7 @@ describe('DashboardService', () => {
         expect(dashboardModel.getAllByProject).toHaveBeenCalledTimes(1);
         expect(dashboardModel.getAllByProject).toHaveBeenCalledWith(
             projectUuid,
+            undefined,
             undefined,
         );
     });

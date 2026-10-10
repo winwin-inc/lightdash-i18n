@@ -1,12 +1,15 @@
+import { Ability } from '@casl/ability';
 import {
     DimensionType,
     ForbiddenError,
     NotFoundError,
+    PossibleAbilities,
     QueryExecutionContext,
     QueryHistoryStatus,
     VizAggregationOptions,
     VizIndexType,
     WarehouseTypes,
+    type Account,
     type CreateWarehouseCredentials,
     type ExecuteAsyncQueryRequestParams,
     type QueryHistory,
@@ -199,6 +202,7 @@ const getMockedAsyncQueryService = (
         } as never,
         dashboardService: {
             getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
+            getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
             getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
         } as never,
         ...overrides,
@@ -1425,6 +1429,77 @@ describe('AsyncQueryService', () => {
                     }),
                 ).rejects.toThrow();
             });
+        });
+    });
+
+    describe('explore viewer allow-list', () => {
+        const adhocAccount = {
+            ...sessionAccount,
+            user: {
+                ...sessionAccount.user,
+                ability: new Ability<PossibleAbilities>([
+                    { subject: 'Explore', action: ['view', 'manage'] },
+                    { subject: 'Project', action: ['view'] },
+                    { subject: 'SavedChart', action: ['view'] },
+                ]),
+            },
+        } as Account;
+
+        test('should reject ad-hoc metric query when explore is not on allow-list', async () => {
+            const service = getMockedAsyncQueryService(lightdashConfigMock);
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['other_explore']));
+
+            await expect(
+                service.executeAsyncMetricQuery({
+                    account: adhocAccount,
+                    projectUuid,
+                    context: QueryExecutionContext.EXPLORE,
+                    metricQuery: metricQueryMock,
+                }),
+            ).rejects.toThrow(
+                "You don't have access to the explore valid_explore",
+            );
+        });
+
+        test('should not apply explore allow-list to saved chart queries', async () => {
+            const service = getMockedAsyncQueryService(lightdashConfigMock);
+            const getAllowedExploreNames = service.dashboardService
+                .getAllowedExploreNamesForViewer as jest.Mock;
+            getAllowedExploreNames.mockResolvedValue(
+                new Set(['other_explore']),
+            );
+
+            service.savedChartModel.get = jest.fn(async () => ({
+                uuid: 'saved-chart-uuid',
+                organizationUuid: projectSummary.organizationUuid,
+                projectUuid,
+                spaceUuid: 'space-uuid',
+                tableName: 'valid_explore',
+                metricQuery: metricQueryMock,
+                parameters: {},
+            })) as never;
+            service.spaceModel.getSpaceSummary = jest.fn(async () => ({
+                uuid: 'space-uuid',
+                isPrivate: false,
+            })) as never;
+            service.spaceModel.getUserSpaceAccess = jest.fn(async () => []);
+            service.analyticsModel = {
+                addChartViewEvent: jest.fn(),
+            } as never;
+
+            await service
+                .executeAsyncSavedChartQuery({
+                    account: adhocAccount,
+                    projectUuid,
+                    chartUuid: 'saved-chart-uuid',
+                    context: QueryExecutionContext.EXPLORE,
+                })
+                .catch(() => undefined);
+
+            expect(getAllowedExploreNames).not.toHaveBeenCalled();
         });
     });
 });
