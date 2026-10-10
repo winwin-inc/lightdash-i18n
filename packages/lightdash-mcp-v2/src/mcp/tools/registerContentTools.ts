@@ -71,7 +71,7 @@ async function runLabelWiseContentSearch(
             pageSize: args.pageSize as number | undefined,
         });
         const enriched = enrichContentSearchResults(
-            config.baseUrl,
+            config.publicBaseUrl,
             DEFAULT_WEB_PATH_TEMPLATES,
             data,
         );
@@ -181,7 +181,7 @@ export function registerContentTools(
                 pageSize: (args.pageSize as number | undefined) ?? 50,
             });
             const enriched = enrichContentSearchResults(
-                config.baseUrl,
+                config.publicBaseUrl,
                 DEFAULT_WEB_PATH_TEMPLATES,
                 data,
             );

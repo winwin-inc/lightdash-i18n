@@ -18,7 +18,13 @@ export const REQUIRED_ENV_KEYS = [
 export type RequiredEnvKey = (typeof REQUIRED_ENV_KEYS)[number];
 
 export type LightdashMcpEnvConfig = {
+    /** REST / 鉴权等 API 基址（LIGHTDASH_SITE_URL） */
     baseUrl: string;
+    /**
+     * 浏览器可打开的站点根（拼 webUrl / get_site_info.siteBaseUrl）。
+     * 来自 LIGHTDASH_PUBLIC_SITE_URL；未设置时与 baseUrl 相同。
+     */
+    publicBaseUrl: string;
     /** 未配置时须在各工具可选 projectUuid 参数中提供项目 */
     defaultProjectUuid: string | null;
     maxLimit: number;
@@ -105,6 +111,10 @@ function requireEnv(name: string): string {
 export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     const raw = requireEnv('LIGHTDASH_SITE_URL');
     const baseUrl = raw.replace(/\/$/, '');
+    const publicRaw = process.env.LIGHTDASH_PUBLIC_SITE_URL?.trim() ?? '';
+    const publicBaseUrl = (
+        publicRaw.length > 0 ? publicRaw : baseUrl
+    ).replace(/\/$/, '');
     const projectRaw = process.env.LIGHTDASH_PROJECT_UUID?.trim() ?? '';
     const defaultProjectUuid = projectRaw.length > 0 ? projectRaw : null;
     const maxLimitRaw = process.env.LIGHTDASH_MAX_LIMIT;
@@ -134,6 +144,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
 
     return {
         baseUrl,
+        publicBaseUrl,
         defaultProjectUuid,
         maxLimit,
         keycloakRealmUrl,
