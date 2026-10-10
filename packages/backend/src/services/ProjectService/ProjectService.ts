@@ -2673,6 +2673,16 @@ export class ProjectService extends BaseService {
             query_context: context,
         };
 
+        const adhocUser =
+            ProjectService.exploreAllowListUserFromAccount(account);
+        if (adhocUser) {
+            await this.assertExploreAllowedForAdhocQuery(
+                adhocUser,
+                projectUuid,
+                exploreName,
+            );
+        }
+
         const explore = await this.getExplore(
             account,
             projectUuid,
@@ -3770,6 +3780,8 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        await this.assertExploreAllowedForAdhocQuery(user, projectUuid, table);
+
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
                 projectUuid,
@@ -4425,6 +4437,75 @@ export class ProjectService extends BaseService {
             });
     }
 
+    /**
+     * Account.user is LightdashSessionUser, not SessionUser.
+     * Allow-list only needs userUuid + email (looked up in DB by DashboardService).
+     */
+    protected static exploreAllowListUserFromAccount(
+        account: Account,
+    ): Pick<SessionUser, 'userUuid' | 'email'> | undefined {
+        if (!account.isRegisteredUser()) {
+            return undefined;
+        }
+        if (!('userUuid' in account.user)) {
+            return undefined;
+        }
+        return {
+            userUuid: account.user.userUuid,
+            email: account.user.email,
+        };
+    }
+
+    protected async getAllowedExploreNamesForViewer(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        return this.dashboardService.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+    }
+
+    protected async filterExploresByViewerAllowList<T extends { name: string }>(
+        account: Account,
+        projectUuid: string,
+        explores: T[],
+    ): Promise<T[]> {
+        const user = ProjectService.exploreAllowListUserFromAccount(account);
+        if (!user) {
+            return explores;
+        }
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (allowedExploreNames === undefined) {
+            return explores;
+        }
+        return explores.filter((explore) =>
+            allowedExploreNames.has(explore.name),
+        );
+    }
+
+    protected async assertExploreAllowedForAdhocQuery(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+        exploreName: string,
+    ): Promise<void> {
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(exploreName)
+        ) {
+            throw new ForbiddenError(
+                `You don't have access to the explore ${exploreName}`,
+            );
+        }
+    }
+
     private async getExploreSummaries(
         account: Account,
         projectUuid: string,
@@ -4487,19 +4568,19 @@ export class ProjectService extends BaseService {
             includeErrors,
         );
 
+        let exploreSummaries = allExploreSummaries;
         if (filtered) {
             const {
                 tableSelection: { type, value },
             } = await this.getTablesConfiguration(account, projectUuid);
             if (type === TableSelectionType.WITH_TAGS) {
-                return allExploreSummaries.filter(
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         hasIntersection(explore.tags || [], value || []) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
                 );
-            }
-            if (type === TableSelectionType.WITH_NAMES) {
-                return allExploreSummaries.filter(
+            } else if (type === TableSelectionType.WITH_NAMES) {
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         (value || []).includes(explore.name) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
@@ -4507,7 +4588,11 @@ export class ProjectService extends BaseService {
             }
         }
 
-        return allExploreSummaries;
+        return this.filterExploresByViewerAllowList(
+            account,
+            projectUuid,
+            exploreSummaries,
+        );
     }
 
     async getExplore(

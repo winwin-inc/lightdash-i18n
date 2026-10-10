@@ -80,6 +80,7 @@ describe('Csv service', () => {
                 getAllowedDashboardUuidsForViewer: jest.fn(
                     async () => undefined,
                 ),
+                getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
                 getVisibleDashboardCountBySpaceUuid: jest.fn(
                     async () => new Map(),
                 ),

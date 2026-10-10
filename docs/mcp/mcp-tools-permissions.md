@@ -79,8 +79,8 @@
 | `list_charts` | 列出看板内的已保存图表磁贴 | `view Dashboard` |
 | `run_saved_chart` | 按已保存图表跑数 | `view SavedChart` 且 `view Project` |
 | `run_dashboard_tiles` | 批量跑看板内已保存图表 | `view SavedChart` 且 `view Project` |
-| `list_explores` | 列出项目 explores | `view Project` |
-| `find_explores` | 在数据目录里搜索 explore | `view Project` |
+| `list_explores` | 列出项目数据表 | `view Project`。客户使用 + viewer / interactive_viewer 只返回白名单看板用到的数据表 |
+| `find_explores` | 搜索数据表 | `view Project`。客户使用下同样只返回白名单看板用到的数据表，不是项目里全部数据表 |
 | `find_fields` | 在指定 explore 内找字段 | `view Project` |
 | `search_field_values` | 搜索维度取值 | 字段搜索接口按 `view Project`；回退到临时指标查询时改为下面的交互式查看者 |
 

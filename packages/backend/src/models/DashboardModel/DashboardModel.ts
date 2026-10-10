@@ -775,6 +775,100 @@ export class DashboardModel {
         }));
     }
 
+    /**
+     * Explore names used by saved-chart tiles on the latest version of each dashboard.
+     */
+    async getExploreNamesByDashboardUuids(
+        dashboardUuids: string[],
+    ): Promise<Set<string>> {
+        if (dashboardUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const latestDashboardVersionCte = 'latest_dashboard_version_cte';
+        const tileChartCte = 'tile_chart_cte';
+        const latestChartVersionCte = 'latest_chart_version_cte';
+
+        const rows = await this.database
+            .with(latestDashboardVersionCte, (qb) => {
+                void qb
+                    .select({
+                        dashboard_version_id: this.database.raw(
+                            `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+                        ),
+                    })
+                    .from(DashboardsTableName)
+                    .innerJoin(
+                        DashboardVersionsTableName,
+                        `${DashboardsTableName}.dashboard_id`,
+                        `${DashboardVersionsTableName}.dashboard_id`,
+                    )
+                    .whereIn(
+                        `${DashboardsTableName}.dashboard_uuid`,
+                        dashboardUuids,
+                    )
+                    .groupBy(`${DashboardsTableName}.dashboard_uuid`);
+            })
+            .with(tileChartCte, (qb) => {
+                void qb
+                    .distinct({
+                        saved_query_id: `${SavedChartsTableName}.saved_query_id`,
+                    })
+                    .from(latestDashboardVersionCte)
+                    .innerJoin(
+                        DashboardTileChartTableName,
+                        `${latestDashboardVersionCte}.dashboard_version_id`,
+                        `${DashboardTileChartTableName}.dashboard_version_id`,
+                    )
+                    .innerJoin(
+                        SavedChartsTableName,
+                        `${DashboardTileChartTableName}.saved_chart_id`,
+                        `${SavedChartsTableName}.saved_query_id`,
+                    );
+            })
+            .with(latestChartVersionCte, (qb) => {
+                void qb
+                    .select({
+                        saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
+                        saved_queries_version_id: this.database.raw(
+                            `MAX(${SavedChartVersionsTableName}.saved_queries_version_id)`,
+                        ),
+                    })
+                    .from(SavedChartVersionsTableName)
+                    .whereIn(
+                        `${SavedChartVersionsTableName}.saved_query_id`,
+                        this.database
+                            .select('saved_query_id')
+                            .from(tileChartCte),
+                    )
+                    .groupBy(`${SavedChartVersionsTableName}.saved_query_id`);
+            })
+            .distinct({
+                exploreName: `${SavedChartVersionsTableName}.explore_name`,
+            })
+            .from(latestChartVersionCte)
+            .innerJoin(SavedChartVersionsTableName, (join) => {
+                void join
+                    .on(
+                        `${SavedChartVersionsTableName}.saved_query_id`,
+                        '=',
+                        `${latestChartVersionCte}.saved_query_id`,
+                    )
+                    .andOn(
+                        `${SavedChartVersionsTableName}.saved_queries_version_id`,
+                        '=',
+                        `${latestChartVersionCte}.saved_queries_version_id`,
+                    );
+            })
+            .whereNotNull(`${SavedChartVersionsTableName}.explore_name`);
+
+        return new Set(
+            rows
+                .map((row) => row.exploreName)
+                .filter((name): name is string => Boolean(name)),
+        );
+    }
+
     async getSlugsForUuids(uuids: string[]): Promise<Record<string, string>> {
         // Uuids are globally unique, so no need to filter by project
         const dashboards = await this.database(DashboardsTableName)

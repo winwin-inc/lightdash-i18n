@@ -48,12 +48,12 @@
 
 每个项目用两份名单做差：
 
-- `GET /explores?filtered=true`：项目已选表，**不**按用户属性 `requiredAttributes` 裁剪。
-- `GET /dataCatalog?type=table`：已按用户属性去掉无权的表，也受表选择约束。
+- `GET /explores?filtered=true`：项目已选表，**不**按用户属性 `requiredAttributes` 裁剪。客户使用 + viewer / interactive_viewer 还会按白名单看板用到的表再裁一刀。
+- `GET /dataCatalog?type=table`：已按用户属性去掉无权的表，也受表选择约束。客户使用 + viewer / interactive_viewer 同样只保留白名单看板用到的表。
 
 | 分组 | 规则 | 用法 |
 |---|---|---|
-| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。同一指标出现在两张表时，只用这里的那张。`search_field_values` 也可以用这里的表。 |
+| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。客户使用查看者/交互式查看者的目录已按白名单看板收口，不是项目全量。同一指标出现在两张表时，只用这里的那张。`search_field_values` 也可以用这里的表。 |
 | `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。`search_field_values` 可以用这里的表。 |
 | `attributeDenied` | explores 有、目录没有 | 用户属性不满足，不要用来查数。 |
 

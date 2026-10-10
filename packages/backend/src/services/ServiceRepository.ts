@@ -883,6 +883,7 @@ export class ServiceRepository
                     spaceModel: this.models.getSpaceModel(),
                     tagsModel: this.models.getTagsModel(),
                     changesetModel: this.models.getChangesetModel(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }

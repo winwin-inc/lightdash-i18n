@@ -101,7 +101,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 | 工具 | 做什么 |
 |---|---|
 | `get_my_access` | 接入时看一次能不能临时查数。只有选表拿不准时才加 `includeExplores=true` |
-| `find_explores` / `find_fields` | 找表、拿字段 ID |
+| `find_explores` / `find_fields` | 找数据表、拿字段 ID。客户使用查看者先 `find_dashboards`：`find_explores` 只有这些看板用到的数据表，不是项目里全部数据表 |
 | `search_field_values` | 查维度的真实取值 |
 | `run_semantic_metric_query` | 多条件查询（本文主用） |
 | `run_metric_query` | 一两维、少量指标的简单查询 |
