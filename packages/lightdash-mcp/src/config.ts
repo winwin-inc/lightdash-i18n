@@ -5,7 +5,13 @@ import { config as loadDotenv } from 'dotenv';
 loadDotenv({ path: path.join(__dirname, '..', '.env') });
 
 export type LightdashMcpEnvConfig = {
+    /** REST / 鉴权等 API 基址（LIGHTDASH_SITE_URL） */
     baseUrl: string;
+    /**
+     * 浏览器可打开的站点根（拼 webUrl / get_site_info.siteBaseUrl）。
+     * 来自 LIGHTDASH_PUBLIC_SITE_URL；未设置时与 baseUrl 相同。
+     */
+    publicBaseUrl: string;
     apiKey: string | undefined;
     /** 未配置时须通过 set_project 或各工具可选 projectUuid 提供项目 */
     defaultProjectUuid: string | null;
@@ -68,6 +74,10 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         );
     }
     const baseUrl = raw.replace(/\/$/, '');
+    const publicRaw = process.env.LIGHTDASH_PUBLIC_SITE_URL?.trim() ?? '';
+    const publicBaseUrl = (
+        publicRaw.length > 0 ? publicRaw : baseUrl
+    ).replace(/\/$/, '');
     const maxLimitRaw = process.env.LIGHTDASH_MAX_LIMIT;
     const maxLimit =
         maxLimitRaw !== undefined &&
@@ -114,6 +124,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
     );
     return {
         baseUrl,
+        publicBaseUrl,
         apiKey,
         defaultProjectUuid,
         maxLimit,
