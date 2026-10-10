@@ -46,8 +46,20 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
         config.oauthRequiredScopes.length > 0
             ? config.oauthRequiredScopes.join(',')
             : '(empty)';
+    const publicEnvSet = Boolean(
+        process.env.LIGHTDASH_PUBLIC_SITE_URL?.trim(),
+    );
+    const publicSource = publicEnvSet
+        ? 'env LIGHTDASH_PUBLIC_SITE_URL'
+        : 'fallback LIGHTDASH_SITE_URL';
     writeStderrLog(
-        `[Config] @lightdash/mcp=${getMcpPackageVersion()} | LIGHTDASH_SITE_URL=${config.baseUrl}`,
+        `[Config] @lightdash/mcp=${getMcpPackageVersion()}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_SITE_URL (API)=${config.baseUrl}`,
+    );
+    writeStderrLog(
+        `[Config] LIGHTDASH_PUBLIC_SITE_URL (webUrl)=${config.publicBaseUrl} | source=${publicSource} | set=${publicEnvSet}`,
     );
     writeStderrLog(
         `[Config] LIGHTDASH_PROJECT_UUID=${projectLog} | LIGHTDASH_MAX_LIMIT=${config.maxLimit}`,

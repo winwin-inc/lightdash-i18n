@@ -148,12 +148,13 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'get_site_info',
-        '返回当前 MCP 所连 Lightdash 的站点根地址 siteBaseUrl（与 LIGHTDASH_SITE_URL 一致）；不含密钥。可与各工具返回的 webUrl 对照使用。',
+        '返回站点根地址：siteBaseUrl（拼 webUrl / 浏览器打开用）、apiBaseUrl（服务 API 用）。不含密钥。打开图表或看板请用各工具返回的 webUrl，不要用 apiBaseUrl 拼链接。',
         getSiteInfoParams,
         async () => {
             const payload = {
-                siteBaseUrl: config.baseUrl,
-                note: '图表/看板打开链接见 find_charts / find_dashboards / find_content、get_saved_chart 等工具返回的 webUrl。',
+                siteBaseUrl: config.publicBaseUrl,
+                apiBaseUrl: config.baseUrl,
+                note: 'webUrl = siteBaseUrl + 路径；apiBaseUrl 仅供对照，不用于打开页面。',
             };
             return {
                 content: [
@@ -209,7 +210,7 @@ export function registerExtensionTools(
                 args.chartUuid as string,
             );
             const enriched = enrichSavedChartResult(
-                config.baseUrl,
+                config.publicBaseUrl,
                 DEFAULT_WEB_PATH_TEMPLATES.chart,
                 data,
             );

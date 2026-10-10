@@ -67,6 +67,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 变量                               | 必填  | 说明                                                     |
 | -------------------------------- | --- | ------------------------------------------------------ |
 | `LIGHTDASH_SITE_URL`             | 是   | Lightdash 站点根 URL（无尾斜杠亦可）                              |
+| `LIGHTDASH_PUBLIC_SITE_URL`     | 否   | 浏览器打开用公网根（拼 `webUrl`）；未设则同 `LIGHTDASH_SITE_URL` |
 | `LIGHTDASH_PROJECT_UUID`         | 否   | MCP 默认项目 UUID；未传时可依赖 **`set_project`** 或各工具可选参数 **`projectUuid`**（见下节） |
 | `LIGHTDASH_API_KEY`              | 否   | 默认 PAT（仅在 OAuth 关闭时作为请求兜底）；OAuth 模式下用于调用 introspect        |
 | `LIGHTDASH_MAX_LIMIT`            | 否   | 查询类接口的 `limit` 上限                                      |
@@ -219,7 +220,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 | 工具名                  | 用途                                                       |
 | -------------------- | ---------------------------------------------------------- |
-| `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
+| `get_site_info`      | 返回 `siteBaseUrl`（打开链接）与 `apiBaseUrl`（API） |
 | `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
 | `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴；默认含 **`chartKind`**（统计自定义：`chartKind==="custom"`） |
 | `get_saved_chart`    | 已保存图表定义（含 `webUrl`）；默认精简同时含 **`chartKind`**（认图）与 **`chartType`**（=`chartConfig.type`）；`full=true` 含完整 `chartConfig` |
@@ -272,6 +273,7 @@ docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
 
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e LIGHTDASH_PUBLIC_SITE_URL="https://your-lightdash.example.com" \
   -e LIGHTDASH_PROJECT_UUID="your-project-uuid" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
