@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     ForbiddenError,
+    isUserWithOrg,
     PinnedItems,
     SessionUser,
     UpdatePinnedItemOrder,
@@ -12,6 +13,7 @@ import { ResourceViewItemModel } from '../../models/ResourceViewItemModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
+import { DashboardService } from '../DashboardService/DashboardService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
 
 type PinningServiceArguments = {
@@ -24,6 +26,7 @@ type PinningServiceArguments = {
     pinnedListModel: PinnedListModel;
     resourceViewItemModel: ResourceViewItemModel;
     projectModel: ProjectModel;
+    dashboardService: DashboardService;
 };
 
 export class PinningService extends BaseService {
@@ -39,6 +42,8 @@ export class PinningService extends BaseService {
 
     projectModel: ProjectModel;
 
+    dashboardService: DashboardService;
+
     constructor({
         dashboardModel,
         savedChartModel,
@@ -46,6 +51,7 @@ export class PinningService extends BaseService {
         pinnedListModel,
         resourceViewItemModel,
         projectModel,
+        dashboardService,
     }: PinningServiceArguments) {
         super();
         this.dashboardModel = dashboardModel;
@@ -54,6 +60,7 @@ export class PinningService extends BaseService {
         this.pinnedListModel = pinnedListModel;
         this.resourceViewItemModel = resourceViewItemModel;
         this.projectModel = projectModel;
+        this.dashboardService = dashboardService;
     }
 
     async getPinnedItems(
@@ -100,7 +107,39 @@ export class PinningService extends BaseService {
                 allowedSpaceUuids,
             );
 
-        return [...allowedPinnedSpaces, ...allowedCharts, ...allowedDashboards];
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
+        // undefined: keep SQL dashboardCount and unfiltered pins.
+        // Set: drop unauthorized dashboards and recount pinned-space counts.
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return [
+                ...allowedPinnedSpaces,
+                ...allowedCharts,
+                ...allowedDashboards,
+            ];
+        }
+
+        const visibleDashboards = allowedDashboards.filter(({ data }) =>
+            allowedDashboardUuids.has(data.uuid),
+        );
+        const spaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                allowedPinnedSpaces.map(({ data }) => data.uuid),
+                allowedDashboardUuids,
+            );
+        const visiblePinnedSpaces = allowedPinnedSpaces.map((space) => ({
+            ...space,
+            data: {
+                ...space.data,
+                dashboardCount: spaceCounts.get(space.data.uuid) ?? 0,
+            },
+        }));
+
+        return [...visiblePinnedSpaces, ...allowedCharts, ...visibleDashboards];
     }
 
     async updatePinnedItemsOrder(

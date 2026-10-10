@@ -396,6 +396,34 @@ export class DashboardService
         }
     }
 
+    /**
+     * Count dashboards per space that are in the viewer allow-list.
+     * Call only when the allow-list is a Set; undefined means keep the SQL count.
+     * Spaces are not removed when the visible count is 0.
+     */
+    async getVisibleDashboardCountBySpaceUuid(
+        spaceUuids: string[],
+        allowedDashboardUuids: Set<string>,
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>(
+            spaceUuids.map((spaceUuid) => [spaceUuid, 0]),
+        );
+        if (spaceUuids.length === 0) {
+            return counts;
+        }
+
+        const dashboards = await this.spaceModel.getSpaceDashboards(spaceUuids);
+        dashboards.forEach((dashboard) => {
+            if (allowedDashboardUuids.has(dashboard.uuid)) {
+                counts.set(
+                    dashboard.spaceUuid,
+                    (counts.get(dashboard.spaceUuid) ?? 0) + 1,
+                );
+            }
+        });
+        return counts;
+    }
+
     async getAllByProject(
         user: SessionUser,
         projectUuid: string,

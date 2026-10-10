@@ -76,6 +76,14 @@ describe('Csv service', () => {
             projectOperationLogService: {
                 record: jest.fn(async () => undefined),
             } as never,
+            dashboardService: {
+                getAllowedDashboardUuidsForViewer: jest.fn(
+                    async () => undefined,
+                ),
+                getVisibleDashboardCountBySpaceUuid: jest.fn(
+                    async () => new Map(),
+                ),
+            } as never,
         }),
         s3Client: {} as S3Client,
         savedChartModel: {} as SavedChartModel,

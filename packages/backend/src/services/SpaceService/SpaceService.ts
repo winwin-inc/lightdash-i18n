@@ -4,6 +4,7 @@ import {
     BulkActionable,
     CreateSpace,
     ForbiddenError,
+    isUserWithOrg,
     NotFoundError,
     ParameterError,
     SessionUser,
@@ -20,11 +21,25 @@ import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
 
+// Method interface only: importing DashboardService would cycle with
+// hasDirectAccessToSpace used by DashboardService.
+type DashboardAllowListService = {
+    getAllowedDashboardUuidsForViewer: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<Set<string> | undefined>;
+    getVisibleDashboardCountBySpaceUuid: (
+        spaceUuids: string[],
+        allowedDashboardUuids: Set<string>,
+    ) => Promise<Map<string, number>>;
+};
+
 type SpaceServiceArguments = {
     analytics: LightdashAnalytics;
     projectModel: ProjectModel;
     spaceModel: SpaceModel;
     pinnedListModel: PinnedListModel;
+    dashboardService: DashboardAllowListService;
 };
 
 export const hasDirectAccessToSpace = (
@@ -76,12 +91,15 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
 
     private readonly pinnedListModel: PinnedListModel;
 
+    private readonly dashboardService: DashboardAllowListService;
+
     constructor(args: SpaceServiceArguments) {
         super();
         this.analytics = args.analytics;
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.pinnedListModel = args.pinnedListModel;
+        this.dashboardService = args.dashboardService;
     }
 
     /** @internal For unit testing only */
@@ -140,7 +158,35 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
             throw new ForbiddenError();
         }
 
-        return space;
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+        // undefined: keep SQL childSpaces[].dashboardCount. Set: filter
+        // dashboards and recount children (space stays listed at count 0).
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return space;
+        }
+
+        const visibleDashboards = space.dashboards.filter((dashboard) =>
+            allowedDashboardUuids.has(dashboard.uuid),
+        );
+        const childSpaceUuids = space.childSpaces.map((child) => child.uuid);
+        const childSpaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                childSpaceUuids,
+                allowedDashboardUuids,
+            );
+
+        return {
+            ...space,
+            dashboards: visibleDashboards,
+            childSpaces: space.childSpaces.map((child) => ({
+                ...child,
+                dashboardCount: childSpaceCounts.get(child.uuid) ?? 0,
+            })),
+        };
     }
 
     async createSpace(
