@@ -283,6 +283,7 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
+import { DashboardService } from '../DashboardService/DashboardService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
     hasDirectAccessToSpace,
@@ -326,6 +327,7 @@ export type ProjectServiceArguments = {
     projectParametersModel: ProjectParametersModel;
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
     projectOperationLogService: ProjectOperationLogService;
+    dashboardService: DashboardService;
 };
 
 export class ProjectService extends BaseService {
@@ -389,6 +391,8 @@ export class ProjectService extends BaseService {
 
     projectOperationLogService: ProjectOperationLogService;
 
+    dashboardService: DashboardService;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -419,6 +423,7 @@ export class ProjectService extends BaseService {
         projectParametersModel,
         organizationWarehouseCredentialsModel,
         projectOperationLogService,
+        dashboardService,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -452,6 +457,7 @@ export class ProjectService extends BaseService {
         this.organizationWarehouseCredentialsModel =
             organizationWarehouseCredentialsModel;
         this.projectOperationLogService = projectOperationLogService;
+        this.dashboardService = dashboardService;
     }
 
     static getMetricQueryExecutionProperties({
@@ -5526,17 +5532,38 @@ export class ProjectService extends BaseService {
                 hasDirectAccessToSpace(user, space), // NOTE: We don't check for admin access to the space - exclude private spaces from this panel if admin
         );
 
+        // SQL already LIMITs to MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT (10).
+        // Allow-list is applied after that cut, so a permitted dashboard outside
+        // the top 10 is not backfilled. Client-use home hides this panel; do not
+        // switch to fetch-all-then-slice unless that UI starts using this API.
         const mostPopular = await this.getMostPopular(allowedSpaces);
         const recentlyUpdated = await this.getRecentlyUpdated(allowedSpaces);
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
+        // Charts (SpaceQuery) have slug; dashboard details from getSpaceDashboards
+        // do not. Do not add slug to that dashboard mapping or this filter breaks.
+        const isVisibleItem = (
+            item: SpaceQuery | DashboardBasicDetails,
+        ): boolean =>
+            allowedDashboardUuids === undefined ||
+            !isUserWithOrg(user) ||
+            'slug' in item ||
+            allowedDashboardUuids.has(item.uuid);
 
         return {
             mostPopular: mostPopular
+                .filter(isVisibleItem)
                 .sort((a, b) => b.views - a.views)
                 .slice(
                     0,
                     this.spaceModel.MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT,
                 ),
             recentlyUpdated: recentlyUpdated
+                .filter(isVisibleItem)
                 .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
                 .slice(
                     0,
@@ -5635,7 +5662,27 @@ export class ProjectService extends BaseService {
                 userAccess: spacesAccess[spaceSummary.uuid]?.[0] ?? [],
             }));
 
-        return spacesWithUserAccess;
+        // undefined: keep SQL dashboardCount. Set: recount visible dashboards
+        // (space stays listed even when count is 0).
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return spacesWithUserAccess;
+        }
+
+        const spaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                spacesWithUserAccess.map((space) => space.uuid),
+                allowedDashboardUuids,
+            );
+
+        return spacesWithUserAccess.map((space) => ({
+            ...space,
+            dashboardCount: spaceCounts.get(space.uuid) ?? 0,
+        }));
     }
 
     async createPreview(

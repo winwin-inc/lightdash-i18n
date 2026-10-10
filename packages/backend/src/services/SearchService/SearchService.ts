@@ -235,8 +235,13 @@ export class SearchService extends BaseService {
             tables: filteredTables,
             fields: filteredFields,
             dashboards: filteredDashboards,
+            // Tabs include dashboardName; use the same allow-list as dashboards.
             dashboardTabs: results.dashboardTabs.filter(
-                (_, index) => hasDashboardTabAccess[index],
+                (tab, index) =>
+                    hasDashboardTabAccess[index] &&
+                    (allowedDashboardUuids === undefined ||
+                        !isUserWithOrg(user) ||
+                        allowedDashboardUuids.has(tab.dashboardUuid)),
             ),
             savedCharts: results.savedCharts.filter(
                 (_, index) => hasSavedChartAccess[index],

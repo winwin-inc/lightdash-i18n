@@ -538,6 +538,7 @@ export class ServiceRepository
                     resourceViewItemModel:
                         this.models.getResourceViewItemModel(),
                     projectModel: this.models.getProjectModel(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }
@@ -593,6 +594,7 @@ export class ServiceRepository
                         this.models.getOrganizationWarehouseCredentialsModel(),
                     projectOperationLogService:
                         this.getProjectOperationLogService(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }
@@ -642,6 +644,7 @@ export class ServiceRepository
                     permissionsService: this.getPermissionsService(),
                     projectOperationLogService:
                         this.getProjectOperationLogService(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }
@@ -744,6 +747,7 @@ export class ServiceRepository
                     projectModel: this.models.getProjectModel(),
                     spaceModel: this.models.getSpaceModel(),
                     pinnedListModel: this.models.getPinnedListModel(),
+                    dashboardService: this.getDashboardService(),
                 }),
         );
     }

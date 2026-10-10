@@ -197,6 +197,10 @@ const getMockedAsyncQueryService = (
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
         } as never,
+        dashboardService: {
+            getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
+            getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
+        } as never,
         ...overrides,
     });
 
