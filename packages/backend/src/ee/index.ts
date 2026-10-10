@@ -330,6 +330,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                         models.getOrganizationWarehouseCredentialsModel(),
                     projectOperationLogService:
                         repository.getProjectOperationLogService(),
+                    dashboardService: repository.getDashboardService(),
                 }),
             instanceConfigurationService: ({
                 models,
@@ -402,6 +403,7 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     permissionsService: repository.getPermissionsService(),
                     projectOperationLogService:
                         repository.getProjectOperationLogService(),
+                    dashboardService: repository.getDashboardService(),
                 }),
             cacheService: ({ models, clients }) =>
                 new CommercialCacheService({

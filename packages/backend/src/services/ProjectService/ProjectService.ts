@@ -283,6 +283,7 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
+import { DashboardService } from '../DashboardService/DashboardService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
     hasDirectAccessToSpace,
@@ -326,6 +327,7 @@ export type ProjectServiceArguments = {
     projectParametersModel: ProjectParametersModel;
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
     projectOperationLogService: ProjectOperationLogService;
+    dashboardService: DashboardService;
 };
 
 export class ProjectService extends BaseService {
@@ -389,6 +391,8 @@ export class ProjectService extends BaseService {
 
     projectOperationLogService: ProjectOperationLogService;
 
+    dashboardService: DashboardService;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -419,6 +423,7 @@ export class ProjectService extends BaseService {
         projectParametersModel,
         organizationWarehouseCredentialsModel,
         projectOperationLogService,
+        dashboardService,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -452,6 +457,7 @@ export class ProjectService extends BaseService {
         this.organizationWarehouseCredentialsModel =
             organizationWarehouseCredentialsModel;
         this.projectOperationLogService = projectOperationLogService;
+        this.dashboardService = dashboardService;
     }
 
     static getMetricQueryExecutionProperties({
@@ -2667,6 +2673,16 @@ export class ProjectService extends BaseService {
             query_context: context,
         };
 
+        const adhocUser =
+            ProjectService.exploreAllowListUserFromAccount(account);
+        if (adhocUser) {
+            await this.assertExploreAllowedForAdhocQuery(
+                adhocUser,
+                projectUuid,
+                exploreName,
+            );
+        }
+
         const explore = await this.getExplore(
             account,
             projectUuid,
@@ -3764,6 +3780,8 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        await this.assertExploreAllowedForAdhocQuery(user, projectUuid, table);
+
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
                 projectUuid,
@@ -4419,6 +4437,75 @@ export class ProjectService extends BaseService {
             });
     }
 
+    /**
+     * Account.user is LightdashSessionUser, not SessionUser.
+     * Allow-list only needs userUuid + email (looked up in DB by DashboardService).
+     */
+    protected static exploreAllowListUserFromAccount(
+        account: Account,
+    ): Pick<SessionUser, 'userUuid' | 'email'> | undefined {
+        if (!account.isRegisteredUser()) {
+            return undefined;
+        }
+        if (!('userUuid' in account.user)) {
+            return undefined;
+        }
+        return {
+            userUuid: account.user.userUuid,
+            email: account.user.email,
+        };
+    }
+
+    protected async getAllowedExploreNamesForViewer(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        return this.dashboardService.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+    }
+
+    protected async filterExploresByViewerAllowList<T extends { name: string }>(
+        account: Account,
+        projectUuid: string,
+        explores: T[],
+    ): Promise<T[]> {
+        const user = ProjectService.exploreAllowListUserFromAccount(account);
+        if (!user) {
+            return explores;
+        }
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (allowedExploreNames === undefined) {
+            return explores;
+        }
+        return explores.filter((explore) =>
+            allowedExploreNames.has(explore.name),
+        );
+    }
+
+    protected async assertExploreAllowedForAdhocQuery(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+        exploreName: string,
+    ): Promise<void> {
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(exploreName)
+        ) {
+            throw new ForbiddenError(
+                `You don't have access to the explore ${exploreName}`,
+            );
+        }
+    }
+
     private async getExploreSummaries(
         account: Account,
         projectUuid: string,
@@ -4481,19 +4568,19 @@ export class ProjectService extends BaseService {
             includeErrors,
         );
 
+        let exploreSummaries = allExploreSummaries;
         if (filtered) {
             const {
                 tableSelection: { type, value },
             } = await this.getTablesConfiguration(account, projectUuid);
             if (type === TableSelectionType.WITH_TAGS) {
-                return allExploreSummaries.filter(
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         hasIntersection(explore.tags || [], value || []) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
                 );
-            }
-            if (type === TableSelectionType.WITH_NAMES) {
-                return allExploreSummaries.filter(
+            } else if (type === TableSelectionType.WITH_NAMES) {
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         (value || []).includes(explore.name) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
@@ -4501,7 +4588,11 @@ export class ProjectService extends BaseService {
             }
         }
 
-        return allExploreSummaries;
+        return this.filterExploresByViewerAllowList(
+            account,
+            projectUuid,
+            exploreSummaries,
+        );
     }
 
     async getExplore(
@@ -5526,17 +5617,38 @@ export class ProjectService extends BaseService {
                 hasDirectAccessToSpace(user, space), // NOTE: We don't check for admin access to the space - exclude private spaces from this panel if admin
         );
 
+        // SQL already LIMITs to MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT (10).
+        // Allow-list is applied after that cut, so a permitted dashboard outside
+        // the top 10 is not backfilled. Client-use home hides this panel; do not
+        // switch to fetch-all-then-slice unless that UI starts using this API.
         const mostPopular = await this.getMostPopular(allowedSpaces);
         const recentlyUpdated = await this.getRecentlyUpdated(allowedSpaces);
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
+        // Charts (SpaceQuery) have slug; dashboard details from getSpaceDashboards
+        // do not. Do not add slug to that dashboard mapping or this filter breaks.
+        const isVisibleItem = (
+            item: SpaceQuery | DashboardBasicDetails,
+        ): boolean =>
+            allowedDashboardUuids === undefined ||
+            !isUserWithOrg(user) ||
+            'slug' in item ||
+            allowedDashboardUuids.has(item.uuid);
 
         return {
             mostPopular: mostPopular
+                .filter(isVisibleItem)
                 .sort((a, b) => b.views - a.views)
                 .slice(
                     0,
                     this.spaceModel.MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT,
                 ),
             recentlyUpdated: recentlyUpdated
+                .filter(isVisibleItem)
                 .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
                 .slice(
                     0,
@@ -5635,7 +5747,27 @@ export class ProjectService extends BaseService {
                 userAccess: spacesAccess[spaceSummary.uuid]?.[0] ?? [],
             }));
 
-        return spacesWithUserAccess;
+        // undefined: keep SQL dashboardCount. Set: recount visible dashboards
+        // (space stays listed even when count is 0).
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return spacesWithUserAccess;
+        }
+
+        const spaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                spacesWithUserAccess.map((space) => space.uuid),
+                allowedDashboardUuids,
+            );
+
+        return spacesWithUserAccess.map((space) => ({
+            ...space,
+            dashboardCount: spaceCounts.get(space.uuid) ?? 0,
+        }));
     }
 
     async createPreview(

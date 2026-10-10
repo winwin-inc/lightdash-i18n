@@ -32,6 +32,14 @@ describe('SpaceService', () => {
             projectModel: {} as ProjectModel,
             spaceModel: new SpaceModel({ database: db }),
             pinnedListModel: {} as PinnedListModel,
+            dashboardService: {
+                getAllowedDashboardUuidsForViewer: jest.fn(
+                    async () => undefined,
+                ),
+                getVisibleDashboardCountBySpaceUuid: jest.fn(
+                    async () => new Map(),
+                ),
+            } as never,
         });
     });
 

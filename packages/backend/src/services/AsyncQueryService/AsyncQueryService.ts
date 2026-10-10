@@ -2,7 +2,6 @@ import { subject } from '@casl/ability';
 import {
     Account,
     addDashboardFiltersToMetricQuery,
-    applyMetricQueryLimitOffset,
     type ApiDownloadAsyncQueryResults,
     type ApiDownloadAsyncQueryResultsAsCsv,
     type ApiDownloadAsyncQueryResultsAsXlsx,
@@ -12,6 +11,7 @@ import {
     type ApiExecuteAsyncMetricQueryResults,
     ApiExecuteAsyncSqlQueryResults,
     type ApiGetAsyncQueryResults,
+    applyMetricQueryLimitOffset,
     assertIsAccountWithOrg,
     assertUnreachable,
     CompiledDimension,
@@ -40,6 +40,7 @@ import {
     formatItemValue,
     formatRawValue,
     formatRow,
+    getColumnTimezone,
     getDashboardFilterRulesForTables,
     getDashboardFilterRulesForTileAndReferences,
     getDimensions,
@@ -47,7 +48,6 @@ import {
     getFieldsFromMetricQuery,
     getItemId,
     getItemMap,
-    getColumnTimezone,
     getMetrics,
     isCartesianChartConfig,
     isCustomBinDimension,
@@ -56,14 +56,14 @@ import {
     isDateItem,
     isField,
     isJwtUser,
-    isMetricSourcedMergeQuery,
     isMetric,
+    isMetricSourcedMergeQuery,
     isVizTableConfig,
     ItemsMap,
     MAX_SAFE_INTEGER,
+    MergeQueryErrorKind,
     type MetricOverrides,
     MetricQuery,
-    MergeQueryErrorKind,
     normalizeIndexColumns,
     NotFoundError,
     type Organization,
@@ -134,6 +134,7 @@ import {
 import { getFilteredExplore } from '../UserAttributesService/UserAttributeUtils';
 import { getPivotedColumns } from './getPivotedColumns';
 import { getUnpivotedColumns } from './getUnpivotedColumns';
+import { applyMergeExportLimit } from './mergeQueryExecution';
 import {
     type DownloadAsyncQueryResultsArgs,
     type ExecuteAsyncDashboardChartQueryArgs,
@@ -151,7 +152,6 @@ import {
     type RunAsyncWarehouseQueryArgs,
     type ScheduleDownloadAsyncQueryResultsArgs,
 } from './types';
-import { applyMergeExportLimit } from './mergeQueryExecution';
 
 const SQL_QUERY_MOCK_EXPLORER_NAME = 'sql_query_explorer';
 
@@ -2084,6 +2084,16 @@ export class AsyncQueryService extends ProjectService {
             query_context: context,
         };
 
+        const adhocUser =
+            ProjectService.exploreAllowListUserFromAccount(account);
+        if (adhocUser) {
+            await this.assertExploreAllowedForAdhocQuery(
+                adhocUser,
+                projectUuid,
+                metricQuery.exploreName,
+            );
+        }
+
         const explore = await this.getExplore(
             account,
             projectUuid,
@@ -3461,8 +3471,9 @@ export class AsyncQueryService extends ProjectService {
         pivotConfiguration?: PivotConfiguration;
     }): Promise<ApiExecuteAsyncMergeQueryResults> {
         assertIsAccountWithOrg(account);
-        const { organizationUuid } =
-            await this.projectModel.getSummary(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
         const effectiveMergeQuery =
             mode.type === 'export'
                 ? applyMergeExportLimit({
@@ -3515,7 +3526,9 @@ export class AsyncQueryService extends ProjectService {
         const fieldIds = Object.keys(fields);
         const resultMetricQuery: MetricQuery = {
             exploreName: explore.name,
-            dimensions: fieldIds.filter((fieldId) => !isMetric(fields[fieldId])),
+            dimensions: fieldIds.filter(
+                (fieldId) => !isMetric(fields[fieldId]),
+            ),
             metrics: fieldIds.filter((fieldId) => isMetric(fields[fieldId])),
             filters: {},
             sorts: [],

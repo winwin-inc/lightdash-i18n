@@ -84,6 +84,9 @@ import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
 import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
+/** Fields needed to resolve client-use dashboard / explore allow-lists. */
+export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
+
 type DashboardServiceArguments = {
     analytics: LightdashAnalytics;
     dashboardModel: DashboardModel;
@@ -234,20 +237,13 @@ export class DashboardService
 
     /**
      * Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects.
+     * Session and personal access token use the same whitelist (mobile from user email).
      * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
      */
     async getAllowedDashboardUuidsForViewer(
-        user: SessionUser,
+        user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
-        // If this is an API token request, skip RPC filtering and let CASL handle permissions
-        if (user.isApiTokenRequest) {
-            this.logger.warn(
-                `API token request detected for user ${user.userUuid} in project ${projectUuid}, skipping RPC filtering.`,
-            );
-            return undefined;
-        }
-
         const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
@@ -395,14 +391,58 @@ export class DashboardService
             return allowedUuids;
         } catch (error) {
             this.logger.error(
-                `Error fetching dashboards by mobile ${mobile}: ${
+                `Error fetching dashboards by mobile ${mobile} in project ${projectUuid}: ${
                     error instanceof Error ? error.message : String(error)
-                }`,
+                }. Returning empty allow-list; viewer / interactive_viewer will see no dashboards until RPC recovers.`,
             );
-            // On error, return empty Set to filter out all dashboards
-            // For viewer / interactive_viewer in client use mode, RPC interface is required
             return new Set<string>();
         }
+    }
+
+    /**
+     * Explores used by allow-listed dashboards for client-use viewer / interactive_viewer.
+     * undefined: skip this layer. Set (including empty): restrict list and ad-hoc query.
+     */
+    async getAllowedExploreNamesForViewer(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (allowedDashboardUuids === undefined) {
+            return undefined;
+        }
+        return this.dashboardModel.getExploreNamesByDashboardUuids([
+            ...allowedDashboardUuids,
+        ]);
+    }
+
+    /**
+     * Count dashboards per space that are in the viewer allow-list.
+     * Call only when the allow-list is a Set; undefined means keep the SQL count.
+     * Spaces are not removed when the visible count is 0.
+     */
+    async getVisibleDashboardCountBySpaceUuid(
+        spaceUuids: string[],
+        allowedDashboardUuids: Set<string>,
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>(
+            spaceUuids.map((spaceUuid) => [spaceUuid, 0]),
+        );
+        if (spaceUuids.length === 0) {
+            return counts;
+        }
+
+        const dashboards = await this.spaceModel.getSpaceDashboards(spaceUuids);
+        dashboards.forEach((dashboard) => {
+            if (allowedDashboardUuids.has(dashboard.uuid)) {
+                counts.set(
+                    dashboard.spaceUuid,
+                    (counts.get(dashboard.spaceUuid) ?? 0) + 1,
+                );
+            }
+        });
+        return counts;
     }
 
     async getAllByProject(
@@ -431,7 +471,6 @@ export class DashboardService
         );
 
         // Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
 
@@ -450,7 +489,7 @@ export class DashboardService
             );
 
             // Filter by RPC if viewer / interactive_viewer and client use enabled
-            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token, non-restricted roles, or non-client-use projects)
+            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., non-restricted roles or non-client-use projects)
             // If allowedDashboardUuids is defined (not undefined), it means RPC filtering is required
             // - If it's an empty Set, user has no dashboard access (RPC returned no dashboards)
             // - If it has values, check if this dashboard is in the allowed list
@@ -579,7 +618,6 @@ export class DashboardService
 
         // Check dashboard permission for viewer / interactive_viewer in client-use projects
         // This check should happen before CASL ability check
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(
                 user,

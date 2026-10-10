@@ -119,29 +119,13 @@ export class ContentService extends BaseService {
             )
             .map((space) => space.uuid);
 
-        const result = await this.contentModel.findSummaryContents(
-            {
-                ...filters,
-                projectUuids: allowedProjectUuids,
-                spaceUuids: allowedSpaceUuids,
-                space: {
-                    rootSpaces:
-                        !filters.spaceUuids || filters.spaceUuids.length === 0,
-                },
-            },
-            queryArgs,
-            paginateArgs,
-        );
-
-        // Filter dashboards for viewer / interactive_viewer in client-use projects
-        // Only apply if contentTypes includes dashboard or is undefined (all types)
-        const shouldFilterDashboards =
+        const shouldApplyDashboardAllowList =
             !filters.contentTypes ||
-            filters.contentTypes.includes(ContentType.DASHBOARD);
+            filters.contentTypes.includes(ContentType.DASHBOARD) ||
+            filters.contentTypes.includes(ContentType.SPACE);
 
-        if (shouldFilterDashboards) {
-            // Get allowed dashboard UUIDs for each project
-            const allowedDashboardUuidsMap = new Map<string, Set<string>>();
+        const allowedDashboardUuidsMap = new Map<string, Set<string>>();
+        if (shouldApplyDashboardAllowList) {
             const allowedDashboardEntries = await Promise.all(
                 allowedProjectUuids.map(async (projectUuid) => {
                     const allowedUuids =
@@ -163,34 +147,106 @@ export class ContentService extends BaseService {
                     );
                 }
             });
-
-            // Filter dashboard content
-            // Only filter if user has joined organization and has identity
-            // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
-            if (allowedDashboardUuidsMap.size > 0 && isUserWithOrg(user)) {
-                result.data = result.data.filter((content) => {
-                    if (content.contentType !== ContentType.DASHBOARD) {
-                        return true; // Keep non-dashboard content
-                    }
-
-                    // Check if dashboard is in allowed list for its project
-                    const allowedUuids = allowedDashboardUuidsMap.get(
-                        content.project.uuid,
-                    );
-                    if (allowedUuids === undefined) {
-                        return true; // No filtering needed for this project
-                    }
-
-                    // Filter: only keep if dashboard UUID is in allowed list
-                    return allowedUuids.has(content.uuid);
-                });
-
-                // Note: pagination.totalResults reflects pre-filtered count
-                // This is acceptable as filtering happens after database query
-            }
         }
 
-        return result;
+        // undefined allow-list: keep DB pagination. Set (including empty):
+        // load the full match set, filter, then slice so totalResults is
+        // the post-filter count. Only when the viewer allow-list applies.
+        const shouldFilterInMemory =
+            allowedDashboardUuidsMap.size > 0 && isUserWithOrg(user);
+
+        const result = await this.contentModel.findSummaryContents(
+            {
+                ...filters,
+                projectUuids: allowedProjectUuids,
+                spaceUuids: allowedSpaceUuids,
+                space: {
+                    rootSpaces:
+                        !filters.spaceUuids || filters.spaceUuids.length === 0,
+                },
+            },
+            queryArgs,
+            shouldFilterInMemory ? undefined : paginateArgs,
+        );
+
+        if (!shouldFilterInMemory) {
+            return result;
+        }
+
+        const filtered = result.data.filter((content) => {
+            if (content.contentType !== ContentType.DASHBOARD) {
+                return true;
+            }
+
+            const allowedUuids = allowedDashboardUuidsMap.get(
+                content.project.uuid,
+            );
+            if (allowedUuids === undefined) {
+                return true;
+            }
+
+            return allowedUuids.has(content.uuid);
+        });
+
+        // Recount SPACE dashboardCount from the same allow-list; count may be 0.
+        const spaceUuidsByProject = new Map<string, string[]>();
+        filtered.forEach((content) => {
+            if (content.contentType !== ContentType.SPACE) {
+                return;
+            }
+            const projectUuid = content.project.uuid;
+            const spaceUuids = spaceUuidsByProject.get(projectUuid) ?? [];
+            spaceUuids.push(content.uuid);
+            spaceUuidsByProject.set(projectUuid, spaceUuids);
+        });
+
+        const spaceCountsByUuid = new Map<string, number>();
+        await Promise.all(
+            [...spaceUuidsByProject.entries()].map(
+                async ([projectUuid, spaceUuids]) => {
+                    const allowedUuids =
+                        allowedDashboardUuidsMap.get(projectUuid);
+                    if (allowedUuids === undefined) {
+                        return;
+                    }
+                    const counts =
+                        await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                            spaceUuids,
+                            allowedUuids,
+                        );
+                    counts.forEach((count, spaceUuid) => {
+                        spaceCountsByUuid.set(spaceUuid, count);
+                    });
+                },
+            ),
+        );
+
+        const recounted = filtered.map((content) => {
+            if (
+                content.contentType !== ContentType.SPACE ||
+                !spaceCountsByUuid.has(content.uuid)
+            ) {
+                return content;
+            }
+            return {
+                ...content,
+                dashboardCount: spaceCountsByUuid.get(content.uuid) ?? 0,
+            };
+        });
+
+        const { page, pageSize } = paginateArgs;
+        const totalResults = recounted.length;
+        const start = (page - 1) * pageSize;
+
+        return {
+            data: recounted.slice(start, start + pageSize),
+            pagination: {
+                page,
+                pageSize,
+                totalResults,
+                totalPageCount: Math.ceil(totalResults / pageSize),
+            },
+        };
     }
 
     async bulkMove(

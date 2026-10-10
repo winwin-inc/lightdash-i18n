@@ -48,16 +48,16 @@
 
 每个项目用两份名单做差：
 
-- `GET /explores?filtered=true`：项目已选表，**不**按用户属性 `requiredAttributes` 裁剪。
-- `GET /dataCatalog?type=table`：已按用户属性去掉无权的表，也受表选择约束。
+- `GET /explores?filtered=true`：项目已选表，**不**按用户属性 `requiredAttributes` 裁剪。客户使用 + viewer / interactive_viewer 还会按白名单看板用到的表再裁一刀。
+- `GET /dataCatalog?type=table`：已按用户属性去掉无权的表，也受表选择约束。客户使用 + viewer / interactive_viewer 同样只保留白名单看板用到的表。
 
 | 分组 | 规则 | 用法 |
 |---|---|---|
-| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。同一指标出现在两张表时，只用这里的那张。`search_field_values` 也可以用这里的表。 |
+| `queryable` | 目录里有，且该项目有效 `runMetricQuery` 为真 | 临时指标查询只从这里选表。客户使用查看者/交互式查看者的目录已按白名单看板收口，不是项目全量。同一指标出现在两张表时，只用这里的那张。`search_field_values` 也可以用这里的表。 |
 | `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。`search_field_values` 可以用这里的表。 |
 | `attributeDenied` | explores 有、目录没有 | 用户属性不满足，不要用来查数。 |
 
-`run_metric_query`、`run_semantic_metric_query` 会按这三组预检：不在 `queryable` 里的表会**拒绝查询**，不会返回空结果。`search_field_values` 允许 `queryable` 和 `metadataOnly`，`attributeDenied` 与未知表仍拒绝。请先 `get_my_access(..., includeExplores=true)` 再选表。行级 `sql_filter` 滤成 0 行仍可能是「表本身没数据」，与表级无权不同。
+`run_metric_query`、`run_semantic_metric_query` 会按这三组预检：不在 `queryable` 里的表会**拒绝查询**，不会返回空结果。MCP 返回中文工具错误，例如「已拒绝查询「表名」：该表不存在或不在当前项目可访问表中」。`search_field_values` 允许 `queryable` 和 `metadataOnly`，`attributeDenied` 与未知表仍拒绝。请先 `get_my_access(..., includeExplores=true)` 再选表。行级 `sql_filter` 滤成 0 行仍可能是「表本身没数据」，与表级无权不同。
 
 每项只含 `name`、`label`、`groupLabel`，没有字段和数据。没有表时对应数组为空。无权表只在打开 `includeExplores` 后出现在 `attributeDenied` 里，同样只有名字。
 
