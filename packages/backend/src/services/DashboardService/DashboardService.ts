@@ -234,20 +234,13 @@ export class DashboardService
 
     /**
      * Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects.
+     * Session and personal access token use the same whitelist (mobile from user email).
      * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
      */
     async getAllowedDashboardUuidsForViewer(
         user: SessionUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
-        // If this is an API token request, skip RPC filtering and let CASL handle permissions
-        if (user.isApiTokenRequest) {
-            this.logger.warn(
-                `API token request detected for user ${user.userUuid} in project ${projectUuid}, skipping RPC filtering.`,
-            );
-            return undefined;
-        }
-
         const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
@@ -395,12 +388,10 @@ export class DashboardService
             return allowedUuids;
         } catch (error) {
             this.logger.error(
-                `Error fetching dashboards by mobile ${mobile}: ${
+                `Error fetching dashboards by mobile ${mobile} in project ${projectUuid}: ${
                     error instanceof Error ? error.message : String(error)
-                }`,
+                }. Returning empty allow-list; viewer / interactive_viewer will see no dashboards until RPC recovers.`,
             );
-            // On error, return empty Set to filter out all dashboards
-            // For viewer / interactive_viewer in client use mode, RPC interface is required
             return new Set<string>();
         }
     }
@@ -431,7 +422,6 @@ export class DashboardService
         );
 
         // Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
 
@@ -450,7 +440,7 @@ export class DashboardService
             );
 
             // Filter by RPC if viewer / interactive_viewer and client use enabled
-            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token, non-restricted roles, or non-client-use projects)
+            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., non-restricted roles or non-client-use projects)
             // If allowedDashboardUuids is defined (not undefined), it means RPC filtering is required
             // - If it's an empty Set, user has no dashboard access (RPC returned no dashboards)
             // - If it has values, check if this dashboard is in the allowed list
@@ -579,7 +569,6 @@ export class DashboardService
 
         // Check dashboard permission for viewer / interactive_viewer in client-use projects
         // This check should happen before CASL ability check
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(
                 user,
