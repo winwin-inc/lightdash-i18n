@@ -1,6 +1,8 @@
 # @lightdash/mcp 更新日志
 
-> 本包版本独立于主站产品版本。与主站 `CHANGELOG.md` 并列于仓库根目录；主站日志不再收录 MCP 专用变更。
+> 本包（`packages/lightdash-mcp`，`@lightdash/mcp`）版本独立于主站产品版本。与主站 `CHANGELOG.md` 并列于仓库根目录；主站日志不再收录 MCP 专用变更。
+>
+> 另有独立产品线 **lightdash-mcp-v2**（`@lightdash/mcp-v2`）的开发中日志：[`CHANGELOG-mcp-v2.md`](CHANGELOG-mcp-v2.md)。
 
 ## v2.3.0 ~ v2.3.1 (2026-10-10)
 
