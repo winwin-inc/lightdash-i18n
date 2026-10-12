@@ -191,7 +191,7 @@ const ChartUpdateModal = ({
                                 {...form.getInputProps('uuid')}
                                 searchable
                                 placeholder={t(
-                                    'components_dashboard_tiles_forms_update_chart.search',
+                                    'components_dashboard_tiles_forms_update_chart.select_placeholder',
                                 )}
                                 nothingFound={t(
                                     'components_dashboard_tiles_forms_update_chart.no_charts_found',

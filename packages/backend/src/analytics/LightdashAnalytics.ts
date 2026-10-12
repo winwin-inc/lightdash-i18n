@@ -767,6 +767,21 @@ type PermissionsUpdated = BaseTrack & {
     };
 };
 
+/** Admin OIDC user provision (create or update) via /org/admin/users/provision */
+type UserProvisionedEvent = BaseTrack & {
+    event: 'user.provisioned';
+    userId: string;
+    properties: {
+        organizationId: string;
+        targetUserUuid: string;
+        targetEmail: string;
+        created: boolean;
+        role?: OrganizationMemberRole;
+        openidLinked: boolean;
+        inviteInvalidated: boolean;
+    };
+};
+
 type FieldValueSearch = BaseTrack & {
     event: 'field_value.search';
     userId?: string;
@@ -1486,6 +1501,7 @@ type TypedEvent =
     | SavedChartUpdateMultiple
     | FieldValueSearch
     | PermissionsUpdated
+    | UserProvisionedEvent
     | ShareUrl
     | ShareSlack
     | SavedChartView
