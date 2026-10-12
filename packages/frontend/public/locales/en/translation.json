@@ -3209,11 +3209,11 @@
     "edit_tile_content": "Edit tile content",
     "title": "Title",
     "select_chart": "Select chart",
-    "search": "Searching...",
     "no_charts_found": "No charts found",
     "load_more": "Load more",
     "cancel": "Cancel",
-    "update": "Update"
+    "update": "Update",
+    "select_placeholder": "Select a chart"
   },
   "components_dashboard_tiles_forms_loom_tile": {
     "title": {
@@ -8443,33 +8443,33 @@
     "or": "OR",
     "sign_up": "Sign up"
   },
-    "pages_saved_apps": {
-        "title": "Data apps",
-        "breadcrumb_home": "Home",
-        "breadcrumb_all": "All data apps",
-        "create": "Create data app",
-        "upload": "Upload app"
-    },
-    "features_apps_upload": {
-        "title": "Upload data app",
-        "update_title": "Update package",
-        "hint": "Select the local template folder after pnpm build. It must include src/, dist/index.html, and lightdash-app.yml. Cloud sandbox is not used for manual uploads.",
-        "folder_label": "App folder",
-        "folder_placeholder": "Choose the built app folder",
-        "folder_description": "Use the folder picker so src/ and dist/ keep their relative paths.",
-        "pick_folder": "Choose folder",
-        "file_count": "{{count}} files selected",
-        "need_folder": "Choose a folder that contains src/, dist/, and lightdash-app.yml",
-        "parse_failed": "Could not read the selected folder",
-        "error": "Upload failed",
-        "submit": "Upload",
-        "status_ready": "Ready",
-        "status_unavailable": "No ready version",
-        "toast_created": "App uploaded",
-        "toast_append": "New version uploaded",
-        "toast_unchanged": "App unchanged; current version kept",
-        "toast_failed": "Failed to upload data app"
-    },
+  "pages_saved_apps": {
+    "title": "Data apps",
+    "breadcrumb_home": "Home",
+    "breadcrumb_all": "All data apps",
+    "create": "Create data app",
+    "upload": "Upload app"
+  },
+  "features_apps_upload": {
+    "title": "Upload data app",
+    "update_title": "Update package",
+    "hint": "Select the local template folder after pnpm build. It must include src/, dist/index.html, and lightdash-app.yml. Cloud sandbox is not used for manual uploads.",
+    "folder_label": "App folder",
+    "folder_placeholder": "Choose the built app folder",
+    "folder_description": "Use the folder picker so src/ and dist/ keep their relative paths.",
+    "pick_folder": "Choose folder",
+    "file_count": "{{count}} files selected",
+    "need_folder": "Choose a folder that contains src/, dist/, and lightdash-app.yml",
+    "parse_failed": "Could not read the selected folder",
+    "error": "Upload failed",
+    "submit": "Upload",
+    "status_ready": "Ready",
+    "status_unavailable": "No ready version",
+    "toast_created": "App uploaded",
+    "toast_append": "New version uploaded",
+    "toast_unchanged": "App unchanged; current version kept",
+    "toast_failed": "Failed to upload data app"
+  },
   "pages_app_generate": {
     "title": "Build a Data App",
     "subtitle": "Pick a starting point, then describe what you want to build.",

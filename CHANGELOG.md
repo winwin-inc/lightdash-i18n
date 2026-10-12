@@ -6,78 +6,90 @@
 > -   生产环境上线更新次要版本号（如 v0.2092, v0.2093）
 > -   自 **v2.0** 起产品主版本独立编号
 
-## v2.1.5 ~ v2.1.6（2026-09-22 ~ 2026-09-23）
-
-当前产品版本以仓库根 `package.json` 为准（现为 **2.1.6**）。CLI 独立发版 **2.1.7**（`cli-v*`，不跟产品包一起升）。
+## v2.3.1 (2026-10-12)
 
 -   **新功能**
-    -   看板跨环境同步：本仓 CLI `download` / `upload` / `lint`，按 slug 同步看板、图表、SQL 图与 space；`-d` 会带上依赖图
-    -   组织级 as-code：可拉取自定义角色、用户和组
-    -   CLI 打独立 tgz，经 GitHub Release 与 OSS/CDN 分发；安装走版本路径，不用官方 `npx @lightdash/cli`
-    -   数据应用支持手动上传，并提供生成脚本
-    -   看板级未知名颜色追加，避免调色板用尽后丢色
-    -   看板 Tab 筛选可随 as-code 恢复（`tabs[].filters`）
+    -   组织管理员用户开通 API：`POST /api/v1/org/admin/users/provision` 与批量 `.../provision/batch`；按邮箱幂等创建/更新用户并绑定 OIDC（`issuer` 由服务端配置发现，`subject` 必填）；支持姓名、激活/校验、组织角色等；仅组织 admin（CASL manage OrganizationMemberProfile），含 last-admin 保护；审计事件 `user.provisioned` / `permission.updated`
+    -   开通只处理组织成员与 OIDC 身份，不写入项目 ACL；项目权限仍走既有项目访问 API（详见 `docs/org-admin-users-provision.md`）
+-   **Bug 修复**
+    -   图表更新弹窗占位符 i18n：`update_chart.search` → `select_placeholder`
+
+## v2.3.0 (2026-10-10)
+
+-   **新功能**
+    -   Explore 查询权限允许列表：Catalog / Project / Dashboard / AsyncQuery 等服务联动；用户属性访问控制补充 explore 查询权限处理
 -   **调优**
-    -   数据应用上传权限与解析收紧；去掉 `AppGenerateService` 未使用依赖
-    -   CLI 发版脚本校验 tag 与 `packages/cli/package.json` 版本一致
+    -   多服务接入 `dashboardService` 以配合权限过滤
+    -   简化静态资源 URL 重写逻辑；优化 DashboardService 权限过滤与错误信息
 
-## @lightdash/mcp-v2 2.1.6 ~ 2.1.7（2026-09-22）
+## v2.1.7 ~ v2.2.0 (2026-10-08)
 
--   **调优**（2.1.7）
-    -   Keycloak JWT 验签失败、缺 scope、缺 email 改为 **401** `invalid_token`（不再打成 500）；JWKS / 出网故障仍为 500
-    -   换票与验签日志可区分「请求没到容器」「票不对」「邮箱不在 Lightdash」
--   **文档**
-    -   2.1.7：`mcp:read` scope 类型必须为 Default
-    -   2.1.6：接入说明改为只写 URL + OAuth，删掉 API Key 配置（代码已在 2.1.3 移除）；补充扫码后 500 的客户配置与运维验收
-
-## @lightdash/mcp-v2 2.1.5（2026-09-20）
-
+-   **新功能**
+    -   项目成员与用户组角色变更写入操作日志
+    -   看板可见性增加 Admin RPC 配置检查
+    -   禁用类目过滤规则的处理逻辑（含测试）
 -   **调优**
-    -   补齐 OAuth 受保护资源元数据（`/.well-known`）
+    -   项目属性 `is_customer_use` 重命名为 `is_client_use`（含数据库迁移、前后端与文案）
+    -   更新相关枚举类型定义
 
-## @lightdash/mcp-v2 2.1.3 ~ 2.1.4（2026-09-18）
+## v2.1.6 (2026-09-23)
 
-**2.1.3 首次接入 Keycloak OAuth，并移除客户端 API Key 鉴权。**
+-   **新功能（CLI）**
+    -   CLI 跨环境同步看板；组织级 as-code 接口（自定义角色 / 用户 / 组）
+    -   CLI 独立 tgz 打包、版本校验与标签处理；支持上传至 OSS/CDN
+-   **文档（CLI）**
+    -   CLI 独立使用流程、YAML / 权限 / 同步注意事项、项目 UUID、SQL 图下载、tgz 直装与私有库说明（后续 2.1.7 文档小补一并记此）
+-   **新功能**
+    -   数据应用：手动上传与生成脚本；上传解析与权限控制调整
+    -   仪表板标签过滤器恢复
+-   **Bug 修复**
+    -   CLI 版本管理脚本错误提示修复
+-   **工程**
+    -   CLI 包版本升至 2.1.6 / 2.1.7
 
--   **新功能**（2.1.3）
-    -   客户端只配 MCP URL，浏览器完成 Keycloak 登录；MCP 用 JWT 里的邮箱向主站换短期 PAT
-    -   主站新增 `POST /api/v1/mcp/token-exchange`（共享密钥 `LIGHTDASH_MCP_TOKEN_EXCHANGE_SECRET`）
--   **移除**（2.1.3）
-    -   不再接受客户端 `x-api-key`、工具参数 `apiKey`，以及容器内 `LIGHTDASH_API_KEY` 兜底
-    -   2.0.0 ~ 2.1.2 的「配置里填 API Key」从本版起失效
--   **调优**（2.1.4）
-    -   启动时检查 OAuth / 换票必填环境变量
-
-## v2.0.5 ~ v2.0.8（2026-09）
-
-当时产品版本为 **2.0.8**。
+## v2.1.5 (2026-09-22)
 
 -   **新功能**
-    -   看板月份筛选（month +「是」）支持动态默认「上月（4号显示）」；定时推送按同一规则解析
-    -   Excel 相关日期处理支持 `YYYYMMDD` 格式
+    -   看板级未知名颜色追加，优化颜色分配
 
-## @lightdash/mcp-v2 2.0.0 ~ 2.1.2（2026-09-16）
-
-独立 MCP 接入包 `@lightdash/mcp-v2`，与旧版 `@lightdash/mcp`（v1）并行；新接入请用 v2。说明见 [docs/mcp/lightdash-mcp-v2.md](./docs/mcp/lightdash-mcp-v2.md)。
+## v2.1.3 (2026-09-21)
 
 -   **新功能**
-    -   按 MCP 2026-07-28 / Streamable HTTP 提供无会话（sessionless）接入
-    -   查询支持 `limit` + `offset` 翻页；目录类仍用 `page` + `pageSize`
-    -   项目按每次请求的 `projectUuid` 指定，或使用服务默认项目；可用 `list_projects` 查看可选项目
-    -   目录工具支持按需传 `catalogTags` 过滤
-    -   中文等非 ASCII 结果更不易乱码（响应声明 UTF-8）
--   **与 MCP v1 的差异（接入侧）**
-    -   不再提供「记住当前项目」：无 `set_project` / `get_current_project`，需在工具参数或默认项目中带上项目
-    -   本阶段客户端仍配置 API Key，不必再维护 Session Id；**2.1.3（2026-09-18）起改为 Keycloak OAuth，并移除 API Key 鉴权**
+    -   类目筛选：初始化与级联展示态，优化仪表板过滤器逻辑
 
-## v2.0.4 (2026-09-11)
+## v2.1.2 (2026-09-20)
 
+-   **新功能**
+    -   看板颜色同步，提升图表颜色一致性
+-   **调优**
+    -   移除不再使用的类目相关 API，优化类目筛选器联动
+
+## v2.0.9 ~ v2.1.0 (2026-09-15)
+
+-   **新功能**
+    -   项目操作日志：记录 / 查询 / 清除接口；摘要视图与资源类型过滤；按保留天数清除；看板信息进入摘要
+    -   仪表板操作日志差异记录；过滤器操作日志；过滤器多项变更摘要；过滤器状态变更（禁用 / 排除值 / 只读 / 隐藏 / 允许操作符 / 输入模式）
+    -   仪表板选项卡管理：更灵活的 Tab 切换
+    -   仪表板过滤规则默认图块目标回填
+-   **Bug 修复**
+    -   修复项目操作日志、仪表板过滤器操作日志导入路径错误
+-   **工程**
+    -   新增唯一看板候选自动 resolved 脚本
+
+## v2.0.4 ~ v2.0.8 (2026-09-11)
+
+-   **新功能**
+    -   ExcelService 支持 `YYYYMMDD` 格式日期处理
+    -   月份筛选「是」支持上月（4 号显示）动态默认值
+    -   内容模型配置增加软删除与验证字段
 -   **调优**
     -   类目筛选器联动不再依赖「客户使用模式」，改为由 Admin API 配置控制
     -   health 增加 `hasAdminApi`，用于判断内部后台 API 是否可用
     -   客户使用模式仍仅负责 UI 收敛与 VIEWER 看板白名单，不再门控类目联动
     -   探索侧栏：支持收集祖先路径与树包含探索，改进分组展开与路由定位
-
+-   **文档**
+    -   明确 `get_saved_chart` 的 `chartKind` / `chartType` 及 `groups` 字段约定
+  
 ## v2.0.3 (2026-09-10)
 
 -   **调优**
