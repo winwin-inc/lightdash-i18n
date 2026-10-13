@@ -18,15 +18,15 @@ export type ResolvedDashboardContext = {
     dashboardUuid: string;
     dashboardSlug: string;
     dashboardName: string;
-    /** explicit：调用方传入；unique*：反查仅 1 个；random*：反查多个时随机选用 */
+    /** explicit：调用方传入；unique*：反查仅 1 个；first*：反查多个时取排序后第一个 */
     source:
         | 'explicitDashboardUuid'
         | 'uniqueExploreContext'
         | 'uniqueChartContext'
-        | 'randomExploreContext'
-        | 'randomChartContext';
+        | 'firstExploreContext'
+        | 'firstChartContext';
     candidateCount: number;
-    /** 多候选随机选用时返回完整可见列表（含当前选中项） */
+    /** 多候选取第一个时返回完整可见列表（含当前选中项） */
     candidates?: DashboardCandidate[];
 };
 
@@ -114,13 +114,8 @@ export function buildDashboardSelectionRequiredResult(params: {
 
 function pickContext(
     contexts: DashboardQueryContextItem[],
-    rng: () => number,
 ): DashboardQueryContextItem {
-    const index = Math.min(
-        contexts.length - 1,
-        Math.max(0, Math.floor(rng() * contexts.length)),
-    );
-    return contexts[index]!;
+    return contexts[0]!;
 }
 
 function toResolvedContext(
@@ -143,11 +138,10 @@ function toResolvedContext(
 
 export function createDashboardContextResolver(
     api: LightdashRestClient,
-    options?: { cacheTtlMs?: number; rng?: () => number },
+    options?: { cacheTtlMs?: number },
 ) {
     const cache = new Map<string, CacheEntry>();
     const cacheTtlMs = options?.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-    const rng = options?.rng ?? Math.random;
 
     async function fetchContexts(
         apiKey: string,
@@ -232,11 +226,11 @@ export function createDashboardContextResolver(
             const source =
                 contexts.length === 1
                     ? 'uniqueChartContext'
-                    : 'randomChartContext';
+                    : 'firstChartContext';
             return {
                 status: 'resolved',
                 context: toResolvedContext(
-                    pickContext(contexts, rng),
+                    pickContext(contexts),
                     source,
                     contexts,
                 ),
@@ -256,11 +250,11 @@ export function createDashboardContextResolver(
             const source =
                 contexts.length === 1
                     ? 'uniqueExploreContext'
-                    : 'randomExploreContext';
+                    : 'firstExploreContext';
             return {
                 status: 'resolved',
                 context: toResolvedContext(
-                    pickContext(contexts, rng),
+                    pickContext(contexts),
                     source,
                     contexts,
                 ),

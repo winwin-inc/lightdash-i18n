@@ -97,7 +97,7 @@ describe('createDashboardContextResolver', () => {
         }
     });
 
-    it('randomly selects when explore has multiple related dashboards', async () => {
+    it('selects first (sorted) when explore has multiple related dashboards', async () => {
         const api = {
             getDashboard: async () => {
                 throw new Error('should not call getDashboard');
@@ -119,9 +119,7 @@ describe('createDashboardContextResolver', () => {
                 ],
             }),
         };
-        const resolver = createDashboardContextResolver(api as never, {
-            rng: () => 0.99,
-        });
+        const resolver = createDashboardContextResolver(api as never);
         const resolved = await resolver.resolve({
             apiKey: 'key',
             projectUuid: 'proj',
@@ -129,16 +127,17 @@ describe('createDashboardContextResolver', () => {
         });
         assert.equal(resolved.status, 'resolved');
         if (resolved.status === 'resolved') {
-            assert.equal(resolved.context.source, 'randomExploreContext');
+            assert.equal(resolved.context.source, 'firstExploreContext');
             assert.equal(resolved.context.candidateCount, 2);
-            assert.equal(resolved.context.dashboardUuid, 'b');
-            assert.equal(resolved.context.dashboardName, 'Beta');
+            assert.equal(resolved.context.dashboardUuid, 'a');
+            assert.equal(resolved.context.dashboardName, 'Alpha');
             assert.equal(resolved.context.candidates?.length, 2);
             assert.equal(resolved.context.candidates?.[0].dashboardName, 'Alpha');
+            assert.equal(resolved.context.candidates?.[1].dashboardName, 'Beta');
         }
     });
 
-    it('randomly selects when chart has multiple related dashboards', async () => {
+    it('selects first (sorted) when chart has multiple related dashboards', async () => {
         const api = {
             getDashboard: async () => {
                 throw new Error('should not call getDashboard');
@@ -160,9 +159,7 @@ describe('createDashboardContextResolver', () => {
                 ],
             }),
         };
-        const resolver = createDashboardContextResolver(api as never, {
-            rng: () => 0,
-        });
+        const resolver = createDashboardContextResolver(api as never);
         const resolved = await resolver.resolve({
             apiKey: 'key',
             projectUuid: 'proj',
@@ -170,9 +167,11 @@ describe('createDashboardContextResolver', () => {
         });
         assert.equal(resolved.status, 'resolved');
         if (resolved.status === 'resolved') {
-            assert.equal(resolved.context.source, 'randomChartContext');
+            assert.equal(resolved.context.source, 'firstChartContext');
             assert.equal(resolved.context.dashboardUuid, 'd1');
+            assert.equal(resolved.context.dashboardName, 'First');
             assert.equal(resolved.context.candidates?.length, 2);
+            assert.equal(resolved.context.candidates?.[0].dashboardName, 'First');
         }
     });
 

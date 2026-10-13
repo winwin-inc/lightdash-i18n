@@ -23,15 +23,11 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(__dirname, '..');
 
-function resolveLikeMcp(contexts, rng = Math.random) {
+function resolveLikeMcp(contexts) {
   if (!contexts.length) return { status: 'none' };
-  const index = Math.min(
-    contexts.length - 1,
-    Math.max(0, Math.floor(rng() * contexts.length)),
-  );
-  const picked = contexts[index];
+  const picked = contexts[0];
   const source =
-    contexts.length === 1 ? 'uniqueExploreContext' : 'randomExploreContext';
+    contexts.length === 1 ? 'uniqueExploreContext' : 'firstExploreContext';
   return {
     status: 'resolved',
     context: {
@@ -54,22 +50,19 @@ function inlineUnit() {
   assert.equal(unique.status, 'resolved');
   assert.equal(unique.context.source, 'uniqueExploreContext');
 
-  const multi = resolveLikeMcp(
-    [
-      { dashboardUuid: 'a', dashboardName: 'A' },
-      { dashboardUuid: 'b', dashboardName: 'B' },
-    ],
-    () => 0.99,
-  );
+  const multi = resolveLikeMcp([
+    { dashboardUuid: 'a', dashboardName: 'A' },
+    { dashboardUuid: 'b', dashboardName: 'B' },
+  ]);
   assert.equal(multi.status, 'resolved');
-  assert.equal(multi.context.source, 'randomExploreContext');
+  assert.equal(multi.context.source, 'firstExploreContext');
   assert.equal(multi.context.candidateCount, 2);
-  assert.equal(multi.context.dashboardUuid, 'b');
+  assert.equal(multi.context.dashboardUuid, 'a');
   assert.equal(multi.context.candidates.length, 2);
 
   const none = resolveLikeMcp([]);
   assert.equal(none.status, 'none');
-  console.log('OK inline policy: unique→resolved, multi→random, none→none');
+  console.log('OK inline policy: unique→resolved, multi→first, none→none');
 }
 
 function runOfficialUnit() {
