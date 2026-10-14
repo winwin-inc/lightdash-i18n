@@ -92,17 +92,86 @@ export const hasPercentageFormat = (field: ItemsMap[string] | undefined) => {
     );
 };
 
+/**
+ * Parse a cell value that may be a formatted display string (e.g. "¥1,234.56",
+ * "12.5%") into a finite number. Uses Number/parseFloat — never parseInt —
+ * after stripping currency symbols, thousands separators, %, and whitespace.
+ */
+export const parseConditionalFormattingNumericValue = (
+    value: unknown,
+): { numeric: unknown; hadPercentSign: boolean } => {
+    if (typeof value === 'number') {
+        return { numeric: value, hadPercentSign: false };
+    }
+
+    if (typeof value !== 'string') {
+        return { numeric: value, hadPercentSign: false };
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return { numeric: value, hadPercentSign: false };
+    }
+
+    const hadPercentSign = trimmed.includes('%');
+
+    // Strip %, common currency marks, spaces (incl. NBSP/thin space), and commas
+    const cleaned = trimmed
+        .replace(/%/g, '')
+        .replace(/[¥$€£￥₽₩₹]/g, '')
+        .replace(/[\s\u00A0\u202F]/g, '')
+        .replace(/,/g, '');
+
+    // Prefer Number(); fall back to parseFloat for partially numeric strings
+    const asNumber = Number(cleaned);
+    if (Number.isFinite(asNumber)) {
+        return { numeric: asNumber, hadPercentSign };
+    }
+
+    const asFloat = parseFloat(cleaned);
+    if (Number.isFinite(asFloat)) {
+        return { numeric: asFloat, hadPercentSign };
+    }
+
+    return { numeric: value, hadPercentSign };
+};
+
+/**
+ * Convert a (possibly formatted) value into the numeric scale used for CF rules.
+ * Percentage fields: raw fractions (0.125) are scaled to 0–100. Values that were
+ * already display percentages (string contained "%") are left as-is after parse.
+ */
 export const convertFormattedValue = <T extends unknown>(
     value: T,
     field: ItemsMap[string] | undefined,
+    options?: { hadPercentSign?: boolean },
 ): T | number => {
     if (!field) return value;
 
     if (hasPercentageFormat(field)) {
-        return typeof value === 'number' ? value * 100 : value;
+        if (typeof value !== 'number') return value;
+        // Formatted "12.5%" was already on the 0–100 scale
+        if (options?.hadPercentSign) return value;
+        return value * 100;
     }
 
     return value;
+};
+
+/** Parse + convert a CF cell value for numeric comparisons */
+export const toConditionalFormattingComparableValue = (
+    value: unknown,
+    field: ItemsMap[string] | undefined,
+): unknown => {
+    if (field && !isNumericItem(field)) {
+        // Still try to parse if it looks numeric (legacy / SQL string raws)
+        // but only for numeric items in the main path; keep non-numeric as-is.
+        return value;
+    }
+
+    const { numeric, hadPercentSign } =
+        parseConditionalFormattingNumericValue(value);
+    return convertFormattedValue(numeric as never, field, { hadPercentSign });
 };
 
 export const getMinMaxFromMinMaxMap = (
@@ -132,8 +201,9 @@ export const hasMatchingConditionalRules = (
 ) => {
     if (!config) return false;
 
-    const parsedValue = isNumericItem(field) ? Number(value) : value;
-    const convertedValue = convertFormattedValue(parsedValue, field);
+    const convertedValue = isNumericItem(field)
+        ? toConditionalFormattingComparableValue(value, field)
+        : value;
 
     const currentFieldId = getItemId(field);
     const targetFieldId = config.target?.fieldId;
@@ -157,13 +227,12 @@ export const hasMatchingConditionalRules = (
 
                 compareField = rowField.field;
 
-                const parsedCompareValue = isNumericItem(compareField)
-                    ? Number(rowField.value)
+                convertedCompareValue = isNumericItem(compareField)
+                    ? toConditionalFormattingComparableValue(
+                          rowField.value,
+                          compareField,
+                      )
                     : rowField.value;
-                convertedCompareValue = convertFormattedValue(
-                    parsedCompareValue,
-                    compareField,
-                );
             }
 
             // Compares field value to values when there is no compare target
@@ -655,8 +724,7 @@ export const getConditionalFormattingColorWithColorRange = ({
 }) => {
     if (!field) return undefined;
 
-    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-    const convertedValue = convertFormattedValue(numericValue, field);
+    const convertedValue = toConditionalFormattingComparableValue(value, field);
 
     const currentFieldId = getItemId(field);
     const targetFieldId = config.target?.fieldId;
