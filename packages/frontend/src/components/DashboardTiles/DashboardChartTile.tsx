@@ -40,7 +40,7 @@ import {
     Text,
     Tooltip,
 } from '@mantine/core';
-import { useClipboard } from '@mantine/hooks';
+import { useClipboard, useDisclosure } from '@mantine/hooks';
 import {
     IconAlertCircle,
     IconAlertTriangle,
@@ -119,6 +119,10 @@ import { type EchartSeriesClickEvent } from '../SimpleChart';
 import MantineIcon from '../common/MantineIcon';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import MoveChartThatBelongsToDashboardModal from '../common/modal/MoveChartThatBelongsToDashboardModal';
+import {
+    ChartTileFullscreenButton,
+    ChartTileFullscreenModal,
+} from './ChartTileFullscreen';
 import { DashboardExportImage } from './DashboardExportImage';
 import DashboardExportImageModal from './DashboardExportImageModal';
 import EditChartMenuItem from './EditChartMenuItem';
@@ -835,6 +839,10 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
     const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
     const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
+    const [
+        isChartFullscreenOpen,
+        { open: openChartFullscreen, close: closeChartFullscreen },
+    ] = useDisclosure(false);
     const closeImageExportModal = useCallback(
         () => setIsImageExportModalOpen(false),
         [],
@@ -1228,6 +1236,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     </HoverCard.Target>
                                 </HoverCard>
                             )}
+                        <ChartTileFullscreenButton
+                            onClick={openChartFullscreen}
+                        />
                     </>
                 }
                 titleLeftIcon={
@@ -1514,6 +1525,24 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                     />
                 </>
             </TileBase>
+
+            <ChartTileFullscreenModal
+                opened={isChartFullscreenOpen}
+                onClose={closeChartFullscreen}
+                title={title || chart.name || ''}
+            >
+                <ValidDashboardChartTile
+                    key={`chart-tile-fullscreen-${tileUuid}`}
+                    tileUuid={tileUuid}
+                    tabUuid={tabUuid}
+                    dashboardChartReadyQuery={dashboardChartReadyQuery}
+                    resultsData={resultsData}
+                    project={chart.projectUuid}
+                    isTitleHidden
+                    onSeriesContextMenu={onSeriesContextMenu}
+                    tablePagination={tablePagination}
+                />
+            </ChartTileFullscreenModal>
 
             {chart.spaceUuid && (
                 <MoveChartThatBelongsToDashboardModal

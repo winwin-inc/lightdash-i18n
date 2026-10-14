@@ -3306,6 +3306,10 @@
     "cannot_edit_chart": "Cannot edit chart belonging to space:",
     "not_have_permission": "You do not have permission to edit this chart"
   },
+  "components_dashboard_tiles_chart_fullscreen": {
+    "enter_fullscreen": "Enter fullscreen",
+    "exit_fullscreen": "Exit fullscreen"
+  },
   "components_dashboard_tiles_dashboard_export_image": {
     "export_image": "Export image",
     "options": "Options",
