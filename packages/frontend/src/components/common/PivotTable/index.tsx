@@ -31,10 +31,6 @@ import {
     type Row,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type {
-    WorkerRequest,
-    WorkerResponse,
-} from '../../../workers/conditionalFormatting.worker.types';
 import isEqual from 'lodash/isEqual';
 import last from 'lodash/last';
 import { readableColor } from 'polished';
@@ -49,6 +45,10 @@ import React, {
     type FC,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import type {
+    WorkerRequest,
+    WorkerResponse,
+} from '../../../workers/conditionalFormatting.worker.types';
 
 import {
     getGroupingValuesAndSubtotalKey,
@@ -127,6 +127,24 @@ function getConditionalFormatCacheKey(
     return `${fieldId}:${JSON.stringify(value)}:${rowPart}`;
 }
 
+function mergePivotHeaderIntoRowFields(
+    rowFields: ConditionalFormattingRowFields,
+    headerInfo: Record<string, ResultValue> | undefined,
+    getField: (fieldId: string) => ItemsMap[string] | undefined,
+): ConditionalFormattingRowFields {
+    if (!headerInfo) return rowFields;
+    const merged: ConditionalFormattingRowFields = { ...rowFields };
+    Object.entries(headerInfo).forEach(([fieldId, resultValue]) => {
+        const item = getField(fieldId);
+        if (!item) return;
+        merged[getItemId(item)] = {
+            field: item,
+            value: resultValue?.raw,
+        };
+    });
+    return merged;
+}
+
 function computeCellFormatMapForRow(
     row: Row<ResultRow>,
     rowFields: ConditionalFormattingRowFields,
@@ -137,6 +155,7 @@ function computeCellFormatMapForRow(
         rule: BaseFilterRule,
         item: FilterableItem,
     ) => ConditionalRuleLabel,
+    getField: (fieldId: string) => ItemsMap[string] | undefined,
 ): Record<string, CellFormatCacheValue> {
     const map: Record<string, CellFormatCacheValue> = {};
     row.getVisibleCells().forEach((cell) => {
@@ -144,11 +163,17 @@ function computeCellFormatMapForRow(
         const field = meta?.item;
         const rawValue = (cell.getValue() as ResultRow[0] | undefined)?.value
             ?.raw;
-        const fieldId = field ? getItemId(field) : '';
-        const cacheKey = getConditionalFormatCacheKey(
-            fieldId,
-            rawValue,
+        // Unique per pivoted column (not base metric id) so period headers differ in cache
+        const columnFieldId = cell.column.id;
+        const cellRowFields = mergePivotHeaderIntoRowFields(
             rowFields,
+            meta?.headerInfo as Record<string, ResultValue> | undefined,
+            getField,
+        );
+        const cacheKey = getConditionalFormatCacheKey(
+            columnFieldId,
+            rawValue,
+            cellRowFields,
         );
         const cached = cache.get(cacheKey);
         if (cached) {
@@ -160,7 +185,7 @@ function computeCellFormatMapForRow(
             value: rawValue,
             minMaxMap,
             conditionalFormattings,
-            rowFields,
+            rowFields: cellRowFields,
         });
         const color = getConditionalFormattingColor({
             field,
@@ -186,7 +211,7 @@ function computeCellFormatMapForRow(
         const tooltipContent = getConditionalFormattingDescription(
             field,
             config,
-            rowFields,
+            cellRowFields,
             getConditionalRuleLabel,
         );
         const value: CellFormatCacheValue = {
@@ -221,7 +246,12 @@ type PivotTableRowProps = {
     /** 可选：用 Worker 算条件格式，主线程只补 tooltip */
     requestFormatFromWorker?: (
         payload: WorkerRequest,
-        onResult: (map: Record<string, { backgroundColor?: string; fontColor?: string }>) => void,
+        onResult: (
+            map: Record<
+                string,
+                { backgroundColor?: string; fontColor?: string }
+            >,
+        ) => void,
     ) => void;
     /** 取消该行的 worker 回调（effect 清理时调用） */
     cancelFormatRequest?: (rowIndex: number) => void;
@@ -283,12 +313,16 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
                     minMaxMap,
                     conditionalFormattings,
                     getConditionalRuleLabelFromItemRef.current,
+                    getField,
                 );
                 setCellFormatMap(map);
             };
 
             const applyWorkerResult = (
-                map: Record<string, { backgroundColor?: string; fontColor?: string }>,
+                map: Record<
+                    string,
+                    { backgroundColor?: string; fontColor?: string }
+                >,
             ) => {
                 const withTooltip: Record<string, CellFormatCacheValue> = {};
                 row.getVisibleCells().forEach((cell) => {
@@ -296,18 +330,27 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
                     if (!v) return;
                     const meta = cell.column.columnDef.meta;
                     const field = meta?.item;
-                    const rawValue = (cell.getValue() as ResultRow[0] | undefined)?.value?.raw;
+                    const rawValue = (
+                        cell.getValue() as ResultRow[0] | undefined
+                    )?.value?.raw;
+                    const cellRowFields = mergePivotHeaderIntoRowFields(
+                        rowFields,
+                        meta?.headerInfo as
+                            | Record<string, ResultValue>
+                            | undefined,
+                        getField,
+                    );
                     const config = getConditionalFormattingConfig({
                         field,
                         value: rawValue,
                         minMaxMap,
                         conditionalFormattings,
-                        rowFields,
+                        rowFields: cellRowFields,
                     });
                     const tooltipContent = getConditionalFormattingDescription(
                         field,
                         config,
-                        rowFields,
+                        cellRowFields,
                         getConditionalRuleLabelFromItemRef.current,
                     );
                     withTooltip[cell.id] = { ...v, tooltipContent };
@@ -319,12 +362,21 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
                 const cells = row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta;
                     const item = meta?.item;
-                    const cellValue = cell.getValue() as ResultRow[0] | undefined;
+                    const cellValue = cell.getValue() as
+                        | ResultRow[0]
+                        | undefined;
                     return {
                         cellId: cell.id,
-                        fieldId: item ? getItemId(item) : '',
+                        fieldId: cell.column.id,
                         rawValue: cellValue?.value?.raw,
                         field: item,
+                        rowFields: mergePivotHeaderIntoRowFields(
+                            rowFields,
+                            meta?.headerInfo as
+                                | Record<string, ResultValue>
+                                | undefined,
+                            getField,
+                        ),
                     };
                 });
                 const cacheSnapshot: Record<
@@ -382,6 +434,7 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
             isPriorityRow,
             requestFormatFromWorker,
             cancelFormatRequest,
+            getField,
         ]);
 
         const toggleExpander = row.getToggleExpandedHandler();
@@ -404,10 +457,10 @@ const PivotTableRow: FC<PivotTableRowProps> = memo(
                     const expanderFontColor = format?.fontColor
                         ? format.fontColor
                         : format?.backgroundColor
-                        ? readableColor(format.backgroundColor) === 'white'
-                            ? 'white'
-                            : undefined
-                        : undefined;
+                          ? readableColor(format.backgroundColor) === 'white'
+                              ? 'white'
+                              : undefined
+                          : undefined;
                     const suppressContextMenu =
                         (value === undefined || cell.getIsPlaceholder()) &&
                         !cell.getIsAggregated() &&
@@ -561,7 +614,15 @@ const PivotTableBody: FC<PivotTableBodyProps> = ({
     const workerRef = useRef<Worker | null>(null);
     const [workerReady, setWorkerReady] = useState(false);
     const pendingCallbacksRef = useRef<
-        Map<number, (map: Record<string, { backgroundColor?: string; fontColor?: string }>) => void>
+        Map<
+            number,
+            (
+                map: Record<
+                    string,
+                    { backgroundColor?: string; fontColor?: string }
+                >,
+            ) => void
+        >
     >(new Map());
 
     useEffect(() => {
@@ -589,7 +650,10 @@ const PivotTableBody: FC<PivotTableBodyProps> = ({
                 }
                 Object.entries(cacheUpdates).forEach(([k, v]) => {
                     if (v && typeof v === 'object')
-                        formatCacheRef.current.set(k, { ...v, tooltipContent: undefined });
+                        formatCacheRef.current.set(k, {
+                            ...v,
+                            tooltipContent: undefined,
+                        });
                 });
                 const cb = pendingCallbacksRef.current.get(rowIndex);
                 if (cb) {
@@ -610,7 +674,12 @@ const PivotTableBody: FC<PivotTableBodyProps> = ({
     const requestFormatFromWorker = useCallback(
         (
             payload: WorkerRequest,
-            onResult: (map: Record<string, { backgroundColor?: string; fontColor?: string }>) => void,
+            onResult: (
+                map: Record<
+                    string,
+                    { backgroundColor?: string; fontColor?: string }
+                >,
+            ) => void,
         ) => {
             if (!workerRef.current) return;
             pendingCallbacksRef.current.set(payload.rowIndex, onResult);
@@ -632,7 +701,8 @@ const PivotTableBody: FC<PivotTableBodyProps> = ({
         useFlushSync: false,
     } as Parameters<typeof useVirtualizer>[0]);
     const virtualRows = rowVirtualizer.getVirtualItems();
-    const paddingTop = virtualRows.length > 0 ? virtualRows[0]?.start ?? 0 : 0;
+    const paddingTop =
+        virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
     const paddingBottom =
         virtualRows.length > 0
             ? rowVirtualizer.getTotalSize() -

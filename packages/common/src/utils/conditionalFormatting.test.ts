@@ -2,6 +2,7 @@ import { DimensionType, FieldType, Format } from '../types/field';
 import { FilterOperator } from '../types/filter';
 import {
     createConditionalFormattingConfigWithSingleColor,
+    createConditionalFormattingRuleWithCompareTargetValues,
     createConditionalFormattingRuleWithValues,
     hasMatchingConditionalRules,
     parseConditionalFormattingNumericValue,
@@ -17,6 +18,17 @@ const mockNumericField = {
     sql: 'test_sql',
     tableLabel: 'Test Table',
     label: 'Test Field',
+    hidden: false,
+};
+
+const mockPeriodField = {
+    name: 'period',
+    table: 'test_table',
+    type: DimensionType.STRING,
+    fieldType: FieldType.DIMENSION,
+    sql: 'period_sql',
+    tableLabel: 'Test Table',
+    label: 'period',
     hidden: false,
 };
 
@@ -299,5 +311,86 @@ describe('toConditionalFormattingComparableValue', () => {
         expect(
             toConditionalFormattingComparableValue('12.5%', percentField),
         ).toBe(12.5);
+    });
+});
+
+describe('pivot header period in rowFields (field-values AND)', () => {
+    it('metric <= 0 AND period contains YoY label only on matching columns', () => {
+        const config =
+            createConditionalFormattingConfigWithSingleColor('#ff0000');
+        const valueRule = createConditionalFormattingRuleWithValues();
+        valueRule.operator = FilterOperator.LESS_THAN_OR_EQUAL;
+        valueRule.values = [0];
+
+        const periodRule =
+            createConditionalFormattingRuleWithCompareTargetValues();
+        periodRule.operator = FilterOperator.INCLUDE;
+        periodRule.compareTarget = { fieldId: 'test_table_period' };
+        periodRule.values = ['同比增长'];
+
+        config.rules = [valueRule, periodRule];
+
+        const yoyRowFields = {
+            test_table_period: {
+                field: mockPeriodField,
+                value: '单月同比增长',
+            },
+        };
+        const momRowFields = {
+            test_table_period: {
+                field: mockPeriodField,
+                value: '单月环比增长',
+            },
+        };
+
+        expect(
+            hasMatchingConditionalRules(
+                mockNumericField,
+                -1.2,
+                {},
+                config,
+                yoyRowFields,
+            ),
+        ).toBe(true);
+
+        expect(
+            hasMatchingConditionalRules(
+                mockNumericField,
+                -1.2,
+                {},
+                config,
+                momRowFields,
+            ),
+        ).toBe(false);
+
+        expect(
+            hasMatchingConditionalRules(
+                mockNumericField,
+                5,
+                {},
+                config,
+                yoyRowFields,
+            ),
+        ).toBe(false);
+    });
+
+    it('period EQUALS exact header label', () => {
+        const config =
+            createConditionalFormattingConfigWithSingleColor('#00ff00');
+        const periodRule =
+            createConditionalFormattingRuleWithCompareTargetValues();
+        periodRule.operator = FilterOperator.EQUALS;
+        periodRule.compareTarget = { fieldId: 'test_table_period' };
+        periodRule.values = ['单月同比增长'];
+        config.rules = [periodRule];
+
+        expect(
+            hasMatchingConditionalRules(mockNumericField, 1, {}, config, {
+                test_table_period: {
+                    field: mockPeriodField,
+                    value: '单月同比增长',
+                },
+            }),
+        ).toBe(true);
     });
 });
