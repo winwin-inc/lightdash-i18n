@@ -73,7 +73,12 @@ type TableCalculationFormInputs = {
     totalMode?: TableCalculationTotalMode;
 };
 
-enum EditMode
+// prettier-ignore
+enum EditMode {
+    SQL = 'sql',
+    TEMPLATE = 'template',
+    FORMULA = 'formula',
+}
 
 const useTableCalculationTypeLabels = () => {
     const { t } = useTranslation();
