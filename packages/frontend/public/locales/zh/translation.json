@@ -5297,6 +5297,8 @@
     "add": "添加",
     "copy_config": "复制",
     "copied": "已复制",
+    "delete": "删除",
+    "remove_item": "移除 {{label}}",
     "errors": {
       "custom_hex": "输入自定义 HEX 颜色",
       "invalid_hex": "无效的 HEX 颜色"
@@ -5562,7 +5564,8 @@
       "color": "颜色",
       "apply_color_to": "应用到",
       "apply_to_background": "背景",
-      "apply_to_font": "字体"
+      "apply_to_font": "字体",
+      "rule": "规则 {{index}}"
     },
     "compare": {
       "compare": "比较",

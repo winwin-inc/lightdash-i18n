@@ -363,7 +363,10 @@ export const ConditionalFormattingItem: FC<Props> = ({
         [handleChange, config],
     );
 
-    const controlLabel = `Rule ${configIndex}`;
+    const controlLabel = t(
+        'components_visualization_configs_table.formatting_item.rule',
+        { index: configIndex },
+    );
     const accordionValue = `${configIndex}`;
 
     const onControlClick = useCallback(

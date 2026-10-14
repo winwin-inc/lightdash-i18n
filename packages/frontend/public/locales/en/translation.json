@@ -5257,6 +5257,8 @@
     "add": "Add",
     "copy_config": "Copy",
     "copied": "Copied",
+    "delete": "Delete",
+    "remove_item": "Remove {{label}}",
     "errors": {
       "custom_hex": "Type in a custom HEX color",
       "invalid_hex": "Invalid HEX color"
@@ -5522,7 +5524,8 @@
       "color": "Color",
       "apply_color_to": "Apply color to",
       "apply_to_background": "Background",
-      "apply_to_font": "Font"
+      "apply_to_font": "Font",
+      "rule": "Rule {{index}}"
     },
     "compare": {
       "compare": "Compare",
