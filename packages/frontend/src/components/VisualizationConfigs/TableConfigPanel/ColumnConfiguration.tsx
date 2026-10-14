@@ -1,4 +1,3 @@
-import { isDimension } from '@lightdash/common';
 import { ActionIcon, Box, Group, TextInput, Tooltip } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
@@ -98,12 +97,13 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
 
     if (!isTableVisualizationConfig(visualizationConfig)) return null;
 
-    const { updateColumnProperty, isColumnVisible, isColumnFrozen, getField } =
+    const { updateColumnProperty, isColumnVisible, isColumnFrozen } =
         visualizationConfig.chartConfig;
 
-    const field = getField(fieldId);
-    const isPivotingDimension = pivotDimensions?.includes(fieldId);
-    const disableHidingDimensions = !!(pivotDimensions && isDimension(field));
+    const isPivotingDimension = !!pivotDimensions?.includes(fieldId);
+    // Only the dimensions placed in Columns (pivoted) cannot be hidden.
+    // Row/index dimensions (e.g. sort helpers) can be hidden from display.
+    const disableHidingDimensions = isPivotingDimension;
 
     return (
         <Group spacing="xs" noWrap style={{ flexGrow: 1 }}>
@@ -146,10 +146,7 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                     onMouseLeave={() => setShowTooltipVisible(false)}
                 >
                     <ActionIcon
-                        disabled={
-                            disableHidingDimensions ||
-                            pivotDimensions?.includes(fieldId)
-                        }
+                        disabled={disableHidingDimensions}
                         variant="light"
                         onClick={() => {
                             // TODO: render perf issues on this page seem to be

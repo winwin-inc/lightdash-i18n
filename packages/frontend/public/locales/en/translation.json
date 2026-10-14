@@ -5503,8 +5503,8 @@
   "components_visualization_configs_table": {
     "column_configuration": {
       "tooltip_columns": {
-        "part_1": "Cannot hide dimensions when pivoting",
-        "part_2": "Cannot hide dimensions when pivoting",
+        "part_1": "Cannot hide a dimension used as a pivot column",
+        "part_2": "Cannot hide a dimension used as a pivot column",
         "part_3": "Hide column",
         "part_4": "Show column"
       },

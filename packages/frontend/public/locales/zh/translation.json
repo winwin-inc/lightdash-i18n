@@ -5543,8 +5543,8 @@
   "components_visualization_configs_table": {
     "column_configuration": {
       "tooltip_columns": {
-        "part_1": "透视时无法隐藏维度",
-        "part_2": "透视时无法隐藏维度",
+        "part_1": "无法隐藏作为透视列的维度",
+        "part_2": "无法隐藏作为透视列的维度",
         "part_3": "隐藏列",
         "part_4": "显示列"
       },
