@@ -74,6 +74,7 @@ type TableCalculationFormInputs = {
 };
 
 enum EditMode
+
 const useTableCalculationTypeLabels = () => {
     const { t } = useTranslation();
 
