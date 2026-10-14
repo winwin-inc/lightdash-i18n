@@ -94,7 +94,7 @@ Codex 把令牌放环境变量 `LIGHTDASH_PAT`，配置里只写 `bearer_token_e
 ⑤ run_semantic_metric_query     执行查询。简单查询可用 run_metric_query
 ```
 
-已知看板时，第 ⑤ 步带上 `dashboardUuid`。不传会自动选一张；品类洞察有正式看板和「核对」副本两张，随机抽到副本时口径会偏。打开页面用工具返回的 `webUrl`。
+已知看板时，第 ⑤ 步带上 `dashboardUuid`。不传会自动选一张（多候选时按 name→slug→uuid 取第一个，不一定是正式看板）；品类洞察有正式看板和「核对」副本两张，若落到副本口径会偏。打开页面用工具返回的 `webUrl`。
 
 ### 关键工具
 
@@ -323,7 +323,7 @@ TOP10 里 8 个类目同比为负，酱油约占调味品四分之一。菜谱�
 
 1. **没有区域字段**，只有 `period` 和 `cls_1`~`cls_4`，本来就是全国口径。
 2. **图表上的 filters 是空的**，筛选在看板级。照抄图表 JSON 会扫全量，查询必须自己带 `period` + `cls_2`。
-3. **必须传正式看板 UUID** `5ad107a4-81d1-4ded-a173-ff41366122b4`。同名还有一张「(核对图表和数据使用)」副本（`17bc978d-09e3-4e2d-8b2e-0643dd0a5731`）。不传 `dashboardUuid` 会在两张里随机选一张。查完核对 `resolvedDashboardContext.dashboardName` 不含「核对」。
+3. **必须传正式看板 UUID** `5ad107a4-81d1-4ded-a173-ff41366122b4`。同名还有一张「(核对图表和数据使用)」副本（`17bc978d-09e3-4e2d-8b2e-0643dd0a5731`）。不传 `dashboardUuid` 会在两张里按 name→slug→uuid 取第一张（不一定是正式看板）。查完核对 `resolvedDashboardContext.dashboardName` 不含「核对」。
 
 ### 6.3 实战三：同一问题，换成全国两业态
 

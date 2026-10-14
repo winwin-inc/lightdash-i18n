@@ -1,7 +1,9 @@
 /**
- * 计算透视表条件格式 Map，供 VTable customCellStyle 使用
- * 复用与 PivotTable 相同的逻辑（getConditionalFormattingConfig、getConditionalFormattingColor）
- * 当前在主线程同步计算，未使用 conditionalFormatting.worker；逻辑与旧表一致，大数据量时可考虑接入 worker
+ * Compute pivot table conditional-format Map for VTable customCellStyle.
+ * Reuses getConditionalFormattingConfig / getConditionalFormattingColor.
+ * rowFields include index dims from the row AND pivot header dim values
+ * for the current column (e.g. 数据期间 = "单月同比增长") so existing
+ * "field values" AND rules can match period labels.
  */
 import {
     getConditionalFormattingColor,
@@ -40,25 +42,79 @@ function getConditionalFormatCacheKey(
     return `${fieldId}:${JSON.stringify(value)}:${rowPart}`;
 }
 
+/** Map a retrofit data column fieldId to headerValues column index (data cols only). */
+function getHeaderColIndexForPivotColumn(
+    data: Pick<PivotData, 'retrofitData'>,
+    columnFieldId: string,
+): number | undefined {
+    const { pivotColumnInfo } = data.retrofitData;
+    const colIndex = pivotColumnInfo.findIndex(
+        (c) => c.fieldId === columnFieldId,
+    );
+    if (colIndex < 0) return undefined;
+
+    const col = pivotColumnInfo[colIndex];
+    if (
+        col.columnType === 'indexValue' ||
+        col.columnType === 'label' ||
+        col.columnType === 'rowTotal'
+    ) {
+        return undefined;
+    }
+
+    let dataSeen = 0;
+    for (let i = 0; i <= colIndex; i += 1) {
+        const c = pivotColumnInfo[i];
+        if (
+            c.columnType !== 'indexValue' &&
+            c.columnType !== 'label' &&
+            c.columnType !== 'rowTotal'
+        ) {
+            if (i === colIndex) return dataSeen;
+            dataSeen += 1;
+        }
+    }
+    return undefined;
+}
+
 /**
- * 从 PivotData 的一行中构建 rowFields（用于条件格式上下文）
+ * Build CF rowFields for one pivot cell:
+ * - index (row) dimension values from the row
+ * - pivot header dimension values for this column (period / group-by labels)
  */
-function getRowFieldsFromPivotRow(
+export function getRowFieldsForPivotCell(
     row: ResultRow,
     data: PivotData,
     getField: (fieldId: string) => ItemsMap[string] | undefined,
+    columnFieldId: string,
 ): ConditionalFormattingRowFields {
     const rowFields: ConditionalFormattingRowFields = {};
+
     data.retrofitData.pivotColumnInfo.forEach((col) => {
+        if (col.columnType !== 'indexValue') return;
         const item = getField(col.underlyingId || col.baseId || col.fieldId);
         if (!item) return;
         const cell = row[col.fieldId];
-        const rawValue = cell?.value?.raw;
         rowFields[getItemId(item)] = {
             field: item,
-            value: rawValue,
+            value: cell?.value?.raw,
         };
     });
+
+    const headerColIndex = getHeaderColIndexForPivotColumn(data, columnFieldId);
+    if (headerColIndex === undefined) return rowFields;
+
+    for (const headerRow of data.headerValues ?? []) {
+        const headerCell = headerRow[headerColIndex];
+        if (!headerCell || headerCell.type !== 'value') continue;
+        const item = getField(headerCell.fieldId);
+        if (!item) continue;
+        rowFields[getItemId(item)] = {
+            field: item,
+            value: headerCell.value?.raw,
+        };
+    }
+
     return rowFields;
 }
 
@@ -74,7 +130,7 @@ export type ComputeFormatMapOptions = {
 };
 
 /**
- * 计算全表条件格式 Map，key = `${rowIndex}-${fieldId}`
+ * Compute full-table CF map, key = `${rowIndex}-${fieldId}`
  */
 export function computePivotFormatMap(
     options: ComputeFormatMapOptions,
@@ -91,13 +147,20 @@ export function computePivotFormatMap(
     const result = new Map<string, CellFormatValue>();
 
     data.retrofitData.allCombinedData.forEach((row, rowIndex) => {
-        const rowFields = getRowFieldsFromPivotRow(row, data, getField);
-
         data.retrofitData.pivotColumnInfo.forEach((col) => {
-            const field = getField(col.underlyingId || col.baseId || col.fieldId);
+            const field = getField(
+                col.underlyingId || col.baseId || col.fieldId,
+            );
             const cell = row[col.fieldId];
             const rawValue = cell?.value?.raw;
             const fieldId = col.fieldId;
+
+            const rowFields = getRowFieldsForPivotCell(
+                row,
+                data,
+                getField,
+                fieldId,
+            );
 
             const cacheKey = getConditionalFormatCacheKey(
                 fieldId,

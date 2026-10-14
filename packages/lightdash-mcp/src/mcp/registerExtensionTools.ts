@@ -234,7 +234,7 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'run_saved_chart',
-        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。可选 dashboardUuid；未传且需要看板上下文时：反查有候选则自动选用并查数（多个时随机选一个，返回 resolvedDashboardContext 含 candidates）；0 个候选才返回 status=dashboard_selection_required 空列表。',
+        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。可选 dashboardUuid；未传且需要看板上下文时：反查有候选则自动选用并查数（多个时取排序后第一个，返回 resolvedDashboardContext 含 candidates）；0 个候选才返回 status=dashboard_selection_required 空列表。',
         runSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);

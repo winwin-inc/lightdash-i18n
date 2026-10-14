@@ -247,19 +247,16 @@ const useTableConfig = (
     // User configures the names and visibilty of these in the config panel
     const isColumnVisible = useCallback(
         (fieldId: string) => {
-            // we should always show dimensions when pivoting
-            // hiding a dimension randomly removes values from all metrics
-            if (
-                pivotDimensions &&
-                pivotDimensions.length > 0 &&
-                isDimension(getField(fieldId))
-            ) {
+            // Pivot *column* dimensions must stay visible (they define the pivot
+            // header groups). Index/row dimensions may be hidden for display
+            // while remaining in the query sort and pivot grouping keys.
+            if (pivotDimensions?.includes(fieldId)) {
                 return true;
             }
 
             return columnProperties[fieldId]?.visible ?? true;
         },
-        [pivotDimensions, getField, columnProperties],
+        [pivotDimensions, columnProperties],
     );
     const isColumnFrozen = useCallback(
         (fieldId: string) => columnProperties[fieldId]?.frozen === true,
@@ -450,11 +447,20 @@ const useTableConfig = (
             );
         });
 
+        const hiddenDimensionFieldIds = selectedItemIds?.filter((fieldId) => {
+            const field = getField(fieldId);
+            if (!field || isColumnVisible(fieldId)) return false;
+            // Never treat the pivoted column dims as hideable index dims
+            if (pivotDimensions?.includes(fieldId)) return false;
+            return isDimension(field) || isCustomDimension(field);
+        });
+
         const pivotConfig: PivotConfig = {
             pivotDimensions,
             metricsAsRows,
             columnOrder,
             hiddenMetricFieldIds,
+            hiddenDimensionFieldIds,
             columnTotals: tableChartConfig?.showColumnCalculation,
             rowTotals: tableChartConfig?.showRowCalculation,
         };
