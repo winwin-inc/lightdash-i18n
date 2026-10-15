@@ -498,6 +498,10 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         flexWrap: 'nowrap',
                                         height: MAGIC_SCROLL_AREA_HEIGHT - 1,
                                     },
+                                    tab: {
+                                        paddingLeft: 12,
+                                        paddingRight: 12,
+                                    },
                                 }}
                                 variant="outline"
                             >
@@ -516,14 +520,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                 },
                                             }}
                                         >
-                                            <Group
-                                                noWrap
-                                                styles={(theme) => ({
-                                                    root: {
-                                                        gap: theme.spacing.xl,
-                                                    },
-                                                })}
-                                            >
+                                            <Group noWrap spacing={8}>
                                                 {sortedTabs?.map((tab, idx) => {
                                                     return (
                                                         <DraggableTab
