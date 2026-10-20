@@ -6,6 +6,14 @@
  * params: CDN origin auth adds `x-oss-security-token`, which conflicts with
  * S3-compatible signed URLs (Aliyun EC 0002-00000009).
  *
+ * The key is treated as raw object-storage bytes (it comes from file ids
+ * built with `sanitizeGenericFileName`, which keep `%`, spaces, `?`, `#` and
+ * non-ASCII characters verbatim). Each path segment is therefore percent-
+ * encoded so the browser sends a valid request URL. Escaping `%` matters
+ * most: a literal `%` in a chart name (e.g. "（%）") otherwise produces an
+ * invalid percent-encoding sequence, which nginx/Tengine rejects with
+ * `400 Bad Request`.
+ *
  * @param publicEndpoint - Base URL such as `https://img-dev.example.com`
  * @param key - Object key already including any path prefix
  */
@@ -15,5 +23,9 @@ export function buildPublicDownloadUrl(
 ): string {
     const base = publicEndpoint.trim().replace(/\/+$/, '');
     const path = key.replace(/^\/+/, '');
-    return `${base}/${path}`;
+    const encodedPath = path
+        .split('/')
+        .map((segment) => encodeURIComponent(segment))
+        .join('/');
+    return `${base}/${encodedPath}`;
 }
