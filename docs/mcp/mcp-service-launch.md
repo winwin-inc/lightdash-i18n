@@ -136,14 +136,6 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | 客户使用模式开关 | 界面 | **必需** | 主站「项目管理」页开启 → 落库 `projects.is_client_use`（见 [§6.1](#61-三个必要条件)） |
 | `MCP_ENABLED` | — | 否 | 只管主站 EE 内置 `/api/v1/mcp`，与本 MCP 服务无关 |
 
-### 4.3 上线前必须补齐的已知缺口
-
-| # | 缺口 | 影响 | 处理 |
-|---|---|---|---|
-| 1 | 线上（`master`）`lightdash-mcp` 镜像仍为 `0.0.2`，预发已是 `2.1.5` | 线上功能落后于预发 | 本次发布把线上提到目标 tag |
-| 2 | 线上 Apisix `limit-req` 仍按 `key: http_x_api_key` | 非 PAT 的调用会命中同一桶，易误伤 | 改为 `remote_addr` 或按需保留 |
-| 3 | `pre` 分支的 MCP 清单带有 v2 试验配置与 Secret | 与线上不一致，易误配 | 以 §4.1 为准，发布前对齐两分支 |
-
 ---
 
 ## 5. 关联关系
