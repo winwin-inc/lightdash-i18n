@@ -125,7 +125,6 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
 | `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
-
 > MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
 
 ### 4.2 Lightdash 主站
@@ -210,8 +209,6 @@ EXISTS (
 | **图表关联**（结构） | dashboard → chart → explore | 反查「哪些看板用了这张表 / 这个图表」 | 看板磁贴 `tiles[].properties.savedChartUuid` |
 | **口径关联**（数据） | explore → dashboard（`sql_filter` 依赖 `dashboardSlug`） | 决定查询必须带哪个看板上下文 | dbt `meta.sql_filter` |
 
-MCP 侧判断「口径关联」的方式：读编译后的 explore，检查 base table 的 `sqlWhere` / `uncompiledSqlWhere` 是否含 `dashboardSlug`。
-
 ### 5.4 口径一致性的三个必要条件
 
 | 条件 | 满足方式 | 不满足的后果 |
@@ -273,7 +270,7 @@ flowchart TD
   inter --> vis
 ```
 
-该过滤在主站多个服务统一生效（`DashboardService`、`SpaceService`、`ProjectService`、`SearchService`、`ContentService`、`PinningService`）；**MCP 调用这些 REST 接口时天然继承**。
+该过滤在主站服务层统一生效；**MCP 调用这些 REST 接口时天然继承**。
 
 ### 6.3 MCP 工具最低角色（组织角色 = 成员时）
 
@@ -386,29 +383,17 @@ flowchart TD
 
 ---
 
-## 11. 已确认的决策
+## 11. 附录
 
-- 看板管理入口唯一：`admin.banmahui.cn/report/x-platform/manage`（服务品牌CT Lightdash），内部平台开启客户使用模式后同样受此约束
-- 客户账号：组织角色=成员，项目角色=查看者 / 交互式查看者，且必须开启客户使用模式
-- 线上 MCP 必须自填 PAT（不配兜底），PAT 由客户自己申请
-- 客户账号开通与权限由运维处理
-- MCP 未传 `dashboardUuid` 且有候选时自动选用（多个取排序后第一个），0 候选才返回 `dashboard_selection_required`
-- 发布顺序：先主站（若本次有改动）、后 MCP；入口见 [§3.2](#32-jenkins-发布关键)
-
----
-
-## 12. 附录
-
-### 12.1 关键接口
+### 11.1 关键接口
 
 | 接口 | 用途 |
 |---|---|
 | `GET /api/v1/projects/:projectUuid/dashboards/context` | 反查 explore/chart 关联看板（已带权限过滤） |
-| `POST /api/v1/org/admin/users/provision(/batch)` | 组织管理员开通用户 |
 | `GET /health` | MCP 健康检查 |
 | `ALL /mcp` | MCP 入口（Streamable HTTP；`tools/list`、`tools/call` 是 JSON-RPC method，不是 URL 子路径） |
 
-### 12.2 关键路径
+### 11.2 关键路径
 
 | 路径 | 说明 |
 |---|---|
@@ -421,7 +406,7 @@ flowchart TD
 | `packages/backend/src/services/DashboardService/DashboardService.ts` | 看板白名单与关联看板 |
 | `packages/lightdash-mcp/src/lib/dashboardContextResolver.ts` | MCP 看板上下文解析 |
 
-### 12.3 相关仓库
+### 11.3 相关仓库
 
 | 仓库 | 作用 |
 |---|---|
