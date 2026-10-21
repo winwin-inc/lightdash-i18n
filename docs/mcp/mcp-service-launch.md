@@ -31,7 +31,7 @@
 | **GitHub Actions** | 打 tag 触发构建镜像并推送到阿里云镜像仓 | `.github/workflows/build-docker-mcp.yml` |
 | **Jenkins** | 发布：更新镜像 tag / 应用 k8s-config 清单，滚动更新集群 | [jenkins.banmahui.cn](https://jenkins.banmahui.cn/)，入口见 [§3.2](#32-jenkins-发布关键) |
 | **k8s-config** | 部署清单：Deployment / Service / ConfigMap / ApisixRoute | `msy/ops/k8s-config`（分支 `pre` / `master`） |
-| **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
+| **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权。**入口唯一**（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
 | **dbt（hologres_analytices）** | 看板口径与行级权限的**唯一来源**（`meta.sql_filter`） | `models/marts/*/schema_*.yml` |
 | **Apisix** | 对外域名、证书、限流 | k8s-config `apisix/` |
 
@@ -127,7 +127,7 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_SITE_URL` | ConfigMap | 是 | 集群内主站根（MCP 调 REST） |
 | `LIGHTDASH_PUBLIC_SITE_URL` | ConfigMap | 否 | 浏览器打开用的公网根（拼 webUrl 用），未设则回退 `LIGHTDASH_SITE_URL` |
 | `LIGHTDASH_PROJECT_UUID` | ConfigMap | 建议 | MCP 默认项目；客户端也可显式传 `projectUuid` |
-| `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | **服务端兜底 PAT**（客户端未传 `x-api-key` 时使用）。不配则必须每个客户端自带 PAT |
+| `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
 | `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 多用户并发与内存防护（默认 100 / 10 / 20 / 15min / 5min / 5min）；容器 2GB 建议 `MAX_SESSIONS=50~100`，4GB 建议 `150~200` |
 
@@ -146,7 +146,7 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | # | 缺口 | 影响 | 处理 |
 |---|---|---|---|
 | 1 | 线上（`master`）`lightdash-mcp` 镜像仍为 `0.0.2`，预发已是 `2.1.5` | 线上功能落后于预发 | 本次发布把线上提到目标 tag |
-| 2 | 线上 `lightdash-mcp` / `lightdash-internal-mcp` 的 ConfigMap **未配 `LIGHTDASH_API_KEY`** | 客户端必须各自携带 PAT；一旦漏传即 401 | 明确"客户端自带 PAT"或补兜底 PAT（Secret） |
+| 2 | 线上 ConfigMap **未配 `LIGHTDASH_API_KEY`**（符合预期） | 客户端必须各自携带 PAT，否则 401 | 保持现状（不配兜底）；接入文档写明"必须自填 PAT"，见 [§8.1](#81-基础设施) |
 | 3 | 线上 Apisix `limit-req` 仍按 `key: http_x_api_key` | 用 PAT 鉴权时该 header 存在，但非 PAT 的调用会命中同一桶；易误伤 | 改为 `remote_addr` 或按需保留 |
 | 4 | 线上 `lightdash-mcp` 未配置 `LIGHTDASH_PUBLIC_SITE_URL` 之外的公网根一致性核对 | 返回的看板链接可能指向集群内地址 | 核对 ConfigMap 与 Apisix hosts 一致 |
 | 5 | `pre` 分支的 MCP 清单带有 v2 试验配置与 Secret | 与线上不一致，易误配 | 以本文 §4.1 为准，发布前对齐两分支 |
@@ -198,7 +198,7 @@ flowchart TD
 
 | 环节 | 系统 | 关联键 | 落点 |
 |---|---|---|---|
-| ① 看板登记 | admin 后台（看板管理 `x-platform/manage`） | `short_name` ↔ `dashboard_uuid` ↔ `project_uuid` / `space_uuid` ↔ `categories` | `BiDashboard.DashboardInfo` / `LightdashUserInfo` |
+| ① 看板登记 | admin 后台（看板管理 `x-platform/manage`，入口唯一） | `short_name` ↔ `dashboard_uuid` ↔ `project_uuid` / `space_uuid` ↔ `categories` | `BiDashboard.DashboardInfo` / `LightdashUserInfo` |
 | ② 行级口径 | dbt（hologres_analytices） | `meta.sql_filter` 中的 `${lightdash.user.dashboardSlug}`、`${lightdash.user.email}` | `models/marts/*/schema_*.yml` |
 | ③ 权限映射 | Lightdash 主站 | `projects.is_client_use` + 项目角色 + Admin RPC 白名单 | `DashboardService.getAllowedDashboardUuidsForViewer` |
 | ④ 关系映射 | Lightdash 主站 | explore ↔ dashboard（看板磁贴里的图表） | `GET /api/v1/projects/:projectUuid/dashboards/context` |
@@ -269,12 +269,12 @@ flowchart TD
 | ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 其他角色（editor/developer/admin）不收窄 |
 | ③ Admin RPC 可用 | `ADMIN_API_HOST` + `ADMIN_API_KEY` | 未配置 → 不收窄（只 CASL）；RPC 失败 → 空集合 → **一张看板都看不到** |
 
-> 条件 ① 的界面（待补图）：
-> 📷 **待补图 D**：客户使用模式开关（项目管理页）
+> 条件 ① 的界面（待补图）：> 📷 **待补图 D**：客户使用模式开关（项目管理页）
 > `![客户使用模式开关](./images/client-use-switch.png)`
 
 > 当前 admin 后台做看板授权时，落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）。
 > 组织角色「成员」本身**不产生**项目角色；项目角色必须由后台授权写入，否则条件 ② 不成立。
+> **内部平台同理**：一旦该项目开启客户使用模式，内部用户同样按看板管理入口配置的白名单收窄（不再区分内外两套入口）。
 
 ### 6.2 看板可见性判定顺序
 
@@ -324,7 +324,7 @@ flowchart TD
 ### 7.2 MCP 服务配置
 
 - [ ] ConfigMap：`LIGHTDASH_SITE_URL` / `LIGHTDASH_PUBLIC_SITE_URL` / `LIGHTDASH_PROJECT_UUID` 正确
-- [ ] 兜底 PAT（`LIGHTDASH_API_KEY`）是否需要已决策（要么配 Secret，要么明确要求客户端自带 PAT）
+- [ ] 兜底 PAT（`LIGHTDASH_API_KEY`）**线上不配置**（客户必须自填 PAT），已写入接入说明
 - [ ] 会话/内存参数按容器规格设置（2GB → `MAX_SESSIONS` 50~100）
 - [ ] 多副本场景已确认 sticky session 或保持单实例
 
@@ -355,7 +355,7 @@ flowchart TD
 | # | 检查 | 期望 |
 |---|---|---|
 | 1 | `GET /health` | `ok=true`、含 `activeSessions` / `pendingSessions` / `compatSessions` / `activeSseConnections` / `inFlightRequests` |
-| 2 | 不带 `x-api-key` 访问 `/mcp` | 401（未认证） |
+| 2 | 不带 `x-api-key` 访问 `/mcp` | 401（未认证）——线上无兜底 PAT，必须自填 |
 | 3 | 镜像 | Pod 运行的镜像 tag = 本次发布 tag |
 | 4 | Apisix 限流 | 策略符合预期，不误伤 |
 
@@ -416,14 +416,13 @@ flowchart TD
 ## 11. 待确认事项（TBD）
 
 1. **上线时间与负责人**：发布窗口、各环节责任人（[§2](#2-系统与职责) 待补）。
-2. **admin 后台授权写入路径**：看板管理（`admin.banmahui.cn/report/x-platform/manage`）把授权落成「交互式查看者」的具体接口/服务是哪个？与 Lightdash 侧 `findAllDashboardByMobile` 是否同一套数据源？内部平台的看板管理入口路径（对应 `x-platform` 之外的哪个路径）？
+2. **admin 后台授权写入路径**：看板管理（`admin.banmahui.cn/report/x-platform/manage`，入口唯一，服务品牌CT Lightdash）把授权落成「交互式查看者」的具体接口/服务是哪个？与 Lightdash 侧 `findAllDashboardByMobile` 是否同一套数据源？内部平台开启客户使用模式后，是否复用同一套看板管理数据？
 3. **组织角色 vs 项目角色**：客户账号是否统一「组织=成员 + 项目=交互式查看者」？
 4. **口径风险处置**：是否对「依赖 dashboardSlug 且未传 dashboardUuid」的查询强制先选看板（返回 `dashboard_selection_required` 而非直接跑数）？
 5. **多候选策略**：目前多候选时随机选用——是否改为确定性排序（按 name→slug→uuid）以便复现？
-6. **兜底 PAT**：线上是否配置 `LIGHTDASH_API_KEY` 兜底，还是强制客户端各自携带 PAT？
-7. **客户账号开通**：走 `POST /api/v1/org/admin/users/provision(/batch)` 还是旧邀请流程？PAT 由谁发放？
-8. **可观测性**：MCP 是否接日志/告警（当前仅 stderr）；是否需要主站侧看板。
-9. **图片补充**：A–F 六张图（见 [§12.1](#121-待补图片清单)）。
+6. **客户账号开通**：走 `POST /api/v1/org/admin/users/provision(/batch)` 还是旧邀请流程？PAT 由谁发放？
+7. **可观测性**：MCP 是否接日志/告警（当前仅 stderr）；是否需要主站侧看板。
+8. **图片补充**：A–F 六张图（见 [§12.1](#121-待补图片清单)）。
 
 ---
 
