@@ -82,8 +82,7 @@ flowchart TD
 3. job 拉取 k8s-config 对应分支并 apply / 更新 Deployment 镜像后滚动更新。
 4. 观察 Pod 滚动更新与 `/health`。
 
-> 📷 **待补图 A**：Jenkins job 页面（填 tag / 构建按钮位置）
-> `![Jenkins job](./images/jenkins-job.png)`
+![]()
 
 本地等价操作（不经过 Jenkins）：
 
@@ -108,6 +107,8 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | 默认项目 | 品牌账号项目 | 同左 | POS DB 项目 | 同左 |
 
 > 域名一律**优先用连字符形式**（`mcp-x…` / `mcp-lightdash…`），点分旧名（`mcp.x…`）可能与通配证书不匹配。
+
+![]()
 
 ---
 
@@ -180,11 +181,9 @@ flowchart TD
   ctx -->|dashboardUuid → dashboardSlug| yml
 ```
 
-> 📷 **待补图 B**：admin 后台「看板管理」页面（`admin.banmahui.cn/report/x-platform/manage`）：看板配置 + 用户授权
-> `![admin 后台看板管理](./images/admin-dashboard-manage.png)`
+![]()
 
-> 📷 **待补图 C**：dbt `sql_filter` 与看板的对应关系（截图或标注图）
-> `![sql_filter 关联](./images/sql-filter-relation.png)`
+![]()
 
 ### 5.2 关联主键：`short_name`
 
@@ -260,8 +259,7 @@ flowchart TD
 | ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 客户账号固定为：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**；其他角色（editor/developer/admin）不收窄 |
 | ③ Admin RPC 可用 | `ADMIN_API_HOST` + `ADMIN_API_KEY` | 未配置 → 不收窄（只 CASL）；RPC 失败 → 空集合 → **一张看板都看不到** |
 
-> 📷 **待补图 D**：客户使用模式开关（项目管理页）→ `![客户使用模式开关](./images/client-use-switch.png)`
->
+![]()
 > admin 后台做看板授权时落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）；组织角色本身不产生项目角色，项目角色必须由后台授权写入。
 > **客户账号生效前提**：开启客户使用模式 + 项目角色为查看者/交互式查看者，缺一则不按白名单收窄。
 > **内部平台同理**：开启客户使用模式后，内部用户同样按看板管理入口配置的白名单收窄。
@@ -356,8 +354,7 @@ flowchart TD
 | 7 | 同一查询带 `dashboardUuid` 重试 | 行数与看板 UI 一致 |
 | 8 | 未授权账号 | 看不到授权看板；`run_metric_query` 拒绝非 `queryable` 表 |
 
-> 📷 **待补图 E**：客户端接入与查询效果截图（MCP 问数 vs 看板 UI）
-> `![客户端接入效果](./images/mcp-client-usage.png)`
+![]()
 
 ### 8.3 关联关系专项
 
@@ -406,26 +403,11 @@ flowchart TD
 - MCP 未传 `dashboardUuid` 且有候选时自动选用（多个取排序后第一个），0 候选才返回 `dashboard_selection_required`
 - 发布顺序：先主站（若本次有改动）、后 MCP；入口见 [§3.2](#32-jenkins-发布关键)
 
-尚待补充：图片 A–F（[§12.1](#121-待补图片清单)）。
-
 ---
 
 ## 12. 附录
 
-### 12.1 待补图片清单
-
-| 编号 | 内容 | 文件名 |
-|---|---|---|
-| A | Jenkins job 页面（填 tag / 构建按钮） | `images/jenkins-job.png` |
-| B | admin 后台「看板管理」页面（看板配置 + 用户授权） | `images/admin-dashboard-manage.png` |
-| C | dbt `sql_filter` 与看板对应关系标注 | `images/sql-filter-relation.png` |
-| D | 客户使用模式开关（项目管理页） | `images/client-use-switch.png` |
-| E | 客户端接入与查询效果（MCP vs 看板 UI） | `images/mcp-client-usage.png` |
-| F | 四套部署目标域名与入口总览 | `images/mcp-endpoints-overview.png` |
-
-> 图片统一放在 `docs/mcp/images/`。
-
-### 12.2 关键接口
+### 12.1 关键接口
 
 | 接口 | 用途 |
 |---|---|
@@ -434,7 +416,7 @@ flowchart TD
 | `GET /health` | MCP 健康检查 |
 | `ALL /mcp` | MCP 入口（Streamable HTTP；`tools/list`、`tools/call` 是 JSON-RPC method，不是 URL 子路径） |
 
-### 12.3 关键路径
+### 12.2 关键路径
 
 | 路径 | 说明 |
 |---|---|
@@ -447,7 +429,7 @@ flowchart TD
 | `packages/backend/src/services/DashboardService/DashboardService.ts` | 看板白名单与关联看板 |
 | `packages/lightdash-mcp/src/lib/dashboardContextResolver.ts` | MCP 看板上下文解析 |
 
-### 12.4 相关仓库
+### 12.3 相关仓库
 
 | 仓库 | 作用 |
 |---|---|
