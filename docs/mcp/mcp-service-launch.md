@@ -235,7 +235,7 @@ MCP 侧判断「口径关联」的方式：读编译后的 explore，检查 base
 | 条件 | 满足方式 | 不满足的后果 |
 |---|---|---|
 | ① 上下文带对 | 查询带 `dashboardUuid`（显式传入 > MCP 反查自动选） | `dashboardSlug` 取默认 `'NA'` → `sql_filter` 首个分支为真 → **不按类目过滤，返回全量** |
-| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | MCP 返回 `dashboard_selection_required`（0 候选）或空结果 |
+| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表 |
 | ③ 候选在白名单内 | 客户使用模式 + viewer/interactive_viewer + RPC 命中 | 候选被过滤 → 与看板 UI 行数不一致 |
 
 > ⚠️ 条件 ① 是**口径风险**而非报错：MCP 不带看板上下文查数会拿到比看板更宽的数据。建议客户侧默认显式传 `dashboardUuid`，或使用 `run_dashboard_tiles`（内部走 `/query/dashboard-chart`，天然带看板上下文）。
@@ -251,8 +251,8 @@ flowchart TD
   need -->|是| rev["GET /dashboards/context<br/>(exploreName / chartUuid)"]
   rev --> perm["权限过滤：CASL + Space ∩ 客户白名单"]
   perm --> n{"候选数"}
-  n -->|0| empty[返回空列表 / dashboard_selection_required]
-  n -->|≥1| pick[选用 1 个（多候选随机 / 排序，需与运维约定一致）]
+  n -->|0| empty["返回 dashboard_selection_required 空列表"]
+  n -->|≥1| pick["自动选用 1 个<br/>多候选：排序（名称→slug→uuid）后取第一个<br/>source=first*Context，返回 candidates"]
   pick --> use
   use --> res["返回结果 + resolvedDashboardContext（含 candidates）"]
 ```
@@ -266,7 +266,7 @@ flowchart TD
 | 条件 | 字段 | 开启 / 说明 |
 |---|---|---|
 | ① 客户使用模式 | `projects.is_client_use`（项目级） | **在界面开启**：主站「项目管理」页 → [x.brandct.com/generalSettings/projectManagement](https://x.brandct.com/generalSettings/projectManagement)，**所有项目**由**管理员**逐个开启。**不开启则看板白名单整套逻辑不生效**，只走 CASL |
-| ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 其他角色（editor/developer/admin）不收窄 |
+| ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 客户账号固定为：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**；其他角色（editor/developer/admin）不收窄 |
 | ③ Admin RPC 可用 | `ADMIN_API_HOST` + `ADMIN_API_KEY` | 未配置 → 不收窄（只 CASL）；RPC 失败 → 空集合 → **一张看板都看不到** |
 
 > 条件 ① 的界面（待补图）：> 📷 **待补图 D**：客户使用模式开关（项目管理页）
@@ -274,6 +274,7 @@ flowchart TD
 
 > 当前 admin 后台做看板授权时，落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）。
 > 组织角色「成员」本身**不产生**项目角色；项目角色必须由后台授权写入，否则条件 ② 不成立。
+> **客户账号生效前提**：必须开启客户使用模式 + 项目角色为查看者/交互式查看者，三者缺一则不按看板白名单收窄。
 > **内部平台同理**：一旦该项目开启客户使用模式，内部用户同样按看板管理入口配置的白名单收窄（不再区分内外两套入口）。
 
 ### 6.2 看板可见性判定顺序
@@ -368,7 +369,7 @@ flowchart TD
 | 3 | `list_dashboards` | 只返回**已授权**看板（白名单生效） |
 | 4 | `find_explores` / `list_explores` | 只返回白名单看板用到的表 |
 | 5 | `run_dashboard_tiles` | 数据与看板 UI 一致（自动带看板上下文） |
-| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | 返回 `resolvedDashboardContext` + `candidates`；0 候选返回 `dashboard_selection_required` |
+| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | 有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required` |
 | 7 | 同一查询带 `dashboardUuid` 重试 | 行数与看板 UI 一致 |
 | 8 | 未授权账号 | 看不到授权看板；`run_metric_query` 拒绝非 `queryable` 表 |
 
@@ -380,7 +381,7 @@ flowchart TD
 | # | 场景 | 期望 |
 |---|---|---|
 | 1 | 看板 A（`short_name=A`）的图表经 MCP 查数 | `lightdash.user.dashboardSlug = A` 生效，行数与看板一致 |
-| 2 | 同一 explore 关联多个看板 | 返回 `candidates`（已按权限过滤）；显式传 `dashboardUuid` 可复现指定看板口径 |
+| 2 | 同一 explore 关联多个看板 | 自动选用排序后第一个，并返回完整 `candidates`；显式传 `dashboardUuid` 可复现指定看板口径 |
 | 3 | dbt 改名 / 新增 `short_name` | 与 admin 后台看板配置、RPC 白名单三处对齐，否则看板与 MCP 数据不一致 |
 
 ---
@@ -416,13 +417,10 @@ flowchart TD
 ## 11. 待确认事项（TBD）
 
 1. **上线时间与负责人**：发布窗口、各环节责任人（[§2](#2-系统与职责) 待补）。
-2. **admin 后台授权写入路径**：看板管理（`admin.banmahui.cn/report/x-platform/manage`，入口唯一，服务品牌CT Lightdash）把授权落成「交互式查看者」的具体接口/服务是哪个？与 Lightdash 侧 `findAllDashboardByMobile` 是否同一套数据源？内部平台开启客户使用模式后，是否复用同一套看板管理数据？
-3. **组织角色 vs 项目角色**：客户账号是否统一「组织=成员 + 项目=交互式查看者」？
-4. **口径风险处置**：是否对「依赖 dashboardSlug 且未传 dashboardUuid」的查询强制先选看板（返回 `dashboard_selection_required` 而非直接跑数）？
-5. **多候选策略**：目前多候选时随机选用——是否改为确定性排序（按 name→slug→uuid）以便复现？
-6. **客户账号开通**：走 `POST /api/v1/org/admin/users/provision(/batch)` 还是旧邀请流程？PAT 由谁发放？
-7. **可观测性**：MCP 是否接日志/告警（当前仅 stderr）；是否需要主站侧看板。
-8. **图片补充**：A–F 六张图（见 [§12.1](#121-待补图片清单)）。
+3. **admin 后台授权写入路径**：看板管理（`admin.banmahui.cn/report/x-platform/manage`，入口唯一，服务品牌CT Lightdash）把授权落成「交互式查看者」的具体接口/服务是哪个？与 Lightdash 侧 `findAllDashboardByMobile` 是否同一套数据源？内部平台开启客户使用模式后，是否复用同一套看板管理数据？
+4. **客户账号开通**：走 `POST /api/v1/org/admin/users/provision(/batch)` 还是旧邀请流程？PAT 由谁发放？
+5. **可观测性**：MCP 是否接日志/告警（当前仅 stderr）；是否需要主站侧看板。
+6. **图片补充**：A–F 六张图（见 [§12.1](#121-待补图片清单)）。
 
 ---
 
