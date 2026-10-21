@@ -16,8 +16,7 @@
 → ④ 滚动更新 Pod → ⑤ 验证 /health、PAT 鉴权、权限与口径
 ```
 
-**发布顺序：先主站（Lightdash），后 MCP 服务。**
-主站若本次有权限/接口改动，先发主站，再发 MCP。
+**发布顺序：先主站（若本次有改动），后 MCP 服务。**
 
 ---
 
@@ -33,8 +32,6 @@
 | **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权。**入口唯一**（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束。开通与授权由**运维**处理 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
 | **dbt（hologres_analytices）** | 看板口径与行级权限的**唯一来源**（`meta.sql_filter`） | `models/marts/*/schema_*.yml` |
 | **Apisix** | 对外域名、证书、限流 | k8s-config `apisix/` |
-
-**鉴权现状：** MCP 客户端用自己的 **PAT**（个人访问令牌）通过请求头 `x-api-key` 传给 MCP 服务，MCP 再用它调主站 REST。主站侧发放 PAT。
 
 ---
 
@@ -84,7 +81,6 @@ flowchart TD
 2. 打开对应环境、对应线的 job，**写入 tag**（镜像版本号）→ 构建。
 3. job 拉取 k8s-config 对应分支并 apply / 更新 Deployment 镜像后滚动更新。
 4. 观察 Pod 滚动更新与 `/health`。
-5. 失败时用上一版 tag 再发一次即可回滚（见 [§9](#9-回滚)）。
 
 > 📷 **待补图 A**：Jenkins job 页面（填 tag / 构建按钮位置）
 > `![Jenkins job](./images/jenkins-job.png)`
@@ -109,8 +105,7 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | namespace | `prod` | `tars-pre` | `prod` | `tars-pre` |
 | 集群内主站 | `http://lightdash.default:8080` | `http://lightdash:8080` | `http://lightdash-internal.default:8080` | `http://lightdash-internal:8080` |
 | 主站清单 | `lightdash/` | `lightdash/` | `lightdash-internal/` | `lightdash-internal/` |
-| 公网主站根 | `https://x.brandct.com` | 预发主站 | `https://lightdash.banmahui.cn` | 预发主站 |
-| 默认项目 | `LIGHTDASH_PROJECT_UUID`（品牌账号项目） | 同左 | `LIGHTDASH_PROJECT_UUID`（POS DB 项目） | 同左 |
+| 默认项目 | 品牌账号项目 | 同左 | POS DB 项目 | 同左 |
 
 > 域名一律**优先用连字符形式**（`mcp-x…` / `mcp-lightdash…`），点分旧名（`mcp.x…`）可能与通配证书不匹配。
 
@@ -128,9 +123,9 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_PROJECT_UUID` | ConfigMap | 建议 | MCP 默认项目；客户端也可显式传 `projectUuid` |
 | `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
-| `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 多用户并发与内存防护（默认 100 / 10 / 20 / 15min / 5min / 5min）；容器 2GB 建议 `MAX_SESSIONS=50~100`，4GB 建议 `150~200` |
+| `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
 
-> **注意**：MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
+> MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
 
 ### 4.2 Lightdash 主站
 
@@ -145,10 +140,8 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | # | 缺口 | 影响 | 处理 |
 |---|---|---|---|
 | 1 | 线上（`master`）`lightdash-mcp` 镜像仍为 `0.0.2`，预发已是 `2.1.5` | 线上功能落后于预发 | 本次发布把线上提到目标 tag |
-| 2 | 线上 ConfigMap **未配 `LIGHTDASH_API_KEY`**（符合预期） | 客户端必须各自携带 PAT，否则 401 | 保持现状（不配兜底）；接入文档写明"必须自填 PAT"，见 [§8.1](#81-基础设施) |
-| 3 | 线上 Apisix `limit-req` 仍按 `key: http_x_api_key` | 用 PAT 鉴权时该 header 存在，但非 PAT 的调用会命中同一桶；易误伤 | 改为 `remote_addr` 或按需保留 |
-| 4 | 线上 `lightdash-mcp` 未配置 `LIGHTDASH_PUBLIC_SITE_URL` 之外的公网根一致性核对 | 返回的看板链接可能指向集群内地址 | 核对 ConfigMap 与 Apisix hosts 一致 |
-| 5 | `pre` 分支的 MCP 清单带有 v2 试验配置与 Secret | 与线上不一致，易误配 | 以本文 §4.1 为准，发布前对齐两分支 |
+| 2 | 线上 Apisix `limit-req` 仍按 `key: http_x_api_key` | 非 PAT 的调用会命中同一桶，易误伤 | 改为 `remote_addr` 或按需保留 |
+| 3 | `pre` 分支的 MCP 清单带有 v2 试验配置与 Secret | 与线上不一致，易误配 | 以 §4.1 为准，发布前对齐两分支 |
 
 ---
 
@@ -217,8 +210,7 @@ EXISTS (
 ```
 
 - `dim_ld_employee_categories` 实际来源：`public.dim_lightdash_dashboard_employee_categories`。
-- `short_name` = 看板 slug，与 admin 后台看板配置的 `short_name` 一一对应。
-- `category` 对应 explore 上的类目维度（如 `${TABLE}.cls_2`）；`email` = 用户主邮箱。
+- `short_name` = 看板 slug，与 admin 后台看板配置一一对应；`category` 对应 explore 上的类目维度（如 `${TABLE}.cls_2`），`email` = 用户主邮箱。
 
 ### 5.3 两种「关联」
 
@@ -268,13 +260,11 @@ flowchart TD
 | ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 客户账号固定为：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**；其他角色（editor/developer/admin）不收窄 |
 | ③ Admin RPC 可用 | `ADMIN_API_HOST` + `ADMIN_API_KEY` | 未配置 → 不收窄（只 CASL）；RPC 失败 → 空集合 → **一张看板都看不到** |
 
-> 条件 ① 的界面（待补图）：> 📷 **待补图 D**：客户使用模式开关（项目管理页）
-> `![客户使用模式开关](./images/client-use-switch.png)`
-
-> 当前 admin 后台做看板授权时，落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）。
-> 组织角色「成员」本身**不产生**项目角色；项目角色必须由后台授权写入，否则条件 ② 不成立。
-> **客户账号生效前提**：必须开启客户使用模式 + 项目角色为查看者/交互式查看者，三者缺一则不按看板白名单收窄。
-> **内部平台同理**：一旦该项目开启客户使用模式，内部用户同样按看板管理入口配置的白名单收窄（不再区分内外两套入口）。
+> 📷 **待补图 D**：客户使用模式开关（项目管理页）→ `![客户使用模式开关](./images/client-use-switch.png)`
+>
+> admin 后台做看板授权时落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）；组织角色本身不产生项目角色，项目角色必须由后台授权写入。
+> **客户账号生效前提**：开启客户使用模式 + 项目角色为查看者/交互式查看者，缺一则不按白名单收窄。
+> **内部平台同理**：开启客户使用模式后，内部用户同样按看板管理入口配置的白名单收窄。
 
 ### 6.2 看板可见性判定顺序
 
@@ -303,12 +293,6 @@ flowchart TD
 | `list_projects` / `list_spaces` / `find_content` / `find_dashboards` / `list_dashboards` / `find_charts` / `get_saved_chart` / `get_dashboard_tiles` / `list_charts` / `run_saved_chart` / `run_dashboard_tiles` / `list_explores` / `find_explores` / `find_fields` / `search_field_values` / `list_verified_content` | **查看者 viewer** | 客户使用模式下 explore / 看板列表已按白名单收窄 |
 | `run_metric_query` / `run_semantic_metric_query` | **交互式查看者 interactive_viewer** | 需要 `view Explore` |
 | `get_dashboard_code` | 编辑者 editor | `view ContentAsCode` |
-
-### 6.4 上线前必须对客户讲清的三条
-
-1. **只有客户使用模式的项目才会做看板级权限隔离**，普通项目下 viewer 能看到全项目看板。
-2. **能不能查数取决于项目角色**：查看者只能看，交互式查看者才能 `run_*_query`。
-3. **不传看板上下文时口径会变宽**（见 [§5.4](#54-口径一致性的三个必要条件)）。
 
 ---
 
@@ -380,8 +364,8 @@ flowchart TD
 | # | 场景 | 期望 |
 |---|---|---|
 | 1 | 看板 A（`short_name=A`）的图表经 MCP 查数 | `lightdash.user.dashboardSlug = A` 生效，行数与看板一致 |
-| 2 | 同一 explore 关联多个看板 | 自动选用排序后第一个，并返回完整 `candidates`；显式传 `dashboardUuid` 可复现指定看板口径 |
-| 3 | dbt 改名 / 新增 `short_name` | 与 admin 后台看板配置、RPC 白名单三处对齐，否则看板与 MCP 数据不一致 |
+| 2 | 同一 explore 关联多个看板 | 自动选用排序后第一个并返回完整 `candidates`；显式传 `dashboardUuid` 可复现指定看板口径 |
+| 3 | dbt 改名 / 新增 `short_name` | 与 admin 后台看板配置、RPC 白名单三处对齐 |
 
 ---
 
@@ -413,24 +397,16 @@ flowchart TD
 
 ---
 
-## 11. 已确认的决策与尚待补充
+## 11. 已确认的决策
 
-**已确认（本文按此写）**
+- 看板管理入口唯一：`admin.banmahui.cn/report/x-platform/manage`（服务品牌CT Lightdash），内部平台开启客户使用模式后同样受此约束
+- 客户账号：组织角色=成员，项目角色=查看者 / 交互式查看者，且必须开启客户使用模式
+- 线上 MCP 必须自填 PAT（不配兜底），PAT 由客户自己申请
+- 客户账号开通与权限由运维处理
+- MCP 未传 `dashboardUuid` 且有候选时自动选用（多个取排序后第一个），0 候选才返回 `dashboard_selection_required`
+- 发布顺序：先主站（若本次有改动）、后 MCP；入口见 [§3.2](#32-jenkins-发布关键)
 
-| # | 决策 |
-|---|---|
-| 1 | 看板管理入口唯一：`admin.banmahui.cn/report/x-platform/manage`（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束 |
-| 2 | 客户账号：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**，且**必须开启客户使用模式** |
-| 3 | 线上 MCP **必须自填 PAT**（不配兜底 PAT），PAT 由客户自己申请 |
-| 4 | 客户账号开通与权限由**运维**处理 |
-| 5 | MCP 未传 `dashboardUuid` 且存在候选时**自动选用**（多个取排序后第一个）；0 候选才返回 `dashboard_selection_required` |
-| 6 | 上线采用「先主站（若本次有改动）、后 MCP」；发布入口见 [§3.2](#32-jenkins-发布关键) |
-
-**尚待补充**
-
-| # | 事项 | 责任人 |
-|---|---|---|
-| 1 | 图片 A–F 六张（[§12.1](#121-待补图片清单)） | 文档维护人 |
+尚待补充：图片 A–F（[§12.1](#121-待补图片清单)）。
 
 ---
 
@@ -438,16 +414,16 @@ flowchart TD
 
 ### 12.1 待补图片清单
 
-| 编号 | 内容 | 建议位置 | 文件名 |
-|---|---|---|---|
-| A | Jenkins job 页面（填 tag / 构建按钮） | [§3.2](#32-jenkins-发布关键) | `images/jenkins-job.png` |
-| B | admin 后台「看板管理」页面（看板配置 + 用户授权） | [§5.1](#51-全链路) | `images/admin-dashboard-manage.png` |
-| C | dbt `sql_filter` 与看板对应关系标注 | [§5.1](#51-全链路) | `images/sql-filter-relation.png` |
-| D | 客户使用模式开关（项目管理页） | [§6.1](#61-三个必要条件) | `images/client-use-switch.png` |
-| E | 客户端接入与查询效果（MCP vs 看板 UI） | [§8.2](#82-业务与权限用客户账号--其-pat-跑) | `images/mcp-client-usage.png` |
-| F | 四套部署目标域名与入口总览 | [§3.3](#33-四套部署目标) | `images/mcp-endpoints-overview.png` |
+| 编号 | 内容 | 文件名 |
+|---|---|---|
+| A | Jenkins job 页面（填 tag / 构建按钮） | `images/jenkins-job.png` |
+| B | admin 后台「看板管理」页面（看板配置 + 用户授权） | `images/admin-dashboard-manage.png` |
+| C | dbt `sql_filter` 与看板对应关系标注 | `images/sql-filter-relation.png` |
+| D | 客户使用模式开关（项目管理页） | `images/client-use-switch.png` |
+| E | 客户端接入与查询效果（MCP vs 看板 UI） | `images/mcp-client-usage.png` |
+| F | 四套部署目标域名与入口总览 | `images/mcp-endpoints-overview.png` |
 
-> 图片统一放在 `docs/mcp/images/`，补图后请同步本清单状态。
+> 图片统一放在 `docs/mcp/images/`。
 
 ### 12.2 关键接口
 
@@ -480,7 +456,3 @@ flowchart TD
 | `brand-fe` | admin 后台前端（看板管理界面） |
 | `winwin-report` | admin 后台服务（`findAllDashboardByMobile` 等 JSON-RPC） |
 | `hologres_analytices` | dbt 语义层与 `meta.sql_filter`（看板口径与行级权限） |
-
----
-
-*文档维护：随代码仓库同步更新*
