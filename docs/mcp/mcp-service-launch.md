@@ -31,7 +31,7 @@
 | **GitHub Actions** | 打 tag 触发构建镜像并推送到阿里云镜像仓 | `.github/workflows/build-docker-mcp.yml` |
 | **Jenkins** | 发布：更新镜像 tag / 应用 k8s-config 清单，滚动更新集群 | [jenkins.banmahui.cn](https://jenkins.banmahui.cn/)，入口见 [§3.2](#32-jenkins-发布关键) |
 | **k8s-config** | 部署清单：Deployment / Service / ConfigMap / ApisixRoute | `msy/ops/k8s-config`（分支 `pre` / `master`） |
-| **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权。**入口唯一**（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
+| **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权。**入口唯一**（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束。开通与授权由**运维**处理 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
 | **dbt（hologres_analytices）** | 看板口径与行级权限的**唯一来源**（`meta.sql_filter`） | `models/marts/*/schema_*.yml` |
 | **Apisix** | 对外域名、证书、限流 | k8s-config `apisix/` |
 
@@ -342,10 +342,10 @@ flowchart TD
 
 ### 7.5 数据与账号
 
-- [ ] 客户账号在 admin 后台已授权看板，且**主邮箱**与登录邮箱一致
-- [ ] 用户已加入组织，项目角色为 viewer / interactive_viewer
+- [ ] 客户账号已在 admin 后台授权看板，且**主邮箱**与登录邮箱一致
+- [ ] 用户已加入组织，项目角色为 查看者 / 交互式查看者
 - [ ] dbt `sql_filter` 用的 `short_name` 与 admin 后台看板配置一致
-- [ ] 客户已拿到 PAT（主站个人访问令牌），并配置进客户端 `x-api-key`
+- [ ] 客户已在主站**自行申请 PAT**（个人访问令牌），并配置进客户端 `x-api-key`（线上无兜底 PAT，漏填即 401）
 
 ---
 
@@ -414,13 +414,24 @@ flowchart TD
 
 ---
 
-## 11. 待确认事项（TBD）
+## 11. 已确认的决策与尚待补充
 
-1. **上线时间与负责人**：发布窗口、各环节责任人（[§2](#2-系统与职责) 待补）。
-3. **admin 后台授权写入路径**：看板管理（`admin.banmahui.cn/report/x-platform/manage`，入口唯一，服务品牌CT Lightdash）把授权落成「交互式查看者」的具体接口/服务是哪个？与 Lightdash 侧 `findAllDashboardByMobile` 是否同一套数据源？内部平台开启客户使用模式后，是否复用同一套看板管理数据？
-4. **客户账号开通**：走 `POST /api/v1/org/admin/users/provision(/batch)` 还是旧邀请流程？PAT 由谁发放？
-5. **可观测性**：MCP 是否接日志/告警（当前仅 stderr）；是否需要主站侧看板。
-6. **图片补充**：A–F 六张图（见 [§12.1](#121-待补图片清单)）。
+**已确认（本文按此写）**
+
+| # | 决策 |
+|---|---|
+| 1 | 看板管理入口唯一：`admin.banmahui.cn/report/x-platform/manage`（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束 |
+| 2 | 客户账号：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**，且**必须开启客户使用模式** |
+| 3 | 线上 MCP **必须自填 PAT**（不配兜底 PAT），PAT 由客户自己申请 |
+| 4 | 客户账号开通与权限由**运维**处理 |
+| 5 | MCP 未传 `dashboardUuid` 且存在候选时**自动选用**（多个取排序后第一个）；0 候选才返回 `dashboard_selection_required` |
+| 6 | 上线采用「先主站（若本次有改动）、后 MCP」；发布入口见 [§3.2](#32-jenkins-发布关键) |
+
+**尚待补充**
+
+| # | 事项 | 责任人 |
+|---|---|---|
+| 1 | 图片 A–F 六张（[§12.1](#121-待补图片清单)） | 文档维护人 |
 
 ---
 
