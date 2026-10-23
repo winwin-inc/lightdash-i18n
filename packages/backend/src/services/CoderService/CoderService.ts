@@ -27,6 +27,7 @@ import {
     getContentAsCodePathFromLtreePath,
     getLtreePathFromContentAsCodePath,
     isExploreError,
+    isUserWithOrg,
     NotFoundError,
     Project,
     PromotionAction,
@@ -43,6 +44,7 @@ import {
     VirtualViewAsCode,
     type DashboardTileWithSlug,
     type MetricQuery,
+    type ViewerContentScope,
     type WarehouseClient,
 } from '@lightdash/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -72,12 +74,25 @@ import {
     toAsCodeTabs,
 } from './dashboardAsCodeReferences';
 
+// Method interface only: importing DashboardService would create a cycle.
+type DashboardAllowListService = {
+    getAllowedDashboardUuidsForViewer: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<Set<string> | undefined>;
+    getViewerContentScope: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<ViewerContentScope | undefined>;
+};
+
 type CoderServiceArguments = {
     lightdashConfig: LightdashConfig;
     analytics: LightdashAnalytics;
     projectModel: ProjectModel;
     savedChartModel: SavedChartModel;
     dashboardModel: DashboardModel;
+    dashboardService: DashboardAllowListService;
     spaceModel: SpaceModel;
     schedulerClient: SchedulerClient;
     promoteService: PromoteService;
@@ -105,6 +120,8 @@ export class CoderService extends BaseService {
 
     dashboardModel: DashboardModel;
 
+    dashboardService: DashboardAllowListService;
+
     spaceModel: SpaceModel;
 
     schedulerClient: SchedulerClient;
@@ -123,6 +140,7 @@ export class CoderService extends BaseService {
         projectModel,
         savedChartModel,
         dashboardModel,
+        dashboardService,
         spaceModel,
         schedulerClient,
         promoteService,
@@ -136,6 +154,7 @@ export class CoderService extends BaseService {
         this.projectModel = projectModel;
         this.savedChartModel = savedChartModel;
         this.dashboardModel = dashboardModel;
+        this.dashboardService = dashboardService;
         this.spaceModel = spaceModel;
         this.schedulerClient = schedulerClient;
         this.promoteService = promoteService;
@@ -811,14 +830,36 @@ export class CoderService extends BaseService {
             dashboardSummaries,
             spaces,
         );
+
+        // Client-use: a restricted user can only export the dashboards of
+        // their allow-list, the other dashboards must not leak their SQL.
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+        const visibleDashboardSummaries =
+            allowedDashboardUuids !== undefined && isUserWithOrg(user)
+                ? dashboardSummariesWithAccess.filter((dashboard) =>
+                      allowedDashboardUuids.has(dashboard.uuid),
+                  )
+                : dashboardSummariesWithAccess;
+        // The spaces of the hidden dashboards must not be returned either.
+        const visibleSpaceUuids = new Set(
+            visibleDashboardSummaries.map((dashboard) => dashboard.spaceUuid),
+        );
+        const visibleSpaces = spaces.filter((space) =>
+            visibleSpaceUuids.has(space.uuid),
+        );
+
         const maxResults = this.lightdashConfig.contentAsCode.maxDownloads;
         const offsetIndex = offset || 0;
         const newOffset = Math.min(
             offsetIndex + maxResults,
-            dashboardSummariesWithAccess.length,
+            visibleDashboardSummaries.length,
         );
 
-        const limitedDashboardSummaries = dashboardSummariesWithAccess.slice(
+        const limitedDashboardSummaries = visibleDashboardSummaries.slice(
             offsetIndex,
             newOffset,
         );
@@ -847,7 +888,6 @@ export class CoderService extends BaseService {
         const transformedDashboards = dashboardsWithAccess.map((dashboard) =>
             CoderService.transformDashboard(dashboard, spaces),
         );
-
         return {
             dashboards: transformedDashboards,
             languageMap: languageMap
@@ -866,8 +906,8 @@ export class CoderService extends BaseService {
                   })
                 : undefined,
             missingIds,
-            spaces: CoderService.spacesMetadataFromSummaries(spaces),
-            total: dashboardSummariesWithAccess.length,
+            spaces: CoderService.spacesMetadataFromSummaries(visibleSpaces),
+            total: visibleDashboardSummaries.length,
             offset: newOffset,
         };
     }
@@ -922,11 +962,30 @@ export class CoderService extends BaseService {
             chartSummaries,
             spaces,
         );
+
+        // Client-use: only the charts of the visible scope can be exported.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const visibleChartSummaries =
+            viewerScope === undefined
+                ? chartsSummariesWithAccess
+                : chartsSummariesWithAccess.filter((chart) =>
+                      viewerScope.chartUuids.includes(chart.uuid),
+                  );
+        const visibleChartSpaceUuids = new Set(
+            visibleChartSummaries.map((chart) => chart.spaceUuid),
+        );
+        const visibleChartSpaces = spaces.filter((space) =>
+            visibleChartSpaceUuids.has(space.uuid),
+        );
+
         const newOffset = Math.min(
             offsetIndex + maxResults,
-            chartsSummariesWithAccess.length,
+            visibleChartSummaries.length,
         );
-        const limitedChartSummaries = chartsSummariesWithAccess.slice(
+        const limitedChartSummaries = visibleChartSummaries.slice(
             offsetIndex,
             newOffset,
         );
@@ -949,7 +1008,7 @@ export class CoderService extends BaseService {
         );
 
         const transformedCharts = charts.map((chart) =>
-            CoderService.transformChart(chart, spaces, dashboards),
+            CoderService.transformChart(chart, visibleChartSpaces, dashboards),
         );
 
         return {
@@ -970,8 +1029,10 @@ export class CoderService extends BaseService {
                   })
                 : undefined,
             missingIds,
-            spaces: CoderService.spacesMetadataFromSummaries(spaces),
-            total: chartsSummariesWithAccess.length,
+            spaces: CoderService.spacesMetadataFromSummaries(
+                visibleChartSpaces,
+            ),
+            total: visibleChartSummaries.length,
             offset: newOffset,
         };
     }
@@ -1478,13 +1539,26 @@ export class CoderService extends BaseService {
         const skipped: ApiSpaceAsCodeListResponse['results']['skipped'] = [];
         const spaces: SpaceAsCode[] = [];
 
+        // Client-use: only the spaces of the visible scope can be exported,
+        // the other spaces must not even be listed.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const scopedSpaces =
+            viewerScope === undefined
+                ? projectSpaces
+                : projectSpaces.filter((space) =>
+                      viewerScope.spaceUuids.includes(space.uuid),
+                  );
+
         const spacesAccess = await this.spaceModel.getUserSpacesAccess(
             user.userUuid,
-            projectSpaces.map((space) => space.uuid),
+            scopedSpaces.map((space) => space.uuid),
         );
 
         const exported = await Promise.all(
-            projectSpaces.map(async (space) => {
+            scopedSpaces.map(async (space) => {
                 if (
                     !hasViewAccessToSpace(
                         user,
@@ -1710,14 +1784,29 @@ export class CoderService extends BaseService {
         const filtered = filteredByIds.filter((chart) =>
             accessibleSlugs.has(chart.slug),
         );
+
+        // Client-use: only the charts of the visible scope can be exported.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const scopedCharts =
+            viewerScope === undefined
+                ? filtered
+                : filtered.filter((chart) =>
+                      viewerScope.chartUuids.includes(chart.savedSqlUuid),
+                  );
         const accessibleSpaces = spaces.filter((space) =>
-            filtered.some((chart) => chart.space.uuid === space.uuid),
+            scopedCharts.some((chart) => chart.space.uuid === space.uuid),
         );
 
         const maxResults = this.lightdashConfig.contentAsCode.maxDownloads;
         const offsetIndex = offset || 0;
-        const newOffset = Math.min(offsetIndex + maxResults, filtered.length);
-        const page = filtered.slice(offsetIndex, newOffset);
+        const newOffset = Math.min(
+            offsetIndex + maxResults,
+            scopedCharts.length,
+        );
+        const page = scopedCharts.slice(offsetIndex, newOffset);
 
         const sqlCharts: SqlChartAsCode[] = page.map((chart) => {
             const space = spacesByUuid.get(chart.space.uuid);
@@ -1749,7 +1838,7 @@ export class CoderService extends BaseService {
                 })),
             ),
             spaces: CoderService.spacesMetadataFromSummaries(accessibleSpaces),
-            total: filtered.length,
+            total: scopedCharts.length,
             offset: newOffset,
         };
     }
