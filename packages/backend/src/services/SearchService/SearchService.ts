@@ -200,6 +200,14 @@ export class SearchService extends BaseService {
                 projectUuid,
             );
 
+        // Client-use: the search results must respect the content scope.
+        // The dashboard allow-list only covers dashboards (and their tabs), the
+        // charts and the spaces need the scope.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+
         const hasDashboardTabAccess = await Promise.all(
             results.dashboardTabs.map(filterItem),
         );
@@ -244,12 +252,29 @@ export class SearchService extends BaseService {
                         allowedDashboardUuids.has(tab.dashboardUuid)),
             ),
             savedCharts: results.savedCharts.filter(
-                (_, index) => hasSavedChartAccess[index],
+                (_, index) =>
+                    hasSavedChartAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.chartUuids.includes(
+                            results.savedCharts[index].uuid,
+                        )),
             ),
             sqlCharts: results.sqlCharts.filter(
-                (_, index) => hasSqlChartAccess[index],
+                (_, index) =>
+                    hasSqlChartAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.chartUuids.includes(
+                            results.sqlCharts[index].uuid,
+                        )),
             ),
-            spaces: results.spaces.filter((_, index) => hasSpaceAccess[index]),
+            spaces: results.spaces.filter(
+                (_, index) =>
+                    hasSpaceAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.spaceUuids.includes(
+                            results.spaces[index].uuid,
+                        )),
+            ),
             pages: user.ability.can(
                 'view',
                 subject('Analytics', {

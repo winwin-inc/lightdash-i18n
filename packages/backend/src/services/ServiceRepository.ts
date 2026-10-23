@@ -286,6 +286,7 @@ export class ServiceRepository
                 new CommentService({
                     analytics: this.context.lightdashAnalytics,
                     dashboardModel: this.models.getDashboardModel(),
+                    dashboardService: this.getDashboardService(),
                     spaceModel: this.models.getSpaceModel(),
                     commentModel: this.models.getCommentModel(),
                     notificationsModel: this.models.getNotificationsModel(),

@@ -308,17 +308,53 @@ join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能
 `GET /api/v2/content` 之外，还有多个接口会列出空间 / 图表，若不一起处理，
 界面上的空间选择器、空间详情页仍会泄露不可见内容：
 
-| 接口                                           | 服务方法                           | 改法                                                              | 状态 |
-| ---------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- | ---- |
-| `GET /projects/:projectUuid/spaces`            | `ProjectService.getSpaces`         | 按 scope 过滤空间，并按可见图表重算 `chartCount`                  | ✅   |
-| `GET /projects/:projectUuid/charts`            | `ProjectService.getCharts`         | 按 `scope.chartUuids` 过滤                                        | ✅   |
-| `GET /projects/:projectUuid/chart-summaries`   | `ProjectService.getChartSummaries` | 按 `scope.chartUuids` 过滤                                        | ✅   |
-| `GET /projects/:projectUuid/spaces/:spaceUuid` | `SpaceService.getSpace`            | 过滤 `queries`（图表）、`childSpaces`（无白名单看板的子空间移除） | ✅   |
-| `GET /projects/:projectUuid/dashboards`        | `DashboardService.getAllByProject` | 已有 RPC 白名单过滤                                               | ✅   |
-| `GET /projects/:projectUuid/saved/:uuid`       | `SavedChartService.get`            | 已有 `checkPermissions` 的 scope 校验                             | ✅   |
+| 接口                                                   | 服务方法                                          | 改法                                                                                     | 状态 |
+| ------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
+| `GET /projects/:projectUuid/spaces`                    | `ProjectService.getSpaces`                        | 按 scope 过滤空间，并按可见图表重算 `chartCount`                                         | ✅   |
+| `GET /projects/:projectUuid/charts`                    | `ProjectService.getCharts`                        | 按 `scope.chartUuids` 过滤                                                               | ✅   |
+| `GET /projects/:projectUuid/chart-summaries`           | `ProjectService.getChartSummaries`                | 按 `scope.chartUuids` 过滤                                                               | ✅   |
+| `GET /projects/:projectUuid/spaces/:spaceUuid`         | `SpaceService.getSpace`                           | 过滤 `queries`（图表）、`childSpaces`（无白名单看板的子空间移除）                        | ✅   |
+| `GET /projects/:projectUuid/dashboards`                | `DashboardService.getAllByProject`                | 已有 RPC 白名单过滤                                                                      | ✅   |
+| `GET /projects/:projectUuid/saved/:uuid`               | `SavedChartService.get`                           | 已有 `checkPermissions` 的 scope 校验                                                    | ✅   |
+| `GET /projects/:projectUuid/dashboards/context`        | `DashboardService.getDashboardContexts`           | 已有 RPC 白名单过滤                                                                      | ✅   |
+| `GET /projects/:projectUuid/search`                    | `SearchService.getSearchResults`                  | 看板 / 标签按白名单过滤；图表按 `scope.chartUuids`、空间按 `scope.spaceUuids` 过滤       | ✅   |
+| `GET /projects/:projectUuid/most-popular`              | `ProjectService.getMostPopularAndRecentlyUpdated` | 空间按 `scope.spaceUuids`、图表按 `scope.chartUuids`、看板按 `scope.dashboardUuids` 过滤 | ✅   |
+| `GET /pinned`（置顶列表）                              | `PinningService.getPinnedItems`                   | 置顶空间按 `scope.spaceUuids`、置顶图表按 `scope.chartUuids` 过滤                        | ✅   |
+| `GET /projects/:projectUuid/dashboards/:uuid/comments` | `CommentService.findCommentsForDashboard`         | 受限角色只能读白名单看板的评论                                                           | ✅   |
 
 前端配合：内容列表的"空间"列改为使用 content API 返回的 `space.name`
 （空间被隐藏时只显示文字、不给链接），避免出现空白单元格。
+
+### 5.9 排查用诊断信息
+
+`GET /api/v1/user?projectUuid=<projectUuid>` 的 `results.clientUse` 会返回
+客户使用模式诊断（状态、角色来源、手机号、白名单看板、scope 计数），
+前端空间页有可折叠诊断卡片，便于定位"看不到内容"的问题。
+
+| 状态                  | 含义                                                   |
+| --------------------- | ------------------------------------------------------ |
+| `not_client_use`      | 项目未开启客户使用模式                                 |
+| `role_not_restricted` | 有效项目角色不是 viewer / interactive_viewer           |
+| `user_not_found`      | 找不到用户记录，无法解析手机号                         |
+| `no_email`            | 用户没有邮箱，无法解析手机号                           |
+| `rpc_not_configured`  | `ADMIN_API_HOST` / `ADMIN_API_KEY` 未配置（fail-open） |
+| `rpc_error`           | Admin RPC 调用失败（fail-closed，内容不可见）          |
+| `rpc_empty`           | RPC 返回空白名单（fail-closed，内容不可见）            |
+| `rpc_ok`              | 正常，白名单与 scope 已生成                            |
+
+### 5.10 已修复的线上故障
+
+`GET /api/v2/content` 与 `GET /api/v1/projects/:projectUuid/spaces` 曾返回
+HTTP 500（`UnexpectedServerError` / `invalid input syntax for type uuid`）。
+
+原因：knex 的 `raw` 查询不会把数组展开成 `IN (?, ?, ...)`，而是把整个数组
+当作一个 Postgres 数组参数下发，数据库收到 `{"uuid1","uuid2"}` 这样的字面量，
+无法转换为 `uuid`。
+
+修复：`SpaceModel.getSpaceUuidsWithAncestors` 与
+`SpaceModel.getVisibleChartCountsBySpaceUuids` 改为"每个 uuid 一个占位符 +
+扁平标量绑定"，并补充了绑定形状的回归测试
+（`packages/backend/src/models/SpaceModel.test.ts`）。
 
 ---
 
