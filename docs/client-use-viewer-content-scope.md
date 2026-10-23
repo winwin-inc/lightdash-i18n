@@ -97,20 +97,22 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 可查数据集 = scope.exploreNames                     （现状已有，ad-hoc 保留）
 ```
 
-`scope.spaceUuids` 的定义（**看板驱动**口径）：
+`scope.spaceUuids` 的定义（**可见内容 + 祖先**口径）：
 
-> 仅包含**持有白名单看板**的空间（根空间归一）。
-> 磁贴图表所在的空间**不**因为“装了白名单看板的图表”而变得可见——
-> 空间内一个白名单看板都没有时，这个空间整个移除（连空间名都不泄露）。
+> 可见空间 = 持有可见内容的空间 ∪ 这些空间的所有祖先。
+> 持有可见内容 = 有白名单看板 ∪ 有可见图表（白名单看板的磁贴图表）。
+>
+> 既无可见内容、也没有可见后代的空间 → 整个移除（连空间名都不泄露）。
 
 效果举例（品牌 CT，RPC 只授权 1 个看板「新品月报」）：
 
 - 该看板所在空间 → 可见；
 - 该空间内**其他看板** → 不可见；
 - 该看板磁贴引用的 7 张表对应的图表 → 可见、可跑数（即使图表存放在别的空间）；
-- 该看板磁贴引用图表所在但**不含白名单看板**的空间 → 空间不可见（图表仍可见）；
+- 该看板磁贴引用图表所在的空间 → **可见**（图表能看，空间就不能消失）；
+- 上述空间的**父空间 / 根空间** → 可见（否则空间树无法导航）；
 - 其余 88 个空间、其余约 480 张图表 → **不可见、不可跑数**；
-- 空间列表里，那些"没有任何白名单看板"的公开空间 → **不出现**（连空间名都不泄露）。
+- 空间列表里，没有任何可见内容的公开空间 → **不出现**（连空间名都不泄露）。
 
 ### 4.3 什么时候仍然建议做空间私有化
 
@@ -123,6 +125,44 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 建议做法：把与客户交付无关的空间设为私有 + 配 `space_user_access`（含组授权），并保留
 "客户授权看板所在空间"为公开（便于客户侧协作）。
 
+### 4.4 角色解析顺序（只看项目权限）
+
+白名单是否生效，取决于**有效项目角色**（`DashboardService.getAllowedDashboardUuidsForViewer`，
+逻辑为原有实现，本次未改动）：
+
+```
+有效项目角色 = 直接项目成员角色(project_memberships)
+             ?? 组成员角色(group_memberships + project_group_access)
+             ?? convertOrganizationRoleToProjectRole(组织角色)   ← 兜底
+```
+
+只有落到 `viewer` / `interactive_viewer`
+（`isClientUseRestrictedProjectRole`，`packages/common/src/utils/projectMemberRole.ts`）
+才启用 scope 过滤，其余角色（editor / developer / admin）**完全不过滤**。
+
+几条推论：
+
+| 情形                                                | 有效项目角色                | scope    | 说明                   |
+| --------------------------------------------------- | --------------------------- | -------- | ---------------------- |
+| 终端用户：项目角色 viewer / interactive_viewer      | viewer / interactive_viewer | 生效     | 目标人群               |
+| 客户自己的管理员：org admin，**没有**该项目成员身份 | admin（组织角色兜底）       | 不生效   | 看得见全部内容，能维护 |
+| org admin，但在该项目里被单独设成 viewer            | viewer                      | **生效** | 见下方注意事项         |
+| 空间级角色（space admin 等）                        | 不参与判定                  | —        | 空间角色不改变项目角色 |
+
+**注意事项（部署口径）**：
+
+> 受控项目里**不要**给客户的组织管理员单独设 viewer / interactive_viewer 身份。
+> 否则他在该项目里会被当作受限用户，且其手机号通常不在 RPC 白名单里 →
+> fail closed → 该账号在受控项目里**什么都看不到**（管理员视图里也只剩白名单内容）。
+
+前端「管理员内容视图」开关由 CASL 的 `manage Project` 决定（组织 admin 恒有），
+而后端 scope 由**项目角色**决定，两者在上面的第三种情形下不一致：
+
+- 该开关是**纯前端显示过滤**，切的是后端已经过滤过的数据 → **不会泄露**；
+- 直接用 URL 打开非白名单看板 → `DashboardService.getByIdOrSlug` 抛 `ForbiddenError`；
+- 已知该组合会让"管理员内容视图"看起来"只有几个空间"，属于文案困惑，不是权限漏洞；
+  确需消除时，走 `GET /projects/:uuid/my-content-scope`（见 5.4）让前端按真实范围渲染。
+
 ---
 
 ## 5. 详细设计
@@ -134,7 +174,7 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 export type ViewerContentScope = {
   dashboardUuids: string[]; // RPC 白名单看板
   chartUuids: string[]; // 白名单看板磁贴引用的图表（saved_query_uuid + saved_sql_uuid）
-  spaceUuids: string[]; // 可见空间：持有白名单看板的空间（已归一到根空间）
+  spaceUuids: string[]; // 可见空间：持有可见内容的空间 ∪ 这些空间的所有祖先
   exploreNames: string[]; // 白名单看板用到的 explore（ad-hoc 查询口径）
 };
 ```
@@ -163,12 +203,14 @@ async getViewerContentScope(
 3. `chartUuids`：`DashboardModel.getChartUuidsByDashboardUuids(dashboardUuids)`（新增）——
    取白名单看板**最新版本**的磁贴图表，dbt 图表（`dashboard_tile_charts` → `saved_queries.saved_query_uuid`）
    与 SQL 图表（`dashboard_tile_sql_charts.saved_sql_uuid`）合集。
-4. `spaceUuids`：`DashboardModel.getSpaceUuidsByDashboardUuids(dashboardUuids)`（新增）——
-   白名单看板所属空间 ∪ 其磁贴图表所属空间，再用 `SpaceModel.getSpaceRoots()`（新增，批量）
-   **归一到根空间**。
+4. `spaceUuids`：**可见内容 + 祖先**口径（详见 5.7）
+   - `DashboardModel.getSpaceUuidsByDashboardUuids(dashboardUuids)`（新增）→ 白名单看板所属空间；
+   - `DashboardModel.getSpaceUuidsByChartUuids(chartUuids)`（新增）→ 可见图表所属空间
+     （`saved_queries.space_id` 与 `saved_sql.space_uuid` 两条来源）；
+   - `SpaceModel.getSpaceUuidsWithAncestors(spaceUuids)`（新增，批量）→ 上述空间的**所有祖先**。
 
-> 归一化理由：嵌套空间的 access/is_private 都继承根空间，过滤时必须用同一口径，
-> 否则会出现"根空间被过滤 → 子空间内容查不到"。
+> 祖先用 ltree `path` 批量计算，join 限定 `target.project_id = ancestor.project_id`
+> （path 由 slug 构成，跨项目可能重复）。
 
 ### 5.3 接入点
 
@@ -177,7 +219,7 @@ async getViewerContentScope(
 | 1   | `packages/backend/src/services/DashboardService/DashboardService.ts`                  | 新增 `getViewerContentScope()`                                                                                                                            | ✅                                                                   |
 | 2   | `packages/backend/src/services/ContentService/ContentService.ts`                      | 空间与 scope 取交集；已保存图表按 `scope.chartUuids` 过滤；`dashboardCount`/`chartCount` 按可见内容重算（`SpaceModel.getVisibleChartCountsBySpaceUuids`） | ✅                                                                   |
 | 3   | `packages/backend/src/models/DashboardModel/DashboardModel.ts`                        | 新增 `getChartUuidsByDashboardUuids` / `getSpaceUuidsByDashboardUuids`                                                                                    | ✅                                                                   |
-| 4   | `packages/backend/src/models/SpaceModel.ts`                                           | 新增 `getSpaceRoots`（批量根空间）/ `getVisibleChartCountsBySpaceUuids`                                                                                   | ✅                                                                   |
+| 4   | `packages/backend/src/models/SpaceModel.ts`                                           | 新增 `getSpaceUuidsWithAncestors`（批量祖先）/ `getVisibleChartCountsBySpaceUuids`                                                                        | ✅                                                                   |
 | 5   | `packages/backend/src/services/SavedChartsService/SavedChartService.ts`               | `checkPermissions` 校验 `chartUuid ∈ scope.chartUuids`                                                                                                    | ✅                                                                   |
 | 6   | `packages/backend/src/services/SavedSqlService/SavedSqlService.ts`                    | `hasAccess` 同上（SQL 图表）                                                                                                                              | ✅                                                                   |
 | 7   | `packages/backend/src/services/AsyncQueryService/AsyncQueryService.ts`                | `executeAsyncSavedChartQuery` / `checkDashboardChartQueryPermissions` 校验图表；`executeAsyncDashboardChartQuery` 校验看板                                | ✅                                                                   |
@@ -302,6 +344,12 @@ join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能
 - ✅ editor/admin 跑数不受影响（scope 仅在受限角色生效）；
 - ✅ 非 client-use 项目行为零变化（`getAllowedDashboardUuidsForViewer` 返回 `undefined` 时不过滤）。
 
+**角色解析（见 4.4）**
+
+- ✅ org admin 无该项目成员身份 → 兜底 admin → **不过滤**（看得见全部内容）；
+- ✅ org admin 在该项目是 viewer / interactive_viewer → **按受限用户处理**（fail-closed）；
+- ✅ 项目角色优先于组织角色；空间级角色不参与判定。
+
 **P1**
 
 - ✅ `find_spaces` / `find_charts` / v2 content API 只返回 scope 内内容；
@@ -353,13 +401,14 @@ WHERE u.email = '18522948433@brandtct.cn';
 
 ## 8. 风险与回滚
 
-| 风险                                   | 缓解                                                                                                  |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 白名单看板未引用的独立图表对客户不可见 | 与客户确认同步系统是否覆盖图表；必要时升级为方案 C                                                    |
-| RPC 不可用导致客户"什么都看不到"       | 告警 + 明确 fail-closed 决策；短缓存降低抖动影响                                                      |
-| 空间 count 重算导致列表分页/总数变化   | 同步调整 `ContentService` 的 `shouldFilterInMemory` 逻辑与前端分页展示                                |
-| 非 client-use 项目被误伤               | 所有 scope 判断以 `is_client_use && isClientUseRestrictedProjectRole` 为前置条件                      |
-| 回滚                                   | 改动集中在 scope 判定处，可用 feature flag（如 `LIGHTDASH_CLIENT_USE_CONTENT_SCOPE_ENABLED`）一键关闭 |
+| 风险                                    | 缓解                                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 白名单看板未引用的独立图表对客户不可见  | 与客户确认同步系统是否覆盖图表；必要时升级为方案 C                                                    |
+| RPC 不可用导致客户"什么都看不到"        | 告警 + 明确 fail-closed 决策；短缓存降低抖动影响                                                      |
+| 空间 count 重算导致列表分页/总数变化    | 同步调整 `ContentService` 的 `shouldFilterInMemory` 逻辑与前端分页展示                                |
+| 非 client-use 项目被误伤                | 所有 scope 判断以 `is_client_use && isClientUseRestrictedProjectRole` 为前置条件                      |
+| 组织管理员在受控项目被单独降级为 viewer | 项目角色优先 → 该账号按受限用户处理（可能全黑）。部署口径：不要给客户管理员单独降级项目角色（见 4.4） |
+| 回滚                                    | 改动集中在 scope 判定处，可用 feature flag（如 `LIGHTDASH_CLIENT_USE_CONTENT_SCOPE_ENABLED`）一键关闭 |
 
 ---
 
@@ -376,6 +425,11 @@ WHERE u.email = '18522948433@brandtct.cn';
    （沿用原有空间权限模型）。→ 需确认 embed 场景是否也要求客户隔离。
 5. **MCP `get_my_access` 新增 `contentScope` 字段是否影响现有 agent 提示词/行为？**
    → 需与交付方对齐（见 5.4）。
+6. **受控项目里是否会出现"组织管理员被单独设成 viewer / interactive_viewer"？**
+   → 若出现，该账号在受控项目里会被当作受限用户（且手机号通常不在 RPC 白名单里）→
+   fail closed → 什么都看不到。当前策略**保持不变**（项目角色优先，见 4.4），
+   处置方式是**部署口径**：不要给客户管理员单独降级项目角色。
+   → 若客户坚持要"组织管理员在受控项目也不受限"，则需改为组织角色优先（影响面更大）。
 
 ---
 
