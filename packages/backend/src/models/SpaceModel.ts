@@ -1950,33 +1950,37 @@ export class SpaceModel {
     }
 
     /**
-     * Map every given space to its root space.
-     * Nested spaces inherit access / privacy from the root space, so any
-     * visibility decision has to be made on the root space.
+     * The given spaces plus all their ancestors.
+     *
+     * A space is visible when it holds visible content, or when it is an
+     * ancestor of a space that holds visible content: the parent spaces are
+     * needed to keep the space tree navigable.
+     *
+     * The ltree `path` is built from slugs, so the join is scoped to the
+     * project: the same path can exist in two projects.
      */
-    async getSpaceRoots(spaceUuids: string[]): Promise<Map<string, string>> {
+    async getSpaceUuidsWithAncestors(
+        spaceUuids: string[],
+    ): Promise<Set<string>> {
         if (spaceUuids.length === 0) {
-            return new Map<string, string>();
+            return new Set<string>();
         }
 
         const result = await this.database.raw<{
-            rows: { child_uuid: string; root_uuid: string }[];
+            rows: { space_uuid: string }[];
         }>(
             `
-            SELECT child.space_uuid AS child_uuid, root.space_uuid AS root_uuid
-            FROM ${SpaceTableName} child
-            JOIN ${SpaceTableName} root
-              ON root.project_id = child.project_id
-             AND nlevel(root.path) = 1
-             AND root.path @> child.path
-            WHERE child.space_uuid IN (?)
+            SELECT DISTINCT ancestor.space_uuid AS space_uuid
+            FROM ${SpaceTableName} ancestor
+            JOIN ${SpaceTableName} target
+              ON target.project_id = ancestor.project_id
+             AND target.path <@ ancestor.path
+            WHERE target.space_uuid IN (?)
             `,
             [spaceUuids],
         );
 
-        return new Map(
-            result.rows.map((row) => [row.child_uuid, row.root_uuid]),
-        );
+        return new Set(result.rows.map((row) => row.space_uuid));
     }
 
     /**

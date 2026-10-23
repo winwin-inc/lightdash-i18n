@@ -13,6 +13,7 @@ import {
     SpaceShare,
     SpaceSummary,
     UpdateSpace,
+    ViewerContentScope,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
@@ -32,6 +33,10 @@ type DashboardAllowListService = {
         spaceUuids: string[],
         allowedDashboardUuids: Set<string>,
     ) => Promise<Map<string, number>>;
+    getViewerContentScope: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<ViewerContentScope | undefined>;
 };
 
 type SpaceServiceArguments = {
@@ -169,9 +174,23 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
             return space;
         }
 
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+
         const visibleDashboards = space.dashboards.filter((dashboard) =>
             allowedDashboardUuids.has(dashboard.uuid),
         );
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible, the other charts of the space must not leak
+        // their name, structure or fields.
+        const visibleQueries =
+            viewerScope === undefined
+                ? space.queries
+                : space.queries.filter((query) =>
+                      viewerScope.chartUuids.includes(query.uuid),
+                  );
         const childSpaceUuids = space.childSpaces.map((child) => child.uuid);
         const childSpaceCounts =
             await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
@@ -182,10 +201,19 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
         return {
             ...space,
             dashboards: visibleDashboards,
-            childSpaces: space.childSpaces.map((child) => ({
-                ...child,
-                dashboardCount: childSpaceCounts.get(child.uuid) ?? 0,
-            })),
+            queries: visibleQueries,
+            childSpaces: space.childSpaces
+                // Client-use: a child space is visible when it holds visible
+                // content, or when it is an ancestor of such a space
+                .filter(
+                    (child) =>
+                        viewerScope === undefined ||
+                        viewerScope.spaceUuids.includes(child.uuid),
+                )
+                .map((child) => ({
+                    ...child,
+                    dashboardCount: childSpaceCounts.get(child.uuid) ?? 0,
+                })),
         };
     }
 

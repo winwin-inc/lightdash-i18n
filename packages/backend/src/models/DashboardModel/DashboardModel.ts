@@ -931,7 +931,51 @@ export class DashboardModel {
     }
 
     /**
-     * Space UUIDs that hold the given dashboards or the charts mounted on them.
+     * Space UUIDs that hold the given charts.
+     *
+     * A chart that is visible (mounted on an allow-listed dashboard) belongs
+     * to a space, and a visible chart always means its space is visible.
+     */
+    async getSpaceUuidsByChartUuids(
+        chartUuids: string[],
+    ): Promise<Set<string>> {
+        if (chartUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const savedChartRows = await this.database(SavedChartsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${SavedChartsTableName}.space_id`,
+            )
+            .whereIn(`${SavedChartsTableName}.saved_query_uuid`, chartUuids);
+
+        const sqlChartRows = await this.database(SavedSqlTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SavedSqlTableName}.space_uuid`,
+            })
+            .whereIn(`${SavedSqlTableName}.saved_sql_uuid`, chartUuids)
+            .whereNotNull(`${SavedSqlTableName}.space_uuid`);
+
+        return new Set(
+            [...savedChartRows, ...sqlChartRows]
+                .map((row) => row.spaceUuid)
+                .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
+        );
+    }
+
+    /**
+     * Space UUIDs that hold the given dashboards.
+     *
+     * The client-use content scope is dashboard driven: a space is visible
+     * when it holds an allow-listed dashboard or a visible chart. The
+     * ancestors of those spaces are added by the caller, they are needed to
+     * keep the space tree navigable.
+     *
      * Returned as-is (not normalized to root spaces).
      */
     async getSpaceUuidsByDashboardUuids(
@@ -952,41 +996,8 @@ export class DashboardModel {
             )
             .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids);
 
-        const chartSpaceRows = await this.database(SavedChartsTableName)
-            .select<{ spaceUuid: string }[]>({
-                spaceUuid: `${SpaceTableName}.space_uuid`,
-            })
-            .innerJoin(
-                SpaceTableName,
-                `${SpaceTableName}.space_id`,
-                `${SavedChartsTableName}.space_id`,
-            )
-            .innerJoin(
-                DashboardTileChartTableName,
-                `${DashboardTileChartTableName}.saved_chart_id`,
-                `${SavedChartsTableName}.saved_query_id`,
-            )
-            .whereIn(
-                `${DashboardTileChartTableName}.dashboard_version_id`,
-                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
-            );
-
-        const sqlChartSpaceRows = await this.database(SavedSqlTableName)
-            .select<{ spaceUuid: string }[]>({
-                spaceUuid: `${SavedSqlTableName}.space_uuid`,
-            })
-            .innerJoin(
-                DashboardTileSqlChartTableName,
-                `${DashboardTileSqlChartTableName}.saved_sql_uuid`,
-                `${SavedSqlTableName}.saved_sql_uuid`,
-            )
-            .whereIn(
-                `${DashboardTileSqlChartTableName}.dashboard_version_id`,
-                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
-            );
-
         return new Set(
-            [...dashboardSpaceRows, ...chartSpaceRows, ...sqlChartSpaceRows]
+            dashboardSpaceRows
                 .map((row) => row.spaceUuid)
                 .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
         );

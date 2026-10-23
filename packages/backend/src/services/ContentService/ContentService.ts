@@ -131,22 +131,12 @@ export class ContentService extends BaseService {
             }),
         );
 
-        // Nested spaces inherit access / privacy from the root space
-        const spaceRootByUuid = await this.spaceModel.getSpaceRoots(
-            visibleSpaces.map((space) => space.uuid),
-        );
-
-        const allowedSpaceUuids = visibleSpaces
-            .filter((space) => {
-                const scope = contentScopes.get(space.projectUuid);
-                if (scope === undefined) {
-                    return true;
-                }
-                const rootSpaceUuid =
-                    spaceRootByUuid.get(space.uuid) ?? space.uuid;
-                return scope.spaceUuids.includes(rootSpaceUuid);
-            })
-            .map((space) => space.uuid);
+        // The `spaceUuids` filter is shared by the space, dashboard and chart
+        // queries, so it must only contain the spaces the user has access to.
+        // The client-use scope is applied to the content items themselves
+        // (see below): narrowing this list would also drop allow-listed
+        // dashboards and their charts from the results.
+        const allowedSpaceUuids = visibleSpaces.map((space) => space.uuid);
 
         const shouldApplyDashboardAllowList =
             !filters.contentTypes ||
@@ -183,7 +173,7 @@ export class ContentService extends BaseService {
         // the post-filter count. Only when the viewer allow-list applies.
         const shouldFilterInMemory =
             (allowedDashboardUuidsMap.size > 0 || contentScopes.size > 0) &&
-            isUserWithOrg(user);
+            (isUserWithOrg(user) || contentScopes.size > 0);
 
         const result = await this.contentModel.findSummaryContents(
             {
@@ -204,6 +194,16 @@ export class ContentService extends BaseService {
         }
 
         const filtered = result.data.filter((content) => {
+            if (content.contentType === ContentType.SPACE) {
+                // Client-use: only the spaces that hold an allow-listed
+                // dashboard are visible
+                const scope = contentScopes.get(content.project.uuid);
+                if (scope === undefined) {
+                    return true;
+                }
+                return scope.spaceUuids.includes(content.uuid);
+            }
+
             if (content.contentType === ContentType.CHART) {
                 // Client-use: only the charts mounted on an allow-listed
                 // dashboard are visible

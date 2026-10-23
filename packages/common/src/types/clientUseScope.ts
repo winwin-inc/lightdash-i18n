@@ -4,7 +4,8 @@
  * 全部由「看板白名单」（Admin RPC `findAllDashboardByMobile`）反推得到：
  * - `dashboardUuids`: 白名单内的看板
  * - `chartUuids`: 白名单看板磁贴引用的图表（dbt 图表 + SQL 图表）
- * - `spaceUuids`: 上述看板 / 图表所属的空间（已归一到根空间）
+ * - `spaceUuids`: 持有可见内容的空间（上述看板 / 图表所属空间）∪ 这些空间的所有祖先
+ *   （「可见内容 + 祖先」口径，保证嵌套空间树可导航）
  * - `exploreNames`: 上述看板磁贴图表使用的数据集（ad-hoc 查询口径）
  *
  * 语义：数组为空表示该维度没有任何可见内容（fail-closed，不可回退到公开空间）。
