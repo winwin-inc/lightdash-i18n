@@ -244,9 +244,13 @@ const DashboardProvider: React.FC<
         !isEditMode && !!projectUuid && !!dashboardSlug;
 
     const globalCategoryInitGenerationRef = useRef(0);
+    // cascade（用户手动改类目）与 init（自动初始化）使用独立的 generation：
+    // 自动初始化不应作废用户刚刚的选择，否则用户选中的值会被静默丢弃。
+    const globalCategoryCascadeGenerationRef = useRef(0);
     const globalCategoryProcessedSignatureRef = useRef<string | null>(null);
     const globalCategoryPendingSignatureRef = useRef<string | null>(null);
     const tabCategoryInitGenerationRef = useRef<Record<string, number>>({});
+    const tabCategoryCascadeGenerationRef = useRef<Record<string, number>>({});
     const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>({});
     const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
 
@@ -370,10 +374,13 @@ const DashboardProvider: React.FC<
                 projectUuid,
                 dashboardFilterContext,
             );
+            // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
+            // 否则会把用户的显式选择重置成别的类目（或直接清空）。
             return initializeCategoryFiltersAsync(
                 cascaded,
                 projectUuid,
                 dashboardFilterContext,
+                { skipFilterIds: [changedFilter.id] },
             );
         },
         [canApplyCategoryFilters, projectUuid, dashboardFilterContext],
@@ -450,12 +457,27 @@ const DashboardProvider: React.FC<
                 item,
             );
 
-            const generation = ++globalCategoryInitGenerationRef.current;
+            // 立即应用用户的选择：与普通筛选保持一致（更新筛选状态、记录 saved filter
+            // override、标记看板存在未保存改动）。否则用户的类目选择既不会立刻显示，
+            // 也无法保存，重新加载后会变回空值。
+            originalUpdateDimensionDashboardFilter(
+                item,
+                index,
+                isTemporary,
+                isEdit,
+            );
+            // 用户的显式选择不再需要自动解析：标记为已处理，避免 effect 触发的
+            // init 把用户刚选中的类目重置成别的值
+            markGlobalCategoryProcessed(nextFilters);
+
+            // 手动改动同时作废在途的 init 与更早的 cascade
+            ++globalCategoryInitGenerationRef.current;
+            const generation = ++globalCategoryCascadeGenerationRef.current;
             // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
             globalCategoryPendingSignatureRef.current = null;
             const requestSignature = projectUuid
                 ? getCategoryFiltersSignature(
-                      dashboardFilters,
+                      nextFilters,
                       projectUuid,
                       dashboardFilterContext,
                   )
@@ -469,7 +491,7 @@ const DashboardProvider: React.FC<
                             !shouldApplyCategoryInitResult({
                                 requestGeneration: generation,
                                 currentGeneration:
-                                    globalCategoryInitGenerationRef.current,
+                                    globalCategoryCascadeGenerationRef.current,
                                 requestSignature,
                                 currentFilters,
                                 projectUuid,
@@ -544,6 +566,19 @@ const DashboardProvider: React.FC<
         delete tabCategoryPendingSignatureRef.current[targetTabUuid];
         return generation;
     }, []);
+
+    // tab 级联（用户手动改类目）使用独立 generation：
+    // 自动初始化不应作废用户刚刚的选择。
+    const bumpTabCategoryCascadeGeneration = useCallback(
+        (targetTabUuid: string) => {
+            const generation =
+                (tabCategoryCascadeGenerationRef.current[targetTabUuid] ?? 0) +
+                1;
+            tabCategoryCascadeGenerationRef.current[targetTabUuid] = generation;
+            return generation;
+        },
+        [],
+    );
 
     const getDisplayedMergedFiltersForTab = useCallback(
         (targetTabUuid: string) => {
@@ -798,7 +833,9 @@ const DashboardProvider: React.FC<
             }));
 
             const committedFilters = tabFilters[uuid] ?? emptyFilters;
-            const generation = bumpTabCategoryGeneration(uuid);
+            // 手动改动同时作废在途的 init 与更早的 cascade
+            bumpTabCategoryGeneration(uuid);
+            const generation = bumpTabCategoryCascadeGeneration(uuid);
             const requestSignature = projectUuid
                 ? getCategoryFiltersSignature(
                       committedFilters,
@@ -814,7 +851,7 @@ const DashboardProvider: React.FC<
             )
                 .then((refined) => {
                     if (
-                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) !==
+                        (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) !==
                         generation
                     ) {
                         return;
@@ -828,7 +865,7 @@ const DashboardProvider: React.FC<
                             !shouldApplyCategoryInitResult({
                                 requestGeneration: generation,
                                 currentGeneration:
-                                    tabCategoryInitGenerationRef.current[
+                                    tabCategoryCascadeGenerationRef.current[
                                         uuid
                                     ] ?? 0,
                                 requestSignature,
@@ -857,7 +894,7 @@ const DashboardProvider: React.FC<
                 })
                 .catch(() => {
                     if (
-                        (tabCategoryInitGenerationRef.current[uuid] ?? 0) ===
+                        (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) ===
                         generation
                     ) {
                         clearTabCategoryDisplay(uuid);
@@ -878,6 +915,7 @@ const DashboardProvider: React.FC<
             projectUuid,
             dashboardFilterContext,
             bumpTabCategoryGeneration,
+            bumpTabCategoryCascadeGeneration,
             clearTabCategoryDisplay,
         ],
     );
@@ -1702,16 +1740,12 @@ const DashboardProvider: React.FC<
             const filters = JSON.parse(tempTabFilterSearchParam);
 
             setTabTemporaryFilters(
-                Object.entries(filters).reduce(
-                    (acc, [uuid, filter]) => {
-                        acc[uuid] =
-                            convertDashboardFiltersParamToDashboardFilters(
-                                filter as DashboardFiltersFromSearchParam,
-                            );
-                        return acc;
-                    },
-                    {} as Record<string, DashboardFilters>,
-                ),
+                Object.entries(filters).reduce((acc, [uuid, filter]) => {
+                    acc[uuid] = convertDashboardFiltersParamToDashboardFilters(
+                        filter as DashboardFiltersFromSearchParam,
+                    );
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
         }
     });

@@ -213,12 +213,12 @@ type FieldSearchResult =
 /**
  * 类目值解析结果。
  * - resolved: 解析出有效类目（当前值有效，或重置为第一个有权限的类目）
- * - not-found: 请求成功但底层表里没有任何可用类目（当前值确实不存在）
+ * - keep: 无法判断类目是否存在（父级无值 / 没有候选值）→ 保留当前值
  * - error: 请求失败，无法判断
  */
 type CategoryValueResolution =
     | { status: 'resolved'; value: string }
-    | { status: 'not-found' }
+    | { status: 'keep'; reason: 'parent-unresolved' | 'no-candidates' }
     | { status: 'error'; error: unknown };
 
 /**
@@ -343,10 +343,10 @@ const collectFieldSearchFilters = (
         parentValueOverride !== undefined
             ? parentValueOverride
             : parentFilter.disabled
-              ? undefined
-              : parentFilter.values?.[0]
-                ? String(parentFilter.values[0])
-                : undefined;
+            ? undefined
+            : parentFilter.values?.[0]
+            ? String(parentFilter.values[0])
+            : undefined;
 
     if (!parentLabel) {
         return undefined;
@@ -365,12 +365,40 @@ const collectFieldSearchFilters = (
 };
 
 /**
+ * 读取筛选器当前值（统一成字符串）。
+ */
+const getFilterCurrentValue = (
+    filter: DashboardFilterRule,
+): string | undefined => {
+    if (filter.values && filter.values.length > 0) {
+        return String(filter.values[0]);
+    }
+    return undefined;
+};
+
+/**
+ * 该筛选器是否需要参与类目解析。
+ *
+ * - 正常筛选器（未禁用）→ 需要
+ * - 被禁用且有值 → 作者显式禁用，保留原样
+ * - 被禁用且无值 → 旧版本「类目不存在就清空并禁用」留下的状态，需要重新解析并恢复
+ */
+const shouldResolveCategoryFilter = (filter: DashboardFilterRule): boolean => {
+    if (!filter.disabled) {
+        return true;
+    }
+    return getFilterCurrentValue(filter) === undefined;
+};
+
+/**
  * 按仓库实际类目解析筛选器值（field/search + 左侧筛选 + 父级 + dashboardSlug）
  *
  * 以底层表实际数据为准：
  * - 当前值在实际数据里 → 保留
  * - 当前值不在实际数据里 → 重置为第一个有权限的类目
- * - 实际数据里没有任何类目 → not-found（该类目确实不存在）
+ * - 带级联的查询没有候选值 → 再查一次不带级联的值域：
+ *   - 仍没有候选值 → keep（无法区分「表里没这个类目」与「行级过滤把行都过滤了」，保留原值）
+ *   - 有候选值 → 当前值有效则保留，否则重置为第一个候选
  * - 请求失败 → error（无法判断，保留原值）
  */
 const resolveCategoryFilterValueAsync = async ({
@@ -380,7 +408,9 @@ const resolveCategoryFilterValueAsync = async ({
     dashboardContext,
     parentValueOverride,
 }: ResolveCategoryValueArgs): Promise<CategoryValueResolution> => {
-    if (!isCategoryField(filter)) return { status: 'not-found' };
+    if (!isCategoryField(filter)) {
+        return { status: 'keep', reason: 'no-candidates' };
+    }
 
     const searchFilters = collectFieldSearchFilters(
         filters,
@@ -389,7 +419,7 @@ const resolveCategoryFilterValueAsync = async ({
     );
     // 配置了父级但父级无值时，collect 返回 undefined，不解析
     if (getParentFieldId(filter) && searchFilters === undefined) {
-        return { status: 'not-found' };
+        return { status: 'keep', reason: 'parent-unresolved' };
     }
 
     const result = await fetchFieldSearchValues(
@@ -405,15 +435,37 @@ const resolveCategoryFilterValueAsync = async ({
     }
 
     const fieldValues = result.values;
+    const currentValue = getFilterCurrentValue(filter);
 
     if (fieldValues.length === 0) {
-        return { status: 'not-found' };
-    }
+        // 带级联（父级 / 左侧筛选）的查询没有候选值：再查一次不带级联的值域，
+        // 用来区分「级联上下文没有匹配行」和「该字段本身没有可见值」。
+        const fallback = await fetchFieldSearchValues(
+            projectUuid,
+            filter.target.fieldId,
+            filter.target.tableName,
+            undefined,
+            dashboardContext,
+        );
 
-    const currentValue =
-        filter.values && filter.values.length > 0
-            ? String(filter.values[0])
-            : undefined;
+        if (fallback.status === 'error') {
+            return { status: 'error', error: fallback.error };
+        }
+
+        const fallbackValues = fallback.values;
+
+        if (fallbackValues.length === 0) {
+            // 无法区分「底层表确实没有该类目」与「行级过滤把候选值都过滤了」，
+            // 保留原值：清空会直接抹掉看板里已经保存的类目。
+            return { status: 'keep', reason: 'no-candidates' };
+        }
+
+        if (currentValue && fallbackValues.includes(currentValue)) {
+            return { status: 'resolved', value: currentValue };
+        }
+
+        return { status: 'resolved', value: fallbackValues[0] };
+    }
 
     if (currentValue && fieldValues.includes(currentValue)) {
         return { status: 'resolved', value: currentValue };
@@ -431,26 +483,34 @@ const sortCategoryFiltersByLevel = (
 ): DashboardFilterRule[] =>
     filters.dimensions
         .filter((filter) => isCategoryField(filter))
-        .sort((a, b) => (getCategoryLevel(a) ?? 0) - (getCategoryLevel(b) ?? 0));
+        .sort(
+            (a, b) => (getCategoryLevel(a) ?? 0) - (getCategoryLevel(b) ?? 0),
+        );
 
 /**
  * 异步初始化类目筛选器：以底层表实际数据为准
  * - 当前值在实际数据里 → 保留
  * - 当前值不在实际数据里 → 重置为第一个有权限的类目（并按一级→四级顺序联动子级）
- * - 实际数据里没有任何类目 → 清空筛选条件（避免看板因无效默认值而空白）
+ * - 查询没有候选值 → 保留原值（无法区分「表里没这个类目」与「行级过滤把候选值都过滤了」，
+ *   清空会直接抹掉看板里已经保存的类目）
  * - 请求失败 → 保留原值（无法判断，不改变用户筛选语义）
+ *
+ * `skipFilterIds` 用于跳过用户刚刚手动改过的筛选器：用户的显式选择优先，
+ * 不能被随后的自动解析覆盖。
  */
 export const initializeCategoryFiltersAsync = async (
     filters: DashboardFilters,
     projectUuid: string,
     dashboardContext?: DashboardFilterContext,
+    options?: { skipFilterIds?: string[] },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
     let hasChanges = false;
+    const skipFilterIds = new Set(options?.skipFilterIds ?? []);
 
     // 按层级顺序（一级 → 四级）处理，保证父级先重置，子级再基于新父级值解析
     for (const filter of sortCategoryFiltersByLevel(filters)) {
-        if (!isCategoryField(filter) || filter.disabled) {
+        if (!isCategoryField(filter) || skipFilterIds.has(filter.id)) {
             continue;
         }
 
@@ -459,6 +519,11 @@ export const initializeCategoryFiltersAsync = async (
 
         // 如果用户手动修改过 operator（如 NOT_NULL, NULL），保留用户的设置
         if (currentFilter.operator !== FilterOperator.EQUALS) {
+            continue;
+        }
+
+        // 作者显式禁用（且有值）的筛选器不动；被旧逻辑清空（无值 + 禁用）需要恢复
+        if (!shouldResolveCategoryFilter(currentFilter)) {
             continue;
         }
 
@@ -479,35 +544,20 @@ export const initializeCategoryFiltersAsync = async (
             continue;
         }
 
-        if (resolution.status === 'not-found') {
-            // 底层表里没有可用类目：当前默认值确实不存在，清空以免看板空白
-            const hasDefaultValue =
-                currentFilter.values !== undefined &&
-                currentFilter.values.length > 0;
-            if (!hasDefaultValue) {
-                continue;
-            }
-
-            hasChanges = true;
-            const clearedFilter: DashboardFilterRule = {
-                ...currentFilter,
-                values: [],
-                disabled: true,
-            };
-
-            workingFilters = {
-                ...workingFilters,
-                dimensions: workingFilters.dimensions.map((d) =>
-                    d.id === filter.id ? clearedFilter : d,
-                ),
-            };
+        if (resolution.status === 'keep') {
+            // 无法判断类目是否存在：保留当前值，不清空、不禁用
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[categoryFilters] Could not confirm category filter ${currentFilter.target.fieldId} (${resolution.reason}), keeping current value`,
+            );
             continue;
         }
 
         const resolvedValue = resolution.value;
 
-        const currentValue = currentFilter.values?.[0];
-        if (currentValue && String(currentValue) === resolvedValue) {
+        const currentValue = getFilterCurrentValue(currentFilter);
+        const wasCleared = currentFilter.disabled === true;
+        if (currentValue === resolvedValue && !wasCleared) {
             continue;
         }
 
@@ -516,6 +566,8 @@ export const initializeCategoryFiltersAsync = async (
             ...currentFilter,
             values: [resolvedValue],
             operator: FilterOperator.EQUALS,
+            // 旧版本把「类目不存在」的筛选器清空并禁用，这里恢复成可用状态
+            ...(wasCleared ? { disabled: false } : {}),
         };
 
         workingFilters = {
@@ -562,8 +614,8 @@ export const updateCategoryFilterCascadeAsync = async (
             if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
                 continue;
 
-            // 没有配置默认值的 filter 不需要联动赋值，保持为空/无限制
-            if (filter.disabled) continue;
+            // 作者显式禁用（且有值）的筛选器不参与联动；被旧逻辑清空的需要恢复
+            if (!shouldResolveCategoryFilter(filter)) continue;
 
             // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
             if (filter.operator !== FilterOperator.EQUALS) {
@@ -583,31 +635,17 @@ export const updateCategoryFilterCascadeAsync = async (
                 continue;
             }
 
-            if (resolution.status === 'not-found') {
-                const hasDefaultValue =
-                    filter.values !== undefined && filter.values.length > 0;
-                if (!hasDefaultValue) {
-                    continue;
-                }
-
-                hasChanges = true;
-                const clearedFilter: DashboardFilterRule = {
-                    ...filter,
-                    values: [],
-                    disabled: true,
-                };
-
-                updatedFilters = {
-                    ...updatedFilters,
-                    dimensions: updatedFilters.dimensions.map((d) =>
-                        d.id === filter.id ? clearedFilter : d,
-                    ),
-                };
+            if (resolution.status === 'keep') {
+                // 无法判断类目是否存在：保留子级当前值，并按当前值继续向下级联
+                const keptValue =
+                    filter.values && filter.values.length > 0
+                        ? String(filter.values[0])
+                        : null;
 
                 const childResult = await cascadeChildren(
                     updatedFilters,
-                    clearedFilter.target.fieldId,
-                    null,
+                    filter.target.fieldId,
+                    keptValue,
                 );
                 if (childResult.hasChanges) {
                     updatedFilters = childResult.filters;
@@ -617,12 +655,10 @@ export const updateCategoryFilterCascadeAsync = async (
 
             const resolvedValue = resolution.value;
 
-            const currentValue =
-                filter.values && filter.values.length > 0
-                    ? String(filter.values[0])
-                    : undefined;
+            const currentValue = getFilterCurrentValue(filter);
+            const wasCleared = filter.disabled === true;
 
-            if (currentValue && currentValue === resolvedValue) {
+            if (currentValue && currentValue === resolvedValue && !wasCleared) {
                 // 当前值仍有效，继续向下级联
             } else {
                 hasChanges = true;
@@ -631,6 +667,8 @@ export const updateCategoryFilterCascadeAsync = async (
                     ...filter,
                     values: [resolvedValue],
                     operator: FilterOperator.EQUALS,
+                    // 旧版本把「类目不存在」的筛选器清空并禁用，这里恢复成可用状态
+                    ...(wasCleared ? { disabled: false } : {}),
                 };
 
                 updatedFilters = {
