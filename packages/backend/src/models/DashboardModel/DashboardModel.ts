@@ -931,7 +931,13 @@ export class DashboardModel {
     }
 
     /**
-     * Space UUIDs that hold the given dashboards or the charts mounted on them.
+     * Space UUIDs that hold the given dashboards.
+     *
+     * The client-use content scope is dashboard driven: a space is visible
+     * when it holds an allow-listed dashboard. The spaces of the charts that
+     * are mounted on those dashboards are deliberately not included, a space
+     * without an allow-listed dashboard must not be visible.
+     *
      * Returned as-is (not normalized to root spaces).
      */
     async getSpaceUuidsByDashboardUuids(
@@ -952,41 +958,8 @@ export class DashboardModel {
             )
             .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids);
 
-        const chartSpaceRows = await this.database(SavedChartsTableName)
-            .select<{ spaceUuid: string }[]>({
-                spaceUuid: `${SpaceTableName}.space_uuid`,
-            })
-            .innerJoin(
-                SpaceTableName,
-                `${SpaceTableName}.space_id`,
-                `${SavedChartsTableName}.space_id`,
-            )
-            .innerJoin(
-                DashboardTileChartTableName,
-                `${DashboardTileChartTableName}.saved_chart_id`,
-                `${SavedChartsTableName}.saved_query_id`,
-            )
-            .whereIn(
-                `${DashboardTileChartTableName}.dashboard_version_id`,
-                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
-            );
-
-        const sqlChartSpaceRows = await this.database(SavedSqlTableName)
-            .select<{ spaceUuid: string }[]>({
-                spaceUuid: `${SavedSqlTableName}.space_uuid`,
-            })
-            .innerJoin(
-                DashboardTileSqlChartTableName,
-                `${DashboardTileSqlChartTableName}.saved_sql_uuid`,
-                `${SavedSqlTableName}.saved_sql_uuid`,
-            )
-            .whereIn(
-                `${DashboardTileSqlChartTableName}.dashboard_version_id`,
-                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
-            );
-
         return new Set(
-            [...dashboardSpaceRows, ...chartSpaceRows, ...sqlChartSpaceRows]
+            dashboardSpaceRows
                 .map((row) => row.spaceUuid)
                 .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
         );

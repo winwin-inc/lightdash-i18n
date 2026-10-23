@@ -637,8 +637,12 @@ export class DashboardService
      * Everything is derived from the dashboard allow-list (Admin RPC), so spaces,
      * saved charts and explores stay consistent with the dashboards the customer
      * is allowed to open:
+     * - dashboards: the allow-listed dashboards (other dashboards of the same
+     *   space stay hidden)
      * - charts: the tiles of the allow-listed dashboards
-     * - spaces: the spaces of those dashboards / charts (normalized to root spaces)
+     * - spaces: the spaces that hold an allow-listed dashboard (a space without
+     *   an allow-listed dashboard is removed, even when it holds one of the
+     *   tiles of an allow-listed dashboard)
      * - explores: the explores used by those charts
      *
      * Returns undefined when the allow-list does not apply (project is not

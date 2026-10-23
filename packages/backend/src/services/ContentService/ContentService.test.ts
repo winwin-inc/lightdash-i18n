@@ -338,6 +338,35 @@ describe('ContentService client-use scope', () => {
         expect(dashboardUuids).toEqual([ALLOWED_DASHBOARD_UUID]);
     });
 
+    it('hides a space without an allow-listed dashboard but keeps its chart', async () => {
+        // The scope is dashboard driven: only the spaces that hold an
+        // allow-listed dashboard are visible. A chart that is a tile of an
+        // allow-listed dashboard stays visible, even when its own space is
+        // not part of the scope.
+        dashboardService.getViewerContentScope.mockResolvedValue({
+            ...scope,
+            spaceUuids: [],
+            chartUuids: [ALLOWED_CHART_UUID, HIDDEN_CHART_UUID],
+        });
+
+        const result = await service.find(
+            user,
+            { projectUuids: [PROJECT_UUID] },
+            {},
+            { page: 1, pageSize: 100 },
+        );
+
+        const spaceUuids = result.data
+            .filter((content) => content.contentType === ContentType.SPACE)
+            .map((content) => content.uuid);
+        const chartUuids = result.data
+            .filter((content) => content.contentType === ContentType.CHART)
+            .map((content) => content.uuid);
+
+        expect(spaceUuids).toEqual([]);
+        expect(chartUuids).toEqual([ALLOWED_CHART_UUID, HIDDEN_CHART_UUID]);
+    });
+
     it('does not filter anything when the project is not client-use', async () => {
         dashboardService.getViewerContentScope.mockResolvedValue(undefined);
         dashboardService.getAllowedDashboardUuidsForViewer.mockResolvedValue(
