@@ -321,6 +321,10 @@ join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能
 | `GET /projects/:projectUuid/most-popular`              | `ProjectService.getMostPopularAndRecentlyUpdated` | 空间按 `scope.spaceUuids`、图表按 `scope.chartUuids`、看板按 `scope.dashboardUuids` 过滤 | ✅   |
 | `GET /pinned`（置顶列表）                              | `PinningService.getPinnedItems`                   | 置顶空间按 `scope.spaceUuids`、置顶图表按 `scope.chartUuids` 过滤                        | ✅   |
 | `GET /projects/:projectUuid/dashboards/:uuid/comments` | `CommentService.findCommentsForDashboard`         | 受限角色只能读白名单看板的评论                                                           | ✅   |
+| `GET /projects/:projectUuid/dashboards/code`           | `CoderService.getDashboards`                      | 看板按白名单过滤，空间元数据同步收窄                                                     | ✅   |
+| `GET /projects/:projectUuid/charts/code`               | `CoderService.getCharts`                          | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
+| `GET /projects/:projectUuid/code/sqlCharts`            | `CoderService.getSqlCharts`                       | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
+| `GET /projects/:projectUuid/code/spaces`               | `CoderService.getSpaces`                          | 空间按 `scope.spaceUuids` 过滤                                                           | ✅   |
 
 前端配合：内容列表的"空间"列改为使用 content API 返回的 `space.name`
 （空间被隐藏时只显示文字、不给链接），避免出现空白单元格。
