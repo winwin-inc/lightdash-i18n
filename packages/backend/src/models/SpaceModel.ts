@@ -75,6 +75,16 @@ type SpaceModelArguments = {
     database: Knex;
 };
 
+/**
+ * Build the placeholders of an `IN` clause: one `?` per value.
+ *
+ * Raw bindings must never receive an array: knex sends it as a single postgres
+ * array parameter, which fails on uuid columns
+ * (`invalid input syntax for type uuid: "{...}"`).
+ */
+const buildInPlaceholders = (count: number): string =>
+    new Array(count).fill('?').join(', ');
+
 export class SpaceModel {
     private database: Knex;
 
@@ -1966,6 +1976,9 @@ export class SpaceModel {
             return new Set<string>();
         }
 
+        // The uuids are bound as individual parameters (one placeholder per
+        // uuid). Binding an array to a raw `IN (?)` placeholder sends it as a
+        // single postgres array parameter, which fails on uuid columns.
         const result = await this.database.raw<{
             rows: { space_uuid: string }[];
         }>(
@@ -1975,9 +1988,9 @@ export class SpaceModel {
             JOIN ${SpaceTableName} target
               ON target.project_id = ancestor.project_id
              AND target.path <@ ancestor.path
-            WHERE target.space_uuid IN (?)
+            WHERE target.space_uuid IN (${buildInPlaceholders(spaceUuids.length)})
             `,
-            [spaceUuids],
+            spaceUuids,
         );
 
         return new Set(result.rows.map((row) => row.space_uuid));
@@ -1999,6 +2012,9 @@ export class SpaceModel {
             return counts;
         }
 
+        // The uuids are bound as individual parameters (one placeholder per
+        // uuid). Binding an array to a raw `IN (?)` placeholder sends it as a
+        // single postgres array parameter, which fails on uuid columns.
         const result = await this.database.raw<{
             rows: { space_uuid: string; chart_count: string }[];
         }>(
@@ -2010,20 +2026,28 @@ export class SpaceModel {
                 FROM ${SavedChartsTableName}
                 JOIN ${SpaceTableName}
                   ON ${SpaceTableName}.space_id = ${SavedChartsTableName}.space_id
-                WHERE ${SpaceTableName}.space_uuid IN (?)
-                  AND ${SavedChartsTableName}.saved_query_uuid IN (?)
+                WHERE ${SpaceTableName}.space_uuid IN (${buildInPlaceholders(
+                    spaceUuids.length,
+                )})
+                  AND ${SavedChartsTableName}.saved_query_uuid IN (${buildInPlaceholders(
+                      chartUuids.length,
+                  )})
                 UNION ALL
                 SELECT ${SpaceTableName}.space_uuid AS space_uuid,
                        ${SavedSqlTableName}.saved_sql_uuid AS chart_uuid
                 FROM ${SavedSqlTableName}
                 JOIN ${SpaceTableName}
                   ON ${SpaceTableName}.space_uuid = ${SavedSqlTableName}.space_uuid
-                WHERE ${SpaceTableName}.space_uuid IN (?)
-                  AND ${SavedSqlTableName}.saved_sql_uuid IN (?)
+                WHERE ${SpaceTableName}.space_uuid IN (${buildInPlaceholders(
+                    spaceUuids.length,
+                )})
+                  AND ${SavedSqlTableName}.saved_sql_uuid IN (${buildInPlaceholders(
+                      chartUuids.length,
+                  )})
             ) visible_charts
             GROUP BY space_uuid
             `,
-            [spaceUuids, chartUuids, spaceUuids, chartUuids],
+            [...spaceUuids, ...chartUuids, ...spaceUuids, ...chartUuids],
         );
 
         result.rows.forEach((row) => {
