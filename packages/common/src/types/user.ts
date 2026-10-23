@@ -1,6 +1,7 @@
 import { type AbilityBuilder } from '@casl/ability';
 import { type MemberAbility } from '../authorization/types';
 import { type AnyType } from './any';
+import { type ViewerContentScopeDiagnostics } from './clientUseScope';
 import { type OpenIdIdentityIssuerType } from './openIdIdentity';
 import { type OrganizationMemberRole } from './organizationMemberProfile';
 import { type PromotionAction } from './promotion';
@@ -136,7 +137,16 @@ export type ApiUserAllowedOrganizationsResponse = {
  */
 export type ApiGetAuthenticatedUserResponse = {
     status: 'ok';
-    results: LightdashUser;
+    results: LightdashUser & {
+        /**
+         * Client-use (客户使用模式) content scope diagnostics.
+         *
+         * Only returned when the request passes `?projectUuid=`.
+         * It explains which dashboards the user can see in that project and
+         * why (allow-list empty, RPC failure, role not restricted, ...).
+         */
+        clientUse?: ViewerContentScopeDiagnostics;
+    };
 };
 
 export type ApiRegisterUserResponse = {

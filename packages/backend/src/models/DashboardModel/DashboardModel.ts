@@ -1016,6 +1016,22 @@ export class DashboardModel {
         );
     }
 
+    async getNamesForUuids(uuids: string[]): Promise<Record<string, string>> {
+        if (uuids.length === 0) {
+            return {};
+        }
+        // Uuids are globally unique, so no need to filter by project
+        const dashboards = await this.database(DashboardsTableName)
+            .select('name', 'dashboard_uuid')
+            .whereIn('dashboard_uuid', uuids);
+        return Object.fromEntries(
+            dashboards.map((dashboard) => [
+                dashboard.dashboard_uuid,
+                dashboard.name,
+            ]),
+        );
+    }
+
     async find({
         slug,
         slugs,

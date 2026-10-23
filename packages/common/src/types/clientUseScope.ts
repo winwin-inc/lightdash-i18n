@@ -37,3 +37,78 @@ export type ViewerContentScopeResolver = {
         projectUuid: string,
     ) => Promise<ViewerContentScope | undefined>;
 };
+
+/**
+ * Why the client-use allow-list is (not) applied to a user in a project.
+ *
+ * - `not_client_use`: the project is not in client-use mode → no filtering
+ * - `role_not_restricted`: the effective project role is not
+ *   viewer / interactive_viewer → no filtering
+ * - `user_not_found`: the user has no row in the `users` table
+ * - `no_email`: the user has no email → the mobile number cannot be derived
+ * - `rpc_not_configured`: `ADMIN_API_HOST` / `ADMIN_API_KEY` are missing
+ * - `rpc_error`: the Admin RPC call failed (fail-closed: nothing is visible)
+ * - `rpc_empty`: the RPC answered but the mobile has no dashboard in this project
+ * - `rpc_ok`: the RPC answered with at least one dashboard
+ */
+export type ViewerContentScopeStatus =
+    | 'not_client_use'
+    | 'role_not_restricted'
+    | 'user_not_found'
+    | 'no_email'
+    | 'rpc_not_configured'
+    | 'rpc_error'
+    | 'rpc_empty'
+    | 'rpc_ok';
+
+/**
+ * Where the effective project role comes from.
+ * Project level wins over organization level (see docs/client-use-viewer-content-scope.md).
+ */
+export type ViewerProjectRoleSource =
+    | 'project_membership'
+    | 'group_membership'
+    | 'organization'
+    | 'none';
+
+/**
+ * Diagnostic payload of the client-use content scope.
+ *
+ * It exists to answer "why can this user not see any dashboard?":
+ * is the allow-list empty, did the RPC fail, is the role wrong,
+ * or is the user simply not a restricted role?
+ */
+export type ViewerContentScopeDiagnostics = {
+    projectUuid: string;
+    /** `projects.is_client_use` */
+    clientUseEnabled: boolean;
+    /** `ADMIN_API_HOST` + `ADMIN_API_KEY` are both configured */
+    rpcConfigured: boolean;
+    /** Effective project role (project membership > group > organization) */
+    effectiveProjectRole: string | null;
+    roleSource: ViewerProjectRoleSource;
+    /** The allow-list / content scope applies to this user */
+    scopeApplied: boolean;
+    status: ViewerContentScopeStatus;
+    /** Human readable explanation (Chinese, for support) */
+    reason: string;
+    /** Mobile number derived from the user email (`local part`) */
+    mobile: string | null;
+    /** Dashboards returned by the Admin RPC for this project */
+    allowedDashboardCount: number;
+    allowedDashboardUuids: string[];
+    /** Name of the allow-listed dashboards, when they can be resolved */
+    allowedDashboardNames: string[];
+    /** Size of the derived content scope (null when the scope does not apply) */
+    scopeCounts: {
+        dashboards: number;
+        charts: number;
+        spaces: number;
+        explores: number;
+    } | null;
+};
+
+export type ApiMyContentScopeResponse = {
+    status: 'ok';
+    results: ViewerContentScopeDiagnostics;
+};

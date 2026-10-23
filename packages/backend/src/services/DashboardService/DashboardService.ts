@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     AbilityAction,
+    assertUnreachable,
     BulkActionable,
     convertOrganizationRoleToProjectRole,
     CreateDashboard,
@@ -51,6 +52,9 @@ import {
     type UserDashboardsSummary,
     type UUID,
     type ViewerContentScope,
+    type ViewerContentScopeDiagnostics,
+    type ViewerContentScopeStatus,
+    type ViewerProjectRoleSource,
 } from '@lightdash/common';
 
 import cronstrue from 'cronstrue';
@@ -101,6 +105,20 @@ export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
 type AllowedDashboardUuidsResult = {
     uuids: Set<string> | undefined;
     failed: boolean;
+    /**
+     * Why the allow-list is (not) applied. Kept next to the result so the
+     * diagnostic endpoint does not need a second Admin RPC call.
+     */
+    status: ViewerContentScopeStatus;
+    /** Effective project role (project membership > group > organization) */
+    effectiveProjectRole: string | null;
+    roleSource: ViewerProjectRoleSource;
+    /** Mobile number derived from the user email */
+    mobile: string | null;
+    /** `projects.is_client_use` */
+    clientUseEnabled: boolean;
+    /** `ADMIN_API_HOST` + `ADMIN_API_KEY` are both configured */
+    rpcConfigured: boolean;
 };
 
 type DashboardServiceArguments = {
@@ -120,6 +138,44 @@ type DashboardServiceArguments = {
     categoryRpcClient: CategoryRpcClient;
     organizationMemberProfileModel: OrganizationMemberProfileModel;
     projectOperationLogService: ProjectOperationLogService;
+};
+
+/**
+ * Human readable explanation of the client-use allow-list resolution.
+ * Used by the diagnostic endpoint / the client-use diagnostic panel.
+ */
+const describeViewerContentScopeStatus = (
+    result: AllowedDashboardUuidsResult,
+): string => {
+    switch (result.status) {
+        case 'not_client_use':
+            return '项目未开启客户使用模式，不启用内容范围限制。';
+        case 'role_not_restricted':
+            return `项目开启了客户使用模式，但该用户的有效项目角色为 ${
+                result.effectiveProjectRole ?? '未知'
+            }（不属于 viewer / interactive_viewer），因此不启用内容范围限制。`;
+        case 'user_not_found':
+            return '用户在 users 表中不存在（通常是 SSO 首次登录未同步），无法查询授权看板。';
+        case 'no_email':
+            return '用户没有邮箱（或邮箱不含手机号前缀），无法映射到客户授权接口，手机号无法查询授权。';
+        case 'rpc_not_configured':
+            return '客户授权接口（Admin RPC）未配置（缺少 ADMIN_API_HOST 或 ADMIN_API_KEY），未启用内容范围限制。';
+        case 'rpc_error':
+            return '客户授权接口（Admin RPC）调用失败，已按 fail-closed 处理：当前看不到任何看板，请检查接口可用性。';
+        case 'rpc_empty':
+            return `客户授权接口返回该手机号（${
+                result.mobile ?? '未知'
+            }）在本项目下没有任何授权看板，属于正常的“未授权”状态。`;
+        case 'rpc_ok':
+            return `客户授权接口返回该手机号（${
+                result.mobile ?? '未知'
+            }）在本项目下有授权看板。`;
+        default:
+            return assertUnreachable(
+                result.status,
+                'Unknown viewer content scope status',
+            );
+    }
 };
 
 export class DashboardService
@@ -303,10 +359,29 @@ export class DashboardService
         user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
+        const result = await this.getAllowedDashboardUuidsResult(
+            user,
+            projectUuid,
+        );
+        return result.uuids;
+    }
+
+    /**
+     * Same as {@link getAllowedDashboardUuidsForViewer} but keeps the
+     * diagnostic metadata (why the allow-list does or does not apply).
+     *
+     * The result is cached (promise included, so concurrent requests share a
+     * single Admin RPC call) for a short period: the allow-list is consulted by
+     * content lists, chart reads and every query execution.
+     */
+    async getAllowedDashboardUuidsResult(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<AllowedDashboardUuidsResult> {
         const cacheKey = `${projectUuid}:${user.userUuid}`;
         const cached = this.allowListCache.get(cacheKey);
         if (cached !== undefined && cached.expiresAt > Date.now()) {
-            return cached.promise.then((result) => result.uuids);
+            return cached.promise;
         }
 
         const promise = this.fetchAllowedDashboardUuids(user, projectUuid);
@@ -332,7 +407,7 @@ export class DashboardService
         );
         DashboardService.pruneViewerCache(this.allowListCache);
 
-        return promise.then((result) => result.uuids);
+        return promise;
     }
 
     /**
@@ -399,7 +474,16 @@ export class DashboardService
             this.logger.warn(
                 `Project ${projectUuid} not found in projects table, skipping RPC filtering`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'not_client_use',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: false,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         const isClientUse = project.is_client_use ?? false;
@@ -407,7 +491,16 @@ export class DashboardService
             this.logger.warn(
                 `Project ${projectUuid} is not in client use mode, skipping RPC filtering`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'not_client_use',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: false,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Get user's userId (needed for group_memberships query)
@@ -421,7 +514,16 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} not found in users table, skipping RPC filtering`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'user_not_found',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Get user's project role from direct membership
@@ -462,10 +564,17 @@ export class DashboardService
         // 2. Group membership
         // 3. Organization role converted to project role (fallback)
         let userRole = directMembership?.role || groupMembership?.role;
+        let roleSource: ViewerProjectRoleSource = directMembership?.role
+            ? 'project_membership'
+            : 'group_membership';
         if (!userRole && orgMembership?.role) {
             userRole = convertOrganizationRoleToProjectRole(
                 orgMembership.role as OrganizationMemberRole,
             );
+            roleSource = 'organization';
+        }
+        if (!userRole) {
+            roleSource = 'none';
         }
 
         const shouldApplyRpcDashboardFilter =
@@ -476,7 +585,16 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} is ${userRole} in project ${projectUuid}, skipping RPC filtering`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'role_not_restricted',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // For viewer / interactive_viewer in client use mode, RPC interface is required
@@ -486,7 +604,16 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} (viewer / interactive_viewer) has no email in client use project ${projectUuid}, filtering out all dashboards.`,
             );
-            return { uuids: new Set<string>(), failed: false };
+            return {
+                uuids: new Set<string>(),
+                failed: false,
+                status: 'no_email',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Extract mobile number from email (remove @ and everything after it)
@@ -497,14 +624,32 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} (viewer / interactive_viewer) email ${normalizedEmail} has no mobile part in client use project ${projectUuid}, skipping RPC filtering`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'no_email',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         if (!this.categoryRpcClient.isConfigured()) {
             this.logger.warn(
                 `Admin RPC is not configured, skipping dashboard RPC filtering for project ${projectUuid}`,
             );
-            return { uuids: undefined, failed: false };
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'rpc_not_configured',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: false,
+            };
         }
 
         try {
@@ -531,14 +676,32 @@ export class DashboardService
                 );
             }
 
-            return { uuids: allowedUuids, failed: false };
+            return {
+                uuids: allowedUuids,
+                failed: false,
+                status: allowedUuids.size > 0 ? 'rpc_ok' : 'rpc_empty',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: true,
+            };
         } catch (error) {
             this.logger.error(
                 `Error fetching dashboards by mobile ${mobile} in project ${projectUuid}: ${
                     error instanceof Error ? error.message : String(error)
                 }. Returning empty allow-list; viewer / interactive_viewer will see no dashboards until RPC recovers.`,
             );
-            return { uuids: new Set<string>(), failed: true };
+            return {
+                uuids: new Set<string>(),
+                failed: true,
+                status: 'rpc_error',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: true,
+            };
         }
     }
 
@@ -728,6 +891,56 @@ export class DashboardService
             chartUuids: [...chartUuids],
             spaceUuids: [...spaceUuids],
             exploreNames: [...exploreNames],
+        };
+    }
+
+    /**
+     * Explain the client-use content scope of a user in a project.
+     *
+     * This is a read-only diagnostic: it answers "why can this user not see
+     * any dashboard?". It never grants more access than the scope itself and
+     * it reuses the cached allow-list, so it does not add an Admin RPC call.
+     */
+    async getViewerContentScopeDiagnostics(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScopeDiagnostics> {
+        const allowList = await this.getAllowedDashboardUuidsResult(
+            user,
+            projectUuid,
+        );
+        const scope = await this.getViewerContentScope(user, projectUuid);
+
+        const allowedDashboardUuids = allowList.uuids
+            ? [...allowList.uuids]
+            : [];
+        const dashboardNames = await this.dashboardModel.getNamesForUuids(
+            allowedDashboardUuids,
+        );
+
+        return {
+            projectUuid,
+            clientUseEnabled: allowList.clientUseEnabled,
+            rpcConfigured: allowList.rpcConfigured,
+            effectiveProjectRole: allowList.effectiveProjectRole,
+            roleSource: allowList.roleSource,
+            scopeApplied: allowList.uuids !== undefined,
+            status: allowList.status,
+            reason: describeViewerContentScopeStatus(allowList),
+            mobile: allowList.mobile,
+            allowedDashboardCount: allowedDashboardUuids.length,
+            allowedDashboardUuids,
+            allowedDashboardNames: allowedDashboardUuids
+                .map((uuid) => dashboardNames[uuid])
+                .filter((name): name is string => !!name),
+            scopeCounts: scope
+                ? {
+                      dashboards: scope.dashboardUuids.length,
+                      charts: scope.chartUuids.length,
+                      spaces: scope.spaceUuids.length,
+                      explores: scope.exploreNames.length,
+                  }
+                : null,
         };
     }
 
