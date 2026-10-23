@@ -5261,6 +5261,16 @@ export class ProjectService extends BaseService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use: only the charts of the visible scope count.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope !== undefined) {
+            return viewerScope.chartUuids.length > 0;
+        }
+
         try {
             const charts = await this.contentModel.findSummaryContents(
                 {
@@ -5673,12 +5683,25 @@ export class ProjectService extends BaseService {
                 hasDirectAccessToSpace(user, space), // NOTE: We don't check for admin access to the space - exclude private spaces from this panel if admin
         );
 
+        // Client-use: the panel must only show content of the visible spaces,
+        // and the visible charts / dashboards.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const visibleSpaces =
+            viewerScope === undefined
+                ? allowedSpaces
+                : allowedSpaces.filter((space) =>
+                      viewerScope.spaceUuids.includes(space.uuid),
+                  );
+
         // SQL already LIMITs to MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT (10).
         // Allow-list is applied after that cut, so a permitted dashboard outside
         // the top 10 is not backfilled. Client-use home hides this panel; do not
         // switch to fetch-all-then-slice unless that UI starts using this API.
-        const mostPopular = await this.getMostPopular(allowedSpaces);
-        const recentlyUpdated = await this.getRecentlyUpdated(allowedSpaces);
+        const mostPopular = await this.getMostPopular(visibleSpaces);
+        const recentlyUpdated = await this.getRecentlyUpdated(visibleSpaces);
         const allowedDashboardUuids =
             await this.dashboardService.getAllowedDashboardUuidsForViewer(
                 user,
@@ -5689,11 +5712,20 @@ export class ProjectService extends BaseService {
         // do not. Do not add slug to that dashboard mapping or this filter breaks.
         const isVisibleItem = (
             item: SpaceQuery | DashboardBasicDetails,
-        ): boolean =>
-            allowedDashboardUuids === undefined ||
-            !isUserWithOrg(user) ||
-            'slug' in item ||
-            allowedDashboardUuids.has(item.uuid);
+        ): boolean => {
+            if (viewerScope !== undefined) {
+                // Client-use: charts and dashboards must be part of the scope
+                return 'slug' in item
+                    ? viewerScope.chartUuids.includes(item.uuid)
+                    : viewerScope.dashboardUuids.includes(item.uuid);
+            }
+            return (
+                allowedDashboardUuids === undefined ||
+                !isUserWithOrg(user) ||
+                'slug' in item ||
+                allowedDashboardUuids.has(item.uuid)
+            );
+        };
 
         return {
             mostPopular: mostPopular

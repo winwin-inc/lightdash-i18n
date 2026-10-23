@@ -51,6 +51,7 @@ const spaces = [
         projectUuid: PROJECT_UUID,
         organizationUuid: ORGANIZATION_UUID,
         isPrivate: false,
+        access: [],
         name: 'allowed space',
     },
     {
@@ -58,6 +59,7 @@ const spaces = [
         projectUuid: PROJECT_UUID,
         organizationUuid: ORGANIZATION_UUID,
         isPrivate: false,
+        access: [],
         name: 'other space',
     },
 ];
@@ -79,10 +81,29 @@ const spaceModel = {
             ),
     ),
     getSpaceQueries: jest.fn(async () => [
-        { uuid: ALLOWED_CHART_UUID, name: 'allowed chart' },
-        { uuid: HIDDEN_CHART_UUID, name: 'hidden chart' },
+        {
+            uuid: ALLOWED_CHART_UUID,
+            name: 'allowed chart',
+            slug: 'a',
+            views: 1,
+        },
+        { uuid: HIDDEN_CHART_UUID, name: 'hidden chart', slug: 'b', views: 1 },
     ]),
     getSpaceSqlCharts: jest.fn(async () => []),
+    getSpaceDashboards: jest.fn(async () => [
+        {
+            uuid: 'allowed-dashboard-uuid',
+            name: 'allowed dashboard',
+            views: 1,
+            updatedAt: new Date(),
+        },
+        {
+            uuid: 'hidden-dashboard-uuid',
+            name: 'hidden dashboard',
+            views: 1,
+            updatedAt: new Date(),
+        },
+    ]),
 };
 
 const savedChartModel = {
@@ -97,9 +118,10 @@ const dashboardService = {
         Promise<ViewerContentScope | undefined>,
         [SessionUser, string]
     >(async () => scope),
-    getAllowedDashboardUuidsForViewer: jest.fn(
-        async () => new Set(scope.dashboardUuids),
-    ),
+    getAllowedDashboardUuidsForViewer: jest.fn<
+        Promise<Set<string> | undefined>,
+        [SessionUser, string]
+    >(async () => new Set(scope.dashboardUuids)),
     getVisibleDashboardCountBySpaceUuid: jest.fn(
         async (spaceUuids: string[]) =>
             new Map(spaceUuids.map((spaceUuid) => [spaceUuid, 1])),
@@ -108,6 +130,11 @@ const dashboardService = {
 
 const getService = (viewerScope: ViewerContentScope | undefined) => {
     dashboardService.getViewerContentScope.mockResolvedValue(viewerScope);
+    dashboardService.getAllowedDashboardUuidsForViewer.mockResolvedValue(
+        viewerScope === undefined
+            ? undefined
+            : new Set(viewerScope.dashboardUuids),
+    );
     return new ProjectService({
         projectModel: projectModel as never,
         spaceModel: spaceModel as never,
@@ -199,6 +226,53 @@ describe('ProjectService client-use scope', () => {
             expect(result.map((chart) => chart.uuid)).toEqual([
                 ALLOWED_CHART_UUID,
                 HIDDEN_CHART_UUID,
+            ]);
+        });
+    });
+
+    describe('getMostPopularAndRecentlyUpdated', () => {
+        test('only queries the visible spaces', async () => {
+            const service = getService(scope);
+
+            await service.getMostPopularAndRecentlyUpdated(user, PROJECT_UUID);
+
+            expect(spaceModel.getSpaceQueries).toHaveBeenCalledWith(
+                [ALLOWED_SPACE_UUID],
+                { mostPopular: true },
+            );
+            expect(spaceModel.getSpaceDashboards).toHaveBeenCalledWith(
+                [ALLOWED_SPACE_UUID],
+                { mostPopular: true },
+            );
+        });
+
+        test('only returns the charts and dashboards of the scope', async () => {
+            const service = getService(scope);
+
+            const result = await service.getMostPopularAndRecentlyUpdated(
+                user,
+                PROJECT_UUID,
+            );
+
+            expect(result.mostPopular.map((item) => item.uuid)).toEqual([
+                ALLOWED_CHART_UUID,
+                'allowed-dashboard-uuid',
+            ]);
+        });
+
+        test('keeps every item when the scope does not apply', async () => {
+            const service = getService(undefined);
+
+            const result = await service.getMostPopularAndRecentlyUpdated(
+                user,
+                PROJECT_UUID,
+            );
+
+            expect(result.mostPopular.map((item) => item.uuid)).toEqual([
+                ALLOWED_CHART_UUID,
+                HIDDEN_CHART_UUID,
+                'allowed-dashboard-uuid',
+                'hidden-dashboard-uuid',
             ]);
         });
     });
