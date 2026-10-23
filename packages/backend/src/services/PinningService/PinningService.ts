@@ -78,6 +78,15 @@ export class PinningService extends BaseService {
             user.userUuid,
             spaces.map((s) => s.uuid),
         );
+
+        // Client-use content scope: the pinned spaces must also be visible
+        // content-wise (visible content + ancestors), not only accessible.
+        const scope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const scopeSpaceUuids = scope ? new Set(scope.spaceUuids) : undefined;
+
         const allowedSpaceUuids = spaces
             .filter((space, index) =>
                 hasViewAccessToSpace(
@@ -86,7 +95,11 @@ export class PinningService extends BaseService {
                     spacesAccess[space.uuid] ?? [],
                 ),
             )
-            .map((s) => s.uuid);
+            .map((s) => s.uuid)
+            .filter(
+                (uuid) =>
+                    scopeSpaceUuids === undefined || scopeSpaceUuids.has(uuid),
+            );
 
         if (allowedSpaceUuids.length === 0) {
             return [];
@@ -107,6 +120,14 @@ export class PinningService extends BaseService {
                 allowedSpaceUuids,
             );
 
+        // Client-use: pinned charts are only visible when they are referenced
+        // by an allow-listed dashboard.
+        const visiblePinnedCharts = scope
+            ? allowedCharts.filter(({ data }) =>
+                  scope.chartUuids.includes(data.uuid),
+              )
+            : allowedCharts;
+
         const allowedDashboardUuids =
             await this.dashboardService.getAllowedDashboardUuidsForViewer(
                 user,
@@ -118,7 +139,7 @@ export class PinningService extends BaseService {
         if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
             return [
                 ...allowedPinnedSpaces,
-                ...allowedCharts,
+                ...visiblePinnedCharts,
                 ...allowedDashboards,
             ];
         }
@@ -139,7 +160,11 @@ export class PinningService extends BaseService {
             },
         }));
 
-        return [...visiblePinnedSpaces, ...allowedCharts, ...visibleDashboards];
+        return [
+            ...visiblePinnedSpaces,
+            ...visiblePinnedCharts,
+            ...visibleDashboards,
+        ];
     }
 
     async updatePinnedItemsOrder(
