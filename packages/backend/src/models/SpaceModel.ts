@@ -1950,6 +1950,85 @@ export class SpaceModel {
     }
 
     /**
+     * Map every given space to its root space.
+     * Nested spaces inherit access / privacy from the root space, so any
+     * visibility decision has to be made on the root space.
+     */
+    async getSpaceRoots(spaceUuids: string[]): Promise<Map<string, string>> {
+        if (spaceUuids.length === 0) {
+            return new Map<string, string>();
+        }
+
+        const result = await this.database.raw<{
+            rows: { child_uuid: string; root_uuid: string }[];
+        }>(
+            `
+            SELECT child.space_uuid AS child_uuid, root.space_uuid AS root_uuid
+            FROM ${SpaceTableName} child
+            JOIN ${SpaceTableName} root
+              ON root.project_id = child.project_id
+             AND nlevel(root.path) = 1
+             AND root.path @> child.path
+            WHERE child.space_uuid IN (?)
+            `,
+            [spaceUuids],
+        );
+
+        return new Map(
+            result.rows.map((row) => [row.child_uuid, row.root_uuid]),
+        );
+    }
+
+    /**
+     * Count the visible charts (dbt charts) per space, restricted to the given
+     * chart uuids. Used to recount `chartCount` when the visible content is
+     * narrower than the space content (client-use projects).
+     */
+    async getVisibleChartCountsBySpaceUuids(
+        spaceUuids: string[],
+        chartUuids: string[],
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>(
+            spaceUuids.map((spaceUuid) => [spaceUuid, 0]),
+        );
+        if (spaceUuids.length === 0 || chartUuids.length === 0) {
+            return counts;
+        }
+
+        const result = await this.database.raw<{
+            rows: { space_uuid: string; chart_count: string }[];
+        }>(
+            `
+            SELECT space_uuid, count(DISTINCT chart_uuid) AS chart_count
+            FROM (
+                SELECT ${SpaceTableName}.space_uuid AS space_uuid,
+                       ${SavedChartsTableName}.saved_query_uuid AS chart_uuid
+                FROM ${SavedChartsTableName}
+                JOIN ${SpaceTableName}
+                  ON ${SpaceTableName}.space_id = ${SavedChartsTableName}.space_id
+                WHERE ${SpaceTableName}.space_uuid IN (?)
+                  AND ${SavedChartsTableName}.saved_query_uuid IN (?)
+                UNION ALL
+                SELECT ${SpaceTableName}.space_uuid AS space_uuid,
+                       ${SavedSqlTableName}.saved_sql_uuid AS chart_uuid
+                FROM ${SavedSqlTableName}
+                JOIN ${SpaceTableName}
+                  ON ${SpaceTableName}.space_uuid = ${SavedSqlTableName}.space_uuid
+                WHERE ${SpaceTableName}.space_uuid IN (?)
+                  AND ${SavedSqlTableName}.saved_sql_uuid IN (?)
+            ) visible_charts
+            GROUP BY space_uuid
+            `,
+            [spaceUuids, chartUuids, spaceUuids, chartUuids],
+        );
+
+        result.rows.forEach((row) => {
+            counts.set(row.space_uuid, Number(row.chart_count));
+        });
+        return counts;
+    }
+
+    /**
      * Gets the root space UUID for a given space UUID
      *
      * This method uses PostgreSQL's ltree extension to find the root space of a hierarchy.

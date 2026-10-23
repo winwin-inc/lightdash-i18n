@@ -3780,7 +3780,17 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        await this.assertExploreAllowedForAdhocQuery(user, projectUuid, table);
+        // Resolve the dashboard context against the database before using it:
+        // the dbt `sql_filter` (row level security) relies on the canonical slug,
+        // and a client must not be able to spoof it to bypass the row filter.
+        const hasClientDashboardSlug = !!dashboardContext?.dashboardSlug;
+        const trustedDashboardContext = hasClientDashboardSlug
+            ? await this.dashboardService.resolveDashboardContextForMetadata(
+                  user,
+                  projectUuid,
+                  dashboardContext.dashboardSlug!,
+              )
+            : undefined;
 
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
@@ -3792,6 +3802,17 @@ export class ProjectService extends BaseService {
                 filters,
             });
 
+        // The allow-list is checked with the resolved explore: `table` can be a
+        // join alias, while the allow-list only contains base explore names.
+        // A trusted dashboard context means the user can open the dashboard, so
+        // its own filters must stay queryable (the row level filter still applies).
+        if (!trustedDashboardContext) {
+            await this.assertExploreAllowedForAdhocQuery(
+                user,
+                projectUuid,
+                explore.name,
+            );
+        }
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials({
@@ -3804,11 +3825,20 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
-        const contextWithValues =
-            dashboardContext &&
-            (dashboardContext.dashboardSlug || dashboardContext.dashboardName)
-                ? dashboardContext
-                : undefined;
+        // Only a context verified against the database may be used for the dbt
+        // `sql_filter`. When the client sent a slug that could not be verified,
+        // the client context is dropped entirely (no row filter is applied, but
+        // the explore allow-list is enforced above).
+        const contextWithValues:
+            | {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              }
+            | undefined =
+            trustedDashboardContext ??
+            (!hasClientDashboardSlug && dashboardContext?.dashboardName
+                ? { dashboardName: dashboardContext.dashboardName }
+                : undefined);
         if (contextWithValues) {
             this.logger.info(
                 `[USER_ATTRIBUTES_DEBUG][ProjectService.searchFieldUniqueValues] Dashboard context detected ${JSON.stringify(

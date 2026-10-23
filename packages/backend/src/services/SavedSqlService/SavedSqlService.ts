@@ -20,6 +20,7 @@ import {
     SqlRunnerPivotQueryBody,
     UpdateSqlChart,
     VIZ_DEFAULT_AGGREGATION,
+    type ViewerContentScopeResolver,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { uniq } from 'lodash';
@@ -33,6 +34,7 @@ import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { BaseService } from '../BaseService';
+import { assertChartInViewerContentScope } from '../ClientUseScopeService/clientUseScope';
 
 type SavedSqlServiceArguments = {
     analytics: LightdashAnalytics;
@@ -41,6 +43,12 @@ type SavedSqlServiceArguments = {
     savedSqlModel: SavedSqlModel;
     schedulerClient: SchedulerClient;
     analyticsModel: AnalyticsModel;
+    /**
+     * Resolves the client-use visible content scope.
+     * Injected (instead of the dashboard service) to avoid a circular
+     * dependency: the dashboard service depends on the saved chart service.
+     */
+    viewerContentScopeResolver?: ViewerContentScopeResolver;
 };
 
 // TODO: Rename to SqlRunnerService
@@ -61,6 +69,8 @@ export class SavedSqlService
 
     private readonly analyticsModel: AnalyticsModel;
 
+    private readonly viewerContentScopeResolver?: ViewerContentScopeResolver;
+
     constructor(args: SavedSqlServiceArguments) {
         super();
         this.analytics = args.analytics;
@@ -69,6 +79,7 @@ export class SavedSqlService
         this.savedSqlModel = args.savedSqlModel;
         this.schedulerClient = args.schedulerClient;
         this.analyticsModel = args.analyticsModel;
+        this.viewerContentScopeResolver = args.viewerContentScopeResolver;
     }
 
     static getCreateVersionEventProperties(
@@ -165,6 +176,17 @@ export class SavedSqlService
         if (!hasPermission) {
             throw new ForbiddenError(
                 `You don't have access to ${action} this Saved SQL chart`,
+            );
+        }
+
+        // Client-use projects: only the charts mounted on an allow-listed
+        // dashboard are visible to viewer / interactive_viewer
+        if (resource.savedSqlUuid !== null) {
+            await assertChartInViewerContentScope(
+                this.viewerContentScopeResolver,
+                actor.user,
+                actor.projectUuid,
+                resource.savedSqlUuid,
             );
         }
 

@@ -252,7 +252,7 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(result.dimensions[0].values).toEqual(['A']);
     });
 
-    it('does not change values when field/search returns empty', async () => {
+    it('clears the filter when the category does not exist in the underlying data', async () => {
         mockSearchResults([]);
         const filters = asFilters([
             categoryFilter({
@@ -269,8 +269,110 @@ describe('initializeCategoryFiltersAsync', () => {
             dashboardContext,
         );
 
-        expect(result).toBe(filters);
-        expect(result.dimensions[0].values).toEqual(['Z']);
+        expect(result).not.toBe(filters);
+        expect(result.dimensions[0].values).toEqual([]);
+        expect(result.dimensions[0].disabled).toBe(true);
+    });
+
+    it('clears the child filter when the parent category does not exist', async () => {
+        mockSearchResults([]);
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['Z'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: ['Y'],
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result.dimensions[0].values).toEqual([]);
+        expect(result.dimensions[0].disabled).toBe(true);
+        expect(result.dimensions[1].values).toEqual([]);
+        expect(result.dimensions[1].disabled).toBe(true);
+    });
+
+    it('resets the default to the first permitted category and cascades to the child levels', async () => {
+        // level 1: default 饮料 is not permitted -> reset to 方便速食
+        mockSearchResults(['方便速食']);
+        // level 2: default value is not valid for the new parent -> reset to the first child
+        mockSearchResults(['方便面']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['饮料'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: ['奶茶'],
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result.dimensions[0].values).toEqual(['方便速食']);
+        expect(result.dimensions[1].values).toEqual(['方便面']);
+        // The child request must use the reset parent value
+        const childRequest = JSON.parse(String(api.mock.calls[1][0].body)) as {
+            filters: { and: { values: string[] }[] };
+        };
+        expect(childRequest.filters.and).toContainEqual(
+            expect.objectContaining({ values: ['方便速食'] }),
+        );
+    });
+
+    it('resolves the parent before the child even when the dimensions are not ordered by level', async () => {
+        mockSearchResults(['方便速食']);
+        mockSearchResults(['方便面']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: ['奶茶'],
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['饮料'],
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result.dimensions[0].values).toEqual(['方便面']);
+        expect(result.dimensions[1].values).toEqual(['方便速食']);
+        const parentRequestUrl = String(api.mock.calls[0][0].url);
+        expect(parentRequestUrl).toContain('dim_categories_cls_1');
     });
 
     it('does not change values when field/search fails', async () => {

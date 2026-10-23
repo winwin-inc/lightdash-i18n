@@ -287,6 +287,7 @@ export * from './types/bigQuerySSO';
 export * from './types/catalog';
 export * from './types/category';
 export * from './types/changeset';
+export * from './types/clientUseScope';
 export * from './types/coder';
 export * from './types/comments';
 export * from './types/conditionalFormatting';

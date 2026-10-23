@@ -869,6 +869,129 @@ export class DashboardModel {
         );
     }
 
+    /**
+     * Latest dashboard version id per dashboard uuid.
+     * Used to resolve the tiles (charts) that are actually displayed.
+     */
+    private getLatestDashboardVersionIdsQuery(dashboardUuids: string[]) {
+        return this.database
+            .select({
+                dashboard_version_id: this.database.raw(
+                    `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+                ),
+            })
+            .from(DashboardsTableName)
+            .innerJoin(
+                DashboardVersionsTableName,
+                `${DashboardsTableName}.dashboard_id`,
+                `${DashboardVersionsTableName}.dashboard_id`,
+            )
+            .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids)
+            .groupBy(`${DashboardsTableName}.dashboard_uuid`);
+    }
+
+    /**
+     * Chart UUIDs (dbt charts + SQL charts) used by the tiles of the latest
+     * version of each dashboard.
+     * Charts that are not mounted on any of these dashboards are not visible.
+     */
+    async getChartUuidsByDashboardUuids(
+        dashboardUuids: string[],
+    ): Promise<Set<string>> {
+        if (dashboardUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const savedChartRows = await this.database(SavedChartsTableName)
+            .select<{ chartUuid: string }[]>({
+                chartUuid: `${SavedChartsTableName}.saved_query_uuid`,
+            })
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .whereIn(
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        const sqlChartRows = await this.database(DashboardTileSqlChartTableName)
+            .select<{ chartUuid: string }[]>({
+                chartUuid: `${DashboardTileSqlChartTableName}.saved_sql_uuid`,
+            })
+            .whereIn(
+                `${DashboardTileSqlChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        return new Set(
+            [...savedChartRows, ...sqlChartRows].map((row) => row.chartUuid),
+        );
+    }
+
+    /**
+     * Space UUIDs that hold the given dashboards or the charts mounted on them.
+     * Returned as-is (not normalized to root spaces).
+     */
+    async getSpaceUuidsByDashboardUuids(
+        dashboardUuids: string[],
+    ): Promise<Set<string>> {
+        if (dashboardUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const dashboardSpaceRows = await this.database(DashboardsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${DashboardsTableName}.space_id`,
+            )
+            .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids);
+
+        const chartSpaceRows = await this.database(SavedChartsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${SavedChartsTableName}.space_id`,
+            )
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .whereIn(
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        const sqlChartSpaceRows = await this.database(SavedSqlTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SavedSqlTableName}.space_uuid`,
+            })
+            .innerJoin(
+                DashboardTileSqlChartTableName,
+                `${DashboardTileSqlChartTableName}.saved_sql_uuid`,
+                `${SavedSqlTableName}.saved_sql_uuid`,
+            )
+            .whereIn(
+                `${DashboardTileSqlChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        return new Set(
+            [...dashboardSpaceRows, ...chartSpaceRows, ...sqlChartSpaceRows]
+                .map((row) => row.spaceUuid)
+                .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
+        );
+    }
+
     async getSlugsForUuids(uuids: string[]): Promise<Record<string, string>> {
         // Uuids are globally unique, so no need to filter by project
         const dashboards = await this.database(DashboardsTableName)

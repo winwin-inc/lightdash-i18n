@@ -25,6 +25,7 @@ import {
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
+    NotFoundError,
     OrganizationMemberRole,
     ParameterError,
     PROJECT_OPERATION_LOG_ACTIONS,
@@ -49,6 +50,7 @@ import {
     type SchedulerCsvOptions,
     type UserDashboardsSummary,
     type UUID,
+    type ViewerContentScope,
 } from '@lightdash/common';
 
 import cronstrue from 'cronstrue';
@@ -415,6 +417,128 @@ export class DashboardService
         return this.dashboardModel.getExploreNamesByDashboardUuids([
             ...allowedDashboardUuids,
         ]);
+    }
+
+    /**
+     * Resolve a trusted dashboard context (slug + name) for metadata queries.
+     *
+     * The slug sent by the client is verified against the database so the dbt
+     * `sql_filter` (row level security) always receives the canonical slug of a
+     * dashboard the user is actually allowed to open. A client cannot spoof the
+     * context to bypass the row level filter (e.g. by sending `NA`).
+     *
+     * Returns undefined when the slug does not belong to the project.
+     * Throws ForbiddenError when the user cannot see the dashboard.
+     */
+    async resolveDashboardContextForMetadata(
+        user: SessionUser,
+        projectUuid: string,
+        dashboardSlug: string,
+    ): Promise<{ dashboardSlug: string; dashboardName: string } | undefined> {
+        let dashboard: DashboardDAO | undefined;
+        try {
+            dashboard = await this.dashboardModel.getByIdOrSlug(dashboardSlug);
+        } catch (error) {
+            // A missing dashboard is a valid answer, any other error is not
+            if (error instanceof NotFoundError) {
+                return undefined;
+            }
+            throw error;
+        }
+
+        if (!dashboard || dashboard.projectUuid !== projectUuid) {
+            return undefined;
+        }
+
+        const space = await this.spaceModel.getSpaceSummary(
+            dashboard.spaceUuid,
+        );
+        const spaceAccess = await this.spaceModel.getUserSpaceAccess(
+            user.userUuid,
+            dashboard.spaceUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Dashboard', {
+                    organizationUuid: user.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access: spaceAccess,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this dashboard belongs to",
+            );
+        }
+
+        // Client-use projects: the dashboard must also be in the allow-list
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (
+            allowedDashboardUuids !== undefined &&
+            !allowedDashboardUuids.has(dashboard.uuid)
+        ) {
+            throw new ForbiddenError("You don't have access to this dashboard");
+        }
+
+        return {
+            dashboardSlug: dashboard.slug,
+            dashboardName: dashboard.name,
+        };
+    }
+
+    /**
+     * Visible content scope for client-use viewer / interactive_viewer.
+     *
+     * Everything is derived from the dashboard allow-list (Admin RPC), so spaces,
+     * saved charts and explores stay consistent with the dashboards the customer
+     * is allowed to open:
+     * - charts: the tiles of the allow-listed dashboards
+     * - spaces: the spaces of those dashboards / charts (normalized to root spaces)
+     * - explores: the explores used by those charts
+     *
+     * Returns undefined when the allow-list does not apply (project is not
+     * client-use or the role is not restricted). Returns a scope with empty
+     * lists when the customer has no visible dashboard (fail-closed).
+     */
+    async getViewerContentScope(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScope | undefined> {
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (allowedDashboardUuids === undefined) {
+            return undefined;
+        }
+
+        const dashboardUuids = [...allowedDashboardUuids];
+        if (dashboardUuids.length === 0) {
+            return {
+                dashboardUuids: [],
+                chartUuids: [],
+                spaceUuids: [],
+                exploreNames: [],
+            };
+        }
+
+        const [chartUuids, spaceUuids, exploreNames] = await Promise.all([
+            this.dashboardModel.getChartUuidsByDashboardUuids(dashboardUuids),
+            this.dashboardModel.getSpaceUuidsByDashboardUuids(dashboardUuids),
+            this.dashboardModel.getExploreNamesByDashboardUuids(dashboardUuids),
+        ]);
+
+        // Nested spaces inherit access / privacy from the root space
+        const spaceRoots = await this.spaceModel.getSpaceRoots([...spaceUuids]);
+
+        return {
+            dashboardUuids,
+            chartUuids: [...chartUuids],
+            spaceUuids: [...new Set(spaceRoots.values())],
+            exploreNames: [...exploreNames],
+        };
     }
 
     /**

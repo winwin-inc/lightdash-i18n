@@ -112,7 +112,7 @@ const FIELD_SEARCH_CACHE_TTL_MS = 5000;
 
 type FieldSearchCacheEntry = {
     expiresAt: number;
-    promise: Promise<string[]>;
+    promise: Promise<FieldSearchResult>;
 };
 
 const fieldSearchCache = new Map<string, FieldSearchCacheEntry>();
@@ -202,6 +202,26 @@ export const getCategoryFiltersSignature = (
 };
 
 /**
+ * field/search 调用结果。
+ * - ok: 请求成功，values 为底层表实际存在的类目（已按用户权限/行级过滤）
+ * - error: 请求失败，无法判断类目是否存在
+ */
+type FieldSearchResult =
+    | { status: 'ok'; values: string[] }
+    | { status: 'error'; error: unknown };
+
+/**
+ * 类目值解析结果。
+ * - resolved: 解析出有效类目（当前值有效，或重置为第一个有权限的类目）
+ * - not-found: 请求成功但底层表里没有任何可用类目（当前值确实不存在）
+ * - error: 请求失败，无法判断
+ */
+type CategoryValueResolution =
+    | { status: 'resolved'; value: string }
+    | { status: 'not-found' }
+    | { status: 'error'; error: unknown };
+
+/**
  * 调用 field/search 接口获取字段的实际可用值（含看板上下文以触发 dbt sql_filter）
  */
 const fetchFieldSearchValues = async (
@@ -210,7 +230,7 @@ const fetchFieldSearchValues = async (
     tableName: string,
     filters: DashboardFilterRule[] | undefined,
     dashboardContext: DashboardFilterContext | undefined,
-): Promise<string[]> => {
+): Promise<FieldSearchResult> => {
     const now = Date.now();
     pruneExpiredFieldSearchCache(now);
 
@@ -227,7 +247,7 @@ const fetchFieldSearchValues = async (
         return cachedEntry.promise;
     }
 
-    const requestPromise = (async () => {
+    const requestPromise = (async (): Promise<FieldSearchResult> => {
         try {
             const filterGroup =
                 filters && filters.length > 0
@@ -255,12 +275,15 @@ const fetchFieldSearchValues = async (
                     dashboardName: dashboardContext?.dashboardName,
                 }),
             });
-            return result.results.filter(
-                (v): v is string => typeof v === 'string',
-            );
-        } catch {
+            return {
+                status: 'ok',
+                values: result.results.filter(
+                    (v): v is string => typeof v === 'string',
+                ),
+            };
+        } catch (error) {
             fieldSearchCache.delete(cacheKey);
-            return [];
+            return { status: 'error', error };
         }
     })();
 
@@ -343,6 +366,12 @@ const collectFieldSearchFilters = (
 
 /**
  * 按仓库实际类目解析筛选器值（field/search + 左侧筛选 + 父级 + dashboardSlug）
+ *
+ * 以底层表实际数据为准：
+ * - 当前值在实际数据里 → 保留
+ * - 当前值不在实际数据里 → 重置为第一个有权限的类目
+ * - 实际数据里没有任何类目 → not-found（该类目确实不存在）
+ * - 请求失败 → error（无法判断，保留原值）
  */
 const resolveCategoryFilterValueAsync = async ({
     filter,
@@ -350,8 +379,8 @@ const resolveCategoryFilterValueAsync = async ({
     projectUuid,
     dashboardContext,
     parentValueOverride,
-}: ResolveCategoryValueArgs): Promise<string | undefined> => {
-    if (!isCategoryField(filter)) return undefined;
+}: ResolveCategoryValueArgs): Promise<CategoryValueResolution> => {
+    if (!isCategoryField(filter)) return { status: 'not-found' };
 
     const searchFilters = collectFieldSearchFilters(
         filters,
@@ -360,10 +389,10 @@ const resolveCategoryFilterValueAsync = async ({
     );
     // 配置了父级但父级无值时，collect 返回 undefined，不解析
     if (getParentFieldId(filter) && searchFilters === undefined) {
-        return undefined;
+        return { status: 'not-found' };
     }
 
-    const fieldValues = await fetchFieldSearchValues(
+    const result = await fetchFieldSearchValues(
         projectUuid,
         filter.target.fieldId,
         filter.target.tableName,
@@ -371,8 +400,14 @@ const resolveCategoryFilterValueAsync = async ({
         dashboardContext,
     );
 
+    if (result.status === 'error') {
+        return { status: 'error', error: result.error };
+    }
+
+    const fieldValues = result.values;
+
     if (fieldValues.length === 0) {
-        return undefined;
+        return { status: 'not-found' };
     }
 
     const currentValue =
@@ -381,14 +416,29 @@ const resolveCategoryFilterValueAsync = async ({
             : undefined;
 
     if (currentValue && fieldValues.includes(currentValue)) {
-        return currentValue;
+        return { status: 'resolved', value: currentValue };
     }
 
-    return fieldValues[0];
+    return { status: 'resolved', value: fieldValues[0] };
 };
 
 /**
- * 异步初始化类目筛选器：当前值在实际数据中则保留，否则取第一个有效值
+ * 按类目层级（1 → 4）排序类目筛选器。
+ * 重置时必须先处理父级（一级类目），子级才能基于新的父级值重新解析。
+ */
+const sortCategoryFiltersByLevel = (
+    filters: DashboardFilters,
+): DashboardFilterRule[] =>
+    filters.dimensions
+        .filter((filter) => isCategoryField(filter))
+        .sort((a, b) => (getCategoryLevel(a) ?? 0) - (getCategoryLevel(b) ?? 0));
+
+/**
+ * 异步初始化类目筛选器：以底层表实际数据为准
+ * - 当前值在实际数据里 → 保留
+ * - 当前值不在实际数据里 → 重置为第一个有权限的类目（并按一级→四级顺序联动子级）
+ * - 实际数据里没有任何类目 → 清空筛选条件（避免看板因无效默认值而空白）
+ * - 请求失败 → 保留原值（无法判断，不改变用户筛选语义）
  */
 export const initializeCategoryFiltersAsync = async (
     filters: DashboardFilters,
@@ -398,7 +448,8 @@ export const initializeCategoryFiltersAsync = async (
     let workingFilters = filters;
     let hasChanges = false;
 
-    for (const filter of filters.dimensions) {
+    // 按层级顺序（一级 → 四级）处理，保证父级先重置，子级再基于新父级值解析
+    for (const filter of sortCategoryFiltersByLevel(filters)) {
         if (!isCategoryField(filter) || filter.disabled) {
             continue;
         }
@@ -411,16 +462,49 @@ export const initializeCategoryFiltersAsync = async (
             continue;
         }
 
-        const resolvedValue = await resolveCategoryFilterValueAsync({
+        const resolution = await resolveCategoryFilterValueAsync({
             filter: currentFilter,
             filters: workingFilters,
             projectUuid,
             dashboardContext,
         });
 
-        if (!resolvedValue) {
+        if (resolution.status === 'error') {
+            // 请求失败：无法判断当前值是否有效，保留原值
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[categoryFilters] Failed to resolve category filter ${currentFilter.target.fieldId}, keeping current value`,
+                resolution,
+            );
             continue;
         }
+
+        if (resolution.status === 'not-found') {
+            // 底层表里没有可用类目：当前默认值确实不存在，清空以免看板空白
+            const hasDefaultValue =
+                currentFilter.values !== undefined &&
+                currentFilter.values.length > 0;
+            if (!hasDefaultValue) {
+                continue;
+            }
+
+            hasChanges = true;
+            const clearedFilter: DashboardFilterRule = {
+                ...currentFilter,
+                values: [],
+                disabled: true,
+            };
+
+            workingFilters = {
+                ...workingFilters,
+                dimensions: workingFilters.dimensions.map((d) =>
+                    d.id === filter.id ? clearedFilter : d,
+                ),
+            };
+            continue;
+        }
+
+        const resolvedValue = resolution.value;
 
         const currentValue = currentFilter.values?.[0];
         if (currentValue && String(currentValue) === resolvedValue) {
@@ -486,7 +570,7 @@ export const updateCategoryFilterCascadeAsync = async (
                 continue;
             }
 
-            const resolvedValue = await resolveCategoryFilterValueAsync({
+            const resolution = await resolveCategoryFilterValueAsync({
                 filter,
                 filters: updatedFilters,
                 projectUuid,
@@ -494,7 +578,12 @@ export const updateCategoryFilterCascadeAsync = async (
                 parentValueOverride: parentValue,
             });
 
-            if (!resolvedValue) {
+            if (resolution.status === 'error') {
+                // 请求失败：无法判断，保留子级当前值
+                continue;
+            }
+
+            if (resolution.status === 'not-found') {
                 const hasDefaultValue =
                     filter.values !== undefined && filter.values.length > 0;
                 if (!hasDefaultValue) {
@@ -525,6 +614,8 @@ export const updateCategoryFilterCascadeAsync = async (
                 }
                 continue;
             }
+
+            const resolvedValue = resolution.value;
 
             const currentValue =
                 filter.values && filter.values.length > 0

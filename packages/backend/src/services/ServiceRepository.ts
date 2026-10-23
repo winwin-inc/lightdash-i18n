@@ -666,6 +666,14 @@ export class ServiceRepository
                     dashboardModel: this.models.getDashboardModel(),
                     catalogModel: this.models.getCatalogModel(),
                     permissionsService: this.getPermissionsService(),
+                    // Lazy: the dashboard service depends on this service
+                    viewerContentScopeResolver: {
+                        getViewerContentScope: (user, projectUuid) =>
+                            this.getDashboardService().getViewerContentScope(
+                                user,
+                                projectUuid,
+                            ),
+                    },
                 }),
         );
     }
@@ -942,6 +950,14 @@ export class ServiceRepository
                     savedSqlModel: this.models.getSavedSqlModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     analyticsModel: this.models.getAnalyticsModel(),
+                    // Lazy: the dashboard service depends on the saved chart service
+                    viewerContentScopeResolver: {
+                        getViewerContentScope: (user, projectUuid) =>
+                            this.getDashboardService().getViewerContentScope(
+                                user,
+                                projectUuid,
+                            ),
+                    },
                 }),
         );
     }

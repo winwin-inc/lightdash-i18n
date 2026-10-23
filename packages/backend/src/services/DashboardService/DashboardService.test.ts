@@ -58,6 +58,10 @@ const dashboardModel = {
     getOrphanedCharts: jest.fn(async () => []),
 
     getExploreNamesByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getChartUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
 };
 
 const spaceModel = {
@@ -66,6 +70,7 @@ const spaceModel = {
     getFirstAccessibleSpace: jest.fn(async () => space),
     getUserSpaceAccess: jest.fn(async () => []),
     getUserSpacesAccess: jest.fn(async () => ({})),
+    getSpaceRoots: jest.fn(async () => new Map<string, string>()),
 };
 const analyticsModel = {
     addDashboardViewEvent: jest.fn(async () => null),
@@ -162,6 +167,107 @@ describe('DashboardService', () => {
             expect(
                 dashboardModel.getExploreNamesByDashboardUuids,
             ).toHaveBeenCalledWith([]);
+        });
+    });
+
+    describe('getViewerContentScope', () => {
+        test('should skip when the dashboard allow-list is undefined', async () => {
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toBeUndefined();
+            expect(
+                dashboardModel.getChartUuidsByDashboardUuids,
+            ).not.toHaveBeenCalled();
+        });
+
+        test('should fail closed when the dashboard allow-list is empty', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: [],
+                chartUuids: [],
+                spaceUuids: [],
+                exploreNames: [],
+            });
+        });
+
+        test('should derive charts, spaces and explores from the allow-listed dashboards', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (spaceModel.getSpaceRoots as jest.Mock).mockResolvedValueOnce(
+                new Map([['space-child', 'space-root']]),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: ['dash-1'],
+                chartUuids: ['chart-1'],
+                spaceUuids: ['space-root'],
+                exploreNames: ['orders'],
+            });
+        });
+    });
+
+    describe('resolveDashboardContextForMetadata', () => {
+        test('should return the canonical slug and name of the dashboard', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result).toEqual({
+                dashboardSlug: 'name',
+                dashboardName: 'name',
+            });
+        });
+
+        test('should return undefined when the dashboard belongs to another project', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                'another-project',
+                'name',
+            );
+
+            expect(result).toBeUndefined();
+        });
+
+        test('should throw when the dashboard is not in the client-use allow-list', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['another-dashboard']));
+
+            await expect(
+                service.resolveDashboardContextForMetadata(
+                    user,
+                    projectUuid,
+                    'name',
+                ),
+            ).rejects.toThrow(ForbiddenError);
         });
     });
 

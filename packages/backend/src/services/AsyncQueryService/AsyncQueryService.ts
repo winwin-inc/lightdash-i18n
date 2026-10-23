@@ -118,6 +118,11 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import type { ICacheService } from '../CacheService/ICacheService';
 import { CreateCacheResult } from '../CacheService/types';
+import {
+    assertChartInViewerContentScope,
+    assertDashboardInViewerContentScope,
+    toViewerContentScopeUser,
+} from '../ClientUseScopeService/clientUseScope';
 import { CsvService } from '../CsvService/CsvService';
 import { ExcelService } from '../ExcelService/ExcelService';
 import { PermissionsService } from '../PermissionsService/PermissionsService';
@@ -2251,6 +2256,15 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError();
         }
 
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
+
         await this.analyticsModel.addChartViewEvent(
             savedChartUuid,
             account.user.id,
@@ -2414,6 +2428,15 @@ export class AsyncQueryService extends ProjectService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
     }
 
     async executeAsyncDashboardChartQuery({
@@ -2456,6 +2479,15 @@ export class AsyncQueryService extends ProjectService {
             projectUuid,
             savedChart.uuid,
             space,
+        );
+
+        // Client-use projects: fail closed. The dashboard itself has to be
+        // allow-listed, not only the chart.
+        await assertDashboardInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            dashboardUuid,
         );
 
         await this.analyticsModel.addChartViewEvent(
