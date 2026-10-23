@@ -301,6 +301,11 @@ type ResolveCategoryValueArgs = {
     projectUuid: string;
     dashboardContext?: DashboardFilterContext;
     parentValueOverride?: string | null;
+    /**
+     * 是否允许在「带级联的查询没有候选」时，再用不带级联的查询兜底一次。
+     * 只用于恢复被误清空的筛选器（寻常路径不需要，避免请求翻倍）。
+     */
+    allowUnfilteredFallback?: boolean;
 };
 
 /**
@@ -383,11 +388,14 @@ const getFilterCurrentValue = (
  * - 被禁用且有值 → 作者显式禁用，保留原样
  * - 被禁用且无值 → 旧版本「类目不存在就清空并禁用」留下的状态，需要重新解析并恢复
  */
-const shouldResolveCategoryFilter = (filter: DashboardFilterRule): boolean => {
+const shouldResolveCategoryFilter = (
+    filter: DashboardFilterRule,
+    recoverableFilterIds?: Set<string>,
+): boolean => {
     if (!filter.disabled) {
         return true;
     }
-    return getFilterCurrentValue(filter) === undefined;
+    return recoverableFilterIds?.has(filter.id) ?? false;
 };
 
 /**
@@ -396,9 +404,8 @@ const shouldResolveCategoryFilter = (filter: DashboardFilterRule): boolean => {
  * 以底层表实际数据为准：
  * - 当前值在实际数据里 → 保留
  * - 当前值不在实际数据里 → 重置为第一个有权限的类目
- * - 带级联的查询没有候选值 → 再查一次不带级联的值域：
- *   - 仍没有候选值 → keep（无法区分「表里没这个类目」与「行级过滤把行都过滤了」，保留原值）
- *   - 有候选值 → 当前值有效则保留，否则重置为第一个候选
+ * - 查询没有候选值 → keep（无法区分「表里没这个类目」与「行级过滤把行都过滤了」，保留原值）
+ *   - 例外：被旧逻辑清空并禁用的筛选器（无值 + disabled）→ 用不带级联的查询恢复
  * - 请求失败 → error（无法判断，保留原值）
  */
 const resolveCategoryFilterValueAsync = async ({
@@ -407,6 +414,7 @@ const resolveCategoryFilterValueAsync = async ({
     projectUuid,
     dashboardContext,
     parentValueOverride,
+    allowUnfilteredFallback = false,
 }: ResolveCategoryValueArgs): Promise<CategoryValueResolution> => {
     if (!isCategoryField(filter)) {
         return { status: 'keep', reason: 'no-candidates' };
@@ -438,33 +446,31 @@ const resolveCategoryFilterValueAsync = async ({
     const currentValue = getFilterCurrentValue(filter);
 
     if (fieldValues.length === 0) {
-        // 带级联（父级 / 左侧筛选）的查询没有候选值：再查一次不带级联的值域，
-        // 用来区分「级联上下文没有匹配行」和「该字段本身没有可见值」。
-        const fallback = await fetchFieldSearchValues(
-            projectUuid,
-            filter.target.fieldId,
-            filter.target.tableName,
-            undefined,
-            dashboardContext,
-        );
+        // 空结果：无法区分「底层表确实没有该类目」与「行级过滤把候选值都过滤了」。
+        // 直接保留原值：清空会抹掉看板里已经保存的类目。
+        // （不做「不带级联」的兜底查询：保留原值与兜底命中当前值的结果一致，
+        //   兜底多出来的请求只会拖慢初始化。）
+        if (allowUnfilteredFallback && currentValue === undefined) {
+            // 例外：被旧逻辑清空并禁用的筛选器需要恢复，
+            // 此时用不带级联条件的查询再试一次（罕见路径，请求量可忽略）。
+            const fallback = await fetchFieldSearchValues(
+                projectUuid,
+                filter.target.fieldId,
+                filter.target.tableName,
+                undefined,
+                dashboardContext,
+            );
 
-        if (fallback.status === 'error') {
-            return { status: 'error', error: fallback.error };
+            if (fallback.status === 'error') {
+                return { status: 'error', error: fallback.error };
+            }
+
+            if (fallback.values.length > 0) {
+                return { status: 'resolved', value: fallback.values[0] };
+            }
         }
 
-        const fallbackValues = fallback.values;
-
-        if (fallbackValues.length === 0) {
-            // 无法区分「底层表确实没有该类目」与「行级过滤把候选值都过滤了」，
-            // 保留原值：清空会直接抹掉看板里已经保存的类目。
-            return { status: 'keep', reason: 'no-candidates' };
-        }
-
-        if (currentValue && fallbackValues.includes(currentValue)) {
-            return { status: 'resolved', value: currentValue };
-        }
-
-        return { status: 'resolved', value: fallbackValues[0] };
+        return { status: 'keep', reason: 'no-candidates' };
     }
 
     if (currentValue && fieldValues.includes(currentValue)) {
@@ -502,11 +508,12 @@ export const initializeCategoryFiltersAsync = async (
     filters: DashboardFilters,
     projectUuid: string,
     dashboardContext?: DashboardFilterContext,
-    options?: { skipFilterIds?: string[] },
+    options?: { skipFilterIds?: string[]; recoverableFilterIds?: string[] },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
     let hasChanges = false;
     const skipFilterIds = new Set(options?.skipFilterIds ?? []);
+    const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
 
     // 按层级顺序（一级 → 四级）处理，保证父级先重置，子级再基于新父级值解析
     for (const filter of sortCategoryFiltersByLevel(filters)) {
@@ -522,8 +529,9 @@ export const initializeCategoryFiltersAsync = async (
             continue;
         }
 
-        // 作者显式禁用（且有值）的筛选器不动；被旧逻辑清空（无值 + 禁用）需要恢复
-        if (!shouldResolveCategoryFilter(currentFilter)) {
+        // 被禁用的筛选器不参与自动赋值（沿用既有语义：禁用 = 没有配置默认值）。
+        // 只有被旧逻辑误清空、且服务端仍保存着原值的筛选器才恢复。
+        if (!shouldResolveCategoryFilter(currentFilter, recoverableFilterIds)) {
             continue;
         }
 
@@ -532,6 +540,7 @@ export const initializeCategoryFiltersAsync = async (
             filters: workingFilters,
             projectUuid,
             dashboardContext,
+            allowUnfilteredFallback: recoverableFilterIds.has(currentFilter.id),
         });
 
         if (resolution.status === 'error') {
@@ -591,7 +600,9 @@ export const updateCategoryFilterCascadeAsync = async (
     newValue: string | null,
     projectUuid: string,
     dashboardContext?: DashboardFilterContext,
+    options?: { recoverableFilterIds?: string[] },
 ): Promise<DashboardFilters> => {
+    const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
     if (!isCategoryField(changedFilter)) return filters;
 
     const cascadeChildren = async (
@@ -614,8 +625,9 @@ export const updateCategoryFilterCascadeAsync = async (
             if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
                 continue;
 
-            // 作者显式禁用（且有值）的筛选器不参与联动；被旧逻辑清空的需要恢复
-            if (!shouldResolveCategoryFilter(filter)) continue;
+            // 被禁用的筛选器不参与联动（沿用既有语义：禁用 = 没有配置默认值）
+            if (!shouldResolveCategoryFilter(filter, recoverableFilterIds))
+                continue;
 
             // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
             if (filter.operator !== FilterOperator.EQUALS) {

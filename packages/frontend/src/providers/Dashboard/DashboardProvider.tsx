@@ -215,6 +215,7 @@ const DashboardProvider: React.FC<
         haveFiltersChanged,
         setHaveFiltersChanged,
         setOriginalDashboardFilters,
+        originalDashboardFilters,
         dashboardTemporaryFilters,
         setDashboardTemporaryFilters,
         addDimensionDashboardFilter,
@@ -228,6 +229,30 @@ const DashboardProvider: React.FC<
         dashboard,
         isFilterEnabled: isGlobalFilterEnabled,
     });
+
+    /**
+     * 可恢复的类目筛选器：服务端保存的筛选器还有值，但当前状态里被旧版本
+     * 「类目不存在就清空并禁用」清成了空值 + disabled。
+     *
+     * 只有这类筛选器才允许重新解析并恢复。被禁用的筛选器默认不参与自动赋值
+     * （既有语义：禁用 = 没有配置默认值，不能给它套默认值）。
+     */
+    const recoverableCategoryFilterIds = useMemo(() => {
+        const ids = new Set<string>();
+        originalDashboardFilters.dimensions.forEach((saved) => {
+            if (!saved.values || saved.values.length === 0) return;
+            const current = dashboardFilters.dimensions.find(
+                (d) => d.id === saved.id,
+            );
+            if (!current) return;
+            const currentHasValue =
+                current.values !== undefined && current.values.length > 0;
+            if (current.disabled === true && !currentHasValue) {
+                ids.add(saved.id);
+            }
+        });
+        return Array.from(ids);
+    }, [originalDashboardFilters, dashboardFilters]);
 
     // 类目联动按 field/search 实际数据（含 dashboardSlug → dbt RLS），不依赖 Admin 类目接口
     const dashboardSlug = (dashboard || embedDashboard)?.slug;
@@ -309,6 +334,7 @@ const DashboardProvider: React.FC<
                 filters,
                 projectUuid,
                 dashboardFilterContext,
+                { recoverableFilterIds: recoverableCategoryFilterIds },
             )
                 .then((refined) => {
                     setDashboardFilters((currentFilters) => {
@@ -353,6 +379,7 @@ const DashboardProvider: React.FC<
             canApplyCategoryFilters,
             projectUuid,
             dashboardFilterContext,
+            recoverableCategoryFilterIds,
             setDashboardFilters,
         ],
     );
@@ -373,6 +400,7 @@ const DashboardProvider: React.FC<
                 newValue,
                 projectUuid,
                 dashboardFilterContext,
+                { recoverableFilterIds: recoverableCategoryFilterIds },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
             // 否则会把用户的显式选择重置成别的类目（或直接清空）。
@@ -380,10 +408,18 @@ const DashboardProvider: React.FC<
                 cascaded,
                 projectUuid,
                 dashboardFilterContext,
-                { skipFilterIds: [changedFilter.id] },
+                {
+                    skipFilterIds: [changedFilter.id],
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                },
             );
         },
-        [canApplyCategoryFilters, projectUuid, dashboardFilterContext],
+        [
+            canApplyCategoryFilters,
+            projectUuid,
+            dashboardFilterContext,
+            recoverableCategoryFilterIds,
+        ],
     );
 
     const replaceDimensionFilterAtIndex = useCallback(
@@ -439,8 +475,11 @@ const DashboardProvider: React.FC<
                 !canApplyCategoryFilters ||
                 !isCategoryField(item) ||
                 isEdit ||
+                isTemporary ||
                 !hasSelectedValue
             ) {
+                // 临时筛选器（图表交叉筛选）不做类目联动：
+                // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
                 originalUpdateDimensionDashboardFilter(
                     item,
                     index,

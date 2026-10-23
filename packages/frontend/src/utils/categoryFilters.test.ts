@@ -253,8 +253,6 @@ describe('initializeCategoryFiltersAsync', () => {
     });
 
     it('keeps the current value when the category has no candidates', async () => {
-        // 级联查询与不带级联的兜底查询都为空
-        mockSearchResults([]);
         mockSearchResults([]);
         const filters = asFilters([
             categoryFilter({
@@ -279,8 +277,6 @@ describe('initializeCategoryFiltersAsync', () => {
     });
 
     it('keeps the child filter when the parent category has no candidates', async () => {
-        mockSearchResults([]);
-        mockSearchResults([]);
         mockSearchResults([]);
         mockSearchResults([]);
         const filters = asFilters([
@@ -311,11 +307,9 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(result.dimensions[1].disabled).toBeUndefined();
     });
 
-    it('falls back to the values without cascade filters when the cascaded query is empty', async () => {
-        // 带级联（父级）条件的查询没有候选值
+    it('does not query again when the cascaded query is empty', async () => {
+        // 空结果不再额外发起「不带级联」的兜底查询，避免初始化请求翻倍
         mockSearchResults([]);
-        // 不带级联条件的兜底查询有候选值
-        mockSearchResults(['碳酸饮料', '果汁']);
 
         const filters = asFilters([
             categoryFilter({
@@ -323,13 +317,6 @@ describe('initializeCategoryFiltersAsync', () => {
                 fieldId: 'dim_categories_cls_1',
                 categoryLevel: 1,
                 values: ['饮料'],
-            }),
-            categoryFilter({
-                id: 'l2',
-                fieldId: 'dim_categories_cls_2',
-                categoryLevel: 2,
-                values: ['果汁'],
-                parentFieldId: 'dim_categories_cls_1',
             }),
         ]);
 
@@ -339,11 +326,13 @@ describe('initializeCategoryFiltersAsync', () => {
             dashboardContext,
         );
 
-        // 兜底查询里仍然存在当前值 → 保留，不清空
-        expect(result.dimensions[1].values).toEqual(['果汁']);
+        expect(result).toBe(filters);
+        expect(result.dimensions[0].values).toEqual(['饮料']);
+        expect(api).toHaveBeenCalledTimes(1);
     });
 
-    it('restores a category filter that was previously cleared and disabled', async () => {
+    it('never assigns a default value to a disabled filter', async () => {
+        // 被禁用的筛选器 = 没有配置默认值：不能给它套默认值，也不能发请求
         mockSearchResults(['方便速食']);
 
         const filters = asFilters([
@@ -362,9 +351,68 @@ describe('initializeCategoryFiltersAsync', () => {
             dashboardContext,
         );
 
+        expect(result).toBe(filters);
+        expect(result.dimensions[0].values).toEqual([]);
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('restores a filter that was wrongly cleared when the server still has a value', async () => {
+        mockSearchResults(['方便速食']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: [],
+                disabled: true,
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { recoverableFilterIds: ['l1'] },
+        );
+
         expect(result).not.toBe(filters);
         expect(result.dimensions[0].values).toEqual(['方便速食']);
         expect(result.dimensions[0].disabled).toBe(false);
+    });
+
+    it('restores a cleared and disabled filter with the unfiltered query when the cascaded query is empty', async () => {
+        // 带级联（父级）条件的查询没有候选值
+        mockSearchResults([]);
+        // 不带级联条件的查询有候选值 → 用于恢复被清空的筛选器
+        mockSearchResults(['碳酸饮料']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['饮料'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: [],
+                disabled: true,
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { recoverableFilterIds: ['l2'] },
+        );
+
+        expect(result.dimensions[1].values).toEqual(['碳酸饮料']);
+        expect(result.dimensions[1].disabled).toBe(false);
     });
 
     it('keeps the value the user just selected by skipping the filter', async () => {
@@ -764,7 +812,6 @@ describe('category filter leftover values', () => {
     });
 
     it('keeps child default values when parent changes and no replacement exists', async () => {
-        mockSearchResults([]);
         mockSearchResults([]);
 
         const parent = categoryFilter({
