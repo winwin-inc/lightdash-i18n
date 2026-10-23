@@ -360,6 +360,48 @@ HTTP 500（`UnexpectedServerError` / `invalid input syntax for type uuid`）。
 扁平标量绑定"，并补充了绑定形状的回归测试
 （`packages/backend/src/models/SpaceModel.test.ts`）。
 
+### 5.11 看板跑数的行级过滤上下文（sql_filter）
+
+客户 dbt 的行级过滤依赖看板上下文：
+
+```sql
+${lightdash.user.dashboardSlug} = 'NA' or
+EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
+        WHERE category = ${TABLE}.cls_2
+          AND email = ${lightdash.user.email}
+          AND short_name = ${lightdash.user.dashboardSlug})
+```
+
+`dashboardSlug` 由 `getUserAttributes` 的 `intrinsicUserAttributes` 注入，
+`email` 恒为当前登录用户。
+
+| 跑数路径                                    | 上下文来源                                                        | 结论                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
+| `POST /query/dashboard-chart`（图表）       | 服务端 `dashboardModel.getByIdOrSlug(dashboardUuid)` 的 slug/name | ✅ 客户端 `context` 不参与 SQL（只进 analytics tag） |
+| `POST /query/dashboard-chart`（SQL 图表）   | 同上                                                              | ✅ 同上                                              |
+| `POST /query/saved-chart`（独立跑保存图表） | 无看板上下文 → `NA`                                               | ⚠️ `NA` 分支不过滤，见 5.12                          |
+| `POST /query/metric-query`（探索页 ad-hoc） | 无看板上下文 → `NA`                                               | ⚠️ 同上                                              |
+| MCP 查数                                    | MCP 服务端按 explore 反查白名单看板后注入                         | ✅ 口径与看板一致                                    |
+
+补强（本次）：
+
+- 两条看板跑数路径都要求 `dashboard.projectUuid === projectUuid`，
+  防止传入**其它项目**的看板 uuid 借用其 dashboard parameters 与行级口径。
+- SQL 图表跑数路径补齐客户使用模式校验：SQL 图表必须挂在白名单看板上，
+  且看板本身必须在白名单内（此前只校验了空间可见性）。
+
+回归测试：`packages/backend/src/services/AsyncQueryService/AsyncQueryService.test.ts`
+的 `dashboard query context` 用例。
+
+### 5.12 已知限制（未处理，需客户确认）
+
+`dashboardSlug = 'NA'` 时 dbt `sql_filter` 的首个分支为真，**不按类目过滤**。
+因此受限角色在探索页做 ad-hoc 查询、或独立跑保存图表时，行级类目口径不生效
+（内容层仍然受白名单约束）。
+
+如需堵上，需要服务端按 explore 反查白名单看板并注入上下文（与 MCP 一致），
+找不到候选则拒绝；这会改变受限用户探索页的返回行数，需客户确认后再实施。
+
 ---
 
 ## 6. 实施状态
