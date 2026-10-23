@@ -11925,12 +11925,124 @@ const models: TsoaRoute.Models = {
         additionalProperties: true,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    ViewerProjectRoleSource: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'union',
+            subSchemas: [
+                { dataType: 'enum', enums: ['project_membership'] },
+                { dataType: 'enum', enums: ['group_membership'] },
+                { dataType: 'enum', enums: ['organization'] },
+                { dataType: 'enum', enums: ['none'] },
+            ],
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    ViewerContentScopeStatus: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'union',
+            subSchemas: [
+                { dataType: 'enum', enums: ['not_client_use'] },
+                { dataType: 'enum', enums: ['role_not_restricted'] },
+                { dataType: 'enum', enums: ['user_not_found'] },
+                { dataType: 'enum', enums: ['no_email'] },
+                { dataType: 'enum', enums: ['rpc_not_configured'] },
+                { dataType: 'enum', enums: ['rpc_error'] },
+                { dataType: 'enum', enums: ['rpc_empty'] },
+                { dataType: 'enum', enums: ['rpc_ok'] },
+            ],
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    ViewerContentScopeDiagnostics: {
+        dataType: 'refAlias',
+        type: {
+            dataType: 'nestedObjectLiteral',
+            nestedProperties: {
+                scopeCounts: {
+                    dataType: 'union',
+                    subSchemas: [
+                        {
+                            dataType: 'nestedObjectLiteral',
+                            nestedProperties: {
+                                explores: {
+                                    dataType: 'double',
+                                    required: true,
+                                },
+                                spaces: { dataType: 'double', required: true },
+                                charts: { dataType: 'double', required: true },
+                                dashboards: {
+                                    dataType: 'double',
+                                    required: true,
+                                },
+                            },
+                        },
+                        { dataType: 'enum', enums: [null] },
+                    ],
+                    required: true,
+                },
+                allowedDashboardNames: {
+                    dataType: 'array',
+                    array: { dataType: 'string' },
+                    required: true,
+                },
+                allowedDashboardUuids: {
+                    dataType: 'array',
+                    array: { dataType: 'string' },
+                    required: true,
+                },
+                allowedDashboardCount: { dataType: 'double', required: true },
+                mobile: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'string' },
+                        { dataType: 'enum', enums: [null] },
+                    ],
+                    required: true,
+                },
+                reason: { dataType: 'string', required: true },
+                status: { ref: 'ViewerContentScopeStatus', required: true },
+                scopeApplied: { dataType: 'boolean', required: true },
+                roleSource: { ref: 'ViewerProjectRoleSource', required: true },
+                effectiveProjectRole: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'string' },
+                        { dataType: 'enum', enums: [null] },
+                    ],
+                    required: true,
+                },
+                rpcConfigured: { dataType: 'boolean', required: true },
+                clientUseEnabled: { dataType: 'boolean', required: true },
+                projectUuid: { dataType: 'string', required: true },
+            },
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     ApiGetAuthenticatedUserResponse: {
         dataType: 'refAlias',
         type: {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
-                results: { ref: 'LightdashUser', required: true },
+                results: {
+                    dataType: 'intersection',
+                    subSchemas: [
+                        { ref: 'LightdashUser' },
+                        {
+                            dataType: 'nestedObjectLiteral',
+                            nestedProperties: {
+                                clientUse: {
+                                    ref: 'ViewerContentScopeDiagnostics',
+                                },
+                            },
+                        },
+                    ],
+                    required: true,
+                },
                 status: { dataType: 'enum', enums: ['ok'], required: true },
             },
             validators: {},
@@ -20399,7 +20511,30 @@ const models: TsoaRoute.Models = {
             nestedProperties: {
                 category: { ref: 'ResourceItemCategory' },
                 data: {
-                    ref: 'Pick_DashboardBasicDetails.uuid-or-spaceUuid-or-description-or-name-or-views-or-firstViewedAt-or-pinnedListUuid-or-pinnedListOrder-or-updatedAt-or-updatedByUser-or-validationErrors_',
+                    dataType: 'intersection',
+                    subSchemas: [
+                        {
+                            ref: 'Pick_DashboardBasicDetails.uuid-or-spaceUuid-or-description-or-name-or-views-or-firstViewedAt-or-pinnedListUuid-or-pinnedListOrder-or-updatedAt-or-updatedByUser-or-validationErrors_',
+                        },
+                        {
+                            dataType: 'nestedObjectLiteral',
+                            nestedProperties: {
+                                space: {
+                                    dataType: 'nestedObjectLiteral',
+                                    nestedProperties: {
+                                        name: {
+                                            dataType: 'string',
+                                            required: true,
+                                        },
+                                        uuid: {
+                                            dataType: 'string',
+                                            required: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    ],
                     required: true,
                 },
                 type: { ref: 'ResourceViewItemType.DASHBOARD', required: true },
@@ -20511,6 +20646,19 @@ const models: TsoaRoute.Models = {
                         {
                             dataType: 'nestedObjectLiteral',
                             nestedProperties: {
+                                space: {
+                                    dataType: 'nestedObjectLiteral',
+                                    nestedProperties: {
+                                        name: {
+                                            dataType: 'string',
+                                            required: true,
+                                        },
+                                        uuid: {
+                                            dataType: 'string',
+                                            required: true,
+                                        },
+                                    },
+                                },
                                 source: { ref: 'ChartSourceType' },
                             },
                         },
