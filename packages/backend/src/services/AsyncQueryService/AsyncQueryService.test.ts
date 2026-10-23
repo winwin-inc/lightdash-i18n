@@ -1,7 +1,6 @@
 import { Ability } from '@casl/ability';
 import {
     DimensionType,
-    ForbiddenError,
     NotFoundError,
     PossibleAbilities,
     QueryExecutionContext,
@@ -1635,7 +1634,7 @@ describe('AsyncQueryService', () => {
                     dashboardSorts: [],
                     context: QueryExecutionContext.DASHBOARD,
                 } as never),
-            ).rejects.toThrow(ForbiddenError);
+            ).rejects.toThrow('Dashboard does not belong to project');
         });
 
         test('rejects a sql chart dashboard that belongs to another project', async () => {
@@ -1671,7 +1670,37 @@ describe('AsyncQueryService', () => {
                     dashboardSorts: [],
                     context: QueryExecutionContext.DASHBOARD,
                 } as never),
-            ).rejects.toThrow(ForbiddenError);
+            ).rejects.toThrow('Dashboard does not belong to project');
+        });
+
+        test('rejects a chart that belongs to another project with a distinct message', async () => {
+            const service = getServiceWithDashboard(mockDashboard());
+            service.savedChartModel.get = jest.fn(async () => ({
+                uuid: 'chart-uuid',
+                organizationUuid: projectSummary.organizationUuid,
+                projectUuid: 'another-project-uuid',
+                spaceUuid: 'space-uuid',
+                tableName: 'valid_explore',
+                metricQuery: metricQueryMock,
+                parameters: {},
+                chartConfig: { config: { type: 'table' } },
+            })) as never;
+
+            await expect(
+                service.executeAsyncDashboardChartQuery({
+                    account: dashboardAccount,
+                    projectUuid,
+                    chartUuid: 'chart-uuid',
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardFilters: {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                    dashboardSorts: [],
+                    context: QueryExecutionContext.DASHBOARD,
+                } as never),
+            ).rejects.toThrow('Chart does not belong to project');
         });
     });
 });

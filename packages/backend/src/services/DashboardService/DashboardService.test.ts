@@ -456,7 +456,39 @@ describe('DashboardService', () => {
             expect(result).toEqual({
                 dashboardSlug: 'name',
                 dashboardName: 'name',
+                filterTableNames: [],
             });
+        });
+
+        test('should return the tables the dashboard filters on', async () => {
+            (dashboardModel.getByIdOrSlug as jest.Mock).mockImplementationOnce(
+                async () => ({
+                    ...dashboard,
+                    filters: {
+                        dimensions: [
+                            {
+                                id: 'filter-dimension',
+                                target: { fieldId: 'a_dim1', tableName: 'a' },
+                            },
+                        ],
+                        metrics: [
+                            {
+                                id: 'filter-metric',
+                                target: { fieldId: 'b_count', tableName: 'b' },
+                            },
+                        ],
+                        tableCalculations: [],
+                    },
+                }),
+            );
+
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result?.filterTableNames).toEqual(['a', 'b']);
         });
 
         test('should return undefined when the dashboard belongs to another project', async () => {

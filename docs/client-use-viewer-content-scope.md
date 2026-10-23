@@ -1,7 +1,21 @@
 # client-use 受限角色（viewer / interactive_viewer）内容可见性设计
 
-> 状态：**已实施**（commit `fe7c504ef`，分支 `fix/bugs`）。
-> 本文档记录设计方案与落地口径，供后续维护与验收参考。
+> **状态**：已实施并合入 `dev`。
+> 主要提交（分支 `fix/bugs` → `dev`）：
+>
+> | commit                                  | 内容                                                      |
+> | --------------------------------------- | --------------------------------------------------------- |
+> | `fe7c504ef`                             | 初始方案：内容范围 + 类目筛选器重置联动                   |
+> | `6e7d2851b` / `f4d57dc74` / `5067f4710` | 过滤落点修正、空间口径改为看板驱动、补齐空间/图表列表入口 |
+> | `9429e1bac` / `b782baed6`               | 空间口径改为「可见内容 + 祖先」、角色解析顺序说明         |
+> | `403289f61`                             | 诊断信息 + 置顶内容过滤                                   |
+> | `d6ed865eb`                             | 修复空间查询 raw 数组绑定导致的 HTTP 500                  |
+> | `c3a971575`                             | 搜索 / 热门 / 评论入口的 scope 过滤                       |
+> | `77f62332b`                             | content-as-code 导出按 scope 过滤                         |
+> | `edda2706a`                             | 诊断接入正式 locale key + TSOA 生成产物                   |
+> | `281e825fe`                             | 看板跑数上下文归属校验 + SQL 图表权限校验                 |
+>
+> 本文档记录设计方案、落地口径与**排障对照表**，供后续维护与验收参考。
 
 > 关联问题：客户「品牌 CT」项目，手机号 `18522948433` 的账号（组织角色=成员，项目角色=interactive_viewer）
 > 通过 MCP 能看到 89 个空间 / 约 488 张已保存图表，而看板只看到 1 个。
@@ -9,7 +23,9 @@
 
 ---
 
-## 0. 结论（一句话）
+## 0. 结论与快速排障
+
+### 0.1 一句话结论
 
 **不改数据（不去把公开空间改成私有），改读取侧：以 client-use 看板白名单为唯一可见性来源，
 反推出「可见看板 / 可见图表 / 可见空间 / 可查数据集」四元集合（ViewerContentScope），
@@ -19,26 +35,40 @@
 - client-use 受限角色的可见范围由客户的 RPC 白名单决定，与看板白名单口径一致；
 - 图表跑数也纳入过滤，堵住"看板看不到但图表能跑出数据"的洞。
 
+### 0.2 快速排障（线上"看不到内容 / 403"时按此顺序）
+
+1. **先看诊断**：`GET /api/v1/user?projectUuid=<projectUuid>` → `results.clientUse`
+   （状态、口径、手机号、白名单看板数、scope 计数）。前端空间页有可折叠诊断卡片。
+   状态含义见 [5.9](#59-诊断信息resultsclientuse)。
+2. **状态为 `rpc_empty` / `rpc_error`** → fail-closed，**全站内容为空**。
+   此时"看不到 / 403"是**症状不是原因**，先修 RPC（`ADMIN_API_HOST` / `ADMIN_API_KEY` /
+   手机号是否在客户白名单里），不要改权限代码。
+3. **状态为 `rpc_ok` 但仍被拦** → 内容确实不在白名单，属正常拦截；
+   用 [5.12](#512-跑数与读取的-403-可观测点) 的错误文案定位是哪一道校验。
+4. **状态为 `role_not_restricted`** → 该账号不是受限角色，scope 不生效；
+   若仍被拦，看错误文案里是否是**空间权限**类（CASL）而非客户使用模式类。
+5. **状态为 `not_client_use`** → 项目没开客户使用模式，本文档的过滤全部不适用。
+
 ---
 
 ## 1. 问题现状（代码证据）
 
-client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad-hoc 查询做了白名单过滤**，
+client-use 模式（`projects.is_client_use = true`）在改造前**只对看板和 ad-hoc 查询做了白名单过滤**，
 空间与已存图表**完全绕过**：
 
-| 入口                             | 当前过滤                             | 是否受白名单约束 | 代码位置                                               |
-| -------------------------------- | ------------------------------------ | ---------------- | ------------------------------------------------------ |
-| 看板列表                         | RPC 白名单（按手机号）               | ✅               | `DashboardService.ts:243`、`ContentService.ts:122-176` |
-| 数据集/表元数据（catalog）       | 白名单派生 explore 名单              | ✅               | `CatalogService.ts:378 / 680 / 730`                    |
-| ad-hoc 指标查询                  | `assertExploreAllowedForAdhocQuery`  | ✅               | `ProjectService.ts:4490`                               |
-| **空间列表**                     | 仅空间权限（public 或 space access） | ❌               | `ContentService.ts:112`、`SpaceService.ts:660`         |
-| **已存图表列表**                 | 同上（按图表所属空间）               | ❌               | 同上                                                   |
-| **图表元数据 `get_saved_chart`** | 同上                                 | ❌               | `SavedChartService.ts:794`                             |
-| **图表跑数 `run_saved_chart`**   | 仅空间权限 + `view Project`          | ❌               | `AsyncQueryService.ts:2190`                            |
-| **看板磁贴跑数**                 | 仅空间权限                           | ❌               | `AsyncQueryService.ts:2374`                            |
+| 入口                             | 改造前过滤                           | 是否受白名单约束 |
+| -------------------------------- | ------------------------------------ | ---------------- |
+| 看板列表                         | RPC 白名单（按手机号）               | ✅               |
+| 数据集/表元数据（catalog）       | 白名单派生 explore 名单              | ✅               |
+| ad-hoc 指标查询                  | `assertExploreAllowedForAdhocQuery`  | ✅               |
+| **空间列表**                     | 仅空间权限（public 或 space access） | ❌               |
+| **已存图表列表**                 | 同上（按图表所属空间）               | ❌               |
+| **图表元数据 `get_saved_chart`** | 同上                                 | ❌               |
+| **图表跑数 `run_saved_chart`**   | 仅空间权限 + `view Project`          | ❌               |
+| **看板磁贴跑数**                 | 仅空间权限                           | ❌               |
 
 根因：空间/图表的判据是 `hasViewAccessToSpace`，而 viewer 的能力规则里
-`can('view','SavedChart',{ projectUuid, isPrivate:false })`（`projectMemberAbility.ts:24`）
+`can('view','SavedChart',{ projectUuid, isPrivate:false })`（`packages/common/src/authorization/projectMemberAbility.ts`）
 对**项目内所有公开空间**生效，与 client-use 白名单无关。
 
 影响分两级：
@@ -70,12 +100,12 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 | 方案                                | 做法                                                               | 优点                                                                                                                            | 缺点                                                                                                                                   | 结论                                                           |
 | ----------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | **A. 空间私有化（数据治理）**       | 把 89 个空间改成 `is_private = true` + 配 `space_user_access`      | 改动最小，立刻生效                                                                                                              | ① 需批量改生产数据、影响"公开空间"语义与管理员浏览；② 客户侧新增空间仍会漏（人工易错）；③ 图表虽然被挡住，但"空间"粒度仍粗；④ 回滚麻烦 | ❌ 不作为主方案，仅作可选治理项                                |
-| **B. 看板反推 scope（读取侧过滤）** | 以白名单看板为唯一入口，反推可见图表/空间/数据集，三条路径统一过滤 | ① 与客户同步系统（RPC）口径一致；② 新增内容自动继承，无需人工维护空间可见性；③ 不动生产数据，可灰度、可回滚；④ 顺带堵住跑数漏洞 | 需要新增 1~2 个聚合查询 + 缓存                                                                                                         | ✅ **推荐**                                                    |
+| **B. 看板反推 scope（读取侧过滤）** | 以白名单看板为唯一入口，反推可见图表/空间/数据集，三条路径统一过滤 | ① 与客户同步系统（RPC）口径一致；② 新增内容自动继承，无需人工维护空间可见性；③ 不动生产数据，可灰度、可回滚；④ 顺带堵住跑数漏洞 | 需要新增 1~2 个聚合查询 + 缓存                                                                                                         | ✅ **已实施**                                                  |
 | **C. RPC 扩展到图表/空间维度**      | 让客户同步系统直接返回可见图表/空间清单                            | 语义最清晰，可支持"整空间授权"                                                                                                  | 依赖客户系统改造，周期长                                                                                                               | 🕐 备选（B 可平滑升级到 C：scope 来源换成 RPC 返回的清单即可） |
 
 ---
 
-## 4. 公开空间怎么处理（重点问题）
+## 4. 公开空间怎么处理
 
 ### 4.1 结论
 
@@ -125,6 +155,9 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 建议做法：把与客户交付无关的空间设为私有 + 配 `space_user_access`（含组授权），并保留
 "客户授权看板所在空间"为公开（便于客户侧协作）。
 
+> ⚠️ 与方案 B 冲突：若把客户授权看板所在空间设为私有，白名单推导出的空间可见性会变窄，
+> 需回归验证后再做。本轮**未执行**任何生产数据修改。
+
 ### 4.4 角色解析顺序（只看项目权限）
 
 白名单是否生效，取决于**有效项目角色**（`DashboardService.getAllowedDashboardUuidsForViewer`，
@@ -161,7 +194,7 @@ client-use 模式（`projects.is_client_use = true`）目前**只对看板和 ad
 - 该开关是**纯前端显示过滤**，切的是后端已经过滤过的数据 → **不会泄露**；
 - 直接用 URL 打开非白名单看板 → `DashboardService.getByIdOrSlug` 抛 `ForbiddenError`；
 - 已知该组合会让"管理员内容视图"看起来"只有几个空间"，属于文案困惑，不是权限漏洞；
-  确需消除时，走 `GET /projects/:uuid/my-content-scope`（见 5.4）让前端按真实范围渲染。
+  确需消除时，让前端按 `results.clientUse`（见 5.9）渲染真实范围。
 
 ---
 
@@ -186,7 +219,7 @@ export type ViewerContentScope = {
 
 ### 5.2 后端计算 scope
 
-在 `DashboardService` 新增（紧邻 `getAllowedDashboardUuidsForViewer`，`DashboardService.ts:243`）：
+在 `DashboardService` 新增（紧邻 `getAllowedDashboardUuidsForViewer`）：
 
 ```ts
 async getViewerContentScope(
@@ -203,7 +236,7 @@ async getViewerContentScope(
 3. `chartUuids`：`DashboardModel.getChartUuidsByDashboardUuids(dashboardUuids)`（新增）——
    取白名单看板**最新版本**的磁贴图表，dbt 图表（`dashboard_tile_charts` → `saved_queries.saved_query_uuid`）
    与 SQL 图表（`dashboard_tile_sql_charts.saved_sql_uuid`）合集。
-4. `spaceUuids`：**可见内容 + 祖先**口径（详见 5.7）
+4. `spaceUuids`：**可见内容 + 祖先**口径（详见 5.8）
    - `DashboardModel.getSpaceUuidsByDashboardUuids(dashboardUuids)`（新增）→ 白名单看板所属空间；
    - `DashboardModel.getSpaceUuidsByChartUuids(chartUuids)`（新增）→ 可见图表所属空间
      （`saved_queries.space_id` 与 `saved_sql.space_uuid` 两条来源）；
@@ -212,24 +245,42 @@ async getViewerContentScope(
 > 祖先用 ltree `path` 批量计算，join 限定 `target.project_id = ancestor.project_id`
 > （path 由 slug 构成，跨项目可能重复）。
 
-### 5.3 接入点
+### 5.3 接入点总表（**所有**可能列出空间/图表/看板的入口）
 
-| #   | 文件                                                                                  | 改法                                                                                                                                                      | 状态                                                                 |
-| --- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| 1   | `packages/backend/src/services/DashboardService/DashboardService.ts`                  | 新增 `getViewerContentScope()`                                                                                                                            | ✅                                                                   |
-| 2   | `packages/backend/src/services/ContentService/ContentService.ts`                      | 空间与 scope 取交集；已保存图表按 `scope.chartUuids` 过滤；`dashboardCount`/`chartCount` 按可见内容重算（`SpaceModel.getVisibleChartCountsBySpaceUuids`） | ✅                                                                   |
-| 3   | `packages/backend/src/models/DashboardModel/DashboardModel.ts`                        | 新增 `getChartUuidsByDashboardUuids` / `getSpaceUuidsByDashboardUuids`                                                                                    | ✅                                                                   |
-| 4   | `packages/backend/src/models/SpaceModel.ts`                                           | 新增 `getSpaceUuidsWithAncestors`（批量祖先）/ `getVisibleChartCountsBySpaceUuids`                                                                        | ✅                                                                   |
-| 5   | `packages/backend/src/services/SavedChartsService/SavedChartService.ts`               | `checkPermissions` 校验 `chartUuid ∈ scope.chartUuids`                                                                                                    | ✅                                                                   |
-| 6   | `packages/backend/src/services/SavedSqlService/SavedSqlService.ts`                    | `hasAccess` 同上（SQL 图表）                                                                                                                              | ✅                                                                   |
-| 7   | `packages/backend/src/services/AsyncQueryService/AsyncQueryService.ts`                | `executeAsyncSavedChartQuery` / `checkDashboardChartQueryPermissions` 校验图表；`executeAsyncDashboardChartQuery` 校验看板                                | ✅                                                                   |
-| 8   | `packages/backend/src/ee/services/McpService/McpService.ts`、`.../AiAgentService.ts`  | dashboard / chart finder 按 scope 过滤，分页总数按过滤后结果计算                                                                                          | ✅                                                                   |
-| 9   | `packages/backend/src/services/ServiceRepository.ts`                                  | 向 `SavedChartService` / `SavedSqlService` 注入**惰性** scope resolver，避免 `DashboardService ↔ SavedChartService` 循环依赖                              | ✅                                                                   |
-| 10  | `packages/backend/src/services/SpaceService/SpaceService.ts`（`filterBySpaceAccess`） | 增加 scope 参数                                                                                                                                           | ⛔ 未做：改为在上游（ContentService / MCP / AI Agent 的 finder）过滤 |
+> 判定原则：**任何一个会返回"内容列表 / 内容详情 / 可执行对象"的接口，都必须经过 scope**。
+> 只改 content API 是不够的——空间选择器、空间详情页、搜索、置顶、热门、导出都会泄露。
 
-### 5.4 MCP 侧——避免 agent 再次误判
+| 接口                                                   | 服务方法                                           | 改法                                                                                     | 状态 |
+| ------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
+| `GET /api/v2/content`                                  | `ContentService.find`                              | 条目层过滤：空间/图表按 scope，看板按白名单；计数按可见内容重算                          | ✅   |
+| `GET /projects/:projectUuid/spaces`                    | `ProjectService.getSpaces`                         | 按 scope 过滤空间，并按可见图表重算 `chartCount`                                         | ✅   |
+| `GET /projects/:projectUuid/charts`                    | `ProjectService.getCharts`                         | 按 `scope.chartUuids` 过滤                                                               | ✅   |
+| `GET /projects/:projectUuid/chart-summaries`           | `ProjectService.getChartSummaries`                 | 按 `scope.chartUuids` 过滤                                                               | ✅   |
+| `GET /projects/:projectUuid/spaces/:spaceUuid`         | `SpaceService.getSpace`                            | 过滤 `queries`（图表）、`childSpaces`（无白名单看板的子空间移除）                        | ✅   |
+| `GET /projects/:projectUuid/dashboards`                | `DashboardService.getAllByProject`                 | 已有 RPC 白名单过滤                                                                      | ✅   |
+| `GET /projects/:projectUuid/dashboards/:uuid`          | `DashboardService.getByIdOrSlug`                   | 已有 RPC 白名单过滤（URL 直达也拦住）                                                    | ✅   |
+| `GET /projects/:projectUuid/saved/:uuid`               | `SavedChartService.get`                            | 已有 `checkPermissions` 的 scope 校验                                                    | ✅   |
+| `GET /projects/:projectUuid/dashboards/context`        | `DashboardService.getDashboardContexts`            | 已有 RPC 白名单过滤                                                                      | ✅   |
+| `GET /projects/:projectUuid/search`                    | `SearchService.getSearchResults`                   | 看板/标签按白名单过滤；图表按 `scope.chartUuids`、空间按 `scope.spaceUuids` 过滤         | ✅   |
+| `GET /projects/:projectUuid/most-popular`              | `ProjectService.getMostPopularAndRecentlyUpdated`  | 空间按 `scope.spaceUuids`、图表按 `scope.chartUuids`、看板按 `scope.dashboardUuids` 过滤 | ✅   |
+| `GET /pinned`（置顶列表）                              | `PinningService.getPinnedItems`                    | 置顶空间按 `scope.spaceUuids`、置顶图表按 `scope.chartUuids` 过滤                        | ✅   |
+| `GET /projects/:projectUuid/dashboards/:uuid/comments` | `CommentService`                                   | 创建/读取/解决/删除评论均校验看板白名单                                                  | ✅   |
+| `GET /projects/:projectUuid/dashboards/code`           | `CoderService.getDashboards`                       | 看板按白名单过滤，空间元数据同步收窄                                                     | ✅   |
+| `GET /projects/:projectUuid/charts/code`               | `CoderService.getCharts`                           | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
+| `GET /projects/:projectUuid/code/sqlCharts`            | `CoderService.getSqlCharts`                        | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
+| `GET /projects/:projectUuid/code/spaces`               | `CoderService.getSpaces`                           | 空间按 `scope.spaceUuids` 过滤                                                           | ✅   |
+| MCP 内容查找（dashboard/chart）                        | `McpService` / `AiAgentService`                    | finder 按 scope 过滤，分页总数按过滤后结果计算                                           | ✅   |
+| `POST /query/dashboard-chart`（图表 / SQL 图表）       | `AsyncQueryService`                                | 看板归属校验 + 白名单校验（见 5.11）                                                     | ✅   |
+| `POST /query/saved-chart`                              | `AsyncQueryService.executeAsyncSavedChartQuery`    | 图表 ∈ `scope.chartUuids`                                                                | ✅   |
+| `POST /query/metric-query`（探索页 ad-hoc）            | `ProjectService.assertExploreAllowedForAdhocQuery` | explore ∈ `scope.exploreNames`                                                           | ✅   |
+| 图表元数据（`get_saved_chart` 等）                     | `SavedChartService` / `SavedSqlService`            | 图表 ∈ `scope.chartUuids`                                                                | ✅   |
 
-问题根因：`src/mcp/access/abilityFromRules.ts` 的能力位只看"**有没有**对应规则"，
+前端配合：内容列表的"空间"列改为使用 content API 返回的 `space.name`
+（空间被隐藏时只显示文字、不给链接），避免出现空白单元格。
+
+### 5.4 MCP / AI Agent——避免 agent 再次误判
+
+问题根因：`packages/lightdash-mcp/src/mcp/access/abilityFromRules.ts` 的能力位只看"**有没有**对应规则"，
 不看 conditions，于是 `can('view','SavedChart',{isPrivate:false})` 被当成"能看所有图表"，
 agent 由此推断出"管理员"。
 
@@ -239,12 +290,11 @@ agent 由此推断出"管理员"。
 
 **未实施（待后续）**：
 
-1. **后端提供真实范围**：新增 `GET /api/v1/projects/:projectUuid/my-content-scope`
-   （返回 scope 的计数与摘要：可见看板/图表/空间/表数量，以及 `scopeApplied` 标记）。
-2. **MCP `get_my_access` 消费它**：`packages/lightdash-mcp/src/mcp/tools/registerAccessTools.ts`
-   的 `buildProjectAccess` 增加 `contentScope` 字段；在描述里明确
-   "能力位仅表示角色上限，实际可见范围以 contentScope 为准"。
-3. **能力位加限定**：把 `runSavedChart` 的描述从"可跑已存图表"改为
+1. **MCP `get_my_access` 消费真实范围**：在
+   `packages/lightdash-mcp/src/mcp/tools/registerAccessTools.ts` 的 `buildProjectAccess`
+   增加 `contentScope` 字段；在描述里明确"能力位仅表示角色上限，实际可见范围以 contentScope 为准"。
+   （后端侧的真实范围已经可以通过 `GET /api/v1/user?projectUuid=...` 的 `results.clientUse` 拿到。）
+2. **能力位加限定**：把 `runSavedChart` 的描述从"可跑已存图表"改为
    "可跑**该用户可见范围内**的已存图表（client-use 项目受看板白名单限制）"。
 
 ### 5.5 降级与 fail-closed
@@ -261,10 +311,12 @@ agent 由此推断出"管理员"。
 - scope 计算 = 1 次 RPC + 3 个聚合查询（dashboard→chart、dashboard→space、space→root）。
 - 看板白名单（RPC）与 scope 都加了**短 TTL + Promise 级缓存**（缓存的是 Promise，
   并发请求会合并成一次 RPC）：
-  | 缓存 | Key | TTL | 说明 |
-  | ---- | ---- | --- | ---- |
-  | `allowListCache` | `projectUuid:userUuid` | 成功 30s / RPC 失败 5s | 失败结果只短暂缓存，RPC 恢复后尽快重试 |
-  | `viewerScopeCache` | `projectUuid:userUuid` | 30s | scope 由白名单派生，两者 TTL 对齐 |
+
+  | 缓存               | Key                    | TTL                    | 说明                                   |
+  | ------------------ | ---------------------- | ---------------------- | -------------------------------------- |
+  | `allowListCache`   | `projectUuid:userUuid` | 成功 30s / RPC 失败 5s | 失败结果只短暂缓存，RPC 恢复后尽快重试 |
+  | `viewerScopeCache` | `projectUuid:userUuid` | 30s                    | scope 由白名单派生，两者 TTL 对齐      |
+
 - 缓存条目上限 1000，超出后按插入顺序淘汰最旧条目；
   `DashboardService.clearViewerContentCache(projectUuid?)` 可主动失效。
 - 效果：打开一个看板（10 个磁贴）时，RPC 调用从 ~22 次降到 1~2 次。
@@ -273,7 +325,7 @@ agent 由此推断出"管理员"。
 
 `ContentService.find` 的 `spaceUuids` 过滤被空间、看板、图表三种查询**共用**，
 因此客户使用模式的 scope **不能**通过收窄这个列表来生效——否则会连带把
-白名单内的看板（及其磁贴图表）一起过滤掉（“有权限的看板不展示”）。
+白名单内的看板（及其磁贴图表）一起过滤掉（"有权限的看板不展示"）。
 
 正确落点是**内容条目层（内存过滤）**：
 
@@ -286,7 +338,7 @@ agent 由此推断出"管理员"。
 空间过滤同时覆盖两种列表形态：根空间列表（`nlevel(path)=1`）与浏览空间的子空间列表
 （`parent_space_uuid IN (...)`），后者此前会绕过空间 scope。
 
-#### 空间口径：可见内容 + 祖先
+### 5.8 空间口径：可见内容 + 祖先
 
 ```
 可见空间 = 持有可见内容的空间 ∪ 这些空间的所有祖先
@@ -303,37 +355,12 @@ join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能
 空间的访问权限继承仍由既有的 `hasViewAccessToSpace`（根空间可见即嵌套可见）负责，
 与上面的可见性口径互不干扰。
 
-### 5.8 其它内容入口（不能只改 content API）
+### 5.9 诊断信息（`results.clientUse`）
 
-`GET /api/v2/content` 之外，还有多个接口会列出空间 / 图表，若不一起处理，
-界面上的空间选择器、空间详情页仍会泄露不可见内容：
-
-| 接口                                                   | 服务方法                                          | 改法                                                                                     | 状态 |
-| ------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
-| `GET /projects/:projectUuid/spaces`                    | `ProjectService.getSpaces`                        | 按 scope 过滤空间，并按可见图表重算 `chartCount`                                         | ✅   |
-| `GET /projects/:projectUuid/charts`                    | `ProjectService.getCharts`                        | 按 `scope.chartUuids` 过滤                                                               | ✅   |
-| `GET /projects/:projectUuid/chart-summaries`           | `ProjectService.getChartSummaries`                | 按 `scope.chartUuids` 过滤                                                               | ✅   |
-| `GET /projects/:projectUuid/spaces/:spaceUuid`         | `SpaceService.getSpace`                           | 过滤 `queries`（图表）、`childSpaces`（无白名单看板的子空间移除）                        | ✅   |
-| `GET /projects/:projectUuid/dashboards`                | `DashboardService.getAllByProject`                | 已有 RPC 白名单过滤                                                                      | ✅   |
-| `GET /projects/:projectUuid/saved/:uuid`               | `SavedChartService.get`                           | 已有 `checkPermissions` 的 scope 校验                                                    | ✅   |
-| `GET /projects/:projectUuid/dashboards/context`        | `DashboardService.getDashboardContexts`           | 已有 RPC 白名单过滤                                                                      | ✅   |
-| `GET /projects/:projectUuid/search`                    | `SearchService.getSearchResults`                  | 看板 / 标签按白名单过滤；图表按 `scope.chartUuids`、空间按 `scope.spaceUuids` 过滤       | ✅   |
-| `GET /projects/:projectUuid/most-popular`              | `ProjectService.getMostPopularAndRecentlyUpdated` | 空间按 `scope.spaceUuids`、图表按 `scope.chartUuids`、看板按 `scope.dashboardUuids` 过滤 | ✅   |
-| `GET /pinned`（置顶列表）                              | `PinningService.getPinnedItems`                   | 置顶空间按 `scope.spaceUuids`、置顶图表按 `scope.chartUuids` 过滤                        | ✅   |
-| `GET /projects/:projectUuid/dashboards/:uuid/comments` | `CommentService.findCommentsForDashboard`         | 受限角色只能读白名单看板的评论                                                           | ✅   |
-| `GET /projects/:projectUuid/dashboards/code`           | `CoderService.getDashboards`                      | 看板按白名单过滤，空间元数据同步收窄                                                     | ✅   |
-| `GET /projects/:projectUuid/charts/code`               | `CoderService.getCharts`                          | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
-| `GET /projects/:projectUuid/code/sqlCharts`            | `CoderService.getSqlCharts`                       | 图表按 `scope.chartUuids` 过滤                                                           | ✅   |
-| `GET /projects/:projectUuid/code/spaces`               | `CoderService.getSpaces`                          | 空间按 `scope.spaceUuids` 过滤                                                           | ✅   |
-
-前端配合：内容列表的"空间"列改为使用 content API 返回的 `space.name`
-（空间被隐藏时只显示文字、不给链接），避免出现空白单元格。
-
-### 5.9 排查用诊断信息
-
-`GET /api/v1/user?projectUuid=<projectUuid>` 的 `results.clientUse` 会返回
+`GET /api/v1/user?projectUuid=<projectUuid>` 的 `results.clientUse` 返回
 客户使用模式诊断（状态、角色来源、手机号、白名单看板、scope 计数），
-前端空间页有可折叠诊断卡片，便于定位"看不到内容"的问题。
+前端空间页有可折叠诊断卡片（默认收起，请求失败静默隐藏，不阻塞页面），
+便于定位"看不到内容"的问题。
 
 | 状态                  | 含义                                                   |
 | --------------------- | ------------------------------------------------------ |
@@ -346,10 +373,14 @@ join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能
 | `rpc_empty`           | RPC 返回空白名单（fail-closed，内容不可见）            |
 | `rpc_ok`              | 正常，白名单与 scope 已生成                            |
 
+诊断复用 allow-list / scope 缓存，不会因为打开诊断卡片而额外打 RPC。
+未新增独立诊断接口（原计划的 `GET /projects/:uuid/my-content-scope` 已取消）。
+
 ### 5.10 已修复的线上故障
 
 `GET /api/v2/content` 与 `GET /api/v1/projects/:projectUuid/spaces` 曾返回
-HTTP 500（`UnexpectedServerError` / `invalid input syntax for type uuid`）。
+HTTP 500（`UnexpectedServerError` / `invalid input syntax for type uuid`，
+Sentry `877bb41b74d84a8ebd7358a6e025680f`）。
 
 原因：knex 的 `raw` 查询不会把数组展开成 `IN (?, ?, ...)`，而是把整个数组
 当作一个 Postgres 数组参数下发，数据库收到 `{"uuid1","uuid2"}` 这样的字面量，
@@ -359,6 +390,9 @@ HTTP 500（`UnexpectedServerError` / `invalid input syntax for type uuid`）。
 `SpaceModel.getVisibleChartCountsBySpaceUuids` 改为"每个 uuid 一个占位符 +
 扁平标量绑定"，并补充了绑定形状的回归测试
 （`packages/backend/src/models/SpaceModel.test.ts`）。
+
+> 经验：`IN (?)` + 数组绑定在 knex raw 里是**高危写法**，新增 raw 查询一律用
+> `buildInPlaceholders(count)` 生成独立占位符。
 
 ### 5.11 看板跑数的行级过滤上下文（sql_filter）
 
@@ -379,21 +413,83 @@ EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
 | ------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
 | `POST /query/dashboard-chart`（图表）       | 服务端 `dashboardModel.getByIdOrSlug(dashboardUuid)` 的 slug/name | ✅ 客户端 `context` 不参与 SQL（只进 analytics tag） |
 | `POST /query/dashboard-chart`（SQL 图表）   | 同上                                                              | ✅ 同上                                              |
-| `POST /query/saved-chart`（独立跑保存图表） | 无看板上下文 → `NA`                                               | ⚠️ `NA` 分支不过滤，见 5.12                          |
+| `POST /query/saved-chart`（独立跑保存图表） | 无看板上下文 → `NA`                                               | ⚠️ `NA` 分支不过滤，见 5.13                          |
 | `POST /query/metric-query`（探索页 ad-hoc） | 无看板上下文 → `NA`                                               | ⚠️ 同上                                              |
 | MCP 查数                                    | MCP 服务端按 explore 反查白名单看板后注入                         | ✅ 口径与看板一致                                    |
 
-补强（本次）：
+本次补强（commit `281e825fe`）：
 
 - 两条看板跑数路径都要求 `dashboard.projectUuid === projectUuid`，
-  防止传入**其它项目**的看板 uuid 借用其 dashboard parameters 与行级口径。
+  防止传入**其它项目**的看板 uuid 借用其 dashboard parameters 与行级口径；
 - SQL 图表跑数路径补齐客户使用模式校验：SQL 图表必须挂在白名单看板上，
-  且看板本身必须在白名单内（此前只校验了空间可见性）。
+  且看板本身必须在白名单内（此前只校验了空间可见性）；
+- 看板白名单校验改用服务端解析后的 `dashboard.uuid`（兼容 slug 入参）。
 
 回归测试：`packages/backend/src/services/AsyncQueryService/AsyncQueryService.test.ts`
-的 `dashboard query context` 用例。
+的 `dashboard query context` 用例（锁定"客户端伪造 slug 不影响行级过滤"）。
 
-### 5.12 已知限制（未处理，需客户确认）
+### 5.11.1 看板筛选器取值的白名单口径
+
+看板上的筛选器（尤其是类目筛选器）需要读取维度值，走
+`POST /projects/:projectUuid/field/:fieldId/search` → `ProjectService.searchFieldUniqueValues`。
+
+该接口受 explore 白名单约束：
+
+| 情形                                               | 结果                                      |
+| -------------------------------------------------- | ----------------------------------------- |
+| explore 在白名单内                                 | ✅ 允许取值                               |
+| explore 不在白名单、且**没有**看板上下文           | ⛔ `ForbiddenError`                       |
+| explore 不在白名单、看板上下文可信但该看板不筛选它 | ⛔ `ForbiddenError`                       |
+| explore 不在白名单、看板上下文可信且该看板筛选它   | ✅ 允许取值（行级 `sql_filter` 仍然生效） |
+
+“该看板筛选它”的判定：看板当前版本的 `filters.dimensions` / `filters.metrics`
+里的 `target.tableName` 解析成 base explore 后命中请求的 explore
+（表名可能是 join alias，解析顺序与 `_getFieldValuesMetricQuery` 一致：
+先 `findExploreByTableName`，再 `findJoinAliasExplore`）。
+
+> ⚠️ 早期实现是“有可信看板上下文就完全跳过白名单”，等于让任意受限角色
+> 用任意看板 slug 去读任意表的值。现已收紧为只豁免“该看板自己筛选的表”。
+> 回归测试：`ProjectService.test.ts` 的
+> `should reject field values of a table the dashboard does not filter on` /
+> `should allow field values of a table the dashboard filters on`。
+
+### 5.12 跑数与读取的 403 可观测点
+
+所有客户使用模式的拒绝都返回 **403 `ForbiddenError`**，
+**错误文案是唯一的第一手定位线索**（文案本身不含手机号 / 看板名，不泄露内容）：
+
+| #   | 错误文案                                                             | 抛出位置                                                                  | 触发条件                                                    | 是不是 bug                               |
+| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| 1   | `Chart does not belong to project`                                   | `AsyncQueryService.executeAsyncDashboardChartQuery`（图表归属校验，既有） | 请求里的 `chartUuid` 属于**另一个项目**                     | 否                                       |
+| 2   | `Dashboard does not belong to project`                               | `AsyncQueryService.executeAsyncDashboardChartQuery` / `...SqlChartQuery`  | 请求里的 `dashboardUuid` 属于**另一个项目**                 | 否（防跨项目借用 parameters / 行级口径） |
+| 3   | `You don't have access to this chart in this project`                | `clientUseScope.assertChartInViewerContentScope`                          | 受限角色执行不在 scope 里的图表（dbt 图表或 SQL 图表）      | 否（图表必须挂在白名单看板上）           |
+| 4   | `You don't have access to this dashboard in this project`            | `clientUseScope.assertDashboardInViewerContentScope`                      | 受限角色跑非白名单看板                                      | 否                                       |
+| 5   | `You don't have permission to view this dashboard...`                | `DashboardService.getByIdOrSlug`                                          | 打开非白名单看板（URL 直达）                                | 否                                       |
+| 6   | `You don't have access to this dashboard`                            | `DashboardService.resolveDashboardContextForMetadata`                     | 图表元数据请求带了非白名单看板的 slug                       | 否                                       |
+| 7   | `You don't have access to the space this dashboard/chart belongs to` | CASL / 空间权限既有校验                                                   | 空间权限不足（**非**客户使用模式特有）                      | 视情况，与 scope 无关                    |
+| 8   | `You don't have access to the explore {exploreName}`                 | `ProjectService.searchFieldUniqueValues`                                  | 受限角色读取不在白名单的 explore 取值（看板上下文不能绕过） | 否（见 5.11.1）                          |
+
+> ⚠️ #1 与 #2 的文案必须保持不同：改动前两者都是 `Dashboard does not belong to project`，
+> 排查时无法区分是"图表传错"还是"看板传错"。已修正并由单测锁定。
+
+**排查顺序**：
+
+1. 先取 `results.clientUse.status`（见 0.2）；
+2. `rpc_ok` + 命中 #3/#4 → 内容确实不在白名单，正常拦截；
+3. `rpc_empty` / `rpc_error` → fail closed 导致的全黑，**先修 RPC**，别动权限代码；
+4. `role_not_restricted` → scope 不生效，命中 #7 才是权限问题；
+5. 正常操作命中 #1 / #2 → 前端传错了 `chartUuid` / `dashboardUuid`（前端 bug），可从请求体复现。
+
+**误伤面证明**（#1 为什么不会挡住正常查询）：
+
+- 图表归属项目**早就**校验过（`savedChartProjectUuid !== projectUuid` → 403，改动前就有）；
+- `dashboard.projectUuid` 来自 `space.project_id`，`getByIdOrSlug` 必定 select 到，不存在 undefined 误判；
+- 前端两个 endpoint 的 `projectUuid` 与 `dashboardUuid` 同源（当前看板 + 当前项目）；
+- `EmbedService.executeAsyncDashboardTileQuery` 用的是 embed 自己的看板 + embed 所属项目；
+- embed / JWT 账号没有 `userUuid` → `toViewerContentScopeUser` 返回 `undefined` →
+  scope 检查整体跳过，**嵌入看板不受新校验影响**。
+
+### 5.13 已知限制（未处理，需客户确认）
 
 `dashboardSlug = 'NA'` 时 dbt `sql_filter` 的首个分支为真，**不按类目过滤**。
 因此受限角色在探索页做 ad-hoc 查询、或独立跑保存图表时，行级类目口径不生效
@@ -406,12 +502,15 @@ EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
 
 ## 6. 实施状态
 
-| 阶段           | 内容                                               | 状态                                                         |
-| -------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| **P0**         | scope 计算 + 跑数 fail-closed（接入点 1、5、6、7） | ✅ 已实施                                                    |
-| **P1**         | 图表/空间元数据过滤（2、3、4）                     | ✅ 已实施                                                    |
-| **P2**         | MCP / AI Agent 内容查找按 scope 过滤（后端侧）     | ✅ 已实施（后端）；⛔ `lightdash-mcp` 侧 `contentScope` 未做 |
-| **P3（可选）** | 客户侧空间私有化治理（4.3）                        | ⛔ 运维建议，非代码前置条件                                  |
+| 阶段           | 内容                                                   | 状态                                                         |
+| -------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| **P0**         | scope 计算 + 跑数 fail-closed                          | ✅ 已实施                                                    |
+| **P1**         | 图表/空间元数据过滤 + 全部列表/搜索/置顶/评论/导出入口 | ✅ 已实施                                                    |
+| **P2**         | MCP / AI Agent 内容查找按 scope 过滤（后端侧）         | ✅ 已实施（后端）；⛔ `lightdash-mcp` 侧 `contentScope` 未做 |
+| **P2**         | 看板跑数使用服务端看板上下文 + 跨项目校验              | ✅ 已实施                                                    |
+| **P2**         | 看板筛选器取值受 explore 白名单约束                    | ✅ 已实施（见 5.11.1）                                       |
+| **P3**         | 诊断信息（`results.clientUse`）+ 前端诊断卡片          | ✅ 已实施                                                    |
+| **P4（可选）** | 客户侧空间私有化治理（4.3）                            | ⛔ 运维建议，非代码前置条件                                  |
 
 ---
 
@@ -440,7 +539,25 @@ EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
 - ✅ 可见图表所在空间可见（图表能看，空间就不会消失）；
 - ✅ RPC 返回空/异常 → 空间、图表、看板全部为空（fail-closed）；
 - ✅ 白名单看板不会被空间 scope 二次过滤（空间 scope 只在条目层生效）；
-- ✅ 浏览空间时的子空间列表同样按 scope 过滤。
+- ✅ 浏览空间时的子空间列表同样按 scope 过滤；
+- ✅ 搜索 / 热门 / 置顶 / 评论 / content-as-code 导出一致。
+
+**P2 看板跑数上下文（见 5.11 / 5.12）**
+
+- ✅ 客户端伪造 `context.dashboardSlug` → 行级过滤仍用服务端 slug（已有行为，已加测试锁定）；
+- ✅ 传入**外项目**的 `dashboardUuid` → 403 `Dashboard does not belong to project`；
+- ✅ 传入**外项目**的 `chartUuid` → 403 `Chart does not belong to project`（两条文案可区分）
+- ✅ 受限角色跑**挂在非白名单看板**上的 SQL 图表 → 403；
+- ✅ 白名单看板上的 SQL 图表 → 正常返回数据；
+- ✅ embed / JWT 账号 → 不受 scope 校验影响（`userUuid` 缺失 → scope 跳过）。
+
+**P2 看板筛选器取值（见 5.11.1）**
+
+- ✅ 受限角色读取白名单内 explore 的字段值 → 正常返回；
+- ✅ 受限角色读取白名单外 explore 的字段值 → 403 `You don't have access to the explore ...`；
+- ✅ 带可信看板上下文但看板不筛选该表 → 仍 403（上下文不能当成万能钥匙）；
+- ✅ 带可信看板上下文且看板筛选该表 → 允许（行级 `sql_filter` 仍生效）；
+- ✅ 非 client-use 项目 / 非受限角色 → 行为不变。
 
 **单测覆盖**
 
@@ -448,15 +565,28 @@ EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
   空间 scope 过滤、看板白名单过滤、图表 scope 过滤、嵌套空间移除、非 client-use 不受影响；
 - `packages/backend/src/services/ProjectService/ProjectService.clientUseScope.test.ts`：
   `getSpaces` 空间过滤与 `chartCount` 重算、`getCharts` / `getChartSummaries` 图表过滤、
-  scope 不适用时保持原行为；
+  热门/最近更新、`hasSavedCharts`、scope 不适用时保持原行为；
 - `packages/backend/src/services/SpaceService/SpaceService.test.ts`：
   空间详情的图表过滤、子空间移除、scope 不适用时保持原行为；
-- `packages/backend/src/models/SpaceModel.test.ts`：祖先查询（结果映射、跨项目隔离、空入参不查库）；
+- `packages/backend/src/services/SearchService/SearchService.test.ts`：
+  scope 外图表/空间隐藏、scope 不适用时行为不变；
+- `packages/backend/src/services/PinningService/PinningService.test.ts`：
+  scope 外置顶空间/图表隐藏、scope 不适用时保留全部；
+- `packages/backend/src/services/CommentService/CommentService.test.ts`：
+  白名单看板评论可读、白名单外拒绝、scope 不适用时保持原行为；
+- `packages/backend/src/services/CoderService/CoderService.clientUseScope.test.ts`：
+  导出接口按 scope 过滤看板/图表/空间；
+- `packages/backend/src/services/AsyncQueryService/AsyncQueryService.test.ts`：
+  `dashboard query context`（服务端 slug 锁定 + 跨项目 403 + SQL 图表权限）；
+- `packages/backend/src/services/ProjectService/ProjectService.test.ts`：
+  字段取值白名单（不在白名单 → 403、看板不筛选该表 → 403、看板筛选该表 → 允许）；
+- `packages/backend/src/models/SpaceModel.test.ts`：祖先查询（结果映射、跨项目隔离、空入参不查库）
+  - raw 绑定形状回归；
 - `packages/backend/src/services/DashboardService/DashboardService.test.ts`：
   `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata` /
   白名单与 scope 缓存（并发合并、TTL、失败重试、主动失效）；
-- `packages/frontend/src/utils/categoryFilters.test.ts`：类目重置与级联（见
-  [`docs/category-filter-cascade.md`](./category-filter-cascade.md)）。
+- `packages/frontend/src/utils/categoryFilters.test.ts` + `categoryFilterInitHelpers.test.ts`：
+  类目重置与级联（见 [`docs/category-filter-cascade.md`](./category-filter-cascade.md)）。
 
 **手工验证 SQL（生产库只读）**
 
@@ -483,14 +613,22 @@ WHERE u.email = '18522948433@brandtct.cn';
 
 ## 8. 风险与回滚
 
-| 风险                                    | 缓解                                                                                                  |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 白名单看板未引用的独立图表对客户不可见  | 与客户确认同步系统是否覆盖图表；必要时升级为方案 C                                                    |
-| RPC 不可用导致客户"什么都看不到"        | 告警 + 明确 fail-closed 决策；短缓存降低抖动影响                                                      |
-| 空间 count 重算导致列表分页/总数变化    | 同步调整 `ContentService` 的 `shouldFilterInMemory` 逻辑与前端分页展示                                |
-| 非 client-use 项目被误伤                | 所有 scope 判断以 `is_client_use && isClientUseRestrictedProjectRole` 为前置条件                      |
-| 组织管理员在受控项目被单独降级为 viewer | 项目角色优先 → 该账号按受限用户处理（可能全黑）。部署口径：不要给客户管理员单独降级项目角色（见 4.4） |
-| 回滚                                    | 改动集中在 scope 判定处，可用 feature flag（如 `LIGHTDASH_CLIENT_USE_CONTENT_SCOPE_ENABLED`）一键关闭 |
+| 风险                                    | 缓解                                                                                                                                          |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 白名单看板未引用的独立图表对客户不可见  | 与客户确认同步系统是否覆盖图表；必要时升级为方案 C                                                                                            |
+| RPC 不可用导致客户"什么都看不到"        | 告警 + 明确 fail-closed 决策；短缓存降低抖动影响；用 `results.clientUse` 快速定位                                                             |
+| **新增 403 校验误伤正常查询**           | 两道校验只作用于"跨项目看板"与"非白名单 SQL 图表"；正常路径同源（见 5.12 误伤面证明）；命中时报错文案明确区分（图表/看板/白名单三类互不混淆） |
+| 空间 count 重算导致列表分页/总数变化    | 同步调整 `ContentService` 的 `shouldFilterInMemory` 逻辑与前端分页展示                                                                        |
+| 非 client-use 项目被误伤                | 所有 scope 判断以 `is_client_use && isClientUseRestrictedProjectRole` 为前置条件                                                              |
+| 组织管理员在受控项目被单独降级为 viewer | 项目角色优先 → 该账号按受限用户处理（可能全黑）。部署口径：不要给客户管理员单独降级项目角色（见 4.4）                                         |
+| 回滚                                    | 改动集中在 scope 判定处，可按 commit 回滚（`git revert`）；未涉及数据迁移，回滚无副作用                                                       |
+
+**回滚粒度**：
+
+- 只回滚内容可见性 → `git revert` 本文档表格 5.3 中的后端改动；
+- 只回滚看板跑数上下文校验 → `git revert 281e825fe`；
+- 全量回滚 → 回滚到 `fe7c504ef~1`（初始实施之前）；
+- **均不需要回滚数据**（本方案没有做任何生产数据修改）。
 
 ---
 
@@ -512,31 +650,57 @@ WHERE u.email = '18522948433@brandtct.cn';
    fail closed → 什么都看不到。当前策略**保持不变**（项目角色优先，见 4.4），
    处置方式是**部署口径**：不要给客户管理员单独降级项目角色。
    → 若客户坚持要"组织管理员在受控项目也不受限"，则需改为组织角色优先（影响面更大）。
+7. **探索页 ad-hoc 的 `'NA'` 分支是否要堵？**（见 5.13）
+   → 堵它会改变受限用户探索页的返回行数，需要客户确认。
 
 ---
 
-## 附录：涉及文件清单（commit `fe7c504ef`）
+## 附录：涉及文件清单
 
 **新增**
 
-- `packages/common/src/types/clientUseScope.ts`（`ViewerContentScope` / `ViewerContentScopeUser` / `ViewerContentScopeResolver`）
+- `packages/common/src/types/clientUseScope.ts`（`ViewerContentScope` / `ViewerContentScopeUser` /
+  `ViewerContentScopeResolver` / 诊断类型）
 - `packages/backend/src/services/ClientUseScopeService/clientUseScope.ts`（scope 解析与断言）
+- `packages/backend/src/services/CoderService/CoderService.clientUseScope.test.ts`
+- `packages/backend/src/services/CommentService/CommentService.test.ts`
+- `packages/backend/src/services/PinningService/PinningService.test.ts`
+- `packages/backend/src/services/SearchService/SearchService.test.ts`
+- `packages/backend/src/services/ProjectService/ProjectService.clientUseScope.test.ts`
+- `packages/frontend/src/hooks/useMyContentScope.ts`（诊断卡片数据）
+- `packages/frontend/src/utils/categoryFilters.ts` + `.test.ts`（类目重置与级联）
 
 **后端修改**
 
 - `packages/common/src/index.ts`（导出新类型）
-- `packages/backend/src/services/DashboardService/DashboardService.ts`（`getViewerContentScope`、`resolveDashboardContextForMetadata`）
-- `packages/backend/src/services/DashboardService/DashboardService.test.ts`
+- `packages/common/src/types/user.ts`（`ApiGetAuthenticatedUserResponse.results.clientUse`）
+- `packages/common/src/types/resourceViewItem.ts`（内容列表项带 `space`）
+- `packages/backend/src/controllers/userController.ts`（`GET /api/v1/user?projectUuid=`）
+- `packages/backend/src/services/DashboardService/DashboardService.ts`
+  （`getViewerContentScope` / `resolveDashboardContextForMetadata` / 缓存）
 - `packages/backend/src/services/ContentService/ContentService.ts`
 - `packages/backend/src/services/SavedChartsService/SavedChartService.ts`
 - `packages/backend/src/services/SavedSqlService/SavedSqlService.ts`
 - `packages/backend/src/services/AsyncQueryService/AsyncQueryService.ts`
-- `packages/backend/src/services/ProjectService/ProjectService.ts`（可信 dashboard context）
-- `packages/backend/src/services/ServiceRepository.ts`（注入 resolver）
+- `packages/backend/src/services/ProjectService/ProjectService.ts`
+- `packages/backend/src/services/SpaceService/SpaceService.ts`
+- `packages/backend/src/services/SearchService/SearchService.ts`
+- `packages/backend/src/services/PinningService/PinningService.ts`
+- `packages/backend/src/services/CommentService/CommentService.ts`
+- `packages/backend/src/services/CoderService/CoderService.ts`
+- `packages/backend/src/services/ServiceRepository.ts`（注入 resolver / dashboardService）
 - `packages/backend/src/models/DashboardModel/DashboardModel.ts`
-- `packages/backend/src/models/SpaceModel.ts`
+- `packages/backend/src/models/SpaceModel.ts` + `SpaceModel.test.ts`（祖先查询 + raw 绑定形状回归）
 - `packages/backend/src/ee/services/McpService/McpService.ts`
 - `packages/backend/src/ee/services/AiAgentService.ts`
+- `packages/backend/src/generated/routes.ts` / `swagger.json`（TSOA 生成产物）
+
+**前端修改**
+
+- `packages/frontend/src/pages/Spaces.tsx`（诊断卡片 + 空间列处理）
+- `packages/frontend/src/components/common/ResourceView/InfiniteResourceTable.tsx`（空间列渲染）
+- `packages/frontend/src/utils/categoryFilterInitHelpers.ts` + `.test.ts`（类目初始化顺序：先一级后四级）
+- `packages/frontend/public/locales/{en,zh}/translation.json`（`pages_spaces.client_use_scope.*`）
 
 **关联文档**
 

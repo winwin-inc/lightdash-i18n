@@ -2461,7 +2461,7 @@ export class AsyncQueryService extends ProjectService {
             savedChart;
 
         if (savedChartProjectUuid !== projectUuid) {
-            throw new ForbiddenError('Dashboard does not belong to project');
+            throw new ForbiddenError('Chart does not belong to project');
         }
 
         const [space, explore] = await Promise.all([

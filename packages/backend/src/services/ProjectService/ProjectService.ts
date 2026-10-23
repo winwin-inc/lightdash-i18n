@@ -3755,6 +3755,35 @@ export class ProjectService extends BaseService {
         return { metricQuery, explore, field };
     }
 
+    /**
+     * Resolve a list of table names (base tables or join aliases) to the base
+     * explore names they belong to. Used to check that a table the user reads
+     * the values of is actually used by the dashboard they are opening.
+     */
+    private async getExploreNamesForTables(
+        projectUuid: string,
+        tableNames: string[],
+    ): Promise<Set<string>> {
+        const exploreNames = new Set<string>();
+        await Promise.all(
+            tableNames.map(async (tableName) => {
+                const explore =
+                    (await this.projectModel.findExploreByTableName(
+                        projectUuid,
+                        tableName,
+                    )) ??
+                    (await this.projectModel.findJoinAliasExplore(
+                        projectUuid,
+                        tableName,
+                    ));
+                if (explore && !isExploreError(explore)) {
+                    exploreNames.add(explore.name);
+                }
+            }),
+        );
+        return exploreNames;
+    }
+
     async searchFieldUniqueValues(
         user: SessionUser,
         projectUuid: string,
@@ -3804,14 +3833,29 @@ export class ProjectService extends BaseService {
 
         // The allow-list is checked with the resolved explore: `table` can be a
         // join alias, while the allow-list only contains base explore names.
-        // A trusted dashboard context means the user can open the dashboard, so
-        // its own filters must stay queryable (the row level filter still applies).
-        if (!trustedDashboardContext) {
-            await this.assertExploreAllowedForAdhocQuery(
-                user,
+        //
+        // An explore that is not on the allow-list is only allowed when the
+        // user is opening a dashboard that filters on it: the dashboard's own
+        // filters may target a table that none of its tiles uses (and the row
+        // level filter still applies). Any other explore stays forbidden, so a
+        // dashboard context cannot be used to read arbitrary tables.
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(explore.name)
+        ) {
+            const dashboardExploreNames = await this.getExploreNamesForTables(
                 projectUuid,
-                explore.name,
+                trustedDashboardContext?.filterTableNames ?? [],
             );
+            if (!dashboardExploreNames.has(explore.name)) {
+                throw new ForbiddenError(
+                    `You don't have access to the explore ${explore.name}`,
+                );
+            }
         }
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,

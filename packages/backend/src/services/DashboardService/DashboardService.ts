@@ -733,12 +733,24 @@ export class DashboardService
      *
      * Returns undefined when the slug does not belong to the project.
      * Throws ForbiddenError when the user cannot see the dashboard.
+     *
+     * `filterTableNames` are the tables the dashboard filters on. They are not
+     * necessarily covered by the explore allow-list (a dashboard can filter on
+     * a table that none of its tiles uses), but the user has to be able to
+     * read their values to use the dashboard filters.
      */
     async resolveDashboardContextForMetadata(
         user: SessionUser,
         projectUuid: string,
         dashboardSlug: string,
-    ): Promise<{ dashboardSlug: string; dashboardName: string } | undefined> {
+    ): Promise<
+        | {
+              dashboardSlug: string;
+              dashboardName: string;
+              filterTableNames: string[];
+          }
+        | undefined
+    > {
         let dashboard: DashboardDAO | undefined;
         try {
             dashboard = await this.dashboardModel.getByIdOrSlug(dashboardSlug);
@@ -791,6 +803,18 @@ export class DashboardService
         return {
             dashboardSlug: dashboard.slug,
             dashboardName: dashboard.name,
+            filterTableNames: [
+                ...new Set(
+                    [
+                        ...dashboard.filters.dimensions,
+                        ...dashboard.filters.metrics,
+                    ]
+                        .map((filter) => filter.target.tableName)
+                        .filter((tableName): tableName is string =>
+                            Boolean(tableName),
+                        ),
+                ),
+            ],
         };
     }
 
