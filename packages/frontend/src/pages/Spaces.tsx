@@ -42,12 +42,8 @@ type ContentScopeDiagnosticsProps = {
 /**
  * Client-use content scope diagnostics card.
  *
- * TODO(i18n): all the strings below go through `useTranslation` with the keys
- * `pages_spaces.client_use_scope.*`, but the Chinese defaults are inlined here
- * because the locale files (`packages/frontend/public/locales/{en,zh}/translation.json`)
- * are outside the write scope of this change. Adding the same keys under
- * `pages_spaces.client_use_scope` in both locale files makes them translatable
- * without touching this component (the inline defaults are only fallbacks).
+ * All the strings go through `useTranslation` with the keys
+ * `pages_spaces.client_use_scope.*`, defined in both locale files.
  *
  * Mantine note: this repo is on Mantine v6, which has no `Descriptions` / `Tag`
  * components, so the key/value layout uses `Table` and `Badge` instead.
@@ -61,73 +57,56 @@ const ContentScopeDiagnostics: FC<ContentScopeDiagnosticsProps> = ({
     const roleSourceLabels: Record<ViewerProjectRoleSource, string> = {
         project_membership: t(
             'pages_spaces.client_use_scope.role_source.project_membership',
-            '项目成员',
         ),
         group_membership: t(
             'pages_spaces.client_use_scope.role_source.group_membership',
-            '用户组',
         ),
         organization: t(
             'pages_spaces.client_use_scope.role_source.organization',
-            '组织',
         ),
-        none: t('pages_spaces.client_use_scope.role_source.none', '无'),
+        none: t('pages_spaces.client_use_scope.role_source.none'),
     };
 
     const scopeCounts = diagnostics.scopeCounts;
 
     const rows: { label: string; value: ReactNode }[] = [
         {
-            label: t('pages_spaces.client_use_scope.applied', '生效状态'),
+            label: t('pages_spaces.client_use_scope.applied'),
             value: diagnostics.scopeApplied
-                ? t(
-                      'pages_spaces.client_use_scope.applied_yes',
-                      '已生效（受限角色）',
-                  )
-                : t('pages_spaces.client_use_scope.applied_no', '未生效'),
+                ? t('pages_spaces.client_use_scope.applied_yes')
+                : t('pages_spaces.client_use_scope.applied_no'),
         },
         {
-            label: t('pages_spaces.client_use_scope.status', '状态码'),
+            label: t('pages_spaces.client_use_scope.status'),
             value: <Code>{diagnostics.status}</Code>,
         },
         {
-            label: t('pages_spaces.client_use_scope.reason', '说明'),
+            label: t('pages_spaces.client_use_scope.reason'),
             value: diagnostics.reason || '-',
         },
         {
-            label: t(
-                'pages_spaces.client_use_scope.effective_role',
-                '有效项目角色',
-            ),
-            value: `${diagnostics.effectiveProjectRole ?? '-'}（${
-                roleSourceLabels[diagnostics.roleSource]
-            }）`,
+            label: t('pages_spaces.client_use_scope.effective_role'),
+            value: t('pages_spaces.client_use_scope.effective_role_value', {
+                role: diagnostics.effectiveProjectRole ?? '-',
+                source: roleSourceLabels[diagnostics.roleSource],
+            }),
         },
         {
-            label: t('pages_spaces.client_use_scope.mobile', '手机号'),
+            label: t('pages_spaces.client_use_scope.mobile'),
             value: diagnostics.mobile ?? '-',
         },
         {
-            label: t(
-                'pages_spaces.client_use_scope.rpc_configured',
-                'RPC 已配置',
-            ),
+            label: t('pages_spaces.client_use_scope.rpc_configured'),
             value: diagnostics.rpcConfigured
-                ? t('pages_spaces.client_use_scope.yes', '是')
-                : t('pages_spaces.client_use_scope.no', '否'),
+                ? t('pages_spaces.client_use_scope.yes')
+                : t('pages_spaces.client_use_scope.no'),
         },
         {
-            label: t(
-                'pages_spaces.client_use_scope.allowed_dashboard_count',
-                '白名单看板数',
-            ),
+            label: t('pages_spaces.client_use_scope.allowed_dashboard_count'),
             value: String(diagnostics.allowedDashboardCount),
         },
         {
-            label: t(
-                'pages_spaces.client_use_scope.allowed_dashboards',
-                '白名单看板',
-            ),
+            label: t('pages_spaces.client_use_scope.allowed_dashboards'),
             value:
                 diagnostics.allowedDashboardNames.length > 0 ? (
                     <Group spacing="xs">
@@ -138,25 +117,21 @@ const ContentScopeDiagnostics: FC<ContentScopeDiagnosticsProps> = ({
                         ))}
                     </Group>
                 ) : (
-                    t('pages_spaces.client_use_scope.none', '无')
+                    t('pages_spaces.client_use_scope.none')
                 ),
         },
         {
-            label: t(
-                'pages_spaces.client_use_scope.scope_counts',
-                '内容范围计数',
-            ),
+            label: t('pages_spaces.client_use_scope.scope_counts'),
             value: scopeCounts
-                ? `${t('pages_spaces.client_use_scope.dashboards', '看板')} ${
+                ? `${t('pages_spaces.client_use_scope.dashboards')} ${
                       scopeCounts.dashboards
-                  } / ${t('pages_spaces.client_use_scope.charts', '图表')} ${
+                  } / ${t('pages_spaces.client_use_scope.charts')} ${
                       scopeCounts.charts
-                  } / ${t('pages_spaces.client_use_scope.spaces', '空间')} ${
+                  } / ${t('pages_spaces.client_use_scope.spaces')} ${
                       scopeCounts.spaces
-                  } / ${t(
-                      'pages_spaces.client_use_scope.explores',
-                      '数据集',
-                  )} ${scopeCounts.explores}`
+                  } / ${t('pages_spaces.client_use_scope.explores')} ${
+                      scopeCounts.explores
+                  }`
                 : '-',
         },
     ];
@@ -165,10 +140,7 @@ const ContentScopeDiagnostics: FC<ContentScopeDiagnosticsProps> = ({
         <Paper withBorder radius="sm" p="sm">
             <Group position="apart" noWrap>
                 <Text fw={500} size="sm">
-                    {t(
-                        'pages_spaces.client_use_scope.title',
-                        '内容可见范围诊断',
-                    )}
+                    {t('pages_spaces.client_use_scope.title')}
                 </Text>
                 <Button
                     compact
@@ -187,8 +159,8 @@ const ContentScopeDiagnostics: FC<ContentScopeDiagnosticsProps> = ({
                     }
                 >
                     {isOpen
-                        ? t('pages_spaces.client_use_scope.hide', '收起')
-                        : t('pages_spaces.client_use_scope.show', '展开')}
+                        ? t('pages_spaces.client_use_scope.hide')
+                        : t('pages_spaces.client_use_scope.show')}
                 </Button>
             </Group>
 
