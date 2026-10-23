@@ -931,12 +931,50 @@ export class DashboardModel {
     }
 
     /**
+     * Space UUIDs that hold the given charts.
+     *
+     * A chart that is visible (mounted on an allow-listed dashboard) belongs
+     * to a space, and a visible chart always means its space is visible.
+     */
+    async getSpaceUuidsByChartUuids(
+        chartUuids: string[],
+    ): Promise<Set<string>> {
+        if (chartUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const savedChartRows = await this.database(SavedChartsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${SavedChartsTableName}.space_id`,
+            )
+            .whereIn(`${SavedChartsTableName}.saved_query_uuid`, chartUuids);
+
+        const sqlChartRows = await this.database(SavedSqlTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SavedSqlTableName}.space_uuid`,
+            })
+            .whereIn(`${SavedSqlTableName}.saved_sql_uuid`, chartUuids)
+            .whereNotNull(`${SavedSqlTableName}.space_uuid`);
+
+        return new Set(
+            [...savedChartRows, ...sqlChartRows]
+                .map((row) => row.spaceUuid)
+                .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
+        );
+    }
+
+    /**
      * Space UUIDs that hold the given dashboards.
      *
      * The client-use content scope is dashboard driven: a space is visible
-     * when it holds an allow-listed dashboard. The spaces of the charts that
-     * are mounted on those dashboards are deliberately not included, a space
-     * without an allow-listed dashboard must not be visible.
+     * when it holds an allow-listed dashboard or a visible chart. The
+     * ancestors of those spaces are added by the caller, they are needed to
+     * keep the space tree navigable.
      *
      * Returned as-is (not normalized to root spaces).
      */

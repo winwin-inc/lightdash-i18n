@@ -235,18 +235,31 @@ agent 由此推断出"管理员"。
 
 正确落点是**内容条目层（内存过滤）**：
 
-| 内容类型 | 过滤条件                                                                     |
-| -------- | ---------------------------------------------------------------------------- |
-| 空间     | 空间权限 ∩ scope.spaceUuids（**空间自身 UUID**；只保留持有白名单看板的空间） |
-| 看板     | RPC 白名单（`allowedDashboardUuidsMap`，与空间 scope 无关）                  |
-| 图表     | scope.chartUuids（白名单看板的磁贴图表）                                     |
+| 内容类型 | 过滤条件                                                           |
+| -------- | ------------------------------------------------------------------ |
+| 空间     | 空间权限 ∩ scope.spaceUuids（空间自身 UUID；**含可见空间的祖先**） |
+| 看板     | RPC 白名单（`allowedDashboardUuidsMap`，与空间 scope 无关）        |
+| 图表     | scope.chartUuids（白名单看板的磁贴图表）                           |
 
 空间过滤同时覆盖两种列表形态：根空间列表（`nlevel(path)=1`）与浏览空间的子空间列表
 （`parent_space_uuid IN (...)`），后者此前会绕过空间 scope。
 
-> 空间按**自身 UUID** 比较，不归一到根空间：口径是"持有白名单看板的空间才可见"，
-> 嵌套空间若没有白名单看板，同样要移除。空间的访问权限继承仍由既有的
-> `hasViewAccessToSpace`（根空间可见即嵌套可见）负责，两者互不干扰。
+#### 空间口径：可见内容 + 祖先
+
+```
+可见空间 = 持有可见内容的空间 ∪ 这些空间的所有祖先
+持有可见内容 = 有白名单看板 ∪ 有可见图表（白名单看板的磁贴图表）
+```
+
+- **有可见图表 → 该图表所在空间可见**：图表能被看到，它所在的空间就不该消失；
+- **祖先可见**：父空间本身没有可见内容，但它是子空间的容器，隐藏后空间树无法导航；
+- 两者都不满足的空间（既无可见内容，也无可见后代）→ 整个移除。
+
+祖先由 `SpaceModel.getSpaceUuidsWithAncestors` 批量计算（ltree `path`，
+join 限定在同一 project 内，因为 path 由 slug 构成、跨项目可能重复）。
+
+空间的访问权限继承仍由既有的 `hasViewAccessToSpace`（根空间可见即嵌套可见）负责，
+与上面的可见性口径互不干扰。
 
 ### 5.8 其它内容入口（不能只改 content API）
 
@@ -293,7 +306,8 @@ agent 由此推断出"管理员"。
 
 - ✅ `find_spaces` / `find_charts` / v2 content API 只返回 scope 内内容；
 - ✅ 空间 `chartCount`/`dashboardCount` 与实际可见内容一致（不泄露隐藏数量）；
-- ✅ 嵌套空间：不含白名单看板的嵌套空间同样被移除（口径是"持有白名单看板"）；
+- ✅ 嵌套空间：无可见内容的嵌套空间被移除；有可见内容的空间及其祖先可见；
+- ✅ 可见图表所在空间可见（图表能看，空间就不会消失）；
 - ✅ RPC 返回空/异常 → 空间、图表、看板全部为空（fail-closed）；
 - ✅ 白名单看板不会被空间 scope 二次过滤（空间 scope 只在条目层生效）；
 - ✅ 浏览空间时的子空间列表同样按 scope 过滤。
@@ -307,6 +321,7 @@ agent 由此推断出"管理员"。
   scope 不适用时保持原行为；
 - `packages/backend/src/services/SpaceService/SpaceService.test.ts`：
   空间详情的图表过滤、子空间移除、scope 不适用时保持原行为；
+- `packages/backend/src/models/SpaceModel.test.ts`：祖先查询（结果映射、跨项目隔离、空入参不查库）；
 - `packages/backend/src/services/DashboardService/DashboardService.test.ts`：
   `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata` /
   白名单与 scope 缓存（并发合并、TTL、失败重试、主动失效）；

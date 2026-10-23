@@ -63,6 +63,8 @@ const dashboardModel = {
     getChartUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
 
     getSpaceUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByChartUuids: jest.fn(async () => new Set<string>()),
 };
 
 const spaceModel = {
@@ -71,7 +73,9 @@ const spaceModel = {
     getFirstAccessibleSpace: jest.fn(async () => space),
     getUserSpaceAccess: jest.fn(async () => []),
     getUserSpacesAccess: jest.fn(async () => ({})),
-    getSpaceRoots: jest.fn(async () => new Map<string, string>()),
+    getSpaceUuidsWithAncestors: jest.fn(
+        async (uuids: string[]) => new Set(uuids),
+    ),
 };
 const analyticsModel = {
     addDashboardViewEvent: jest.fn(async () => null),
@@ -227,17 +231,14 @@ describe('DashboardService', () => {
             expect(result).toEqual({
                 dashboardUuids: ['dash-1'],
                 chartUuids: ['chart-1'],
-                // The space of the allow-listed dashboard, not normalized to
-                // its root space: the scope is dashboard driven
+                // The space of the allow-listed dashboard plus its
+                // ancestors, so the space tree stays navigable
                 spaceUuids: ['space-child'],
                 exploreNames: ['orders'],
             });
         });
 
-        test('only keeps the spaces that hold an allow-listed dashboard', async () => {
-            // The scope is dashboard driven: a space that only holds a tile of
-            // an allow-listed dashboard (but no allow-listed dashboard) is not
-            // part of the scope
+        test('keeps the space of the allow-listed dashboard', async () => {
             (
                 service.getAllowedDashboardUuidsForViewer as jest.Mock
             ).mockResolvedValueOnce(new Set(['dash-1']));
@@ -250,9 +251,6 @@ describe('DashboardService', () => {
             (
                 dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
             ).mockResolvedValueOnce(new Set(['orders']));
-            (spaceModel.getSpaceRoots as jest.Mock).mockResolvedValueOnce(
-                new Map([['space-of-dashboard', 'space-of-dashboard']]),
-            );
 
             const result = await service.getViewerContentScope(
                 user,
@@ -261,6 +259,73 @@ describe('DashboardService', () => {
 
             expect(result?.spaceUuids).toEqual(['space-of-dashboard']);
             expect(result?.chartUuids).toEqual(['chart-1']);
+        });
+
+        test('keeps the space of a visible chart', async () => {
+            // A chart the user can see always belongs to a visible space
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-dashboard']));
+            (
+                dashboardModel.getSpaceUuidsByChartUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-chart']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-of-dashboard', 'space-of-chart']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-of-dashboard',
+                'space-of-chart',
+            ]);
+        });
+
+        test('keeps the ancestors of the visible spaces', async () => {
+            // The parent space has to stay visible, otherwise the space tree
+            // is not navigable
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-child', 'space-parent', 'space-root']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-child',
+                'space-parent',
+                'space-root',
+            ]);
         });
     });
 

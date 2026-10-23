@@ -144,16 +144,6 @@ describe('ContentService client-use scope', () => {
     const spaceModel = {
         find: jest.fn().mockResolvedValue(spaces),
         getUserSpacesAccess: jest.fn().mockResolvedValue({}),
-        getSpaceRoots: jest.fn(async (uuids: string[]) => {
-            const roots = new Map<string, string>();
-            uuids.forEach((uuid) => {
-                roots.set(
-                    uuid,
-                    uuid === CHILD_SPACE_UUID ? ROOT_SPACE_UUID : uuid,
-                );
-            });
-            return roots;
-        }),
         getVisibleChartCountsBySpaceUuids: jest
             .fn()
             .mockResolvedValue(new Map<string, number>()),
@@ -282,7 +272,7 @@ describe('ContentService client-use scope', () => {
         expect(chartUuids).toEqual([ALLOWED_CHART_UUID]);
     });
 
-    it('hides a nested space that does not hold an allow-listed dashboard', async () => {
+    it('hides a nested space that does not hold any visible content', async () => {
         spaceModel.find.mockResolvedValue([spaces[0], spaces[1], spaces[2]]);
         // The query returns the child space (browsing a space)
         contentModel.findSummaryContents.mockImplementation(
@@ -312,9 +302,8 @@ describe('ContentService client-use scope', () => {
             .filter((content) => content.contentType === ContentType.SPACE)
             .map((content) => content.uuid);
 
-        // The scope is dashboard driven: the child space does not hold an
-        // allow-listed dashboard, so it is hidden even when its root space is
-        // part of the scope
+        // The child space does not hold any visible content, so it is hidden
+        // even when its root space is part of the scope
         expect(spaceUuids).toEqual([]);
     });
 
@@ -340,14 +329,12 @@ describe('ContentService client-use scope', () => {
         expect(dashboardUuids).toEqual([ALLOWED_DASHBOARD_UUID]);
     });
 
-    it('hides a space without an allow-listed dashboard but keeps its chart', async () => {
-        // The scope is dashboard driven: only the spaces that hold an
-        // allow-listed dashboard are visible. A chart that is a tile of an
-        // allow-listed dashboard stays visible, even when its own space is
-        // not part of the scope.
+    it('keeps the space of a visible chart', async () => {
+        // A chart the user can see always belongs to a visible space, so the
+        // scope holds the space of the visible chart
         dashboardService.getViewerContentScope.mockResolvedValue({
             ...scope,
-            spaceUuids: [],
+            spaceUuids: [ROOT_SPACE_UUID, OTHER_SPACE_UUID],
             chartUuids: [ALLOWED_CHART_UUID, HIDDEN_CHART_UUID],
         });
 
@@ -365,8 +352,30 @@ describe('ContentService client-use scope', () => {
             .filter((content) => content.contentType === ContentType.CHART)
             .map((content) => content.uuid);
 
-        expect(spaceUuids).toEqual([]);
+        expect(spaceUuids).toEqual([ROOT_SPACE_UUID, OTHER_SPACE_UUID]);
         expect(chartUuids).toEqual([ALLOWED_CHART_UUID, HIDDEN_CHART_UUID]);
+    });
+
+    it('keeps the parent space of a visible space', async () => {
+        // The ancestors of a visible space are visible, otherwise the space
+        // tree is not navigable
+        dashboardService.getViewerContentScope.mockResolvedValue({
+            ...scope,
+            spaceUuids: [ROOT_SPACE_UUID, CHILD_SPACE_UUID],
+        });
+
+        const result = await service.find(
+            user,
+            { projectUuids: [PROJECT_UUID] },
+            {},
+            { page: 1, pageSize: 100 },
+        );
+
+        const spaceUuids = result.data
+            .filter((content) => content.contentType === ContentType.SPACE)
+            .map((content) => content.uuid);
+
+        expect(spaceUuids).toEqual([ROOT_SPACE_UUID]);
     });
 
     it('does not filter anything when the project is not client-use', async () => {

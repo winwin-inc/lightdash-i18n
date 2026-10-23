@@ -203,8 +203,8 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
             dashboards: visibleDashboards,
             queries: visibleQueries,
             childSpaces: space.childSpaces
-                // Client-use: a child space without an allow-listed dashboard
-                // is not visible
+                // Client-use: a child space is visible when it holds visible
+                // content, or when it is an ancestor of such a space
                 .filter(
                     (child) =>
                         viewerScope === undefined ||

@@ -5814,8 +5814,9 @@ export class ProjectService extends BaseService {
             return spacesWithUserAccess;
         }
 
-        // Client-use: the content scope is dashboard driven, only the spaces
-        // that hold an allow-listed dashboard are visible.
+        // Client-use: a space is visible when it holds visible content (an
+        // allow-listed dashboard or a visible chart), or when it is an
+        // ancestor of such a space.
         const scopedSpaces = spacesWithUserAccess.filter((space) =>
             viewerScope.spaceUuids.includes(space.uuid),
         );

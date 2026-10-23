@@ -693,19 +693,39 @@ export class DashboardService
             };
         }
 
-        const [chartUuids, spaceUuids, exploreNames] = await Promise.all([
-            this.dashboardModel.getChartUuidsByDashboardUuids(dashboardUuids),
-            this.dashboardModel.getSpaceUuidsByDashboardUuids(dashboardUuids),
-            this.dashboardModel.getExploreNamesByDashboardUuids(dashboardUuids),
+        const [chartUuids, dashboardSpaceUuids, exploreNames] =
+            await Promise.all([
+                this.dashboardModel.getChartUuidsByDashboardUuids(
+                    dashboardUuids,
+                ),
+                this.dashboardModel.getSpaceUuidsByDashboardUuids(
+                    dashboardUuids,
+                ),
+                this.dashboardModel.getExploreNamesByDashboardUuids(
+                    dashboardUuids,
+                ),
+            ]);
+
+        // The spaces of the visible charts are visible too: a chart that the
+        // user can see always belongs to a visible space.
+        const chartSpaceUuids =
+            await this.dashboardModel.getSpaceUuidsByChartUuids([
+                ...chartUuids,
+            ]);
+
+        // A space is visible when it holds visible content, plus the
+        // ancestors of those spaces so the space tree stays navigable.
+        const contentSpaceUuids = new Set([
+            ...dashboardSpaceUuids,
+            ...chartSpaceUuids,
+        ]);
+        const spaceUuids = await this.spaceModel.getSpaceUuidsWithAncestors([
+            ...contentSpaceUuids,
         ]);
 
         return {
             dashboardUuids,
             chartUuids: [...chartUuids],
-            // Dashboard driven: only the spaces that hold an allow-listed
-            // dashboard are visible. The spaces are not normalized to their
-            // root space, a nested space without an allow-listed dashboard
-            // must not be visible either.
             spaceUuids: [...spaceUuids],
             exploreNames: [...exploreNames],
         };
