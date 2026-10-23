@@ -6,6 +6,7 @@ import {
     PossibleAbilities,
     ProjectMemberRole,
     SessionUser,
+    ViewerContentScope,
 } from '@lightdash/common';
 
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
@@ -24,7 +25,7 @@ import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryMo
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
-import { DashboardService } from './DashboardService';
+import { DashboardAllowListUser, DashboardService } from './DashboardService';
 import {
     chart,
     createDashboard,
@@ -58,6 +59,12 @@ const dashboardModel = {
     getOrphanedCharts: jest.fn(async () => []),
 
     getExploreNamesByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getChartUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByChartUuids: jest.fn(async () => new Set<string>()),
 };
 
 const spaceModel = {
@@ -66,6 +73,9 @@ const spaceModel = {
     getFirstAccessibleSpace: jest.fn(async () => space),
     getUserSpaceAccess: jest.fn(async () => []),
     getUserSpacesAccess: jest.fn(async () => ({})),
+    getSpaceUuidsWithAncestors: jest.fn(
+        async (uuids: string[]) => new Set(uuids),
+    ),
 };
 const analyticsModel = {
     addDashboardViewEvent: jest.fn(async () => null),
@@ -109,6 +119,9 @@ describe('DashboardService', () => {
     service.getAllowedDashboardUuidsForViewer = jest.fn(async () => undefined);
     afterEach(() => {
         jest.clearAllMocks();
+        // The client-use allow-list / content scope are cached, drop the cache
+        // so the tests do not share results
+        service.clearViewerContentCache();
         (
             service.getAllowedDashboardUuidsForViewer as jest.Mock
         ).mockResolvedValue(undefined);
@@ -162,6 +175,344 @@ describe('DashboardService', () => {
             expect(
                 dashboardModel.getExploreNamesByDashboardUuids,
             ).toHaveBeenCalledWith([]);
+        });
+    });
+
+    describe('getViewerContentScope', () => {
+        test('should skip when the dashboard allow-list is undefined', async () => {
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toBeUndefined();
+            expect(
+                dashboardModel.getChartUuidsByDashboardUuids,
+            ).not.toHaveBeenCalled();
+        });
+
+        test('should fail closed when the dashboard allow-list is empty', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: [],
+                chartUuids: [],
+                spaceUuids: [],
+                exploreNames: [],
+            });
+        });
+
+        test('should derive charts, spaces and explores from the allow-listed dashboards', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: ['dash-1'],
+                chartUuids: ['chart-1'],
+                // The space of the allow-listed dashboard plus its
+                // ancestors, so the space tree stays navigable
+                spaceUuids: ['space-child'],
+                exploreNames: ['orders'],
+            });
+        });
+
+        test('keeps the space of the allow-listed dashboard', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-dashboard']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual(['space-of-dashboard']);
+            expect(result?.chartUuids).toEqual(['chart-1']);
+        });
+
+        test('keeps the space of a visible chart', async () => {
+            // A chart the user can see always belongs to a visible space
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-dashboard']));
+            (
+                dashboardModel.getSpaceUuidsByChartUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-chart']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-of-dashboard', 'space-of-chart']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-of-dashboard',
+                'space-of-chart',
+            ]);
+        });
+
+        test('keeps the ancestors of the visible spaces', async () => {
+            // The parent space has to stay visible, otherwise the space tree
+            // is not navigable
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-child', 'space-parent', 'space-root']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-child',
+                'space-parent',
+                'space-root',
+            ]);
+        });
+    });
+
+    describe('client-use content cache', () => {
+        // The instance method is replaced by a mock in this test file, the
+        // original implementation is needed to test the cache
+        const originalGetAllowedDashboardUuidsForViewer =
+            DashboardService.prototype.getAllowedDashboardUuidsForViewer;
+
+        const callAllowList = () =>
+            originalGetAllowedDashboardUuidsForViewer.call(
+                service,
+                user,
+                projectUuid,
+            );
+
+        type AllowListInternals = {
+            fetchAllowedDashboardUuids: (
+                u: DashboardAllowListUser,
+                p: string,
+            ) => Promise<{ uuids: Set<string> | undefined; failed: boolean }>;
+            fetchViewerContentScope: (
+                u: DashboardAllowListUser,
+                p: string,
+            ) => Promise<ViewerContentScope | undefined>;
+        };
+
+        const internals = service as unknown as AllowListInternals;
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        test('shares a single allow-list resolution between concurrent requests', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            const [first, second] = await Promise.all([
+                callAllowList(),
+                callAllowList(),
+            ]);
+
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+            expect(first).toEqual(new Set(['dash-1']));
+            expect(second).toEqual(new Set(['dash-1']));
+        });
+
+        test('reuses the allow-list until the cache expires', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            await callAllowList();
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+            jest.advanceTimersByTime(31_000);
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+
+        test('retries a failed allow-list quickly', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({ uuids: new Set<string>(), failed: true });
+
+            await callAllowList();
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+            // The failed result is only cached briefly
+            jest.advanceTimersByTime(6_000);
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+
+        test('caches the content scope', async () => {
+            const scopeSpy = jest
+                .spyOn(internals, 'fetchViewerContentScope')
+                .mockResolvedValue({
+                    dashboardUuids: ['dash-1'],
+                    chartUuids: [],
+                    spaceUuids: [],
+                    exploreNames: [],
+                });
+
+            await service.getViewerContentScope(user, projectUuid);
+            await service.getViewerContentScope(user, projectUuid);
+
+            expect(scopeSpy).toHaveBeenCalledTimes(1);
+        });
+
+        test('drops the cache on demand', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            await callAllowList();
+            service.clearViewerContentCache();
+            await callAllowList();
+
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('resolveDashboardContextForMetadata', () => {
+        test('should return the canonical slug and name of the dashboard', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result).toEqual({
+                dashboardSlug: 'name',
+                dashboardName: 'name',
+                filterTableNames: [],
+            });
+        });
+
+        test('should return the tables the dashboard filters on', async () => {
+            (dashboardModel.getByIdOrSlug as jest.Mock).mockImplementationOnce(
+                async () => ({
+                    ...dashboard,
+                    filters: {
+                        dimensions: [
+                            {
+                                id: 'filter-dimension',
+                                target: { fieldId: 'a_dim1', tableName: 'a' },
+                            },
+                        ],
+                        metrics: [
+                            {
+                                id: 'filter-metric',
+                                target: { fieldId: 'b_count', tableName: 'b' },
+                            },
+                        ],
+                        tableCalculations: [],
+                    },
+                }),
+            );
+
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result?.filterTableNames).toEqual(['a', 'b']);
+        });
+
+        test('should return undefined when the dashboard belongs to another project', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                'another-project',
+                'name',
+            );
+
+            expect(result).toBeUndefined();
+        });
+
+        test('should throw when the dashboard is not in the client-use allow-list', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['another-dashboard']));
+
+            await expect(
+                service.resolveDashboardContextForMetadata(
+                    user,
+                    projectUuid,
+                    'name',
+                ),
+            ).rejects.toThrow(ForbiddenError);
         });
     });
 

@@ -3755,6 +3755,35 @@ export class ProjectService extends BaseService {
         return { metricQuery, explore, field };
     }
 
+    /**
+     * Resolve a list of table names (base tables or join aliases) to the base
+     * explore names they belong to. Used to check that a table the user reads
+     * the values of is actually used by the dashboard they are opening.
+     */
+    private async getExploreNamesForTables(
+        projectUuid: string,
+        tableNames: string[],
+    ): Promise<Set<string>> {
+        const exploreNames = new Set<string>();
+        await Promise.all(
+            tableNames.map(async (tableName) => {
+                const explore =
+                    (await this.projectModel.findExploreByTableName(
+                        projectUuid,
+                        tableName,
+                    )) ??
+                    (await this.projectModel.findJoinAliasExplore(
+                        projectUuid,
+                        tableName,
+                    ));
+                if (explore && !isExploreError(explore)) {
+                    exploreNames.add(explore.name);
+                }
+            }),
+        );
+        return exploreNames;
+    }
+
     async searchFieldUniqueValues(
         user: SessionUser,
         projectUuid: string,
@@ -3780,7 +3809,17 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        await this.assertExploreAllowedForAdhocQuery(user, projectUuid, table);
+        // Resolve the dashboard context against the database before using it:
+        // the dbt `sql_filter` (row level security) relies on the canonical slug,
+        // and a client must not be able to spoof it to bypass the row filter.
+        const hasClientDashboardSlug = !!dashboardContext?.dashboardSlug;
+        const trustedDashboardContext = hasClientDashboardSlug
+            ? await this.dashboardService.resolveDashboardContextForMetadata(
+                  user,
+                  projectUuid,
+                  dashboardContext.dashboardSlug!,
+              )
+            : undefined;
 
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
@@ -3792,6 +3831,32 @@ export class ProjectService extends BaseService {
                 filters,
             });
 
+        // The allow-list is checked with the resolved explore: `table` can be a
+        // join alias, while the allow-list only contains base explore names.
+        //
+        // An explore that is not on the allow-list is only allowed when the
+        // user is opening a dashboard that filters on it: the dashboard's own
+        // filters may target a table that none of its tiles uses (and the row
+        // level filter still applies). Any other explore stays forbidden, so a
+        // dashboard context cannot be used to read arbitrary tables.
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(explore.name)
+        ) {
+            const dashboardExploreNames = await this.getExploreNamesForTables(
+                projectUuid,
+                trustedDashboardContext?.filterTableNames ?? [],
+            );
+            if (!dashboardExploreNames.has(explore.name)) {
+                throw new ForbiddenError(
+                    `You don't have access to the explore ${explore.name}`,
+                );
+            }
+        }
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials({
@@ -3804,11 +3869,20 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
-        const contextWithValues =
-            dashboardContext &&
-            (dashboardContext.dashboardSlug || dashboardContext.dashboardName)
-                ? dashboardContext
-                : undefined;
+        // Only a context verified against the database may be used for the dbt
+        // `sql_filter`. When the client sent a slug that could not be verified,
+        // the client context is dropped entirely (no row filter is applied, but
+        // the explore allow-list is enforced above).
+        const contextWithValues:
+            | {
+                  dashboardSlug?: string;
+                  dashboardName?: string;
+              }
+            | undefined =
+            trustedDashboardContext ??
+            (!hasClientDashboardSlug && dashboardContext?.dashboardName
+                ? { dashboardName: dashboardContext.dashboardName }
+                : undefined);
         if (contextWithValues) {
             this.logger.info(
                 `[USER_ATTRIBUTES_DEBUG][ProjectService.searchFieldUniqueValues] Dashboard context detected ${JSON.stringify(
@@ -5231,6 +5305,16 @@ export class ProjectService extends BaseService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use: only the charts of the visible scope count.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope !== undefined) {
+            return viewerScope.chartUuids.length > 0;
+        }
+
         try {
             const charts = await this.contentModel.findSummaryContents(
                 {
@@ -5548,7 +5632,20 @@ export class ProjectService extends BaseService {
             allowedSpaceUuids,
         );
 
-        return [...savedQueries, ...savedSqlCharts];
+        const charts = [...savedQueries, ...savedSqlCharts];
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getChartSummaries(
@@ -5586,11 +5683,24 @@ export class ProjectService extends BaseService {
             )
             .map((space) => space.uuid);
 
-        return this.savedChartModel.find({
+        const charts = await this.savedChartModel.find({
             projectUuid,
             spaceUuids: allowedSpaceUuids,
             excludeChartsSavedInDashboard,
         });
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getMostPopularAndRecentlyUpdated(
@@ -5617,12 +5727,25 @@ export class ProjectService extends BaseService {
                 hasDirectAccessToSpace(user, space), // NOTE: We don't check for admin access to the space - exclude private spaces from this panel if admin
         );
 
+        // Client-use: the panel must only show content of the visible spaces,
+        // and the visible charts / dashboards.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const visibleSpaces =
+            viewerScope === undefined
+                ? allowedSpaces
+                : allowedSpaces.filter((space) =>
+                      viewerScope.spaceUuids.includes(space.uuid),
+                  );
+
         // SQL already LIMITs to MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT (10).
         // Allow-list is applied after that cut, so a permitted dashboard outside
         // the top 10 is not backfilled. Client-use home hides this panel; do not
         // switch to fetch-all-then-slice unless that UI starts using this API.
-        const mostPopular = await this.getMostPopular(allowedSpaces);
-        const recentlyUpdated = await this.getRecentlyUpdated(allowedSpaces);
+        const mostPopular = await this.getMostPopular(visibleSpaces);
+        const recentlyUpdated = await this.getRecentlyUpdated(visibleSpaces);
         const allowedDashboardUuids =
             await this.dashboardService.getAllowedDashboardUuidsForViewer(
                 user,
@@ -5633,11 +5756,20 @@ export class ProjectService extends BaseService {
         // do not. Do not add slug to that dashboard mapping or this filter breaks.
         const isVisibleItem = (
             item: SpaceQuery | DashboardBasicDetails,
-        ): boolean =>
-            allowedDashboardUuids === undefined ||
-            !isUserWithOrg(user) ||
-            'slug' in item ||
-            allowedDashboardUuids.has(item.uuid);
+        ): boolean => {
+            if (viewerScope !== undefined) {
+                // Client-use: charts and dashboards must be part of the scope
+                return 'slug' in item
+                    ? viewerScope.chartUuids.includes(item.uuid)
+                    : viewerScope.dashboardUuids.includes(item.uuid);
+            }
+            return (
+                allowedDashboardUuids === undefined ||
+                !isUserWithOrg(user) ||
+                'slug' in item ||
+                allowedDashboardUuids.has(item.uuid)
+            );
+        };
 
         return {
             mostPopular: mostPopular
@@ -5747,26 +5879,45 @@ export class ProjectService extends BaseService {
                 userAccess: spacesAccess[spaceSummary.uuid]?.[0] ?? [],
             }));
 
-        // undefined: keep SQL dashboardCount. Set: recount visible dashboards
-        // (space stays listed even when count is 0).
-        const allowedDashboardUuids =
-            await this.dashboardService.getAllowedDashboardUuidsForViewer(
-                user,
-                projectUuid,
-            );
-        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+        // undefined: the client-use allow-list does not apply to this user
+        // (not a client-use project or not a restricted role). Keep the SQL
+        // counts and every space the user has access to.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
             return spacesWithUserAccess;
+        }
+
+        // Client-use: a space is visible when it holds visible content (an
+        // allow-listed dashboard or a visible chart), or when it is an
+        // ancestor of such a space.
+        const scopedSpaces = spacesWithUserAccess.filter((space) =>
+            viewerScope.spaceUuids.includes(space.uuid),
+        );
+        if (scopedSpaces.length === 0) {
+            return [];
         }
 
         const spaceCounts =
             await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
-                spacesWithUserAccess.map((space) => space.uuid),
-                allowedDashboardUuids,
+                scopedSpaces.map((space) => space.uuid),
+                new Set(viewerScope.dashboardUuids),
             );
 
-        return spacesWithUserAccess.map((space) => ({
+        // The chartCount of a space must not leak the charts that are hidden
+        // by the client-use scope.
+        const chartCounts =
+            await this.spaceModel.getVisibleChartCountsBySpaceUuids(
+                scopedSpaces.map((space) => space.uuid),
+                viewerScope.chartUuids,
+            );
+
+        return scopedSpaces.map((space) => ({
             ...space,
             dashboardCount: spaceCounts.get(space.uuid) ?? 0,
+            chartCount: chartCounts.get(space.uuid) ?? 0,
         }));
     }
 

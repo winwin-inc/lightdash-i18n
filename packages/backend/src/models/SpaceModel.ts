@@ -75,6 +75,16 @@ type SpaceModelArguments = {
     database: Knex;
 };
 
+/**
+ * Build the placeholders of an `IN` clause: one `?` per value.
+ *
+ * Raw bindings must never receive an array: knex sends it as a single postgres
+ * array parameter, which fails on uuid columns
+ * (`invalid input syntax for type uuid: "{...}"`).
+ */
+const buildInPlaceholders = (count: number): string =>
+    new Array(count).fill('?').join(', ');
+
 export class SpaceModel {
     private database: Knex;
 
@@ -1947,6 +1957,103 @@ export class SpaceModel {
     async isRootSpace(spaceUuid: string): Promise<boolean> {
         const rootSpaceUuid = await this.getSpaceRoot(spaceUuid);
         return rootSpaceUuid === spaceUuid;
+    }
+
+    /**
+     * The given spaces plus all their ancestors.
+     *
+     * A space is visible when it holds visible content, or when it is an
+     * ancestor of a space that holds visible content: the parent spaces are
+     * needed to keep the space tree navigable.
+     *
+     * The ltree `path` is built from slugs, so the join is scoped to the
+     * project: the same path can exist in two projects.
+     */
+    async getSpaceUuidsWithAncestors(
+        spaceUuids: string[],
+    ): Promise<Set<string>> {
+        if (spaceUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        // The uuids are bound as individual parameters (one placeholder per
+        // uuid). Binding an array to a raw `IN (?)` placeholder sends it as a
+        // single postgres array parameter, which fails on uuid columns.
+        const result = await this.database.raw<{
+            rows: { space_uuid: string }[];
+        }>(
+            `
+            SELECT DISTINCT ancestor.space_uuid AS space_uuid
+            FROM ${SpaceTableName} ancestor
+            JOIN ${SpaceTableName} target
+              ON target.project_id = ancestor.project_id
+             AND target.path <@ ancestor.path
+            WHERE target.space_uuid IN (${buildInPlaceholders(spaceUuids.length)})
+            `,
+            spaceUuids,
+        );
+
+        return new Set(result.rows.map((row) => row.space_uuid));
+    }
+
+    /**
+     * Count the visible charts (dbt charts) per space, restricted to the given
+     * chart uuids. Used to recount `chartCount` when the visible content is
+     * narrower than the space content (client-use projects).
+     */
+    async getVisibleChartCountsBySpaceUuids(
+        spaceUuids: string[],
+        chartUuids: string[],
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>(
+            spaceUuids.map((spaceUuid) => [spaceUuid, 0]),
+        );
+        if (spaceUuids.length === 0 || chartUuids.length === 0) {
+            return counts;
+        }
+
+        // The uuids are bound as individual parameters (one placeholder per
+        // uuid). Binding an array to a raw `IN (?)` placeholder sends it as a
+        // single postgres array parameter, which fails on uuid columns.
+        const result = await this.database.raw<{
+            rows: { space_uuid: string; chart_count: string }[];
+        }>(
+            `
+            SELECT space_uuid, count(DISTINCT chart_uuid) AS chart_count
+            FROM (
+                SELECT ${SpaceTableName}.space_uuid AS space_uuid,
+                       ${SavedChartsTableName}.saved_query_uuid AS chart_uuid
+                FROM ${SavedChartsTableName}
+                JOIN ${SpaceTableName}
+                  ON ${SpaceTableName}.space_id = ${SavedChartsTableName}.space_id
+                WHERE ${SpaceTableName}.space_uuid IN (${buildInPlaceholders(
+                    spaceUuids.length,
+                )})
+                  AND ${SavedChartsTableName}.saved_query_uuid IN (${buildInPlaceholders(
+                      chartUuids.length,
+                  )})
+                UNION ALL
+                SELECT ${SpaceTableName}.space_uuid AS space_uuid,
+                       ${SavedSqlTableName}.saved_sql_uuid AS chart_uuid
+                FROM ${SavedSqlTableName}
+                JOIN ${SpaceTableName}
+                  ON ${SpaceTableName}.space_uuid = ${SavedSqlTableName}.space_uuid
+                WHERE ${SpaceTableName}.space_uuid IN (${buildInPlaceholders(
+                    spaceUuids.length,
+                )})
+                  AND ${SavedSqlTableName}.saved_sql_uuid IN (${buildInPlaceholders(
+                      chartUuids.length,
+                  )})
+            ) visible_charts
+            GROUP BY space_uuid
+            `,
+            [...spaceUuids, ...chartUuids, ...spaceUuids, ...chartUuids],
+        );
+
+        result.rows.forEach((row) => {
+            counts.set(row.space_uuid, Number(row.chart_count));
+        });
+        return counts;
     }
 
     /**

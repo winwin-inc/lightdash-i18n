@@ -12531,10 +12531,150 @@
                 "type": "object",
                 "additionalProperties": true
             },
+            "ViewerProjectRoleSource": {
+                "type": "string",
+                "enum": [
+                    "project_membership",
+                    "group_membership",
+                    "organization",
+                    "none"
+                ],
+                "description": "Where the effective project role comes from.\nProject level wins over organization level (see docs/client-use-viewer-content-scope.md)."
+            },
+            "ViewerContentScopeStatus": {
+                "type": "string",
+                "enum": [
+                    "not_client_use",
+                    "role_not_restricted",
+                    "user_not_found",
+                    "no_email",
+                    "rpc_not_configured",
+                    "rpc_error",
+                    "rpc_empty",
+                    "rpc_ok"
+                ],
+                "description": "Why the client-use allow-list is (not) applied to a user in a project.\n\n- `not_client_use`: the project is not in client-use mode → no filtering\n- `role_not_restricted`: the effective project role is not\n  viewer / interactive_viewer → no filtering\n- `user_not_found`: the user has no row in the `users` table\n- `no_email`: the user has no email → the mobile number cannot be derived\n- `rpc_not_configured`: `ADMIN_API_HOST` / `ADMIN_API_KEY` are missing\n- `rpc_error`: the Admin RPC call failed (fail-closed: nothing is visible)\n- `rpc_empty`: the RPC answered but the mobile has no dashboard in this project\n- `rpc_ok`: the RPC answered with at least one dashboard"
+            },
+            "ViewerContentScopeDiagnostics": {
+                "properties": {
+                    "scopeCounts": {
+                        "properties": {
+                            "explores": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "spaces": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "charts": {
+                                "type": "number",
+                                "format": "double"
+                            },
+                            "dashboards": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "required": [
+                            "explores",
+                            "spaces",
+                            "charts",
+                            "dashboards"
+                        ],
+                        "type": "object",
+                        "nullable": true,
+                        "description": "Size of the derived content scope (null when the scope does not apply)"
+                    },
+                    "allowedDashboardNames": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Name of the allow-listed dashboards, when they can be resolved"
+                    },
+                    "allowedDashboardUuids": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "allowedDashboardCount": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "Dashboards returned by the Admin RPC for this project"
+                    },
+                    "mobile": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Mobile number derived from the user email (`local part`)"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Human readable explanation (Chinese, for support)"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/ViewerContentScopeStatus"
+                    },
+                    "scopeApplied": {
+                        "type": "boolean",
+                        "description": "The allow-list / content scope applies to this user"
+                    },
+                    "roleSource": {
+                        "$ref": "#/components/schemas/ViewerProjectRoleSource"
+                    },
+                    "effectiveProjectRole": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Effective project role (project membership > group > organization)"
+                    },
+                    "rpcConfigured": {
+                        "type": "boolean",
+                        "description": "`ADMIN_API_HOST` + `ADMIN_API_KEY` are both configured"
+                    },
+                    "clientUseEnabled": {
+                        "type": "boolean",
+                        "description": "`projects.is_client_use`"
+                    },
+                    "projectUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "scopeCounts",
+                    "allowedDashboardNames",
+                    "allowedDashboardUuids",
+                    "allowedDashboardCount",
+                    "mobile",
+                    "reason",
+                    "status",
+                    "scopeApplied",
+                    "roleSource",
+                    "effectiveProjectRole",
+                    "rpcConfigured",
+                    "clientUseEnabled",
+                    "projectUuid"
+                ],
+                "type": "object",
+                "description": "Diagnostic payload of the client-use content scope.\n\nIt exists to answer \"why can this user not see any dashboard?\":\nis the allow-list empty, did the RPC fail, is the role wrong,\nor is the user simply not a restricted role?"
+            },
             "ApiGetAuthenticatedUserResponse": {
                 "properties": {
                     "results": {
-                        "$ref": "#/components/schemas/LightdashUser"
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/LightdashUser"
+                            },
+                            {
+                                "properties": {
+                                    "clientUse": {
+                                        "$ref": "#/components/schemas/ViewerContentScopeDiagnostics",
+                                        "description": "Client-use (客户使用模式) content scope diagnostics.\n\nOnly returned when the request passes `?projectUuid=`.\nIt explains which dashboards the user can see in that project and\nwhy (allow-list empty, RPC failure, role not restricted, ...)."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        ]
                     },
                     "status": {
                         "type": "string",
@@ -21397,7 +21537,28 @@
                         "$ref": "#/components/schemas/ResourceItemCategory"
                     },
                     "data": {
-                        "$ref": "#/components/schemas/Pick_DashboardBasicDetails.uuid-or-spaceUuid-or-description-or-name-or-views-or-firstViewedAt-or-pinnedListUuid-or-pinnedListOrder-or-updatedAt-or-updatedByUser-or-validationErrors_"
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Pick_DashboardBasicDetails.uuid-or-spaceUuid-or-description-or-name-or-views-or-firstViewedAt-or-pinnedListUuid-or-pinnedListOrder-or-updatedAt-or-updatedByUser-or-validationErrors_"
+                            },
+                            {
+                                "properties": {
+                                    "space": {
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "uuid": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": ["name", "uuid"],
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        ]
                     },
                     "type": {
                         "$ref": "#/components/schemas/ResourceViewItemType.DASHBOARD"
@@ -21498,6 +21659,18 @@
                             },
                             {
                                 "properties": {
+                                    "space": {
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "uuid": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": ["name", "uuid"],
+                                        "type": "object"
+                                    },
                                     "source": {
                                         "$ref": "#/components/schemas/ChartSourceType"
                                     }

@@ -100,6 +100,7 @@ const projectModel = {
         runQuery: jest.fn(async () => resultsWith1Row),
     })),
     findExploreByTableName: jest.fn(async () => validExplore),
+    findJoinAliasExplore: jest.fn(async () => undefined),
     getProjectAccess: jest.fn(async () => []),
     updateProjectAccess: jest.fn(async () => undefined),
 };
@@ -170,6 +171,7 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
             getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
             getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
             getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
+            resolveDashboardContextForMetadata: jest.fn(async () => undefined),
         } as never,
     });
 
@@ -613,6 +615,13 @@ describe('ProjectService', () => {
 
         afterEach(() => {
             jest.clearAllMocks();
+            // `clearAllMocks` does not reset implementations
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+            (projectModel.findJoinAliasExplore as jest.Mock).mockImplementation(
+                async () => undefined,
+            );
         });
         test('should query unique values', async () => {
             const runQueryMock = jest.fn(
@@ -707,6 +716,15 @@ describe('ProjectService', () => {
                 service.dashboardService
                     .getAllowedExploreNamesForViewer as jest.Mock
             ).mockResolvedValueOnce(new Set(['valid_explore']));
+            // The table is resolved to its base explore before the allow-list is
+            // checked, so the mock has to resolve it to an explore that is not
+            // on the allow-list.
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => ({
+                ...validExplore,
+                name: 'unauthorized_explore',
+            }));
 
             await expect(
                 service.searchFieldUniqueValues(
@@ -719,6 +737,97 @@ describe('ProjectService', () => {
                     undefined,
                 ),
             ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should reject field values of a table the dashboard does not filter on', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            // A trusted dashboard context must not be a way to read any table:
+            // only the tables the dashboard filters on are allowed.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'allowed-dashboard',
+                dashboardName: 'Allowed dashboard',
+                filterTableNames: ['b'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(
+                async (_projectUuid: string, tableName: string) =>
+                    tableName === 'b'
+                        ? validExplore
+                        : {
+                              ...validExplore,
+                              name: 'unauthorized_explore',
+                          },
+            );
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'allowed-dashboard',
+                        dashboardName: 'Allowed dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should allow field values of a table the dashboard filters on', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'allowed-dashboard',
+                dashboardName: 'Allowed dashboard',
+                filterTableNames: ['unauthorized_table'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => ({
+                ...validExplore,
+                name: 'unauthorized_explore',
+            }));
+            (
+                projectModel.getWarehouseClientFromCredentials as jest.Mock
+            ).mockImplementation(() => ({
+                ...warehouseClientMock,
+                runQuery: jest.fn(async () => resultsWith1Row),
+            }));
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'allowed-dashboard',
+                        dashboardName: 'Allowed dashboard',
+                    },
+                ),
+            ).resolves.toBeDefined();
         });
     });
 

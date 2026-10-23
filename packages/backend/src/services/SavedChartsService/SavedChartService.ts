@@ -36,14 +36,15 @@ import {
     isConditionalFormattingConfigWithColorRange,
     isConditionalFormattingConfigWithSingleColor,
     isCustomSqlDimension,
-    isSqlTableCalculation,
     isJwtUser,
+    isSqlTableCalculation,
     isUserWithOrg,
     isValidFrequency,
     isValidTimezone,
     type ChartFieldUpdates,
     type Explore,
     type ExploreError,
+    type ViewerContentScopeResolver,
 } from '@lightdash/common';
 import cronstrue from 'cronstrue';
 import { Knex } from 'knex';
@@ -66,6 +67,7 @@ import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { BaseService } from '../BaseService';
+import { assertChartInViewerContentScope } from '../ClientUseScopeService/clientUseScope';
 import { PermissionsService } from '../PermissionsService/PermissionsService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
 
@@ -82,6 +84,12 @@ type SavedChartServiceArguments = {
     dashboardModel: DashboardModel;
     catalogModel: CatalogModel;
     permissionsService: PermissionsService;
+    /**
+     * Resolves the client-use visible content scope.
+     * Injected (instead of the dashboard service) to avoid a circular
+     * dependency: the dashboard service depends on this service.
+     */
+    viewerContentScopeResolver?: ViewerContentScopeResolver;
 };
 
 export class SavedChartService
@@ -112,6 +120,8 @@ export class SavedChartService
 
     private readonly permissionsService: PermissionsService;
 
+    private readonly viewerContentScopeResolver?: ViewerContentScopeResolver;
+
     constructor(args: SavedChartServiceArguments) {
         super();
         this.analytics = args.analytics;
@@ -126,6 +136,7 @@ export class SavedChartService
         this.dashboardModel = args.dashboardModel;
         this.catalogModel = args.catalogModel;
         this.permissionsService = args.permissionsService;
+        this.viewerContentScopeResolver = args.viewerContentScopeResolver;
     }
 
     private async checkUpdateAccess(
@@ -823,6 +834,15 @@ export class SavedChartService
                 "You don't have access to the space this chart belongs to",
             );
         }
+
+        // Client-use projects: only the charts mounted on an allow-listed
+        // dashboard are visible to viewer / interactive_viewer
+        await assertChartInViewerContentScope(
+            this.viewerContentScopeResolver,
+            account.user,
+            savedChart.projectUuid,
+            savedChart.uuid,
+        );
 
         return access;
     }

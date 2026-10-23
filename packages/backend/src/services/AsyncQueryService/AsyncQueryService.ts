@@ -118,6 +118,11 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import type { ICacheService } from '../CacheService/ICacheService';
 import { CreateCacheResult } from '../CacheService/types';
+import {
+    assertChartInViewerContentScope,
+    assertDashboardInViewerContentScope,
+    toViewerContentScopeUser,
+} from '../ClientUseScopeService/clientUseScope';
 import { CsvService } from '../CsvService/CsvService';
 import { ExcelService } from '../ExcelService/ExcelService';
 import { PermissionsService } from '../PermissionsService/PermissionsService';
@@ -2251,6 +2256,15 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError();
         }
 
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
+
         await this.analyticsModel.addChartViewEvent(
             savedChartUuid,
             account.user.id,
@@ -2414,6 +2428,15 @@ export class AsyncQueryService extends ProjectService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
     }
 
     async executeAsyncDashboardChartQuery({
@@ -2438,7 +2461,7 @@ export class AsyncQueryService extends ProjectService {
             savedChart;
 
         if (savedChartProjectUuid !== projectUuid) {
-            throw new ForbiddenError('Dashboard does not belong to project');
+            throw new ForbiddenError('Chart does not belong to project');
         }
 
         const [space, explore] = await Promise.all([
@@ -2456,6 +2479,25 @@ export class AsyncQueryService extends ProjectService {
             projectUuid,
             savedChart.uuid,
             space,
+        );
+
+        // Client-use projects: fail closed. The dashboard itself has to be
+        // allow-listed, not only the chart.
+        // The dashboard is resolved on the server: its slug / name drives the
+        // row level filters in dbt (`sql_filter`) and its parameters are
+        // applied to the query, so it has to belong to the same project as
+        // the chart.
+        const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardUuid,
+        );
+        if (dashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to project');
+        }
+        await assertDashboardInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            dashboard.uuid,
         );
 
         await this.analyticsModel.addChartViewEvent(
@@ -2561,9 +2603,6 @@ export class AsyncQueryService extends ProjectService {
             warehouseCredentials.startOfWeek,
         );
 
-        const dashboard = await this.dashboardModel.getByIdOrSlug(
-            dashboardUuid,
-        );
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first
@@ -3355,9 +3394,31 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError("You don't have access to this chart");
         }
 
+        // Client-use projects: fail closed. The SQL chart has to be mounted on
+        // an allow-listed dashboard, and the dashboard itself has to be
+        // allow-listed too (same as the metric chart query path).
+        // The dashboard is resolved on the server: its slug / name drives the
+        // row level filters in dbt (`sql_filter`) and its parameters are
+        // applied to the query, so it has to belong to the same project.
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
         );
+        if (dashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to project');
+        }
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChart.savedSqlUuid,
+        );
+        await assertDashboardInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            dashboard.uuid,
+        );
+
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first

@@ -869,6 +869,140 @@ export class DashboardModel {
         );
     }
 
+    /**
+     * Latest dashboard version id per dashboard uuid.
+     * Used to resolve the tiles (charts) that are actually displayed.
+     */
+    private getLatestDashboardVersionIdsQuery(dashboardUuids: string[]) {
+        return this.database
+            .select({
+                dashboard_version_id: this.database.raw(
+                    `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+                ),
+            })
+            .from(DashboardsTableName)
+            .innerJoin(
+                DashboardVersionsTableName,
+                `${DashboardsTableName}.dashboard_id`,
+                `${DashboardVersionsTableName}.dashboard_id`,
+            )
+            .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids)
+            .groupBy(`${DashboardsTableName}.dashboard_uuid`);
+    }
+
+    /**
+     * Chart UUIDs (dbt charts + SQL charts) used by the tiles of the latest
+     * version of each dashboard.
+     * Charts that are not mounted on any of these dashboards are not visible.
+     */
+    async getChartUuidsByDashboardUuids(
+        dashboardUuids: string[],
+    ): Promise<Set<string>> {
+        if (dashboardUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const savedChartRows = await this.database(SavedChartsTableName)
+            .select<{ chartUuid: string }[]>({
+                chartUuid: `${SavedChartsTableName}.saved_query_uuid`,
+            })
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .whereIn(
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        const sqlChartRows = await this.database(DashboardTileSqlChartTableName)
+            .select<{ chartUuid: string }[]>({
+                chartUuid: `${DashboardTileSqlChartTableName}.saved_sql_uuid`,
+            })
+            .whereIn(
+                `${DashboardTileSqlChartTableName}.dashboard_version_id`,
+                this.getLatestDashboardVersionIdsQuery(dashboardUuids),
+            );
+
+        return new Set(
+            [...savedChartRows, ...sqlChartRows].map((row) => row.chartUuid),
+        );
+    }
+
+    /**
+     * Space UUIDs that hold the given charts.
+     *
+     * A chart that is visible (mounted on an allow-listed dashboard) belongs
+     * to a space, and a visible chart always means its space is visible.
+     */
+    async getSpaceUuidsByChartUuids(
+        chartUuids: string[],
+    ): Promise<Set<string>> {
+        if (chartUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const savedChartRows = await this.database(SavedChartsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${SavedChartsTableName}.space_id`,
+            )
+            .whereIn(`${SavedChartsTableName}.saved_query_uuid`, chartUuids);
+
+        const sqlChartRows = await this.database(SavedSqlTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SavedSqlTableName}.space_uuid`,
+            })
+            .whereIn(`${SavedSqlTableName}.saved_sql_uuid`, chartUuids)
+            .whereNotNull(`${SavedSqlTableName}.space_uuid`);
+
+        return new Set(
+            [...savedChartRows, ...sqlChartRows]
+                .map((row) => row.spaceUuid)
+                .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
+        );
+    }
+
+    /**
+     * Space UUIDs that hold the given dashboards.
+     *
+     * The client-use content scope is dashboard driven: a space is visible
+     * when it holds an allow-listed dashboard or a visible chart. The
+     * ancestors of those spaces are added by the caller, they are needed to
+     * keep the space tree navigable.
+     *
+     * Returned as-is (not normalized to root spaces).
+     */
+    async getSpaceUuidsByDashboardUuids(
+        dashboardUuids: string[],
+    ): Promise<Set<string>> {
+        if (dashboardUuids.length === 0) {
+            return new Set<string>();
+        }
+
+        const dashboardSpaceRows = await this.database(DashboardsTableName)
+            .select<{ spaceUuid: string }[]>({
+                spaceUuid: `${SpaceTableName}.space_uuid`,
+            })
+            .innerJoin(
+                SpaceTableName,
+                `${SpaceTableName}.space_id`,
+                `${DashboardsTableName}.space_id`,
+            )
+            .whereIn(`${DashboardsTableName}.dashboard_uuid`, dashboardUuids);
+
+        return new Set(
+            dashboardSpaceRows
+                .map((row) => row.spaceUuid)
+                .filter((spaceUuid): spaceUuid is string => Boolean(spaceUuid)),
+        );
+    }
+
     async getSlugsForUuids(uuids: string[]): Promise<Record<string, string>> {
         // Uuids are globally unique, so no need to filter by project
         const dashboards = await this.database(DashboardsTableName)
@@ -878,6 +1012,22 @@ export class DashboardModel {
             dashboards.map((dashboard) => [
                 dashboard.dashboard_uuid,
                 dashboard.slug,
+            ]),
+        );
+    }
+
+    async getNamesForUuids(uuids: string[]): Promise<Record<string, string>> {
+        if (uuids.length === 0) {
+            return {};
+        }
+        // Uuids are globally unique, so no need to filter by project
+        const dashboards = await this.database(DashboardsTableName)
+            .select('name', 'dashboard_uuid')
+            .whereIn('dashboard_uuid', uuids);
+        return Object.fromEntries(
+            dashboards.map((dashboard) => [
+                dashboard.dashboard_uuid,
+                dashboard.name,
             ]),
         );
     }

@@ -7046,7 +7046,37 @@
       "create": "创建"
     },
     "create_new_space": "创建新空间",
-    "create": "创建"
+    "create": "创建",
+    "client_use_scope": {
+      "title": "内容可见范围诊断",
+      "show": "展开",
+      "hide": "收起",
+      "applied": "生效状态",
+      "applied_yes": "已生效（受限角色）",
+      "applied_no": "未生效",
+      "status": "状态码",
+      "reason": "说明",
+      "effective_role": "有效项目角色",
+      "effective_role_value": "{{role}}（{{source}}）",
+      "mobile": "手机号",
+      "rpc_configured": "RPC 已配置",
+      "yes": "是",
+      "no": "否",
+      "allowed_dashboard_count": "白名单看板数",
+      "allowed_dashboards": "白名单看板",
+      "none": "无",
+      "scope_counts": "内容范围计数",
+      "dashboards": "看板",
+      "charts": "图表",
+      "spaces": "空间",
+      "explores": "数据集",
+      "role_source": {
+        "project_membership": "项目成员",
+        "group_membership": "用户组",
+        "organization": "组织",
+        "none": "无"
+      }
+    }
   },
   "pages_mobile_spaces": {
     "loading_spaces": "正在加载空间",

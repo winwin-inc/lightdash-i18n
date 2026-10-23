@@ -2,7 +2,9 @@ import {
     AbilityAction,
     OrganizationMemberRole,
     ProjectMemberRole,
+    SessionUser,
     SpaceMemberRole,
+    ViewerContentScope,
 } from '@lightdash/common';
 import knex from 'knex';
 import { getTracker, MockClient, Tracker } from 'knex-mock-client';
@@ -39,6 +41,7 @@ describe('SpaceService', () => {
                 getVisibleDashboardCountBySpaceUuid: jest.fn(
                     async () => new Map(),
                 ),
+                getViewerContentScope: jest.fn(async () => undefined),
             } as never,
         });
     });
@@ -844,6 +847,132 @@ describe('SpaceService', () => {
                     }
                 },
             );
+        });
+    });
+
+    describe('client-use scope', () => {
+        const ALLOWED_SPACE_UUID = 'allowed-space-uuid';
+        const CHILD_SPACE_UUID = 'child-space-uuid';
+        const ALLOWED_CHART_UUID = 'allowed-chart-uuid';
+        const HIDDEN_CHART_UUID = 'hidden-chart-uuid';
+        const ALLOWED_DASHBOARD_UUID = 'allowed-dashboard-uuid';
+        const HIDDEN_DASHBOARD_UUID = 'hidden-dashboard-uuid';
+
+        const viewerScope = {
+            dashboardUuids: [ALLOWED_DASHBOARD_UUID],
+            chartUuids: [ALLOWED_CHART_UUID],
+            spaceUuids: [ALLOWED_SPACE_UUID],
+            exploreNames: [],
+        };
+
+        const spaceWithContent = {
+            uuid: ALLOWED_SPACE_UUID,
+            organizationUuid: 'test-org-uuid',
+            projectUuid: 'test-project-uuid',
+            name: 'space',
+            isPrivate: false,
+            queries: [
+                { uuid: ALLOWED_CHART_UUID, name: 'allowed chart' },
+                { uuid: HIDDEN_CHART_UUID, name: 'hidden chart' },
+            ],
+            dashboards: [
+                { uuid: ALLOWED_DASHBOARD_UUID, name: 'allowed dashboard' },
+                { uuid: HIDDEN_DASHBOARD_UUID, name: 'hidden dashboard' },
+            ],
+            childSpaces: [{ uuid: CHILD_SPACE_UUID, name: 'child space' }],
+        };
+
+        const scopeUser = {
+            userUuid: 'test-user-uuid',
+            email: '13800000000@example.com',
+            organizationUuid: 'test-org-uuid',
+            organizationName: 'test-org',
+            organizationCreatedAt: new Date(),
+            role: 'member',
+            ability: {
+                can: jest.fn().mockReturnValue(true),
+                cannot: jest.fn().mockReturnValue(false),
+            },
+        } as unknown as SessionUser;
+
+        const buildService = (scope: ViewerContentScope | undefined) => {
+            const spaceService = new SpaceService({
+                analytics: analyticsMock,
+                projectModel: {} as ProjectModel,
+                spaceModel: new SpaceModel({ database: db }),
+                pinnedListModel: {} as PinnedListModel,
+                dashboardService: {
+                    getAllowedDashboardUuidsForViewer: jest.fn(
+                        async () => new Set(scope?.dashboardUuids ?? []),
+                    ),
+                    getVisibleDashboardCountBySpaceUuid: jest.fn(
+                        async () => new Map(),
+                    ),
+                    getViewerContentScope: jest.fn(async () => scope),
+                } as never,
+            });
+            jest.spyOn(SpaceModel.prototype, 'getFullSpace').mockResolvedValue(
+                spaceWithContent as never,
+            );
+            return spaceService;
+        };
+
+        test('only returns the charts mounted on an allow-listed dashboard', async () => {
+            const spaceService = buildService(viewerScope);
+
+            const result = await spaceService.getSpace(
+                'test-project-uuid',
+                scopeUser,
+                ALLOWED_SPACE_UUID,
+            );
+
+            expect(result.queries.map((query) => query.uuid)).toEqual([
+                ALLOWED_CHART_UUID,
+            ]);
+        });
+
+        test('only returns the allow-listed dashboards', async () => {
+            const spaceService = buildService(viewerScope);
+
+            const result = await spaceService.getSpace(
+                'test-project-uuid',
+                scopeUser,
+                ALLOWED_SPACE_UUID,
+            );
+
+            expect(
+                result.dashboards.map((dashboard) => dashboard.uuid),
+            ).toEqual([ALLOWED_DASHBOARD_UUID]);
+        });
+
+        test('hides the child spaces without an allow-listed dashboard', async () => {
+            const spaceService = buildService(viewerScope);
+
+            const result = await spaceService.getSpace(
+                'test-project-uuid',
+                scopeUser,
+                ALLOWED_SPACE_UUID,
+            );
+
+            expect(result.childSpaces).toEqual([]);
+        });
+
+        test('keeps every chart and child space when the scope does not apply', async () => {
+            const spaceService = buildService(undefined);
+
+            const result = await spaceService.getSpace(
+                'test-project-uuid',
+                scopeUser,
+                ALLOWED_SPACE_UUID,
+            );
+
+            expect(result.queries.map((query) => query.uuid)).toEqual([
+                ALLOWED_CHART_UUID,
+                HIDDEN_CHART_UUID,
+            ]);
+            expect(result.childSpaces.map((child) => child.uuid)).toEqual([
+                CHILD_SPACE_UUID,
+            ]);
         });
     });
 

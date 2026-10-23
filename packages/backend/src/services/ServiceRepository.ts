@@ -286,6 +286,7 @@ export class ServiceRepository
                 new CommentService({
                     analytics: this.context.lightdashAnalytics,
                     dashboardModel: this.models.getDashboardModel(),
+                    dashboardService: this.getDashboardService(),
                     spaceModel: this.models.getSpaceModel(),
                     commentModel: this.models.getCommentModel(),
                     notificationsModel: this.models.getNotificationsModel(),
@@ -666,6 +667,14 @@ export class ServiceRepository
                     dashboardModel: this.models.getDashboardModel(),
                     catalogModel: this.models.getCatalogModel(),
                     permissionsService: this.getPermissionsService(),
+                    // Lazy: the dashboard service depends on this service
+                    viewerContentScopeResolver: {
+                        getViewerContentScope: (user, projectUuid) =>
+                            this.getDashboardService().getViewerContentScope(
+                                user,
+                                projectUuid,
+                            ),
+                    },
                 }),
         );
     }
@@ -842,6 +851,7 @@ export class ServiceRepository
                     projectModel: this.models.getProjectModel(),
                     savedChartModel: this.models.getSavedChartModel(),
                     dashboardModel: this.models.getDashboardModel(),
+                    dashboardService: this.getDashboardService(),
                     spaceModel: this.models.getSpaceModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     promoteService: this.getPromoteService(),
@@ -942,6 +952,14 @@ export class ServiceRepository
                     savedSqlModel: this.models.getSavedSqlModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     analyticsModel: this.models.getAnalyticsModel(),
+                    // Lazy: the dashboard service depends on the saved chart service
+                    viewerContentScopeResolver: {
+                        getViewerContentScope: (user, projectUuid) =>
+                            this.getDashboardService().getViewerContentScope(
+                                user,
+                                projectUuid,
+                            ),
+                    },
                 }),
         );
     }

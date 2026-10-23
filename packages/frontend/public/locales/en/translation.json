@@ -7020,7 +7020,37 @@
       "create": "Create"
     },
     "create_new_space": "Create new space",
-    "create": "Create"
+    "create": "Create",
+    "client_use_scope": {
+      "title": "Content visibility scope diagnostics",
+      "show": "Expand",
+      "hide": "Collapse",
+      "applied": "Scope status",
+      "applied_yes": "Applied (restricted role)",
+      "applied_no": "Not applied",
+      "status": "Status code",
+      "reason": "Reason",
+      "effective_role": "Effective project role",
+      "effective_role_value": "{{role}} ({{source}})",
+      "mobile": "Mobile",
+      "rpc_configured": "RPC configured",
+      "yes": "Yes",
+      "no": "No",
+      "allowed_dashboard_count": "Allow-listed dashboards",
+      "allowed_dashboards": "Allow-listed dashboards",
+      "none": "None",
+      "scope_counts": "Scope counts",
+      "dashboards": "Dashboards",
+      "charts": "Charts",
+      "spaces": "Spaces",
+      "explores": "Datasets",
+      "role_source": {
+        "project_membership": "Project member",
+        "group_membership": "Group",
+        "organization": "Organization",
+        "none": "None"
+      }
+    }
   },
   "components_project_connection": {
     "generate_settings": {
