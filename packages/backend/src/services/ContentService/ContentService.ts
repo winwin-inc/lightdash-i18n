@@ -193,32 +193,15 @@ export class ContentService extends BaseService {
             return result;
         }
 
-        // Root space of the spaces returned by the query. The client-use scope
-        // holds root spaces (nested spaces inherit access from their root), so
-        // the returned spaces have to be compared with their root.
-        const returnedSpaceRoots =
-            contentScopes.size > 0
-                ? await this.spaceModel.getSpaceRoots(
-                      result.data
-                          .filter(
-                              (content) =>
-                                  content.contentType === ContentType.SPACE,
-                          )
-                          .map((content) => content.uuid),
-                  )
-                : new Map<string, string>();
-
         const filtered = result.data.filter((content) => {
             if (content.contentType === ContentType.SPACE) {
-                // Client-use: only the spaces of the allow-listed dashboards
-                // (and of their charts) are visible
+                // Client-use: only the spaces that hold an allow-listed
+                // dashboard are visible
                 const scope = contentScopes.get(content.project.uuid);
                 if (scope === undefined) {
                     return true;
                 }
-                const rootSpaceUuid =
-                    returnedSpaceRoots.get(content.uuid) ?? content.uuid;
-                return scope.spaceUuids.includes(rootSpaceUuid);
+                return scope.spaceUuids.includes(content.uuid);
             }
 
             if (content.contentType === ContentType.CHART) {

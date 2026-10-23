@@ -699,22 +699,14 @@ export class DashboardService
             this.dashboardModel.getExploreNamesByDashboardUuids(dashboardUuids),
         ]);
 
-        // Nested spaces inherit access / privacy from the root space
-        const spaceRoots = await this.spaceModel.getSpaceRoots([...spaceUuids]);
-
         return {
             dashboardUuids,
             chartUuids: [...chartUuids],
-            // Fall back to the space itself when its root cannot be resolved,
-            // so the scope stays consistent with the root lookup used when
-            // the content items are filtered.
-            spaceUuids: [
-                ...new Set(
-                    [...spaceUuids].map(
-                        (spaceUuid) => spaceRoots.get(spaceUuid) ?? spaceUuid,
-                    ),
-                ),
-            ],
+            // Dashboard driven: only the spaces that hold an allow-listed
+            // dashboard are visible. The spaces are not normalized to their
+            // root space, a nested space without an allow-listed dashboard
+            // must not be visible either.
+            spaceUuids: [...spaceUuids],
             exploreNames: [...exploreNames],
         };
     }

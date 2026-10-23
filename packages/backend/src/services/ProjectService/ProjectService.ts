@@ -5578,7 +5578,20 @@ export class ProjectService extends BaseService {
             allowedSpaceUuids,
         );
 
-        return [...savedQueries, ...savedSqlCharts];
+        const charts = [...savedQueries, ...savedSqlCharts];
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getChartSummaries(
@@ -5616,11 +5629,24 @@ export class ProjectService extends BaseService {
             )
             .map((space) => space.uuid);
 
-        return this.savedChartModel.find({
+        const charts = await this.savedChartModel.find({
             projectUuid,
             spaceUuids: allowedSpaceUuids,
             excludeChartsSavedInDashboard,
         });
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getMostPopularAndRecentlyUpdated(
@@ -5777,26 +5803,44 @@ export class ProjectService extends BaseService {
                 userAccess: spacesAccess[spaceSummary.uuid]?.[0] ?? [],
             }));
 
-        // undefined: keep SQL dashboardCount. Set: recount visible dashboards
-        // (space stays listed even when count is 0).
-        const allowedDashboardUuids =
-            await this.dashboardService.getAllowedDashboardUuidsForViewer(
-                user,
-                projectUuid,
-            );
-        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+        // undefined: the client-use allow-list does not apply to this user
+        // (not a client-use project or not a restricted role). Keep the SQL
+        // counts and every space the user has access to.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
             return spacesWithUserAccess;
+        }
+
+        // Client-use: the content scope is dashboard driven, only the spaces
+        // that hold an allow-listed dashboard are visible.
+        const scopedSpaces = spacesWithUserAccess.filter((space) =>
+            viewerScope.spaceUuids.includes(space.uuid),
+        );
+        if (scopedSpaces.length === 0) {
+            return [];
         }
 
         const spaceCounts =
             await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
-                spacesWithUserAccess.map((space) => space.uuid),
-                allowedDashboardUuids,
+                scopedSpaces.map((space) => space.uuid),
+                new Set(viewerScope.dashboardUuids),
             );
 
-        return spacesWithUserAccess.map((space) => ({
+        // The chartCount of a space must not leak the charts that are hidden
+        // by the client-use scope.
+        const chartCounts =
+            await this.spaceModel.getVisibleChartCountsBySpaceUuids(
+                scopedSpaces.map((space) => space.uuid),
+                viewerScope.chartUuids,
+            );
+
+        return scopedSpaces.map((space) => ({
             ...space,
             dashboardCount: spaceCounts.get(space.uuid) ?? 0,
+            chartCount: chartCounts.get(space.uuid) ?? 0,
         }));
     }
 

@@ -177,7 +177,10 @@ const InfiniteResourceTable = ({
             ),
             Cell: ({ row }) => {
                 const item = row.original;
-                if (isResourceViewSpaceItem(item)) {
+                if (
+                    isResourceViewSpaceItem(item) ||
+                    isResourceViewDataAppItem(item)
+                ) {
                     return null;
                 }
 
@@ -185,7 +188,18 @@ const InfiniteResourceTable = ({
                     (s) => s.uuid === item.data.spaceUuid,
                 );
 
-                return space ? (
+                // The space can be hidden (client-use scope) while the content
+                // is still visible. Render the name without a link then, the
+                // space page itself is not accessible.
+                if (!space) {
+                    return (
+                        <Text fz={12} fw={500} color="gray.7">
+                            {item.data.space?.name ?? ''}
+                        </Text>
+                    );
+                }
+
+                return (
                     <Anchor
                         color="gray.7"
                         component={Link}
@@ -198,7 +212,7 @@ const InfiniteResourceTable = ({
                     >
                         {space.name}
                     </Anchor>
-                ) : null;
+                );
             },
         },
         {

@@ -282,7 +282,7 @@ describe('ContentService client-use scope', () => {
         expect(chartUuids).toEqual([ALLOWED_CHART_UUID]);
     });
 
-    it('keeps a child space of a space that is part of the scope', async () => {
+    it('hides a nested space that does not hold an allow-listed dashboard', async () => {
         spaceModel.find.mockResolvedValue([spaces[0], spaces[1], spaces[2]]);
         // The query returns the child space (browsing a space)
         contentModel.findSummaryContents.mockImplementation(
@@ -312,8 +312,10 @@ describe('ContentService client-use scope', () => {
             .filter((content) => content.contentType === ContentType.SPACE)
             .map((content) => content.uuid);
 
-        // The child space inherits the root space, which is in the scope
-        expect(spaceUuids).toEqual([CHILD_SPACE_UUID]);
+        // The scope is dashboard driven: the child space does not hold an
+        // allow-listed dashboard, so it is hidden even when its root space is
+        // part of the scope
+        expect(spaceUuids).toEqual([]);
     });
 
     it('keeps an allow-listed dashboard even when its space is not in the scope', async () => {

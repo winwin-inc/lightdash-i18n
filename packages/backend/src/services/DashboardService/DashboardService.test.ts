@@ -218,9 +218,6 @@ describe('DashboardService', () => {
             (
                 dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
             ).mockResolvedValueOnce(new Set(['orders']));
-            (spaceModel.getSpaceRoots as jest.Mock).mockResolvedValueOnce(
-                new Map([['space-child', 'space-root']]),
-            );
 
             const result = await service.getViewerContentScope(
                 user,
@@ -230,7 +227,9 @@ describe('DashboardService', () => {
             expect(result).toEqual({
                 dashboardUuids: ['dash-1'],
                 chartUuids: ['chart-1'],
-                spaceUuids: ['space-root'],
+                // The space of the allow-listed dashboard, not normalized to
+                // its root space: the scope is dashboard driven
+                spaceUuids: ['space-child'],
                 exploreNames: ['orders'],
             });
         });

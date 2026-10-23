@@ -235,14 +235,35 @@ agent 由此推断出"管理员"。
 
 正确落点是**内容条目层（内存过滤）**：
 
-| 内容类型 | 过滤条件                                                                    |
-| -------- | --------------------------------------------------------------------------- |
-| 空间     | 空间权限 ∩ scope.spaceUuids（按**根空间**比较；只保留持有白名单看板的空间） |
-| 看板     | RPC 白名单（`allowedDashboardUuidsMap`，与空间 scope 无关）                 |
-| 图表     | scope.chartUuids（白名单看板的磁贴图表）                                    |
+| 内容类型 | 过滤条件                                                                     |
+| -------- | ---------------------------------------------------------------------------- |
+| 空间     | 空间权限 ∩ scope.spaceUuids（**空间自身 UUID**；只保留持有白名单看板的空间） |
+| 看板     | RPC 白名单（`allowedDashboardUuidsMap`，与空间 scope 无关）                  |
+| 图表     | scope.chartUuids（白名单看板的磁贴图表）                                     |
 
 空间过滤同时覆盖两种列表形态：根空间列表（`nlevel(path)=1`）与浏览空间的子空间列表
 （`parent_space_uuid IN (...)`），后者此前会绕过空间 scope。
+
+> 空间按**自身 UUID** 比较，不归一到根空间：口径是"持有白名单看板的空间才可见"，
+> 嵌套空间若没有白名单看板，同样要移除。空间的访问权限继承仍由既有的
+> `hasViewAccessToSpace`（根空间可见即嵌套可见）负责，两者互不干扰。
+
+### 5.8 其它内容入口（不能只改 content API）
+
+`GET /api/v2/content` 之外，还有多个接口会列出空间 / 图表，若不一起处理，
+界面上的空间选择器、空间详情页仍会泄露不可见内容：
+
+| 接口                                           | 服务方法                           | 改法                                                              | 状态 |
+| ---------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- | ---- |
+| `GET /projects/:projectUuid/spaces`            | `ProjectService.getSpaces`         | 按 scope 过滤空间，并按可见图表重算 `chartCount`                  | ✅   |
+| `GET /projects/:projectUuid/charts`            | `ProjectService.getCharts`         | 按 `scope.chartUuids` 过滤                                        | ✅   |
+| `GET /projects/:projectUuid/chart-summaries`   | `ProjectService.getChartSummaries` | 按 `scope.chartUuids` 过滤                                        | ✅   |
+| `GET /projects/:projectUuid/spaces/:spaceUuid` | `SpaceService.getSpace`            | 过滤 `queries`（图表）、`childSpaces`（无白名单看板的子空间移除） | ✅   |
+| `GET /projects/:projectUuid/dashboards`        | `DashboardService.getAllByProject` | 已有 RPC 白名单过滤                                               | ✅   |
+| `GET /projects/:projectUuid/saved/:uuid`       | `SavedChartService.get`            | 已有 `checkPermissions` 的 scope 校验                             | ✅   |
+
+前端配合：内容列表的"空间"列改为使用 content API 返回的 `space.name`
+（空间被隐藏时只显示文字、不给链接），避免出现空白单元格。
 
 ---
 
@@ -272,7 +293,7 @@ agent 由此推断出"管理员"。
 
 - ✅ `find_spaces` / `find_charts` / v2 content API 只返回 scope 内内容；
 - ✅ 空间 `chartCount`/`dashboardCount` 与实际可见内容一致（不泄露隐藏数量）；
-- ✅ 嵌套空间：白名单看板在子空间 → 根空间与子空间均可见；
+- ✅ 嵌套空间：不含白名单看板的嵌套空间同样被移除（口径是"持有白名单看板"）；
 - ✅ RPC 返回空/异常 → 空间、图表、看板全部为空（fail-closed）；
 - ✅ 白名单看板不会被空间 scope 二次过滤（空间 scope 只在条目层生效）；
 - ✅ 浏览空间时的子空间列表同样按 scope 过滤。
@@ -280,7 +301,12 @@ agent 由此推断出"管理员"。
 **单测覆盖**
 
 - `packages/backend/src/services/ContentService/ContentService.test.ts`：
-  空间 scope 过滤、看板白名单过滤、图表 scope 过滤、子空间继承、非 client-use 不受影响；
+  空间 scope 过滤、看板白名单过滤、图表 scope 过滤、嵌套空间移除、非 client-use 不受影响；
+- `packages/backend/src/services/ProjectService/ProjectService.clientUseScope.test.ts`：
+  `getSpaces` 空间过滤与 `chartCount` 重算、`getCharts` / `getChartSummaries` 图表过滤、
+  scope 不适用时保持原行为；
+- `packages/backend/src/services/SpaceService/SpaceService.test.ts`：
+  空间详情的图表过滤、子空间移除、scope 不适用时保持原行为；
 - `packages/backend/src/services/DashboardService/DashboardService.test.ts`：
   `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata` /
   白名单与 scope 缓存（并发合并、TTL、失败重试、主动失效）；
