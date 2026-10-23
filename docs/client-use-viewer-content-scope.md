@@ -213,8 +213,32 @@ agent 由此推断出"管理员"。
 ### 5.6 性能与缓存
 
 - scope 计算 = 1 次 RPC + 3 个聚合查询（dashboard→chart、dashboard→space、space→root）。
-- 本次**未加缓存**：沿用现有 RPC 每请求调用的行为，避免引入缓存一致性问题。
-  若 RPC 压力成为瓶颈，再按 `userUuid + projectUuid` 做 30~60s 短缓存。
+- 看板白名单（RPC）与 scope 都加了**短 TTL + Promise 级缓存**（缓存的是 Promise，
+  并发请求会合并成一次 RPC）：
+  | 缓存 | Key | TTL | 说明 |
+  | ---- | ---- | --- | ---- |
+  | `allowListCache` | `projectUuid:userUuid` | 成功 30s / RPC 失败 5s | 失败结果只短暂缓存，RPC 恢复后尽快重试 |
+  | `viewerScopeCache` | `projectUuid:userUuid` | 30s | scope 由白名单派生，两者 TTL 对齐 |
+- 缓存条目上限 1000，超出后按插入顺序淘汰最旧条目；
+  `DashboardService.clearViewerContentCache(projectUuid?)` 可主动失效。
+- 效果：打开一个看板（10 个磁贴）时，RPC 调用从 ~22 次降到 1~2 次。
+
+### 5.7 内容过滤的落点（重要）
+
+`ContentService.find` 的 `spaceUuids` 过滤被空间、看板、图表三种查询**共用**，
+因此客户使用模式的 scope **不能**通过收窄这个列表来生效——否则会连带把
+白名单内的看板（及其磁贴图表）一起过滤掉（“有权限的看板不展示”）。
+
+正确落点是**内容条目层（内存过滤）**：
+
+| 内容类型 | 过滤条件                                                            |
+| -------- | ------------------------------------------------------------------- |
+| 空间     | 空间权限 ∩ scope.spaceUuids（按**根空间**比较，嵌套空间继承根空间） |
+| 看板     | RPC 白名单（`allowedDashboardUuidsMap`，与空间 scope 无关）         |
+| 图表     | scope.chartUuids（白名单看板的磁贴图表）                            |
+
+空间过滤同时覆盖两种列表形态：根空间列表（`nlevel(path)=1`）与浏览空间的子空间列表
+（`parent_space_uuid IN (...)`），后者此前会绕过空间 scope。
 
 ---
 
@@ -245,12 +269,17 @@ agent 由此推断出"管理员"。
 - ✅ `find_spaces` / `find_charts` / v2 content API 只返回 scope 内内容；
 - ✅ 空间 `chartCount`/`dashboardCount` 与实际可见内容一致（不泄露隐藏数量）；
 - ✅ 嵌套空间：白名单看板在子空间 → 根空间与子空间均可见；
-- ✅ RPC 返回空/异常 → 空间、图表、看板全部为空（fail-closed）。
+- ✅ RPC 返回空/异常 → 空间、图表、看板全部为空（fail-closed）；
+- ✅ 白名单看板不会被空间 scope 二次过滤（空间 scope 只在条目层生效）；
+- ✅ 浏览空间时的子空间列表同样按 scope 过滤。
 
 **单测覆盖**
 
+- `packages/backend/src/services/ContentService/ContentService.test.ts`：
+  空间 scope 过滤、看板白名单过滤、图表 scope 过滤、子空间继承、非 client-use 不受影响；
 - `packages/backend/src/services/DashboardService/DashboardService.test.ts`：
-  `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata`；
+  `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata` /
+  白名单与 scope 缓存（并发合并、TTL、失败重试、主动失效）；
 - `packages/frontend/src/utils/categoryFilters.test.ts`：类目重置与级联（见
   [`docs/category-filter-cascade.md`](./category-filter-cascade.md)）。
 

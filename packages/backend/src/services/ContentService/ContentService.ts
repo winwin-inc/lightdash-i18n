@@ -131,22 +131,12 @@ export class ContentService extends BaseService {
             }),
         );
 
-        // Nested spaces inherit access / privacy from the root space
-        const spaceRootByUuid = await this.spaceModel.getSpaceRoots(
-            visibleSpaces.map((space) => space.uuid),
-        );
-
-        const allowedSpaceUuids = visibleSpaces
-            .filter((space) => {
-                const scope = contentScopes.get(space.projectUuid);
-                if (scope === undefined) {
-                    return true;
-                }
-                const rootSpaceUuid =
-                    spaceRootByUuid.get(space.uuid) ?? space.uuid;
-                return scope.spaceUuids.includes(rootSpaceUuid);
-            })
-            .map((space) => space.uuid);
+        // The `spaceUuids` filter is shared by the space, dashboard and chart
+        // queries, so it must only contain the spaces the user has access to.
+        // The client-use scope is applied to the content items themselves
+        // (see below): narrowing this list would also drop allow-listed
+        // dashboards and their charts from the results.
+        const allowedSpaceUuids = visibleSpaces.map((space) => space.uuid);
 
         const shouldApplyDashboardAllowList =
             !filters.contentTypes ||
@@ -183,7 +173,7 @@ export class ContentService extends BaseService {
         // the post-filter count. Only when the viewer allow-list applies.
         const shouldFilterInMemory =
             (allowedDashboardUuidsMap.size > 0 || contentScopes.size > 0) &&
-            isUserWithOrg(user);
+            (isUserWithOrg(user) || contentScopes.size > 0);
 
         const result = await this.contentModel.findSummaryContents(
             {
@@ -203,7 +193,34 @@ export class ContentService extends BaseService {
             return result;
         }
 
+        // Root space of the spaces returned by the query. The client-use scope
+        // holds root spaces (nested spaces inherit access from their root), so
+        // the returned spaces have to be compared with their root.
+        const returnedSpaceRoots =
+            contentScopes.size > 0
+                ? await this.spaceModel.getSpaceRoots(
+                      result.data
+                          .filter(
+                              (content) =>
+                                  content.contentType === ContentType.SPACE,
+                          )
+                          .map((content) => content.uuid),
+                  )
+                : new Map<string, string>();
+
         const filtered = result.data.filter((content) => {
+            if (content.contentType === ContentType.SPACE) {
+                // Client-use: only the spaces of the allow-listed dashboards
+                // (and of their charts) are visible
+                const scope = contentScopes.get(content.project.uuid);
+                if (scope === undefined) {
+                    return true;
+                }
+                const rootSpaceUuid =
+                    returnedSpaceRoots.get(content.uuid) ?? content.uuid;
+                return scope.spaceUuids.includes(rootSpaceUuid);
+            }
+
             if (content.contentType === ContentType.CHART) {
                 // Client-use: only the charts mounted on an allow-listed
                 // dashboard are visible

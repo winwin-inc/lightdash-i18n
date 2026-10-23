@@ -89,6 +89,20 @@ import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 /** Fields needed to resolve client-use dashboard / explore allow-lists. */
 export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
 
+/**
+ * Result of the client-use allow-list resolution.
+ *
+ * - `uuids: undefined`: the allow-list does not apply (not a client-use
+ *   project, or the user is not a restricted role).
+ * - `uuids: Set`: the allowed dashboards (an empty set means fail-closed).
+ * - `failed`: the Admin RPC failed. The result stays fail-closed but is only
+ *   cached briefly so the next request retries as soon as the RPC recovers.
+ */
+type AllowedDashboardUuidsResult = {
+    uuids: Set<string> | undefined;
+    failed: boolean;
+};
+
 type DashboardServiceArguments = {
     analytics: LightdashAnalytics;
     dashboardModel: DashboardModel;
@@ -112,6 +126,27 @@ export class DashboardService
     extends BaseService
     implements BulkActionable<Knex>
 {
+    /**
+     * The client-use allow-list comes from the customer's Admin RPC (a network
+     * round trip) and is consulted by content lists, chart reads and every query
+     * execution. Without a cache, opening a dashboard would trigger dozens of
+     * RPC calls (one or two per tile).
+     *
+     * The TTL bounds how long a permission change can take to be applied, so it
+     * is kept short and aligned with the customer's permission sync expectation.
+     */
+    private static readonly ALLOW_LIST_CACHE_TTL_MS = 30_000;
+
+    /**
+     * When the Admin RPC fails the result is an empty allow-list (fail closed).
+     * Cache it only briefly so the next request retries quickly.
+     */
+    private static readonly ALLOW_LIST_CACHE_ERROR_TTL_MS = 5_000;
+
+    private static readonly SCOPE_CACHE_TTL_MS = 30_000;
+
+    private static readonly MAX_VIEWER_CACHE_ENTRIES = 1000;
+
     analytics: LightdashAnalytics;
 
     dashboardModel: DashboardModel;
@@ -143,6 +178,24 @@ export class DashboardService
     organizationMemberProfileModel: OrganizationMemberProfileModel;
 
     projectOperationLogService: ProjectOperationLogService;
+
+    /**
+     * Cached allow-list per `projectUuid:userUuid`.
+     * The promise is cached (not only its result) so concurrent requests share
+     * a single RPC call instead of racing each other.
+     */
+    private readonly allowListCache = new Map<
+        string,
+        { expiresAt: number; promise: Promise<AllowedDashboardUuidsResult> }
+    >();
+
+    /**
+     * Cached content scope per `projectUuid:userUuid`.
+     */
+    private readonly viewerScopeCache = new Map<
+        string,
+        { expiresAt: number; promise: Promise<ViewerContentScope | undefined> }
+    >();
 
     constructor({
         analytics,
@@ -241,11 +294,99 @@ export class DashboardService
      * Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects.
      * Session and personal access token use the same whitelist (mobile from user email).
      * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
+     *
+     * The result is cached (promise included, so concurrent requests share a
+     * single Admin RPC call) for a short period: the allow-list is consulted by
+     * content lists, chart reads and every query execution.
      */
     async getAllowedDashboardUuidsForViewer(
         user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
+        const cacheKey = `${projectUuid}:${user.userUuid}`;
+        const cached = this.allowListCache.get(cacheKey);
+        if (cached !== undefined && cached.expiresAt > Date.now()) {
+            return cached.promise.then((result) => result.uuids);
+        }
+
+        const promise = this.fetchAllowedDashboardUuids(user, projectUuid);
+        const entry = {
+            expiresAt: Date.now() + DashboardService.ALLOW_LIST_CACHE_TTL_MS,
+            promise,
+        };
+        this.allowListCache.set(cacheKey, entry);
+        promise.then(
+            (result) => {
+                entry.expiresAt =
+                    Date.now() +
+                    (result.failed
+                        ? DashboardService.ALLOW_LIST_CACHE_ERROR_TTL_MS
+                        : DashboardService.ALLOW_LIST_CACHE_TTL_MS);
+            },
+            () => {
+                // The promise never rejects (fail-closed), this is only a
+                // safety net
+                entry.expiresAt =
+                    Date.now() + DashboardService.ALLOW_LIST_CACHE_ERROR_TTL_MS;
+            },
+        );
+        DashboardService.pruneViewerCache(this.allowListCache);
+
+        return promise.then((result) => result.uuids);
+    }
+
+    /**
+     * Drop the cached client-use allow-list and content scope.
+     *
+     * The allow-list itself comes from the customer's Admin RPC and cannot be
+     * invalidated from the outside, but the derived content scope depends on
+     * the content of the project: it is dropped when a dashboard changes.
+     */
+    clearViewerContentCache(projectUuid?: string): void {
+        if (projectUuid === undefined) {
+            this.allowListCache.clear();
+            this.viewerScopeCache.clear();
+            return;
+        }
+
+        const prefix = `${projectUuid}:`;
+        [...this.allowListCache.keys()]
+            .filter((key) => key.startsWith(prefix))
+            .forEach((key) => this.allowListCache.delete(key));
+        [...this.viewerScopeCache.keys()]
+            .filter((key) => key.startsWith(prefix))
+            .forEach((key) => this.viewerScopeCache.delete(key));
+    }
+
+    /**
+     * Drop the oldest entries when the cache grows past its maximum size.
+     */
+    private static pruneViewerCache<T>(cache: Map<string, T>): void {
+        if (cache.size <= DashboardService.MAX_VIEWER_CACHE_ENTRIES) {
+            return;
+        }
+        const toRemove = cache.size - DashboardService.MAX_VIEWER_CACHE_ENTRIES;
+        let removed = 0;
+        for (const key of cache.keys()) {
+            cache.delete(key);
+            removed += 1;
+            if (removed >= toRemove) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Resolve the allow-list of a client-use project for a restricted role.
+     *
+     * `failed` marks an Admin RPC failure: the result is still fail-closed
+     * (empty allow-list) but it is only cached for a short time so the next
+     * request retries as soon as the RPC recovers.
+     */
+    private async fetchAllowedDashboardUuids(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<AllowedDashboardUuidsResult> {
         const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
@@ -258,7 +399,7 @@ export class DashboardService
             this.logger.warn(
                 `Project ${projectUuid} not found in projects table, skipping RPC filtering`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         const isClientUse = project.is_client_use ?? false;
@@ -266,7 +407,7 @@ export class DashboardService
             this.logger.warn(
                 `Project ${projectUuid} is not in client use mode, skipping RPC filtering`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         // Get user's userId (needed for group_memberships query)
@@ -280,7 +421,7 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} not found in users table, skipping RPC filtering`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         // Get user's project role from direct membership
@@ -335,7 +476,7 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} is ${userRole} in project ${projectUuid}, skipping RPC filtering`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         // For viewer / interactive_viewer in client use mode, RPC interface is required
@@ -345,7 +486,7 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} (viewer / interactive_viewer) has no email in client use project ${projectUuid}, filtering out all dashboards.`,
             );
-            return new Set<string>();
+            return { uuids: new Set<string>(), failed: false };
         }
 
         // Extract mobile number from email (remove @ and everything after it)
@@ -356,14 +497,14 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} (viewer / interactive_viewer) email ${normalizedEmail} has no mobile part in client use project ${projectUuid}, skipping RPC filtering`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         if (!this.categoryRpcClient.isConfigured()) {
             this.logger.warn(
                 `Admin RPC is not configured, skipping dashboard RPC filtering for project ${projectUuid}`,
             );
-            return undefined;
+            return { uuids: undefined, failed: false };
         }
 
         try {
@@ -390,14 +531,14 @@ export class DashboardService
                 );
             }
 
-            return allowedUuids;
+            return { uuids: allowedUuids, failed: false };
         } catch (error) {
             this.logger.error(
                 `Error fetching dashboards by mobile ${mobile} in project ${projectUuid}: ${
                     error instanceof Error ? error.message : String(error)
                 }. Returning empty allow-list; viewer / interactive_viewer will see no dashboards until RPC recovers.`,
             );
-            return new Set<string>();
+            return { uuids: new Set<string>(), failed: true };
         }
     }
 
@@ -508,6 +649,30 @@ export class DashboardService
         user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<ViewerContentScope | undefined> {
+        const cacheKey = `${projectUuid}:${user.userUuid}`;
+        const cached = this.viewerScopeCache.get(cacheKey);
+        if (cached !== undefined && cached.expiresAt > Date.now()) {
+            return cached.promise;
+        }
+
+        const promise = this.fetchViewerContentScope(user, projectUuid);
+        this.viewerScopeCache.set(cacheKey, {
+            expiresAt: Date.now() + DashboardService.SCOPE_CACHE_TTL_MS,
+            promise,
+        });
+        DashboardService.pruneViewerCache(this.viewerScopeCache);
+
+        return promise;
+    }
+
+    /**
+     * Build the visible content scope of a client-use project for a restricted
+     * role. See {@link getViewerContentScope}.
+     */
+    private async fetchViewerContentScope(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScope | undefined> {
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
         if (allowedDashboardUuids === undefined) {
@@ -536,7 +701,16 @@ export class DashboardService
         return {
             dashboardUuids,
             chartUuids: [...chartUuids],
-            spaceUuids: [...new Set(spaceRoots.values())],
+            // Fall back to the space itself when its root cannot be resolved,
+            // so the scope stays consistent with the root lookup used when
+            // the content items are filtered.
+            spaceUuids: [
+                ...new Set(
+                    [...spaceUuids].map(
+                        (spaceUuid) => spaceRoots.get(spaceUuid) ?? spaceUuid,
+                    ),
+                ),
+            ],
             exploreNames: [...exploreNames],
         };
     }
