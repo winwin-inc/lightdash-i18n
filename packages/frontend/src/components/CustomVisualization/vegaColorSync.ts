@@ -588,10 +588,10 @@ export const applyDashboardColorSync = ({
                             sort,
                         );
                     } else if (sort.kind === 'preserve') {
-                        // sort: false → 保持数据出现顺序
+                        // sort: false / sort: true → 保持数据出现顺序
                         domain = colorValues;
                     } else {
-                        // 无 sort / sort: true → 与 vega-lite 默认一致：按值升序
+                        // 未写 sort / sort: 'ascending' → 与 vega-lite 默认一致：按值升序
                         domain = sortDomainNaturally(colorValues);
                     }
                     const range = domain.map((value) =>
