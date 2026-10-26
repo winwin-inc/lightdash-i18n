@@ -220,7 +220,8 @@ vega 会报 `Conflicting scale property "domains" / "range"`：domain 取并集�
 因此同步开启且该图被选中时，这些颜色同样被看板色板接管：
 
 - 采集范围：`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.color` /
-  `mark.point.fill` / `mark.point.stroke` / `encoding.fill.value` / `encoding.stroke.value`；
+  `mark.point.fill` / `mark.point.stroke` / `mark.line.color`（面积图上的覆盖线）/
+  `encoding.fill.value` / `encoding.stroke.value`；
 - 颜色键 = **字面值本身**（转小写，颜色大小写不敏感），跨图一致；
 - 中性色（RGB 三通道最大差值 ≤ 16，即黑 / 白 / 灰）**不接管**：
   文字、坐标轴、背景、描边等装饰色保持用户原样；
@@ -238,7 +239,8 @@ vega 会报 `Conflicting scale property "domains" / "range"`：domain 取并集�
 这在语义上等同于 condition 颜色编码，因此同样参与同步：
 
 - 采集范围同上（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` /
-  `encoding.fill.value` / `encoding.stroke.value` 写成 `{ expr }` 的情况）；
+  `mark.line.*` / `encoding.fill.value` / `encoding.stroke.value` 写成 `{ expr }` 的情况；
+  `encoding.color.condition[].value` 写成 `{ expr }` 的情况同样适用）；
 - 从表达式里抽取**被引号包裹的颜色字面量**（`'#7eea80'`、`'rgb(1,2,3)'` 等），
   每个字面值作为一个颜色键（转小写），跨图一致；
 - 改写时只替换引号包裹的颜色字面量，表达式结构与其余内容原样保留
@@ -378,8 +380,10 @@ export const createVegaColorResolver = ({
 | `condition` 分支里带 `field` | 那个分支有自己的 scale，语义复杂 |
 | 计算列做 color，且 transform 链无法在本地执行（`lookup` 等）或数据量 > 10 万 | 推导失败；写显式 `scale.domain` 即可支持 |
 | 命名颜色（`red`）与 `null` | 只接管 `#hex` / `rgb()` / `hsl()` 等字面量 |
+| 渐变（`{ "gradient": ... }`） | 连续渐变，不是分类色 |
 | 中性色（黑/白/灰） | 通常是文字、坐标轴、装饰色 |
 | `config.range.*` / `config.scale.*` 主题级配置 | 不改用户主题；注入的显式 range 本来就会覆盖主题 |
+| 主题默认 mark 色（`config.mark.color`，Vega-Lite 默认 `#4c78a8`） | 没有任何颜色定义（无 `encoding.color`、无写死颜色）的单系列图保持主题默认色，不占用看板色表槽位 |
 
 ## 边界与已知限制
 

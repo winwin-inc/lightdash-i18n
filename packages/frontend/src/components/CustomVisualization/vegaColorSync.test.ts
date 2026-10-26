@@ -1830,5 +1830,56 @@ describe('applyDashboardColorSync', () => {
             });
             expect(visibleKeys).toEqual(['#7eea80']);
         });
+
+        it('接管 mark.line.*（面积图上的覆盖线）', () => {
+            const spec = {
+                mark: {
+                    type: 'area',
+                    line: { color: '#4169E1', strokeWidth: 2 },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['mark', 'line'])).toEqual({
+                color: 'color:#4169e1',
+                strokeWidth: 2,
+            });
+            expect(visibleKeys).toEqual(['#4169e1']);
+        });
+
+        it('接管 condition 分支里 value 为表达式的颜色', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: {
+                        condition: {
+                            test: 'datum.v > 0',
+                            value: {
+                                expr: "datum.v > 10 ? '#7eea80' : '#ff8895'",
+                            },
+                        },
+                    },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['encoding', 'color', 'condition'])).toEqual({
+                test: 'datum.v > 0',
+                value: {
+                    expr: "datum.v > 10 ? 'color:#7eea80' : 'color:#ff8895'",
+                },
+            });
+            expect(visibleKeys).toEqual(['#7eea80', '#ff8895']);
+        });
     });
 });

@@ -177,8 +177,18 @@ export const collectLiteralColorValues = (
             values.push(value);
         }
     };
-    push(color.value);
-    getConditionBranches(color).forEach((branch) => push(branch.value));
+    /** 值可以是颜色字面量，也可以是 `{ expr: ... }`（表达式里含颜色字面量） */
+    const pushValue = (value: unknown) => {
+        if (typeof value === 'string') {
+            push(value);
+            return;
+        }
+        if (isRecord(value) && typeof value.expr === 'string') {
+            collectExprColorLiterals(value.expr).forEach(push);
+        }
+    };
+    pushValue(color.value);
+    getConditionBranches(color).forEach((branch) => pushValue(branch.value));
     return values;
 };
 
@@ -217,13 +227,15 @@ export const collectMarkLiteralColors = (
             push(mark[key]);
             pushExpr(mark[key]);
         });
-        const point = mark.point;
-        if (isRecord(point)) {
+        // `mark.point.*`：折线上的点；`mark.line.*`：面积图上的覆盖线
+        (['point', 'line'] as const).forEach((nested) => {
+            const nestedDef = mark[nested];
+            if (!isRecord(nestedDef)) return;
             COLOR_PROPS.forEach((key) => {
-                push(point[key]);
-                pushExpr(point[key]);
+                push(nestedDef[key]);
+                pushExpr(nestedDef[key]);
             });
-        }
+        });
     }
 
     const encoding = view.encoding;
@@ -1283,15 +1295,34 @@ export const applyDashboardColorSync = ({
             };
 
             next = applyProps(mark, next);
-            const point = mark.point;
-            if (isRecord(point)) {
-                const nextPoint = applyProps(point, point);
-                if (nextPoint !== point) {
+            // `mark.point.*`（折线上的点）与 `mark.line.*`（面积图上的覆盖线）
+            (['point', 'line'] as const).forEach((nested) => {
+                const nestedDef = mark[nested];
+                if (!isRecord(nestedDef)) return;
+                const nextNested = applyProps(nestedDef, nestedDef);
+                if (nextNested !== nestedDef) {
                     if (next === mark) next = { ...mark };
-                    next.point = nextPoint;
+                    next[nested] = nextNested;
                 }
-            }
+            });
             return next;
+        };
+
+        /**
+         * 改写一个颜色值：
+         * - 字符串字面量 → 看板色板里的对应颜色
+         * - `{ expr: ... }` → 替换表达式里的颜色字面量
+         * 其余（渐变、null、具名颜色等）原样返回
+         */
+        const remapColorValue = (value: unknown): unknown => {
+            if (typeof value === 'string') {
+                return mapDataColor(value) ?? value;
+            }
+            if (isRecord(value) && typeof value.expr === 'string') {
+                const nextExpr = remapExprColors(value.expr);
+                return nextExpr === value.expr ? value : { ...value, expr: nextExpr };
+            }
+            return value;
         };
 
         const encoding = view.encoding;
@@ -1300,50 +1331,31 @@ export const applyDashboardColorSync = ({
             const color = encoding.color;
             if (isRecord(color)) {
                 let nextColor: Record<string, unknown> = color;
-                if (typeof color.value === 'string') {
-                    const mapped = mapDataColor(color.value);
-                    if (mapped) {
-                        nextColor = { ...nextColor, value: mapped };
-                    }
-                } else if (
-                    isRecord(color.value) &&
-                    typeof color.value.expr === 'string'
-                ) {
-                    const nextExpr = remapExprColors(color.value.expr);
-                    if (nextExpr !== color.value.expr) {
-                        nextColor = {
-                            ...nextColor,
-                            value: { ...color.value, expr: nextExpr },
-                        };
-                    }
+                const nextValue = remapColorValue(color.value);
+                if (nextValue !== color.value) {
+                    nextColor = { ...nextColor, value: nextValue };
                 }
                 const condition = color.condition;
                 if (Array.isArray(condition)) {
                     let changed = false;
                     const branches = condition.map((branch) => {
-                        if (
-                            !isRecord(branch) ||
-                            typeof branch.value !== 'string'
-                        ) {
+                        if (!isRecord(branch)) {
                             return branch;
                         }
-                        const mapped = mapDataColor(branch.value);
-                        if (!mapped) return branch;
+                        const nextBranchValue = remapColorValue(branch.value);
+                        if (nextBranchValue === branch.value) return branch;
                         changed = true;
-                        return { ...branch, value: mapped };
+                        return { ...branch, value: nextBranchValue };
                     });
                     if (changed) {
                         nextColor = { ...nextColor, condition: branches };
                     }
-                } else if (
-                    isRecord(condition) &&
-                    typeof condition.value === 'string'
-                ) {
-                    const mapped = mapDataColor(condition.value);
-                    if (mapped) {
+                } else if (isRecord(condition)) {
+                    const nextBranchValue = remapColorValue(condition.value);
+                    if (nextBranchValue !== condition.value) {
                         nextColor = {
                             ...nextColor,
-                            condition: { ...condition, value: mapped },
+                            condition: { ...condition, value: nextBranchValue },
                         };
                     }
                 }
@@ -1356,25 +1368,10 @@ export const applyDashboardColorSync = ({
             (['fill', 'stroke'] as const).forEach((key) => {
                 const channelDef = encoding[key];
                 if (!isRecord(channelDef)) return;
-                if (typeof channelDef.value === 'string') {
-                    const mapped = mapDataColor(channelDef.value);
-                    if (!mapped) return;
-                    if (nextEncoding === encoding) nextEncoding = { ...encoding };
-                    nextEncoding[key] = { ...channelDef, value: mapped };
-                    return;
-                }
-                if (
-                    isRecord(channelDef.value) &&
-                    typeof channelDef.value.expr === 'string'
-                ) {
-                    const nextExpr = remapExprColors(channelDef.value.expr);
-                    if (nextExpr === channelDef.value.expr) return;
-                    if (nextEncoding === encoding) nextEncoding = { ...encoding };
-                    nextEncoding[key] = {
-                        ...channelDef,
-                        value: { ...channelDef.value, expr: nextExpr },
-                    };
-                }
+                const nextValue = remapColorValue(channelDef.value);
+                if (nextValue === channelDef.value) return;
+                if (nextEncoding === encoding) nextEncoding = { ...encoding };
+                nextEncoding[key] = { ...channelDef, value: nextValue };
             });
             if (nextEncoding !== encoding) {
                 result = { ...result, encoding: nextEncoding };
