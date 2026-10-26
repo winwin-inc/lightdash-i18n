@@ -561,6 +561,72 @@ describe('initializeCategoryFiltersAsync', () => {
         );
     });
 
+    it('resets the invalid default and cascades with the new value in an effective condition', async () => {
+        // 一级：默认值 饮料 不可用 → 自动选中第一个可用值 方便速食
+        mockSearchResults(['方便速食']);
+        // 二级：在新父级下默认值 奶茶 不可用 → 自动选中第一个可用值 方便面
+        mockSearchResults(['方便面']);
+
+        const dateFilter: DashboardFilterRule = {
+            id: 'time',
+            target: { fieldId: 'orders_order_date', tableName: 'orders' },
+            operator: FilterOperator.IN_THE_PAST,
+            values: [13],
+            label: undefined,
+            settings: { unitOfTime: UnitOfTime.months, completed: false },
+        };
+        const filters = asFilters([
+            dateFilter,
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['饮料'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: ['奶茶'],
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        // 默认值不可用时自动选中第一个可用值
+        expect(result.dimensions[1].values).toEqual(['方便速食']);
+        expect(result.dimensions[2].values).toEqual(['方便面']);
+
+        // 子级的查询条件：父级用的是重置后的值，且必须以生效状态发送
+        // （disabled 会被编译器渲染成 1=1，父级条件就整个失效了）
+        const childBody = JSON.parse(String(api.mock.calls[1][0].body));
+        expect(childBody.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: expect.objectContaining({
+                        fieldId: 'dim_categories_cls_1',
+                    }),
+                    values: ['方便速食'],
+                    disabled: false,
+                }),
+                // 日期条件的单位不能丢，否则「13 个月」会退化成「13 天」
+                expect.objectContaining({
+                    target: expect.objectContaining({
+                        fieldId: 'orders_order_date',
+                    }),
+                    values: [13],
+                    settings: { unitOfTime: 'months', completed: false },
+                    disabled: false,
+                }),
+            ]),
+        );
+    });
+
     it('resolves the parent before the child even when the dimensions are not ordered by level', async () => {
         mockSearchResults(['方便速食']);
         mockSearchResults(['方便面']);
