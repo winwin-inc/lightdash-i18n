@@ -101,7 +101,9 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 | `encoding.color.scale.range` 用户显式写了数组 | **覆盖**（开启同步并选中该图时由看板色板接管配色）；覆盖前后的颜色对应关系会用于重映射 spec 里的常量色 |
 | `encoding.color.scale` 为 `null` | 跳过（字段值本身就是颜色，如 `'#3CB976'`） |
 | `encoding.color.scale.scheme` 存在 | 覆盖（删 `scheme`，改成 domain+range）；看板调色板比 scheme 更具体 |
-| `encoding.color` 是 `condition` 条件编码 | 跳过 |
+| `encoding.color` 是 `condition` 条件编码（有 `field`） | 跳过（分类色由 scale 接管，条件分支不动） |
+| `encoding.color` **无 `field`**、带 `condition`（颜色由数据分支决定，如正/负、达标/未达标） | **接管**：字面值本身作为颜色键（见 4.2） |
+| `encoding.color` **无 `field`**、只写死一个颜色（无 `condition`） | 跳过（手绘图例色块 / 统一配色，保持用户原样） |
 | `encoding.color.type` 是 `quantitative` / `temporal` | 跳过（连续色阶，语义不同） |
 | `encoding.color.scale.domain` 是显式数组 | **直接当作系列集合**（不依赖数据），顺序 = 用户给的顺序；此时忽略 `color.sort`（vega-lite 显式 domain 不排序） |
 | `field` 在 `series` 里不存在（transform 计算列）且没有显式 domain | 跳过（domain 取不到值） |
@@ -127,6 +129,31 @@ range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
    换成新颜色（同一旧色对应多个新色时视为语义不明，不重映射）。
 
 这样「开启同步 + 选中该图」后，柱子的颜色和手绘图例色块会一起跟随看板色板，用户无需修改 spec。
+
+### 4.2 条件色编码的字面色接管
+
+有些图不用系列名表达颜色，而是用条件分支表达数据含义，例如：
+
+```json
+"color": {
+  "value": "#d64545",
+  "condition": { "test": "datum.pct >= 0", "value": "#22a06b" }
+}
+```
+
+（负增长红、正增长绿）。这类编码没有 `field`，没有系列名可对齐，
+因此以 **字面值本身作为颜色键**（`#d64545` / `#22a06b`）接入看板色表：
+
+- 跨图一致：看板里所有用 `#d64545` 的地方拿到同一个颜色；
+- 彼此不同：两个分支进入看板色表后由避让规则分配不同颜色；
+- 基础 `value`（条件不命中时的兜底色）一起接管。
+
+限制：
+
+- 只有 **带 `condition`** 的编码才接管；只写死一个颜色的编码保持用户原样；
+- `condition` 分支里带 `field` 的不处理（那个分支用的是自己的 scale）；
+- `scale: null` 不处理；
+- `mark.color`（参考线、描边、文字色等装饰色）不受影响，只有命中旧 range 的才会被重映射。
 
 ### 5. 未知系列名注册
 
@@ -256,7 +283,7 @@ export const createVegaColorResolver = ({
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰、无 field 的条件色编码字面色接管（value + condition、condition 数组、装饰色不受影响、带 field 的 condition 保持原样、scale: null 不处理）。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。

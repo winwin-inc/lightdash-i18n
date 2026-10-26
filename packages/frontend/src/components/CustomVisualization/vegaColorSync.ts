@@ -10,6 +10,9 @@
  *   覆盖前后的颜色对应关系用于重映射 spec 里的常量色（手绘图例等）
  * - `scale.scheme` 存在时视为可覆盖（删除 scheme，改写为 domain + range）
  * - condition 条件编码 / 连续色阶（quantitative、temporal）跳过
+ *   —— 但「无 field 的字面色编码」（`color: { value, condition }`，例如用颜色表达
+ *      正/负、达标/未达标）也会被接管：字面色本身作为颜色键，
+ *      保证跨图一致、且彼此不同（详见 applyDashboardColorSync）
  * - `scale: null` 跳过（字段值本身就是颜色）
  * - domain 来源有两种：
  *   1. 用户显式写了 `scale.domain` 数组 → 直接当作系列集合（不依赖数据，
@@ -60,6 +63,46 @@ function getColorEncoding(view: unknown): Record<string, unknown> | null {
     }
     return color;
 }
+
+/**
+ * condition 分支：vega-lite 支持单个对象，也支持数组（按顺序取第一个匹配的）
+ */
+const getConditionBranches = (
+    color: Record<string, unknown>,
+): Array<Record<string, unknown>> => {
+    const condition = color.condition;
+    if (Array.isArray(condition)) {
+        return condition.filter(isRecord);
+    }
+    if (isRecord(condition)) {
+        return [condition];
+    }
+    return [];
+};
+
+/**
+ * 取 color 编码里写死的颜色字面量：
+ * - 基础 `value`（condition 之外的兜底颜色）
+ * - condition 各分支的 `value`
+ *
+ * 保持出现顺序并去重。只认颜色字面量（#hex / rgb() / hsl() ...），
+ * 其它字符串（例如具名颜色）保持用户原样，不参与同步。
+ */
+export const collectLiteralColorValues = (
+    color: Record<string, unknown>,
+): string[] => {
+    const values: string[] = [];
+    const push = (value: unknown) => {
+        if (typeof value !== 'string') return;
+        if (!COLOR_LITERAL_PATTERN.test(value)) return;
+        if (!values.includes(value)) {
+            values.push(value);
+        }
+    };
+    push(color.value);
+    getConditionBranches(color).forEach((branch) => push(branch.value));
+    return values;
+};
 
 /**
  * 该 color 编码是否「结构上」允许注入颜色映射：
@@ -612,6 +655,15 @@ export const applyDashboardColorSync = ({
     const literalColorMap = new Map<string, string>();
     /** 语义不明确（同一旧色对应多个新色）的字面色，不做重映射 */
     const ambiguousLiterals = new Set<string>();
+    /**
+     * 字面色 → 看板色板颜色。
+     * 用于「无 field 的字面色编码」（`color: { value, condition }`）：
+     * 这类编码没有系列名，颜色本身表达数据含义（例如正=绿、负=红），
+     * 因此以 **字面值本身** 作为颜色键：
+     * - 跨图一致：所有用 `#d64545` 的地方拿到同一个颜色
+     * - 彼此不同：进入看板色表后由避让规则分配不同颜色
+     */
+    const literalKeyColors = new Map<string, string>();
 
     /** 记录旧 range 与新 range 的位置对应关系 */
     function recordLiteralRemap(oldRange: unknown, newRange: string[]): void {
@@ -734,6 +786,43 @@ export const applyDashboardColorSync = ({
             }
         }
 
+        /**
+         * 「无 field 的字面色编码」：颜色本身表达数据含义（正/负、达标/未达标），
+         * 没有系列名可对齐，因此以字面值作为颜色键接入看板色表。
+         *
+         * 限制：
+         * - 只有「带 condition」的编码才处理：颜色由数据分支决定时才需要接管；
+         *   单纯写死一个颜色的编码（手绘图例色块 / 统一配色）保持用户原样
+         * - 有 field 的编码不走这里（分类色由 scale 接管，见上）
+         * - condition 分支里带 field 的不处理（那个分支用的是自己的 scale）
+         * - `scale: null` 不处理（字段值本身就是颜色）
+         */
+        if (color !== null && typeof color.field !== 'string') {
+            const branches = getConditionBranches(color);
+            const hasFieldBranch = branches.some(
+                (branch) => typeof branch.field === 'string',
+            );
+            const scaleIsNull = color.scale === null;
+            if (branches.length > 0 && !hasFieldBranch && !scaleIsNull) {
+                collectLiteralColorValues(color).forEach((literal) => {
+                    // 旧 range 的位置对应关系优先（它才对应真实系列）
+                    if (literalColorMap.has(literal)) return;
+                    if (ambiguousLiterals.has(literal)) return;
+                    if (!literalKeyColors.has(literal)) {
+                        literalKeyColors.set(
+                            literal,
+                            resolveColor(literal, ''),
+                        );
+                    }
+                    // 注册到看板色表 → 拿到稳定且互不相同的颜色
+                    if (!seenKeys.has(literal)) {
+                        seenKeys.add(literal);
+                        visibleKeys.push(literal);
+                    }
+                });
+            }
+        }
+
         let result: Record<string, unknown> = view;
         if (encoding !== view.encoding) {
             result = { ...view, encoding };
@@ -767,7 +856,10 @@ export const applyDashboardColorSync = ({
 
     /**
      * 第二遍：把 spec 里手写的常量色改成看板色板里的对应颜色。
-     * 只处理 `encoding.color.value` 与 `mark.color`（两者都是“直接给一个颜色”）。
+     * - `encoding.color.value` / `encoding.color.condition[].value`：
+     *   数据颜色 → 优先用旧 range 的位置对应，其次用字面色键的看板颜色
+     * - `mark.color`：图形自身的颜色（参考线、描边等）→ 只用旧 range 的位置对应，
+     *   避免把装饰性颜色也刷成系列色
      */
     function remapLiterals(view: unknown): unknown {
         if (!isRecord(view)) {
@@ -775,18 +867,54 @@ export const applyDashboardColorSync = ({
         }
         let result: Record<string, unknown> = view;
 
+        const mapDataColor = (value: string): string | undefined =>
+            literalColorMap.get(value) ?? literalKeyColors.get(value);
+
         const encoding = view.encoding;
         if (isRecord(encoding)) {
             const color = encoding.color;
-            if (isRecord(color) && typeof color.value === 'string') {
-                const mapped = literalColorMap.get(color.value);
-                if (mapped) {
+            if (isRecord(color)) {
+                let nextColor: Record<string, unknown> = color;
+                if (typeof color.value === 'string') {
+                    const mapped = mapDataColor(color.value);
+                    if (mapped) {
+                        nextColor = { ...nextColor, value: mapped };
+                    }
+                }
+                const condition = color.condition;
+                if (Array.isArray(condition)) {
+                    let changed = false;
+                    const branches = condition.map((branch) => {
+                        if (
+                            !isRecord(branch) ||
+                            typeof branch.value !== 'string'
+                        ) {
+                            return branch;
+                        }
+                        const mapped = mapDataColor(branch.value);
+                        if (!mapped) return branch;
+                        changed = true;
+                        return { ...branch, value: mapped };
+                    });
+                    if (changed) {
+                        nextColor = { ...nextColor, condition: branches };
+                    }
+                } else if (
+                    isRecord(condition) &&
+                    typeof condition.value === 'string'
+                ) {
+                    const mapped = mapDataColor(condition.value);
+                    if (mapped) {
+                        nextColor = {
+                            ...nextColor,
+                            condition: { ...condition, value: mapped },
+                        };
+                    }
+                }
+                if (nextColor !== color) {
                     result = {
                         ...result,
-                        encoding: {
-                            ...encoding,
-                            color: { ...color, value: mapped },
-                        },
+                        encoding: { ...encoding, color: nextColor },
                     };
                 }
             }
@@ -828,13 +956,14 @@ export const applyDashboardColorSync = ({
     }
 
     const nextSpec = walk(spec);
-    const finalSpec =
-        literalColorMap.size > 0
-            ? (remapLiterals(nextSpec) as Record<string, unknown>)
-            : (nextSpec as Record<string, unknown>);
+    const hasLiteralRemap =
+        literalColorMap.size > 0 || literalKeyColors.size > 0;
+    const finalSpec = hasLiteralRemap
+        ? (remapLiterals(nextSpec) as Record<string, unknown>)
+        : (nextSpec as Record<string, unknown>);
     return {
         // 无任何可注入编码时原样返回 spec
-        spec: injected || literalColorMap.size > 0 ? finalSpec : spec,
+        spec: injected || hasLiteralRemap ? finalSpec : spec,
         visibleKeys,
     };
 };

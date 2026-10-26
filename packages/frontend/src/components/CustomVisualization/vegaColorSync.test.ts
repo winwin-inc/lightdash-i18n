@@ -972,4 +972,161 @@ describe('applyDashboardColorSync', () => {
         });
         expect(visibleKeys).toEqual(['本期销售额']);
     });
+
+    describe('字面色编码（无 field，用颜色表达数据含义）', () => {
+        it('接管 value + condition 的字面色，并用字面值作为颜色键', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: { type: 'bar' },
+                        encoding: {
+                            color: {
+                                value: '#d64545',
+                                condition: {
+                                    test: 'datum.pct >= 0',
+                                    value: '#22a06b',
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(
+                getColorDef(result, ['layer', 0, 'encoding', 'color']),
+            ).toEqual({
+                value: 'color:#d64545',
+                condition: {
+                    test: 'datum.pct >= 0',
+                    value: 'color:#22a06b',
+                },
+            });
+            expect(visibleKeys).toEqual(['#d64545', '#22a06b']);
+        });
+
+        it('支持 condition 数组', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: {
+                        value: '#cccccc',
+                        condition: [
+                            { test: 'datum.pct >= 0', value: '#22a06b' },
+                            { test: 'datum.pct >= 50', value: '#1f8a5e' },
+                        ],
+                    },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getColorDef(result, ['encoding', 'color'])).toEqual({
+                value: 'color:#cccccc',
+                condition: [
+                    { test: 'datum.pct >= 0', value: 'color:#22a06b' },
+                    { test: 'datum.pct >= 50', value: 'color:#1f8a5e' },
+                ],
+            });
+            expect(visibleKeys).toEqual(['#cccccc', '#22a06b', '#1f8a5e']);
+        });
+
+        it('不改动 mark.color 等装饰性颜色', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: { type: 'bar', color: '#555555' },
+                        encoding: {
+                            color: { value: '#d64545' },
+                        },
+                    },
+                ],
+            };
+
+            const { spec: result } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['layer', 0, 'mark'])).toEqual({
+                type: 'bar',
+                color: '#555555',
+            });
+        });
+
+        it('有 field 的 condition 编码保持原样', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: {
+                        field: 'category',
+                        type: 'nominal',
+                        condition: {
+                            test: 'datum.sales > 1',
+                            value: '#22a06b',
+                        },
+                    },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+
+            expect(getColorDef(result, ['encoding', 'color'])).toEqual({
+                field: 'category',
+                type: 'nominal',
+                condition: { test: 'datum.sales > 1', value: '#22a06b' },
+            });
+            expect(visibleKeys).toEqual([]);
+        });
+
+        it('scale: null 的字面色编码不处理', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { value: '#d64545', scale: null },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(result).toBe(spec);
+            expect(visibleKeys).toEqual([]);
+        });
+
+        it('只写死一个颜色（无 condition）的编码保持原样', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { value: '#d64545' },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(result).toBe(spec);
+            expect(visibleKeys).toEqual([]);
+        });
+    });
 });
