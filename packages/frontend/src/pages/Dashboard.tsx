@@ -1495,6 +1495,7 @@ const Dashboard: FC = () => {
                                                                                                 <Text
                                                                                                     span
                                                                                                     size="sm"
+                                                                                                    truncate
                                                                                                 >
                                                                                                     {
                                                                                                         chartName
