@@ -20,7 +20,7 @@ describe('getChartTypeLabel', () => {
         expect(
             getChartTypeLabel(DashboardTileTypes.SAVED_CHART, ChartType.CARTESIAN)
                 ?.fallback,
-        ).toBe('（图表）');
+        ).toBe('（标准图表）');
         expect(
             getChartTypeLabel(DashboardTileTypes.SAVED_CHART, ChartType.TABLE)
                 ?.fallback,

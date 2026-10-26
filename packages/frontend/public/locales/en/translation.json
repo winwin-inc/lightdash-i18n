@@ -1114,7 +1114,7 @@
     "select_charts": "Select charts",
     "sync_chart_colors_for": "Sync chart colors for:",
     "sync_chart_colors_types": {
-      "cartesian": "(Chart)",
+      "cartesian": "(Standard chart)",
       "pie": "(Pie chart)",
       "custom": "(Custom chart)",
       "table": "(Table)",

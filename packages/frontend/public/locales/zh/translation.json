@@ -1122,7 +1122,7 @@
     "select_charts": "选择图表",
     "sync_chart_colors_for": "同步颜色的图表：",
     "sync_chart_colors_types": {
-      "cartesian": "（图表）",
+      "cartesian": "（标准图表）",
       "pie": "（饼图）",
       "custom": "（自定义图表）",
       "table": "（表格）",

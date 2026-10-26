@@ -2,7 +2,7 @@ import { ChartType, DashboardTileTypes } from '@lightdash/common';
 
 /**
  * 类型标注的 i18n key + 兜底文案
- * 文案自带括号（中文「（图表）」、英文「(Chart)」），调用方直接拼接即可。
+ * 文案自带括号（中文「（标准图表）」、英文「(Standard chart)」），调用方直接拼接即可。
  */
 export type ChartTypeLabel = {
     key: string;
@@ -13,7 +13,7 @@ export type ChartTypeLabel = {
 const CHART_TYPE_LABELS: Record<ChartType, ChartTypeLabel> = {
     [ChartType.CARTESIAN]: {
         key: 'dashboard.sync_chart_colors_types.cartesian',
-        fallback: '（图表）',
+        fallback: '（标准图表）',
     },
     [ChartType.PIE]: {
         key: 'dashboard.sync_chart_colors_types.pie',
