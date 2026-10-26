@@ -227,6 +227,28 @@ vega 会报 `Conflicting scale property "domains" / "range"`：domain 取并集�
 - 旧 range 的位置对应关系优先（命中旧 range 的字面色按位置重映射，不再单独占色表槽位）；
 - 命名颜色（`red`、`steelblue`）与 `null` 不处理（只接管 `#hex` / `rgb()` / `hsl()` 等字面量）。
 
+**表达式里的颜色（`{ "expr": ... }`）**：
+
+有些图用表达式按数据取值选颜色（正负增长、达标 / 未达标）：
+
+```json
+{ "mark": { "type": "bar", "color": { "expr": "datum.v > 0 ? '#7eea80' : '#ff8895'" } } }
+```
+
+这在语义上等同于 condition 颜色编码，因此同样参与同步：
+
+- 采集范围同上（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` /
+  `encoding.fill.value` / `encoding.stroke.value` 写成 `{ expr }` 的情况）；
+- 从表达式里抽取**被引号包裹的颜色字面量**（`'#7eea80'`、`'rgb(1,2,3)'` 等），
+  每个字面值作为一个颜色键（转小写），跨图一致；
+- 改写时只替换引号包裹的颜色字面量，表达式结构与其余内容原样保留
+  （`datum.v > 0 ? '#ee6666' : '#3ba272'`）；
+- 具名颜色（`'red'`）、非颜色的字符串（`'A'`）不处理；
+- 表达式里的中性色同样不接管。
+
+注意：绿色 / 红色的语义会被色板颜色替换（如上例），正负的**区分**仍然保留。
+若要保留原色，不要把该图勾选进“同步颜色的图表”。
+
 ### 5. 未知系列名注册
 
 自定义图表的系列名在保存配置里不可知（spec 只有字段名），因此靠运行时注册：
@@ -342,6 +364,7 @@ export const createVegaColorResolver = ({
 | fill / stroke 分类通道 | `fill: {field, type: 'nominal'}` | 与 color 一样注入 |
 | mark 级写死颜色 | `mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` | 字面值作为颜色键；中性色不改 |
 | encoding 级写死颜色 | `encoding.fill.value` / `encoding.stroke.value` | 字面值作为颜色键 |
+| 表达式里的颜色 | `mark.color: { expr: "datum.v > 0 ? '#7eea80' : '#ff8895'" }` | 抽取引号包裹的颜色字面量作为颜色键，并改写表达式里的字面量 |
 | 复合视图 | 顶层 / `layer`（嵌套）/ `hconcat` / `vconcat` / `concat` / `facet.spec` / `repeat.spec` | 逐个处理 |
 | null 分类 | 数据里有 null | 进 domain，配中性灰 `#cccccc`，不占色表槽位 |
 | sort 语义 | `sort: '-y'` / `{field, op, order}` / `{encoding}` / `true` / `false` / `'ascending'` | 与 vega-lite 6.4.3 对齐 |

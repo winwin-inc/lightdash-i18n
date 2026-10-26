@@ -58,6 +58,38 @@ const NULL_CATEGORY_COLOR = '#cccccc';
 /** 看起来像颜色字面量的字符串（用于常量色重映射） */
 const COLOR_LITERAL_PATTERN = /^(#|rgb\(|rgba\(|hsl\(|hsla\()/i;
 
+/**
+ * 表达式里引号包裹的颜色字面量。
+ *
+ * 例如：`datum.v > 0 ? '#7eea80' : '#ff8895'`
+ * 这类“用表达式按数据取值选颜色”的写法（正负增长、达标/未达标），
+ * 语义上和 condition 颜色编码一样：以颜色字面值本身作为颜色键。
+ */
+const EXPR_COLOR_LITERAL_PATTERN =
+    /(['"`])(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\([^()]*\))\1/g;
+
+/** 转义正则特殊字符 */
+const escapeRegExp = (value: string): string =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * 从表达式里抽出被引号包裹的颜色字面量（保持出现顺序并去重）。
+ * 只认颜色字面量；具名颜色、字段引用等一律不处理。
+ */
+export const collectExprColorLiterals = (expr: string): string[] => {
+    const values: string[] = [];
+    const pattern = new RegExp(EXPR_COLOR_LITERAL_PATTERN.source, 'g');
+    let match = pattern.exec(expr);
+    while (match !== null) {
+        const literal = match[2];
+        if (!values.includes(literal)) {
+            values.push(literal);
+        }
+        match = pattern.exec(expr);
+    }
+    return values;
+};
+
 /** mark / encoding 里可能写死颜色的属性 */
 const COLOR_PROPS = ['color', 'fill', 'stroke'] as const;
 
@@ -155,6 +187,8 @@ export const collectLiteralColorValues = (
  * - `mark.color` / `mark.fill` / `mark.stroke`
  * - `mark.point.color` / `mark.point.fill` / `mark.point.stroke`
  * - `encoding.fill.value` / `encoding.stroke.value`
+ * - 上述属性写成 `{ expr: "datum.v > 0 ? '#7eea80' : '#ff8895'" }` 时，
+ *   表达式里引号包裹的颜色字面量同样算写死的颜色
  *
  * 这些颜色通常代表图里的“系列”（如上期/本期、基准线/对比线），
  * 开启看板颜色同步后由看板色板接管。
@@ -170,13 +204,25 @@ export const collectMarkLiteralColors = (
             values.push(value);
         }
     };
+    /** 表达式属性：抽出其中引号包裹的颜色字面量 */
+    const pushExpr = (value: unknown) => {
+        if (!isRecord(value)) return;
+        if (typeof value.expr !== 'string') return;
+        collectExprColorLiterals(value.expr).forEach(push);
+    };
 
     const mark = view.mark;
     if (isRecord(mark)) {
-        COLOR_PROPS.forEach((key) => push(mark[key]));
+        COLOR_PROPS.forEach((key) => {
+            push(mark[key]);
+            pushExpr(mark[key]);
+        });
         const point = mark.point;
         if (isRecord(point)) {
-            COLOR_PROPS.forEach((key) => push(point[key]));
+            COLOR_PROPS.forEach((key) => {
+                push(point[key]);
+                pushExpr(point[key]);
+            });
         }
     }
 
@@ -186,6 +232,7 @@ export const collectMarkLiteralColors = (
             const channelDef = encoding[key];
             if (isRecord(channelDef)) {
                 push(channelDef.value);
+                pushExpr(channelDef.value);
             }
         });
     }
@@ -1183,6 +1230,28 @@ export const applyDashboardColorSync = ({
             return literalColorMap.get(key) ?? literalKeyColors.get(key);
         };
 
+        /**
+         * 改写表达式里的颜色字面量。
+         *
+         * 例如 `datum.v > 0 ? '#7eea80' : '#ff8895'`
+         * → `datum.v > 0 ? '#ee6666' : '#3ba272'`
+         *
+         * 只替换引号包裹的颜色字面量，具名颜色 / 字段引用不动。
+         */
+        const remapExprColors = (expr: string): string => {
+            let next = expr;
+            collectExprColorLiterals(expr).forEach((literal) => {
+                const mapped = mapDataColor(literal);
+                if (!mapped || mapped === literal) return;
+                const pattern = new RegExp(
+                    `(['"\`])${escapeRegExp(literal)}\\1`,
+                    'g',
+                );
+                next = next.replace(pattern, `$1${mapped}$1`);
+            });
+            return next;
+        };
+
         /** 改写 mark 上的写死颜色：mark.color/fill/stroke 与 mark.point.* */
         const remapMarkColors = (
             mark: Record<string, unknown>,
@@ -1195,11 +1264,20 @@ export const applyDashboardColorSync = ({
                 let nextProps = target;
                 COLOR_PROPS.forEach((key) => {
                     const value = source[key];
-                    if (typeof value !== 'string') return;
-                    const mapped = mapDataColor(value);
-                    if (!mapped) return;
-                    if (nextProps === target) nextProps = { ...target };
-                    nextProps[key] = mapped;
+                    if (typeof value === 'string') {
+                        const mapped = mapDataColor(value);
+                        if (!mapped) return;
+                        if (nextProps === target) nextProps = { ...target };
+                        nextProps[key] = mapped;
+                        return;
+                    }
+                    // 表达式属性：替换其中的颜色字面量
+                    if (isRecord(value) && typeof value.expr === 'string') {
+                        const nextExpr = remapExprColors(value.expr);
+                        if (nextExpr === value.expr) return;
+                        if (nextProps === target) nextProps = { ...target };
+                        nextProps[key] = { ...value, expr: nextExpr };
+                    }
                 });
                 return nextProps;
             };
@@ -1226,6 +1304,17 @@ export const applyDashboardColorSync = ({
                     const mapped = mapDataColor(color.value);
                     if (mapped) {
                         nextColor = { ...nextColor, value: mapped };
+                    }
+                } else if (
+                    isRecord(color.value) &&
+                    typeof color.value.expr === 'string'
+                ) {
+                    const nextExpr = remapExprColors(color.value.expr);
+                    if (nextExpr !== color.value.expr) {
+                        nextColor = {
+                            ...nextColor,
+                            value: { ...color.value, expr: nextExpr },
+                        };
                     }
                 }
                 const condition = color.condition;
@@ -1267,11 +1356,25 @@ export const applyDashboardColorSync = ({
             (['fill', 'stroke'] as const).forEach((key) => {
                 const channelDef = encoding[key];
                 if (!isRecord(channelDef)) return;
-                if (typeof channelDef.value !== 'string') return;
-                const mapped = mapDataColor(channelDef.value);
-                if (!mapped) return;
-                if (nextEncoding === encoding) nextEncoding = { ...encoding };
-                nextEncoding[key] = { ...channelDef, value: mapped };
+                if (typeof channelDef.value === 'string') {
+                    const mapped = mapDataColor(channelDef.value);
+                    if (!mapped) return;
+                    if (nextEncoding === encoding) nextEncoding = { ...encoding };
+                    nextEncoding[key] = { ...channelDef, value: mapped };
+                    return;
+                }
+                if (
+                    isRecord(channelDef.value) &&
+                    typeof channelDef.value.expr === 'string'
+                ) {
+                    const nextExpr = remapExprColors(channelDef.value.expr);
+                    if (nextExpr === channelDef.value.expr) return;
+                    if (nextEncoding === encoding) nextEncoding = { ...encoding };
+                    nextEncoding[key] = {
+                        ...channelDef,
+                        value: { ...channelDef.value, expr: nextExpr },
+                    };
+                }
             });
             if (nextEncoding !== encoding) {
                 result = { ...result, encoding: nextEncoding };

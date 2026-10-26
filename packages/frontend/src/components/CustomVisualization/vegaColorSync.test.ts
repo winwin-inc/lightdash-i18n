@@ -1760,5 +1760,75 @@ describe('applyDashboardColorSync', () => {
 
             expect(visibleKeys).toEqual(['#52c256']);
         });
+
+        it('接管 mark.color 表达式里的颜色字面量', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: {
+                            type: 'bar',
+                            color: {
+                                expr: "datum.v > 0 ? '#7eea80' : '#ff8895'",
+                            },
+                        },
+                    },
+                ],
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['layer', 0, 'mark', 'color'])).toEqual({
+                expr: "datum.v > 0 ? 'color:#7eea80' : 'color:#ff8895'",
+            });
+            expect(visibleKeys).toEqual(['#7eea80', '#ff8895']);
+        });
+
+        it('表达式里的非颜色字面量不动', () => {
+            const spec = {
+                mark: {
+                    type: 'bar',
+                    color: {
+                        expr: "datum.group === 'A' ? '#7eea80' : 'red'",
+                    },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['mark', 'color'])).toEqual({
+                expr: "datum.group === 'A' ? 'color:#7eea80' : 'red'",
+            });
+            expect(visibleKeys).toEqual(['#7eea80']);
+        });
+
+        it('表达式里的中性色不改', () => {
+            const spec = {
+                mark: {
+                    type: 'text',
+                    color: {
+                        expr: "datum.v > 0 ? '#7eea80' : '#333333'",
+                    },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['mark', 'color'])).toEqual({
+                expr: "datum.v > 0 ? 'color:#7eea80' : '#333333'",
+            });
+            expect(visibleKeys).toEqual(['#7eea80']);
+        });
     });
 });
