@@ -330,7 +330,7 @@ export const createVegaColorResolver = ({
 9. 颜色变化会触发 `react-vega` 重建 view（spec 变化属于昂贵变更），大数据量图表上会短暂卡顿；`react-vega` 用 `fast-deep-equal` 比较 spec，内容不变不会重建。
 10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列多数能对上（笛卡尔 pivot 值与自定义图 raw 值一致）；当 raw 与展示值不一致时，靠展示值兜底匹配到标准图的颜色（仅限该展示值已在 known 里）。
 11. 数值 `1` 与字符串 `'1'` 在颜色键上会折叠为同一个 key（与标准图行为一致），但 Vega 侧视为两个值 → 可能两值同色。
-12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
+12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`，且这些结构可任意嵌套组合（walk 是递归的）。
 13. 数据里存在 null 分类时，null 会进 domain 并配一个中性灰 `#cccccc`（Vega-Lite 默认也会给 null 上色，但用的是色表第一个颜色；本实现固定用中性灰以保证跨图稳定）；null 不占用看板色表槽位。
 14. `visibleKeys`（注册到看板色表的名字）始终按数据首次出现顺序，与 domain 顺序解耦；看板色表重置后会自动重新注册。
 15. `encoding.color.scale: null` 的编码不注入（字段值本身就是颜色，如 `'#3CB976'`）。
