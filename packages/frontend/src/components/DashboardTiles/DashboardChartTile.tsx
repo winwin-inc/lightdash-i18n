@@ -360,11 +360,16 @@ const ValidDashboardChartTile: FC<{
         showResultsTotalWithoutPagination,
     ]);
 
-    const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
-        useDashboardChartTileColorSync({
-            tileUuid,
-            chartColorPalette: chart.colorPalette,
-        });
+    const {
+        shouldSyncColors,
+        colorPalette,
+        manualColors,
+        knownHashAssignments,
+        hashAssignments,
+    } = useDashboardChartTileColorSync({
+        tileUuid,
+        chartColorPalette: chart.colorPalette,
+    });
 
     if (health.isInitialLoading || !health.data) {
         return null;
@@ -396,6 +401,7 @@ const ValidDashboardChartTile: FC<{
             dashboardName={dashboardName}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
+            knownHashAssignments={knownHashAssignments}
             hashAssignments={hashAssignments}
             tablePagination={resolvedTablePagination}
         >
@@ -470,11 +476,16 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
-    const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
-        useDashboardChartTileColorSync({
-            tileUuid,
-            chartColorPalette: chart.colorPalette,
-        });
+    const {
+        shouldSyncColors,
+        colorPalette,
+        manualColors,
+        knownHashAssignments,
+        hashAssignments,
+    } = useDashboardChartTileColorSync({
+        tileUuid,
+        chartColorPalette: chart.colorPalette,
+    });
 
     if (health.isInitialLoading || !health.data) {
         return null;
@@ -506,6 +517,7 @@ const ValidDashboardChartTileMinimal: FC<{
             dashboardName={dashboardName}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
+            knownHashAssignments={knownHashAssignments}
             hashAssignments={hashAssignments}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>

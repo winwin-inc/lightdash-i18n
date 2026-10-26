@@ -41,22 +41,36 @@ export const buildFormattedValueMap = (
 export const createVegaColorResolver = ({
     palette,
     hashAssignments,
+    knownHashAssignments,
     formattedValueMap,
 }: {
     palette: string[];
     hashAssignments: Record<string, string>;
+    /** known 系列（看板已保存配置里出现过的维度值）的颜色 */
+    knownHashAssignments?: Record<string, string>;
     formattedValueMap?: Map<string, string>;
 }): ((value: string, field: string) => string) => {
     return (value, field) => {
-        const direct = lookupSyncedColor(value, hashAssignments);
-        if (direct) return direct;
-
+        const known = knownHashAssignments ?? {};
         const formatted = formattedValueMap?.get(`${field}\u0000${value}`);
+
+        // 1. 看板已知系列（笛卡尔图的 pivot 值、饼图的分组名等）
+        const knownRaw = lookupSyncedColor(value, known);
+        if (knownRaw) return knownRaw;
         if (formatted) {
-            const byFormatted = lookupSyncedColor(formatted, hashAssignments);
-            if (byFormatted) return byFormatted;
+            const knownFormatted = lookupSyncedColor(formatted, known);
+            if (knownFormatted) return knownFormatted;
         }
 
+        // 2. 运行时追加的未知名（其他图已注册过、但这里不叫这个名）
+        const appendedRaw = lookupSyncedColor(value, hashAssignments);
+        if (appendedRaw) return appendedRaw;
+        if (formatted) {
+            const appendedFormatted = lookupSyncedColor(formatted, hashAssignments);
+            if (appendedFormatted) return appendedFormatted;
+        }
+
+        // 3. 哈希兜底
         return getHashColor(value, palette);
     };
 };

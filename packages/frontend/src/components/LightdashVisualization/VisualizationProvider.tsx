@@ -97,6 +97,8 @@ export type VisualizationProviderProps = {
     useHashBased?: boolean;
     /** 看板级系列手配色，跨 Tab 预取后传入 */
     manualColorMap?: Record<string, string>;
+    /** 看板已知系列分配到的颜色（不含运行时追加的未知名） */
+    knownHashAssignments?: Record<string, string>;
     /** 看板已知系列 + 筛选后追加未知名的合并色表 */
     hashAssignments?: Record<string, string>;
     tablePagination?: TablePaginationState;
@@ -131,6 +133,7 @@ const VisualizationProvider: FC<
     dashboardSlug,
     dashboardName,
     useHashBased = false,
+    knownHashAssignments = EMPTY_COLOR_MAP,
     hashAssignments = EMPTY_COLOR_MAP,
     tablePagination,
 }) => {
@@ -226,10 +229,17 @@ const VisualizationProvider: FC<
         () => ({
             enabled: useHashBased,
             palette: colorPalette,
+            knownHashAssignments: knownHashAssignments ?? {},
             hashAssignments: chartHashAssignments,
             registerVisibleColorKeys,
         }),
-        [useHashBased, colorPalette, chartHashAssignments, registerVisibleColorKeys],
+        [
+            useHashBased,
+            colorPalette,
+            knownHashAssignments,
+            chartHashAssignments,
+            registerVisibleColorKeys,
+        ],
     );
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =

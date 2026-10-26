@@ -139,17 +139,20 @@ export const buildFormattedValueMap = (
 export const createVegaColorResolver = ({
     palette,
     hashAssignments,
+    knownHashAssignments,
     formattedValueMap,
 }: {
     palette: string[];
     hashAssignments: Record<string, string>;
+    /** known 系列（看板已保存配置里出现过的维度值）的颜色 */
+    knownHashAssignments?: Record<string, string>;
     formattedValueMap?: Map<string, string>;
 }): (value: string, field: string) => string;
 ```
 
-取色顺序：**raw 键 → 同字段的展示值键 → 哈希兜底**。
+取色顺序：**known raw → known 展示值 → 运行时追加 raw → 运行时追加展示值 → 哈希兜底**。
 
-原因：标准图的颜色键不统一——笛卡尔图用 pivot 的原始值，饼图用分组名（展示值）；而自定义图表的 `series` 里只有 raw 值。展示值兜底让「同一维度值」在标准图与自定义图之间落到同一个颜色（例如日期维度）。
+原因：标准图的颜色键不统一——笛卡尔图用 pivot 的原始值，饼图用分组名（展示值）；而自定义图表的 `series` 里只有 raw 值。展示值兜底让「同一维度值」在标准图与自定义图之间落到同一个颜色（例如日期维度）。同时优先用 known（看板已保存配置里出现过的维度值）色，避免被运行时追加的「避开全看板已占色」规则带偏。
 
 约束：
 
@@ -188,7 +191,7 @@ export const createVegaColorResolver = ({
 7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重 → legend 顺序按数据首次出现顺序。
 8. 开启同步时 `scale.scheme` 会被移除（改为显式 `range`），属于用户 spec 的改写。
 9. 颜色变化会触发 `react-vega` 重建 view（spec 变化属于昂贵变更），大数据量图表上会短暂卡顿；`react-vega` 用 `fast-deep-equal` 比较 spec，内容不变不会重建。
-10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列在多数情况下能对上（笛卡尔 pivot 值与自定义图 raw 值一致），但 **raw 与展示值不一致且展示值未被其他图注册** 时，仍可能不同色。
+10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列多数能对上（笛卡尔 pivot 值与自定义图 raw 值一致）；当 raw 与展示值不一致时，靠展示值兜底匹配到标准图的颜色（仅限该展示值已在 known 里）。
 11. 数值 `1` 与字符串 `'1'` 在颜色键上会折叠为同一个 key（与标准图行为一致），但 Vega 侧视为两个值 → 可能两值同色。
 12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
 

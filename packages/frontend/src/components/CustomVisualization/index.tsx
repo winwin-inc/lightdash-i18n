@@ -255,6 +255,7 @@ const CustomVisualization: FC<Props> = (props) => {
               resolveColor: createVegaColorResolver({
                   palette: colorSync.palette,
                   hashAssignments: colorSync.hashAssignments,
+                  knownHashAssignments: colorSync.knownHashAssignments,
                   formattedValueMap,
               }),
           })

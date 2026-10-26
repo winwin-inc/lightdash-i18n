@@ -14,6 +14,7 @@ const EMPTY_SYNC: DashboardChartColorSyncContextValue = {
     syncChartTileUuids: [],
     manualColors: {},
     knownColorKeys: [],
+    knownHashAssignments: {},
     hashAssignments: {},
     registerVisibleColorKeys: NOOP_REGISTER_VISIBLE_COLOR_KEYS,
 };
@@ -42,6 +43,7 @@ export const useDashboardChartTileColorSync = ({
     shouldSyncColors: boolean;
     colorPalette: string[];
     manualColors: Record<string, string>;
+    knownHashAssignments: Record<string, string>;
     hashAssignments: Record<string, string>;
 } => {
     const enabled = useContextSelector(
@@ -60,6 +62,10 @@ export const useDashboardChartTileColorSync = ({
         DashboardChartColorSyncContext,
         (ctx) => ctx?.hashAssignments,
     );
+    const knownHashAssignments = useContextSelector(
+        DashboardChartColorSyncContext,
+        (ctx) => ctx?.knownHashAssignments,
+    );
     const contextPalette = useContextSelector(
         DashboardChartColorSyncContext,
         (ctx) => ctx?.colorPalette,
@@ -76,6 +82,8 @@ export const useDashboardChartTileColorSync = ({
         EMPTY_TILE_UUIDS;
     const resolvedManualColors = manualColors ?? EMPTY_MANUAL_COLORS;
     const resolvedHashAssignments = hashAssignments ?? EMPTY_HASH_ASSIGNMENTS;
+    const resolvedKnownHashAssignments =
+        knownHashAssignments ?? EMPTY_HASH_ASSIGNMENTS;
 
     const isTileInSyncList =
         resolvedSyncChartTileUuids.length > 0
@@ -99,6 +107,7 @@ export const useDashboardChartTileColorSync = ({
         shouldSyncColors,
         colorPalette: colorPalette ?? EMPTY_COLOR_PALETTE,
         manualColors: resolvedManualColors,
+        knownHashAssignments: resolvedKnownHashAssignments,
         hashAssignments: resolvedHashAssignments,
     };
 };

@@ -31,6 +31,7 @@ describe('createVegaColorResolver', () => {
         const resolver = createVegaColorResolver({
             palette,
             hashAssignments: { A: '#aaaaaa' },
+            knownHashAssignments: { A: '#aaaaaa' },
             formattedValueMap: buildFormattedValueMap(rows as any),
         });
         expect(resolver('A', 'other')).toEqual('#aaaaaa');
@@ -40,15 +41,38 @@ describe('createVegaColorResolver', () => {
         const resolver = createVegaColorResolver({
             palette,
             hashAssignments: { '2024年1月': '#bbbbbb' },
+            knownHashAssignments: { '2024年1月': '#bbbbbb' },
             formattedValueMap: buildFormattedValueMap(rows as any),
         });
         expect(resolver('2024-01-01', 'category')).toEqual('#bbbbbb');
+    });
+
+    it('prefers a known color over a runtime appended one', () => {
+        const resolver = createVegaColorResolver({
+            palette,
+            // raw 值只出现在运行时追加表里，展示值在已知表里
+            hashAssignments: { '2024-01-01': '#999999' },
+            knownHashAssignments: { '2024年1月': '#bbbbbb' },
+            formattedValueMap: buildFormattedValueMap(rows as any),
+        });
+        expect(resolver('2024-01-01', 'category')).toEqual('#bbbbbb');
+    });
+
+    it('uses the runtime appended color when nothing is known', () => {
+        const resolver = createVegaColorResolver({
+            palette,
+            hashAssignments: { '2024-01-01': '#999999' },
+            knownHashAssignments: {},
+            formattedValueMap: buildFormattedValueMap(rows as any),
+        });
+        expect(resolver('2024-01-01', 'category')).toEqual('#999999');
     });
 
     it('does not use the formatted value of a different field', () => {
         const resolver = createVegaColorResolver({
             palette,
             hashAssignments: { 'A（原始）': '#ccccccc' },
+            knownHashAssignments: { 'A（原始）': '#ccccccc' },
             formattedValueMap: buildFormattedValueMap(rows as any),
         });
         // 字段不匹配时不应命中 formatted 键

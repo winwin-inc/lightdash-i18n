@@ -76,6 +76,8 @@ type VisualizationContext = {
         enabled: boolean;
         /** 看板调色板 */
         palette: string[];
+        /** 看板已知系列分配到的颜色（不含运行时追加的未知名） */
+        knownHashAssignments: Record<string, string>;
         /** 看板已知系列 + 追加未知名后的合并色表 */
         hashAssignments: Record<string, string>;
         /** 把当前图可见系列名追加进看板色表 */
