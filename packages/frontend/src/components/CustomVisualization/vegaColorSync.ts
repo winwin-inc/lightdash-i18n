@@ -10,7 +10,9 @@
  * - `scale.scheme` 存在时视为可覆盖（删除 scheme，改写为 domain + range）
  * - condition 条件编码 / 连续色阶（quantitative、temporal）跳过
  * - domain 由数据推导：field 在 series 中不存在（transform 计算列）时跳过
- * - 递归处理顶层 + layer（含嵌套 layer）
+ * - 递归处理顶层 + layer（含嵌套 layer）与 hconcat/vconcat/concat/facet/repeat
+ * - `encoding.color.sort`（用户指定的图例/配色顺序）会被尊重：按聚合值排序 domain
+ * - 数据里存在 null 分类时，null 会进 domain 并配一个中性灰（与 vega-lite 默认行为一致）
  */
 
 /** 图表数据行（列名与 spec 中 encoding.field 一致） */
@@ -27,6 +29,9 @@ const COMPOSITE_VIEW_KEYS = ['hconcat', 'vconcat', 'concat'] as const;
 
 /** 复合视图：子视图放在 .spec 里 */
 const COMPOSITE_SPEC_HOLDERS = ['facet', 'repeat'] as const;
+
+/** 空值分类（null）用的中性灰：与 vega-lite 默认给 null 分类上色一致 */
+const NULL_CATEGORY_COLOR = '#cccccc';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,6 +82,147 @@ function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
     return true;
 }
 
+/** color 编码上的 sort 语义 */
+type ColorSort =
+    | { kind: 'none' }
+    | { kind: 'unsupported' }
+    | {
+          kind: 'sort';
+          field: string;
+          op: string;
+          order: 'ascending' | 'descending';
+      };
+
+/**
+ * 解析 `encoding.color.sort`：
+ * - 无 sort → none
+ * - sort 指向的字段无法确定（如 sort: {field: 'x'} 但 x 不在数据里）→ unsupported（保守跳过注入）
+ * - 其余 → 具体排序规则
+ */
+const parseColorSort = (
+    view: Record<string, unknown>,
+    color: Record<string, unknown>,
+): ColorSort => {
+    const sort = color.sort;
+    if (sort === undefined || sort === null) {
+        return { kind: 'none' };
+    }
+
+    const encoding = isRecord(view.encoding) ? view.encoding : {};
+    const fieldOfChannel = (channel: string): string | undefined => {
+        const channelEncoding = encoding[channel];
+        if (!isRecord(channelEncoding)) return undefined;
+        return typeof channelEncoding.field === 'string'
+            ? channelEncoding.field
+            : undefined;
+    };
+
+    if (typeof sort === 'string') {
+        // 简写：'-y' / 'y'，按对应通道字段的聚合值排序
+        const descending = sort.startsWith('-');
+        const channel = descending ? sort.slice(1) : sort;
+        const field = fieldOfChannel(channel);
+        if (!field) return { kind: 'unsupported' };
+        return {
+            kind: 'sort',
+            field,
+            op: 'sum',
+            order: descending ? 'descending' : 'ascending',
+        };
+    }
+
+    if (isRecord(sort)) {
+        const order = sort.order === 'descending' ? 'descending' : 'ascending';
+        if (typeof sort.field === 'string') {
+            return {
+                kind: 'sort',
+                field: sort.field,
+                op: typeof sort.op === 'string' ? sort.op : 'sum',
+                order,
+            };
+        }
+        if (typeof sort.encoding === 'string') {
+            const field = fieldOfChannel(sort.encoding);
+            if (!field) return { kind: 'unsupported' };
+            return {
+                kind: 'sort',
+                field,
+                op: typeof sort.op === 'string' ? sort.op : 'sum',
+                order,
+            };
+        }
+    }
+
+    return { kind: 'unsupported' };
+};
+
+/** 按聚合值排序 domain（稳定排序，并列保持首次出现顺序） */
+const sortDomainByAggregate = (
+    domain: unknown[],
+    series: VegaSeriesRow[],
+    colorField: string,
+    sort: { field: string; op: string; order: 'ascending' | 'descending' },
+): unknown[] => {
+    // 按 color 字段分组，聚合 sort 字段
+    const groups = new Map<
+        string,
+        { numbers: number[]; count: number }
+    >();
+
+    for (const row of series) {
+        if (!isRecord(row)) continue;
+        if (!Object.prototype.hasOwnProperty.call(row, colorField)) continue;
+        const groupValue = row[colorField];
+        const key = `${typeof groupValue}:${String(groupValue)}`;
+        let group = groups.get(key);
+        if (!group) {
+            group = { numbers: [], count: 0 };
+            groups.set(key, group);
+        }
+        group.count += 1;
+        const raw = row[sort.field];
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+            group.numbers.push(raw);
+        }
+    }
+
+    const aggregate = (group: { numbers: number[]; count: number }): number => {
+        const { numbers, count } = group;
+        switch (sort.op) {
+            case 'count':
+                return count;
+            case 'mean':
+                return numbers.length
+                    ? numbers.reduce((a, b) => a + b, 0) / numbers.length
+                    : 0;
+            case 'min':
+                return numbers.length ? Math.min(...numbers) : 0;
+            case 'max':
+                return numbers.length ? Math.max(...numbers) : 0;
+            case 'sum':
+            default:
+                return numbers.reduce((a, b) => a + b, 0);
+        }
+    };
+
+    const direction = sort.order === 'descending' ? -1 : 1;
+    return domain
+        .map((value, index) => {
+            const key = `${typeof value}:${String(value)}`;
+            const group = groups.get(key);
+            return {
+                value,
+                index,
+                score: group ? aggregate(group) : 0,
+            };
+        })
+        .sort((a, b) => {
+            if (a.score === b.score) return a.index - b.index;
+            return (a.score - b.score) * direction;
+        })
+        .map((entry) => entry.value);
+};
+
 /**
  * 收集 spec 中需要注入的 color 编码位置（顶层 + layer/复合视图递归），返回 spec 内的路径数组
  */
@@ -121,7 +267,7 @@ export const collectCategoricalColorPaths = (
 
 /**
  * 取某字段在数据中的去重值，保持原始类型（数值仍是数值），顺序为首次出现顺序
- * null / undefined 视为缺失值跳过
+ * null 会被保留（vega-lite 默认会给 null 分类上色，注入时也需要保留）
  */
 export const extractDomainValues = (
     series: VegaSeriesRow[],
@@ -139,7 +285,7 @@ export const extractDomainValues = (
             continue;
         }
         const value = row[field];
-        if (value === null || value === undefined) {
+        if (value === undefined) {
             continue;
         }
         // 类型参与去重键：数字 1 与字符串 '1' 是不同的分类值
@@ -196,27 +342,50 @@ export const applyDashboardColorSync = ({
 
         if (color !== null && isInjectableColorEncoding(color)) {
             const field = color.field as string;
-            const domain = extractDomainValues(series, field);
-            if (domain.length > 0) {
-                const range = domain.map((value) =>
-                    resolveColor(String(value), field),
-                );
-                const syncedColor = {
-                    ...color,
-                    scale: buildSyncedScale(color.scale, domain, range),
-                };
-                encoding = {
-                    ...(isRecord(encoding) ? encoding : {}),
-                    color: syncedColor,
-                };
-                domain.forEach((value) => {
-                    const key = String(value);
-                    if (!seenKeys.has(key)) {
-                        seenKeys.add(key);
-                        visibleKeys.push(key);
-                    }
-                });
-                injected = true;
+            const sort = parseColorSort(view, color);
+            if (sort.kind !== 'unsupported') {
+                const rawDomain = extractDomainValues(series, field);
+                // null 分类单独处理：不占用看板色表槽位，配中性灰
+                const hasNull = rawDomain.some((value) => value === null);
+                const colorValues = rawDomain.filter((value) => value !== null);
+                if (colorValues.length > 0) {
+                    const domain =
+                        sort.kind === 'sort'
+                            ? sortDomainByAggregate(
+                                  colorValues,
+                                  series,
+                                  field,
+                                  sort,
+                              )
+                            : colorValues;
+                    const range = domain.map((value) =>
+                        resolveColor(String(value), field),
+                    );
+                    const finalDomain = hasNull ? [null, ...domain] : domain;
+                    const finalRange = hasNull
+                        ? [NULL_CATEGORY_COLOR, ...range]
+                        : range;
+                    const syncedColor = {
+                        ...color,
+                        scale: buildSyncedScale(
+                            color.scale,
+                            finalDomain,
+                            finalRange,
+                        ),
+                    };
+                    encoding = {
+                        ...(isRecord(encoding) ? encoding : {}),
+                        color: syncedColor,
+                    };
+                    domain.forEach((value) => {
+                        const key = String(value);
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            visibleKeys.push(key);
+                        }
+                    });
+                    injected = true;
+                }
             }
         }
 

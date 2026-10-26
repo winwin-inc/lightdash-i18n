@@ -188,16 +188,17 @@ export const createVegaColorResolver = ({
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
-7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重 → legend 顺序按数据首次出现顺序。
+7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重 → legend 顺序按数据首次出现顺序；若用户写了 `encoding.color.sort`，会按聚合值排序 domain（保留用户顺序意图）；`sort` 无法解析时（如只写 `{op, order}` 没有字段）→ 跳过注入，不改用户 spec。
 8. 开启同步时 `scale.scheme` 会被移除（改为显式 `range`），属于用户 spec 的改写。
 9. 颜色变化会触发 `react-vega` 重建 view（spec 变化属于昂贵变更），大数据量图表上会短暂卡顿；`react-vega` 用 `fast-deep-equal` 比较 spec，内容不变不会重建。
 10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列多数能对上（笛卡尔 pivot 值与自定义图 raw 值一致）；当 raw 与展示值不一致时，靠展示值兜底匹配到标准图的颜色（仅限该展示值已在 known 里）。
 11. 数值 `1` 与字符串 `'1'` 在颜色键上会折叠为同一个 key（与标准图行为一致），但 Vega 侧视为两个值 → 可能两值同色。
 12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
+13. 数据里存在 null 分类时，null 会进 domain 并配一个中性灰 `#cccccc`（与 vega-lite 默认给 null 分类上色一致）；null 不占用看板色表槽位。
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入。
-2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、跨字段不误命中、哈希兜底确定性。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入、`color.sort` 排序与无法解析时跳过、null 分类配中性灰。
+2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
 3. 回归：未开启同步的看板，CUSTOM 图渲染无变化；导出图片与页面一致。

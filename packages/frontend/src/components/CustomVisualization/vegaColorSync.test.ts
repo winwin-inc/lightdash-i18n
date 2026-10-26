@@ -151,6 +151,12 @@ describe('extractDomainValues', () => {
     it('returns empty array for missing field', () => {
         expect(extractDomainValues(series, 'computed')).toEqual([]);
     });
+
+    it('keeps null values (vega-lite colors null categories too)', () => {
+        expect(
+            extractDomainValues([{ v: 'A' }, { v: null }, { v: 'A' }], 'v'),
+        ).toEqual(['A', null]);
+    });
 });
 
 describe('applyDashboardColorSync', () => {
@@ -491,5 +497,124 @@ describe('applyDashboardColorSync', () => {
             ['hconcat', 0, 'encoding', 'color'],
             ['facet', 'spec', 'encoding', 'color'],
         ]);
+    });
+    it('honors color.sort by ordering the domain', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                x: { field: 'category', type: 'nominal' },
+                y: { field: 'sales', type: 'quantitative' },
+                color: { field: 'category', type: 'nominal', sort: '-y' },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        // A 的 sales 合计 4 > B 的 2 → 降序
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: ['A', 'B'],
+            range: ['color:A', 'color:B'],
+        });
+    });
+
+    it('honors color.sort with an explicit field and order', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'category',
+                    type: 'nominal',
+                    sort: { field: 'sales', op: 'sum', order: 'descending' },
+                },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'A',
+            'B',
+        ]);
+    });
+
+    it('reorders the domain when the aggregate says so', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'category',
+                    type: 'nominal',
+                    sort: { field: 'sales', op: 'sum', order: 'ascending' },
+                },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        // 升序：B(2) 在前，A(4) 在后
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'B',
+            'A',
+        ]);
+        expect(getColorScale(result, ['encoding', 'color'])?.range).toEqual([
+            'color:B',
+            'color:A',
+        ]);
+    });
+
+    it('skips injection when the sort cannot be resolved', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'category',
+                    type: 'nominal',
+                    sort: { op: 'count', order: 'descending' },
+                },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        expect(result).toBe(spec);
+        expect(visibleKeys).toEqual([]);
+    });
+
+    it('keeps null categories colored with a neutral gray', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: { field: 'category', type: 'nominal' },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series: [{ category: 'A' }, { category: null }, { category: 'B' }],
+            resolveColor,
+        });
+
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: [null, 'A', 'B'],
+            range: ['#cccccc', 'color:A', 'color:B'],
+        });
+        // null 不占用看板色表槽位
+        expect(visibleKeys).toEqual(['A', 'B']);
     });
 });
