@@ -1121,7 +1121,6 @@
     "select_color_palette": "选择颜色调色板",
     "select_charts": "选择图表",
     "sync_chart_colors_for": "同步颜色的图表：",
-    "sync_chart_colors_hint": "包含自定义图表；其 spec 内自定的配色会被看板色板覆盖。",
     "sync_chart_colors_types": {
       "cartesian": "（图表）",
       "pie": "（饼图）",
