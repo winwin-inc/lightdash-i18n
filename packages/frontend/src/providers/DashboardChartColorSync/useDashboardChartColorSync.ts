@@ -85,10 +85,9 @@ export const useDashboardChartTileColorSync = ({
     const resolvedKnownHashAssignments =
         knownHashAssignments ?? EMPTY_HASH_ASSIGNMENTS;
 
-    const isTileInSyncList =
-        resolvedSyncChartTileUuids.length > 0
-            ? resolvedSyncChartTileUuids.includes(tileUuid)
-            : true;
+    // 严格白名单：只有被勾选的图表才参与同步。
+    // 列表为空 = 没有选中任何图表 = 不发生任何颜色接管。
+    const isTileInSyncList = resolvedSyncChartTileUuids.includes(tileUuid);
     // 自定义图表（Vega-Lite）同样参与同步：渲染期把看板色表注入 spec 的 color scale
     const shouldSyncColors = Boolean(resolvedEnabled && isTileInSyncList);
 

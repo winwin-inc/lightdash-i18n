@@ -54,6 +54,22 @@ describe('getHashColor', () => {
 });
 
 describe('assignKnownHashColors', () => {
+    test('metric series names that hash to the same slot are split by avoidance', () => {
+        // 上期销售额 / 本期销售额 在 9 色默认色板上哈希到同一个槽位
+        expect(getHashColor('上期销售额', PALETTE)).toBe(
+            getHashColor('本期销售额', PALETTE),
+        );
+        const assignments = assignKnownHashColors(
+            ['上期销售额', '本期销售额'],
+            PALETTE,
+            {},
+            [['上期销售额', '本期销售额']],
+        );
+        expect(assignments['上期销售额']).not.toBe(assignments['本期销售额']);
+        expectGroupColorsDistinct(assignments, ['上期销售额', '本期销售额']);
+        expectThemeColors(assignments);
+    });
+
     test('臭宝 and 其他品牌 get different theme colors on the same chart', () => {
         const assignments = assignKnownHashColors(
             ['臭宝', '其他品牌'],

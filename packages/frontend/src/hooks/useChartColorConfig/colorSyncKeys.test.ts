@@ -211,7 +211,42 @@ describe('extractColorSyncKeysFromChartConfig', () => {
             },
         };
         expect(extractColorSyncKeysFromChartConfig(config).sort()).toEqual(
-            ['其他品牌', '臭宝'].sort(),
+            ['sales', '其他品牌', '臭宝'].sort(),
+        );
+    });
+
+    test('collects non-pivoted cartesian metric names', () => {
+        // 两个指标系列：渲染期 identifier 就是指标字段名
+        const config: ChartConfig = {
+            type: ChartType.CARTESIAN,
+            config: {
+                layout: { xField: 'month', yField: ['上期销售额', '本期销售额'] },
+                eChartsConfig: {
+                    series: [
+                        {
+                            type: CartesianSeriesType.BAR,
+                            encode: {
+                                xRef: { field: 'month' },
+                                yRef: { field: '上期销售额' },
+                            },
+                        },
+                        {
+                            type: CartesianSeriesType.BAR,
+                            encode: {
+                                xRef: { field: 'month' },
+                                yRef: { field: '本期销售额' },
+                            },
+                        },
+                    ],
+                },
+                metadata: {
+                    上期销售额: { color: '#e8556d' },
+                    本期销售额: { color: '#e8556d' },
+                },
+            },
+        };
+        expect(extractColorSyncKeysFromChartConfig(config).sort()).toEqual(
+            ['上期销售额', '本期销售额'].sort(),
         );
     });
 });
@@ -315,10 +350,18 @@ describe('getSyncedSavedChartRefs', () => {
             chartTile('t3', 'c3', 'tab-b'),
         ];
 
-        expect(getSyncedSavedChartRefs(tiles, [])).toEqual([
+        expect(getSyncedSavedChartRefs(tiles, ['t1', 't3'])).toEqual([
             { tileUuid: 't1', savedChartUuid: 'c1' },
             { tileUuid: 't3', savedChartUuid: 'c3' },
         ]);
+    });
+
+    test('returns nothing when the sync list is empty', () => {
+        const tiles: Dashboard['tiles'] = [
+            chartTile('t1', 'c1', 'tab-a'),
+            chartTile('t3', 'c3', 'tab-b'),
+        ];
+        expect(getSyncedSavedChartRefs(tiles, [])).toEqual([]);
     });
 
     test('filters by syncChartTileUuids when the list is not empty', () => {

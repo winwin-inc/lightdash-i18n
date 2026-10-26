@@ -45,9 +45,20 @@
 shouldSyncColors = resolvedEnabled && isTileInSyncList     // 去掉 !isCustomChart
 ```
 
-- 沿用看板现有的「同步颜色的图表」勾选列表（`syncChartTileUuids`，为空 = 全部 tile）。
+- 沿用看板现有的「同步颜色的图表」勾选列表（`syncChartTileUuids`，严格白名单：为空 = 没有任何图表参与同步）。
 - CUSTOM tile 本来就在 `pages/Dashboard.tsx` 的勾选列表里（`chartTiles` 只按 tile 类型过滤），改完后勾选才真正生效。
 - 关闭同步时 `colorPalette` 仍取 `chart.colorPalette`（图表自身调色板），行为不变。
+
+### 1.1 同步范围改成严格白名单
+
+旧逻辑是「列表为空 = 全部 tile 同步」（`isTileInSyncList` 为空时返回 true），导致：
+
+- 打开一个已开启同步的看板、还没勾选任何图表时，所有图表（含标准图和自定义图）就已经变色；
+- 自定义图 spec 里自己写的配色也会被接管。
+
+改成严格白名单：`isTileInSyncList = syncChartTileUuids.includes(tileUuid)`，
+列表为空 → 没有任何图表参与同步 → 颜色完全不变。同理
+`getSyncedSavedChartRefs` 在列表为空时返回空，色表也不会再去拉取所有图表的配置。
 
 ### 2. 取色来源（与标准图完全一致）
 
@@ -61,6 +72,19 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 - 键归一统一用 `toColorSyncKey`（`colorSyncKeys.ts`），与笛卡尔/饼图同一命名空间（原始值字符串）。
 - 优先级与标准图一致：`hashAssignments` 命中 → 用命中色；未命中 → `getHashColor(name, palette)`（同名同色，稳定）。
 - 说明：当前同步色表**不采用手配色**作为颜色来源（见 `useDashboardColorSyncMap.ts` 注释「manualColors：仅用于发现系列名，不再作为配色来源」），自定义图表沿用同一语义。
+
+### 2.1 标准图的 known 色表键（影响自定义图能否对上颜色）
+
+`extractColorSyncKeysFromChartConfig`（CARTESIAN）收集的系列名：
+
+- 透视系列（`encode.yRef.pivotValues` 非空）→ 收透视值（渲染期 identifier 就是透视值）；
+- 非透视系列（两个指标各一条）→ 收 `encode.yRef.field`，即指标字段名（渲染期 identifier 同为该字段名）。
+
+第二条是后补的：之前非透视系列的指标名被排除在 known 键之外，只剩
+`getHashColor(name, palette)` 纯哈希取色，没有共现避让 → 同图两个指标可能落到同一个色板槽位
+（例如「上期销售额」「本期销售额」在 9 色默认色板上都命中 index 0 → 两条系列同色）。
+指标名进色表后，它们变成同图共现关系，`assignKnownHashColors` 的避让规则生效 → 不同色，
+且同名指标在别的图里也是同一个颜色。
 
 ### 3. 注入点
 

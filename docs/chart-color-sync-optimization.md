@@ -79,4 +79,4 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 1. 开启「同步图表颜色」后，先打开未访问过的 Tab，再对比柱图与饼图同名系列是否同色
 2. 改筛选后，已出现过的系列颜色不应被打乱
 3. 编辑态打开开关应立即生效，不必先保存
-4. `syncChartTileUuids` 为空时同步全部非 CUSTOM 图；非空时只同步勾选的 tile
+4. `syncChartTileUuids` 是严格白名单：只同步勾选的 tile；为空时没有任何图表参与同步

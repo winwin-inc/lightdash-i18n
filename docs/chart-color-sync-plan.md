@@ -50,7 +50,7 @@
 // DashboardConfig
 syncChartColors?: boolean;      // 开关，默认关
 colorPalette?: string[];        // 看板主题调色板
-syncChartTileUuids?: string[];  // 需要同步的 tile；空 = 全部非 CUSTOM 图
+syncChartTileUuids?: string[];  // 需要同步的 tile（严格白名单）；空 = 没有任何图表参与同步
 ```
 
 UI：看板编辑态工具栏 Switch「同步图表颜色」+ Colors 预设 + 图表勾选列表。
@@ -94,7 +94,7 @@ UI：看板编辑态工具栏 Switch「同步图表颜色」+ Colors 预设 + �
 3. **筛选**：增减系列后，已有系列颜色不变
 4. **编辑器 vs 看板**：图表里手配的透视 / 饼图色应出现在系列色表中并在看板复用
 5. **开关关闭**：行为回到各图自己的顺序色 / 保存色
-6. **图表勾选**：`syncChartTileUuids` 非空时，未勾选图不走同步
+6. **图表勾选**：`syncChartTileUuids` 是严格白名单，未勾选的图不走同步；列表为空时没有任何图表参与同步
 
 ## 常见问题
 
