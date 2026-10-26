@@ -34,11 +34,9 @@ export const useRegisterDashboardVisibleColorKeys = () =>
 
 export const useDashboardChartTileColorSync = ({
     tileUuid,
-    isCustomChart,
     chartColorPalette,
 }: {
     tileUuid: string;
-    isCustomChart: boolean;
     chartColorPalette: string[];
 }): {
     shouldSyncColors: boolean;
@@ -83,9 +81,8 @@ export const useDashboardChartTileColorSync = ({
         resolvedSyncChartTileUuids.length > 0
             ? resolvedSyncChartTileUuids.includes(tileUuid)
             : true;
-    const shouldSyncColors = Boolean(
-        resolvedEnabled && !isCustomChart && isTileInSyncList,
-    );
+    // 自定义图表（Vega-Lite）同样参与同步：渲染期把看板色表注入 spec 的 color scale
+    const shouldSyncColors = Boolean(resolvedEnabled && isTileInSyncList);
 
     const dashboardPalette =
         contextPalette && contextPalette.length > 0

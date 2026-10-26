@@ -1113,6 +1113,17 @@
     "select_color_palette": "Select color palette",
     "select_charts": "Select charts",
     "sync_chart_colors_for": "Sync chart colors for:",
+    "sync_chart_colors_types": {
+      "cartesian": "Chart",
+      "pie": "Pie chart",
+      "custom": "Custom chart",
+      "table": "Table",
+      "big_number": "Big number",
+      "funnel": "Funnel",
+      "treemap": "Treemap",
+      "data_app_viz": "Data app",
+      "sql_chart": "SQL chart"
+    },
     "clear_all": "Clear all",
     "default": "Default",
     "palettes": {

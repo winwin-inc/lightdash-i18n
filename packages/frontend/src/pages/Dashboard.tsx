@@ -1,4 +1,5 @@
 import {
+    ChartType,
     ContentType,
     DashboardTileTypes,
     ECHARTS_DEFAULT_COLORS,
@@ -58,6 +59,7 @@ import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
+import { useDashboardChartTypeMap } from '../hooks/useChartColorConfig/useDashboardChartTypeMap';
 import { useContentAction } from '../hooks/useContent';
 import { useSpaceSummaries } from '../hooks/useSpaces';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
@@ -354,6 +356,8 @@ const Dashboard: FC = () => {
     const [syncChartTileUuids, setSyncChartTileUuids] = useState<string[]>(
         dashboard?.config?.syncChartTileUuids ?? [],
     );
+    // 颜色配置弹层是否展开（展开时才去拉图表类型用于标注）
+    const [colorConfigOpened, setColorConfigOpened] = useState(false);
 
     // 查看模式读已保存配置，避免首次 dashboard 未就绪时 local state 锁死为 false
     const resolvedSyncChartColors = isEditMode
@@ -491,6 +495,65 @@ const Dashboard: FC = () => {
             },
         );
     }, [dashboardTiles]);
+
+    // 图表类型（仅用于「同步颜色的图表」列表里的类型标注，不参与配色）
+    const chartTypeMap = useDashboardChartTypeMap({
+        tiles: chartTiles,
+        enabled: isEditMode && syncChartColors && colorConfigOpened,
+    });
+
+    /** 图表类型 → 灰色标注文案 */
+    const getChartTypeLabel = useCallback(
+        (tile: typeof chartTiles[number]): string | null => {
+            if (tile.type === DashboardTileTypes.SQL_CHART) {
+                return t(
+                    'dashboard.sync_chart_colors_types.sql_chart',
+                    'SQL 图表',
+                );
+            }
+            const chartType = chartTypeMap[tile.uuid];
+            if (!chartType) return null;
+            switch (chartType) {
+                case ChartType.CUSTOM:
+                    return t(
+                        'dashboard.sync_chart_colors_types.custom',
+                        '自定义图表',
+                    );
+                case ChartType.PIE:
+                    return t('dashboard.sync_chart_colors_types.pie', '饼图');
+                case ChartType.TABLE:
+                    return t('dashboard.sync_chart_colors_types.table', '表格');
+                case ChartType.BIG_NUMBER:
+                    return t(
+                        'dashboard.sync_chart_colors_types.big_number',
+                        '指标卡',
+                    );
+                case ChartType.FUNNEL:
+                    return t(
+                        'dashboard.sync_chart_colors_types.funnel',
+                        '漏斗图',
+                    );
+                case ChartType.TREEMAP:
+                    return t(
+                        'dashboard.sync_chart_colors_types.treemap',
+                        '矩形树图',
+                    );
+                case ChartType.CARTESIAN:
+                    return t(
+                        'dashboard.sync_chart_colors_types.cartesian',
+                        '图表',
+                    );
+                case ChartType.DATA_APP_VIZ:
+                    return t(
+                        'dashboard.sync_chart_colors_types.data_app_viz',
+                        '数据应用',
+                    );
+                default:
+                    return null;
+            }
+        },
+        [chartTypeMap, t],
+    );
 
     const tabNameMap = useMemo(() => {
         if (!dashboardTabs) return new Map<string, string>();
@@ -1280,7 +1343,12 @@ const Dashboard: FC = () => {
                                     />
                                 )}
                                 {syncChartColors && isEditMode && (
-                                    <Popover width={300} position="bottom">
+                                    <Popover
+                                        width={300}
+                                        position="bottom"
+                                        opened={colorConfigOpened}
+                                        onChange={setColorConfigOpened}
+                                    >
                                         <Popover.Target>
                                             <Button size="xs" variant="outline">
                                                 {t(
@@ -1451,13 +1519,40 @@ const Dashboard: FC = () => {
                                                                                     syncChartTileUuids.includes(
                                                                                         tile.uuid,
                                                                                     );
+                                                                                const chartTypeLabel =
+                                                                                    getChartTypeLabel(
+                                                                                        tile,
+                                                                                    );
                                                                                 return (
                                                                                     <Switch
                                                                                         key={
                                                                                             tile.uuid
                                                                                         }
                                                                                         label={
-                                                                                            chartName
+                                                                                            <Group
+                                                                                                gap={
+                                                                                                    6
+                                                                                                }
+                                                                                                wrap="nowrap"
+                                                                                            >
+                                                                                                <Text
+                                                                                                    span
+                                                                                                    size="sm"
+                                                                                                >
+                                                                                                    {
+                                                                                                        chartName
+                                                                                                    }
+                                                                                                </Text>
+                                                                                                {chartTypeLabel && (
+                                                                                                    <Text
+                                                                                                        span
+                                                                                                        size="xs"
+                                                                                                        c="dimmed"
+                                                                                                    >
+                                                                                                        {`（${chartTypeLabel}）`}
+                                                                                                    </Text>
+                                                                                                )}
+                                                                                            </Group>
                                                                                         }
                                                                                         checked={
                                                                                             isSelected

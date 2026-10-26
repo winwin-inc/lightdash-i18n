@@ -1,9 +1,10 @@
 import { Anchor, Center, Loader, Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, type FC } from 'react';
+import { Suspense, lazy, useEffect, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
+import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
@@ -20,6 +21,7 @@ import {
     type ResponsivePreviewOverride,
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
+import { applyDashboardColorSync } from './vegaColorSync';
 import { useObservedContainerSize } from './useObservedContainerSize';
 import {
     CHART_SIZE_CHANGE_EPSILON_PX,
@@ -45,6 +47,32 @@ type Props = {
     'data-testid'?: string;
 };
 
+/**
+ * 把当前图可见系列名注册到看板色表。
+ * 可见系列名要等 spec 处理完才知道，这里用 ref 承接，effect 里按内容去重后再注册。
+ */
+const useVisibleColorKeysRegistration = (
+    enabled: boolean,
+    registerVisibleColorKeys: (keys: string[]) => void,
+) => {
+    const keysRef = useRef<string[]>([]);
+    const registeredKeyRef = useRef('');
+
+    useEffect(() => {
+        if (!enabled) return;
+        const keys = keysRef.current;
+        if (keys.length === 0) return;
+        const key = keys.join('\u0001');
+        if (key === registeredKeyRef.current) return;
+        registeredKeyRef.current = key;
+        registerVisibleColorKeys(keys);
+    });
+
+    return (keys: string[]) => {
+        keysRef.current = keys;
+    };
+};
+
 const CustomVisualization: FC<Props> = (props) => {
     const {
         chartRef,
@@ -53,9 +81,15 @@ const CustomVisualization: FC<Props> = (props) => {
         resultsData,
         isDashboard,
         itemsMap,
+        colorSync,
     } = useVisualizationContext();
     const { t } = useTranslation();
     const viewportWidth = useViewportWidth();
+
+    const setVisibleColorKeys = useVisibleColorKeysRegistration(
+        colorSync.enabled,
+        colorSync.registerVisibleColorKeys,
+    );
 
     // Own ResizeObserver in the callback ref so observe runs on mount
     // (Mantine useResizeObserver + manual ref.current never re-ran its effect).
@@ -198,6 +232,27 @@ const CustomVisualization: FC<Props> = (props) => {
         { continuousResize: false, useExplicitPixelSize },
     );
 
+    /**
+     * 看板开启「同步图表颜色」时：按系列名把看板色表注入 spec 的 color scale，
+     * 使自定义图表与笛卡尔/饼图同名系列同色（跨图稳定）。
+     */
+    const colorSyncResult = colorSync.enabled
+        ? applyDashboardColorSync({
+              spec: sizedSpec as Record<string, unknown>,
+              series: visProps.series,
+              resolveColor: (value: string) =>
+                  resolveSyncedHashColor(
+                      value,
+                      colorSync.palette,
+                      colorSync.hashAssignments,
+                  ),
+          })
+        : { spec: null, visibleKeys: [] as string[] };
+
+    setVisibleColorKeys(colorSyncResult.visibleKeys);
+
+    const finalSpec = colorSyncResult.spec ?? sizedSpec;
+
     // Remount when stabilized size changes meaningfully (narrow path has no resize)
     const sizeKeyWidth = layout.useStepWidth
         ? 'step'
@@ -241,7 +296,7 @@ const CustomVisualization: FC<Props> = (props) => {
                         // picked, or a bug in the vegalite typescript definitions.
                         // @ts-ignore
                         spec={{
-                            ...sizedSpec,
+                            ...finalSpec,
                             data: { name: 'values' },
                         }}
                         data={data}

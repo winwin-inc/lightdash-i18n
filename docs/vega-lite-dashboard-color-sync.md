@@ -1,0 +1,169 @@
+# 自定义图表（Vega-Lite）跟随看板同步颜色
+
+> 状态：设计中（实现中）
+> 日期：2026-10
+> 关联：[chart-color-sync-plan.md](./chart-color-sync-plan.md)、[chart-color-sync-optimization.md](./chart-color-sync-optimization.md)、[custom-viz-guide.md](./custom-viz-guide.md)
+
+## 背景
+
+客户诉求：
+
+1. 看板里同时有系统图表（笛卡尔/饼图）和自定义图表（Vega-Lite）时，希望自定义图表也能用看板的颜色体系，**跨图表同名系列同色**。
+2. 自定义图表当前没有颜色配置入口，颜色只能手写 spec JSON；用户不想为每张自定义图表各配一套颜色。
+
+现状（CUSTOM 被**有意排除**）：
+
+- `packages/frontend/src/providers/DashboardChartColorSync/useDashboardChartColorSync.ts`
+  `shouldSyncColors = enabled && !isCustomChart && inSyncList` → 自定义图表强制不走同步。
+- `packages/frontend/src/hooks/useChartColorConfig/colorSyncKeys.ts`
+  `extractColorSyncKeysFromChartConfig` 只解析 `PIE` / `CARTESIAN` → 自定义图表的系列名不进看板色表。
+- `packages/frontend/src/components/CustomVisualization/index.tsx`
+  只做 `data: { name: 'values' }` 注入、字段名改写、尺寸归一化，**完全不碰颜色**；颜色 100% 来自 spec 里的 `scale`。
+
+结论：看板「同步图表颜色」对自定义图表**无效**（但勾选列表里 CUSTOM 图会出现，勾了不生效，属 UX 坑）。
+
+## 目标
+
+看板开启「同步图表颜色」后，自定义图表**零配置**跟随看板调色板：
+
+- 同一系列名在「自定义图表 ↔ 笛卡尔图 ↔ 饼图」之间、以及「多个自定义图表」之间颜色一致。
+- 不需要用户改 spec、不需要新建配置项。
+- 未开启同步时行为完全不变（自定义图表继续用自己的 spec 配色）。
+
+非目标（本轮不做）：
+
+- 不做自定义图表的编辑器级颜色面板（方案 C）。
+- 不改自定义图表 spec 里的配色语义（2.1 维持现状：颜色仍可在 spec 里写死）。
+
+## 方案：渲染期注入（方案 B）
+
+### 1. 参与条件
+
+`providers/DashboardChartColorSync/useDashboardChartTileColorSync.ts`
+
+```
+shouldSyncColors = resolvedEnabled && isTileInSyncList     // 去掉 !isCustomChart
+```
+
+- 沿用看板现有的「同步颜色的图表」勾选列表（`syncChartTileUuids`，为空 = 全部 tile）。
+- CUSTOM tile 本来就在 `pages/Dashboard.tsx` 的勾选列表里（`chartTiles` 只按 tile 类型过滤），改完后勾选才真正生效。
+- 关闭同步时 `colorPalette` 仍取 `chart.colorPalette`（图表自身调色板），行为不变。
+
+### 2. 取色来源（与标准图完全一致）
+
+看板色表 `hashAssignments`（= known 哈希分配 + 看板级追加未知名），解析函数复用
+`packages/frontend/src/hooks/useChartColorConfig/hashColorAssignment.ts`：
+
+```ts
+resolveSyncedHashColor(name, palette, hashAssignments)
+```
+
+- 键归一统一用 `toColorSyncKey`（`colorSyncKeys.ts`），与笛卡尔/饼图同一命名空间（原始值字符串）。
+- 优先级与标准图一致：`hashAssignments` 命中 → 用命中色；未命中 → `getHashColor(name, palette)`（同名同色，稳定）。
+- 说明：当前同步色表**不采用手配色**作为颜色来源（见 `useDashboardColorSyncMap.ts` 注释「manualColors：仅用于发现系列名，不再作为配色来源」），自定义图表沿用同一语义。
+
+### 3. 注入点
+
+`packages/frontend/src/components/CustomVisualization/index.tsx`
+
+注入发生在 `prepareSpecForVega()` 之后（此时 `encoding.*.field` 已是 fieldId，与 `series` 的列名一致）、
+`normalizeVegaSpecSizing()` 之后，写入最终传给 `<VegaLite spec={...}>` 的对象。
+
+### 4. 注入规则
+
+| 情况 | 行为 |
+|---|---|
+| `encoding.color` 有 `field` 且 `type` 为 `nominal` / `ordinal` | 注入 `scale.domain` + `scale.range` |
+| `encoding.color.scale.range` 用户显式写了数组 | **不覆盖**（尊重用户显式意图） |
+| `encoding.color.scale.scheme` 存在 | 覆盖（删 `scheme`，改成 domain+range）；看板调色板比 scheme 更具体 |
+| `encoding.color` 是 `condition` 条件编码 | 跳过 |
+| `encoding.color.type` 是 `quantitative` / `temporal` | 跳过（连续色阶，语义不同） |
+| `field` 在 `series` 里不存在（transform 计算列） | 跳过（domain 取不到值） |
+| spec 顶层 + 任意层 `layer`（含嵌套 layer） | 逐个处理 |
+
+domain 取值：从 `series` 里该字段的去重值，**保持原始值类型**（数值仍是数值，否则 vega 匹配不到数据），
+顺序 = 首次出现顺序；range = `domain.map(v => resolveColor(String(v)))`。
+
+### 5. 未知系列名注册
+
+自定义图表的系列名在保存配置里不可知（spec 只有字段名），因此靠运行时注册：
+
+- 注入时把本次 domain 的值（`String(v)`）收集为 `visibleKeys`；
+- 通过 `registerVisibleColorKeys` 交给看板级 Provider（与笛卡尔图同一条路径，
+  `hooks/useChartColorConfig/hashColorAssignment.ts:appendDashboardUnknownHashColors`），
+  未知名会按「避开全看板已占色」分配，并**全看板稳定**；
+- 首帧可能有一次重渲染（注册后颜色更新），与现有笛卡尔图行为一致。
+
+## 模块与 API 契约
+
+### 新增：`packages/frontend/src/components/CustomVisualization/vegaColorSync.ts`（纯函数，可单测）
+
+```ts
+export type VegaSeriesRow = Record<string, unknown>;
+
+/** 收集 spec 中需要注入的 color 编码位置（顶层 + layer 递归），返回 spec 内的路径数组 */
+export const collectCategoricalColorPaths = (
+    spec: Record<string, unknown>,
+): Array<Array<string | number>>;
+
+/** 取某字段在数据中的去重值，保持原始类型，首次出现顺序 */
+export const extractDomainValues = (
+    series: VegaSeriesRow[],
+    field: string,
+): unknown[];
+
+/**
+ * 按颜色映射改写 spec。
+ * @returns 改写后的 spec（不改原对象）与本次可见系列名
+ */
+export const applyDashboardColorSync = ({
+    spec,
+    series,
+    resolveColor,
+}: {
+    spec: Record<string, unknown>;
+    series: VegaSeriesRow[];
+    resolveColor: (value: string) => string;
+}): { spec: Record<string, unknown>; visibleKeys: string[] };
+```
+
+约束：
+
+- 纯函数，不引入 React / 组件依赖；不改原 spec（返回新对象）。
+- `resolveColor` 由调用方注入（便于单测与解耦）。
+- 找不到可注入的 color 编码时，原样返回 spec。
+
+### 接线改动
+
+| 文件 | 改动 |
+|---|---|
+| `packages/frontend/src/components/LightdashVisualization/context.ts` | `VisualizationContext` 增加 `colorSync: { enabled: boolean; palette: string[]; hashAssignments: Record<string, string>; registerVisibleColorKeys: (keys: string[]) => void }` |
+| `packages/frontend/src/components/LightdashVisualization/VisualizationProvider.tsx` | 组装 `colorSync`（`enabled = useHashBased`，`palette = colorPalette`，`hashAssignments`，`registerVisibleColorKeys` 来自 `useRegisterDashboardVisibleColorKeys()`）并放进 context value |
+| `packages/frontend/src/providers/DashboardChartColorSync/useDashboardChartColorSync.ts` | `shouldSyncColors` 去掉 `!isCustomChart` |
+| `packages/frontend/src/components/DashboardTiles/DashboardChartTile.tsx` | 跟随上面的语义变化（`isCustomChart` 不再用于排除） |
+| `packages/frontend/src/components/CustomVisualization/index.tsx` | 应用 `applyDashboardColorSync`；渲染期把 `visibleKeys` 注册到看板色表（ref 承接 + effect 去重） |
+
+### 附带改动：「同步颜色的图表」列表标注图表类型
+
+自定义图表参与同步后，同一个列表里既有标准图也有自定义图，两者的取色语义不同（自定义图 spec 里显式写的 `scale.range` 不会被覆盖）。因此在看板编辑态的「同步颜色的图表」配置弹层里，每条图表名后追加灰色类型标注，例如 `销售额趋势（图表）`、`品牌占比（饼图）`、`自定义折线（自定义图表）`、`SQL 汇总（SQL 图表）`。
+
+| 文件 | 改动 |
+|---|---|
+| `packages/frontend/src/hooks/useChartColorConfig/useDashboardChartTypeMap.ts` | 新增：按 tile 拉 `['saved_query', uuid]`（与图表 tile 共用缓存）得到 `tileUuid → ChartType`，只读不参与配色 |
+| `packages/frontend/src/pages/Dashboard.tsx` | 颜色配置弹层改为受控（`colorConfigOpened`），展开时才拉图表类型；`Switch` 的 `label` 换成节点，追加 `c="dimmed"` 的类型后缀 |
+| `packages/frontend/public/locales/{zh,en}/translation.json` | 新增 `dashboard.sync_chart_colors_types.*` |
+
+## 边界与已知限制
+
+1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**不会被覆盖** → 需在文档/答复里说明。
+2. 条件编码（`condition`）、连续色阶（quantitative color）不处理。
+3. transform 计算列做 color 时无法注入。
+4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
+5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
+6. 未开启看板同步时，本改动对自定义图表零影响。
+
+## 验证
+
+1. 单测 `vegaColorSync.test.ts`：顶层/layer 注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入。
+2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
+3. 回归：未开启同步的看板，CUSTOM 图渲染无变化；导出图片与页面一致。

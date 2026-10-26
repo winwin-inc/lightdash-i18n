@@ -67,6 +67,20 @@ type VisualizationContext = {
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;
     useHashBased: boolean;
+    /**
+     * 看板级颜色同步信息（仅看板且开启「同步图表颜色」时生效）。
+     * 自定义图表（Vega-Lite）用它把看板色表注入 spec 的 color scale。
+     */
+    colorSync: {
+        /** 是否开启同步（= useHashBased） */
+        enabled: boolean;
+        /** 看板调色板 */
+        palette: string[];
+        /** 看板已知系列 + 追加未知名后的合并色表 */
+        hashAssignments: Record<string, string>;
+        /** 把当前图可见系列名追加进看板色表 */
+        registerVisibleColorKeys: (keys: string[]) => void;
+    };
     tablePagination?: TablePaginationState;
 };
 

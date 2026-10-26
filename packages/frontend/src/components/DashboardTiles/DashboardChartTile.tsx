@@ -360,11 +360,9 @@ const ValidDashboardChartTile: FC<{
         showResultsTotalWithoutPagination,
     ]);
 
-    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
     const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
         useDashboardChartTileColorSync({
             tileUuid,
-            isCustomChart,
             chartColorPalette: chart.colorPalette,
         });
 
@@ -472,11 +470,9 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
-    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
     const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
         useDashboardChartTileColorSync({
             tileUuid,
-            isCustomChart,
             chartColorPalette: chart.colorPalette,
         });
 

@@ -221,6 +221,17 @@ const VisualizationProvider: FC<
 
     const chartHashAssignments = hashAssignments;
 
+    /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
+    const colorSync = useMemo(
+        () => ({
+            enabled: useHashBased,
+            palette: colorPalette,
+            hashAssignments: chartHashAssignments,
+            registerVisibleColorKeys,
+        }),
+        [useHashBased, colorPalette, chartHashAssignments, registerVisibleColorKeys],
+    );
+
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
         useChartColorConfig({
             colorPalette,
@@ -489,6 +500,7 @@ const VisualizationProvider: FC<
         getSeriesColor,
         chartConfig,
         useHashBased,
+        colorSync,
         tablePagination,
     };
 
