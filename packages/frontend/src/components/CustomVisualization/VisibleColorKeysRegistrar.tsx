@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type FC } from 'react';
+import { useLayoutEffect, type FC } from 'react';
 
 type Props = {
     /** 看板是否开启「同步图表颜色」；关闭时不注册 */
@@ -20,24 +20,26 @@ type Props = {
  *
  * keys 用内容签名（JSON 字符串）做依赖，而不是数组引用，
  * 这样父组件每次渲染产生的新数组不会造成重复注册。
+ * 渲染期只计算签名，JSON.parse 放在 effect 里做（渲染期不做解析）。
+ *
+ * 用 useLayoutEffect 而不是 useEffect：与标准图
+ * （LightdashVisualization/VisualizationProvider）保持一致，
+ * 色表重置时自定义图不会先闪一帧哈希兜底色再重建 view。
  */
 const VisibleColorKeysRegistrar: FC<Props> = ({
     enabled,
     keys,
     registerVisibleColorKeys,
 }) => {
-    // 用内容签名做依赖，父组件每次渲染产生的新数组不会造成重复注册
+    // 内容签名：父组件每次渲染产生的新数组（内容相同）不会造成重复注册
     const keysSignature = JSON.stringify(keys);
-    const stableKeys = useMemo<string[]>(
-        () => JSON.parse(keysSignature) as string[],
-        [keysSignature],
-    );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!enabled) return;
-        if (stableKeys.length === 0) return;
-        registerVisibleColorKeys(stableKeys);
-    }, [enabled, stableKeys, registerVisibleColorKeys]);
+        const visibleKeys = JSON.parse(keysSignature) as string[];
+        if (visibleKeys.length === 0) return;
+        registerVisibleColorKeys(visibleKeys);
+    }, [enabled, keysSignature, registerVisibleColorKeys]);
 
     return null;
 };

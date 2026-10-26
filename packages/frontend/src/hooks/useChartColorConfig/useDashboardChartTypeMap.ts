@@ -3,6 +3,7 @@ import {
     type ChartType,
     type Dashboard,
 } from '@lightdash/common';
+import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getSavedQuery } from '../useSavedQuery';
 
@@ -25,16 +26,21 @@ export const useDashboardChartTypeMap = ({
     tiles: Dashboard['tiles'] | undefined;
     enabled: boolean;
 }): Record<string, ChartType> => {
-    const chartRefs = (tiles ?? []).flatMap((tile) => {
-        if (!isDashboardChartTileType(tile)) return [];
-        const savedChartUuid = tile.properties.savedChartUuid;
-        if (!savedChartUuid) return [];
-        return [{ tileUuid: tile.uuid, savedChartUuid }];
-    });
+    const chartRefs = useMemo(
+        () =>
+            (tiles ?? []).flatMap((tile) => {
+                if (!isDashboardChartTileType(tile)) return [];
+                const savedChartUuid = tile.properties.savedChartUuid;
+                if (!savedChartUuid) return [];
+                return [{ tileUuid: tile.uuid, savedChartUuid }];
+            }),
+        [tiles],
+    );
 
     // 同一个已保存图表可能被多个 tile 复用，去重后只发一次请求
-    const uniqueSavedChartUuids = Array.from(
-        new Set(chartRefs.map((ref) => ref.savedChartUuid)),
+    const uniqueSavedChartUuids = useMemo(
+        () => Array.from(new Set(chartRefs.map((ref) => ref.savedChartUuid))),
+        [chartRefs],
     );
 
     const queries = useQueries({
@@ -47,21 +53,33 @@ export const useDashboardChartTypeMap = ({
         })),
     });
 
-    const typeBySavedChartUuid = new Map<string, ChartType>();
-    queries.forEach((query, index) => {
-        const type = query.data?.chartConfig?.type;
-        const savedChartUuid = uniqueSavedChartUuids[index];
-        if (type && savedChartUuid) {
-            typeBySavedChartUuid.set(savedChartUuid, type);
-        }
-    });
+    // queries 数组每次渲染都是新引用，用「uuid + 类型」的稳定签名作为 useMemo 依赖
+    const typeSignature = JSON.stringify(
+        uniqueSavedChartUuids.map((savedChartUuid, index) => [
+            savedChartUuid,
+            queries[index]?.data?.chartConfig?.type ?? null,
+        ]),
+    );
 
-    const typeMap: Record<string, ChartType> = {};
-    chartRefs.forEach((ref) => {
-        const type = typeBySavedChartUuid.get(ref.savedChartUuid);
-        if (type) {
-            typeMap[ref.tileUuid] = type;
-        }
-    });
+    const typeMap = useMemo<Record<string, ChartType>>(() => {
+        const typeBySavedChartUuid = new Map<string, ChartType>();
+        (
+            JSON.parse(typeSignature) as Array<[string, ChartType | null]>
+        ).forEach(([savedChartUuid, type]) => {
+            if (type && savedChartUuid) {
+                typeBySavedChartUuid.set(savedChartUuid, type);
+            }
+        });
+
+        const map: Record<string, ChartType> = {};
+        chartRefs.forEach((ref) => {
+            const type = typeBySavedChartUuid.get(ref.savedChartUuid);
+            if (type) {
+                map[ref.tileUuid] = type;
+            }
+        });
+        return map;
+    }, [chartRefs, typeSignature]);
+
     return typeMap;
 };

@@ -83,6 +83,50 @@ describe('VisibleColorKeysRegistrar', () => {
         expect(register2).toHaveBeenCalledWith(['a', 'b']);
     });
 
+    it('does not register again when re-rendered with a new array instance of the same content', () => {
+        const register = vi.fn();
+        const { rerender } = render(
+            <VisibleColorKeysRegistrar
+                enabled
+                keys={['a', 'b']}
+                registerVisibleColorKeys={register}
+            />,
+        );
+        expect(register).toHaveBeenCalledTimes(1);
+
+        // same content, different array instance
+        rerender(
+            <VisibleColorKeysRegistrar
+                enabled
+                keys={['a', 'b']}
+                registerVisibleColorKeys={register}
+            />,
+        );
+        expect(register).toHaveBeenCalledTimes(1);
+    });
+
+    it('registers when enabled switches from false to true', () => {
+        const register = vi.fn();
+        const { rerender } = render(
+            <VisibleColorKeysRegistrar
+                enabled={false}
+                keys={['a']}
+                registerVisibleColorKeys={register}
+            />,
+        );
+        expect(register).not.toHaveBeenCalled();
+
+        rerender(
+            <VisibleColorKeysRegistrar
+                enabled
+                keys={['a']}
+                registerVisibleColorKeys={register}
+            />,
+        );
+        expect(register).toHaveBeenCalledTimes(1);
+        expect(register).toHaveBeenCalledWith(['a']);
+    });
+
     it('registers again when the keys change', () => {
         const register = vi.fn();
         const { rerender } = render(

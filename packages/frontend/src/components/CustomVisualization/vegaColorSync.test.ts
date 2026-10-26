@@ -329,7 +329,7 @@ describe('applyDashboardColorSync', () => {
         expect(visibleKeys).toEqual([]);
     });
 
-    it('keeps domain order and value types', () => {
+    it('keeps value types and sorts the domain like vega-lite', () => {
         const numericSeries = [{ v: 10 }, { v: 2 }, { v: 10 }, { v: 'x' }];
         const spec = {
             mark: 'bar',
@@ -342,11 +342,31 @@ describe('applyDashboardColorSync', () => {
             series: numericSeries,
             resolveColor,
         });
+        // 与 vega-lite 默认（sort: true）一致：数字按数值升序，字符串按字典序
         expect(getColorScale(result, ['encoding', 'color'])).toEqual({
-            domain: [10, 2, 'x'],
-            range: ['color:10', 'color:2', 'color:x'],
+            domain: [2, 10, 'x'],
+            range: ['color:2', 'color:10', 'color:x'],
         });
         expect(visibleKeys).toEqual(['10', '2', 'x']);
+    });
+
+    it('keeps the data order when sort is false', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: { field: 'category', type: 'nominal', sort: false },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: [{ category: 'B' }, { category: 'A' }],
+            resolveColor,
+        });
+        // sort: false → 保持数据出现顺序
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'B',
+            'A',
+        ]);
     });
 
     it('does not inject when series is empty', () => {
@@ -626,6 +646,119 @@ describe('applyDashboardColorSync', () => {
         expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
             'A',
             'B',
+        ]);
+    });
+
+    it('treats sort: true as the data order (like vega-lite)', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: { field: 'category', type: 'nominal', sort: true },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: [{ category: 'B' }, { category: 'A' }],
+            resolveColor,
+        });
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'B',
+            'A',
+        ]);
+    });
+
+    it('sorts ascending for sort: "ascending"', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: { field: 'category', type: 'nominal', sort: 'ascending' },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: [{ category: 'B' }, { category: 'A' }],
+            resolveColor,
+        });
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'A',
+            'B',
+        ]);
+    });
+
+    it('sorts descending for sort: "descending"', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: { field: 'category', type: 'nominal', sort: 'descending' },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: [{ category: 'B' }, { category: 'A' }],
+            resolveColor,
+        });
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'B',
+            'A',
+        ]);
+    });
+
+    it('uses sum for a stacked measure when sorting by a field', () => {
+        // A: 3 + 8 = 11（sum） / 3（min）；B: 1 + 5 = 6 / 1；C: 2
+        const rows = [
+            { category: 'A', sales: 3 },
+            { category: 'A', sales: 8 },
+            { category: 'B', sales: 1 },
+            { category: 'B', sales: 5 },
+            { category: 'C', sales: 2 },
+        ];
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                x: { field: 'category', type: 'nominal' },
+                y: { field: 'sales', type: 'quantitative' },
+                color: { field: 'category', type: 'nominal', sort: { field: 'sales' } },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: rows,
+            resolveColor,
+        });
+        // 堆叠度量默认 sum 升序：C(2) < B(6) < A(11)
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'C',
+            'B',
+            'A',
+        ]);
+    });
+
+    it('uses min for a non-stacked chart when sorting by a field', () => {
+        const rows = [
+            { category: 'A', sales: 3 },
+            { category: 'A', sales: 8 },
+            { category: 'B', sales: 1 },
+            { category: 'B', sales: 5 },
+            { category: 'C', sales: 2 },
+        ];
+        const spec = {
+            mark: 'line',
+            encoding: {
+                x: { field: 'category', type: 'nominal' },
+                y: { field: 'sales', type: 'quantitative' },
+                color: { field: 'category', type: 'nominal', sort: { field: 'sales' } },
+            },
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: rows,
+            resolveColor,
+        });
+        // 非堆叠默认 min 升序：B(1) < C(2) < A(3)
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'B',
+            'C',
+            'A',
         ]);
     });
 

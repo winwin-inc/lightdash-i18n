@@ -85,6 +85,7 @@ function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
 /** color 编码上的 sort 语义 */
 type ColorSort =
     | { kind: 'none' }
+    | { kind: 'preserve' }
     | { kind: 'unsupported' }
     | {
           kind: 'sort';
@@ -93,26 +94,126 @@ type ColorSort =
           order: 'ascending' | 'descending';
       };
 
+/** 图形是否堆叠度量（bar / area / arc 默认堆叠，可被 mark.stack 关闭） */
+const isStackedView = (view: Record<string, unknown>): boolean => {
+    const mark = view.mark;
+    const markType =
+        typeof mark === 'string'
+            ? mark
+            : isRecord(mark) && typeof mark.type === 'string'
+              ? mark.type
+              : undefined;
+    if (!markType) {
+        return false;
+    }
+    const stackSetting = isRecord(mark) ? mark.stack : undefined;
+    if (stackSetting === undefined) {
+        return markType === 'bar' || markType === 'area' || markType === 'arc';
+    }
+    return stackSetting !== null && stackSetting !== false;
+};
+
 /**
- * 通道的默认聚合方式，与 vega-lite 保持一致：
+ * 字段是否是「维度」（分组字段）：
+ * - 就是 color 字段本身
+ * - 或出现在某个 nominal / ordinal 通道里
+ */
+const isDimensionField = (
+    encoding: Record<string, unknown>,
+    field: unknown,
+    colorField?: string,
+): boolean => {
+    if (typeof field !== 'string') {
+        return false;
+    }
+    if (colorField && field === colorField) {
+        return true;
+    }
+    return Object.values(encoding).some(
+        (channelEncoding) =>
+            isRecord(channelEncoding) &&
+            channelEncoding.field === field &&
+            (channelEncoding.type === 'nominal' ||
+                channelEncoding.type === 'ordinal'),
+    );
+};
+
+/**
+ * 通道的默认聚合方式，与 vega-lite 保持一致
+ * （vega-lite: op ?? (isStackedMeasure ? 'sum' : DEFAULT_SORT_OP)）：
  * - 显式 `aggregate` 优先
- * - temporal 字段默认 min（取最早的时间点）
- * - 其它默认 sum
+ * - quantitative 字段且是堆叠度量时为 sum，否则为 min
+ * - 其它（nominal / ordinal / temporal / 未知）：min
  */
 const defaultAggregateOfChannel = (
+    view: Record<string, unknown>,
     encoding: Record<string, unknown>,
     channel: string,
+    colorField?: string,
 ): string => {
     const channelEncoding = encoding[channel];
-    if (isRecord(channelEncoding)) {
-        if (typeof channelEncoding.aggregate === 'string') {
-            return channelEncoding.aggregate;
-        }
-        if (channelEncoding.type === 'temporal') {
-            return 'min';
-        }
+    if (!isRecord(channelEncoding)) {
+        return 'min';
     }
-    return 'sum';
+    if (typeof channelEncoding.aggregate === 'string') {
+        return channelEncoding.aggregate;
+    }
+    if (
+        channelEncoding.type === 'quantitative' &&
+        !isDimensionField(encoding, channelEncoding.field, colorField)
+    ) {
+        return isStackedView(view) ? 'sum' : 'min';
+    }
+    return 'min';
+};
+
+/**
+ * `sort: {field}` 不带 op 时的默认聚合方式，与 vega-lite 一致：
+ * 堆叠度量 → sum，否则 → min。
+ */
+const defaultAggregateOfField = (
+    view: Record<string, unknown>,
+    encoding: Record<string, unknown>,
+    field: string,
+    colorField?: string,
+): string => {
+    if (isDimensionField(encoding, field, colorField)) {
+        return 'min';
+    }
+    return isStackedView(view) ? 'sum' : 'min';
+};
+
+/** 可比较的值：数字按数值比较，其它按字符串比较（与 vega-lite 的值排序一致） */
+type Comparable = { kind: 'number'; n: number } | { kind: 'string'; s: string };
+
+const toComparable = (value: unknown): Comparable | null => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? { kind: 'number', n: value } : null;
+    }
+    if (typeof value === 'boolean') {
+        return { kind: 'number', n: value ? 1 : 0 };
+    }
+    if (value instanceof Date) {
+        const time = value.getTime();
+        return Number.isFinite(time) ? { kind: 'number', n: time } : null;
+    }
+    if (typeof value === 'string') {
+        return { kind: 'string', s: value };
+    }
+    return null;
+};
+
+const compareComparable = (a: Comparable, b: Comparable): number => {
+    if (a.kind === 'number' && b.kind === 'number') {
+        return a.n - b.n;
+    }
+    if (a.kind === 'string' && b.kind === 'string') {
+        return a.s < b.s ? -1 : a.s > b.s ? 1 : 0;
+    }
+    // 混合类型按字符串形式比较，保证顺序确定
+    const left = a.kind === 'number' ? String(a.n) : a.s;
+    const right = b.kind === 'number' ? String(b.n) : b.s;
+    return left < right ? -1 : left > right ? 1 : 0;
 };
 
 /** 排序用的数值：数字直接用；字符串尝试转数字 / 解析成时间戳；其它跳过 */
@@ -136,10 +237,15 @@ const toSortNumber = (value: unknown): number | null => {
 };
 
 /**
- * 解析 `encoding.color.sort`：
- * - 无 sort → none
- * - sort 指向的字段无法确定（如 sort: {field: 'x'} 但 x 不在数据里）→ unsupported（保守跳过注入）
- * - 其余 → 具体排序规则
+ * 解析 `encoding.color.sort`（语义对齐 vega-lite 的 parseSortForDomain）：
+ * - 无 sort → none（vega-lite 默认：按值升序）
+ * - sort: true → preserve（vega-lite 对 boolean sort 不生成 domain sort → 数据出现顺序）
+ * - sort: false → preserve（数据出现顺序）
+ * - sort: 'ascending' → none（按值升序）
+ * - sort: 'descending' → 按 color 字段自身降序（vega-lite: op min + order descending）
+ * - sort: {field, op?, order?} → op 默认 min；若该字段是堆叠度量则默认 sum
+ * - sort: {encoding, order?} → 用该通道的 aggregate；无 aggregate 时按堆叠规则回落
+ * - 无法确定字段 → unsupported（保守跳过注入）
  */
 const parseColorSort = (
     view: Record<string, unknown>,
@@ -149,8 +255,12 @@ const parseColorSort = (
     if (sort === undefined || sort === null) {
         return { kind: 'none' };
     }
+    if (sort === false || sort === true) {
+        return { kind: 'preserve' };
+    }
 
     const encoding = isRecord(view.encoding) ? view.encoding : {};
+    const colorField = typeof color.field === 'string' ? color.field : undefined;
     const fieldOfChannel = (channel: string): string | undefined => {
         const channelEncoding = encoding[channel];
         if (!isRecord(channelEncoding)) return undefined;
@@ -160,6 +270,18 @@ const parseColorSort = (
     };
 
     if (typeof sort === 'string') {
+        if (sort === 'ascending') {
+            return { kind: 'none' };
+        }
+        if (sort === 'descending') {
+            if (!colorField) return { kind: 'unsupported' };
+            return {
+                kind: 'sort',
+                field: colorField,
+                op: 'min',
+                order: 'descending',
+            };
+        }
         // 简写：'-y' / 'y'，按对应通道字段的聚合值排序
         const descending = sort.startsWith('-');
         const channel = descending ? sort.slice(1) : sort;
@@ -168,7 +290,7 @@ const parseColorSort = (
         return {
             kind: 'sort',
             field,
-            op: defaultAggregateOfChannel(encoding, channel),
+            op: defaultAggregateOfChannel(view, encoding, channel, colorField),
             order: descending ? 'descending' : 'ascending',
         };
     }
@@ -179,7 +301,15 @@ const parseColorSort = (
             return {
                 kind: 'sort',
                 field: sort.field,
-                op: typeof sort.op === 'string' ? sort.op : 'sum',
+                op:
+                    typeof sort.op === 'string'
+                        ? sort.op
+                        : defaultAggregateOfField(
+                              view,
+                              encoding,
+                              sort.field,
+                              colorField,
+                          ),
                 order,
             };
         }
@@ -192,13 +322,40 @@ const parseColorSort = (
                 op:
                     typeof sort.op === 'string'
                         ? sort.op
-                        : defaultAggregateOfChannel(encoding, sort.encoding),
+                        : defaultAggregateOfChannel(
+                              view,
+                              encoding,
+                              sort.encoding,
+                              colorField,
+                          ),
                 order,
             };
         }
     }
 
     return { kind: 'unsupported' };
+};
+
+/**
+ * 按值升序排序 domain（与 vega-lite 默认 `sort: true` 一致：
+ * 数字按数值比较，字符串按字典序比较），无法比较时保持原顺序。
+ */
+const sortDomainNaturally = (values: unknown[]): unknown[] => {
+    const comparables = values.map(toComparable);
+    if (comparables.some((item) => item === null)) {
+        return values;
+    }
+    return values
+        .map((value, index) => ({
+            value,
+            index,
+            comparable: comparables[index] as Comparable,
+        }))
+        .sort((a, b) => {
+            const diff = compareComparable(a.comparable, b.comparable);
+            return diff !== 0 ? diff : a.index - b.index;
+        })
+        .map((entry) => entry.value);
 };
 
 /** 按聚合值排序 domain（稳定排序，并列保持首次出现顺序） */
@@ -211,7 +368,7 @@ const sortDomainByAggregate = (
     // 按 color 字段分组，聚合 sort 字段
     const groups = new Map<
         string,
-        { numbers: number[]; count: number }
+        { numbers: number[]; values: Comparable[]; count: number }
     >();
 
     for (const row of series) {
@@ -221,7 +378,7 @@ const sortDomainByAggregate = (
         const key = `${typeof groupValue}:${String(groupValue)}`;
         let group = groups.get(key);
         if (!group) {
-            group = { numbers: [], count: 0 };
+            group = { numbers: [], values: [], count: 0 };
             groups.set(key, group);
         }
         group.count += 1;
@@ -230,24 +387,46 @@ const sortDomainByAggregate = (
         if (numeric !== null) {
             group.numbers.push(numeric);
         }
+        const comparable = toComparable(raw);
+        if (comparable !== null) {
+            group.values.push(comparable);
+        }
     }
 
-    const aggregate = (group: { numbers: number[]; count: number }): number => {
-        const { numbers, count } = group;
+    const aggregate = (group: {
+        numbers: number[];
+        values: Comparable[];
+        count: number;
+    }): Comparable => {
+        const { numbers, values, count } = group;
         switch (sort.op) {
             case 'count':
-                return count;
+                return { kind: 'number', n: count };
             case 'mean':
-                return numbers.length
-                    ? numbers.reduce((a, b) => a + b, 0) / numbers.length
-                    : 0;
+                return {
+                    kind: 'number',
+                    n: numbers.length
+                        ? numbers.reduce((a, b) => a + b, 0) / numbers.length
+                        : 0,
+                };
             case 'min':
-                return numbers.length ? Math.min(...numbers) : 0;
+                return values.length
+                    ? values.reduce((min, item) =>
+                          compareComparable(item, min) < 0 ? item : min,
+                      )
+                    : { kind: 'number', n: 0 };
             case 'max':
-                return numbers.length ? Math.max(...numbers) : 0;
+                return values.length
+                    ? values.reduce((max, item) =>
+                          compareComparable(item, max) > 0 ? item : max,
+                      )
+                    : { kind: 'number', n: 0 };
             case 'sum':
             default:
-                return numbers.reduce((a, b) => a + b, 0);
+                return {
+                    kind: 'number',
+                    n: numbers.reduce((a, b) => a + b, 0),
+                };
         }
     };
 
@@ -259,12 +438,17 @@ const sortDomainByAggregate = (
             return {
                 value,
                 index,
-                score: group ? aggregate(group) : 0,
+                score: group
+                    ? aggregate(group)
+                    : ({ kind: 'number', n: 0 } as Comparable),
             };
         })
         .sort((a, b) => {
-            if (a.score === b.score) return a.index - b.index;
-            return (a.score - b.score) * direction;
+            const diff = compareComparable(a.score, b.score);
+            if (diff !== 0) {
+                return diff * direction;
+            }
+            return a.index - b.index;
         })
         .map((entry) => entry.value);
 };
@@ -395,15 +579,21 @@ export const applyDashboardColorSync = ({
                 const hasNull = rawDomain.some((value) => value === null);
                 const colorValues = rawDomain.filter((value) => value !== null);
                 if (colorValues.length > 0) {
-                    const domain =
-                        sort.kind === 'sort'
-                            ? sortDomainByAggregate(
-                                  colorValues,
-                                  series,
-                                  field,
-                                  sort,
-                              )
-                            : colorValues;
+                    let domain: unknown[];
+                    if (sort.kind === 'sort') {
+                        domain = sortDomainByAggregate(
+                            colorValues,
+                            series,
+                            field,
+                            sort,
+                        );
+                    } else if (sort.kind === 'preserve') {
+                        // sort: false → 保持数据出现顺序
+                        domain = colorValues;
+                    } else {
+                        // 无 sort / sort: true → 与 vega-lite 默认一致：按值升序
+                        domain = sortDomainNaturally(colorValues);
+                    }
                     const range = domain.map((value) =>
                         resolveColor(String(value), field),
                     );
@@ -423,7 +613,8 @@ export const applyDashboardColorSync = ({
                         ...(isRecord(encoding) ? encoding : {}),
                         color: syncedColor,
                     };
-                    domain.forEach((value) => {
+                    // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
+                    colorValues.forEach((value) => {
                         const key = String(value);
                         if (!seenKeys.has(key)) {
                             seenKeys.add(key);

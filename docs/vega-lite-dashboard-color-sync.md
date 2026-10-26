@@ -164,11 +164,12 @@ export const createVegaColorResolver = ({
 
 | 文件 | 改动 |
 |---|---|
-| `packages/frontend/src/components/LightdashVisualization/context.ts` | `VisualizationContext` 增加 `colorSync: { enabled: boolean; palette: string[]; hashAssignments: Record<string, string>; registerVisibleColorKeys: (keys: string[]) => void }` |
+| `packages/frontend/src/components/LightdashVisualization/context.ts` | `VisualizationContext` 增加 `colorSync: { enabled: boolean; palette: string[]; knownHashAssignments: Record<string, string>; hashAssignments: Record<string, string>; registerVisibleColorKeys: (keys: string[]) => void }` |
 | `packages/frontend/src/components/LightdashVisualization/VisualizationProvider.tsx` | 组装 `colorSync`（`enabled = useHashBased`，`palette = colorPalette`，`hashAssignments`，`registerVisibleColorKeys` 来自 `useRegisterDashboardVisibleColorKeys()`）并放进 context value |
 | `packages/frontend/src/providers/DashboardChartColorSync/useDashboardChartColorSync.ts` | `shouldSyncColors` 去掉 `!isCustomChart` |
 | `packages/frontend/src/components/DashboardTiles/DashboardChartTile.tsx` | 跟随上面的语义变化（`isCustomChart` 不再用于排除） |
-| `packages/frontend/src/components/CustomVisualization/index.tsx` | 应用 `applyDashboardColorSync`（颜色由 `createVegaColorResolver` 解析）；渲染期把 `visibleKeys` 注册到看板色表（ref 承接 + effect 去重） |
+| `packages/frontend/src/components/CustomVisualization/index.tsx` | 应用 `applyDashboardColorSync`（颜色由 `createVegaColorResolver` 解析）；把 `visibleKeys` 交给 `VisibleColorKeysRegistrar` 注册到看板色表；spec 派生管线与颜色同步结果均用 `useMemo` 缓存（避免每次渲染重建 spec / 重复扫描数据） |
+| `packages/frontend/src/components/CustomVisualization/VisibleColorKeysRegistrar.tsx` | 新增：子组件 + `useLayoutEffect` 注册可见系列名（渲染期不写 ref / 不 setState；用内容签名去重；看板色表重置后 `registerVisibleColorKeys` 引用变化 → 自动重新注册） |
 
 ### 附带改动：「同步颜色的图表」列表标注图表类型
 
@@ -188,17 +189,28 @@ export const createVegaColorResolver = ({
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
-7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重 → legend 顺序按数据首次出现顺序；若用户写了 `encoding.color.sort`，会按聚合值排序 domain（保留用户顺序意图）；`sort` 无法解析时（如只写 `{op, order}` 没有字段）→ 跳过注入，不改用户 spec。
+7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重。domain 顺序与 vega-lite 6.4.3 的 `parseSortForDomain` 对齐：
+
+   - 未写 `sort` → 按值升序（数字按数值、字符串按字典序）；
+   - `sort: true` → 数据出现顺序（vega-lite 对 boolean sort 不生成 domain sort）；
+   - `sort: false` → 数据出现顺序；
+   - `sort: 'ascending'` / `'descending'` → 按 color 字段自身升序 / 降序；
+   - `sort: '-y'` / `'y'` → 按对应通道字段的聚合值排序（`aggregate` 优先；未写时 quantitative 堆叠度量用 `sum`、其余用 `min`）；
+   - `sort: {field, op?, order?}` → `op` 缺省时堆叠度量用 `sum`、其余用 `min`；
+   - `sort: {encoding, order?}` → 用该通道的 `aggregate`；
+   - `sort` 无法解析时（如只写 `{op, order}` 没有字段）→ 跳过注入，不改用户 spec。
 8. 开启同步时 `scale.scheme` 会被移除（改为显式 `range`），属于用户 spec 的改写。
 9. 颜色变化会触发 `react-vega` 重建 view（spec 变化属于昂贵变更），大数据量图表上会短暂卡顿；`react-vega` 用 `fast-deep-equal` 比较 spec，内容不变不会重建。
 10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列多数能对上（笛卡尔 pivot 值与自定义图 raw 值一致）；当 raw 与展示值不一致时，靠展示值兜底匹配到标准图的颜色（仅限该展示值已在 known 里）。
 11. 数值 `1` 与字符串 `'1'` 在颜色键上会折叠为同一个 key（与标准图行为一致），但 Vega 侧视为两个值 → 可能两值同色。
 12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
-13. 数据里存在 null 分类时，null 会进 domain 并配一个中性灰 `#cccccc`（与 vega-lite 默认给 null 分类上色一致）；null 不占用看板色表槽位。
+13. 数据里存在 null 分类时，null 会进 domain 并配一个中性灰 `#cccccc`（Vega-Lite 默认也会给 null 上色，但用的是色表第一个颜色；本实现固定用中性灰以保证跨图稳定）；null 不占用看板色表槽位。
+14. `visibleKeys`（注册到看板色表的名字）始终按数据首次出现顺序，与 domain 顺序解耦；看板色表重置后会自动重新注册。
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入、`color.sort` 排序与无法解析时跳过、null 分类配中性灰。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
+3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
 3. 回归：未开启同步的看板，CUSTOM 图渲染无变化；导出图片与页面一致。

@@ -86,8 +86,127 @@ const CustomVisualization: FC<Props> = (props) => {
         resultsData?.setFetchAll(true);
     }, [resultsData]);
 
-    if (!isCustomVisualizationConfig(visualizationConfig)) return null;
-    const spec = visualizationConfig.chartConfig.validConfig.spec;
+    const isCustomViz = isCustomVisualizationConfig(visualizationConfig);
+
+    // TODO: 'chartConfig' is more props than config. It has data and
+    // configuration for the chart. We should consider renaming it generally.
+    //
+    // chartConfig 来自 useCustomVisualizationConfig（内部 useMemo）：
+    // spec / series / fields 不变时引用稳定，因此可以直接作为 memo 依赖。
+    const customChartConfig: CustomVisualizationConfigAndData | undefined =
+        isCustomViz ? visualizationConfig.chartConfig : undefined;
+    const spec = customChartConfig?.validConfig.spec;
+
+    /**
+     * spec 派生管线（响应式视图 → 尺寸归一化 → autosize）整体缓存。
+     *
+     * 之前这些派生值每次渲染都会重建（新对象引用），导致下面的
+     * 颜色同步缓存永远无法命中；现在统一在 memo 里算，引用稳定。
+     */
+    const specPipeline = useMemo(() => {
+        if (!customChartConfig || !spec) return null;
+
+        const visProps = customChartConfig;
+        const fieldIds =
+            visProps.fields ??
+            (visProps.series?.[0] ? Object.keys(visProps.series[0]) : []);
+        const rawSpec = spec as Record<string, unknown>;
+        const needsRewrite = rawSpec.rewrite === true;
+        const canRewrite = needsRewrite && fieldIds.length > 0;
+        // rewrite 模式下字段还没就绪，先不计算（渲染期会显示 loading）
+        if (needsRewrite && !canRewrite) return null;
+
+        const { desktopSpec, responsiveConfig } =
+            extractLightdashConfig(rawSpec);
+
+        const previewOverride: ResponsivePreviewOverride | undefined =
+            !isDashboard ? visProps.editorResponsiveTab : undefined;
+
+        const { spec: activeSpecRaw, variant: layoutVariant } =
+            resolveActiveSpec(
+                desktopSpec,
+                responsiveConfig,
+                viewportWidth,
+                previewOverride,
+            );
+        const specForVega =
+            prepareSpecForVega(
+                needsRewrite ? { ...activeSpecRaw, rewrite: true } : activeSpecRaw,
+                itemsMap,
+                fieldIds,
+            ) ?? activeSpecRaw;
+
+        const layout = computeResponsiveLayout(
+            layoutVariant,
+            activeSpecRaw,
+            width,
+            height,
+            visProps.series,
+            { preferFitInTile: useExplicitPixelSize },
+        );
+        const sizedSpec = normalizeVegaSpecSizing(
+            specForVega as Record<string, unknown>,
+            layout.chartSize,
+            visProps.series,
+            layout,
+            { useExplicitPixelSize },
+        );
+        const autosizeConfig = getVegaAutosizeConfig(
+            specForVega as Record<string, unknown>,
+            isDashboard,
+            layout,
+            { continuousResize: false, useExplicitPixelSize },
+        );
+
+        return { layout, sizedSpec, autosizeConfig };
+    }, [
+        customChartConfig,
+        spec,
+        itemsMap,
+        isDashboard,
+        viewportWidth,
+        width,
+        height,
+        useExplicitPixelSize,
+    ]);
+
+    /**
+     * 看板开启「同步图表颜色」时：按系列名把看板色表注入 spec 的 color scale，
+     * 使自定义图表与笛卡尔/饼图同名系列同色（跨图稳定）。
+     *
+     * 这一步是全量 O(rows) 扫描 + 复制 spec，所以必须缓存。
+     * 依赖的引用稳定性：
+     * - sizedSpec / series：来自上面的 specPipeline memo，稳定；
+     * - palette / hashAssignments / knownHashAssignments：来自
+     *   DashboardChartColorSyncProvider 的 useMemo/useCallback，稳定；
+     * - formattedValueMap：resultsData 变化时才重建。
+     * 任何一个变化都会重新计算（并重新注册可见系列名）。
+     */
+    const colorSyncResult = useMemo(() => {
+        if (!specPipeline || !colorSync.enabled) {
+            return { spec: null, visibleKeys: [] as string[] };
+        }
+        return applyDashboardColorSync({
+            spec: specPipeline.sizedSpec,
+            series: customChartConfig?.series ?? [],
+            resolveColor: createVegaColorResolver({
+                palette: colorSync.palette,
+                hashAssignments: colorSync.hashAssignments,
+                knownHashAssignments: colorSync.knownHashAssignments,
+                formattedValueMap,
+            }),
+        });
+    }, [
+        specPipeline,
+        colorSync.enabled,
+        colorSync.palette,
+        colorSync.hashAssignments,
+        colorSync.knownHashAssignments,
+        customChartConfig,
+        formattedValueMap,
+    ]);
+
+    if (!customChartConfig) return null;
 
     // Keep measure shell during loading so size is warm when data arrives
     // (avoids first-tile X collapse from mounting Vega on an unmeasured container).
@@ -139,21 +258,10 @@ const CustomVisualization: FC<Props> = (props) => {
         );
     }
 
-    // TODO: 'chartConfig' is more props than config. It has data and
-    // configuration for the chart. We should consider renaming it generally.
-    const visProps =
-        visualizationConfig.chartConfig as CustomVisualizationConfigAndData;
+    const data = { values: customChartConfig.series };
 
-    const fieldIds =
-        visProps.fields ??
-        (visProps.series?.[0] ? Object.keys(visProps.series[0]) : []);
-    const rawSpec = spec as Record<string, unknown>;
-    const needsRewrite = rawSpec.rewrite === true;
-    const canRewrite = needsRewrite && fieldIds.length > 0;
-
-    const data = { values: visProps.series };
-
-    if (needsRewrite && !canRewrite) {
+    if (!specPipeline) {
+        // rewrite 模式：字段还没就绪，无法重写 spec
         return (
             <div
                 data-testid={props['data-testid']}
@@ -170,64 +278,7 @@ const CustomVisualization: FC<Props> = (props) => {
         );
     }
 
-    const { desktopSpec, responsiveConfig } = extractLightdashConfig(rawSpec);
-
-    const previewOverride: ResponsivePreviewOverride | undefined = !isDashboard
-        ? visProps.editorResponsiveTab
-        : undefined;
-
-    const { spec: activeSpecRaw, variant: layoutVariant } = resolveActiveSpec(
-        desktopSpec,
-        responsiveConfig,
-        viewportWidth,
-        previewOverride,
-    );
-    const specForVega =
-        prepareSpecForVega(
-            needsRewrite ? { ...activeSpecRaw, rewrite: true } : activeSpecRaw,
-            itemsMap,
-            fieldIds,
-        ) ?? activeSpecRaw;
-
-    const layout = computeResponsiveLayout(
-        layoutVariant,
-        activeSpecRaw,
-        width,
-        height,
-        visProps.series,
-        { preferFitInTile: useExplicitPixelSize },
-    );
-    const sizedSpec = normalizeVegaSpecSizing(
-        specForVega as Record<string, unknown>,
-        layout.chartSize,
-        visProps.series,
-        layout,
-        { useExplicitPixelSize },
-    );
-    const autosizeConfig = getVegaAutosizeConfig(
-        specForVega as Record<string, unknown>,
-        isDashboard,
-        layout,
-        { continuousResize: false, useExplicitPixelSize },
-    );
-
-    /**
-     * 看板开启「同步图表颜色」时：按系列名把看板色表注入 spec 的 color scale，
-     * 使自定义图表与笛卡尔/饼图同名系列同色（跨图稳定）。
-     */
-    const colorSyncResult = colorSync.enabled
-        ? applyDashboardColorSync({
-              spec: sizedSpec as Record<string, unknown>,
-              series: visProps.series,
-              resolveColor: createVegaColorResolver({
-                  palette: colorSync.palette,
-                  hashAssignments: colorSync.hashAssignments,
-                  knownHashAssignments: colorSync.knownHashAssignments,
-                  formattedValueMap,
-              }),
-          })
-        : { spec: null, visibleKeys: [] as string[] };
-
+    const { layout, sizedSpec, autosizeConfig } = specPipeline;
     const finalSpec = colorSyncResult.spec ?? sizedSpec;
 
     // Remount when stabilized size changes meaningfully (narrow path has no resize)
@@ -262,8 +313,8 @@ const CustomVisualization: FC<Props> = (props) => {
                 <Suspense fallback={<CompactChartLoading />}>
                     <VegaLite
                         key={`vega-${layout.layoutId}-${
-                            visProps.editorResponsiveTab
-                        }-${visProps.series?.length ?? 0}-${
+                            customChartConfig.editorResponsiveTab
+                        }-${customChartConfig.series?.length ?? 0}-${
                             resultsData?.hasFetchedAllRows ?? false
                         }-${sizeKeyWidth}-${sizeKeyHeight}`}
                         ref={chartRef}
