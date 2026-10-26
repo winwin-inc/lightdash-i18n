@@ -17,6 +17,7 @@ import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { getCategoryLevel } from '../../utils/categoryFilters';
+import { type ParentFilterRef } from './common/parentFilterRef';
 
 // 检测类目筛选器：基于字段名或 label
 const detectCategoryLevel = (filter: DashboardFilterRule): number | null => {
@@ -52,6 +53,10 @@ interface BatchBindModalProps {
     >;
     allFilterableFieldsMap: Record<string, DashboardFilterableField>;
     onApply: (updatedFilters: DashboardFilterRule[]) => void;
+    /** 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级） */
+    globalFilters?: DashboardFilterRule[];
+    /** 当前 Tab uuid（父级在同 Tab 时写入） */
+    tabUuid?: string;
 }
 
 interface FilterBindingPreview {
@@ -70,10 +75,47 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     filters,
     allFilterableFieldsMap,
     onApply,
+    globalFilters = [],
+    tabUuid,
 }) => {
     const { t } = useTranslation();
     const [selectedFilterIds, setSelectedFilterIds] = useState<Set<string>>(
         new Set(),
+    );
+
+    /**
+     * 查找上一级类目筛选器作为父级：
+     * 同 Tab 优先，其次全局（Tab 三级可以绑定全局二级）。
+     */
+    const findParentCandidate = useCallback(
+        (categoryLevel: number): ParentFilterRef | null => {
+            const targetParentLevel = categoryLevel - 1;
+
+            const tabParent = filters.find(
+                (filter) => detectCategoryLevel(filter) === targetParentLevel,
+            );
+            if (tabParent) {
+                return {
+                    scope: 'tab',
+                    tabUuid: tabUuid ?? null,
+                    fieldId: tabParent.target.fieldId,
+                };
+            }
+
+            const globalParent = globalFilters.find(
+                (filter) => detectCategoryLevel(filter) === targetParentLevel,
+            );
+            if (globalParent) {
+                return {
+                    scope: 'global',
+                    tabUuid: null,
+                    fieldId: globalParent.target.fieldId,
+                };
+            }
+
+            return null;
+        },
+        [filters, globalFilters, tabUuid],
     );
 
     // 计算每个筛选器的绑定预览
@@ -113,12 +155,9 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
             ).parentFieldId;
 
             if (categoryLevel && categoryLevel > 1) {
-                // 查找对应的父级筛选器
-                const targetParentLevel = categoryLevel - 1;
-                const parentFilter = categoryFilters.find(
-                    (item) => item.categoryLevel === targetParentLevel,
-                )?.filter;
-                expectedParentFieldId = parentFilter?.target.fieldId;
+                // 查找对应的父级筛选器：同 Tab 优先，其次全局
+                const parentCandidate = findParentCandidate(categoryLevel);
+                expectedParentFieldId = parentCandidate?.fieldId;
             }
 
             return {
@@ -131,7 +170,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                 expectedParentFieldId,
             };
         });
-    }, [filters, allFilterableFieldsMap]);
+    }, [filters, allFilterableFieldsMap, findParentCandidate]);
 
     // 初始化选中所有有变化的筛选器
     useMemo(() => {
@@ -185,6 +224,8 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
             const updates: Partial<
                 DashboardFilterRule & {
                     parentFieldId?: string;
+                    parentScope?: 'global' | 'tab';
+                    parentTabUuid?: string;
                     categoryLevel?: 1 | 2 | 3 | 4;
                 }
             > = {
@@ -192,12 +233,14 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
             };
 
             if (categoryLevel > 1) {
-                const targetParentLevel = categoryLevel - 1;
-                const parentFilter = filters.find(
-                    (f) => detectCategoryLevel(f) === targetParentLevel,
-                );
-                if (parentFilter) {
-                    updates.parentFieldId = parentFilter.target.fieldId;
+                const parentCandidate = findParentCandidate(categoryLevel);
+                if (parentCandidate) {
+                    updates.parentFieldId = parentCandidate.fieldId;
+                    updates.parentScope = parentCandidate.scope;
+                    updates.parentTabUuid =
+                        parentCandidate.scope === 'tab'
+                            ? parentCandidate.tabUuid ?? undefined
+                            : undefined;
                 }
             }
 
@@ -212,7 +255,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
 
         onApply(updatedFilters);
         onClose();
-    }, [filters, selectedFilterIds, onApply, onClose]);
+    }, [filters, selectedFilterIds, onApply, onClose, findParentCandidate]);
 
     const hasChanges = bindingPreviews.some(
         (preview) =>

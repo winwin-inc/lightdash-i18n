@@ -37,17 +37,28 @@ import useFiltersContext from '../../common/Filters/useFiltersContext';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 import { TagInput } from '../../common/TagInput/TagInput';
+import {
+    applyParentFilterRef,
+    decodeParentFilterRef,
+    encodeParentFilterRef,
+    type ParentFilterRef,
+} from '../common/parentFilterRef';
 import DateRangeConstraintEditor from './DateRangeConstraintEditor';
 import {
     mergeExcludedValues,
     normalizeExcludedValues,
     removeValuesExcludedFromFilterRule,
 } from './utils';
-
 type ParentFilterOption = {
     value: string;
     label: string;
     categoryLevel?: number;
+    /** 父级所在作用域 */
+    scope?: 'global' | 'tab';
+    /** 父级所在的 Tab uuid（scope === 'tab'） */
+    tabUuid?: string | null;
+    /** 父级的字段 id */
+    fieldId?: string;
 };
 
 type DashboardFilterRuleWithAllowedOperators = DashboardFilterRule & {
@@ -102,6 +113,8 @@ interface FilterSettingsProps {
     onPendingExcludedValueChange?: (value: string) => void;
     pendingExcludedValue?: string;
     parentFilterOptions?: ParentFilterOption[];
+    /** 当前筛选器的作用域：决定自动选择父级时的优先级 */
+    filterScope?: 'global' | 'tab';
 }
 
 const FilterSettings: FC<FilterSettingsProps> = ({
@@ -115,6 +128,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     onPendingExcludedValueChange,
     pendingExcludedValue = '',
     parentFilterOptions = [],
+    filterScope = 'global',
 }) => {
     const { t } = useTranslation();
     const { getField } = useFiltersContext();
@@ -132,6 +146,31 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     );
     const filterRuleWithAllowedOperators =
         filterRule as DashboardFilterRuleWithAllowedOperators;
+
+    // 当前父级选项的复合键：
+    // - 显式声明作用域（parentScope）→ 直接编码
+    // - 旧数据（只有 parentFieldId）→ 按候选列表匹配，保留原有绑定
+    const parentOptionValue = useMemo(() => {
+        if (!filterRule.parentFieldId) return null;
+
+        if (filterRule.parentScope) {
+            return encodeParentFilterRef({
+                scope: filterRule.parentScope,
+                tabUuid: filterRule.parentTabUuid ?? null,
+                fieldId: filterRule.parentFieldId,
+            });
+        }
+
+        const matched = parentFilterOptions.find(
+            (option) => option.fieldId === filterRule.parentFieldId,
+        );
+        return matched?.value ?? null;
+    }, [
+        filterRule.parentFieldId,
+        filterRule.parentScope,
+        filterRule.parentTabUuid,
+        parentFilterOptions,
+    ]);
 
     const filterOperatorOptions = useMemo(
         () =>
@@ -698,46 +737,58 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                               | 4)
                                         : undefined;
 
-                                    // 自动查找并设置父级筛选器
-                                    let autoParentFieldId: string | undefined;
+                                    // 自动查找并设置父级筛选器：
+                                    // 优先同作用域的上一级，其次全局的上一级
+                                    // （Tab 三级可以自动绑定全局二级）
+                                    let autoParentRef: ParentFilterRef | null =
+                                        null;
                                     if (
                                         newCategoryLevel &&
                                         newCategoryLevel > 1 &&
                                         parentFilterOptions.length > 0
                                     ) {
-                                        // 查找 categoryLevel 为 newCategoryLevel - 1 的筛选器
                                         const targetParentLevel =
                                             newCategoryLevel - 1;
-                                        const parentOption =
-                                            parentFilterOptions.find(
+                                        const candidates =
+                                            parentFilterOptions.filter(
                                                 (option) =>
                                                     option.categoryLevel ===
                                                     targetParentLevel,
                                             );
-                                        autoParentFieldId = parentOption?.value;
+                                        const preferred =
+                                            candidates.find(
+                                                (option) =>
+                                                    option.scope ===
+                                                    filterScope,
+                                            ) ??
+                                            candidates.find(
+                                                (option) =>
+                                                    option.scope === 'global',
+                                            ) ??
+                                            candidates[0];
+                                        autoParentRef = preferred
+                                            ? decodeParentFilterRef(
+                                                  preferred.value,
+                                              )
+                                            : null;
                                     }
 
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        categoryLevel: newCategoryLevel,
-                                        parentFieldId:
-                                            autoParentFieldId || undefined,
-                                    } as DashboardFilterRule & {
-                                        parentFieldId?: string;
-                                    });
+                                    onChangeFilterRule(
+                                        applyParentFilterRef(
+                                            {
+                                                ...filterRule,
+                                                categoryLevel: newCategoryLevel,
+                                            },
+                                            autoParentRef,
+                                        ),
+                                    );
                                 }}
                             />
                             <Select
                                 mt="xs"
                                 size="xs"
                                 data={parentFilterOptions}
-                                value={
-                                    (
-                                        filterRule as DashboardFilterRule & {
-                                            parentFieldId?: string;
-                                        }
-                                    ).parentFieldId ?? null
-                                }
+                                value={parentOptionValue}
                                 label={t(
                                     'components_dashboard_filter.configuration.category_level.parent_filter_label',
                                 )}
@@ -747,14 +798,19 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 disabled={parentFilterOptions.length === 0}
                                 clearable
                                 onChange={(value) =>
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        parentFieldId: value || undefined,
-                                    } as DashboardFilterRule & {
-                                        parentFieldId?: string;
-                                    })
+                                    onChangeFilterRule(
+                                        applyParentFilterRef(
+                                            filterRule,
+                                            decodeParentFilterRef(value),
+                                        ),
+                                    )
                                 }
                             />
+                            <Text size="xs" c="dimmed" mt={4}>
+                                {t(
+                                    'components_dashboard_filter.configuration.category_level.parent_scope_hint',
+                                )}
+                            </Text>
 
                             {/* 筛选器只读配置 */}
                             <Switch

@@ -162,7 +162,23 @@ export type DashboardFilterRule<
     label: undefined | string;
     singleValue?: boolean;
     categoryLevel?: 1 | 2 | 3 | 4;
+    /**
+     * 父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）
+     */
     parentFieldId?: string;
+    /**
+     * 父级筛选器所在作用域：
+     * - 'global'：全局筛选器
+     * - 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）
+     *
+     * 缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。
+     */
+    parentScope?: 'global' | 'tab';
+    /**
+     * 父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。
+     * 缺省表示与当前筛选器在同一个 Tab。
+     */
+    parentTabUuid?: string;
     /** Values hidden from filter options list */
     excludedValues?: string[];
     /** Operators available to viewers; undefined/empty means no restriction */
@@ -719,6 +735,8 @@ export const applyDimensionOverrides = (
                 // Preserve category filter configuration from the saved filter.
                 categoryLevel: dimension.categoryLevel,
                 parentFieldId: dimension.parentFieldId,
+                parentScope: dimension.parentScope,
+                parentTabUuid: dimension.parentTabUuid,
                 excludedValues: dimension.excludedValues,
                 allowedOperators: dimension.allowedOperators,
                 minAllowedDate: dimension.minAllowedDate,

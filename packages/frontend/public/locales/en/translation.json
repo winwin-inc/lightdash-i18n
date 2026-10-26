@@ -2775,7 +2775,10 @@
         "level3": "Level 3 Category",
         "level4": "Level 4 Category",
         "parent_filter_label": "Parent filter",
-        "parent_filter_placeholder": "No parent filter"
+        "parent_filter_placeholder": "No parent filter",
+        "parent_scope_global": "Global",
+        "parent_scope_tab": "Current tab",
+        "parent_scope_hint": "Tab filters can bind a global filter as their parent (global level 2 → tab level 3 → tab level 4). When a level in the chain has no value, the levels below it are cleared."
       },
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",

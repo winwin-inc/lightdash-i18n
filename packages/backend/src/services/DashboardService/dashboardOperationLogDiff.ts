@@ -77,6 +77,8 @@ const FILTER_SUMMARY_KEYS = [
     'singleValue',
     'categoryLevel',
     'parentFieldId',
+    'parentScope',
+    'parentTabUuid',
     'excludedValues',
     'allowedOperators',
     'minAllowedDate',

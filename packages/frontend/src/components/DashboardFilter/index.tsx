@@ -214,6 +214,12 @@ const DashboardFilter: FC<Props> = ({
         return tabFilters?.[activeTabUuid || '']?.dimensions || [];
     }, [filterScope, allFilters, tabFilters, activeTabUuid]);
 
+    // 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级 → Tab 四级）
+    const globalFilters = useMemo(
+        () => allFilters?.dimensions || [],
+        [allFilters],
+    );
+
     const handleBatchBind = useCallback(
         (updatedFilters: DashboardFilterRule[]) => {
             if (filterScope === 'tab' && activeTabUuid) {
@@ -389,6 +395,8 @@ const DashboardFilter: FC<Props> = ({
                     availableTileFilters={filterableFieldsByTileUuid || {}}
                     allFilterableFieldsMap={allFilterableFieldsMap}
                     onApply={handleBatchBind}
+                    globalFilters={globalFilters}
+                    tabUuid={activeTabUuid}
                 />
             )}
         </FiltersProvider>

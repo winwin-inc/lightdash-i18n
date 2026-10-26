@@ -134,6 +134,16 @@
                             "type": "string"
                         },
                         "parentFieldId": {
+                            "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                            "type": "string"
+                        },
+                        "parentScope": {
+                            "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                            "enum": ["global", "tab"],
+                            "type": "string"
+                        },
+                        "parentTabUuid": {
+                            "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                             "type": "string"
                         },
                         "readOnly": {
@@ -205,6 +215,16 @@
                             "type": "string"
                         },
                         "parentFieldId": {
+                            "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                            "type": "string"
+                        },
+                        "parentScope": {
+                            "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                            "enum": ["global", "tab"],
+                            "type": "string"
+                        },
+                        "parentTabUuid": {
+                            "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                             "type": "string"
                         },
                         "readOnly": {
@@ -669,6 +689,16 @@
                     "$ref": "#/$defs/FilterOperator"
                 },
                 "parentFieldId": {
+                    "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                    "type": "string"
+                },
+                "parentScope": {
+                    "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                    "enum": ["global", "tab"],
+                    "type": "string"
+                },
+                "parentTabUuid": {
+                    "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                     "type": "string"
                 },
                 "readOnly": {

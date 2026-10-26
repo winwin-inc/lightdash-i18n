@@ -2985,6 +2985,14 @@ const models: TsoaRoute.Models = {
                             dataType: 'array',
                             array: { dataType: 'string' },
                         },
+                        parentTabUuid: { dataType: 'string' },
+                        parentScope: {
+                            dataType: 'union',
+                            subSchemas: [
+                                { dataType: 'enum', enums: ['global'] },
+                                { dataType: 'enum', enums: ['tab'] },
+                            ],
+                        },
                         parentFieldId: { dataType: 'string' },
                         categoryLevel: {
                             dataType: 'union',
@@ -19424,6 +19432,14 @@ const models: TsoaRoute.Models = {
                             dataType: 'array',
                             array: { dataType: 'string' },
                         },
+                        parentTabUuid: { dataType: 'string' },
+                        parentScope: {
+                            dataType: 'union',
+                            subSchemas: [
+                                { dataType: 'enum', enums: ['global'] },
+                                { dataType: 'enum', enums: ['tab'] },
+                            ],
+                        },
                         parentFieldId: { dataType: 'string' },
                         categoryLevel: {
                             dataType: 'union',
@@ -19563,6 +19579,21 @@ const models: TsoaRoute.Models = {
                     ],
                 },
                 parentFieldId: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'string' },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                parentScope: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'enum', enums: ['global'] },
+                        { dataType: 'enum', enums: ['tab'] },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                parentTabUuid: {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'string' },

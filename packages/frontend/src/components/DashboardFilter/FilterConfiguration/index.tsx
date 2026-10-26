@@ -51,6 +51,7 @@ import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
 import MantineIcon from '../../common/MantineIcon';
+import { encodeParentFilterRef } from '../common/parentFilterRef';
 import FilterSettings from './FilterSettings';
 import TileFilterConfiguration from './TileFilterConfiguration';
 import { DEFAULT_TAB, FilterActions, FilterTabs } from './constants';
@@ -469,19 +470,45 @@ const FilterConfiguration: FC<Props> = ({
                 ? dashboardFiltersFromContext.dimensions
                 : (allFiltersFromContext?.dimensions ?? []);
 
-        const sourceFilters =
+        const tabDimensions = tabUuid
+            ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+            : [];
+
+        // 候选来源（父级必须能对当前作用域生效）：
+        // - 全局作用域：只允许全局筛选器作为父级
+        //   （全局筛选器不能依赖 Tab 筛选器：全局值在所有 Tab 生效）
+        // - Tab 作用域：可以绑定全局筛选器，或同一 Tab 的筛选器
+        //   （全局二级 → Tab 三级 → Tab 四级的跨作用域联动）
+        const candidates: {
+            rule: DashboardFilterRule;
+            scope: 'global' | 'tab';
+            tabUuid: string | null;
+        }[] =
             filterScope === 'global'
-                ? globalFilters
-                : tabUuid
-                  ? (tabFiltersFromContext?.[tabUuid]?.dimensions ?? [])
-                  : [];
+                ? globalFilters.map((rule) => ({
+                      rule,
+                      scope: 'global' as const,
+                      tabUuid: null,
+                  }))
+                : [
+                      ...globalFilters.map((rule) => ({
+                          rule,
+                          scope: 'global' as const,
+                          tabUuid: null,
+                      })),
+                      ...tabDimensions.map((rule) => ({
+                          rule,
+                          scope: 'tab' as const,
+                          tabUuid: tabUuid ?? null,
+                      })),
+                  ];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
         const currentFieldId = draftFilterRule.target.fieldId;
 
-        return sourceFilters
-            .filter((candidate) => {
+        return candidates
+            .filter(({ rule: candidate }) => {
                 if (!isCategoryField(candidate)) return false;
                 if (candidate.id && currentId && candidate.id === currentId)
                     return false;
@@ -495,7 +522,7 @@ const FilterConfiguration: FC<Props> = ({
                 }
                 return true;
             })
-            .map((candidate) => {
+            .map(({ rule: candidate, scope, tabUuid: candidateTabUuid }) => {
                 const baseLabel =
                     candidate.label ||
                     candidate.target.fieldLabel ||
@@ -507,12 +534,28 @@ const FilterConfiguration: FC<Props> = ({
                       )
                     : undefined;
 
+                const scopeLabel =
+                    scope === 'global'
+                        ? t(
+                              'components_dashboard_filter.configuration.category_level.parent_scope_global',
+                          )
+                        : t(
+                              'components_dashboard_filter.configuration.category_level.parent_scope_tab',
+                          );
+
                 return {
-                    value: candidate.target.fieldId,
-                    label: levelLabel
-                        ? `${baseLabel} • ${levelLabel}`
-                        : baseLabel,
+                    value: encodeParentFilterRef({
+                        scope,
+                        tabUuid: candidateTabUuid,
+                        fieldId: candidate.target.fieldId,
+                    }),
+                    label: [baseLabel, levelLabel, scopeLabel]
+                        .filter(Boolean)
+                        .join(' • '),
                     categoryLevel: candidate.categoryLevel,
+                    scope,
+                    tabUuid: candidateTabUuid,
+                    fieldId: candidate.target.fieldId,
                 };
             });
     }, [
@@ -707,6 +750,7 @@ const FilterConfiguration: FC<Props> = ({
                                     }
                                     popoverProps={popoverProps}
                                     parentFilterOptions={parentFilterOptions}
+                                    filterScope={filterScope}
                                 />
                             )}
                         </Stack>

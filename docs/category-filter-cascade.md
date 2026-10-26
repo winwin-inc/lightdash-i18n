@@ -1,5 +1,10 @@
 # 类目筛选器联动
 
+> 跨作用域（全局 ⇄ Tab）级联见：[看板类目筛选器：跨作用域级联（全局 ⇄ Tab）](./category-filter-cross-scope-binding.md)
+>
+> 本文描述**单作用域**内的联动语义；跨作用域部分（全局二级 → Tab 三级 → Tab 四级、
+> 父级作用域化、断链清空）在上述文档中说明，两者语义一致。
+
 ## 职责划分
 
 | 能力                                                     | 数据源                                                                                              |
@@ -55,6 +60,7 @@
 - 否则 → 切换到第一个实际值
 - 处理顺序按**类目层级（一级 → 四级）**，父级先重置，子级再基于新的父级值重新解析（级联）
 - 父级无候选值时，子级保留当前值（不连带清空）
+  - 注：**父级没有值**（断链）时，子级及更下级会被清空，见[跨作用域文档](./category-filter-cross-scope-binding.md#53-断链清空关键修复)
 - **被禁用的筛选器不参与自动赋值**（既有语义：`disabled` = 没有配置默认值，保持为空/无限制，不能给它套默认值）
 - 只有「被旧逻辑误清空、且服务端仍保存着原值」的类目筛选器才会恢复：重新解析出值并重新启用（`disabled: false`）
   - 判据：`originalDashboardFilters`（服务端保存值）里该筛选器仍有值，而当前状态里是 `disabled` 且无值
@@ -119,6 +125,7 @@
 - [`packages/frontend/src/utils/categoryFilters.ts`](../packages/frontend/src/utils/categoryFilters.ts)
   - `initializeCategoryFiltersAsync`
   - `updateCategoryFilterCascadeAsync`
+  - `updateCrossScopeCategoryCascadeAsync`（跨作用域，见跨作用域文档）
 - [`packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`](../packages/frontend/src/providers/Dashboard/DashboardProvider.tsx)
   - 非编辑模式且存在 `dashboardSlug` 时触发初始化/联动
   - 传入 `dashboardSlug` / `dashboardName`
