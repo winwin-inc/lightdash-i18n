@@ -3,6 +3,7 @@ import {
     applyDashboardColorSync,
     collectCategoricalColorPaths,
     extractDomainValues,
+    isNeutralColor,
 } from './vegaColorSync';
 
 const resolveColor = (value: string, _field?: string): string =>
@@ -49,6 +50,28 @@ function getColorScale(
 ): Record<string, unknown> {
     return getAt(spec, [...path, 'scale']) as Record<string, unknown>;
 }
+
+describe('isNeutralColor', () => {
+    it('黑/白/灰是中性色', () => {
+        expect(isNeutralColor('#000000')).toBe(true);
+        expect(isNeutralColor('#000')).toBe(true);
+        expect(isNeutralColor('#555555')).toBe(true);
+        expect(isNeutralColor('#cccccc')).toBe(true);
+        expect(isNeutralColor('#ffffff')).toBe(true);
+        expect(isNeutralColor('rgb(10, 10, 10)')).toBe(true);
+    });
+
+    it('彩色不是中性色', () => {
+        expect(isNeutralColor('#4169E1')).toBe(false);
+        expect(isNeutralColor('#52c256')).toBe(false);
+        expect(isNeutralColor('#0143c6')).toBe(false);
+        expect(isNeutralColor('rgb(82, 194, 86)')).toBe(false);
+    });
+
+    it('无法解析时按中性色处理', () => {
+        expect(isNeutralColor('not-a-color')).toBe(true);
+    });
+});
 
 describe('collectCategoricalColorPaths', () => {
     it('collects top-level categorical color encoding', () => {
@@ -1031,13 +1054,14 @@ describe('applyDashboardColorSync', () => {
             });
 
             expect(getColorDef(result, ['encoding', 'color'])).toEqual({
-                value: 'color:#cccccc',
+                value: '#cccccc',
                 condition: [
                     { test: 'datum.pct >= 0', value: 'color:#22a06b' },
                     { test: 'datum.pct >= 50', value: 'color:#1f8a5e' },
                 ],
             });
-            expect(visibleKeys).toEqual(['#cccccc', '#22a06b', '#1f8a5e']);
+            // 中性色（#cccccc）不入色表
+            expect(visibleKeys).toEqual(['#22a06b', '#1f8a5e']);
         });
 
         it('不改动 mark.color 等装饰性颜色', () => {
@@ -1111,7 +1135,7 @@ describe('applyDashboardColorSync', () => {
             expect(visibleKeys).toEqual([]);
         });
 
-        it('只写死一个颜色（无 condition）的编码保持原样', () => {
+        it('只写死一个颜色（无 condition）的编码也由色板接管', () => {
             const spec = {
                 mark: 'bar',
                 encoding: {
@@ -1125,8 +1149,150 @@ describe('applyDashboardColorSync', () => {
                 resolveColor,
             });
 
+            expect(getColorDef(result, ['encoding', 'color'])).toEqual({
+                value: 'color:#d64545',
+            });
+            expect(visibleKeys).toEqual(['#d64545']);
+        });
+
+        it('中性色（黑/白/灰）保持原样', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { value: '#555555' },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
             expect(result).toBe(spec);
             expect(visibleKeys).toEqual([]);
+        });
+    });
+
+    describe('mark 级写死颜色（mark.color / mark.fill / mark.stroke / mark.point.*）', () => {
+        it('接管 mark.color，并以字面值作为颜色键', () => {
+            const spec = {
+                mark: { type: 'bar', color: '#4169E1' },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['mark'])).toEqual({
+                type: 'bar',
+                color: 'color:#4169e1',
+            });
+            expect(visibleKeys).toEqual(['#4169e1']);
+        });
+
+        it('接管 mark.fill / mark.stroke / mark.point.fill / mark.point.stroke', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: {
+                            type: 'line',
+                            fill: '#52c256',
+                            stroke: '#0143c6',
+                            point: { fill: '#52c256', stroke: '#0143c6' },
+                        },
+                    },
+                ],
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['layer', 0, 'mark'])).toEqual({
+                type: 'line',
+                fill: 'color:#52c256',
+                stroke: 'color:#0143c6',
+                point: {
+                    fill: 'color:#52c256',
+                    stroke: 'color:#0143c6',
+                },
+            });
+            expect(visibleKeys).toEqual(['#52c256', '#0143c6']);
+        });
+
+        it('中性色（黑/白/灰）不改', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: {
+                            type: 'text',
+                            color: '#000',
+                            fill: '#ffffff',
+                            stroke: '#cccccc',
+                        },
+                    },
+                ],
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['layer', 0, 'mark'])).toEqual({
+                type: 'text',
+                color: '#000',
+                fill: '#ffffff',
+                stroke: '#cccccc',
+            });
+            expect(visibleKeys).toEqual([]);
+        });
+
+        it('接管 encoding.fill.value / encoding.stroke.value', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    fill: { value: '#4169E1' },
+                    stroke: { value: '#0143c6' },
+                },
+            };
+
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(getAt(result, ['encoding', 'fill'])).toEqual({
+                value: 'color:#4169e1',
+            });
+            expect(getAt(result, ['encoding', 'stroke'])).toEqual({
+                value: 'color:#0143c6',
+            });
+            expect(visibleKeys).toEqual(['#4169e1', '#0143c6']);
+        });
+
+        it('同一字面值在图中只占一个色表槽位', () => {
+            const spec = {
+                layer: [
+                    { mark: { type: 'line', stroke: '#52c256' } },
+                    { mark: { type: 'text', color: '#52c256' } },
+                ],
+            };
+
+            const { visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [],
+                resolveColor,
+            });
+
+            expect(visibleKeys).toEqual(['#52c256']);
         });
     });
 });

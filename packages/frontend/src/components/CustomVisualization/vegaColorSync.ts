@@ -14,6 +14,10 @@
  *      正/负、达标/未达标）也会被接管：字面色本身作为颜色键，
  *      保证跨图一致、且彼此不同（详见 applyDashboardColorSync）
  * - `scale: null` 跳过（字段值本身就是颜色）
+ * - spec 里写死的颜色（`mark.color` / `mark.fill` / `mark.stroke` /
+ *   `mark.point.fill` / `mark.point.stroke` / `encoding.fill.value` /
+ *   `encoding.stroke.value`）也会被接管：以**字面值本身**作为颜色键，
+ *   保证跨图一致、彼此不同；黑/白/灰等中性色（文字、坐标轴、装饰）跳过
  * - domain 来源有两种：
  *   1. 用户显式写了 `scale.domain` 数组 → 直接当作系列集合（不依赖数据，
  *      因此 fold/calculate 产生的计算列也能同步；顺序即渲染顺序，不再排序）
@@ -22,6 +26,8 @@
  * - `encoding.color.sort`（用户指定的图例/配色顺序）会被尊重：按聚合值排序 domain
  * - 数据里存在 null 分类时，null 会进 domain 并配一个中性灰（与 vega-lite 默认行为一致）
  */
+
+import { parseToRgb } from 'polished';
 
 /** 图表数据行（列名与 spec 中 encoding.field 一致） */
 export type VegaSeriesRow = Record<string, unknown>;
@@ -43,6 +49,30 @@ const NULL_CATEGORY_COLOR = '#cccccc';
 
 /** 看起来像颜色字面量的字符串（用于常量色重映射） */
 const COLOR_LITERAL_PATTERN = /^(#|rgb\(|rgba\(|hsl\(|hsla\()/i;
+
+/** mark / encoding 里可能写死颜色的属性 */
+const COLOR_PROPS = ['color', 'fill', 'stroke'] as const;
+
+/**
+ * 中性色判定阈值：RGB 三通道最大差值小于该值视为黑/白/灰。
+ * 这类颜色通常是文字、坐标轴、装饰，不应该被看板色板接管。
+ */
+const NEUTRAL_CHANNEL_SPREAD = 16;
+
+/**
+ * 是否是中性色（黑 / 白 / 灰）。
+ * 解析失败也按中性处理（宁可不改，也不误改）。
+ */
+export const isNeutralColor = (color: string): boolean => {
+    try {
+        const { red, green, blue } = parseToRgb(color);
+        const max = Math.max(red, green, blue);
+        const min = Math.min(red, green, blue);
+        return max - min <= NEUTRAL_CHANNEL_SPREAD;
+    } catch {
+        return true;
+    }
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -101,6 +131,49 @@ export const collectLiteralColorValues = (
     };
     push(color.value);
     getConditionBranches(color).forEach((branch) => push(branch.value));
+    return values;
+};
+
+/**
+ * 取视图里写死的颜色（mark 级与 encoding.fill/stroke 级）：
+ * - `mark.color` / `mark.fill` / `mark.stroke`
+ * - `mark.point.color` / `mark.point.fill` / `mark.point.stroke`
+ * - `encoding.fill.value` / `encoding.stroke.value`
+ *
+ * 这些颜色通常代表图里的“系列”（如上期/本期、基准线/对比线），
+ * 开启看板颜色同步后由看板色板接管。
+ */
+export const collectMarkLiteralColors = (
+    view: Record<string, unknown>,
+): string[] => {
+    const values: string[] = [];
+    const push = (value: unknown) => {
+        if (typeof value !== 'string') return;
+        if (!COLOR_LITERAL_PATTERN.test(value)) return;
+        if (!values.includes(value)) {
+            values.push(value);
+        }
+    };
+
+    const mark = view.mark;
+    if (isRecord(mark)) {
+        COLOR_PROPS.forEach((key) => push(mark[key]));
+        const point = mark.point;
+        if (isRecord(point)) {
+            COLOR_PROPS.forEach((key) => push(point[key]));
+        }
+    }
+
+    const encoding = view.encoding;
+    if (isRecord(encoding)) {
+        (['fill', 'stroke'] as const).forEach((key) => {
+            const channelDef = encoding[key];
+            if (isRecord(channelDef)) {
+                push(channelDef.value);
+            }
+        });
+    }
+
     return values;
 };
 
@@ -665,6 +738,26 @@ export const applyDashboardColorSync = ({
      */
     const literalKeyColors = new Map<string, string>();
 
+    /** 把一个字面色注册为看板色表的颜色键，并返回它在色板里的颜色 */
+    function registerLiteralKey(literal: string): string | undefined {
+        // 颜色字面量大小写不敏感，统一用小写作为颜色键
+        const key = literal.toLowerCase();
+        // 旧 range 的位置对应关系优先（它才对应真实系列）
+        if (literalColorMap.has(key)) return literalColorMap.get(key);
+        if (ambiguousLiterals.has(key)) return undefined;
+        // 中性色（黑/白/灰）通常是文字、坐标轴、装饰 → 保持用户原样
+        if (isNeutralColor(literal)) return undefined;
+        if (!literalKeyColors.has(key)) {
+            literalKeyColors.set(key, resolveColor(key, ''));
+        }
+        // 注册到看板色表 → 拿到稳定且互不相同的颜色
+        if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            visibleKeys.push(key);
+        }
+        return literalKeyColors.get(key);
+    }
+
     /** 记录旧 range 与新 range 的位置对应关系 */
     function recordLiteralRemap(oldRange: unknown, newRange: string[]): void {
         if (!Array.isArray(oldRange) || oldRange.length === 0) {
@@ -686,15 +779,17 @@ export const applyDashboardColorSync = ({
             if (!COLOR_LITERAL_PATTERN.test(oldColor)) {
                 return;
             }
-            const existing = literalColorMap.get(oldColor);
+            // 颜色字面量大小写不敏感，统一用小写作为键
+            const key = oldColor.toLowerCase();
+            const existing = literalColorMap.get(key);
             if (existing && existing !== newColor) {
                 // 同一旧色在不同视图里对应不同新色 → 标记为歧义
-                ambiguousLiterals.add(oldColor);
-                literalColorMap.delete(oldColor);
+                ambiguousLiterals.add(key);
+                literalColorMap.delete(key);
                 return;
             }
-            if (!ambiguousLiterals.has(oldColor)) {
-                literalColorMap.set(oldColor, newColor);
+            if (!ambiguousLiterals.has(key)) {
+                literalColorMap.set(key, newColor);
             }
         });
     }
@@ -791,11 +886,10 @@ export const applyDashboardColorSync = ({
          * 没有系列名可对齐，因此以字面值作为颜色键接入看板色表。
          *
          * 限制：
-         * - 只有「带 condition」的编码才处理：颜色由数据分支决定时才需要接管；
-         *   单纯写死一个颜色的编码（手绘图例色块 / 统一配色）保持用户原样
          * - 有 field 的编码不走这里（分类色由 scale 接管，见上）
          * - condition 分支里带 field 的不处理（那个分支用的是自己的 scale）
          * - `scale: null` 不处理（字段值本身就是颜色）
+         * - 中性色（黑/白/灰）不处理
          */
         if (color !== null && typeof color.field !== 'string') {
             const branches = getConditionBranches(color);
@@ -803,25 +897,22 @@ export const applyDashboardColorSync = ({
                 (branch) => typeof branch.field === 'string',
             );
             const scaleIsNull = color.scale === null;
-            if (branches.length > 0 && !hasFieldBranch && !scaleIsNull) {
+            if (!hasFieldBranch && !scaleIsNull) {
                 collectLiteralColorValues(color).forEach((literal) => {
-                    // 旧 range 的位置对应关系优先（它才对应真实系列）
-                    if (literalColorMap.has(literal)) return;
-                    if (ambiguousLiterals.has(literal)) return;
-                    if (!literalKeyColors.has(literal)) {
-                        literalKeyColors.set(
-                            literal,
-                            resolveColor(literal, ''),
-                        );
-                    }
-                    // 注册到看板色表 → 拿到稳定且互不相同的颜色
-                    if (!seenKeys.has(literal)) {
-                        seenKeys.add(literal);
-                        visibleKeys.push(literal);
-                    }
+                    registerLiteralKey(literal);
                 });
             }
         }
+
+        /**
+         * mark 级写死颜色（`mark.color` / `mark.fill` / `mark.stroke` /
+         * `mark.point.*` / `encoding.fill.value` / `encoding.stroke.value`）：
+         * 这些颜色在图里往往代表一条“系列”（上期/本期、基准线/对比线），
+         * 开启看板颜色同步后同样由看板色板接管。
+         */
+        collectMarkLiteralColors(view).forEach((literal) => {
+            registerLiteralKey(literal);
+        });
 
         let result: Record<string, unknown> = view;
         if (encoding !== view.encoding) {
@@ -858,8 +949,10 @@ export const applyDashboardColorSync = ({
      * 第二遍：把 spec 里手写的常量色改成看板色板里的对应颜色。
      * - `encoding.color.value` / `encoding.color.condition[].value`：
      *   数据颜色 → 优先用旧 range 的位置对应，其次用字面色键的看板颜色
-     * - `mark.color`：图形自身的颜色（参考线、描边等）→ 只用旧 range 的位置对应，
-     *   避免把装饰性颜色也刷成系列色
+     * - `mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*`：
+     *   图形自身的颜色（上期/本期、基准线/对比线等）→ 同样由看板色板接管
+     * - `encoding.fill.value` / `encoding.stroke.value`：同上
+     * 中性色（黑/白/灰）不入色表，保持用户原样。
      */
     function remapLiterals(view: unknown): unknown {
         if (!isRecord(view)) {
@@ -867,11 +960,47 @@ export const applyDashboardColorSync = ({
         }
         let result: Record<string, unknown> = view;
 
-        const mapDataColor = (value: string): string | undefined =>
-            literalColorMap.get(value) ?? literalKeyColors.get(value);
+        const mapDataColor = (value: string): string | undefined => {
+            const key = value.toLowerCase();
+            return literalColorMap.get(key) ?? literalKeyColors.get(key);
+        };
+
+        /** 改写 mark 上的写死颜色：mark.color/fill/stroke 与 mark.point.* */
+        const remapMarkColors = (
+            mark: Record<string, unknown>,
+        ): Record<string, unknown> => {
+            let next: Record<string, unknown> = mark;
+            const applyProps = (
+                source: Record<string, unknown>,
+                target: Record<string, unknown>,
+            ): Record<string, unknown> => {
+                let nextProps = target;
+                COLOR_PROPS.forEach((key) => {
+                    const value = source[key];
+                    if (typeof value !== 'string') return;
+                    const mapped = mapDataColor(value);
+                    if (!mapped) return;
+                    if (nextProps === target) nextProps = { ...target };
+                    nextProps[key] = mapped;
+                });
+                return nextProps;
+            };
+
+            next = applyProps(mark, next);
+            const point = mark.point;
+            if (isRecord(point)) {
+                const nextPoint = applyProps(point, point);
+                if (nextPoint !== point) {
+                    if (next === mark) next = { ...mark };
+                    next.point = nextPoint;
+                }
+            }
+            return next;
+        };
 
         const encoding = view.encoding;
         if (isRecord(encoding)) {
+            let nextEncoding = encoding;
             const color = encoding.color;
             if (isRecord(color)) {
                 let nextColor: Record<string, unknown> = color;
@@ -912,19 +1041,30 @@ export const applyDashboardColorSync = ({
                     }
                 }
                 if (nextColor !== color) {
-                    result = {
-                        ...result,
-                        encoding: { ...encoding, color: nextColor },
-                    };
+                    if (nextEncoding === encoding) nextEncoding = { ...encoding };
+                    nextEncoding.color = nextColor;
                 }
+            }
+            // `encoding.fill.value` / `encoding.stroke.value`
+            (['fill', 'stroke'] as const).forEach((key) => {
+                const channelDef = encoding[key];
+                if (!isRecord(channelDef)) return;
+                if (typeof channelDef.value !== 'string') return;
+                const mapped = mapDataColor(channelDef.value);
+                if (!mapped) return;
+                if (nextEncoding === encoding) nextEncoding = { ...encoding };
+                nextEncoding[key] = { ...channelDef, value: mapped };
+            });
+            if (nextEncoding !== encoding) {
+                result = { ...result, encoding: nextEncoding };
             }
         }
 
         const mark = view.mark;
-        if (isRecord(mark) && typeof mark.color === 'string') {
-            const mapped = literalColorMap.get(mark.color);
-            if (mapped) {
-                result = { ...result, mark: { ...mark, color: mapped } };
+        if (isRecord(mark)) {
+            const nextMark = remapMarkColors(mark);
+            if (nextMark !== mark) {
+                result = { ...result, mark: nextMark };
             }
         }
 

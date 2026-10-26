@@ -103,7 +103,9 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 | `encoding.color.scale.scheme` 存在 | 覆盖（删 `scheme`，改成 domain+range）；看板调色板比 scheme 更具体 |
 | `encoding.color` 是 `condition` 条件编码（有 `field`） | 跳过（分类色由 scale 接管，条件分支不动） |
 | `encoding.color` **无 `field`**、带 `condition`（颜色由数据分支决定，如正/负、达标/未达标） | **接管**：字面值本身作为颜色键（见 4.2） |
-| `encoding.color` **无 `field`**、只写死一个颜色（无 `condition`） | 跳过（手绘图例色块 / 统一配色，保持用户原样） |
+| `encoding.color` **无 `field`**、只写死一个颜色（无 `condition`） | **接管**（同 4.2）：字面值本身作为颜色键；中性色除外 |
+| `mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` 写死了颜色 | **接管**（见 4.3）：字面值本身作为颜色键；中性色除外 |
+| `encoding.fill.value` / `encoding.stroke.value` 写死了颜色 | **接管**（见 4.3） |
 | `encoding.color.type` 是 `quantitative` / `temporal` | 跳过（连续色阶，语义不同） |
 | `encoding.color.scale.domain` 是显式数组 | **直接当作系列集合**（不依赖数据），顺序 = 用户给的顺序；此时忽略 `color.sort`（vega-lite 显式 domain 不排序） |
 | `field` 在 `series` 里不存在（transform 计算列）且没有显式 domain | 跳过（domain 取不到值） |
@@ -150,10 +152,30 @@ range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
 
 限制：
 
-- 只有 **带 `condition`** 的编码才接管；只写死一个颜色的编码保持用户原样；
 - `condition` 分支里带 `field` 的不处理（那个分支用的是自己的 scale）；
 - `scale: null` 不处理；
-- `mark.color`（参考线、描边、文字色等装饰色）不受影响，只有命中旧 range 的才会被重映射。
+- 中性色（黑 / 白 / 灰）不处理（见 4.3）。
+
+### 4.3 mark 级写死颜色的接管
+
+很多图把“系列”直接写成固定色，而不是用 color scale：
+
+```json
+{ "mark": { "type": "bar", "color": "#4169E1" } }              // 上期
+{ "mark": { "type": "line", "stroke": "#0143c6" } }            // 对比线
+{ "mark": { "type": "line", "point": { "fill": "#52c256" } } } // 基准线
+```
+
+这类颜色不进 color scale，开启看板颜色同步时也不会变，导致“看起来没生效”。
+因此同步开启且该图被选中时，这些颜色同样被看板色板接管：
+
+- 采集范围：`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.color` /
+  `mark.point.fill` / `mark.point.stroke` / `encoding.fill.value` / `encoding.stroke.value`；
+- 颜色键 = **字面值本身**（转小写，颜色大小写不敏感），跨图一致；
+- 中性色（RGB 三通道最大差值 ≤ 16，即黑 / 白 / 灰）**不接管**：
+  文字、坐标轴、背景、描边等装饰色保持用户原样；
+- 旧 range 的位置对应关系优先（命中旧 range 的字面色按位置重映射，不再单独占色表槽位）；
+- 命名颜色（`red`、`steelblue`）与 `null` 不处理（只接管 `#hex` / `rgb()` / `hsl()` 等字面量）。
 
 ### 5. 未知系列名注册
 
@@ -280,10 +302,13 @@ export const createVegaColorResolver = ({
 14. `visibleKeys`（注册到看板色表的名字）始终按数据首次出现顺序，与 domain 顺序解耦；看板色表重置后会自动重新注册。
 15. `encoding.color.scale: null` 的编码不注入（字段值本身就是颜色，如 `'#3CB976'`）。
 16. 显式 `scale.domain` 时忽略 `color.sort`（vega-lite 显式 domain 不排序），且 domain 里没列出的分类不会被上色。
+17. 同步开启且选中该图时，spec 里写死的颜色（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` / `encoding.fill.value` / `encoding.stroke.value`）会被看板色板接管；中性色（黑/白/灰）与命名颜色（`red` 等）不受影响。
+18. 写死颜色以字面值本身作为颜色键，**颜色语义会被色板颜色取代**（例：写死的绿色基准线会变成色板里的某个颜色）；不希望被改的图不要勾选“同步颜色的图表”。
+19. 写死颜色的字面值会进入看板色表（键形如 `#4169e1`），同一字面值在看板所有图里同色。
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰、无 field 的条件色编码字面色接管（value + condition、condition 数组、装饰色不受影响、带 field 的 condition 保持原样、scale: null 不处理）。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰、无 field 的条件色编码字面色接管（value + condition、condition 数组、装饰色不受影响、带 field 的 condition 保持原样、scale: null 不处理）、mark 级写死颜色接管（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` / `encoding.fill.value` / `encoding.stroke.value`、中性色不改、同一字面值只占一个色表槽位、字面值大小写归一）。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
