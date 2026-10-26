@@ -1507,7 +1507,7 @@ const Dashboard: FC = () => {
                                                                                                         size="xs"
                                                                                                         c="dimmed"
                                                                                                     >
-                                                                                                        {`（${chartTypeLabel}）`}
+                                                                                                        {chartTypeLabel}
                                                                                                     </Text>
                                                                                                 )}
                                                                                             </Group>

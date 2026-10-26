@@ -1,6 +1,6 @@
 import { Anchor, Center, Loader, Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, useMemo, useRef, type FC } from 'react';
+import { Suspense, lazy, useEffect, useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
@@ -20,6 +20,7 @@ import {
     type ResponsivePreviewOverride,
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
+import VisibleColorKeysRegistrar from './VisibleColorKeysRegistrar';
 import { applyDashboardColorSync } from './vegaColorSync';
 import {
     buildFormattedValueMap,
@@ -50,34 +51,6 @@ type Props = {
     'data-testid'?: string;
 };
 
-/**
- * 把当前图可见系列名注册到看板色表。
- * 可见系列名要等 spec 处理完才知道，这里用 ref 承接，effect 里按内容去重后再注册。
- * palette 变化时看板色表会重置，需要重新注册一次。
- */
-const useVisibleColorKeysRegistration = (
-    enabled: boolean,
-    registerVisibleColorKeys: (keys: string[]) => void,
-    paletteKey: string,
-) => {
-    const keysRef = useRef<string[]>([]);
-    const registeredKeyRef = useRef('');
-
-    useEffect(() => {
-        if (!enabled) return;
-        const keys = keysRef.current;
-        if (keys.length === 0) return;
-        const key = `${paletteKey}\u0000${keys.join('\u0001')}`;
-        if (key === registeredKeyRef.current) return;
-        registeredKeyRef.current = key;
-        registerVisibleColorKeys(keys);
-    });
-
-    return (keys: string[]) => {
-        keysRef.current = keys;
-    };
-};
-
 const CustomVisualization: FC<Props> = (props) => {
     const {
         chartRef,
@@ -90,12 +63,6 @@ const CustomVisualization: FC<Props> = (props) => {
     } = useVisualizationContext();
     const { t } = useTranslation();
     const viewportWidth = useViewportWidth();
-
-    const setVisibleColorKeys = useVisibleColorKeysRegistration(
-        colorSync.enabled,
-        colorSync.registerVisibleColorKeys,
-        colorSync.palette.join(','),
-    );
 
     /** raw 值 → 展示值，用于颜色键兜底匹配（饼图等用的是展示值） */
     const formattedValueMap = useMemo(
@@ -261,8 +228,6 @@ const CustomVisualization: FC<Props> = (props) => {
           })
         : { spec: null, visibleKeys: [] as string[] };
 
-    setVisibleColorKeys(colorSyncResult.visibleKeys);
-
     const finalSpec = colorSyncResult.spec ?? sizedSpec;
 
     // Remount when stabilized size changes meaningfully (narrow path has no resize)
@@ -288,6 +253,11 @@ const CustomVisualization: FC<Props> = (props) => {
             }}
             ref={measureRef}
         >
+            <VisibleColorKeysRegistrar
+                enabled={colorSync.enabled}
+                keys={colorSyncResult.visibleKeys}
+                registerVisibleColorKeys={colorSync.registerVisibleColorKeys}
+            />
             {hasSize ? (
                 <Suspense fallback={<CompactChartLoading />}>
                     <VegaLite

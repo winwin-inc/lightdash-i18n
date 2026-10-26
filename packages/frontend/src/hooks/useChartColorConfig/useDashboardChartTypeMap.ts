@@ -6,13 +6,17 @@ import {
 import { useQueries } from '@tanstack/react-query';
 import { getSavedQuery } from '../useSavedQuery';
 
+/** 图表类型缓存时长：图表类型（chartConfig.type）几乎不变，缓存 5 分钟避免每次打开弹层都 refetch */
+const CHART_TYPE_STALE_TIME = 5 * 60 * 1000;
+
 /**
  * 看板每个图表 tile 对应的图表类型。
  * 用于「同步颜色的图表」列表里标注图表类型（自定义图表 / 图表 / 饼图 ...）。
  *
  * 只读取已保存图表的 chartConfig.type，不参与任何配色逻辑。
  * 查询 key 与 DashboardChartTile 共用（['saved_query', uuid]），
- * 已渲染过的图表直接命中缓存，未访问 Tab 的图表按需补拉。
+ * 已渲染过的图表直接命中缓存，未访问 Tab 的图表按需补拉；
+ * 加上 staleTime 后，同一份数据在缓存有效期内不会重复请求。
  */
 export const useDashboardChartTypeMap = ({
     tiles,
@@ -28,11 +32,17 @@ export const useDashboardChartTypeMap = ({
         return [{ tileUuid: tile.uuid, savedChartUuid }];
     });
 
+    // 同一个已保存图表可能被多个 tile 复用，去重后只发一次请求
+    const uniqueSavedChartUuids = Array.from(
+        new Set(chartRefs.map((ref) => ref.savedChartUuid)),
+    );
+
     const queries = useQueries({
-        queries: chartRefs.map((ref) => ({
-            queryKey: ['saved_query', ref.savedChartUuid],
-            queryFn: () => getSavedQuery(ref.savedChartUuid),
-            enabled: enabled && Boolean(ref.savedChartUuid),
+        queries: uniqueSavedChartUuids.map((savedChartUuid) => ({
+            queryKey: ['saved_query', savedChartUuid],
+            queryFn: () => getSavedQuery(savedChartUuid),
+            enabled: enabled && Boolean(savedChartUuid),
+            staleTime: CHART_TYPE_STALE_TIME,
             retry: false,
         })),
     });
@@ -40,7 +50,7 @@ export const useDashboardChartTypeMap = ({
     const typeBySavedChartUuid = new Map<string, ChartType>();
     queries.forEach((query, index) => {
         const type = query.data?.chartConfig?.type;
-        const savedChartUuid = chartRefs[index]?.savedChartUuid;
+        const savedChartUuid = uniqueSavedChartUuids[index];
         if (type && savedChartUuid) {
             typeBySavedChartUuid.set(savedChartUuid, type);
         }

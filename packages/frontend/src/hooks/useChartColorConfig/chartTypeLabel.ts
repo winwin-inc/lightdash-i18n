@@ -1,6 +1,9 @@
 import { ChartType, DashboardTileTypes } from '@lightdash/common';
 
-/** 类型标注的 i18n key + 兜底文案 */
+/**
+ * 类型标注的 i18n key + 兜底文案
+ * 文案自带括号（中文「（图表）」、英文「(Chart)」），调用方直接拼接即可。
+ */
 export type ChartTypeLabel = {
     key: string;
     fallback: string;
@@ -10,41 +13,41 @@ export type ChartTypeLabel = {
 const CHART_TYPE_LABELS: Record<ChartType, ChartTypeLabel> = {
     [ChartType.CARTESIAN]: {
         key: 'dashboard.sync_chart_colors_types.cartesian',
-        fallback: '图表',
+        fallback: '（图表）',
     },
     [ChartType.PIE]: {
         key: 'dashboard.sync_chart_colors_types.pie',
-        fallback: '饼图',
+        fallback: '（饼图）',
     },
     [ChartType.CUSTOM]: {
         key: 'dashboard.sync_chart_colors_types.custom',
-        fallback: '自定义图表',
+        fallback: '（自定义图表）',
     },
     [ChartType.TABLE]: {
         key: 'dashboard.sync_chart_colors_types.table',
-        fallback: '表格',
+        fallback: '（表格）',
     },
     [ChartType.BIG_NUMBER]: {
         key: 'dashboard.sync_chart_colors_types.big_number',
-        fallback: '指标卡',
+        fallback: '（指标卡）',
     },
     [ChartType.FUNNEL]: {
         key: 'dashboard.sync_chart_colors_types.funnel',
-        fallback: '漏斗图',
+        fallback: '（漏斗图）',
     },
     [ChartType.TREEMAP]: {
         key: 'dashboard.sync_chart_colors_types.treemap',
-        fallback: '矩形树图',
+        fallback: '（矩形树图）',
     },
     [ChartType.DATA_APP_VIZ]: {
         key: 'dashboard.sync_chart_colors_types.data_app_viz',
-        fallback: '数据应用',
+        fallback: '（数据应用）',
     },
 };
 
 const SQL_CHART_LABEL: ChartTypeLabel = {
     key: 'dashboard.sync_chart_colors_types.sql_chart',
-    fallback: 'SQL 图表',
+    fallback: '（SQL 图表）',
 };
 
 /**
