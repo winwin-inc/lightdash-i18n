@@ -22,6 +22,12 @@ export type VegaSpecPath = Array<string | number>;
 /** 可以注入颜色映射的分类色通道类型 */
 const CATEGORICAL_COLOR_TYPES = ['nominal', 'ordinal'] as const;
 
+/** 复合视图：子视图放在数组里 */
+const COMPOSITE_VIEW_KEYS = ['hconcat', 'vconcat', 'concat'] as const;
+
+/** 复合视图：子视图放在 .spec 里 */
+const COMPOSITE_SPEC_HOLDERS = ['facet', 'repeat'] as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -72,7 +78,7 @@ function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
 }
 
 /**
- * 收集 spec 中需要注入的 color 编码位置（顶层 + layer 递归），返回 spec 内的路径数组
+ * 收集 spec 中需要注入的 color 编码位置（顶层 + layer/复合视图递归），返回 spec 内的路径数组
  */
 export const collectCategoricalColorPaths = (
     spec: Record<string, unknown>,
@@ -93,6 +99,20 @@ export const collectCategoricalColorPaths = (
                 walk(child, [...prefix, 'layer', index]);
             });
         }
+        COMPOSITE_VIEW_KEYS.forEach((key) => {
+            const children = view[key];
+            if (Array.isArray(children)) {
+                children.forEach((child, index) => {
+                    walk(child, [...prefix, key, index]);
+                });
+            }
+        });
+        COMPOSITE_SPEC_HOLDERS.forEach((key) => {
+            const holder = view[key];
+            if (isRecord(holder) && isRecord(holder.spec)) {
+                walk(holder.spec, [...prefix, key, 'spec']);
+            }
+        });
     }
 
     walk(spec, []);
@@ -160,7 +180,7 @@ export const applyDashboardColorSync = ({
 }: {
     spec: Record<string, unknown>;
     series: VegaSeriesRow[];
-    resolveColor: (value: string) => string;
+    resolveColor: (value: string, field: string) => string;
 }): { spec: Record<string, unknown>; visibleKeys: string[] } => {
     const visibleKeys: string[] = [];
     const seenKeys = new Set<string>();
@@ -179,7 +199,7 @@ export const applyDashboardColorSync = ({
             const domain = extractDomainValues(series, field);
             if (domain.length > 0) {
                 const range = domain.map((value) =>
-                    resolveColor(String(value)),
+                    resolveColor(String(value), field),
                 );
                 const syncedColor = {
                     ...color,
@@ -210,6 +230,24 @@ export const applyDashboardColorSync = ({
                 layer: view.layer.map((child) => walk(child)),
             };
         }
+        COMPOSITE_VIEW_KEYS.forEach((key) => {
+            const children = view[key];
+            if (Array.isArray(children)) {
+                result = {
+                    ...result,
+                    [key]: children.map((child) => walk(child)),
+                };
+            }
+        });
+        COMPOSITE_SPEC_HOLDERS.forEach((key) => {
+            const holder = view[key];
+            if (isRecord(holder) && isRecord(holder.spec)) {
+                result = {
+                    ...result,
+                    [key]: { ...holder, spec: walk(holder.spec) },
+                };
+            }
+        });
         return result;
     }
 

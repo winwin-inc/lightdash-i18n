@@ -101,7 +101,7 @@ domain 取值：从 `series` 里该字段的去重值，**保持原始值类型*
 ```ts
 export type VegaSeriesRow = Record<string, unknown>;
 
-/** 收集 spec 中需要注入的 color 编码位置（顶层 + layer 递归），返回 spec 内的路径数组 */
+/** 收集 spec 中需要注入的 color 编码位置（顶层 + layer/复合视图递归），返回 spec 内的路径数组 */
 export const collectCategoricalColorPaths = (
     spec: Record<string, unknown>,
 ): Array<Array<string | number>>;
@@ -123,9 +123,33 @@ export const applyDashboardColorSync = ({
 }: {
     spec: Record<string, unknown>;
     series: VegaSeriesRow[];
-    resolveColor: (value: string) => string;
+    resolveColor: (value: string, field: string) => string;
 }): { spec: Record<string, unknown>; visibleKeys: string[] };
 ```
+
+### 新增：`packages/frontend/src/components/CustomVisualization/vegaColorResolver.ts`（纯函数，可单测）
+
+```ts
+/** 字段 + raw 值 → 展示值（用于颜色键兜底匹配） */
+export const buildFormattedValueMap = (
+    rows: ResultRow[] | undefined,
+): Map<string, string>;
+
+/** 生成「系列值 + 字段 → 颜色」的解析函数 */
+export const createVegaColorResolver = ({
+    palette,
+    hashAssignments,
+    formattedValueMap,
+}: {
+    palette: string[];
+    hashAssignments: Record<string, string>;
+    formattedValueMap?: Map<string, string>;
+}): (value: string, field: string) => string;
+```
+
+取色顺序：**raw 键 → 同字段的展示值键 → 哈希兜底**。
+
+原因：标准图的颜色键不统一——笛卡尔图用 pivot 的原始值，饼图用分组名（展示值）；而自定义图表的 `series` 里只有 raw 值。展示值兜底让「同一维度值」在标准图与自定义图之间落到同一个颜色（例如日期维度）。
 
 约束：
 
@@ -141,7 +165,7 @@ export const applyDashboardColorSync = ({
 | `packages/frontend/src/components/LightdashVisualization/VisualizationProvider.tsx` | 组装 `colorSync`（`enabled = useHashBased`，`palette = colorPalette`，`hashAssignments`，`registerVisibleColorKeys` 来自 `useRegisterDashboardVisibleColorKeys()`）并放进 context value |
 | `packages/frontend/src/providers/DashboardChartColorSync/useDashboardChartColorSync.ts` | `shouldSyncColors` 去掉 `!isCustomChart` |
 | `packages/frontend/src/components/DashboardTiles/DashboardChartTile.tsx` | 跟随上面的语义变化（`isCustomChart` 不再用于排除） |
-| `packages/frontend/src/components/CustomVisualization/index.tsx` | 应用 `applyDashboardColorSync`；渲染期把 `visibleKeys` 注册到看板色表（ref 承接 + effect 去重） |
+| `packages/frontend/src/components/CustomVisualization/index.tsx` | 应用 `applyDashboardColorSync`（颜色由 `createVegaColorResolver` 解析）；渲染期把 `visibleKeys` 注册到看板色表（ref 承接 + effect 去重） |
 
 ### 附带改动：「同步颜色的图表」列表标注图表类型
 
@@ -161,9 +185,16 @@ export const applyDashboardColorSync = ({
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
+7. 注入的是显式 `domain` + `range`，会覆盖 Vega-Lite 默认的 domain 归一/去重 → legend 顺序按数据首次出现顺序。
+8. 开启同步时 `scale.scheme` 会被移除（改为显式 `range`），属于用户 spec 的改写。
+9. 颜色变化会触发 `react-vega` 重建 view（spec 变化属于昂贵变更），大数据量图表上会短暂卡顿；`react-vega` 用 `fast-deep-equal` 比较 spec，内容不变不会重建。
+10. 自定义图表的颜色键与标准图不是同一命名空间：标准图进 `knownColorKeys`（共现避让规则），自定义图表运行时注册（避开全看板已占色）。同名系列在多数情况下能对上（笛卡尔 pivot 值与自定义图 raw 值一致），但 **raw 与展示值不一致且展示值未被其他图注册** 时，仍可能不同色。
+11. 数值 `1` 与字符串 `'1'` 在颜色键上会折叠为同一个 key（与标准图行为一致），但 Vega 侧视为两个值 → 可能两值同色。
+12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer 注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入。
+2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、跨字段不误命中、哈希兜底确定性。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
 3. 回归：未开启同步的看板，CUSTOM 图渲染无变化；导出图片与页面一致。

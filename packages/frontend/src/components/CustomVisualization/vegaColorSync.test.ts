@@ -5,7 +5,8 @@ import {
     extractDomainValues,
 } from './vegaColorSync';
 
-const resolveColor = (value: string): string => `color:${value}`;
+const resolveColor = (value: string, _field?: string): string =>
+    `color:${value}`;
 
 const series = [
     { category: 'A', sales: 1 },
@@ -387,5 +388,108 @@ describe('applyDashboardColorSync', () => {
         });
         expect(result).toBe(spec);
         expect(visibleKeys).toEqual([]);
+    });
+    it('injects into composite views (hconcat / vconcat / concat)', () => {
+        const spec = {
+            hconcat: [
+                {
+                    mark: 'bar',
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+                {
+                    mark: 'line',
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            ],
+            vconcat: [
+                {
+                    mark: 'point',
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            ],
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        expect(
+            (result as any).hconcat[0].encoding.color.scale.domain,
+        ).toEqual(['A', 'B']);
+        expect(
+            (result as any).hconcat[1].encoding.color.scale.range,
+        ).toEqual(['color:A', 'color:B']);
+        expect(
+            (result as any).vconcat[0].encoding.color.scale.domain,
+        ).toEqual(['A', 'B']);
+        expect(visibleKeys).toEqual(['A', 'B']);
+    });
+
+    it('injects into facet / repeat sub specs', () => {
+        const spec = {
+            facet: {
+                spec: {
+                    mark: 'bar',
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            },
+            repeat: {
+                spec: {
+                    mark: 'line',
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+
+        expect((result as any).facet.spec.encoding.color.scale.domain).toEqual([
+            'A',
+            'B',
+        ]);
+        expect((result as any).repeat.spec.encoding.color.scale.range).toEqual([
+            'color:A',
+            'color:B',
+        ]);
+    });
+
+    it('collects color paths inside composite views', () => {
+        const spec = {
+            hconcat: [
+                {
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            ],
+            facet: {
+                spec: {
+                    encoding: {
+                        color: { field: 'category', type: 'nominal' },
+                    },
+                },
+            },
+        };
+
+        expect(collectCategoricalColorPaths(spec)).toEqual([
+            ['hconcat', 0, 'encoding', 'color'],
+            ['facet', 'spec', 'encoding', 'color'],
+        ]);
     });
 });

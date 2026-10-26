@@ -1,10 +1,9 @@
 import { Anchor, Center, Loader, Text } from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, useRef, type FC } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
-import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { isCustomVisualizationConfig } from '../LightdashVisualization/types';
 import { useVisualizationContext } from '../LightdashVisualization/useVisualizationContext';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
@@ -22,6 +21,10 @@ import {
 } from './responsive';
 import { prepareSpecForVega } from './rewriteVegaSpecFieldLabels';
 import { applyDashboardColorSync } from './vegaColorSync';
+import {
+    buildFormattedValueMap,
+    createVegaColorResolver,
+} from './vegaColorResolver';
 import { useObservedContainerSize } from './useObservedContainerSize';
 import {
     CHART_SIZE_CHANGE_EPSILON_PX,
@@ -92,6 +95,12 @@ const CustomVisualization: FC<Props> = (props) => {
         colorSync.enabled,
         colorSync.registerVisibleColorKeys,
         colorSync.palette.join(','),
+    );
+
+    /** raw 值 → 展示值，用于颜色键兜底匹配（饼图等用的是展示值） */
+    const formattedValueMap = useMemo(
+        () => buildFormattedValueMap(resultsData?.rows),
+        [resultsData],
     );
 
     // Own ResizeObserver in the callback ref so observe runs on mount
@@ -243,12 +252,11 @@ const CustomVisualization: FC<Props> = (props) => {
         ? applyDashboardColorSync({
               spec: sizedSpec as Record<string, unknown>,
               series: visProps.series,
-              resolveColor: (value: string) =>
-                  resolveSyncedHashColor(
-                      value,
-                      colorSync.palette,
-                      colorSync.hashAssignments,
-                  ),
+              resolveColor: createVegaColorResolver({
+                  palette: colorSync.palette,
+                  hashAssignments: colorSync.hashAssignments,
+                  formattedValueMap,
+              }),
           })
         : { spec: null, visibleKeys: [] as string[] };
 
