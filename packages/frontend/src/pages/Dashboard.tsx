@@ -356,8 +356,10 @@ const Dashboard: FC = () => {
     const [syncChartTileUuids, setSyncChartTileUuids] = useState<string[]>(
         dashboard?.config?.syncChartTileUuids ?? [],
     );
-    // 颜色配置弹层是否展开（展开时才去拉图表类型用于标注）
-    const [colorConfigOpened, setColorConfigOpened] = useState(false);
+    // 「选择图表」弹层是否展开（展开时才去拉图表类型用于标注）
+    // 注意：Mantine v6 的 Popover 一旦传入 opened 就变成受控组件，
+    // 目标元素不会再自动绑定 onClick，必须自己写 onClick 切换。
+    const [chartListOpened, setChartListOpened] = useState(false);
 
     // 查看模式读已保存配置，避免首次 dashboard 未就绪时 local state 锁死为 false
     const resolvedSyncChartColors = isEditMode
@@ -499,7 +501,7 @@ const Dashboard: FC = () => {
     // 图表类型（仅用于「同步颜色的图表」列表里的类型标注，不参与配色）
     const chartTypeMap = useDashboardChartTypeMap({
         tiles: chartTiles,
-        enabled: isEditMode && syncChartColors && colorConfigOpened,
+        enabled: isEditMode && syncChartColors && chartListOpened,
     });
 
     /** 图表类型 → 灰色标注文案 */
@@ -1300,12 +1302,7 @@ const Dashboard: FC = () => {
                                     />
                                 )}
                                 {syncChartColors && isEditMode && (
-                                    <Popover
-                                        width={300}
-                                        position="bottom"
-                                        opened={colorConfigOpened}
-                                        onChange={setColorConfigOpened}
-                                    >
+                                    <Popover width={300} position="bottom">
                                         <Popover.Target>
                                             <Button size="xs" variant="outline">
                                                 {t(
@@ -1403,11 +1400,23 @@ const Dashboard: FC = () => {
                                 {syncChartColors &&
                                     isEditMode &&
                                     chartTiles.length > 0 && (
-                                        <Popover width={400} position="bottom">
+                                        <Popover
+                                            width={400}
+                                            position="bottom"
+                                            opened={chartListOpened}
+                                            onClose={() =>
+                                                setChartListOpened(false)
+                                            }
+                                        >
                                             <Popover.Target>
                                                 <Button
                                                     size="xs"
                                                     variant="outline"
+                                                    onClick={() =>
+                                                        setChartListOpened(
+                                                            (o) => !o,
+                                                        )
+                                                    }
                                                 >
                                                     {t(
                                                         'dashboard.select_charts',
