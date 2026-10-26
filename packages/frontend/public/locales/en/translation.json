@@ -1113,6 +1113,7 @@
     "select_color_palette": "Select color palette",
     "select_charts": "Select charts",
     "sync_chart_colors_for": "Sync chart colors for:",
+    "sync_chart_colors_hint": "Custom charts are included; colors defined in their spec are replaced by the dashboard palette.",
     "sync_chart_colors_types": {
       "cartesian": "(Chart)",
       "pie": "(Pie chart)",

@@ -1435,6 +1435,16 @@ const Dashboard: FC = () => {
                                                         'Sync chart colors for:',
                                                     )}
                                                 </Text>
+                                                <Text
+                                                    size="xs"
+                                                    c="dimmed"
+                                                    mb="xs"
+                                                >
+                                                    {t(
+                                                        'dashboard.sync_chart_colors_hint',
+                                                        'Custom charts are included; colors defined in their spec are replaced by the dashboard palette.',
+                                                    )}
+                                                </Text>
                                                 <ScrollArea.Autosize mah={400}>
                                                     <Stack>
                                                         {chartTilesByTab.map(
