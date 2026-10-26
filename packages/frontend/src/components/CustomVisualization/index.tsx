@@ -50,10 +50,12 @@ type Props = {
 /**
  * 把当前图可见系列名注册到看板色表。
  * 可见系列名要等 spec 处理完才知道，这里用 ref 承接，effect 里按内容去重后再注册。
+ * palette 变化时看板色表会重置，需要重新注册一次。
  */
 const useVisibleColorKeysRegistration = (
     enabled: boolean,
     registerVisibleColorKeys: (keys: string[]) => void,
+    paletteKey: string,
 ) => {
     const keysRef = useRef<string[]>([]);
     const registeredKeyRef = useRef('');
@@ -62,7 +64,7 @@ const useVisibleColorKeysRegistration = (
         if (!enabled) return;
         const keys = keysRef.current;
         if (keys.length === 0) return;
-        const key = keys.join('\u0001');
+        const key = `${paletteKey}\u0000${keys.join('\u0001')}`;
         if (key === registeredKeyRef.current) return;
         registeredKeyRef.current = key;
         registerVisibleColorKeys(keys);
@@ -89,6 +91,7 @@ const CustomVisualization: FC<Props> = (props) => {
     const setVisibleColorKeys = useVisibleColorKeysRegistration(
         colorSync.enabled,
         colorSync.registerVisibleColorKeys,
+        colorSync.palette.join(','),
     );
 
     // Own ResizeObserver in the callback ref so observe runs on mount
