@@ -74,7 +74,7 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 | 情况 | 行为 |
 |---|---|
 | `encoding.color` 有 `field` 且 `type` 为 `nominal` / `ordinal` | 注入 `scale.domain` + `scale.range` |
-| `encoding.color.scale.range` 用户显式写了数组 | **不覆盖**（尊重用户显式意图） |
+| `encoding.color.scale.range` 用户显式写了数组 | **覆盖**（开启同步并选中该图时由看板色板接管配色）；覆盖前后的颜色对应关系会用于重映射 spec 里的常量色 |
 | `encoding.color.scale` 为 `null` | 跳过（字段值本身就是颜色，如 `'#3CB976'`） |
 | `encoding.color.scale.scheme` 存在 | 覆盖（删 `scheme`，改成 domain+range）；看板调色板比 scheme 更具体 |
 | `encoding.color` 是 `condition` 条件编码 | 跳过 |
@@ -92,6 +92,17 @@ domain 取值有两种来源：
    顺序 = 首次出现顺序；再按 `color.sort` 语义排序。
 
 range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
+
+### 4.1 常量色重映射（“开启同步即自动接管配色”）
+
+自定义图表常用手写色块做图例（`encoding.color.value: '#4169E1'`），这类常量色不经过 color scale，
+默认不会跟随看板色板。实现上会：
+
+1. 覆盖 `scale.range` 时记录「旧 range[i] → 新 range[i]」的位置对应关系；
+2. 再遍历一遍 spec，把 `encoding.color.value` / `mark.color` 里**与旧 range 字面完全相同**的颜色
+   换成新颜色（同一旧色对应多个新色时视为语义不明，不重映射）。
+
+这样「开启同步 + 选中该图」后，柱子的颜色和手绘图例色块会一起跟随看板色板，用户无需修改 spec。
 
 ### 5. 未知系列名注册
 
@@ -182,7 +193,7 @@ export const createVegaColorResolver = ({
 
 ### 附带改动：「同步颜色的图表」列表标注图表类型
 
-自定义图表参与同步后，同一个列表里既有标准图也有自定义图，两者的取色语义不同（自定义图 spec 里显式写的 `scale.range` 不会被覆盖）。因此在看板编辑态的「同步颜色的图表」配置弹层里，每条图表名后追加灰色类型标注，例如 `销售额趋势（图表）`、`品牌占比（饼图）`、`自定义折线（自定义图表）`、`SQL 汇总（SQL 图表）`。
+自定义图表参与同步后，同一个列表里既有标准图也有自定义图，两者的取色语义仍不同（标准图有手配色/元数据色等更多来源，自定义图只有 spec 里的 color 编码）。因此在看板编辑态的「同步颜色的图表」配置弹层里，每条图表名后追加灰色类型标注，例如 `销售额趋势（图表）`、`品牌占比（饼图）`、`自定义折线（自定义图表）`、`SQL 汇总（SQL 图表）`。
 
 | 文件 | 改动 |
 |---|---|
@@ -192,11 +203,10 @@ export const createVegaColorResolver = ({
 
 ## 边界与已知限制
 
-1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**不会被覆盖** → 需在文档/答复里说明。
+1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**会被覆盖**（开启同步并选中该图时）→ 不想被接管就不要把该图放进「同步颜色的图表」列表。
 2. 条件编码（`condition`）、连续色阶（quantitative color）不处理。
 3. transform 计算列做 color 时无法注入 —— **除非**用户显式写了 `encoding.color.scale.domain` 数组，
-   此时该数组被当作系列集合（典型场景：宽表 + `fold` + `calculate` 生成的 `year_label`，
-   删掉 `scale.range` 即可跟随看板同步）。
+   此时该数组被当作系列集合（典型场景：宽表 + `fold` + `calculate` 生成的 `year_label`）。
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
@@ -222,7 +232,7 @@ export const createVegaColorResolver = ({
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain + 显式 range 不覆盖、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。

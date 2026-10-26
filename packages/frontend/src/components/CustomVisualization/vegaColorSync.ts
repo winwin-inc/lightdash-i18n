@@ -6,10 +6,11 @@
  *
  * 约束（与 docs/vega-lite-dashboard-color-sync.md 一致）：
  * - 只处理 `encoding.color`：必须有 `field` 且 `type` 为 nominal / ordinal
- * - `encoding.color.scale.range` 是数组时视为用户显式指定，不覆盖
+ * - `encoding.color.scale.range` 是数组时会被**覆盖**（开启同步即由看板色板接管配色），
+ *   覆盖前后的颜色对应关系用于重映射 spec 里的常量色（手绘图例等）
  * - `scale.scheme` 存在时视为可覆盖（删除 scheme，改写为 domain + range）
  * - condition 条件编码 / 连续色阶（quantitative、temporal）跳过
- * - `scale: null` 跳过（字段值本身就是颜色，不能改）
+ * - `scale: null` 跳过（字段值本身就是颜色）
  * - domain 来源有两种：
  *   1. 用户显式写了 `scale.domain` 数组 → 直接当作系列集合（不依赖数据，
  *      因此 fold/calculate 产生的计算列也能同步；顺序即渲染顺序，不再排序）
@@ -37,6 +38,9 @@ const COMPOSITE_SPEC_HOLDERS = ['facet', 'repeat'] as const;
 /** 空值分类（null）用的中性灰：与 vega-lite 默认给 null 分类上色一致 */
 const NULL_CATEGORY_COLOR = '#cccccc';
 
+/** 看起来像颜色字面量的字符串（用于常量色重映射） */
+const COLOR_LITERAL_PATTERN = /^(#|rgb\(|rgba\(|hsl\(|hsla\()/i;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -62,7 +66,11 @@ function getColorEncoding(view: unknown): Record<string, unknown> | null {
  * - 非 condition 形式
  * - 有 field 字符串
  * - type 为 nominal / ordinal
- * - scale.range 不是数组（用户显式配色不覆盖）
+ * - scale 不是 null（scale: null 表示字段值本身就是颜色）
+ *
+ * 注意：显式的 `scale.range` **会被覆盖** —— 开启看板颜色同步并选中该图时，
+ * 由看板色板接管配色；覆盖前后的颜色对应关系会被用于重映射 spec 里的常量色
+ * （例如手绘图例的 `color: { value: '#4169E1' }`）。
  */
 function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
     if ('condition' in color) {
@@ -78,13 +86,8 @@ function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
     ) {
         return false;
     }
-    const scale = color.scale;
-    if (scale === null) {
+    if (color.scale === null) {
         // scale: null → 字段值本身就是颜色（如 '#3CB976'），不能注入 scale
-        return false;
-    }
-    if (isRecord(scale) && Array.isArray(scale.range)) {
-        // 用户显式指定了颜色数组 → 不覆盖
         return false;
     }
     return true;
@@ -601,6 +604,48 @@ export const applyDashboardColorSync = ({
     const visibleKeys: string[] = [];
     const seenKeys = new Set<string>();
     let injected = false;
+    /**
+     * 旧 range → 新 range 的字面色对应关系。
+     * 用于把 spec 里手写的常量色（如手绘图例的 `color: { value: '#4169E1' }`）
+     * 一并改成看板色板里的颜色，做到“开启同步即自动接管配色”。
+     */
+    const literalColorMap = new Map<string, string>();
+    /** 语义不明确（同一旧色对应多个新色）的字面色，不做重映射 */
+    const ambiguousLiterals = new Set<string>();
+
+    /** 记录旧 range 与新 range 的位置对应关系 */
+    function recordLiteralRemap(oldRange: unknown, newRange: string[]): void {
+        if (!Array.isArray(oldRange) || oldRange.length === 0) {
+            return;
+        }
+        if (!oldRange.every((value) => typeof value === 'string')) {
+            return;
+        }
+        const oldColors = oldRange as string[];
+        // 旧 range 里有重复色 → 语义不明确，跳过
+        if (new Set(oldColors).size !== oldColors.length) {
+            return;
+        }
+        oldColors.forEach((oldColor, index) => {
+            const newColor = newRange[index];
+            if (!newColor || newColor === oldColor) {
+                return;
+            }
+            if (!COLOR_LITERAL_PATTERN.test(oldColor)) {
+                return;
+            }
+            const existing = literalColorMap.get(oldColor);
+            if (existing && existing !== newColor) {
+                // 同一旧色在不同视图里对应不同新色 → 标记为歧义
+                ambiguousLiterals.add(oldColor);
+                literalColorMap.delete(oldColor);
+                return;
+            }
+            if (!ambiguousLiterals.has(oldColor)) {
+                literalColorMap.set(oldColor, newColor);
+            }
+        });
+    }
 
     function walk(view: unknown): unknown {
         if (!isRecord(view)) {
@@ -660,6 +705,11 @@ export const applyDashboardColorSync = ({
                         ? NULL_CATEGORY_COLOR
                         : resolveColor(String(value), field),
                 );
+                // 用户原本写的 range → 记录对应关系，用于重映射 spec 里的常量色
+                const oldRange = isRecord(color.scale)
+                    ? color.scale.range
+                    : undefined;
+                recordLiteralRemap(oldRange, finalRange);
                 const syncedColor = {
                     ...color,
                     scale: buildSyncedScale(
@@ -715,10 +765,76 @@ export const applyDashboardColorSync = ({
         return result;
     }
 
+    /**
+     * 第二遍：把 spec 里手写的常量色改成看板色板里的对应颜色。
+     * 只处理 `encoding.color.value` 与 `mark.color`（两者都是“直接给一个颜色”）。
+     */
+    function remapLiterals(view: unknown): unknown {
+        if (!isRecord(view)) {
+            return view;
+        }
+        let result: Record<string, unknown> = view;
+
+        const encoding = view.encoding;
+        if (isRecord(encoding)) {
+            const color = encoding.color;
+            if (isRecord(color) && typeof color.value === 'string') {
+                const mapped = literalColorMap.get(color.value);
+                if (mapped) {
+                    result = {
+                        ...result,
+                        encoding: {
+                            ...encoding,
+                            color: { ...color, value: mapped },
+                        },
+                    };
+                }
+            }
+        }
+
+        const mark = view.mark;
+        if (isRecord(mark) && typeof mark.color === 'string') {
+            const mapped = literalColorMap.get(mark.color);
+            if (mapped) {
+                result = { ...result, mark: { ...mark, color: mapped } };
+            }
+        }
+
+        if (Array.isArray(view.layer)) {
+            result = {
+                ...result,
+                layer: view.layer.map((child) => remapLiterals(child)),
+            };
+        }
+        COMPOSITE_VIEW_KEYS.forEach((key) => {
+            const children = view[key];
+            if (Array.isArray(children)) {
+                result = {
+                    ...result,
+                    [key]: children.map((child) => remapLiterals(child)),
+                };
+            }
+        });
+        COMPOSITE_SPEC_HOLDERS.forEach((key) => {
+            const holder = view[key];
+            if (isRecord(holder) && isRecord(holder.spec)) {
+                result = {
+                    ...result,
+                    [key]: { ...holder, spec: remapLiterals(holder.spec) },
+                };
+            }
+        });
+        return result;
+    }
+
     const nextSpec = walk(spec);
+    const finalSpec =
+        literalColorMap.size > 0
+            ? (remapLiterals(nextSpec) as Record<string, unknown>)
+            : (nextSpec as Record<string, unknown>);
     return {
         // 无任何可注入编码时原样返回 spec
-        spec: injected ? (nextSpec as Record<string, unknown>) : spec,
+        spec: injected || literalColorMap.size > 0 ? finalSpec : spec,
         visibleKeys,
     };
 };

@@ -85,7 +85,7 @@ describe('collectCategoricalColorPaths', () => {
         ]);
     });
 
-    it('skips condition, quantitative and explicit range encodings', () => {
+    it('skips condition and quantitative encodings', () => {
         const spec = {
             layer: [
                 {
@@ -125,8 +125,10 @@ describe('collectCategoricalColorPaths', () => {
                 },
             ],
         };
+        // 显式 range 的编码也会被注入（开启同步时由看板色板接管配色）
         expect(collectCategoricalColorPaths(spec)).toEqual([
             ['layer', 2, 'encoding', 'color'],
+            ['layer', 3, 'encoding', 'color'],
         ]);
     });
 });
@@ -222,7 +224,7 @@ describe('applyDashboardColorSync', () => {
         expect(visibleKeys).toEqual(['A', 'B']);
     });
 
-    it('does not override explicit scale.range', () => {
+    it('overrides explicit scale.range with the dashboard palette', () => {
         const spec = {
             mark: 'bar',
             encoding: {
@@ -239,9 +241,48 @@ describe('applyDashboardColorSync', () => {
             resolveColor,
         });
         expect(getColorScale(result, ['encoding', 'color'])).toEqual({
-            range: ['#111', '#222'],
+            domain: ['A', 'B'],
+            range: ['color:A', 'color:B'],
         });
-        expect(visibleKeys).toEqual([]);
+        expect(visibleKeys).toEqual(['A', 'B']);
+    });
+
+    it('remaps constant colors that matched the previous range', () => {
+        // 手绘图例：`color: { value: '#111' }` 属于旧 range → 跟随看板色板
+        const spec = {
+            layer: [
+                {
+                    mark: 'bar',
+                    encoding: {
+                        color: {
+                            field: 'category',
+                            type: 'nominal',
+                            scale: { range: ['#111', '#222'] },
+                        },
+                    },
+                },
+                {
+                    mark: 'rect',
+                    encoding: { color: { value: '#111' } },
+                },
+                {
+                    mark: { type: 'point', color: '#222' },
+                },
+                {
+                    mark: 'text',
+                    encoding: { color: { value: '#333' } },
+                },
+            ],
+        };
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+        expect((result as any).layer[1].encoding.color.value).toBe('color:A');
+        expect((result as any).layer[2].mark.color).toBe('color:B');
+        // 与旧 range 无关的颜色保持不变
+        expect((result as any).layer[3].encoding.color.value).toBe('#333');
     });
 
     it('replaces scheme with domain and range, keeping other scale props', () => {
@@ -832,7 +873,7 @@ describe('applyDashboardColorSync', () => {
         expect(visibleKeys).toEqual(['上期销售额', '本期销售额']);
     });
 
-    it('does not override an explicit scale.range even with an explicit domain', () => {
+    it('overrides an explicit scale.range even with an explicit domain', () => {
         const spec = {
             mark: 'bar',
             encoding: {
@@ -853,8 +894,11 @@ describe('applyDashboardColorSync', () => {
             resolveColor,
         });
 
-        expect(result).toBe(spec);
-        expect(visibleKeys).toEqual([]);
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: ['上期销售额', '本期销售额'],
+            range: ['color:上期销售额', 'color:本期销售额'],
+        });
+        expect(visibleKeys).toEqual(['上期销售额', '本期销售额']);
     });
 
     it('ignores color.sort when an explicit domain is given (vega-lite keeps the given order)', () => {
