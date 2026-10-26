@@ -9,7 +9,11 @@
  * - `encoding.color.scale.range` 是数组时视为用户显式指定，不覆盖
  * - `scale.scheme` 存在时视为可覆盖（删除 scheme，改写为 domain + range）
  * - condition 条件编码 / 连续色阶（quantitative、temporal）跳过
- * - domain 由数据推导：field 在 series 中不存在（transform 计算列）时跳过
+ * - `scale: null` 跳过（字段值本身就是颜色，不能改）
+ * - domain 来源有两种：
+ *   1. 用户显式写了 `scale.domain` 数组 → 直接当作系列集合（不依赖数据，
+ *      因此 fold/calculate 产生的计算列也能同步；顺序即渲染顺序，不再排序）
+ *   2. 否则由数据推导：field 在 series 中不存在（transform 计算列）时跳过
  * - 递归处理顶层 + layer（含嵌套 layer）与 hconcat/vconcat/concat/facet/repeat
  * - `encoding.color.sort`（用户指定的图例/配色顺序）会被尊重：按聚合值排序 domain
  * - 数据里存在 null 分类时，null 会进 domain 并配一个中性灰（与 vega-lite 默认行为一致）
@@ -75,11 +79,47 @@ function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
         return false;
     }
     const scale = color.scale;
+    if (scale === null) {
+        // scale: null → 字段值本身就是颜色（如 '#3CB976'），不能注入 scale
+        return false;
+    }
     if (isRecord(scale) && Array.isArray(scale.range)) {
         // 用户显式指定了颜色数组 → 不覆盖
         return false;
     }
     return true;
+}
+
+/**
+ * 取用户显式写的 `encoding.color.scale.domain` 数组（只接受基础类型值）
+ * 返回 null 表示没有显式 domain
+ */
+function getExplicitColorDomain(
+    color: Record<string, unknown>,
+): unknown[] | null {
+    const scale = color.scale;
+    if (!isRecord(scale)) {
+        return null;
+    }
+    const domain = scale.domain;
+    if (!Array.isArray(domain) || domain.length === 0) {
+        return null;
+    }
+    const values: unknown[] = [];
+    for (const value of domain) {
+        if (
+            value === null ||
+            typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean'
+        ) {
+            values.push(value);
+            continue;
+        }
+        // Date / 对象等非基础类型 → 视为没有可用的显式 domain
+        return null;
+    }
+    return values;
 }
 
 /** color 编码上的 sort 语义 */
@@ -572,16 +612,30 @@ export const applyDashboardColorSync = ({
 
         if (color !== null && isInjectableColorEncoding(color)) {
             const field = color.field as string;
-            const sort = parseColorSort(view, color);
-            if (sort.kind !== 'unsupported') {
-                const rawDomain = extractDomainValues(series, field);
-                // null 分类单独处理：不占用看板色表槽位，配中性灰
-                const hasNull = rawDomain.some((value) => value === null);
-                const colorValues = rawDomain.filter((value) => value !== null);
+            const explicitDomain = getExplicitColorDomain(color);
+            // 没有显式 domain 时，才需要从数据推导取值与顺序
+            const rawDomain = explicitDomain
+                ? null
+                : extractDomainValues(series, field);
+            const sort = explicitDomain ? null : parseColorSort(view, color);
+
+            /** 参与配色的分类值（不含 null），顺序即注册到看板色表的顺序 */
+            let colorValues: unknown[] = [];
+            /** 写回 scale.domain 的值（可能包含 null） */
+            let finalDomain: unknown[] = [];
+
+            if (explicitDomain) {
+                // 用户显式指定了 scale.domain → 直接当作系列集合
+                // 优势：fold/calculate 产生的计算列也能同步（数据里本来就没有该字段）
+                // 顺序：vega-lite 显式 domain 不再排序，直接按用户给的顺序
+                colorValues = explicitDomain.filter((value) => value !== null);
+                finalDomain = explicitDomain;
+            } else if (rawDomain && sort && sort.kind !== 'unsupported') {
+                colorValues = rawDomain.filter((value) => value !== null);
                 if (colorValues.length > 0) {
-                    let domain: unknown[];
+                    let ordered: unknown[];
                     if (sort.kind === 'sort') {
-                        domain = sortDomainByAggregate(
+                        ordered = sortDomainByAggregate(
                             colorValues,
                             series,
                             field,
@@ -589,40 +643,44 @@ export const applyDashboardColorSync = ({
                         );
                     } else if (sort.kind === 'preserve') {
                         // sort: false / sort: true → 保持数据出现顺序
-                        domain = colorValues;
+                        ordered = colorValues;
                     } else {
                         // 未写 sort / sort: 'ascending' → 与 vega-lite 默认一致：按值升序
-                        domain = sortDomainNaturally(colorValues);
+                        ordered = sortDomainNaturally(colorValues);
                     }
-                    const range = domain.map((value) =>
-                        resolveColor(String(value), field),
-                    );
-                    const finalDomain = hasNull ? [null, ...domain] : domain;
-                    const finalRange = hasNull
-                        ? [NULL_CATEGORY_COLOR, ...range]
-                        : range;
-                    const syncedColor = {
-                        ...color,
-                        scale: buildSyncedScale(
-                            color.scale,
-                            finalDomain,
-                            finalRange,
-                        ),
-                    };
-                    encoding = {
-                        ...(isRecord(encoding) ? encoding : {}),
-                        color: syncedColor,
-                    };
-                    // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
-                    colorValues.forEach((value) => {
-                        const key = String(value);
-                        if (!seenKeys.has(key)) {
-                            seenKeys.add(key);
-                            visibleKeys.push(key);
-                        }
-                    });
-                    injected = true;
+                    // null 分类单独处理：不占用看板色表槽位，配中性灰
+                    const hasNull = rawDomain.some((value) => value === null);
+                    finalDomain = hasNull ? [null, ...ordered] : ordered;
                 }
+            }
+
+            if (finalDomain.length > 0 && colorValues.length > 0) {
+                const finalRange = finalDomain.map((value) =>
+                    value === null
+                        ? NULL_CATEGORY_COLOR
+                        : resolveColor(String(value), field),
+                );
+                const syncedColor = {
+                    ...color,
+                    scale: buildSyncedScale(
+                        color.scale,
+                        finalDomain,
+                        finalRange,
+                    ),
+                };
+                encoding = {
+                    ...(isRecord(encoding) ? encoding : {}),
+                    color: syncedColor,
+                };
+                // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
+                colorValues.forEach((value) => {
+                    const key = String(value);
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        visibleKeys.push(key);
+                    }
+                });
+                injected = true;
             }
         }
 

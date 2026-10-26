@@ -805,4 +805,127 @@ describe('applyDashboardColorSync', () => {
         // null 不占用看板色表槽位
         expect(visibleKeys).toEqual(['A', 'B']);
     });
+
+    it('uses an explicit scale.domain as the series set (transform-computed field)', () => {
+        // fold/calculate 产生的字段不在原始数据里，但用户显式给了 domain
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'year_label',
+                    type: 'nominal',
+                    scale: { domain: ['上期销售额', '本期销售额'] },
+                },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series: [{ sales: 1 }],
+            resolveColor,
+        });
+
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: ['上期销售额', '本期销售额'],
+            range: ['color:上期销售额', 'color:本期销售额'],
+        });
+        expect(visibleKeys).toEqual(['上期销售额', '本期销售额']);
+    });
+
+    it('does not override an explicit scale.range even with an explicit domain', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'year_label',
+                    type: 'nominal',
+                    scale: {
+                        domain: ['上期销售额', '本期销售额'],
+                        range: ['#4169E1', '#FF9933'],
+                    },
+                },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series: [{ sales: 1 }],
+            resolveColor,
+        });
+
+        expect(result).toBe(spec);
+        expect(visibleKeys).toEqual([]);
+    });
+
+    it('ignores color.sort when an explicit domain is given (vega-lite keeps the given order)', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'year_label',
+                    type: 'nominal',
+                    sort: '-y',
+                    scale: { domain: ['B', 'A'] },
+                },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: [{ sales: 1 }],
+            resolveColor,
+        });
+
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: ['B', 'A'],
+            range: ['color:B', 'color:A'],
+        });
+    });
+
+    it('skips color encodings with scale: null (the field value is the color itself)', () => {
+        const spec = {
+            mark: 'text',
+            encoding: {
+                color: {
+                    field: 'label_color',
+                    type: 'nominal',
+                    scale: null,
+                },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series: [{ label_color: '#3CB976' }],
+            resolveColor,
+        });
+
+        expect(result).toBe(spec);
+        expect(visibleKeys).toEqual([]);
+    });
+
+    it('keeps a null entry inside an explicit domain with the neutral gray', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    field: 'year_label',
+                    type: 'nominal',
+                    scale: { domain: ['本期销售额', null] },
+                },
+            },
+        };
+
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series: [{ sales: 1 }],
+            resolveColor,
+        });
+
+        expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+            domain: ['本期销售额', null],
+            range: ['color:本期销售额', '#cccccc'],
+        });
+        expect(visibleKeys).toEqual(['本期销售额']);
+    });
 });

@@ -75,14 +75,23 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 |---|---|
 | `encoding.color` 有 `field` 且 `type` 为 `nominal` / `ordinal` | 注入 `scale.domain` + `scale.range` |
 | `encoding.color.scale.range` 用户显式写了数组 | **不覆盖**（尊重用户显式意图） |
+| `encoding.color.scale` 为 `null` | 跳过（字段值本身就是颜色，如 `'#3CB976'`） |
 | `encoding.color.scale.scheme` 存在 | 覆盖（删 `scheme`，改成 domain+range）；看板调色板比 scheme 更具体 |
 | `encoding.color` 是 `condition` 条件编码 | 跳过 |
 | `encoding.color.type` 是 `quantitative` / `temporal` | 跳过（连续色阶，语义不同） |
-| `field` 在 `series` 里不存在（transform 计算列） | 跳过（domain 取不到值） |
+| `encoding.color.scale.domain` 是显式数组 | **直接当作系列集合**（不依赖数据），顺序 = 用户给的顺序；此时忽略 `color.sort`（vega-lite 显式 domain 不排序） |
+| `field` 在 `series` 里不存在（transform 计算列）且没有显式 domain | 跳过（domain 取不到值） |
 | spec 顶层 + 任意层 `layer`（含嵌套 layer） | 逐个处理 |
 
-domain 取值：从 `series` 里该字段的去重值，**保持原始值类型**（数值仍是数值，否则 vega 匹配不到数据），
-顺序 = 首次出现顺序；range = `domain.map(v => resolveColor(String(v)))`。
+domain 取值有两种来源：
+
+1. **用户显式写了 `scale.domain` 数组** → 直接用该数组作为系列集合。
+   这解决了「fold / calculate 产生的计算列」（如 `year_label = 本期销售额 / 上期销售额`）
+   不在原始数据行里、无法从数据推导 domain 的问题；此时 `color.sort` 被忽略。
+2. **否则从 `series` 里该字段的去重值推导**，**保持原始值类型**（数值仍是数值，否则 vega 匹配不到数据），
+   顺序 = 首次出现顺序；再按 `color.sort` 语义排序。
+
+range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
 
 ### 5. 未知系列名注册
 
@@ -185,7 +194,9 @@ export const createVegaColorResolver = ({
 
 1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**不会被覆盖** → 需在文档/答复里说明。
 2. 条件编码（`condition`）、连续色阶（quantitative color）不处理。
-3. transform 计算列做 color 时无法注入。
+3. transform 计算列做 color 时无法注入 —— **除非**用户显式写了 `encoding.color.scale.domain` 数组，
+   此时该数组被当作系列集合（典型场景：宽表 + `fold` + `calculate` 生成的 `year_label`，
+   删掉 `scale.range` 即可跟随看板同步）。
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
@@ -206,10 +217,12 @@ export const createVegaColorResolver = ({
 12. 注入覆盖顶层、`layer`、`hconcat`/`vconcat`/`concat`、`facet.spec`/`repeat.spec`；更深的嵌套组合不支持。
 13. 数据里存在 null 分类时，null 会进 domain 并配一个中性灰 `#cccccc`（Vega-Lite 默认也会给 null 上色，但用的是色表第一个颜色；本实现固定用中性灰以保证跨图稳定）；null 不占用看板色表槽位。
 14. `visibleKeys`（注册到看板色表的名字）始终按数据首次出现顺序，与 domain 顺序解耦；看板色表重置后会自动重新注册。
+15. `encoding.color.scale: null` 的编码不注入（字段值本身就是颜色，如 `'#3CB976'`）。
+16. 显式 `scale.domain` 时忽略 `color.sort`（vega-lite 显式 domain 不排序），且 domain 里没列出的分类不会被上色。
 
 ## 验证
 
-1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
+1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 不覆盖、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain + 显式 range 不覆盖、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
