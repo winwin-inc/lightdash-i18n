@@ -123,6 +123,11 @@ export default defineConfig({
     // those mixins and silently breaks dark-mode CSS Modules.
     optimizeDeps: {
         exclude: ['@lightdash/common'],
+        // 预先构建 vega / vega-lite：
+        // 它们只在懒加载的图表渲染 / transform 复算里用到，
+        // 不预先构建的话，dev server 首次命中这些 import 时会
+        // 提示 "new dependencies optimized" 并触发整页 reload。
+        include: ['vega', 'vega-lite'],
         esbuildOptions: {
             // 降低到 ES2017 以避免命名捕获组等 ES2018 特性在旧浏览器中报错
             target: 'es2017',
