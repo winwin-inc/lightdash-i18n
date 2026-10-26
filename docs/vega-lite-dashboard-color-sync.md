@@ -108,7 +108,7 @@ resolveSyncedHashColor(name, palette, hashAssignments)
 | `encoding.fill.value` / `encoding.stroke.value` 写死了颜色 | **接管**（见 4.3） |
 | `encoding.color.type` 是 `quantitative` / `temporal` | 跳过（连续色阶，语义不同） |
 | `encoding.color.scale.domain` 是显式数组 | **直接当作系列集合**（不依赖数据），顺序 = 用户给的顺序；此时忽略 `color.sort`（vega-lite 显式 domain 不排序） |
-| `field` 在 `series` 里不存在（transform 计算列）且没有显式 domain | 跳过（domain 取不到值） |
+| `field` 在 `series` 里不存在（transform 计算列）且没有显式 domain | **自动推导**：渲染期本地复算 transform 链，从派生数据里取分类值（见 4.4） |
 | spec 顶层 + 任意层 `layer`（含嵌套 layer） | 逐个处理 |
 
 domain 取值有两种来源：
@@ -120,6 +120,42 @@ domain 取值有两种来源：
    顺序 = 首次出现顺序；再按 `color.sort` 语义排序。
 
 range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
+
+### 4.4 transform 计算列的自动推导（不需要手写 scale.domain）
+
+颜色字段常常是 `transform` 里 `calculate` 出来的列（如 `_net_sign = 上期 - 本期`），
+原始数据行里根本没有这个字段，因此无法从 `series` 直接取到分类值。
+
+实现上新增 `packages/frontend/src/components/CustomVisualization/vegaTransformData.ts`：
+
+1. 用 **vega-lite 自己的编译器**（`compile()`）编译当前视图的 transform 链
+   （含父级 transform + 本视图 transform），拿到 vega 运行时的 transform 列表；
+   这样 `calculate` / `fold` / `filter` / `joinaggregate` / `window` / `aggregate` /
+   `bin` / `timeUnit` 等所有 transform 的语义与图表渲染时完全一致，不需要手写映射。
+2. 用 **vega 运行时**（`new View(...).run()`）在本地执行一遍，得到派生数据。
+3. 从派生数据里取该颜色字段的去重值，作为 domain（与从 `series` 取值走同一套排序逻辑）。
+
+限制与回退：
+
+- 派生行数超过 **10 万** → 不做推导（避免渲染期卡主线程），此时计算列的分类色仍需显式 `scale.domain`；
+- transform 非法、表达式报错、引用了不存在的数据集（如 `lookup`）→ 推导失败，按原有行为跳过注入；
+- 显式 `scale.domain` 仍然优先，推导不会覆盖用户的设置；
+- 同一份数据 + transform 链的结果有缓存，多个视图 / 多个通道不会重复计算。
+
+### 4.5 同一字段跨视图统一 domain / range
+
+同一个颜色字段可能出现在多个视图（`layer` / 复合视图）里，而各视图的取值集合可能不同
+（filter 不同、显式 domain 不同）。若各视图各自注入自己的 domain + range，
+vega 会报 `Conflicting scale property "domains" / "range"`：domain 取并集，但 range 只取第一个，
+导致 domain 与 range 错位、颜色全乱。
+
+因此同一个字段的所有视图统一用一份 domain + range：
+
+- 有视图显式写了 `scale.domain` → 以显式 domain 为基准（用户意图），其他视图跟随；
+- 全部是自动推导 → 取各视图推导结果的并集，顺序按值升序（与 vega-lite 默认一致，且与视图顺序无关）；
+- 存在 `sort: false` / 按聚合排序等非默认排序 → 沿用基准视图的顺序，不强行升序。
+
+统一之后，用户 spec 里原本的 `Conflicting scale property` 警告也会消失。
 
 ### 4.1 常量色重映射（“开启同步即自动接管配色”）
 
@@ -286,6 +322,7 @@ export const createVegaColorResolver = ({
 | 显式 range | `color: {field, scale: {range: [...]}}` | 被色板覆盖；旧 range 的位置关系用于重映射常量色 |
 | scheme | `color: {field, scale: {scheme: 'category20'}}` | 删 scheme，改成 domain + range |
 | 显式 domain | `color: {field, scale: {domain: [...]}}` | 直接当系列集合（fold/calculate 计算列也能同步），忽略 color.sort |
+| transform 计算列 | `color: {field: '_net_sign'}` + `transform: [{calculate}]` | 渲染期复算 transform 自动推导分类集合，不用手写 domain |
 | 条件色（基础色） | `color: {field, type, condition: {value: '#f00'}}` | 基础色由色板接管，condition 分支的固定色保持原样 |
 | 条件色（无 field） | `color: {value, condition}` | 字面值作为颜色键 |
 | fill / stroke 分类通道 | `fill: {field, type: 'nominal'}` | 与 color 一样注入 |
@@ -302,7 +339,7 @@ export const createVegaColorResolver = ({
 | `scale: null` | 字段值本身就是颜色，注入会破坏用户意图 |
 | quantitative / temporal 分类 | 连续色阶，语义与分类色不同 |
 | `condition` 分支里带 `field` | 那个分支有自己的 scale，语义复杂 |
-| 计算列做 color（且没写显式 domain） | 数据里取不到值；写显式 domain 即可支持 |
+| 计算列做 color，且 transform 链无法在本地执行（`lookup` 等）或数据量 > 10 万 | 推导失败；写显式 `scale.domain` 即可支持 |
 | 命名颜色（`red`）与 `null` | 只接管 `#hex` / `rgb()` / `hsl()` 等字面量 |
 | 中性色（黑/白/灰） | 通常是文字、坐标轴、装饰色 |
 | `config.range.*` / `config.scale.*` 主题级配置 | 不改用户主题；注入的显式 range 本来就会覆盖主题 |
@@ -311,8 +348,8 @@ export const createVegaColorResolver = ({
 
 1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**会被覆盖**（开启同步并选中该图时）→ 不想被接管就不要把该图放进「同步颜色的图表」列表。
 2. 条件编码（`condition`）、连续色阶（quantitative color）不处理。
-3. transform 计算列做 color 时无法注入 —— **除非**用户显式写了 `encoding.color.scale.domain` 数组，
-   此时该数组被当作系列集合（典型场景：宽表 + `fold` + `calculate` 生成的 `year_label`）。
+3. transform 计算列做 color 时，会在渲染期本地复算 transform 链自动推导分类集合（见 4.4）；
+   推导失败（`lookup` 等无法本地执行的 transform、超过 10 万行）时仍需用户显式写 `encoding.color.scale.domain` 数组。
 4. domain 由数据推导：被 filter 掉的系列可能仍出现在 legend（轻微）。
 5. 同一张自定义图表里多个 color 编码（多层）会各自注入，可能出现同名字段重复解析（幂等）。
 6. 未开启看板同步时，本改动对自定义图表零影响。
@@ -341,11 +378,16 @@ export const createVegaColorResolver = ({
 20. 缺省 `type` 的分类色编码按数据推断（字符串/布尔 → nominal；全是数字 → quantitative，不处理），与 vega-lite 行为一致。
 21. `fill` / `stroke` 通道的分类色也会被接管；若与 `color` 同时存在，两者各自生成 scale（domain 相同 → 颜色一致）。
 22. `condition` 分支里的固定色（高亮色）保持用户原样，不进入色表。
+23. 颜色字段是 transform 计算列时，渲染期会本地复算一次 transform 链（约 10 万行以内）以推导分类集合；同一份数据 + transform 只算一次，有缓存。
+24. 同一颜色字段在多个视图（layer / 复合视图）里出现时，所有视图共用一份 domain + range（避免 vega 的 `Conflicting scale property` 导致 range 错位）。
 
 ## 验证
 
 1. 单测 `vegaColorSync.test.ts`：顶层/layer/复合视图注入、显式 range 被覆盖、覆盖后常量色重映射（`encoding.color.value` / `mark.color`）、scheme 被替换、condition/quantitative 跳过、计算列跳过（无显式 domain 时）、显式 domain 作为系列集合（计算列也能注入）、显式 domain 时忽略 sort、`scale: null` 跳过、显式 domain 内的 null 配中性灰、domain 保序与类型保持、空数据不注入、`color.sort` 各形态排序（含 `sort: true` / `false` / `ascending` / `descending` / 字段与通道两种对象写法、堆叠 sum 与非堆叠 min）与无法解析时跳过、null 分类配中性灰、无 field 的条件色编码字面色接管（value + condition、condition 数组、装饰色不受影响、带 field 的 condition 保持原样、scale: null 不处理）、mark 级写死颜色接管（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` / `encoding.fill.value` / `encoding.stroke.value`、中性色不改、同一字面值只占一个色表槽位、字面值大小写归一）。
 2. 单测 `vegaColorResolver.test.ts`：raw 键优先、展示值兜底、known 优先于运行时追加、跨字段不误命中、哈希兜底确定性。
 3. 单测 `VisibleColorKeysRegistrar.test.tsx`：启用/禁用、keys 为空不注册、内容不变不重复注册、注册回调变化时重新注册。
+4. 单测 `vegaTransformData.test.ts`：`calculate` / `fold` / `filter` / `joinaggregate` 复算、非法 transform 与缺失数据集返回 null、超行数上限返回 null。
+5. 单测 `vegaColorSync.test.ts` 补充：transform 计算列自动推导分类集合（无显式 domain）、显式 domain 优先、视图 filter 影响推导结果、同一字段跨视图统一 domain + range。
+6. 真实渲染对拍（vega + vega-lite）：用户实际 spec 在「保留显式 domain / 去掉 domain / 去掉 domain 和 range」三种情况下渲染，均无 `Conflicting scale property` 警告，四个系列拿到四个不同的看板色板颜色。
 2. 手工：本地起 dev server，建一个看板（1 张透视柱图 + 1 张自定义折线图，同一个维度值），开启同步 → 两图同名系列同色；关闭同步 → 自定义图回到自身配色。
 3. 回归：未开启同步的看板，CUSTOM 图渲染无变化；导出图片与页面一致。

@@ -28,6 +28,7 @@
  */
 
 import { parseToRgb } from 'polished';
+import { computeDerivedRows } from './vegaTransformData';
 
 /** 图表数据行（列名与 spec 中 encoding.field 一致） */
 export type VegaSeriesRow = Record<string, unknown>;
@@ -247,17 +248,15 @@ function inferCategoricalType(
 /**
  * 该颜色通道的编码定义是否「结构上」允许注入颜色映射：
  * - 有 field 字符串
- * - type 为 nominal / ordinal；没写 type 时按数据推断（vega-lite 同样会推断）
- * - scale 不是 null（scale: null 表示字段值本身就是颜色）
  * - condition 分支里没有 field（那种分支有自己的 scale，语义复杂，不动）
+ * - scale 不是 null（scale: null 表示字段值本身就是颜色）
  *
  * 注意：显式的 `scale.range` **会被覆盖** —— 开启看板颜色同步并选中该图时，
  * 由看板色板接管配色；覆盖前后的颜色对应关系会被用于重映射 spec 里的常量色
  * （例如手绘图例的 `color: { value: '#4169E1' }`）。
  */
-function isInjectableColorEncoding(
+function isStructurallyInjectable(
     color: Record<string, unknown>,
-    series: VegaSeriesRow[],
 ): boolean {
     if (typeof color.field !== 'string') {
         return false;
@@ -266,22 +265,27 @@ function isInjectableColorEncoding(
     if (getConditionBranches(color).some((branch) => typeof branch.field === 'string')) {
         return false;
     }
-    const type = color.type;
-    if (typeof type === 'string') {
-        if (!CATEGORICAL_COLOR_TYPES.includes(type as 'nominal' | 'ordinal')) {
-            return false;
-        }
-    } else {
-        // 没写 type → 按数据推断（vega-lite 同样会推断 nominal / quantitative）
-        if (inferCategoricalType(series, color.field) === null) {
-            return false;
-        }
-    }
     if (color.scale === null) {
         // scale: null → 字段值本身就是颜色（如 '#3CB976'），不能注入 scale
         return false;
     }
     return true;
+}
+
+/**
+ * 颜色字段的类型是否为分类类型：
+ * - 显式写了 type → 必须是 nominal / ordinal
+ * - 没写 type → 按数据推断（vega-lite 同样会推断 nominal / quantitative）
+ */
+function isCategoricalType(
+    color: Record<string, unknown>,
+    rows: VegaSeriesRow[],
+): boolean {
+    const type = color.type;
+    if (typeof type === 'string') {
+        return CATEGORICAL_COLOR_TYPES.includes(type as 'nominal' | 'ordinal');
+    }
+    return inferCategoricalType(rows, color.field as string) !== null;
 }
 
 /**
@@ -704,7 +708,11 @@ export const collectCategoricalColorPaths = (
         }
         CATEGORICAL_COLOR_CHANNELS.forEach((channel) => {
             const def = getChannelEncoding(view, channel);
-            if (def !== null && isInjectableColorEncoding(def, series)) {
+            if (
+                def !== null &&
+                isStructurallyInjectable(def) &&
+                isCategoricalType(def, series)
+            ) {
                 paths.push([...prefix, 'encoding', channel]);
             }
         });
@@ -790,6 +798,54 @@ export const applyDashboardColorSync = ({
      */
     const literalKeyColors = new Map<string, string>();
 
+    /**
+     * transform 派生数据的缓存。
+     * 同一个 transform 链在多个视图 / 多个通道里会重复用到，
+     * 避免重复跑一次 vega dataflow。
+     */
+    const derivedRowsCache = new Map<string, VegaSeriesRow[] | null>();
+
+    /**
+     * 每个颜色字段的 scale 注入记录。
+     *
+     * 同一个字段可能在多个视图（layer / 复合视图）里出现，
+     * 而各视图的取值集合可能不一样（filter 不同、显式 domain 不同）。
+     * 若各视图各自注入自己的 domain + range，vega 会报
+     * `Conflicting scale property "domains" / "range"` 并把 domain 取并集，
+     * 但 range 只会取第一个 → domain 与 range 错位，颜色全乱。
+     *
+     * 所以：同一个字段的所有视图统一用一份 domain + range。
+     */
+    const injections: Array<{
+        syncedDef: Record<string, unknown>;
+        field: string;
+        domain: unknown[];
+        hasExplicitDomain: boolean;
+        sortKind: 'explicit' | 'natural' | 'preserve' | 'aggregate';
+        oldRange: unknown;
+    }> = [];
+
+    /**
+     * 本地执行 transform 链，得到派生数据。
+     * 用于「颜色字段是 calculate 计算列」的场景：原始数据里没有这个字段，
+     * 复算一遍就能得到分类集合，用户不必手写 scale.domain。
+     */
+    function getDerivedRows(
+        rows: VegaSeriesRow[],
+        transforms: Record<string, unknown>[],
+    ): VegaSeriesRow[] | null {
+        const key = JSON.stringify(transforms);
+        if (derivedRowsCache.has(key)) {
+            return derivedRowsCache.get(key) ?? null;
+        }
+        const derived = computeDerivedRows(
+            rows as Record<string, unknown>[],
+            transforms,
+        );
+        derivedRowsCache.set(key, derived);
+        return derived;
+    }
+
     /** 把一个字面色注册为看板色表的颜色键，并返回它在色板里的颜色 */
     function registerLiteralKey(literal: string): string | undefined {
         // 颜色字面量大小写不敏感，统一用小写作为颜色键
@@ -823,6 +879,11 @@ export const applyDashboardColorSync = ({
         if (new Set(oldColors).size !== oldColors.length) {
             return;
         }
+        // 长度不一致 → 位置对应关系不成立（例如 domain 是自动推导的，
+        // 用户只写了 range），宁可漏改也不猜
+        if (oldColors.length !== newRange.length) {
+            return;
+        }
         oldColors.forEach((oldColor, index) => {
             const newColor = newRange[index];
             if (!newColor || newColor === oldColor) {
@@ -846,10 +907,25 @@ export const applyDashboardColorSync = ({
         });
     }
 
-    function walk(view: unknown): unknown {
+    function walk(
+        view: unknown,
+        parentTransforms: Record<string, unknown>[],
+    ): unknown {
         if (!isRecord(view)) {
             return view;
         }
+
+        /**
+         * 累积的 transform 链（从根到当前视图）。
+         * vega-lite 里子视图继承父视图的 transform，所以颜色字段如果是
+         * `calculate` 出来的计算列，这里可以本地复算一遍，得到分类集合。
+         */
+        const ownTransforms = Array.isArray(view.transform)
+            ? (view.transform.filter(
+                  (item): item is Record<string, unknown> => isRecord(item),
+              ) as Record<string, unknown>[])
+            : [];
+        const transforms = [...parentTransforms, ...ownTransforms];
 
         let encoding: unknown = view.encoding;
 
@@ -860,15 +936,37 @@ export const applyDashboardColorSync = ({
          */
         CATEGORICAL_COLOR_CHANNELS.forEach((channel) => {
             const def = getChannelEncoding(view, channel);
-            if (def === null || !isInjectableColorEncoding(def, series)) {
+            if (def === null || !isStructurallyInjectable(def)) {
                 return;
             }
             const field = def.field as string;
             const explicitDomain = getExplicitColorDomain(def);
+
+            /**
+             * 取值用的数据：默认原始数据。
+             * 颜色字段是 transform 计算列时（原始数据里没有这个字段），
+             * 本地执行 transform 拿到派生数据 → 用户不必手写 scale.domain。
+             */
+            let dataRows = series;
+            if (
+                !explicitDomain &&
+                transforms.length > 0 &&
+                extractDomainValues(series, field).length === 0
+            ) {
+                const derived = getDerivedRows(series, transforms);
+                if (derived !== null) {
+                    dataRows = derived;
+                }
+            }
+
+            if (!isCategoricalType(def, dataRows)) {
+                return;
+            }
+
             // 没有显式 domain 时，才需要从数据推导取值与顺序
             const rawDomain = explicitDomain
                 ? null
-                : extractDomainValues(series, field);
+                : extractDomainValues(dataRows, field);
             const sort = explicitDomain ? null : parseColorSort(view, def);
 
             /** 参与配色的分类值（不含 null），顺序即注册到看板色表的顺序 */
@@ -889,7 +987,7 @@ export const applyDashboardColorSync = ({
                     if (sort.kind === 'sort') {
                         ordered = sortDomainByAggregate(
                             colorValues,
-                            series,
+                            dataRows,
                             field,
                             sort,
                         );
@@ -916,7 +1014,6 @@ export const applyDashboardColorSync = ({
             );
             // 用户原本写的 range → 记录对应关系，用于重映射 spec 里的常量色
             const oldRange = isRecord(def.scale) ? def.scale.range : undefined;
-            recordLiteralRemap(oldRange, finalRange);
             const syncedDef = {
                 ...def,
                 scale: buildSyncedScale(def.scale, finalDomain, finalRange),
@@ -925,6 +1022,21 @@ export const applyDashboardColorSync = ({
                 ...(isRecord(encoding) ? encoding : {}),
                 [channel]: syncedDef,
             };
+            // 记录注入信息：稍后按字段统一 domain + range
+            injections.push({
+                syncedDef,
+                field,
+                domain: finalDomain,
+                hasExplicitDomain: explicitDomain !== null,
+                sortKind: explicitDomain
+                    ? 'explicit'
+                    : sort?.kind === 'sort'
+                      ? 'aggregate'
+                      : sort?.kind === 'preserve'
+                        ? 'preserve'
+                        : 'natural',
+                oldRange,
+            });
             // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
             colorValues.forEach((value) => {
                 const key = String(value);
@@ -978,7 +1090,7 @@ export const applyDashboardColorSync = ({
         if (Array.isArray(view.layer)) {
             result = {
                 ...result,
-                layer: view.layer.map((child) => walk(child)),
+                layer: view.layer.map((child) => walk(child, transforms)),
             };
         }
         COMPOSITE_VIEW_KEYS.forEach((key) => {
@@ -986,7 +1098,7 @@ export const applyDashboardColorSync = ({
             if (Array.isArray(children)) {
                 result = {
                     ...result,
-                    [key]: children.map((child) => walk(child)),
+                    [key]: children.map((child) => walk(child, transforms)),
                 };
             }
         });
@@ -995,7 +1107,7 @@ export const applyDashboardColorSync = ({
             if (isRecord(holder) && isRecord(holder.spec)) {
                 result = {
                     ...result,
-                    [key]: { ...holder, spec: walk(holder.spec) },
+                    [key]: { ...holder, spec: walk(holder.spec, transforms) },
                 };
             }
         });
@@ -1152,7 +1264,84 @@ export const applyDashboardColorSync = ({
         return result;
     }
 
-    const nextSpec = walk(spec);
+    const nextSpec = walk(spec, []);
+
+    /**
+     * 同一颜色字段跨视图统一 domain + range。
+     *
+     * - 有视图显式写了 `scale.domain` → 以显式 domain 为基准（用户意图），
+     *   其余视图也用这一份，避免 vega 报冲突并取错 range。
+     * - 全部是自动推导 → 取各视图推导结果的并集（按首次出现顺序）。
+     */
+    const fieldDomains = new Map<
+        string,
+        {
+            domain: unknown[];
+            hasExplicitDomain: boolean;
+            allNatural: boolean;
+        }
+    >();
+    injections.forEach((injection) => {
+        const existing = fieldDomains.get(injection.field);
+        if (!existing) {
+            fieldDomains.set(injection.field, {
+                domain: [...injection.domain],
+                hasExplicitDomain: injection.hasExplicitDomain,
+                allNatural: injection.sortKind === 'natural',
+            });
+            return;
+        }
+        // 显式 domain 优先作为基准
+        if (injection.hasExplicitDomain && !existing.hasExplicitDomain) {
+            existing.domain = [
+                ...injection.domain,
+                ...existing.domain.filter(
+                    (value) => !injection.domain.includes(value),
+                ),
+            ];
+            existing.hasExplicitDomain = true;
+            existing.allNatural = false;
+            return;
+        }
+        if (injection.sortKind !== 'natural') {
+            existing.allNatural = false;
+        }
+        injection.domain.forEach((value) => {
+            if (!existing.domain.includes(value)) {
+                existing.domain.push(value);
+            }
+        });
+    });
+    injections.forEach((injection) => {
+        const unified = fieldDomains.get(injection.field);
+        if (!unified) {
+            return;
+        }
+        /**
+         * 顺序：
+         * - 全部是默认排序（未写 sort）→ 按值升序，保证与视图顺序无关
+         * - 其他情况（显式 domain / sort:false / 按聚合排序）→ 沿用基准视图的顺序
+         */
+        const domain =
+            unified.allNatural && !unified.hasExplicitDomain
+                ? sortDomainNaturally(unified.domain)
+                : unified.domain;
+        const range = domain.map((value) =>
+            value === null
+                ? NULL_CATEGORY_COLOR
+                : resolveColor(String(value), injection.field),
+        );
+        injection.syncedDef.scale = {
+            ...(isRecord(injection.syncedDef.scale)
+                ? injection.syncedDef.scale
+                : {}),
+            domain,
+            range,
+        };
+        // 用户原本写的 range → 记录对应关系，用于重映射 spec 里的常量色
+        recordLiteralRemap(injection.oldRange, range);
+    });
+
     const hasLiteralRemap =
         literalColorMap.size > 0 || literalKeyColors.size > 0;
     const finalSpec = hasLiteralRemap

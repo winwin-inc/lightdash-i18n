@@ -1216,6 +1216,262 @@ describe('applyDashboardColorSync', () => {
         });
     });
 
+    describe('同一字段跨视图统一 domain / range', () => {
+        it('不同 filter 的两个 layer 共用一份 domain 和 range', () => {
+            const spec = {
+                transform: [
+                    {
+                        as: '_sign',
+                        calculate: "datum.v > 0 ? 'up' : 'down'",
+                    },
+                ],
+                layer: [
+                    {
+                        mark: 'bar',
+                        transform: [{ filter: 'datum.v > 0' }],
+                        encoding: {
+                            x: { field: 'k', type: 'nominal' },
+                            y: { field: 'v', type: 'quantitative' },
+                            color: { field: '_sign', type: 'nominal' },
+                        },
+                    },
+                    {
+                        mark: 'bar',
+                        transform: [{ filter: 'datum.v <= 0' }],
+                        encoding: {
+                            x: { field: 'k', type: 'nominal' },
+                            y: { field: 'v', type: 'quantitative' },
+                            color: { field: '_sign', type: 'nominal' },
+                        },
+                    },
+                ],
+            };
+            const { spec: result } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3 },
+                    { k: '乙', v: -2 },
+                ],
+                resolveColor,
+            });
+            const first = getColorScale(result, ['layer', 0, 'encoding', 'color']);
+            const second = getColorScale(
+                result,
+                ['layer', 1, 'encoding', 'color'],
+            );
+            // 两个视图的 domain 取并集，range 也完全一致
+            expect(first).toEqual({ domain: ['down', 'up'], range: ['color:down', 'color:up'] });
+            expect(second).toEqual(first);
+        });
+
+        it('显式 domain 优先作为基准，其他视图跟随', () => {
+            const spec = {
+                layer: [
+                    {
+                        mark: 'bar',
+                        encoding: {
+                            x: { field: 'k', type: 'nominal' },
+                            y: { field: 'v', type: 'quantitative' },
+                            color: {
+                                field: 'c',
+                                type: 'nominal',
+                                scale: { domain: ['up', 'down', 'zero'] },
+                            },
+                        },
+                    },
+                    {
+                        mark: 'bar',
+                        encoding: {
+                            x: { field: 'k', type: 'nominal' },
+                            y: { field: 'v', type: 'quantitative' },
+                            color: { field: 'c', type: 'nominal' },
+                        },
+                    },
+                ],
+            };
+            const { spec: result } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3, c: 'up' },
+                    { k: '乙', v: -2, c: 'down' },
+                ],
+                resolveColor,
+            });
+            const first = getColorScale(result, ['layer', 0, 'encoding', 'color']);
+            const second = getColorScale(
+                result,
+                ['layer', 1, 'encoding', 'color'],
+            );
+            expect(first).toEqual({
+                domain: ['up', 'down', 'zero'],
+                range: ['color:up', 'color:down', 'color:zero'],
+            });
+            expect(second).toEqual(first);
+        });
+    });
+
+    describe('transform 计算列自动推导分类集合', () => {
+        it('calculate 出来的颜色字段：不需要显式 scale.domain 也能同步', () => {
+            const spec = {
+                mark: 'bar',
+                transform: [
+                    {
+                        as: '_sign',
+                        calculate:
+                            "datum.v > 0 ? 'up' : (datum.v < 0 ? 'down' : 'zero')",
+                    },
+                ],
+                encoding: {
+                    x: { field: 'k', type: 'nominal' },
+                    y: { field: 'v', type: 'quantitative' },
+                    color: { field: '_sign', type: 'nominal' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3 },
+                    { k: '乙', v: -2 },
+                    { k: '丙', v: 0 },
+                ],
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+                domain: ['down', 'up', 'zero'],
+                range: ['color:down', 'color:up', 'color:zero'],
+            });
+            expect(visibleKeys).toEqual(['up', 'down', 'zero']);
+        });
+
+        it('没写 type 的计算列也能推断为分类色', () => {
+            const spec = {
+                mark: 'bar',
+                transform: [
+                    { as: '_sign', calculate: "datum.v > 0 ? 'up' : 'down'" },
+                ],
+                encoding: {
+                    x: { field: 'k', type: 'nominal' },
+                    y: { field: 'v', type: 'quantitative' },
+                    color: { field: '_sign' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3 },
+                    { k: '乙', v: -2 },
+                ],
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+                domain: ['down', 'up'],
+                range: ['color:down', 'color:up'],
+            });
+            expect(visibleKeys).toEqual(['up', 'down']);
+        });
+
+        it('视图自己的 filter 会影响自动推导出的分类集合', () => {
+            const spec = {
+                transform: [
+                    {
+                        as: '_sign',
+                        calculate:
+                            "datum.v > 0 ? 'up' : (datum.v < 0 ? 'down' : 'zero')",
+                    },
+                ],
+                layer: [
+                    {
+                        mark: 'bar',
+                        transform: [{ filter: 'datum.v < 0' }],
+                        encoding: {
+                            x: { field: 'k', type: 'nominal' },
+                            y: { field: 'v', type: 'quantitative' },
+                            color: { field: '_sign', type: 'nominal' },
+                        },
+                    },
+                ],
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3 },
+                    { k: '乙', v: -2 },
+                ],
+                resolveColor,
+            });
+            // 只保留 filter 之后仍在的数据（down）
+            expect(
+                getColorScale(result, ['layer', 0, 'encoding', 'color']),
+            ).toEqual({
+                domain: ['down'],
+                range: ['color:down'],
+            });
+            expect(visibleKeys).toEqual(['down']);
+        });
+
+        it('显式 scale.domain 仍然优先于自动推导', () => {
+            const spec = {
+                mark: 'bar',
+                transform: [
+                    { as: '_sign', calculate: "datum.v > 0 ? 'up' : 'down'" },
+                ],
+                encoding: {
+                    x: { field: 'k', type: 'nominal' },
+                    y: { field: 'v', type: 'quantitative' },
+                    color: {
+                        field: '_sign',
+                        type: 'nominal',
+                        scale: { domain: ['up', 'down', 'zero'] },
+                    },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [
+                    { k: '甲', v: 3 },
+                    { k: '乙', v: -2 },
+                ],
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+                domain: ['up', 'down', 'zero'],
+                range: ['color:up', 'color:down', 'color:zero'],
+            });
+            expect(visibleKeys).toEqual(['up', 'down', 'zero']);
+        });
+
+        it('不支持的 transform（lookup）→ 放弃推导，不注入颜色', () => {
+            const spec = {
+                mark: 'bar',
+                transform: [
+                    {
+                        lookup: 'other',
+                        from: {
+                            data: { name: 'lookup' },
+                            key: 'k',
+                            fields: ['v2'],
+                        },
+                        as: 'v2',
+                    },
+                ],
+                encoding: {
+                    x: { field: 'k', type: 'nominal' },
+                    y: { field: 'v2', type: 'quantitative' },
+                    color: { field: 'v2', type: 'nominal' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series: [{ k: '甲', v: 1 }],
+                resolveColor,
+            });
+            expect(
+                getColorScale(result, ['encoding', 'color']),
+            ).toBeUndefined();
+            expect(visibleKeys).toEqual([]);
+        });
+    });
+
     describe('缺省 type / fill / stroke 通道', () => {
         it('没写 type 时按数据推断为 nominal 并注入', () => {
             const spec = {
