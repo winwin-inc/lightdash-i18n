@@ -142,6 +142,9 @@ const serializeFieldSearchFilters = (
             target: { fieldId: filter.target.fieldId },
             operator: filter.operator,
             values: filter.values ?? null,
+            // settings 参与后端的 SQL 编译（日期的单位 / 是否完成），
+            // 不参与签名会让不同时间窗口共用同一个缓存
+            settings: filter.settings ?? null,
         })),
     );
 };
@@ -253,12 +256,17 @@ const fetchFieldSearchValues = async (
                 filters && filters.length > 0
                     ? {
                           id: 'category_cascade_filter',
-                          and: filters.map((f) => ({
-                              id: f.id,
-                              target: { fieldId: f.target.fieldId },
-                              operator: f.operator,
-                              values: f.values,
-                          })),
+                          // 条件必须与下拉搜索发送的规则保持一致（对齐
+                          // getAutocompleteFilterGroup）：后端按规则原文编译 SQL。
+                          // - 不能丢 settings：日期条件的单位在 settings 里，
+                          //   丢掉后「过去 13 个月」会退化成「过去 13 天」，查询没有数据。
+                          // - 不能带 disabled：编译器遇到 disabled 会渲染 1=1，
+                          //   等于把父级条件整个丢掉。
+                          // - tileTargets 只用于图表定向，查询时不需要。
+                          and: filters.map((rule) => {
+                              const { tileTargets, disabled, ...rest } = rule;
+                              return { ...rest, disabled: false };
+                          }),
                       }
                     : undefined;
 

@@ -1,5 +1,6 @@
 import {
     FilterOperator,
+    UnitOfTime,
     type DashboardFilterRule,
     type DashboardFilters,
 } from '@lightdash/common';
@@ -252,7 +253,46 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(result.dimensions[0].values).toEqual(['A']);
     });
 
-    it('uses the confirmed parent value as condition even when the parent is disabled', async () => {
+    it('keeps filter settings in the search request (date unit / completed)', async () => {
+        mockSearchResults(['C1']);
+        const dateFilter: DashboardFilterRule = {
+            id: 'time',
+            target: { fieldId: 'orders_order_date', tableName: 'orders' },
+            operator: FilterOperator.IN_THE_PAST,
+            values: [13],
+            label: undefined,
+            settings: { unitOfTime: UnitOfTime.months, completed: false },
+        };
+        const filters = asFilters([
+            dateFilter,
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['A'],
+            }),
+        ]);
+
+        await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        // 丢掉 settings 会让后端按「天」编译时间条件（13 个月 → 13 天），
+        // 查询被收窄到没有数据
+        const body = JSON.parse(String(api.mock.calls[0][0].body));
+        const timeCondition = body.filters.and.find(
+            (condition: { target: { fieldId: string } }) =>
+                condition.target.fieldId === 'orders_order_date',
+        );
+        expect(timeCondition.settings).toEqual({
+            unitOfTime: 'months',
+            completed: false,
+        });
+    });
+
+    it('keeps the confirmed parent value as condition even when the parent is disabled', async () => {
         mockSearchResults(['A']);
         mockSearchResults(['B', 'C']);
         const filters = asFilters([
@@ -284,8 +324,12 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(childBody.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    target: { fieldId: 'dim_categories_cls_1' },
+                    target: expect.objectContaining({
+                        fieldId: 'dim_categories_cls_1',
+                    }),
                     values: ['A'],
+                    // 编译器遇到 disabled 会渲染 1=1，父级条件必须以生效状态发送
+                    disabled: false,
                 }),
             ]),
         );
@@ -632,7 +676,9 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(firstBody.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    target: { fieldId: 'orders_order_date' },
+                    target: expect.objectContaining({
+                        fieldId: 'orders_order_date',
+                    }),
                     values: ['2024-01'],
                 }),
             ]),
@@ -640,11 +686,15 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(secondBody.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    target: { fieldId: 'orders_order_date' },
+                    target: expect.objectContaining({
+                        fieldId: 'orders_order_date',
+                    }),
                     values: ['2024-01'],
                 }),
                 expect.objectContaining({
-                    target: { fieldId: 'dim_categories_cls_1' },
+                    target: expect.objectContaining({
+                        fieldId: 'dim_categories_cls_1',
+                    }),
                     values: ['P1'],
                 }),
             ]),
@@ -803,7 +853,9 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(body.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    target: { fieldId: 'dim_categories_cls_1' },
+                    target: expect.objectContaining({
+                        fieldId: 'dim_categories_cls_1',
+                    }),
                     values: ['P2'],
                 }),
             ]),
@@ -918,7 +970,9 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(grandChildBody.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    target: { fieldId: 'dim_categories_cls_2' },
+                    target: expect.objectContaining({
+                        fieldId: 'dim_categories_cls_2',
+                    }),
                     values: ['C1'],
                 }),
             ]),

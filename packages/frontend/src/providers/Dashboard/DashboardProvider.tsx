@@ -289,6 +289,40 @@ const DashboardProvider: React.FC<
     ] = useState(false);
     const [pendingTabCategoryResolutions, setPendingTabCategoryResolutions] =
         useState<Record<string, boolean>>({});
+    const categoryResolutionTimeoutRef = useRef<ReturnType<
+        typeof setTimeout
+    > | null>(null);
+
+    // 首屏最多等类目解析这么久：超时后先放行图表，类目解析完成后再校正一次，
+    // 避免 field/search 卡住时看板一直转圈
+    const CATEGORY_RESOLUTION_MAX_WAIT_MS = 10000;
+
+    const armCategoryResolutionTimeout = useCallback(() => {
+        if (categoryResolutionTimeoutRef.current) {
+            clearTimeout(categoryResolutionTimeoutRef.current);
+        }
+        categoryResolutionTimeoutRef.current = setTimeout(() => {
+            categoryResolutionTimeoutRef.current = null;
+            setIsGlobalCategoryResolutionPending(false);
+            setPendingTabCategoryResolutions((prev) =>
+                Object.fromEntries(
+                    Object.entries(prev).map(([uuid]) => [uuid, false]),
+                ),
+            );
+        }, CATEGORY_RESOLUTION_MAX_WAIT_MS);
+    }, []);
+
+    const clearCategoryResolutionTimeout = useCallback(() => {
+        if (categoryResolutionTimeoutRef.current) {
+            clearTimeout(categoryResolutionTimeoutRef.current);
+            categoryResolutionTimeoutRef.current = null;
+        }
+    }, []);
+
+    useEffect(
+        () => clearCategoryResolutionTimeout,
+        [clearCategoryResolutionTimeout],
+    );
 
     const markGlobalCategoryProcessed = useCallback(
         (filters: DashboardFilters) => {
@@ -387,6 +421,7 @@ const DashboardProvider: React.FC<
                         globalCategoryInitGenerationRef.current === generation
                     ) {
                         globalCategoryPendingSignatureRef.current = null;
+                        clearCategoryResolutionTimeout();
                         // 类目解析结束：图表可以按最终类目发起查询
                         setIsGlobalCategoryResolutionPending(false);
                     }
@@ -397,6 +432,7 @@ const DashboardProvider: React.FC<
             projectUuid,
             dashboardFilterContext,
             recoverableCategoryFilterIds,
+            clearCategoryResolutionTimeout,
             setDashboardFilters,
         ],
     );
@@ -696,6 +732,8 @@ const DashboardProvider: React.FC<
             tabCategoryInitGenerationRef.current[targetTabUuid] = generation;
             const { signature } = decision;
             tabCategoryPendingSignatureRef.current[targetTabUuid] = signature;
+            // 该 Tab 的图表会等类目解析完成再查，设置等待上限防止一直转圈
+            armCategoryResolutionTimeout();
 
             void initializeCategoryFiltersAsync(
                 filters,
@@ -753,6 +791,7 @@ const DashboardProvider: React.FC<
                         delete tabCategoryPendingSignatureRef.current[
                             targetTabUuid
                         ];
+                        clearCategoryResolutionTimeout();
                         // 类目解析结束：该 Tab 的图表可以按最终类目发起查询
                         setPendingTabCategoryResolutions((prev) => ({
                             ...prev,
@@ -765,6 +804,8 @@ const DashboardProvider: React.FC<
             canApplyCategoryFilters,
             projectUuid,
             dashboardFilterContext,
+            armCategoryResolutionTimeout,
+            clearCategoryResolutionTimeout,
             setTabFilters,
         ],
     );
@@ -1531,6 +1572,12 @@ const DashboardProvider: React.FC<
                 canApplyCategoryFilters &&
                     hasCategoryFilters(updatedDashboardFilters),
             );
+            if (
+                canApplyCategoryFilters &&
+                hasCategoryFilters(updatedDashboardFilters)
+            ) {
+                armCategoryResolutionTimeout();
+            }
 
             // tab filters
             if (
@@ -1569,6 +1616,7 @@ const DashboardProvider: React.FC<
         tabFilters,
         canApplyCategoryFilters,
         isEditMode,
+        armCategoryResolutionTimeout,
         setHaveFiltersChanged,
         setDashboardFilters,
         setOriginalDashboardFilters,
