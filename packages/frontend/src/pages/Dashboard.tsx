@@ -65,7 +65,6 @@ import { useSpaceSummaries } from '../hooks/useSpaces';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import DashboardChartColorSyncProvider from '../providers/DashboardChartColorSync/DashboardChartColorSyncProvider';
-import useFullscreen from '../providers/Fullscreen/useFullscreen';
 import '../styles/react-grid.css';
 
 /** 查看模式无 sync 列表时复用，避免每次 render 新建 [] 触发颜色同步 effect */
@@ -437,11 +436,6 @@ const Dashboard: FC = () => {
         );
     }, [parameterDefinitions, parameterReferences]);
 
-    const {
-        enabled: isFullScreenFeatureEnabled,
-        isFullscreen,
-        toggleFullscreen,
-    } = useFullscreen();
     const { showToastError } = useToaster();
 
     const { data: organization } = useOrganization();
@@ -739,44 +733,6 @@ const Dashboard: FC = () => {
         dashboardTabs,
         activeTab,
     ]);
-
-    const handleToggleFullscreen = useCallback(async () => {
-        if (!isFullScreenFeatureEnabled) return;
-
-        const willBeFullscreen = !isFullscreen;
-
-        if (document.fullscreenElement && !willBeFullscreen) {
-            await document.exitFullscreen();
-        } else if (
-            document.fullscreenEnabled &&
-            !document.fullscreenElement &&
-            willBeFullscreen
-        ) {
-            await document.documentElement.requestFullscreen();
-        }
-
-        toggleFullscreen();
-    }, [isFullScreenFeatureEnabled, isFullscreen, toggleFullscreen]);
-
-    useEffect(() => {
-        if (!isFullScreenFeatureEnabled) return;
-
-        const onFullscreenChange = () => {
-            if (isFullscreen && !document.fullscreenElement) {
-                toggleFullscreen(false);
-            } else if (!isFullscreen && document.fullscreenElement) {
-                toggleFullscreen(true);
-            }
-        };
-
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-
-        return () =>
-            document.removeEventListener(
-                'fullscreenchange',
-                onFullscreenChange,
-            );
-    });
 
     const handleParameterChange = useDashboardContext((c) => c.setParameter);
 
@@ -1224,13 +1180,8 @@ const Dashboard: FC = () => {
                             isEditMode={isEditMode}
                             isSaving={isSaving}
                             oldestCacheTime={oldestCacheTime}
-                            isFullscreen={isFullscreen}
                             activeTabUuid={activeTab?.uuid}
                             dashboardTabs={dashboardTabs}
-                            isFullScreenFeatureEnabled={
-                                isFullScreenFeatureEnabled
-                            }
-                            onToggleFullscreen={handleToggleFullscreen}
                             hasDashboardChanged={
                                 haveTilesChanged ||
                                 haveFiltersChanged ||

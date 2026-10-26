@@ -2394,10 +2394,6 @@
       "save_changes": "保存更改"
     },
     "cancel": "取消",
-    "tooltip_fullscreen": {
-      "exit_fullscreen_mode": "退出全屏模式",
-      "enter_fullscreen_mode": "进入全屏模式"
-    },
     "tooltip_eidt_dashboard": {
       "edit_dashboard": "编辑看板"
     },

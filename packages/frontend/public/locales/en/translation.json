@@ -2394,10 +2394,6 @@
       "save_changes": "Save changes"
     },
     "cancel": "Cancel",
-    "tooltip_fullscreen": {
-      "exit_fullscreen_mode": "Exit Fullscreen Mode",
-      "enter_fullscreen_mode": "Enter Fullscreen Mode"
-    },
     "tooltip_eidt_dashboard": {
       "edit_dashboard": "Edit dashboard"
     },

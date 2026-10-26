@@ -20,8 +20,6 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
-    IconArrowsMaximize,
-    IconArrowsMinimize,
     IconCopy,
     IconDatabaseExport,
     IconDots,
@@ -75,8 +73,6 @@ type DashboardHeaderProps = {
     hasDashboardChanged: boolean;
     isEditMode: boolean;
     isSaving: boolean;
-    isFullScreenFeatureEnabled?: boolean;
-    isFullscreen: boolean;
     oldestCacheTime?: Date;
     activeTabUuid?: string;
     dashboardTabs?: Dashboard['tabs'];
@@ -88,7 +84,6 @@ type DashboardHeaderProps = {
     onDuplicate: () => void;
     onMoveToSpace: (spaceUuid: string) => void;
     onExport: () => void;
-    onToggleFullscreen: () => void;
     setAddingTab: (value: React.SetStateAction<boolean>) => void;
     onEditClicked: () => void;
 };
@@ -101,8 +96,6 @@ const DashboardHeader = ({
     isEditMode,
     isSaving,
     isMovingDashboardToSpace,
-    isFullScreenFeatureEnabled,
-    isFullscreen,
     oldestCacheTime,
     activeTabUuid,
     dashboardTabs,
@@ -112,7 +105,6 @@ const DashboardHeader = ({
     onDelete,
     onDuplicate,
     onMoveToSpace,
-    onToggleFullscreen,
     setAddingTab,
     onEditClicked,
 }: DashboardHeaderProps) => {
@@ -431,38 +423,7 @@ const DashboardHeader = ({
                         />
                     )}
 
-                    {!isEditMode &&
-                        document.fullscreenEnabled &&
-                        isFullScreenFeatureEnabled && (
-                            <Tooltip
-                                label={
-                                    isFullscreen
-                                        ? t(
-                                              'components_common_dashboard_header.tooltip_fullscreen.exit_fullscreen_mode',
-                                          )
-                                        : t(
-                                              'components_common_dashboard_header.tooltip_fullscreen.enter_fullscreen_mode',
-                                          )
-                                }
-                                withinPortal
-                                position="bottom"
-                            >
-                                <ActionIcon
-                                    variant="default"
-                                    onClick={onToggleFullscreen}
-                                >
-                                    <MantineIcon
-                                        icon={
-                                            isFullscreen
-                                                ? IconArrowsMinimize
-                                                : IconArrowsMaximize
-                                        }
-                                    />
-                                </ActionIcon>
-                            </Tooltip>
-                        )}
-
-                    {!!userCanManageDashboard && !isFullscreen && (
+                    {!!userCanManageDashboard && (
                         <Tooltip
                             label={t(
                                 'components_common_dashboard_header.tooltip_eidt_dashboard.edit_dashboard',
@@ -479,11 +440,11 @@ const DashboardHeader = ({
                         </Tooltip>
                     )}
 
-                    {userCanExportData && !isFullscreen && (
+                    {userCanExportData && (
                         <ShareLinkButton url={`${window.location.href}`} />
                     )}
 
-                    {!isFullscreen && hasDashboardMenuActions && (
+                    {hasDashboardMenuActions && (
                         <Menu
                             data-testid="dashboard-header-menu"
                             position="bottom"
