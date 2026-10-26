@@ -94,6 +94,48 @@ type ColorSort =
       };
 
 /**
+ * 通道的默认聚合方式，与 vega-lite 保持一致：
+ * - 显式 `aggregate` 优先
+ * - temporal 字段默认 min（取最早的时间点）
+ * - 其它默认 sum
+ */
+const defaultAggregateOfChannel = (
+    encoding: Record<string, unknown>,
+    channel: string,
+): string => {
+    const channelEncoding = encoding[channel];
+    if (isRecord(channelEncoding)) {
+        if (typeof channelEncoding.aggregate === 'string') {
+            return channelEncoding.aggregate;
+        }
+        if (channelEncoding.type === 'temporal') {
+            return 'min';
+        }
+    }
+    return 'sum';
+};
+
+/** 排序用的数值：数字直接用；字符串尝试转数字 / 解析成时间戳；其它跳过 */
+const toSortNumber = (value: unknown): number | null => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (value instanceof Date) {
+        const time = value.getTime();
+        return Number.isFinite(time) ? time : null;
+    }
+    if (typeof value === 'string') {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+            return numeric;
+        }
+        const time = Date.parse(value);
+        return Number.isFinite(time) ? time : null;
+    }
+    return null;
+};
+
+/**
  * 解析 `encoding.color.sort`：
  * - 无 sort → none
  * - sort 指向的字段无法确定（如 sort: {field: 'x'} 但 x 不在数据里）→ unsupported（保守跳过注入）
@@ -126,7 +168,7 @@ const parseColorSort = (
         return {
             kind: 'sort',
             field,
-            op: 'sum',
+            op: defaultAggregateOfChannel(encoding, channel),
             order: descending ? 'descending' : 'ascending',
         };
     }
@@ -147,7 +189,10 @@ const parseColorSort = (
             return {
                 kind: 'sort',
                 field,
-                op: typeof sort.op === 'string' ? sort.op : 'sum',
+                op:
+                    typeof sort.op === 'string'
+                        ? sort.op
+                        : defaultAggregateOfChannel(encoding, sort.encoding),
                 order,
             };
         }
@@ -181,8 +226,9 @@ const sortDomainByAggregate = (
         }
         group.count += 1;
         const raw = row[sort.field];
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-            group.numbers.push(raw);
+        const numeric = toSortNumber(raw);
+        if (numeric !== null) {
+            group.numbers.push(numeric);
         }
     }
 

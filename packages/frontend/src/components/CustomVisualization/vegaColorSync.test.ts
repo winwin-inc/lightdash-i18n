@@ -574,6 +574,61 @@ describe('applyDashboardColorSync', () => {
         ]);
     });
 
+    it('uses the channel aggregate when sorting by a channel', () => {
+        // A: 10, 10（sum=20, mean=10）  B: 5 x 20（sum=100, mean=5）
+        const rows = [
+            { category: 'A', sales: 10 },
+            { category: 'A', sales: 10 },
+            ...Array.from({ length: 20 }, () => ({ category: 'B', sales: 5 })),
+        ];
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                x: { field: 'category', type: 'nominal' },
+                y: { field: 'sales', type: 'quantitative', aggregate: 'mean' },
+                color: { field: 'category', type: 'nominal', sort: '-y' },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: rows,
+            resolveColor,
+        });
+
+        // mean 降序：A(10) > B(5)；若用 sum 则顺序相反
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'A',
+            'B',
+        ]);
+    });
+
+    it('sorts temporal channels by the earliest value', () => {
+        const rows = [
+            { category: 'A', day: '2024-05-01' },
+            { category: 'B', day: '2024-01-01' },
+        ];
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                y: { field: 'day', type: 'temporal' },
+                color: { field: 'category', type: 'nominal', sort: '-y' },
+            },
+        };
+
+        const { spec: result } = applyDashboardColorSync({
+            spec,
+            series: rows,
+            resolveColor,
+        });
+
+        // temporal 默认聚合是 min，降序 → 较晚的 A 在前
+        expect(getColorScale(result, ['encoding', 'color'])?.domain).toEqual([
+            'A',
+            'B',
+        ]);
+    });
+
     it('skips injection when the sort cannot be resolved', () => {
         const spec = {
             mark: 'bar',
