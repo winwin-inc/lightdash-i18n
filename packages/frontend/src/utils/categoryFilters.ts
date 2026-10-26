@@ -309,6 +309,18 @@ type ResolveCategoryValueArgs = {
 };
 
 /**
+ * 读取筛选器当前值（统一成字符串）。
+ */
+const getFilterCurrentValue = (
+    filter: DashboardFilterRule,
+): string | undefined => {
+    if (filter.values && filter.values.length > 0) {
+        return String(filter.values[0]);
+    }
+    return undefined;
+};
+
+/**
  * 收集 field/search 级联条件：目标筛选器左侧已有值的规则（对齐下拉 getAutocompleteFilterGroup），
  * 并对父级类目应用 override。
  */
@@ -344,14 +356,12 @@ const collectFieldSearchFilters = (
     // parentValueOverride === null 表示用户清空了父级
     // parentValueOverride === undefined 表示首次加载，用父级当前值
     // parentValueOverride 有具体值表示用户切换了父级
+    // 父级即使还带 disabled 标记，只要当前有「确认选中的值」，也要作为级联条件：
+    // 否则子级会退化成「不带父级条件」的查询，联动结果与类目层级对不上。
     const parentLabel =
         parentValueOverride !== undefined
             ? parentValueOverride
-            : parentFilter.disabled
-            ? undefined
-            : parentFilter.values?.[0]
-            ? String(parentFilter.values[0])
-            : undefined;
+            : getFilterCurrentValue(parentFilter);
 
     if (!parentLabel) {
         return undefined;
@@ -370,19 +380,7 @@ const collectFieldSearchFilters = (
 };
 
 /**
- * 读取筛选器当前值（统一成字符串）。
- */
-const getFilterCurrentValue = (
-    filter: DashboardFilterRule,
-): string | undefined => {
-    if (filter.values && filter.values.length > 0) {
-        return String(filter.values[0]);
-    }
-    return undefined;
-};
-
-/**
- * 该筛选器是否需要参与类目解析。
+ * 该筛选器是否需要参与类目解析（初始化）。
  *
  * - 正常筛选器（未禁用）→ 需要
  * - 被禁用且有值 → 作者显式禁用，保留原样
@@ -396,6 +394,26 @@ const shouldResolveCategoryFilter = (
         return true;
     }
     return recoverableFilterIds?.has(filter.id) ?? false;
+};
+
+/**
+ * 该筛选器是否参与父子联动。
+ *
+ * 联动的判断依据是「当前是否有确认选中的值」，而不是 disabled 标记本身：
+ * - 有确认选中的值 → 参与。父级变了，子级必须跟着变；
+ *   disabled 只说明「作者没配默认值」，若当前确实有选中的值（历史配置残留或
+ *   用户在看板里选过），不能因此把联动丢掉，否则会出现「上级变了、下级没变」。
+ * - 没有值 → 沿用初始化的语义：disabled（作者没配默认值）不参与、不发请求；
+ *   未禁用（未设置默认值的控件）参与并按实际数据补齐。
+ */
+const shouldCascadeCategoryFilter = (
+    filter: DashboardFilterRule,
+    recoverableFilterIds?: Set<string>,
+): boolean => {
+    if (getFilterCurrentValue(filter) !== undefined) {
+        return true;
+    }
+    return shouldResolveCategoryFilter(filter, recoverableFilterIds);
 };
 
 /**
@@ -625,8 +643,10 @@ export const updateCategoryFilterCascadeAsync = async (
             if (!filterParentFieldId || filterParentFieldId !== parentFieldId)
                 continue;
 
-            // 被禁用的筛选器不参与联动（沿用既有语义：禁用 = 没有配置默认值）
-            if (!shouldResolveCategoryFilter(filter, recoverableFilterIds))
+            // 联动的判断依据是「当前是否有确认选中的值」：
+            // 有选中值就必须跟着父级联动（disabled 可能只是历史残留）；
+            // 没有值时才沿用既有语义（禁用 = 没有配置默认值 → 不参与）。
+            if (!shouldCascadeCategoryFilter(filter, recoverableFilterIds))
                 continue;
 
             // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
@@ -679,7 +699,8 @@ export const updateCategoryFilterCascadeAsync = async (
                     ...filter,
                     values: [resolvedValue],
                     operator: FilterOperator.EQUALS,
-                    // 旧版本把「类目不存在」的筛选器清空并禁用，这里恢复成可用状态
+                    // 旧版本把「类目不存在」的筛选器清空并禁用，这里恢复成可用状态；
+                    // 有确认选中的值时同样适用：值是实际选中的，筛选器应当生效
                     ...(wasCleared ? { disabled: false } : {}),
                 };
 

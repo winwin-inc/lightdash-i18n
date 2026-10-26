@@ -14,14 +14,14 @@ import {
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lightdashApi } from '../../api';
 import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
+import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import {
     getTableChartPageSize,
     isWarehousePaginatedTableChart,
 } from '../../utils/isWarehousePaginatedTableChart';
-import { lightdashApi } from '../../api';
-import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
-import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import { useExplore } from '../useExplore';
 import { useFeatureFlag } from '../useFeatureFlagEnabled';
 import { useSavedQuery } from '../useSavedQuery';
@@ -105,6 +105,11 @@ export const useDashboardChartReadyQuery = (
     );
     const addParameterDefinitions = useDashboardContext(
         (c) => c.addParameterDefinitions,
+    );
+    // 首屏类目还在解析时先不查询：等类目解析完成后按最终类目一次性查询，
+    // 避免图表先按未解析的类目跑一次、解析完再刷新一次
+    const isCategoryResolutionPending = useDashboardContext(
+        (c) => c.isCategoryResolutionPending,
     );
 
     const sortKey =
@@ -352,7 +357,11 @@ export const useDashboardChartReadyQuery = (
             };
         },
         enabled: Boolean(
-            chartUuid && dashboardUuid && chartQuery.data && explore,
+            chartUuid &&
+                dashboardUuid &&
+                chartQuery.data &&
+                explore &&
+                !isCategoryResolutionPending,
         ),
         retry: false,
         refetchOnMount: false,

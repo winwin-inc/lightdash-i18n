@@ -77,6 +77,7 @@ import {
 } from '../../utils/categoryFilterInitHelpers';
 import {
     getCategoryFiltersSignature,
+    hasCategoryFilters,
     initializeCategoryFiltersAsync,
     isCategoryField,
     updateCategoryFilterCascadeAsync,
@@ -279,6 +280,16 @@ const DashboardProvider: React.FC<
     const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>({});
     const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
 
+    // 首屏类目解析状态：解析完成前不发起图表查询。
+    // 否则图表会先按「类目还没解析出来」的值跑一次，类目解析完再跑第二次，
+    // 表现为看板加载时图表先出一版数据、随后又刷新一次。
+    const [
+        isGlobalCategoryResolutionPending,
+        setIsGlobalCategoryResolutionPending,
+    ] = useState(false);
+    const [pendingTabCategoryResolutions, setPendingTabCategoryResolutions] =
+        useState<Record<string, boolean>>({});
+
     const markGlobalCategoryProcessed = useCallback(
         (filters: DashboardFilters) => {
             if (!projectUuid) return;
@@ -323,6 +334,10 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                // 没有可执行的任务（例如没有类目筛选器）：首屏不再等待类目解析
+                if (!globalCategoryPendingSignatureRef.current) {
+                    setIsGlobalCategoryResolutionPending(false);
+                }
                 return;
             }
 
@@ -372,6 +387,8 @@ const DashboardProvider: React.FC<
                         globalCategoryInitGenerationRef.current === generation
                     ) {
                         globalCategoryPendingSignatureRef.current = null;
+                        // 类目解析结束：图表可以按最终类目发起查询
+                        setIsGlobalCategoryResolutionPending(false);
                     }
                 });
         },
@@ -664,6 +681,13 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                // 没有可执行的任务：不再等待该 Tab 的类目解析
+                if (!tabCategoryPendingSignatureRef.current[targetTabUuid]) {
+                    setPendingTabCategoryResolutions((prev) => ({
+                        ...prev,
+                        [targetTabUuid]: false,
+                    }));
+                }
                 return;
             }
 
@@ -729,6 +753,11 @@ const DashboardProvider: React.FC<
                         delete tabCategoryPendingSignatureRef.current[
                             targetTabUuid
                         ];
+                        // 类目解析结束：该 Tab 的图表可以按最终类目发起查询
+                        setPendingTabCategoryResolutions((prev) => ({
+                            ...prev,
+                            [targetTabUuid]: false,
+                        }));
                     }
                 });
         },
@@ -1497,6 +1526,12 @@ const DashboardProvider: React.FC<
             // Step 4: Set dashboard filters; category init runs in dedicated effect
             setDashboardFilters(updatedDashboardFilters);
 
+            // 首屏类目解析完成前不发起图表查询（避免图表先按未解析的类目跑一次）
+            setIsGlobalCategoryResolutionPending(
+                canApplyCategoryFilters &&
+                    hasCategoryFilters(updatedDashboardFilters),
+            );
+
             // tab filters
             if (
                 currentDashboard.tabs.length > 0 &&
@@ -1512,6 +1547,15 @@ const DashboardProvider: React.FC<
                 );
 
                 setTabFilters(updatedTabFilters);
+
+                setPendingTabCategoryResolutions(
+                    currentDashboard.tabs.reduce((acc, tab) => {
+                        acc[tab.uuid] =
+                            canApplyCategoryFilters &&
+                            hasCategoryFilters(tab.filters ?? emptyFilters);
+                        return acc;
+                    }, {} as Record<string, boolean>),
+                );
             }
         }
 
@@ -1996,6 +2040,21 @@ const DashboardProvider: React.FC<
         }, {});
     }, [dashboardTiles]);
 
+    // 首屏类目解析是否在进行中：进行中时图表不发起查询，
+    // 等类目解析完成后按最终类目一次性查询（避免图表先出一版未解析的数据再刷新）
+    const isCategoryResolutionPending = useMemo(
+        () =>
+            isGlobalCategoryResolutionPending ||
+            (activeTabUuid
+                ? pendingTabCategoryResolutions[activeTabUuid] === true
+                : false),
+        [
+            isGlobalCategoryResolutionPending,
+            activeTabUuid,
+            pendingTabCategoryResolutions,
+        ],
+    );
+
     const value = {
         projectUuid,
         isDashboardLoading,
@@ -2078,6 +2137,7 @@ const DashboardProvider: React.FC<
         // tab filters start
         tabFilters,
         setTabFilters,
+        isCategoryResolutionPending,
         tabTemporaryFilters,
         setTabTemporaryFilters,
         haveTabFiltersChanged,

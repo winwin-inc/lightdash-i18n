@@ -129,6 +129,12 @@ export type DashboardContextType = {
     // tabs-filter start
     tabFilters: Record<string, DashboardFilters>;
     setTabFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
+    /**
+     * 首屏类目筛选器是否还在解析中。
+     * 解析中时图表不发起查询，等类目解析完成后按最终类目一次性查询，
+     * 避免图表先按「未解析的类目」跑一次、解析完再刷新一次。
+     */
+    isCategoryResolutionPending: boolean;
     tabTemporaryFilters: Record<string, DashboardFilters>;
     setTabTemporaryFilters: Dispatch<
         SetStateAction<Record<string, DashboardFilters>>

@@ -252,6 +252,45 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(result.dimensions[0].values).toEqual(['A']);
     });
 
+    it('uses the confirmed parent value as condition even when the parent is disabled', async () => {
+        mockSearchResults(['A']);
+        mockSearchResults(['B', 'C']);
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['A'],
+                disabled: true,
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: ['B'],
+                parentFieldId: 'dim_categories_cls_1',
+            }),
+        ]);
+
+        await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        // 父级被禁用 → 父级自身不发起请求，只有子级发一次
+        expect(api).toHaveBeenCalledTimes(1);
+        const childBody = JSON.parse(String(api.mock.calls[0][0].body));
+        expect(childBody.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: { fieldId: 'dim_categories_cls_1' },
+                    values: ['A'],
+                }),
+            ]),
+        );
+    });
+
     it('keeps the current value when the category has no candidates', async () => {
         mockSearchResults([]);
         const filters = asFilters([
@@ -766,6 +805,121 @@ describe('updateCategoryFilterCascadeAsync', () => {
                 expect.objectContaining({
                     target: { fieldId: 'dim_categories_cls_1' },
                     values: ['P2'],
+                }),
+            ]),
+        );
+    });
+
+    it('cascades into a child that has a confirmed value but no default', async () => {
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        // 下级类目没有配置默认值（disabled），但当前有确认选中的值
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            values: ['OLD'],
+            parentFieldId: 'dim_categories_cls_1',
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.dimensions[1].values).toEqual(['C1']);
+        // 有确认选中的值 → 筛选器恢复成可用状态
+        expect(result.dimensions[1].disabled).toBe(false);
+    });
+
+    it('does not cascade into a child without a confirmed value', async () => {
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        // 下级类目既没有默认值也没有确认选中的值 → 保持为空，不发请求
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            parentFieldId: 'dim_categories_cls_1',
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).toBe(filters);
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('cascades the whole chain when the middle level has a confirmed value', async () => {
+        mockSearchResults(['C1', 'C2']);
+        mockSearchResults(['G1']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            values: ['OLD'],
+            parentFieldId: 'dim_categories_cls_1',
+            disabled: true,
+        });
+        const grandChild = categoryFilter({
+            id: 'l3',
+            fieldId: 'dim_categories_cls_3',
+            categoryLevel: 3,
+            values: ['OLD_G'],
+            parentFieldId: 'dim_categories_cls_2',
+            disabled: true,
+        });
+        const filters = asFilters([parent, child, grandChild]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result.dimensions[1].values).toEqual(['C1']);
+        expect(result.dimensions[2].values).toEqual(['G1']);
+        // 孙级的查询条件带上父级（一级）联动后的值
+        const grandChildBody = JSON.parse(String(api.mock.calls[1][0].body));
+        expect(grandChildBody.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: { fieldId: 'dim_categories_cls_2' },
+                    values: ['C1'],
                 }),
             ]),
         );
