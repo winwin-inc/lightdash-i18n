@@ -142,6 +142,20 @@ range = `domain.map(v => v === null ? '#cccccc' : resolveColor(String(v)))`。
 - 显式 `scale.domain` 仍然优先，推导不会覆盖用户的设置；
 - 同一份数据 + transform 链的结果有缓存，多个视图 / 多个通道不会重复计算。
 
+**两阶段执行（避免首屏变胖）**：
+
+复算 transform 需要 vega / vega-lite 运行时（两个包加起来 ~330KB gzip），
+而 `react-vega` 本来是通过 `import()` 懒加载的。所以这里也做成懒加载：
+
+1. `applyDashboardColorSync()` 发现颜色字段不在原始数据里 → 这次先不注入，
+   并在返回值里带上 `derivationRequests`（需要复算哪条 transform 链）；
+2. 调用方（`CustomVisualization/index.tsx`）用 `import('./vegaTransformData')` 懒加载 vega 运行时，
+   算出派生数据后放进 `derivedRowsByChain`，再触发一次颜色同步；
+3. 第二遍同步就能拿到分类值，正常注入 domain + range。
+
+于是 vega / vega-lite 只会出现在懒加载 chunk 里，不会进首屏主 chunk。
+副作用：计算列的分类色会晚一拍生效（首帧用图表自身配色，派生数据算好后自动更新）。
+
 ### 4.5 同一字段跨视图统一 domain / range
 
 同一个颜色字段可能出现在多个视图（`layer` / 复合视图）里，而各视图的取值集合可能不同
@@ -378,7 +392,7 @@ export const createVegaColorResolver = ({
 20. 缺省 `type` 的分类色编码按数据推断（字符串/布尔 → nominal；全是数字 → quantitative，不处理），与 vega-lite 行为一致。
 21. `fill` / `stroke` 通道的分类色也会被接管；若与 `color` 同时存在，两者各自生成 scale（domain 相同 → 颜色一致）。
 22. `condition` 分支里的固定色（高亮色）保持用户原样，不进入色表。
-23. 颜色字段是 transform 计算列时，渲染期会本地复算一次 transform 链（约 10 万行以内）以推导分类集合；同一份数据 + transform 只算一次，有缓存。
+23. 颜色字段是 transform 计算列时，渲染期会本地复算一次 transform 链（约 10 万行以内）以推导分类集合；同一份数据 + transform 只算一次，有缓存。复算所需的 vega / vega-lite 运行时是懒加载的，不会进首屏主 chunk；代价是这类图的同步颜色晚一拍生效。
 24. 同一颜色字段在多个视图（layer / 复合视图）里出现时，所有视图共用一份 domain + range（避免 vega 的 `Conflicting scale property` 导致 range 错位）。
 
 ## 验证

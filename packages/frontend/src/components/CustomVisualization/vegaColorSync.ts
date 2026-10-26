@@ -28,10 +28,17 @@
  */
 
 import { parseToRgb } from 'polished';
-import { computeDerivedRows } from './vegaTransformData';
 
 /** 图表数据行（列名与 spec 中 encoding.field 一致） */
 export type VegaSeriesRow = Record<string, unknown>;
+
+/**
+ * transform 链的缓存 key。
+ * 派生数据（本地复算 transform 得到）按这个 key 缓存与传递。
+ */
+export const getTransformChainKey = (
+    transforms: Record<string, unknown>[],
+): string => JSON.stringify(transforms);
 
 /** spec 内定位一个编码的路径，如 ['layer', 0, 'encoding', 'color'] */
 export type VegaSpecPath = Array<string | number>;
@@ -772,11 +779,29 @@ export const applyDashboardColorSync = ({
     spec,
     series,
     resolveColor,
+    derivedRowsByChain = new Map<string, VegaSeriesRow[]>(),
 }: {
     spec: Record<string, unknown>;
     series: VegaSeriesRow[];
     resolveColor: (value: string, field: string) => string;
-}): { spec: Record<string, unknown>; visibleKeys: string[] } => {
+    /**
+     * 已经算好的 transform 派生数据（key = transform 链的 JSON）。
+     * 由调用方懒加载 vega 运行时算好传进来，
+     * 避免把体积很大的 vega / vega-lite 静态打进首屏 chunk。
+     */
+    derivedRowsByChain?: Map<string, VegaSeriesRow[]>;
+}): {
+    spec: Record<string, unknown>;
+    visibleKeys: string[];
+    /**
+     * 需要“本地复算 transform 链”的请求。
+     * 调用方拿到后异步算好，再带着 `derivedRowsByChain` 调一次同步。
+     */
+    derivationRequests: Array<{
+        key: string;
+        transforms: Record<string, unknown>[];
+    }>;
+} => {
     const visibleKeys: string[] = [];
     const seenKeys = new Set<string>();
     let injected = false;
@@ -806,6 +831,22 @@ export const applyDashboardColorSync = ({
     const derivedRowsCache = new Map<string, VegaSeriesRow[] | null>();
 
     /**
+     * 本次同步需要“派生数据”（本地复算 transform 链）的请求。
+     *
+     * 复算 transform 需要 vega / vega-lite 运行时，这两个包体积很大，
+     * 不能静态引入（会把 ~330KB gzip 打进首屏主 chunk）。
+     * 所以：
+     * - 这里只把“需要复算哪条 transform 链”收集出来；
+     * - 调用方（CustomVisualization）用 `import()` 懒加载复算，
+     *   拿到结果后再调一次同步。
+     */
+    const derivationRequests: Array<{
+        key: string;
+        transforms: Record<string, unknown>[];
+    }> = [];
+    const requestedChainKeys = new Set<string>();
+
+    /**
      * 每个颜色字段的 scale 注入记录。
      *
      * 同一个字段可能在多个视图（layer / 复合视图）里出现，
@@ -826,24 +867,32 @@ export const applyDashboardColorSync = ({
     }> = [];
 
     /**
-     * 本地执行 transform 链，得到派生数据。
+     * 取得「本地复算 transform 链」后的派生数据。
+     *
      * 用于「颜色字段是 calculate 计算列」的场景：原始数据里没有这个字段，
      * 复算一遍就能得到分类集合，用户不必手写 scale.domain。
+     *
+     * 实际复算由调用方懒加载完成（`derivedRows` 入参），
+     * 这里只负责查缓存 / 登记“需要复算”的请求。
      */
     function getDerivedRows(
-        rows: VegaSeriesRow[],
         transforms: Record<string, unknown>[],
     ): VegaSeriesRow[] | null {
-        const key = JSON.stringify(transforms);
+        const key = getTransformChainKey(transforms);
         if (derivedRowsCache.has(key)) {
             return derivedRowsCache.get(key) ?? null;
         }
-        const derived = computeDerivedRows(
-            rows as Record<string, unknown>[],
-            transforms,
-        );
-        derivedRowsCache.set(key, derived);
-        return derived;
+        const provided = derivedRowsByChain.get(key);
+        if (provided) {
+            derivedRowsCache.set(key, provided);
+            return provided;
+        }
+        // 还没有派生数据 → 登记请求，等调用方异步算好再同步一次
+        if (!requestedChainKeys.has(key)) {
+            requestedChainKeys.add(key);
+            derivationRequests.push({ key, transforms });
+        }
+        return null;
     }
 
     /** 把一个字面色注册为看板色表的颜色键，并返回它在色板里的颜色 */
@@ -953,7 +1002,7 @@ export const applyDashboardColorSync = ({
                 transforms.length > 0 &&
                 extractDomainValues(series, field).length === 0
             ) {
-                const derived = getDerivedRows(series, transforms);
+                const derived = getDerivedRows(transforms);
                 if (derived !== null) {
                     dataRows = derived;
                 }
@@ -1351,5 +1400,6 @@ export const applyDashboardColorSync = ({
         // 无任何可注入编码时原样返回 spec
         spec: injected || hasLiteralRemap ? finalSpec : spec,
         visibleKeys,
+        derivationRequests,
     };
 };

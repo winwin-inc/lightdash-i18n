@@ -5,9 +5,43 @@ import {
     extractDomainValues,
     isNeutralColor,
 } from './vegaColorSync';
+import { computeDerivedRows } from './vegaTransformData';
 
 const resolveColor = (value: string, _field?: string): string =>
     `color:${value}`;
+
+/**
+ * 与生产一致的两阶段流程：
+ * 1. 先同步一次 → 拿到“需要复算 transform 链”的请求；
+ * 2. 复算 transform 得到派生数据 → 再同步一次。
+ * （生产里第 2 步是异步懒加载 vega 运行时做的）
+ */
+function syncWithDerivedRows(
+    spec: Record<string, unknown>,
+    rows: Record<string, unknown>[],
+) {
+    const first = applyDashboardColorSync({
+        spec,
+        series: rows,
+        resolveColor,
+    });
+    const derivedRowsByChain = new Map<string, Record<string, unknown>[]>();
+    first.derivationRequests.forEach((request) => {
+        const derived = computeDerivedRows(rows, request.transforms);
+        if (derived) {
+            derivedRowsByChain.set(request.key, derived);
+        }
+    });
+    if (derivedRowsByChain.size === 0) {
+        return first;
+    }
+    return applyDashboardColorSync({
+        spec,
+        series: rows,
+        resolveColor,
+        derivedRowsByChain,
+    });
+}
 
 const series = [
     { category: 'A', sales: 1 },
@@ -1246,14 +1280,10 @@ describe('applyDashboardColorSync', () => {
                     },
                 ],
             };
-            const { spec: result } = applyDashboardColorSync({
-                spec,
-                series: [
-                    { k: '甲', v: 3 },
-                    { k: '乙', v: -2 },
-                ],
-                resolveColor,
-            });
+            const { spec: result } = syncWithDerivedRows(spec, [
+                { k: '甲', v: 3 },
+                { k: '乙', v: -2 },
+            ]);
             const first = getColorScale(result, ['layer', 0, 'encoding', 'color']);
             const second = getColorScale(
                 result,
@@ -1327,15 +1357,11 @@ describe('applyDashboardColorSync', () => {
                     color: { field: '_sign', type: 'nominal' },
                 },
             };
-            const { spec: result, visibleKeys } = applyDashboardColorSync({
-                spec,
-                series: [
-                    { k: '甲', v: 3 },
-                    { k: '乙', v: -2 },
-                    { k: '丙', v: 0 },
-                ],
-                resolveColor,
-            });
+            const { spec: result, visibleKeys } = syncWithDerivedRows(spec, [
+                { k: '甲', v: 3 },
+                { k: '乙', v: -2 },
+                { k: '丙', v: 0 },
+            ]);
             expect(getColorScale(result, ['encoding', 'color'])).toEqual({
                 domain: ['down', 'up', 'zero'],
                 range: ['color:down', 'color:up', 'color:zero'],
@@ -1355,14 +1381,10 @@ describe('applyDashboardColorSync', () => {
                     color: { field: '_sign' },
                 },
             };
-            const { spec: result, visibleKeys } = applyDashboardColorSync({
-                spec,
-                series: [
-                    { k: '甲', v: 3 },
-                    { k: '乙', v: -2 },
-                ],
-                resolveColor,
-            });
+            const { spec: result, visibleKeys } = syncWithDerivedRows(spec, [
+                { k: '甲', v: 3 },
+                { k: '乙', v: -2 },
+            ]);
             expect(getColorScale(result, ['encoding', 'color'])).toEqual({
                 domain: ['down', 'up'],
                 range: ['color:down', 'color:up'],
@@ -1391,14 +1413,10 @@ describe('applyDashboardColorSync', () => {
                     },
                 ],
             };
-            const { spec: result, visibleKeys } = applyDashboardColorSync({
-                spec,
-                series: [
-                    { k: '甲', v: 3 },
-                    { k: '乙', v: -2 },
-                ],
-                resolveColor,
-            });
+            const { spec: result, visibleKeys } = syncWithDerivedRows(spec, [
+                { k: '甲', v: 3 },
+                { k: '乙', v: -2 },
+            ]);
             // 只保留 filter 之后仍在的数据（down）
             expect(
                 getColorScale(result, ['layer', 0, 'encoding', 'color']),
@@ -1440,8 +1458,60 @@ describe('applyDashboardColorSync', () => {
             expect(visibleKeys).toEqual(['up', 'down', 'zero']);
         });
 
-        it('不支持的 transform（lookup）→ 放弃推导，不注入颜色', () => {
+        it('两阶段：先登记派生请求，拿到派生数据后再注入', () => {
             const spec = {
+                mark: 'bar',
+                transform: [
+                    { as: '_sign', calculate: "datum.v > 0 ? 'up' : 'down'" },
+                ],
+                encoding: {
+                    x: { field: 'k', type: 'nominal' },
+                    y: { field: 'v', type: 'quantitative' },
+                    color: { field: '_sign', type: 'nominal' },
+                },
+            };
+            const rows = [
+                { k: '甲', v: 3 },
+                { k: '乙', v: -2 },
+            ];
+            // 第一阶段：没有派生数据 → 不注入，但登记需要复算的 transform 链
+            const first = applyDashboardColorSync({
+                spec,
+                series: rows,
+                resolveColor,
+            });
+            expect(
+                getColorScale(first.spec, ['encoding', 'color']),
+            ).toBeUndefined();
+            expect(first.visibleKeys).toEqual([]);
+            expect(first.derivationRequests).toHaveLength(1);
+            expect(first.derivationRequests[0].transforms).toEqual(
+                spec.transform,
+            );
+
+            // 第二阶段：拿到派生数据 → 正常注入
+            const derivedRowsByChain = new Map([
+                [
+                    first.derivationRequests[0].key,
+                    computeDerivedRows(rows, spec.transform) ?? [],
+                ],
+            ]);
+            const second = applyDashboardColorSync({
+                spec,
+                series: rows,
+                resolveColor,
+                derivedRowsByChain,
+            });
+            expect(
+                getColorScale(second.spec, ['encoding', 'color']),
+            ).toEqual({
+                domain: ['down', 'up'],
+                range: ['color:down', 'color:up'],
+            });
+            expect(second.derivationRequests).toEqual([]);
+        });
+
+        it('不支持的 transform（lookup）→ 放弃推导，不注入颜色', () => {            const spec = {
                 mark: 'bar',
                 transform: [
                     {

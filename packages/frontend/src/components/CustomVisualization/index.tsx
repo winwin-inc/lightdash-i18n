@@ -1,6 +1,18 @@
-import { Anchor, Center, Loader, Text } from '@mantine/core';
+import {
+    Anchor,
+    Center,
+    Loader,
+    Text,
+} from '@mantine/core';
 import { IconChartBarOff } from '@tabler/icons-react';
-import { Suspense, lazy, useEffect, useMemo, type FC } from 'react';
+import {
+    Suspense,
+    lazy,
+    useEffect,
+    useMemo,
+    useState,
+    type FC,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type CustomVisualizationConfigAndData } from '../../hooks/useCustomVisualizationConfig';
@@ -35,6 +47,9 @@ import {
 const VegaLite = lazy(() =>
     import('react-vega').then((module) => ({ default: module.VegaLite })),
 );
+
+/** 空的 transform 派生数据（稳定引用，避免反复触发 memo） */
+const EMPTY_DERIVED_ROWS = new Map<string, Record<string, unknown>[]>();
 
 /**
  * No vertical padding — LoadingChart's padding:50px is clipped to blank white
@@ -171,6 +186,16 @@ const CustomVisualization: FC<Props> = (props) => {
     ]);
 
     /**
+     * transform 派生数据（本地复算 transform 链得到）。
+     *
+     * 复算需要 vega / vega-lite 运行时（~330KB gzip），
+     * 所以用 `import()` 懒加载：只有真正用到（颜色字段是计算列）时才下载。
+     */
+    const [derivedRowsByChain, setDerivedRowsByChain] = useState<
+        Map<string, Record<string, unknown>[]>
+    >(EMPTY_DERIVED_ROWS);
+
+    /**
      * 看板开启「同步图表颜色」时：按系列名把看板色表注入 spec 的 color scale，
      * 使自定义图表与笛卡尔/饼图同名系列同色（跨图稳定）。
      *
@@ -184,7 +209,14 @@ const CustomVisualization: FC<Props> = (props) => {
      */
     const colorSyncResult = useMemo(() => {
         if (!specPipeline || !colorSync.enabled) {
-            return { spec: null, visibleKeys: [] as string[] };
+            return {
+                spec: null,
+                visibleKeys: [] as string[],
+                derivationRequests: [] as Array<{
+                    key: string;
+                    transforms: Record<string, unknown>[];
+                }>,
+            };
         }
         return applyDashboardColorSync({
             spec: specPipeline.sizedSpec,
@@ -195,6 +227,7 @@ const CustomVisualization: FC<Props> = (props) => {
                 knownHashAssignments: colorSync.knownHashAssignments,
                 formattedValueMap,
             }),
+            derivedRowsByChain,
         });
     }, [
         specPipeline,
@@ -204,7 +237,49 @@ const CustomVisualization: FC<Props> = (props) => {
         colorSync.knownHashAssignments,
         customChartConfig,
         formattedValueMap,
+        derivedRowsByChain,
     ]);
+
+    /**
+     * 颜色字段是 transform 计算列时，需要本地复算一遍 transform 才能拿到分类值。
+     * 这里异步（懒加载 vega）算好，再触发一次颜色同步。
+     */
+    const derivationSignature = colorSyncResult.derivationRequests
+        .map((request) => request.key)
+        .join('|');
+    useEffect(() => {
+        if (derivationSignature.length === 0) {
+            return;
+        }
+        let cancelled = false;
+        const series = customChartConfig?.series ?? [];
+        import('./vegaTransformData')
+            .then(({ computeDerivedRows }) => {
+                if (cancelled) {
+                    return;
+                }
+                const next = new Map<string, Record<string, unknown>[]>();
+                colorSyncResult.derivationRequests.forEach((request) => {
+                    const rows = computeDerivedRows(
+                        series as Record<string, unknown>[],
+                        request.transforms,
+                    );
+                    if (rows) {
+                        next.set(request.key, rows);
+                    }
+                });
+                if (next.size > 0) {
+                    setDerivedRowsByChain(next);
+                }
+            })
+            .catch(() => {
+                // 懒加载失败 → 保持原样（不注入计算列的分类色）
+            });
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [derivationSignature, customChartConfig]);
 
     if (!customChartConfig) return null;
 
