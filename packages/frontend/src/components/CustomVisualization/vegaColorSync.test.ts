@@ -108,7 +108,7 @@ describe('collectCategoricalColorPaths', () => {
         ]);
     });
 
-    it('skips condition and quantitative encodings', () => {
+    it('collects condition encodings whose base color is categorical', () => {
         const spec = {
             layer: [
                 {
@@ -149,7 +149,9 @@ describe('collectCategoricalColorPaths', () => {
             ],
         };
         // 显式 range 的编码也会被注入（开启同步时由看板色板接管配色）
+        // condition 编码的基础色也会被注入（条件分支的固定色保持原样）
         expect(collectCategoricalColorPaths(spec)).toEqual([
+            ['layer', 0, 'encoding', 'color'],
             ['layer', 2, 'encoding', 'color'],
             ['layer', 3, 'encoding', 'color'],
         ]);
@@ -331,7 +333,7 @@ describe('applyDashboardColorSync', () => {
         });
     });
 
-    it('skips condition encodings', () => {
+    it('condition 编码：基础色由色板接管，condition 分支保持原样', () => {
         const spec = {
             mark: 'bar',
             encoding: {
@@ -349,6 +351,42 @@ describe('applyDashboardColorSync', () => {
         });
         expect(getColorDef(result, ['encoding', 'color'])).toEqual({
             condition: { test: 'datum.sales > 1', value: 'red' },
+            field: 'category',
+            type: 'nominal',
+            scale: {
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            },
+        });
+        expect(visibleKeys).toEqual(['A', 'B']);
+    });
+
+    it('condition 分支里带 field 的编码不处理', () => {
+        const spec = {
+            mark: 'bar',
+            encoding: {
+                color: {
+                    condition: {
+                        test: 'datum.sales > 1',
+                        field: 'other',
+                        type: 'nominal',
+                    },
+                    field: 'category',
+                    type: 'nominal',
+                },
+            },
+        };
+        const { spec: result, visibleKeys } = applyDashboardColorSync({
+            spec,
+            series,
+            resolveColor,
+        });
+        expect(getColorDef(result, ['encoding', 'color'])).toEqual({
+            condition: {
+                test: 'datum.sales > 1',
+                field: 'other',
+                type: 'nominal',
+            },
             field: 'category',
             type: 'nominal',
         });
@@ -1088,7 +1126,7 @@ describe('applyDashboardColorSync', () => {
             });
         });
 
-        it('有 field 的 condition 编码保持原样', () => {
+        it('有 field 的 condition 编码：基础色接管，条件分支保持原样', () => {
             const spec = {
                 mark: 'bar',
                 encoding: {
@@ -1113,8 +1151,12 @@ describe('applyDashboardColorSync', () => {
                 field: 'category',
                 type: 'nominal',
                 condition: { test: 'datum.sales > 1', value: '#22a06b' },
+                scale: {
+                    domain: ['A', 'B'],
+                    range: ['color:A', 'color:B'],
+                },
             });
-            expect(visibleKeys).toEqual([]);
+            expect(visibleKeys).toEqual(['A', 'B']);
         });
 
         it('scale: null 的字面色编码不处理', () => {
@@ -1171,6 +1213,104 @@ describe('applyDashboardColorSync', () => {
 
             expect(result).toBe(spec);
             expect(visibleKeys).toEqual([]);
+        });
+    });
+
+    describe('缺省 type / fill / stroke 通道', () => {
+        it('没写 type 时按数据推断为 nominal 并注入', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { field: 'category' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            });
+            expect(visibleKeys).toEqual(['A', 'B']);
+        });
+
+        it('数据全是数字时（vega-lite 推断为 quantitative）不注入', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { field: 'sales' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+            expect(result).toBe(spec);
+            expect(visibleKeys).toEqual([]);
+        });
+
+        it('fill 通道的分类色也由色板接管', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    fill: { field: 'category', type: 'nominal' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'fill'])).toEqual({
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            });
+            expect(visibleKeys).toEqual(['A', 'B']);
+        });
+
+        it('stroke 通道的分类色也由色板接管', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    stroke: { field: 'category', type: 'ordinal' },
+                },
+            };
+            const { spec: result, visibleKeys } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'stroke'])).toEqual({
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            });
+            expect(visibleKeys).toEqual(['A', 'B']);
+        });
+
+        it('color 与 fill 同时存在时各自注入（domain 相同）', () => {
+            const spec = {
+                mark: 'bar',
+                encoding: {
+                    color: { field: 'category', type: 'nominal' },
+                    fill: { field: 'category', type: 'nominal' },
+                },
+            };
+            const { spec: result } = applyDashboardColorSync({
+                spec,
+                series,
+                resolveColor,
+            });
+            expect(getColorScale(result, ['encoding', 'color'])).toEqual({
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            });
+            expect(getColorScale(result, ['encoding', 'fill'])).toEqual({
+                domain: ['A', 'B'],
+                range: ['color:A', 'color:B'],
+            });
         });
     });
 

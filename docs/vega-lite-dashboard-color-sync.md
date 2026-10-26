@@ -274,6 +274,39 @@ export const createVegaColorResolver = ({
 | `packages/frontend/src/pages/Dashboard.tsx` | 颜色配置弹层改为受控（`colorConfigOpened`），展开时才拉图表类型；`Switch` 的 `label` 换成节点，追加 `c="dimmed"` 的类型后缀 |
 | `packages/frontend/public/locales/{zh,en}/translation.json` | 新增 `dashboard.sync_chart_colors_types.*` |
 
+## 覆盖面
+
+### 已支持（开启同步 + 选中该图时生效）
+
+| 场景 | 例子 | 结果 |
+|---|---|---|
+| 分类色 scale | `color: {field, type: 'nominal'}` | 注入 domain + range |
+| 缺省 type | `color: {field}` | 按数据推断 nominal（全是数字 → quantitative，不处理） |
+| ordinal | `color: {field, type: 'ordinal'}` | 注入 domain + range |
+| 显式 range | `color: {field, scale: {range: [...]}}` | 被色板覆盖；旧 range 的位置关系用于重映射常量色 |
+| scheme | `color: {field, scale: {scheme: 'category20'}}` | 删 scheme，改成 domain + range |
+| 显式 domain | `color: {field, scale: {domain: [...]}}` | 直接当系列集合（fold/calculate 计算列也能同步），忽略 color.sort |
+| 条件色（基础色） | `color: {field, type, condition: {value: '#f00'}}` | 基础色由色板接管，condition 分支的固定色保持原样 |
+| 条件色（无 field） | `color: {value, condition}` | 字面值作为颜色键 |
+| fill / stroke 分类通道 | `fill: {field, type: 'nominal'}` | 与 color 一样注入 |
+| mark 级写死颜色 | `mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` | 字面值作为颜色键；中性色不改 |
+| encoding 级写死颜色 | `encoding.fill.value` / `encoding.stroke.value` | 字面值作为颜色键 |
+| 复合视图 | 顶层 / `layer`（嵌套）/ `hconcat` / `vconcat` / `concat` / `facet.spec` / `repeat.spec` | 逐个处理 |
+| null 分类 | 数据里有 null | 进 domain，配中性灰 `#cccccc`，不占色表槽位 |
+| sort 语义 | `sort: '-y'` / `{field, op, order}` / `{encoding}` / `true` / `false` / `'ascending'` | 与 vega-lite 6.4.3 对齐 |
+
+### 有意不处理
+
+| 场景 | 原因 |
+|---|---|
+| `scale: null` | 字段值本身就是颜色，注入会破坏用户意图 |
+| quantitative / temporal 分类 | 连续色阶，语义与分类色不同 |
+| `condition` 分支里带 `field` | 那个分支有自己的 scale，语义复杂 |
+| 计算列做 color（且没写显式 domain） | 数据里取不到值；写显式 domain 即可支持 |
+| 命名颜色（`red`）与 `null` | 只接管 `#hex` / `rgb()` / `hsl()` 等字面量 |
+| 中性色（黑/白/灰） | 通常是文字、坐标轴、装饰色 |
+| `config.range.*` / `config.scale.*` 主题级配置 | 不改用户主题；注入的显式 range 本来就会覆盖主题 |
+
 ## 边界与已知限制
 
 1. spec 显式写了 `encoding.color.scale.range` 的自定义图表**会被覆盖**（开启同步并选中该图时）→ 不想被接管就不要把该图放进「同步颜色的图表」列表。
@@ -305,6 +338,9 @@ export const createVegaColorResolver = ({
 17. 同步开启且选中该图时，spec 里写死的颜色（`mark.color` / `mark.fill` / `mark.stroke` / `mark.point.*` / `encoding.fill.value` / `encoding.stroke.value`）会被看板色板接管；中性色（黑/白/灰）与命名颜色（`red` 等）不受影响。
 18. 写死颜色以字面值本身作为颜色键，**颜色语义会被色板颜色取代**（例：写死的绿色基准线会变成色板里的某个颜色）；不希望被改的图不要勾选“同步颜色的图表”。
 19. 写死颜色的字面值会进入看板色表（键形如 `#4169e1`），同一字面值在看板所有图里同色。
+20. 缺省 `type` 的分类色编码按数据推断（字符串/布尔 → nominal；全是数字 → quantitative，不处理），与 vega-lite 行为一致。
+21. `fill` / `stroke` 通道的分类色也会被接管；若与 `color` 同时存在，两者各自生成 scale（domain 相同 → 颜色一致）。
+22. `condition` 分支里的固定色（高亮色）保持用户原样，不进入色表。
 
 ## 验证
 

@@ -78,8 +78,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** 取视图的 encoding.color 定义（非对象 / 缺失时返回 null） */
-function getColorEncoding(view: unknown): Record<string, unknown> | null {
+/** 取视图某个颜色通道（color / fill / stroke）的编码定义 */
+function getChannelEncoding(
+    view: unknown,
+    channel: 'color' | 'fill' | 'stroke',
+): Record<string, unknown> | null {
     if (!isRecord(view)) {
         return null;
     }
@@ -87,11 +90,16 @@ function getColorEncoding(view: unknown): Record<string, unknown> | null {
     if (!isRecord(encoding)) {
         return null;
     }
-    const color = encoding.color;
-    if (!isRecord(color)) {
+    const def = encoding[channel];
+    if (!isRecord(def)) {
         return null;
     }
-    return color;
+    return def;
+}
+
+/** 取视图的 encoding.color 定义（非对象 / 缺失时返回 null） */
+function getColorEncoding(view: unknown): Record<string, unknown> | null {
+    return getChannelEncoding(view, 'color');
 }
 
 /**
@@ -178,29 +186,96 @@ export const collectMarkLiteralColors = (
 };
 
 /**
- * 该 color 编码是否「结构上」允许注入颜色映射：
- * - 非 condition 形式
+ * 可以承载分类配色的通道。
+ * `color` 是主通道；`fill` / `stroke` 也可能被用户用作分类配色（如
+ * `fill: { field: 'x', type: 'nominal' }`），这些同样应跟随看板色板。
+ */
+const CATEGORICAL_COLOR_CHANNELS = ['color', 'fill', 'stroke'] as const;
+
+export const extractDomainValues = (
+    series: VegaSeriesRow[],
+    field: string,
+): unknown[] => {
+    const values: unknown[] = [];
+    const seen = new Set<string>();
+
+    for (const row of series) {
+        if (!isRecord(row)) {
+            continue;
+        }
+        if (!Object.prototype.hasOwnProperty.call(row, field)) {
+            // 字段不存在（transform 计算列）→ 取不到值
+            continue;
+        }
+        const value = row[field];
+        if (value === undefined) {
+            continue;
+        }
+        // 类型参与去重键：数字 1 与字符串 '1' 是不同的分类值
+        const key = `${typeof value}:${String(value)}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        values.push(value);
+    }
+
+    return values;
+};
+
+/**
+ * 推断字段的分类类型（与 vega-lite 的 type 推断一致）：
+ * - 只要有字符串/布尔值 → nominal（分类色）
+ * - 全是数字 → quantitative（连续色阶，不处理）→ 返回 null
+ */
+function inferCategoricalType(
+    series: VegaSeriesRow[],
+    field: string,
+): 'nominal' | null {
+    const values = extractDomainValues(series, field).filter(
+        (value) => value !== null && value !== undefined,
+    );
+    if (values.length === 0) {
+        return null;
+    }
+    const hasCategorical = values.some(
+        (value) => typeof value === 'string' || typeof value === 'boolean',
+    );
+    return hasCategorical ? 'nominal' : null;
+}
+
+/**
+ * 该颜色通道的编码定义是否「结构上」允许注入颜色映射：
  * - 有 field 字符串
- * - type 为 nominal / ordinal
+ * - type 为 nominal / ordinal；没写 type 时按数据推断（vega-lite 同样会推断）
  * - scale 不是 null（scale: null 表示字段值本身就是颜色）
+ * - condition 分支里没有 field（那种分支有自己的 scale，语义复杂，不动）
  *
  * 注意：显式的 `scale.range` **会被覆盖** —— 开启看板颜色同步并选中该图时，
  * 由看板色板接管配色；覆盖前后的颜色对应关系会被用于重映射 spec 里的常量色
  * （例如手绘图例的 `color: { value: '#4169E1' }`）。
  */
-function isInjectableColorEncoding(color: Record<string, unknown>): boolean {
-    if ('condition' in color) {
-        return false;
-    }
+function isInjectableColorEncoding(
+    color: Record<string, unknown>,
+    series: VegaSeriesRow[],
+): boolean {
     if (typeof color.field !== 'string') {
         return false;
     }
-    const type = color.type;
-    if (
-        typeof type !== 'string' ||
-        !CATEGORICAL_COLOR_TYPES.includes(type as 'nominal' | 'ordinal')
-    ) {
+    // condition 分支里带 field 的不处理（那个分支用的是自己的 scale）
+    if (getConditionBranches(color).some((branch) => typeof branch.field === 'string')) {
         return false;
+    }
+    const type = color.type;
+    if (typeof type === 'string') {
+        if (!CATEGORICAL_COLOR_TYPES.includes(type as 'nominal' | 'ordinal')) {
+            return false;
+        }
+    } else {
+        // 没写 type → 按数据推断（vega-lite 同样会推断 nominal / quantitative）
+        if (inferCategoricalType(series, color.field) === null) {
+            return false;
+        }
     }
     if (color.scale === null) {
         // scale: null → 字段值本身就是颜色（如 '#3CB976'），不能注入 scale
@@ -613,10 +688,13 @@ const sortDomainByAggregate = (
 };
 
 /**
- * 收集 spec 中需要注入的 color 编码位置（顶层 + layer/复合视图递归），返回 spec 内的路径数组
+ * 收集 spec 中需要注入的分类色编码位置（顶层 + layer/复合视图递归），返回 spec 内的路径数组
+ *
+ * `series` 可选：用于在编码没写 `type` 时按数据推断分类类型
  */
 export const collectCategoricalColorPaths = (
     spec: Record<string, unknown>,
+    series: VegaSeriesRow[] = [],
 ): VegaSpecPath[] => {
     const paths: VegaSpecPath[] = [];
 
@@ -624,10 +702,12 @@ export const collectCategoricalColorPaths = (
         if (!isRecord(view)) {
             return;
         }
-        const color = getColorEncoding(view);
-        if (color !== null && isInjectableColorEncoding(color)) {
-            paths.push([...prefix, 'encoding', 'color']);
-        }
+        CATEGORICAL_COLOR_CHANNELS.forEach((channel) => {
+            const def = getChannelEncoding(view, channel);
+            if (def !== null && isInjectableColorEncoding(def, series)) {
+                paths.push([...prefix, 'encoding', channel]);
+            }
+        });
         const layer = view.layer;
         if (Array.isArray(layer)) {
             layer.forEach((child, index) => {
@@ -658,36 +738,6 @@ export const collectCategoricalColorPaths = (
  * 取某字段在数据中的去重值，保持原始类型（数值仍是数值），顺序为首次出现顺序
  * null 会被保留（vega-lite 默认会给 null 分类上色，注入时也需要保留）
  */
-export const extractDomainValues = (
-    series: VegaSeriesRow[],
-    field: string,
-): unknown[] => {
-    const values: unknown[] = [];
-    const seen = new Set<string>();
-
-    for (const row of series) {
-        if (!isRecord(row)) {
-            continue;
-        }
-        if (!Object.prototype.hasOwnProperty.call(row, field)) {
-            // 字段不存在（transform 计算列）→ 取不到值
-            continue;
-        }
-        const value = row[field];
-        if (value === undefined) {
-            continue;
-        }
-        // 类型参与去重键：数字 1 与字符串 '1' 是不同的分类值
-        const key = `${typeof value}:${String(value)}`;
-        if (seen.has(key)) {
-            continue;
-        }
-        seen.add(key);
-        values.push(value);
-    }
-
-    return values;
-};
 
 /** 构造注入用的 scale：保留原有配置，去掉 scheme，写入 domain + range */
 function buildSyncedScale(
@@ -703,6 +753,8 @@ function buildSyncedScale(
         range,
     };
 }
+
+
 
 /**
  * 按颜色映射改写 spec（不改原对象）
@@ -800,16 +852,24 @@ export const applyDashboardColorSync = ({
         }
 
         let encoding: unknown = view.encoding;
-        const color = getColorEncoding(view);
 
-        if (color !== null && isInjectableColorEncoding(color)) {
-            const field = color.field as string;
-            const explicitDomain = getExplicitColorDomain(color);
+        /**
+         * 分类色 scale 注入（color / fill / stroke 通道）。
+         * - 条件编码（field + condition）也注入：基础色由色板接管，
+         *   condition 分支的固定色保持用户原样（那是“高亮”语义）
+         */
+        CATEGORICAL_COLOR_CHANNELS.forEach((channel) => {
+            const def = getChannelEncoding(view, channel);
+            if (def === null || !isInjectableColorEncoding(def, series)) {
+                return;
+            }
+            const field = def.field as string;
+            const explicitDomain = getExplicitColorDomain(def);
             // 没有显式 domain 时，才需要从数据推导取值与顺序
             const rawDomain = explicitDomain
                 ? null
                 : extractDomainValues(series, field);
-            const sort = explicitDomain ? null : parseColorSort(view, color);
+            const sort = explicitDomain ? null : parseColorSort(view, def);
 
             /** 参与配色的分类值（不含 null），顺序即注册到看板色表的顺序 */
             let colorValues: unknown[] = [];
@@ -846,40 +906,37 @@ export const applyDashboardColorSync = ({
                 }
             }
 
-            if (finalDomain.length > 0 && colorValues.length > 0) {
-                const finalRange = finalDomain.map((value) =>
-                    value === null
-                        ? NULL_CATEGORY_COLOR
-                        : resolveColor(String(value), field),
-                );
-                // 用户原本写的 range → 记录对应关系，用于重映射 spec 里的常量色
-                const oldRange = isRecord(color.scale)
-                    ? color.scale.range
-                    : undefined;
-                recordLiteralRemap(oldRange, finalRange);
-                const syncedColor = {
-                    ...color,
-                    scale: buildSyncedScale(
-                        color.scale,
-                        finalDomain,
-                        finalRange,
-                    ),
-                };
-                encoding = {
-                    ...(isRecord(encoding) ? encoding : {}),
-                    color: syncedColor,
-                };
-                // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
-                colorValues.forEach((value) => {
-                    const key = String(value);
-                    if (!seenKeys.has(key)) {
-                        seenKeys.add(key);
-                        visibleKeys.push(key);
-                    }
-                });
-                injected = true;
+            if (finalDomain.length === 0 || colorValues.length === 0) {
+                return;
             }
-        }
+            const finalRange = finalDomain.map((value) =>
+                value === null
+                    ? NULL_CATEGORY_COLOR
+                    : resolveColor(String(value), field),
+            );
+            // 用户原本写的 range → 记录对应关系，用于重映射 spec 里的常量色
+            const oldRange = isRecord(def.scale) ? def.scale.range : undefined;
+            recordLiteralRemap(oldRange, finalRange);
+            const syncedDef = {
+                ...def,
+                scale: buildSyncedScale(def.scale, finalDomain, finalRange),
+            };
+            encoding = {
+                ...(isRecord(encoding) ? encoding : {}),
+                [channel]: syncedDef,
+            };
+            // 注册顺序用数据首次出现顺序（与标准图一致），null 不注册
+            colorValues.forEach((value) => {
+                const key = String(value);
+                if (!seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    visibleKeys.push(key);
+                }
+            });
+            injected = true;
+        });
+
+        const color = getColorEncoding(view);
 
         /**
          * 「无 field 的字面色编码」：颜色本身表达数据含义（正/负、达标/未达标），
