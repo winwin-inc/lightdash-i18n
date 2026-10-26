@@ -1,5 +1,4 @@
 import {
-    ChartType,
     ContentType,
     DashboardTileTypes,
     ECHARTS_DEFAULT_COLORS,
@@ -59,6 +58,7 @@ import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
+import { getChartTypeLabel } from '../hooks/useChartColorConfig/chartTypeLabel';
 import { useDashboardChartTypeMap } from '../hooks/useChartColorConfig/useDashboardChartTypeMap';
 import { useContentAction } from '../hooks/useContent';
 import { useSpaceSummaries } from '../hooks/useSpaces';
@@ -503,54 +503,11 @@ const Dashboard: FC = () => {
     });
 
     /** 图表类型 → 灰色标注文案 */
-    const getChartTypeLabel = useCallback(
-        (tile: typeof chartTiles[number]): string | null => {
-            if (tile.type === DashboardTileTypes.SQL_CHART) {
-                return t(
-                    'dashboard.sync_chart_colors_types.sql_chart',
-                    'SQL 图表',
-                );
-            }
-            const chartType = chartTypeMap[tile.uuid];
-            if (!chartType) return null;
-            switch (chartType) {
-                case ChartType.CUSTOM:
-                    return t(
-                        'dashboard.sync_chart_colors_types.custom',
-                        '自定义图表',
-                    );
-                case ChartType.PIE:
-                    return t('dashboard.sync_chart_colors_types.pie', '饼图');
-                case ChartType.TABLE:
-                    return t('dashboard.sync_chart_colors_types.table', '表格');
-                case ChartType.BIG_NUMBER:
-                    return t(
-                        'dashboard.sync_chart_colors_types.big_number',
-                        '指标卡',
-                    );
-                case ChartType.FUNNEL:
-                    return t(
-                        'dashboard.sync_chart_colors_types.funnel',
-                        '漏斗图',
-                    );
-                case ChartType.TREEMAP:
-                    return t(
-                        'dashboard.sync_chart_colors_types.treemap',
-                        '矩形树图',
-                    );
-                case ChartType.CARTESIAN:
-                    return t(
-                        'dashboard.sync_chart_colors_types.cartesian',
-                        '图表',
-                    );
-                case ChartType.DATA_APP_VIZ:
-                    return t(
-                        'dashboard.sync_chart_colors_types.data_app_viz',
-                        '数据应用',
-                    );
-                default:
-                    return null;
-            }
+    const getTileTypeLabel = useCallback(
+        (tile: (typeof chartTiles)[number]): string | null => {
+            const label = getChartTypeLabel(tile.type, chartTypeMap[tile.uuid]);
+            if (!label) return null;
+            return t(label.key, label.fallback);
         },
         [chartTypeMap, t],
     );
@@ -1520,7 +1477,7 @@ const Dashboard: FC = () => {
                                                                                         tile.uuid,
                                                                                     );
                                                                                 const chartTypeLabel =
-                                                                                    getChartTypeLabel(
+                                                                                    getTileTypeLabel(
                                                                                         tile,
                                                                                     );
                                                                                 return (
