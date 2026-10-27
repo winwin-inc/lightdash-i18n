@@ -15,13 +15,19 @@ import {
     NotImplementedError,
     OauthAccount,
     OauthAuth,
+    AuthorizationError,
 } from '@lightdash/common';
 import {
     allowApiKeyAuthentication,
     allowOauthAuthentication,
     isAuthenticated,
 } from '../controllers/authentication';
-import { ExtraContext, McpService } from '../services/McpService/McpService';
+import { McpService } from '../services/McpService/McpService';
+import {
+    McpAuthContext,
+    McpAuthType,
+    PAT_SCOPES,
+} from '../services/McpService/McpAuthContext';
 import Logger from '../logging/logger';
 
 const mcpRouter = express.Router({ mergeParams: true });
@@ -32,6 +38,60 @@ function getMcpService(req: express.Request): McpService {
     } catch (e) {
         throw new MissingConfigError('MCP service not available');
     }
+}
+
+/*
+Builds the MCP authentication context from the authenticated request.
+
+MCP only supports token based authentication:
+- Lightdash OAuth access token (scope limited)
+- Personal access token (not scope limited)
+*/
+function getMcpAuthInfo(req: express.Request): AuthInfo {
+    const { user, account } = req;
+
+    if (!user || !account) {
+        throw new AuthorizationError('Unauthenticated');
+    }
+
+    if (account.isOauthUser()) {
+        const oauthAccount = account as OauthAccount;
+        const scopes = oauthAccount.authentication.scopes ?? [];
+        const authContext: McpAuthContext = {
+            user,
+            account: oauthAccount,
+            authType: McpAuthType.OAuth,
+            scopes,
+        };
+
+        return {
+            token: oauthAccount.authentication.token,
+            clientId: oauthAccount.authentication.clientId,
+            scopes,
+            extra: authContext,
+        };
+    }
+
+    if (account.isPatUser()) {
+        const apiKeyAccount = account as ApiKeyAccount;
+        const authContext: McpAuthContext = {
+            user,
+            account: apiKeyAccount,
+            authType: McpAuthType.Pat,
+            scopes: PAT_SCOPES,
+        };
+
+        return {
+            token: apiKeyAccount.authentication.source,
+            clientId: 'API key',
+            scopes: PAT_SCOPES,
+            extra: authContext,
+        };
+    }
+
+    throw new AuthorizationError(
+        'MCP requires an OAuth access token or a personal access token',
+    );
 }
 
 /*
@@ -118,33 +178,7 @@ mcpRouter.all(
                     auth?: AuthInfo;
                 } = req;
 
-                if (req.user && req.account?.isOauthUser()) {
-                    const oauthAuth = req.account as OauthAccount;
-                    const extra: ExtraContext = {
-                        user: req.user,
-                        account: oauthAuth,
-                    };
-                    authReq.auth = {
-                        token: oauthAuth.authentication.token,
-                        clientId: oauthAuth.authentication.clientId,
-                        scopes: oauthAuth.authentication.scopes,
-                        extra,
-                    };
-                }
-
-                if (req.user && req.account?.isPatUser()) {
-                    const apiKeyAuth = req.account as ApiKeyAccount;
-                    const extra: ExtraContext = {
-                        user: req.user,
-                        account: apiKeyAuth,
-                    };
-                    authReq.auth = {
-                        token: apiKeyAuth.authentication.source,
-                        clientId: 'API key', // hardcoded client and scopes for PAT authentication
-                        scopes: ['mcp:read', 'mcp:write'],
-                        extra,
-                    };
-                }
+                authReq.auth = getMcpAuthInfo(req);
 
                 return await transport.handleRequest(authReq, res, req.body);
             }

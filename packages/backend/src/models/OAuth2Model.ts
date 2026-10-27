@@ -42,6 +42,19 @@ export class OAuth2Model implements AuthorizationCodeModel {
         };
     }
 
+    async getClientScopes(clientId: string): Promise<string[]> {
+        const client = await this.database('oauth2_clients')
+            .select('scopes')
+            .where('client_id', clientId)
+            .first();
+
+        if (!client) {
+            return [];
+        }
+
+        return (client.scopes ?? []) as string[];
+    }
+
     async saveAuthorizationCode(
         code: Pick<
             AuthorizationCode,

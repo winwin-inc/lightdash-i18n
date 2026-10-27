@@ -257,6 +257,7 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     mcp: {
         enabled: true,
+        oauthRequiredScopes: ['mcp:read'],
     },
     customRoles: {
         enabled: false,

@@ -375,7 +375,7 @@ const parseCdnConfig = (): LightdashConfig['cdn'] => {
     let baseUrl: string | undefined;
     if (isSemverPrereleaseVersion(staticFilesVersion)) {
         console.log(
-            `[CDN Config] Prerelease ${staticFilesVersion} �?serving frontend from backend (skip CDN)`,
+            `[CDN Config] Prerelease ${staticFilesVersion} �?serving frontend from backend (skip CDN)`,
         );
         baseUrl = undefined;
     } else {
@@ -969,6 +969,12 @@ export type LightdashConfig = {
     };
     mcp: {
         enabled: boolean;
+        /**
+         * OAuth scopes required to access the MCP server.
+         * Scopes are advertised to MCP clients through the protected resource
+         * metadata endpoint (RFC9728).
+         */
+        oauthRequiredScopes: string[];
     };
     customRoles: {
         enabled: boolean;
@@ -999,7 +1005,7 @@ export type AppRuntimeConfig = {
     /**
      * Origin where data-app preview iframes are served, distinct from the
      * Lightdash app origin (e.g., `https://acme.lightdash.app`). When null,
-     * previews are served same-origin �?dev / pre-cutover behavior. The
+     * previews are served same-origin �?dev / pre-cutover behavior. The
      * host filter rejects requests on this hostname unless the path matches
      * the preview-router prefix.
      */
@@ -1016,7 +1022,7 @@ export type AppRuntimeConfig = {
     /**
      * Tag identifying which build of `e2bTemplateName` to launch sandboxes
      * from. Composed into `name:tag` for `Sandbox.create`. Empty string falls
-     * back to E2B's implicit `default` tag �?used as a transition state for
+     * back to E2B's implicit `default` tag �?used as a transition state for
      * deployments that haven't picked up a version-tagged build yet.
      */
     e2bTemplateTag: string;
@@ -1031,10 +1037,10 @@ export type AppRuntimeConfig = {
     /**
      * Which sandbox backend the data-app pipeline launches sandboxes on.
      * `e2b` keeps today's hosted path; `docker` runs a plain local container
-     * (dev / self-host testbed �?see docs/sandbox-runtime.md);
+     * (dev / self-host testbed �?see docs/sandbox-runtime.md);
      * `lambda-microvm` runs AWS Lambda MicroVMs (native suspend/resume);
      * `azure-sandboxes` runs Azure Container Apps Sandboxes (native
-     * suspend/resume �?the Azure analog of E2B / Lambda MicroVMs);
+     * suspend/resume �?the Azure analog of E2B / Lambda MicroVMs);
      * `gcp-cloud-run` runs Google Cloud Run Sandboxes behind a gateway service
      * deployed with `--sandbox-launcher` (object-store snapshots, like Docker).
      * Later: kubernetes | ecs | microsandbox.
@@ -1053,7 +1059,7 @@ export type AppRuntimeConfig = {
     /**
      * OCI image the `docker` sandbox provider launches AI writeback containers
      * from. Decoupled from the data-app image (different toolchain: dbt venvs +
-     * Lightdash CLI + Claude Code) �?the Docker analog of the separate E2B
+     * Lightdash CLI + Claude Code) �?the Docker analog of the separate E2B
      * writeback template. Built locally from sandboxes/ai-writeback (e.g.
      * `lightdash-ai-writeback:local`).
      */
@@ -1124,7 +1130,7 @@ export type AppRuntimeConfig = {
      */
     azureSandboxesDataAppGroup: string | null;
     /** Disk image **id** (UUID assigned at registration) the data-app pipeline
-     * launches from �?passed as `sourcesRef.diskImage.id`. Required only when
+     * launches from �?passed as `sourcesRef.diskImage.id`. Required only when
      * `azure-sandboxes`. */
     azureSandboxesDataAppDiskImage: string | null;
     /**
@@ -1150,7 +1156,7 @@ export type AppRuntimeConfig = {
     e2bAgentOnboardingTemplateTag: string;
     /**
      * Lean template name+tag for the general-purpose coding agent (`editRepo`):
-     * git + Claude CLI + the generic skill only �?no dbt venvs, no compile
+     * git + Claude CLI + the generic skill only �?no dbt venvs, no compile
      * wrapper, no profiles. Defaults to the `lightdash-ai-coding-agent` image at
      * the running version's tag, published per release by the post-release
      * workflow; override the name/tag to pin, roll back, or point at another
@@ -1185,7 +1191,7 @@ export type AppRuntimeConfig = {
      * upload time. Guards against freshly-published (potentially compromised)
      * versions. Env var `LIGHTDASH_APP_DEPENDENCY_MIN_RELEASE_AGE_DAYS`.
      *
-     * `0` (default) disables the check �?deliberately off, matching the rest
+     * `0` (default) disables the check �?deliberately off, matching the rest
      * of the custom-dependencies feature, since enabling it adds registry
      * round-trips and can block legitimate recent releases. When you do turn
      * it on, `3` is a sensible starting point: it mirrors this repo's own
@@ -1202,15 +1208,15 @@ export type AppRuntimeConfig = {
      * Env var `LIGHTDASH_APP_DEPENDENCY_MALWARE_CHECK_ENABLED`; defaults to
      * `true`. It is precise (matches only OSV `MAL-` advisories, so
      * near-zero false positives), which is why it is the one dependency guard
-     * that defaults on. The check FAILS CLOSED �?if OSV can't be reached the
-     * upload is rejected �?so an instance whose backend has no egress to
+     * that defaults on. The check FAILS CLOSED �?if OSV can't be reached the
+     * upload is rejected �?so an instance whose backend has no egress to
      * `api.osv.dev` (air-gapped, or during an OSV outage) must set this to
      * `false` to keep uploading custom-dependency apps.
      */
     dependencyMalwareCheckEnabled: boolean;
     /**
      * When false, app generation never runs chart sample queries, so no
-     * warehouse row values are sent to the sandbox or the LLM �?the per-chart
+     * warehouse row values are sent to the sandbox or the LLM �?the per-chart
      * "include sample data" opt-in is disabled instance-wide and hidden in
      * the UI. Env var `LIGHTDASH_APP_SAMPLE_DATA_ENABLED`; defaults to `true`.
      */
@@ -1223,12 +1229,12 @@ export type DataAppOtelConfig = {
     endpoint: string;
     /** OTEL_EXPORTER_OTLP_PROTOCOL value (e.g. `http/protobuf`, `grpc`). */
     protocol: string;
-    /** OTEL_TRACES_EXPORT_INTERVAL (ms) �?short so spans flush before teardown. */
+    /** OTEL_TRACES_EXPORT_INTERVAL (ms) �?short so spans flush before teardown. */
     exportIntervalMs: number;
     /**
      * How OTLP export auth headers are resolved per build. `none` exports with
      * no auth headers; `gcp` mints a fresh bearer token at execute time. Keep
-     * provider-specific behaviour out of this config �?it only selects a path.
+     * provider-specific behaviour out of this config �?it only selects a path.
      */
     auth: DataAppOtelAuthConfig;
 };
@@ -1506,7 +1512,7 @@ const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
     const sandboxSnapshotRetentionMs = process.env.SANDBOX_SNAPSHOT_RETENTION_MS
         ? parseInt(process.env.SANDBOX_SNAPSHOT_RETENTION_MS, 10)
         : 7 * 24 * 60 * 60 * 1000;
-    // Lambda MicroVMs run in eu-west-1 (Ireland) �?the EU launch region.
+    // Lambda MicroVMs run in eu-west-1 (Ireland) �?the EU launch region.
     const lambdaMicroVmRegion =
         process.env.LAMBDA_MICROVM_REGION || 'eu-west-1';
 
@@ -1598,7 +1604,7 @@ const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
             process.env.E2B_AGENT_ONBOARDING_TEMPLATE_TAG ??
             (VERSION as string),
         // The lean coding-agent image (sandboxes/ai-coding-agent), published per
-        // release by the post-release workflow at the running version's tag �?
+        // release by the post-release workflow at the running version's tag �?
         // same pattern as the other templates. Operators can override the
         // name/tag (e.g. to pin, roll back, or point at the writeback image for
         // local dev before the lean image is built).
@@ -1616,7 +1622,7 @@ const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
             .map((s) => s.trim())
             .filter(Boolean)
             .map((host) => {
-                // These feed the sandbox egress allowlist �?fail loudly on
+                // These feed the sandbox egress allowlist �?fail loudly on
                 // anything that isn't a plain hostname.
                 if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*$/.test(host)) {
                     throw new ParseError(
@@ -1814,7 +1820,7 @@ export const parseConfig = (): LightdashConfig => {
                   },
               }
             : undefined,
-        // 自托管：硬关闭官�?PostHog / RudderStack，忽略相关环境变�?
+        // 自托管：硬关闭官�?PostHog / RudderStack，忽略相关环境变�?
         posthog: undefined,
         rudder: {
             writeKey: undefined,
@@ -1976,7 +1982,7 @@ export const parseConfig = (): LightdashConfig => {
                     ) || 60 * 60 * 24 * 14, // 2 weeks
             },
         },
-        // 自托管：硬关闭官�?Intercom / Pylon 客服组件
+        // 自托管：硬关闭官�?Intercom / Pylon 客服组件
         intercom: {
             appId: '',
             apiBase: '',
@@ -2224,6 +2230,12 @@ export const parseConfig = (): LightdashConfig => {
         updateSetup: getUpdateSetupConfig(),
         mcp: {
             enabled: process.env.MCP_ENABLED === 'true',
+            oauthRequiredScopes: (
+                process.env.MCP_OAUTH_REQUIRED_SCOPES ?? 'mcp:read'
+            )
+                .split(',')
+                .map((scope) => scope.trim())
+                .filter((scope) => scope.length > 0),
         },
         customRoles: {
             enabled: process.env.CUSTOM_ROLES_ENABLED === 'true',

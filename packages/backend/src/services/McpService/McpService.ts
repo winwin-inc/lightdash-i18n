@@ -35,6 +35,8 @@ import { subject } from '@casl/ability';
 import { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 // eslint-disable-next-line import/extensions
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// eslint-disable-next-line import/extensions
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z, ZodRawShape } from 'zod';
 import {
     LightdashAnalytics,
@@ -74,6 +76,8 @@ import {
     SearchFieldValuesFn,
 } from '../ai/types/aiAgentDependencies';
 import { McpSchemaCompatLayer } from './McpSchemaCompatLayer';
+import { McpAuthContext, McpAuthType } from './McpAuthContext';
+import { OAuthScope } from '../OAuthService/OAuthService';
 
 export enum McpToolName {
     GET_LIGHTDASH_VERSION = 'get_lightdash_version',
@@ -102,14 +106,39 @@ type McpServiceArguments = {
     featureFlagService: FeatureFlagService;
 };
 
-export type ExtraContext = {
-    user: SessionUser;
-    account: OauthAccount | ApiKeyAccount;
-};
+/**
+ * @deprecated use McpAuthContext instead
+ */
+export type ExtraContext = McpAuthContext;
+
 type McpProtocolContext = {
     authInfo?: AuthInfo & {
-        extra: ExtraContext;
+        extra: McpAuthContext;
     };
+};
+
+/**
+ * Scope required to call a given tool.
+ *
+ * `mcp:read` covers tools that only explore/query data.
+ * `mcp:write` is reserved for tools that mutate content in Lightdash.
+ */
+export enum McpToolScope {
+    Read = OAuthScope.MCP_READ,
+    Write = OAuthScope.MCP_WRITE,
+}
+
+const MCP_TOOL_SCOPES: Record<McpToolName, McpToolScope> = {
+    [McpToolName.GET_LIGHTDASH_VERSION]: McpToolScope.Read,
+    [McpToolName.FIND_EXPLORES]: McpToolScope.Read,
+    [McpToolName.FIND_FIELDS]: McpToolScope.Read,
+    [McpToolName.FIND_DASHBOARDS]: McpToolScope.Read,
+    [McpToolName.FIND_CHARTS]: McpToolScope.Read,
+    [McpToolName.LIST_PROJECTS]: McpToolScope.Read,
+    [McpToolName.SET_PROJECT]: McpToolScope.Read,
+    [McpToolName.GET_CURRENT_PROJECT]: McpToolScope.Read,
+    [McpToolName.RUN_METRIC_QUERY]: McpToolScope.Read,
+    [McpToolName.SEARCH_FIELD_VALUES]: McpToolScope.Read,
 };
 
 export class McpService extends BaseService {
@@ -208,8 +237,44 @@ export class McpService extends BaseService {
         return this.mcpCompatLayer.processZodType(schema).shape;
     }
 
+    /**
+     * Registers a MCP tool and enforces the authentication/scope requirements
+     * before the tool handler is executed.
+     */
+    private registerMcpTool(
+        name: McpToolName,
+        config: {
+            description?: string;
+            inputSchema?: ZodRawShape;
+        },
+        handler: (
+            args: AnyType,
+            context: McpProtocolContext,
+        ) => Promise<CallToolResult>,
+    ): void {
+        // The MCP SDK infers deep types from the zod input schema, which can
+        // trigger TS2589. We use a narrow signature to avoid that.
+        const registerTool = this.mcpServer.registerTool.bind(
+            this.mcpServer,
+        ) as unknown as (
+            name: string,
+            config: { description?: string; inputSchema?: ZodRawShape },
+            cb: (args: AnyType, context: AnyType) => Promise<CallToolResult>,
+        ) => void;
+
+        registerTool(
+            name,
+            config,
+            async (args: AnyType, context: AnyType) => {
+                const mcpContext = context as McpProtocolContext;
+                this.assertToolAccess(mcpContext, name);
+                return handler(args, mcpContext);
+            },
+        );
+    }
+
     setupHandlers(): void {
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.GET_LIGHTDASH_VERSION,
             {
                 description: 'Get the current Lightdash version',
@@ -233,7 +298,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.FIND_EXPLORES,
             {
                 description: toolFindExploresArgsSchemaV2.description,
@@ -284,7 +349,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.FIND_FIELDS,
             {
                 description: toolFindFieldsArgsSchema.description,
@@ -332,7 +397,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.FIND_DASHBOARDS,
             {
                 description: toolFindDashboardsArgsSchema.description,
@@ -384,7 +449,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.FIND_CHARTS,
             {
                 description: toolFindChartsArgsSchema.description,
@@ -433,7 +498,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.LIST_PROJECTS,
             {
                 description: 'List all accessible projects in the organization',
@@ -470,7 +535,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.SET_PROJECT,
             {
                 description:
@@ -550,7 +615,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.GET_CURRENT_PROJECT,
             {
                 description: 'Get the currently active project',
@@ -609,7 +674,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.RUN_METRIC_QUERY,
             {
                 description: toolRunMetricQueryArgsSchema.description,
@@ -662,7 +727,7 @@ export class McpService extends BaseService {
             },
         );
 
-        this.mcpServer.registerTool(
+        this.registerMcpTool(
             McpToolName.SEARCH_FIELD_VALUES,
             {
                 description: toolSearchFieldValuesArgsSchema.description,
@@ -1314,31 +1379,53 @@ export class McpService extends BaseService {
     }
 
     public canAccessMcp(context: McpProtocolContext): boolean {
-        if (!context.authInfo) {
+        if (!context.authInfo?.extra) {
             throw new ForbiddenError('Invalid authInfo context');
         }
 
-        const user = context.authInfo.extra?.user;
-        const account = context.authInfo.extra?.account;
+        const { authType, scopes } = context.authInfo.extra;
 
-        // TODO replace with CASL ability check
-        // Do not enforce client scopes for now until more MCP clients support this
-        /*
-        //const { scopes } = account.authentication;
-
-        if (
-            !scopes.includes(OAuthScope.MCP_READ) &&
-            !scopes.includes(OAuthScope.MCP_WRITE)
-        ) {
-            throw new ForbiddenError('You are not allowed to access MCP');
+        // Personal access tokens are not scope limited
+        if (authType === McpAuthType.Pat) {
+            return true;
         }
-        */
 
-        if (!this.lightdashConfig.mcp.enabled) {
-            throw new MissingConfigError('MCP is not enabled');
+        const requiredScopes = this.lightdashConfig.mcp.oauthRequiredScopes;
+        const missingScopes = requiredScopes.filter(
+            (scope) => !scopes.includes(scope),
+        );
+
+        if (missingScopes.length > 0) {
+            throw new ForbiddenError(
+                `Missing required OAuth scope(s): ${missingScopes.join(', ')}`,
+            );
         }
 
         return true;
+    }
+
+    /**
+     * Checks that the caller is allowed to use MCP and that the token carries
+     * the scope required by the tool being called.
+     */
+    private assertToolAccess(
+        context: McpProtocolContext,
+        toolName: McpToolName,
+    ): void {
+        this.canAccessMcp(context);
+
+        const requiredScope = MCP_TOOL_SCOPES[toolName] ?? McpToolScope.Read;
+        const { authType, scopes } = context.authInfo!.extra;
+
+        if (authType === McpAuthType.Pat) {
+            return;
+        }
+
+        if (!scopes.includes(requiredScope)) {
+            throw new ForbiddenError(
+                `Missing required OAuth scope "${requiredScope}" to call tool "${toolName}"`,
+            );
+        }
     }
 
     // MCP is enabled if MCP_ENABLED is true OR if AI Copilot is enabled
