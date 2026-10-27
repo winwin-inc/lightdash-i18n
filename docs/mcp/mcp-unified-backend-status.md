@@ -1,9 +1,9 @@
 # MCP 统一改造归档（分支 `feat/mcp-unified-backend`）
 
 > **归档日期**：2026-10-27
-> **状态**：⏸️ **已暂停开发**（用户决定：先不开发"主站无状态项目模型"）
+> **状态**：✅ P0–P7 全部完成；🟡 **P8「项目上下文改造」规划中，代码未改动**
 > **分支**：`feat/mcp-unified-backend`（未合入主干，代码可完整保留）
-> **恢复方式**：切回该分支，从本文档 [§4 未完成工作](#4-未完成工作主站无状态项目模型) 继续；调研结论已全部沉淀，无需重做。
+> **恢复方式**：切回该分支，从本文档 [§4 P8 规划](#4-未完成工作主站项目上下文改造p8) 开始；调研结论已全部沉淀，无需重做。
 
 ---
 
@@ -11,7 +11,7 @@
 
 主站 MCP 已完成 P1–P7 全部阶段：核心能力从 `src/ee/` 下沉到非 EE 后端、鉴权统一为「OAuth + PAT」并落实 scope 校验、26 个工具全部模块化迁移并带单测、埋点收口、健康检查与文档齐备。
 
-**唯一未落地的是最后一步：移除 `set_project` / `get_current_project`，把 MCP 的"当前项目"从 PG 状态改为完全无状态。** 该步骤的调研已全部完成，实施方案见 §4。
+**唯一未落地的是最后一步：把 MCP 的项目上下文语义从「当前项目」收敛为「默认项目」**，建立「显式参数 → 用户级默认 → 组织级默认 → 部署级默认」四级兜底链。**保留**服务端持久记忆与 26 个工具（不删除 `set_project` / `get_current_project`）。该步骤的实施规划见 §4。
 
 ---
 
@@ -133,145 +133,187 @@ search_field_values      set_project
 | 13 | MCP schema 不暴露 AI agent 的 `type` discriminator |
 | 14 | 独立包暂时保留（避免打断存量客户端），后续转退役 |
 | 15 | 26 个工具是"主站原有 + 独立包"迁移对齐的产物，**不是**设计目标；收敛方向 26 → 18（激进 17） |
+| 16 | **【2026-10-27 修订】保留服务端持久项目记忆**，不删除 `set_project` / `get_current_project` / `mcp_context`；工具数保持 26 |
+| 17 | **【2026-10-27 修订】语义从「当前项目」改为「默认项目」** —— 解决「LLM 静默用错过期项目」隐患 |
+| 18 | **【2026-10-27 修订】四级兜底链**：显式 `args.projectUuid` → 用户级默认（`mcp_context`）→ 组织级默认（`organizations.default_project_uuid`）→ 部署级 `LIGHTDASH_PROJECT_UUID` |
+| 19 | **【2026-10-27 修订】逐级回落规则**：显式参数校验失败直接报错；隐式兜底校验失败自动降级到下一级 |
+| 20 | **【2026-10-27 修订】不以「与 `origin/feat/mcp-v2` 工具集完全对齐」为目标** —— v2 是分支不是规范，产品需求优先 |
 
 ---
 
-## 4. 未完成工作：主站无状态项目模型
+## 4. 未完成工作：主站项目上下文改造（P8）
 
-> ⏸️ **本节已暂停实施**（调研已完成，代码未改动）。
+> ⏸️ **本节为规划阶段，代码未改动。**
 
-### 4.1 目标
+### 4.0 方向变更（2026-10-27 复盘后修订）
 
-移除 `set_project` / `get_current_project`，删除 MCP 对 `mcp_context` 表的依赖，使主站工具集从 **26 → 24**，与 `origin/feat/mcp-v2` 完全一致。
+**原方案**：移除 `set_project` / `get_current_project`，删除 MCP 对 `mcp_context` 表的依赖，26 → 24 工具，与 `origin/feat/mcp-v2` 完全对齐。
 
-### 4.2 调研结论（已完成，代码未改动）
+**新方案**：**保留服务端持久记忆**，把语义从「当前项目」收敛为「默认项目」，建立四级兜底链；工具数量保持 26。
 
-**① 差异已精确定位**
+**变更原因（均已人工核验）：**
 
-`origin/feat/mcp-v2` 的 `packages/lightdash-mcp-v2/DEV_TOOL_NAMES.md` 明确为 **24 个工具**。与当前主站 26 个的差异**恰好只有** `set_project` 与 `get_current_project`。移除后集合完全一致。
+1. **线上独立包 `lightdash-mcp` 并没有"用 session 存项目"。** 它的 `set_project` 存在**进程内存 Map** 里 —— `packages/lightdash-mcp/src/lib/mcpSessionStore.ts`：
+   ```ts
+   const sessions = new Map<string, McpSessionState>();
+   function storageKey(apiKey: string) { return sha256(apiKey) }  // 按 PAT 隔离，不是按 MCP session
+   const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+   ```
+   文件头注释原文：**「在无服务端 `mcp_context` 表时，按 PAT 在内存中保存 set_project 状态」**。
+   → 独立包自己知道服务端本该有 `mcp_context` 表，它是因为单跑够不到那张表才退化成内存 Map。**它是主站方案的降级版，不是主站该模仿的对象。**
 
-**② v2 的项目语义**
+2. **「协议层无会话 + 服务端持久状态」是三者中最优组合。** 独立包的内存 Map 重启即丢、多副本不共享、需 sticky session；主站 PG 表跨实例 / 跨重启 / 跨客户端一致，同时主站**没有 MCP session**（`sessionIdGenerator: undefined`），不需要 session id 过期 / 轮换 / 重连那一套。
 
-`origin/feat/mcp-v2:packages/lightdash-mcp-v2/src/mcp/mcpDocsContent.ts` 与 `.../tools/registerExploreCatalogTools.ts` 明确：每次调用显式传 `projectUuid`，或由服务端环境变量 `LIGHTDASH_PROJECT_UUID` 提供；**不保存 Session、不存在"当前项目"记忆**。
+3. **原方案是照抄 `origin/feat/mcp-v2` 的形态。** v2 是分支不是规范；产品需求优先于分支对齐。
 
-**③ 主站现状（仍是状态化）**
+4. **真正的问题不是「有没有记忆」，而是「记忆的语义」。** 详见 §4.2。
 
-- `McpService` 注册 `SET_PROJECT` / `GET_CURRENT_PROJECT`
-- `McpContextModel` 注入 `McpToolDeps`
-- `McpService.getProjectUuidFromContext()` / `getTagsFromContext()` / `resolveProjectUuid()` / `getTrackedProjectUuid()` 读取 `mcp_context`
-- `set_project` 可保存 `tags`，用于 explore 标签过滤（`getTagsFromContext()` → `filterExploreByTags` + `catalogSearch.yamlTags`）
-- `mcp_context` key = `user_uuid + organization_uuid`；除 `McpService` 外**无其他消费者**（EE 中仅 `packages/backend/src/ee/index.ts` 注入 model）
-- migration 来源 commit：`bd5a296d5 feat: add MCP context table and project selection tools (#16339)`
-- migration 文件：`packages/backend/src/database/migrations/20250811180000_create_mcp_context_table.ts`（**已在 `origin/main` 存在**）
-- 模型文件：`packages/backend/src/models/McpContextModel.ts`；`ModelRepository.getMcpContextModel()` 返回实例
-- 六个工具模块各自复制了一份 `resolveProjectUuid`：
-  `queryTools.ts` / `contentSearchTools.ts` / `contentListTools.ts` / `savedChartTools.ts` / `dashboardTools.ts` / `chartRunTools.ts`
-- 当前模块级解析错误文案：`ForbiddenError('No project context set. Use set_project or provide projectUuid parameter.')`
-- 前端 / common **未引用** `set_project` / `get_current_project`
+### 4.1 目标与非目标
 
-**④ tags 能力的归属**
+**目标**
 
-v2 把 `catalogTags` 提为 `find_explores` / `find_fields` 的**显式参数**。主站 `find_explores` / `find_fields` 走的是 AI agent 的 `findExploresFn` / `findFieldsFn`（参数核心为 `exploreName` / `table`），与 v2 的 catalog 检索型实现**参数集与执行路径都不同**——不能仅凭同名判断一致。
+- 保留服务端持久项目记忆，但把它重新定义为**「默认项目」**而非「当前项目」。
+- 显式参数永远优先；隐式兜底逐级回落，每级都做权限校验。
+- 消除「静默用错项目」隐患。
+- 保持无 MCP session（现状不变），保持多副本 / 重启安全。
 
-因此：`tags` 若要保留，需在主站 `find_explores` / `find_fields` 上新增等价显式参数（如 `catalogTags`），替代 `getTagsFromContext()`。
+**非目标**
 
-**⑤ 可用的兜底来源**
+- ❌ 不追求「24 工具 = 与 `origin/feat/mcp-v2` 完全对齐」。工具数保持 **26**。
+- ❌ 不删除 `mcp_context` 表、`McpContextModel`、`set_project` / `get_current_project` 工具。
+- ❌ 不改协议层（仍不返回 `Mcp-Session-Id`）。
+- ❌ 不做工具收敛（26 → 18，另见 §5）。
 
-- `Organization` 类型已含 `defaultProjectUuid`；`OrganizationModel.get(organizationUuid)` 读取 `default_project_uuid`；`OrganizationService.get()` 可取得
-- 该字段属于**组织配置**，不是用户个人项目（`UserService` 更新组织时不设置它）
-- `ProjectService.getProject(projectUuid, account)` 内部已执行 `account.user.ability.cannot('view', subject('Project', ...))` 并抛 `ForbiddenError`
-- `packages/common/src/ee/AiAgent/filterExploreByTags.ts` 提供了基于 catalog tags 的 explore 过滤逻辑，可复用
+### 4.2 语义定义：为什么「当前项目」是错的
 
-**⑥ 配置现状**
+当前 `mcp_context` 存的是**「当前正在操作的项目」**（current project）。这是个有生命周期、会过期、可能悄悄错的状态：
 
-`packages/backend/src/config/parseConfig.ts` 的 `mcp` 配置目前只有 `enabled` 与 `oauthRequiredScopes`，**尚无** `LIGHTDASH_PROJECT_UUID` 对应字段。
+- 用户上周在项目 A，今天在项目 B。LLM 客户端不传 `projectUuid` 时**静默查了 A** —— 查出来的数字看起来完全合理，只是项目错了，很难被察觉。
+- 同一用户开两个 MCP 客户端（Claude Desktop + Cursor）共享同一个"当前项目"，互相覆盖。
 
-**⑦ 语义提醒**
+改为**「默认项目」**（default project）后：
 
-工具名一致 ≠ 语义一致。v2 的 `find_explores`（`searchQuery` + `catalogTags` + `full`，走 data catalog `type=table`）与主站的 `find_explores`（`exploreName`，走 AI agent）是**两个不同的东西**。全面对齐属于后续"工具收敛"阶段，不应与本次无状态化混做。
+- 静态语义，不随时间漂移。
+- 显式 `projectUuid` 永远优先 → 想要哪个项目就传哪个，不会被"默认值"劫持。
+- 隐式兜底只是"没指定时的默认选择"，不会伪装成"用户当前正在做的事"。
 
-### 4.3 待实施方案（尚未执行）
+### 4.3 四级兜底链
 
-**Step 1 — 删除两个工具**
-
-- `packages/backend/src/services/McpService/McpToolName.ts`：删除 `SET_PROJECT` / `GET_CURRENT_PROJECT`
-- `packages/backend/src/services/McpService/tools/scopes.ts`：删除对应 `MCP_TOOL_SCOPES` 条目
-- `packages/backend/src/services/McpService/McpService.ts`：删除两个注册块（约 441–560 行区间）
-- 工具数 26 → 24
-
-**Step 2 — 移除 `mcpContextModel` 依赖**
-
-- `packages/backend/src/services/McpService/tools/deps.ts`：从 `McpToolDeps` 删除 `mcpContextModel`
-- `packages/backend/src/services/McpService/McpService.ts`：`McpServiceArguments`、类字段、构造参数、`getToolDeps()` 全部移除
-- `packages/backend/src/services/ServiceRepository.ts`：`getMcpService()` 移除注入
-- `packages/backend/src/ee/index.ts`：删除无消费者的 `mcpContextModel` provider 及 import
-
-**Step 3 — 统一无状态项目解析**
-
-抽取共享 helper（例如 `tools/projectContext.ts`），签名类似：
-
-```ts
-resolveProjectUuid(deps, context, explicitProjectUuid?: string): Promise<string>
-assertCanViewProject(deps, context, projectUuid): Promise<void>
+```
+① args.projectUuid            显式参数 —— 永远最高优先级
+② mcp_context                 用户级个人默认项目（per user + per org），现有表
+③ organizations.default_project_uuid   组织级默认项目（管理员配置），现有字段
+④ 部署级 LIGHTDASH_PROJECT_UUID         可选，self-hosted 单组织场景
+⑤ 都没有                      报错
 ```
 
-替换六个模块中重复的 `resolveProjectUuid`，并让 `McpService.resolveProjectUuid()` 委托给它。
+**逐级回落的权限校验规则（关键）：**
 
-**Step 4 — 确定并实现兜底优先级（未最终定稿）**
+| 级别 | 校验失败时的行为 | 理由 |
+|---|---|---|
+| ① 显式参数 | **直接报错**，不回落 | 用户明确指定了项目，静默换成别的更危险 |
+| ②③④ 隐式兜底 | **继续往下一级** | 默认值可能已失效（项目被删 / 权限被回收），应自动降级而不是整条链路失败 |
 
-候选顺序：
+- 每级校验统一走 `projectService.getProject(projectUuid, account)` —— 它内部已执行 `account.user.ability.cannot('view', subject('Project', { organizationUuid, projectUuid }))` 并抛 `ForbiddenError`。
+- ② 的粒度（per user + per org）保持现状即可：**它是用户偏好，不是组织配置**，所以 `set_project` 不应去写 `organizations.default_project_uuid`（那是全员共享，一个用户改了会影响别人）。
+- ④ 是**部署级全局值**，多租户下会指向同一个项目 —— 安全性由「每级都做权限校验 + 逐级回落」保证：其他组织的用户校验失败后会自动回落到 ③。
 
-1. 显式 `args.projectUuid`
-2. 服务端 `LIGHTDASH_PROJECT_UUID`（需在 `parseConfig.ts` 新增 `mcp.defaultProjectUuid`）
-3. 组织级 `defaultProjectUuid`（需注入 `OrganizationModel` / `OrganizationService`）
-4. 都没有 → 抛 `ForbiddenError`，文案需去掉 `set_project` 提示
+### 4.4 tags 语义
 
-> ⚠️ **注意**：主站是多租户。`LIGHTDASH_PROJECT_UUID` 是**部署级**全局值，若排在组织默认值之前，在多租户场景会把其他组织的请求导向同一个项目。因此实施时需确认：是否改为「先组织默认值、再环境变量」，或对环境变量兜底加组织归属校验。
->
-> 无论哪一层兜底，最终都必须再走一次 `ProjectService.getProject()` + CASL `view Project` 校验。
+- `set_project` 的 `tags` → 语义变为**「默认标签过滤」**（用户级偏好）："我默认只看这些标签的 explore / 字段"。
+- 沿用现有链路：`mcp_context.tags` → `filterExploreByTags` + `catalogSearch.yamlTags`。
+- 可选增强（P8.3，可延后）：给 `find_explores` / `find_fields` 增加**可选** `catalogTags` 显式参数，优先级 `显式 catalogTags > mcp_context.tags`。纯增量、不改旧行为。
 
-**Step 5 — tags 无状态化**
+### 4.5 实施计划
 
-为 `find_explores` / `find_fields` 增加显式 `catalogTags`（或等价）参数，替代 `getTagsFromContext()`；默认缺省时行为等同当前"未 `set_project`"的路径。
+| 子阶段 | 内容 | 规模 | 验收 |
+|---|---|---|---|
+| **P8.1** | 配置与依赖注入：`parseConfig.ts` 新增 `mcp.defaultProjectUuid`（来源 `LIGHTDASH_PROJECT_UUID`）；`McpToolDeps` 增加 `organizationModel`；`ServiceRepository` 注入 | S | typecheck 通过；config mock 同步 |
+| **P8.2** | 新增 `tools/projectContext.ts` 统一解析 helper；六个工具模块 + `McpService.resolveProjectUuid()` 全部改为委托；消除六份重复实现 | M | 单元测试覆盖四级兜底；模块测试更新 |
+| **P8.3** | 语义与文案：工具描述、`getProjectUuidFromContext` 错误文案、内置文档 `mcpDocsContent.ts`、analyst prompt；可选 `catalogTags` 增量参数 | S-M | 文档与 prompt 与新语义一致 |
+| **P8.4** | 文档更新：`mcp-v2-guide.md`、`mcp-tools-permissions.md`、本文件 §5 | S | 文档自洽 |
+| **P8.5** | 回归：typecheck + eslint + jest | S | 全绿 |
 
-**Step 6 — `mcp_context` 表与模型处置（未决策）**
+### 4.6 改动文件清单
 
-- **migration 文件**：`20250811180000_create_mcp_context_table.ts` 已在 `origin/main` 存在并可能已部署。删除已上线的 migration 会破坏迁移历史，**倾向保留**。
-- **模型文件**：`packages/backend/src/models/McpContextModel.ts` 及其 `ModelRepository` 入口可删除（无消费者）。
-- 若确需删表，应新增独立的下行 migration，而非改历史 migration。
-- 无论保留与否，**必须保证 MCP 服务完全不再依赖该表**。
+**核心代码**
 
-**Step 7 — 测试更新**
+| 文件 | 改动 |
+|---|---|
+| `packages/backend/src/config/parseConfig.ts` | `mcp` 配置新增 `defaultProjectUuid?: string`（`process.env.LIGHTDASH_PROJECT_UUID`） |
+| `packages/backend/src/config/lightdashConfig.mock.ts` | 同步 mock |
+| `packages/backend/src/services/McpService/tools/deps.ts` | `McpToolDeps` 增加 `organizationModel: OrganizationModel` |
+| `packages/backend/src/services/McpService/tools/projectContext.ts` | **新增**：统一项目解析 + 权限校验 helper |
+| `packages/backend/src/services/McpService/McpService.ts` | `resolveProjectUuid()` 委托新 helper；`getProjectUuidFromContext()` 语义调整（用户级默认项目）；新增组织级 / 部署级兜底；工具描述调整 |
+| `packages/backend/src/services/McpService/tools/queryTools.ts`<br>`contentSearchTools.ts` / `contentListTools.ts` / `savedChartTools.ts` / `dashboardTools.ts` / `chartRunTools.ts` | 删除各自复制的 `resolveProjectUuid` / `assertCanViewProject`，改用统一 helper |
+| `packages/backend/src/services/ServiceRepository.ts` | `getMcpService()` 注入 `organizationModel` |
 
-- `packages/backend/src/services/McpService/McpService.tools.test.ts`：26 → 24
-- `packages/backend/src/services/McpService/McpService.context.test.ts`：移除 context mock / 断言，改为覆盖无状态解析
-- 各工具模块测试：移除 `mcpContextModel` mock
+**保持不变（明确不动的）**
 
-**Step 8 — 文档更新**
+- `packages/backend/src/services/McpService/McpToolName.ts` — 工具名保留 26 个
+- `packages/backend/src/services/McpService/tools/scopes.ts` — scope 映射不变
+- `packages/backend/src/models/McpContextModel.ts` — 保留
+- `packages/backend/src/database/migrations/20250811180000_create_mcp_context_table.ts` — 保留，不新增 migration
+- `packages/backend/src/ee/index.ts` — 无需改动（`mcpContextModel` provider 仍有消费者）
 
-- `docs/mcp/mcp-v2-guide.md`
-- `docs/mcp/mcp-unified-backend-plan.md`
-- `packages/backend/src/services/McpService/tools/mcpDocsContent.ts`（去掉有状态项目说明、移除 `session_lifecycle` topic）
-- `packages/backend/src/services/McpService/tools/analystPrompt.ts` / `analystPromptTools.ts`（提示词里提到 `set_project`）
-- `docs/mcp/mcp-tools-permissions.md`（工具与权限对照表含 `set_project` / `get_current_project`）
+**文案 / 文档**
 
-**Step 9 — 回归验证**
+| 文件 | 改动 |
+|---|---|
+| `packages/backend/src/services/McpService/tools/mcpDocsContent.ts` | 「当前项目」→ 「默认项目」；说明四级兜底 |
+| `packages/backend/src/services/McpService/tools/analystPrompt.ts` / `analystPromptTools.ts` | prompt 措辞 |
+| `docs/mcp/mcp-v2-guide.md` | 项目解析章节改写；工具数 26 不变 |
+| `docs/mcp/mcp-tools-permissions.md` | `set_project` / `get_current_project` 的说明措辞 |
+| `docs/mcp/mcp-unified-backend-plan.md` | §3.2 与 P8 进度行 |
+
+**测试**
+
+| 文件 | 改动 |
+|---|---|
+| `packages/backend/src/services/McpService/McpService.context.test.ts` | 重写为四级兜底覆盖 |
+| `packages/backend/src/services/McpService/McpService.tools.test.ts` | 数量仍 26，**不需要改** |
+| 各工具模块 `*.test.ts` | mock 调整（`organizationModel`、移除对模块内 `resolveProjectUuid` 的断言） |
+
+### 4.7 测试计划
+
+**新增单测（`tools/projectContext.test.ts`）**
+
+- 显式 `projectUuid` 命中 → 返回 `source: 'argument'`
+- 显式 `projectUuid` 无权限 → 抛 `ForbiddenError`，**不**回落
+- 显式缺失 + context 命中 → `source: 'user_default'`
+- context 存在但已失效（`getProject` 抛错）→ 自动落到组织默认
+- 组织默认命中 → `source: 'organization_default'`
+- 组织默认失效 → 落到部署级 env
+- 全部缺失 → 抛 `ForbiddenError`，报错文案包含"显式传 projectUuid"指引
+- 每一级返回后，都再校验一次访问权限
+
+**回归**
 
 ```bash
-cd packages/backend && NODE_OPTIONS=--max-old-space-size=6144 npx tsc --project tsconfig.json --noEmit
+cd packages/backend
+NODE_OPTIONS=--max-old-space-size=6144 npx tsc --project tsconfig.json --noEmit
 NODE_OPTIONS=--max-old-space-size=4096 npx eslint -c .eslintrc.js --ignore-path ./../../.gitignore src/services/McpService src/services/ai src/routers/mcpRouter.ts
 NODE_OPTIONS=--max-old-space-size=4096 TZ=UTC npx jest --config jest.config.js src/services/McpService src/routers/mcpRouter.test.ts
 ```
 
 > 后端 typecheck 在默认 Node heap 下会 OOM，必须带 `--max-old-space-size=6144`。
 
-### 4.4 仍未定的问题
+### 4.8 风险与回滚
 
-1. `LIGHTDASH_PROJECT_UUID` 与组织级 `defaultProjectUuid` 的**先后顺序**及多租户安全性
-2. `mcp_context` 表是否 drop，以及 migration / model 的最终处置
-3. 主站 `find_explores` / `find_fields` 是否在本轮就向 v2 的参数模型靠拢，还是留到工具收敛阶段
+| 风险 | 缓解 |
+|---|---|
+| 破坏存量客户端对 `set_project` / `get_current_project` 的调用 | **工具名与入参不变**，只改描述与内部语义；返回结构保持兼容 |
+| 部署级 env 在多租户下指向他组织项目 | 每级权限校验 + 逐级回落，校验失败自动降级 |
+| 组织默认项目对部分用户不可见 | 同上，自动落到下一级；最终报明确错误 |
+| `mcp_context` 中的历史脏数据（指向已删项目） | 隐式兜底校验失败即回落，不会把用户卡死 |
 
----
+**回滚**：全部改动在 `feat/mcp-unified-backend` 分支；`MCP_ENABLED=false` 可单独关停 MCP。
+
+### 4.9 仍待确认
+
+1. **工具名是否改名。** 当前计划保留 `set_project` / `get_current_project` 不改名字（无损优先，避免打断存量客户端与 Skills 提示词），但名字与「默认项目」新语义不完全对齐。备选：新增 `set_default_project` / `get_default_project`，旧工具标 deprecated。**倾向保留旧名**。
+2. **是否加显式 `catalogTags` 参数**（§4.4）。倾向加（纯增量），但可延后到 P8.3 之后。
+3. **部署级 env 的默认值是否提供。** 倾向不提供默认（`undefined`），由部署方显式配置。
 
 ## 5. 后续路线图（工具收敛 26 → 18）
 
@@ -280,7 +322,7 @@ NODE_OPTIONS=--max-old-space-size=4096 TZ=UTC npx jest --config jest.config.js s
 **v2.1（无损）**：新增 `list_content`；参数化 `find_content` / `get_dashboard_tiles` / `get_site_info` / `list_projects`；旧工具标 deprecated，**输出结构不变**。
 
 **v2.2（清理）**：删除 `get_lightdash_version` / `find_charts` / `find_dashboards` / `find_spaces` / `list_dashboards` / `list_charts` / `list_verified_content`。
-（`get_current_project` 若 §4 已实施，则已在该阶段前移除。）
+（`set_project` / `get_current_project` **不再列入删除清单** —— 2026-10-27 修订后保留，见 §4。）
 
 ---
 
@@ -293,6 +335,9 @@ NODE_OPTIONS=--max-old-space-size=4096 TZ=UTC npx jest --config jest.config.js s
 | v2 参考分支 | `origin/feat/mcp-v2` |
 | v2 工具清单 | `origin/feat/mcp-v2:packages/lightdash-mcp-v2/DEV_TOOL_NAMES.md` |
 | v2 项目语义 | `origin/feat/mcp-v2:packages/lightdash-mcp-v2/src/mcp/tools/registerExploreCatalogTools.ts` |
+| 线上独立包的 `set_project` 存储实现（内存 Map，**P8 方向判定的关键依据**） | `packages/lightdash-mcp/src/lib/mcpSessionStore.ts` |
+| 线上独立包 `set_project` 工具注册 | `packages/lightdash-mcp/src/mcp/tools/registerSessionProjectTools.ts` |
+| 组织级默认项目字段 | `packages/backend/src/database/entities/organizations.ts`（`default_project_uuid`）→ `packages/backend/src/models/OrganizationModel.ts` |
 | v2 文档内容 | `origin/feat/mcp-v2:packages/lightdash-mcp-v2/src/mcp/mcpDocsContent.ts` |
 | 独立包 v1 实现 | `packages/lightdash-mcp/src/mcp/` |
 | 独立包鉴权 | `packages/lightdash-mcp/src/http/authAndCache.ts`（已有 `validateOauthToken()`） |
