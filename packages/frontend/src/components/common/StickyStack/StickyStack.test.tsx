@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StickyStackProvider from './StickyStackProvider';
 import { useStickyLayer } from './useStickyLayer';
@@ -84,5 +85,40 @@ describe('StickyStack', () => {
         });
         // disabled layers are not part of the stack
         expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '0px' });
+    });
+
+    it('registers layers that are rendered conditionally', () => {
+        const ConditionalLayer: React.FC = () => {
+            const [show, setShow] = useState(false);
+            const { ref, style } = useStickyLayer({
+                id: 'layer-1',
+                order: 1,
+            });
+            return (
+                <>
+                    <button type="button" onClick={() => setShow(true)}>
+                        show
+                    </button>
+                    {show && (
+                        <div data-testid="layer-1" ref={ref} style={style} />
+                    )}
+                </>
+            );
+        };
+
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <ConditionalLayer />
+            </StickyStackProvider>,
+        );
+
+        // not rendered yet, so there is nothing between the layers
+        expect(screen.getByTestId('layer-0')).toHaveStyle({ top: '0px' });
+
+        fireEvent.click(screen.getByRole('button', { name: 'show' }));
+
+        // now the layer exists and its height (30px) is taken into account
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '40px' });
     });
 });

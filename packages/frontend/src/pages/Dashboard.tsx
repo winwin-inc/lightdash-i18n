@@ -360,6 +360,12 @@ const Dashboard: FC = () => {
             order: 0,
             enabled: isStickyEnabled,
         });
+    const { ref: parametersRef, style: parametersStickyStyle } =
+        useStickyLayer({
+            id: 'dashboard-parameters',
+            order: 1,
+            enabled: isStickyEnabled,
+        });
 
     // 看板颜色同步状态
     const [syncChartColors, setSyncChartColors] = useState<boolean>(
@@ -1563,10 +1569,15 @@ const Dashboard: FC = () => {
                     </Group>
                     {hasDashboardTiles && (
                         <Group
+                            ref={parametersRef}
                             gap="xs"
                             align="flex-start"
                             wrap="nowrap"
                             px={'lg'}
+                            style={{
+                                ...parametersStickyStyle,
+                                backgroundColor: 'var(--mantine-color-body)',
+                            }}
                         >
                             <Parameters
                                 isEditMode={isEditMode}

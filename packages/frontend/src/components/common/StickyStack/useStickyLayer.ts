@@ -1,9 +1,9 @@
 import {
-    useLayoutEffect,
+    useCallback,
     useMemo,
     useRef,
     type CSSProperties,
-    type RefObject,
+    type RefCallback,
 } from 'react';
 import { useStickyStackContext } from './StickyStackContext';
 
@@ -22,40 +22,49 @@ type UseStickyLayerProps = {
  *
  * The returned `ref` must be attached to the element and the returned `style`
  * must be applied to it.
+ *
+ * A callback ref is used (instead of a ref object) so that layers that are
+ * rendered conditionally are registered as soon as they appear, and
+ * unregistered when they are removed.
  */
 export const useStickyLayer = ({
     id,
     order,
     enabled = true,
 }: UseStickyLayerProps): {
-    ref: RefObject<HTMLDivElement | null>;
+    ref: RefCallback<HTMLDivElement>;
     style: CSSProperties;
 } => {
     const { registerLayer, unregisterLayer, getLayerOffset } =
         useStickyStackContext();
-    const ref = useRef<HTMLDivElement>(null);
+    const observerRef = useRef<ResizeObserver | null>(null);
 
-    useLayoutEffect(() => {
-        const element = ref.current;
-        if (!enabled || !element) {
+    const ref = useCallback<RefCallback<HTMLDivElement>>(
+        (element) => {
+            observerRef.current?.disconnect();
+            observerRef.current = null;
             unregisterLayer(id);
-            return undefined;
-        }
 
-        const updateHeight = () => {
-            registerLayer(id, order, element.getBoundingClientRect().height);
-        };
+            if (!enabled || !element) {
+                return;
+            }
 
-        updateHeight();
+            const updateHeight = () => {
+                registerLayer(
+                    id,
+                    order,
+                    element.getBoundingClientRect().height,
+                );
+            };
 
-        const observer = new ResizeObserver(updateHeight);
-        observer.observe(element);
+            updateHeight();
 
-        return () => {
-            observer.disconnect();
-            unregisterLayer(id);
-        };
-    }, [enabled, id, order, registerLayer, unregisterLayer]);
+            const observer = new ResizeObserver(updateHeight);
+            observer.observe(element);
+            observerRef.current = observer;
+        },
+        [enabled, id, order, registerLayer, unregisterLayer],
+    );
 
     const offset = getLayerOffset(id);
 

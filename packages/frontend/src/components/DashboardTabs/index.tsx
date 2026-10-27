@@ -468,13 +468,13 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     const isStickyEnabled = !isEditMode;
     const { ref: tabsBarRef, style: tabsBarStickyStyle } = useStickyLayer({
         id: 'dashboard-tabs-bar',
-        order: 1,
+        order: 2,
         enabled: isStickyEnabled,
     });
     const { ref: tabFiltersRef, style: tabFiltersStickyStyle } =
         useStickyLayer({
             id: 'dashboard-tab-filters',
-            order: 2,
+            order: 3,
             enabled: isStickyEnabled,
         });
     const showTabFilters = hasTilesThatSupportFilters && !!activeTab?.uuid;
