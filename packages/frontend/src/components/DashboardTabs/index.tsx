@@ -637,25 +637,19 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         ref={tabFiltersRef}
                                         style={{
                                             ...tabFiltersStickyStyle,
-                                            backgroundColor: 'white',
+                                            // the spacing to the tabs bar. It
+                                            // is a padding (and not a margin)
+                                            // so it is part of the sticky
+                                            // layer and the content can't
+                                            // scroll through it
+                                            paddingTop: hasTabFilters ? 12 : 0,
+                                            // the page background, it has to
+                                            // be opaque so the content can't
+                                            // scroll through the bar
+                                            backgroundColor:
+                                                theme.colors.gray[0],
                                         }}
                                     >
-                                        {hasTabFilters && (
-                                            <div
-                                                style={{
-                                                    // the space between the
-                                                    // tabs bar and the
-                                                    // filters. It lives
-                                                    // inside the sticky
-                                                    // layer so the content
-                                                    // can't scroll through
-                                                    // it
-                                                    height: 12,
-                                                    backgroundColor:
-                                                        theme.colors.gray[0],
-                                                }}
-                                            />
-                                        )}
                                         <Group>
                                             {showTabFilters && (
                                                 <DashboardFilter
