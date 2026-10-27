@@ -20,6 +20,7 @@ import {
     Switch,
     Text,
 } from '@mantine-8/core';
+import { useMantineTheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -232,6 +233,7 @@ const COLOR_PALETTE_PRESETS = [
 
 const Dashboard: FC = () => {
     const { t } = useTranslation();
+    const theme = useMantineTheme();
 
     const navigate = useNavigate();
     const { projectUuid, dashboardUuid, mode } = useParams<{
@@ -1248,7 +1250,9 @@ const Dashboard: FC = () => {
                             // sticky bar), the spacing is a margin so it
                             // scrolls away with the content
                             marginTop: 24,
-                            backgroundColor: 'white',
+                            // the page background, it has to be opaque so
+                            // the content can't scroll through the bar
+                            backgroundColor: theme.colors.gray[0],
                         }}
                     >
                         {/* This Group will take up remaining space (and not push DateZoom) */}
@@ -1583,7 +1587,9 @@ const Dashboard: FC = () => {
                             px={'lg'}
                             style={{
                                 ...parametersStickyStyle,
-                                backgroundColor: 'white',
+                                // the page background, it has to be opaque so
+                                // the content can't scroll through the bar
+                                backgroundColor: theme.colors.gray[0],
                             }}
                         >
                             <Parameters
