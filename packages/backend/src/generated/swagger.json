@@ -14810,8 +14810,13 @@
                     "slug": {
                         "type": "string"
                     },
+                    "dashboardUuid": {
+                        "type": "string",
+                        "description": "Dashboard the SQL chart belongs to (dashboard-owned SQL chart).\nMutually exclusive with `spaceUuid`: exactly one of them must be\nprovided."
+                    },
                     "spaceUuid": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Space the SQL chart belongs to.\nMutually exclusive with `dashboardUuid`: exactly one of them must be\nprovided."
                     },
                     "config": {
                         "$ref": "#/components/schemas/AllVizChartConfig"
@@ -14832,7 +14837,6 @@
                     }
                 },
                 "required": [
-                    "spaceUuid",
                     "config",
                     "limit",
                     "sql",

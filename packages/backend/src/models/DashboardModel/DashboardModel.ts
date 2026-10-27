@@ -1819,6 +1819,34 @@ export class DashboardModel {
     }
 
     /**
+     * SQL charts owned by a dashboard that are not referenced by any tile
+     * anymore. They are the SQL chart equivalent of the orphaned charts.
+     *
+     * A SQL chart is only deleted when it is not used by a tile of any
+     * dashboard: a SQL chart owned by a dashboard can still be used by a
+     * tile of another dashboard.
+     */
+    async getOrphanedSqlCharts(
+        dashboardUuid: string,
+    ): Promise<{ savedSqlUuid: string }[]> {
+        const getSqlChartsInTilesQuery = this.database(
+            DashboardTileSqlChartTableName,
+        ).distinct('saved_sql_uuid');
+
+        const orphanedSqlCharts = await this.database(SavedSqlTableName)
+            .select('saved_sql_uuid')
+            .where(`${SavedSqlTableName}.dashboard_uuid`, dashboardUuid)
+            .whereNotIn(
+                `${SavedSqlTableName}.saved_sql_uuid`,
+                getSqlChartsInTilesQuery,
+            );
+
+        return orphanedSqlCharts.map((chart) => ({
+            savedSqlUuid: chart.saved_sql_uuid,
+        }));
+    }
+
+    /**
      * Check if a specific chart exists in the latest version of a specific dashboard within a project
      */
     async savedChartExistsInDashboard(

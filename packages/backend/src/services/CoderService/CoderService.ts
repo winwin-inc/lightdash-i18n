@@ -1912,6 +1912,9 @@ export class CoderService extends BaseService {
         await this.savedSqlModel.update({
             userUuid: user.userUuid,
             savedSqlUuid: existingChart.savedSqlUuid,
+            // The chart is promoted as a space chart: it belongs to the
+            // space, never to a dashboard
+            keepOwnership: false,
             sqlChart: {
                 unversionedData: {
                     name: sqlChartAsCode.name,

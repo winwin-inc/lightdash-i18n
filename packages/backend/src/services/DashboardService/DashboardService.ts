@@ -21,6 +21,7 @@ import {
     isClientUseRestrictedProjectRole,
     isDashboardChartTileType,
     isDashboardScheduler,
+    isDashboardSqlChartTile,
     isDashboardUnversionedFields,
     isDashboardVersionedFields,
     isUserWithOrg,
@@ -42,12 +43,16 @@ import {
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
     type DashboardFilterRule,
+    type DashboardFilters,
     type DashboardQueryContext,
+    type DashboardTile,
+    type DashboardTileTarget,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
     type ExportContentPayload,
     type ExportContentRequest,
+    type SavedChartDAO,
     type SchedulerCsvOptions,
     type UserDashboardsSummary,
     type UUID,
@@ -78,6 +83,7 @@ import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberP
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
@@ -130,6 +136,7 @@ type DashboardServiceArguments = {
     schedulerModel: SchedulerModel;
     savedChartModel: SavedChartModel;
     savedChartService: SavedChartService;
+    savedSqlModel: SavedSqlModel;
     schedulerClient: SchedulerClient;
     slackClient: SlackClient;
     projectModel: ProjectModel;
@@ -219,6 +226,8 @@ export class DashboardService
 
     savedChartService: SavedChartService;
 
+    savedSqlModel: SavedSqlModel;
+
     catalogModel: CatalogModel;
 
     projectModel: ProjectModel;
@@ -262,6 +271,7 @@ export class DashboardService
         schedulerModel,
         savedChartModel,
         savedChartService,
+        savedSqlModel,
         schedulerClient,
         slackClient,
         projectModel,
@@ -280,6 +290,7 @@ export class DashboardService
         this.schedulerModel = schedulerModel;
         this.savedChartModel = savedChartModel;
         this.savedChartService = savedChartService;
+        this.savedSqlModel = savedSqlModel;
         this.projectModel = projectModel;
         this.catalogModel = catalogModel;
         this.schedulerClient = schedulerClient;
@@ -324,6 +335,8 @@ export class DashboardService
     private async deleteOrphanedChartsInDashboards(
         user: SessionUser,
         dashboardUuid: string,
+        projectUuid: string,
+        organizationUuid: string,
     ) {
         const orphanedCharts = await this.dashboardModel.getOrphanedCharts(
             dashboardUuid,
@@ -340,6 +353,26 @@ export class DashboardService
                     properties: {
                         savedQueryId: deletedChart.uuid,
                         projectId: deletedChart.projectUuid,
+                    },
+                });
+            }),
+        );
+
+        // SQL charts owned by the dashboard that are not used by a tile
+        // anymore are deleted too, they would be invisible leftovers
+        const orphanedSqlCharts =
+            await this.dashboardModel.getOrphanedSqlCharts(dashboardUuid);
+
+        await Promise.all(
+            orphanedSqlCharts.map(async (chart) => {
+                await this.savedSqlModel.delete(chart.savedSqlUuid);
+                this.analytics.track({
+                    event: 'sql_chart.deleted',
+                    userId: user.userUuid,
+                    properties: {
+                        chartId: chart.savedSqlUuid,
+                        projectId: projectUuid,
+                        organizationId: organizationUuid,
                     },
                 });
             }),
@@ -1346,6 +1379,274 @@ export class DashboardService
         };
     }
 
+    /**
+     * A tile holds a chart resource (a saved chart or a SQL chart) when it
+     * references one. Those tiles are duplicated as brand new resources.
+     */
+    private static isChartResourceTile(tile: DashboardTile): boolean {
+        if (isDashboardSqlChartTile(tile)) {
+            return tile.properties.savedSqlUuid !== null;
+        }
+        if (isDashboardChartTileType(tile)) {
+            return tile.properties.savedChartUuid !== null;
+        }
+        return false;
+    }
+
+    /**
+     * Throws when the user is not allowed to see the content of a space.
+     */
+    private async assertCanViewSpaceContent(
+        user: SessionUser,
+        projectUuid: string,
+        spaceUuid: string,
+    ): Promise<void> {
+        const space = await this.spaceModel.getSpaceSummary(spaceUuid);
+        const access = await this.spaceModel.getUserSpaceAccess(
+            user.userUuid,
+            spaceUuid,
+        );
+        if (
+            user.ability.cannot(
+                'view',
+                subject('SavedChart', {
+                    organizationUuid: space.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this chart belongs to",
+            );
+        }
+    }
+
+    /**
+     * Duplicates a saved chart into a new chart owned by the given dashboard.
+     * The copy is a fully independent resource: new uuid, new slug and new
+     * version rows, so editing the copy never affects the source chart.
+     */
+    private async duplicateChartForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        savedChartUuid,
+        tileUuid,
+        fallbackSpaceUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        savedChartUuid: string;
+        /** Tile the chart belongs to - used to build a unique slug */
+        tileUuid: string;
+        /** Space used to resolve permissions for dashboard-owned charts */
+        fallbackSpaceUuid: string;
+    }): Promise<SavedChartDAO> {
+        const chartInDashboard = await this.savedChartModel.get(savedChartUuid);
+        if (chartInDashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Chart does not belong to this project',
+            );
+        }
+
+        await this.assertCanViewSpaceContent(
+            user,
+            projectUuid,
+            chartInDashboard.spaceUuid ?? fallbackSpaceUuid,
+        );
+
+        const duplicatedChart = await this.savedChartModel.create(
+            projectUuid,
+            user.userUuid,
+            {
+                ...chartInDashboard,
+                spaceUuid: null,
+                dashboardUuid,
+                updatedByUser: {
+                    userUuid: user.userUuid,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                },
+                // The slug is made unique by the model, the tile uuid keeps
+                // it readable when the same chart is copied more than once
+                slug: generateSlug(
+                    `${chartInDashboard.name} ${Date.now()}-${tileUuid}`,
+                ),
+            },
+        );
+
+        const cachedExplore = await this.projectModel.getExploreFromCache(
+            projectUuid,
+            duplicatedChart.tableName,
+        );
+
+        try {
+            await this.updateChartFieldUsage(projectUuid, cachedExplore, {
+                oldChartFields: {
+                    metrics: [],
+                    dimensions: [],
+                },
+                newChartFields: {
+                    metrics: duplicatedChart.metricQuery.metrics,
+                    dimensions: duplicatedChart.metricQuery.dimensions,
+                },
+            });
+        } catch (error) {
+            this.logger.error(
+                `Error updating chart field usage for chart ${duplicatedChart.uuid}`,
+                error,
+            );
+        }
+
+        this.analytics.track({
+            event: 'saved_chart.created',
+            userId: user.userUuid,
+            properties: {
+                ...SavedChartService.getCreateEventProperties(duplicatedChart),
+                dashboardId: duplicatedChart.dashboardUuid ?? undefined,
+                duplicated: true,
+                virtualViewId:
+                    cachedExplore?.type === ExploreType.VIRTUAL
+                        ? cachedExplore.name
+                        : undefined,
+            },
+        });
+
+        return duplicatedChart;
+    }
+
+    /**
+     * Duplicates a SQL chart into a new SQL chart owned by the given
+     * dashboard. The copy is a fully independent resource: new uuid, new slug
+     * and new version row, so editing the copy never affects the source
+     * SQL chart.
+     */
+    private async duplicateSqlChartForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        savedSqlUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        savedSqlUuid: string;
+    }): Promise<{ savedSqlUuid: string; name: string; slug: string }> {
+        const sourceChart = await this.savedSqlModel.getByUuid(savedSqlUuid, {
+            projectUuid,
+        });
+
+        if (sourceChart.project.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'SQL chart does not belong to this project',
+            );
+        }
+
+        // The user must be able to see the space the SQL chart lives in.
+        // Creating and editing SQL charts still requires the `CustomSql`
+        // ability, but duplicating a chart the user can already see does not
+        // give them access to any new SQL.
+        await this.assertCanViewSpaceContent(
+            user,
+            projectUuid,
+            sourceChart.space.uuid,
+        );
+
+        const duplicatedChart = await this.savedSqlModel.create(
+            user.userUuid,
+            projectUuid,
+            {
+                name: sourceChart.name,
+                description: sourceChart.description,
+                sql: sourceChart.sql,
+                limit: sourceChart.limit,
+                config: sourceChart.config,
+                dashboardUuid,
+            },
+        );
+
+        return {
+            savedSqlUuid: duplicatedChart.savedSqlUuid,
+            name: sourceChart.name,
+            slug: duplicatedChart.slug,
+        };
+    }
+
+    /**
+     * Duplicates a tile of the source dashboard. Tiles holding a chart
+     * resource (saved chart or SQL chart) are linked to a new, independent
+     * copy of that chart. Every other tile (markdown, loom, data app) is
+     * copied as is.
+     */
+    private async duplicateTileForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        tile,
+        fallbackSpaceUuid,
+        remapTileUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        tile: DashboardTile;
+        /** Space used to resolve permissions for dashboard-owned charts */
+        fallbackSpaceUuid: string;
+        /** Maps a tile uuid of the source dashboard to the new tile uuid */
+        remapTileUuid: (tileUuid: string) => string;
+    }): Promise<DashboardTile> {
+        if (isDashboardSqlChartTile(tile)) {
+            if (!tile.properties.savedSqlUuid) {
+                return { ...tile };
+            }
+            const duplicatedSqlChart = await this.duplicateSqlChartForDashboard(
+                {
+                    user,
+                    projectUuid,
+                    dashboardUuid,
+                    savedSqlUuid: tile.properties.savedSqlUuid,
+                },
+            );
+            return {
+                ...tile,
+                uuid: remapTileUuid(tile.uuid),
+                properties: {
+                    ...tile.properties,
+                    savedSqlUuid: duplicatedSqlChart.savedSqlUuid,
+                    chartName: duplicatedSqlChart.name,
+                    chartSlug: duplicatedSqlChart.slug,
+                },
+            };
+        }
+
+        if (isDashboardChartTileType(tile) && tile.properties.savedChartUuid) {
+            const duplicatedChart = await this.duplicateChartForDashboard({
+                user,
+                projectUuid,
+                dashboardUuid,
+                savedChartUuid: tile.properties.savedChartUuid,
+                tileUuid: tile.uuid,
+                fallbackSpaceUuid,
+            });
+            return {
+                ...tile,
+                uuid: remapTileUuid(tile.uuid),
+                properties: {
+                    ...tile.properties,
+                    savedChartUuid: duplicatedChart.uuid,
+                    belongsToDashboard: true,
+                    chartName: duplicatedChart.name,
+                    chartSlug: duplicatedChart.slug,
+                },
+            };
+        }
+
+        return { ...tile };
+    }
+
     async duplicate(
         user: SessionUser,
         projectUuid: string,
@@ -1355,9 +1656,17 @@ export class DashboardService
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
         );
+        if (dashboardDao.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to this project');
+        }
         const space = await this.spaceModel.getSpaceSummary(
             dashboardDao.spaceUuid,
         );
+        if (space.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Target space does not belong to this project',
+            );
+        }
         const spaceAccess = await this.spaceModel.getUserSpaceAccess(
             user.userUuid,
             dashboardDao.spaceUuid,
@@ -1374,10 +1683,10 @@ export class DashboardService
             );
         }
 
-        const newTabsMap = dashboard.tabs.map((tab) => ({
-            uuid: tab.uuid,
-            newUuid: uuidv4(), // generate new uuid for copied tabs
-        }));
+        const tabUuidMap = new Map<string, string>();
+        dashboard.tabs.forEach((tab) => {
+            tabUuidMap.set(tab.uuid, uuidv4());
+        });
 
         const remapTabConfigProperty = <T>(
             property?: Record<string, T>,
@@ -1385,9 +1694,7 @@ export class DashboardService
             if (!property) return property;
             return Object.entries(property).reduce<Record<string, T>>(
                 (acc, [tabUuid, value]) => {
-                    const newUuid = newTabsMap.find(
-                        (tabMap) => tabMap.uuid === tabUuid,
-                    )?.newUuid;
+                    const newUuid = tabUuidMap.get(tabUuid);
                     if (!newUuid) return acc;
                     return {
                         ...acc,
@@ -1396,6 +1703,53 @@ export class DashboardService
                 },
                 {},
             );
+        };
+
+        /**
+         * Tiles holding a chart resource (saved chart or SQL chart) point to a
+         * duplicated chart, so they get a new tile uuid. Every other tile
+         * (markdown, loom, data app) is copied as is.
+         */
+        const tileUuidMap = new Map<string, string>();
+        dashboard.tiles.forEach((tile) => {
+            if (DashboardService.isChartResourceTile(tile)) {
+                tileUuidMap.set(tile.uuid, uuidv4());
+            }
+        });
+
+        const remapTileUuid = (tileUuid: string): string =>
+            tileUuidMap.get(tileUuid) ?? tileUuid;
+
+        const remapFilterRule = <T extends DashboardFilterRule>(rule: T): T => ({
+            ...rule,
+            tileTargets: rule.tileTargets
+                ? Object.entries(rule.tileTargets).reduce<
+                      Record<string, DashboardTileTarget>
+                  >((acc, [tileUuid, target]) => {
+                      acc[remapTileUuid(tileUuid)] = target;
+                      return acc;
+                  }, {})
+                : undefined,
+            lockedTabUuids: rule.lockedTabUuids?.map(
+                (tabUuid) => tabUuidMap.get(tabUuid) ?? tabUuid,
+            ),
+            parentTabUuid:
+                rule.parentScope === 'tab' && rule.parentTabUuid !== undefined
+                    ? tabUuidMap.get(rule.parentTabUuid) ?? rule.parentTabUuid
+                    : rule.parentTabUuid,
+        });
+
+        const remapFilters = (
+            filters?: DashboardFilters,
+        ): DashboardFilters | undefined => {
+            if (!filters) return filters;
+            return {
+                dimensions: filters.dimensions.map(remapFilterRule),
+                metrics: filters.metrics.map(remapFilterRule),
+                tableCalculations: filters.tableCalculations.map(
+                    remapFilterRule,
+                ),
+            };
         };
 
         const remapDashboardConfig = (
@@ -1410,27 +1764,51 @@ export class DashboardService
                 showTabAddFilterButton: remapTabConfigProperty(
                     config.showTabAddFilterButton,
                 ),
+                syncChartTileUuids: config.syncChartTileUuids?.map(
+                    remapTileUuid,
+                ),
             };
         };
 
         const newTabs: DashboardTab[] = dashboard.tabs.map((tab) => ({
             ...tab,
-            uuid: newTabsMap.find((tabMap) => tabMap.uuid === tab.uuid)
-                ?.newUuid!,
+            uuid: tabUuidMap.get(tab.uuid)!,
+            filters: remapFilters(tab.filters),
         }));
+
+        const hasChartResourceTiles = dashboard.tiles.some((tile) =>
+            DashboardService.isChartResourceTile(tile),
+        );
+
+        const remapTileTabUuid = (tile: DashboardTile) => ({
+            ...tile,
+            tabUuid: tile.tabUuid
+                ? tabUuidMap.get(tile.tabUuid) ?? tile.tabUuid
+                : tile.tabUuid,
+        });
 
         const duplicatedDashboard = {
             ...dashboard,
-            tiles: dashboard.tiles.map((tile) => ({
-                ...tile,
-                tabUuid: newTabsMap.find((tab) => tab.uuid === tile.tabUuid)
-                    ?.newUuid!,
-            })),
+            // Tiles holding a chart resource are added in a second version,
+            // once every chart resource has been duplicated - the duplicated
+            // charts need the uuid of the new dashboard.
+            tiles: hasChartResourceTiles
+                ? []
+                : dashboard.tiles.map(remapTileTabUuid),
+            filters: hasChartResourceTiles
+                ? {
+                      dimensions: [],
+                      metrics: [],
+                      tableCalculations: [],
+                  }
+                : remapFilters(dashboard.filters),
             description: data.dashboardDesc,
             name: data.dashboardName,
-            slug: generateSlug(dashboard.name),
+            slug: generateSlug(data.dashboardName || dashboard.name),
             tabs: newTabs,
             config: remapDashboardConfig(dashboard.config),
+            // The copy keeps the owner of the dashboard it was copied from
+            ownerUserUuid: dashboard.owner?.userUuid ?? null,
         };
 
         const newDashboard = await this.dashboardModel.create(
@@ -1440,113 +1818,61 @@ export class DashboardService
             projectUuid,
         );
 
-        if (hasChartsInDashboard(newDashboard)) {
-            const updatedTiles = await Promise.all(
-                newDashboard.tiles.map(async (tile) => {
-                    if (
-                        isDashboardChartTileType(tile) &&
-                        tile.properties.savedChartUuid
-                    ) {
-                        const chartInDashboard = await this.savedChartModel.get(
-                            tile.properties.savedChartUuid,
-                        );
-                        const duplicatedChart =
-                            await this.savedChartModel.create(
-                                newDashboard.projectUuid,
-                                user.userUuid,
-                                {
-                                    ...chartInDashboard,
-                                    spaceUuid: null,
+        if (hasChartResourceTiles) {
+            try {
+                // The tiles are duplicated one by one: slug generation is not
+                // safe to run in parallel for charts with the same name
+                const clonedTiles: CreateDashboard['tiles'] = [];
+                await dashboard.tiles.reduce(
+                    (previous: Promise<void>, rawTile) =>
+                        previous.then(async () => {
+                            clonedTiles.push(
+                                await this.duplicateTileForDashboard({
+                                    user,
+                                    projectUuid,
                                     dashboardUuid: newDashboard.uuid,
-                                    updatedByUser: {
-                                        userUuid: user.userUuid,
-                                        firstName: user.firstName,
-                                        lastName: user.lastName,
-                                    },
-                                    slug: generateSlug(
-                                        `${
-                                            chartInDashboard.name
-                                        } ${Date.now()}-${tile.uuid}`,
-                                    ),
-                                },
+                                    tile: remapTileTabUuid(rawTile),
+                                    fallbackSpaceUuid: dashboard.spaceUuid,
+                                    remapTileUuid,
+                                }),
                             );
-                        const cachedExplore =
-                            await this.projectModel.getExploreFromCache(
-                                projectUuid,
-                                duplicatedChart.tableName,
-                            );
+                        }),
+                    Promise.resolve(),
+                );
 
-                        try {
-                            await this.updateChartFieldUsage(
-                                projectUuid,
-                                cachedExplore,
-                                {
-                                    oldChartFields: {
-                                        metrics: [],
-                                        dimensions: [],
-                                    },
-                                    newChartFields: {
-                                        metrics:
-                                            duplicatedChart.metricQuery.metrics,
-                                        dimensions:
-                                            duplicatedChart.metricQuery
-                                                .dimensions,
-                                    },
-                                },
-                            );
-                        } catch (error) {
-                            this.logger.error(
-                                `Error updating chart field usage for chart ${duplicatedChart.uuid}`,
-                                error,
-                            );
-                        }
-
-                        this.analytics.track({
-                            event: 'saved_chart.created',
-                            userId: user.userUuid,
-                            properties: {
-                                ...SavedChartService.getCreateEventProperties(
-                                    duplicatedChart,
-                                ),
-                                dashboardId:
-                                    duplicatedChart.dashboardUuid ?? undefined,
-                                duplicated: true,
-                                virtualViewId:
-                                    cachedExplore?.type === ExploreType.VIRTUAL
-                                        ? cachedExplore.name
-                                        : undefined,
-                            },
-                        });
-
-                        return {
-                            ...tile,
-                            uuid: uuidv4(),
-                            properties: {
-                                ...tile.properties,
-                                savedChartUuid: duplicatedChart.uuid,
-                            },
-                        };
-                    }
-                    return tile;
-                }),
-            );
-
-            await this.dashboardModel.addVersion(
-                newDashboard.uuid,
-                {
-                    tiles: [...updatedTiles],
-                    filters: newDashboard.filters,
-                    tabs: newTabs,
-                    parameters: newDashboard.parameters,
-                    config: newDashboard.config,
-                },
-                user,
-                projectUuid,
-            );
+                await this.dashboardModel.addVersion(
+                    newDashboard.uuid,
+                    {
+                        tiles: clonedTiles,
+                        filters: remapFilters(dashboard.filters),
+                        tabs: newTabs,
+                        parameters: newDashboard.parameters,
+                        config: remapDashboardConfig(dashboard.config),
+                    },
+                    user,
+                    projectUuid,
+                );
+            } catch (error) {
+                // The copy is incomplete: remove it, together with the
+                // charts that were already duplicated for it
+                try {
+                    await this.dashboardModel.delete(newDashboard.uuid);
+                } catch (cleanupError) {
+                    this.logger.error(
+                        `Error removing the incomplete duplicated dashboard ${newDashboard.uuid}`,
+                        cleanupError,
+                    );
+                }
+                throw error;
+            }
         }
 
+        const updatedNewDashboard = await this.dashboardModel.getByIdOrSlug(
+            newDashboard.uuid,
+        );
+
         const dashboardProperties =
-            DashboardService.getCreateEventProperties(newDashboard);
+            DashboardService.getCreateEventProperties(updatedNewDashboard);
         this.analytics.track({
             event: 'dashboard.created',
             userId: user.userUuid,
@@ -1576,10 +1902,6 @@ export class DashboardService
                 duplicateOfDashboardId: dashboard.uuid,
             },
         });
-
-        const updatedNewDashboard = await this.dashboardModel.getByIdOrSlug(
-            newDashboard.uuid,
-        );
 
         return {
             ...updatedNewDashboard,
@@ -1704,6 +2026,8 @@ export class DashboardService
             await this.deleteOrphanedChartsInDashboards(
                 user,
                 existingDashboardDao.uuid,
+                existingDashboardDao.projectUuid,
+                existingDashboardDao.organizationUuid,
             );
         }
 

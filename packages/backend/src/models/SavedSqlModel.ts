@@ -2,6 +2,7 @@ import {
     AllVizChartConfig,
     CreateSqlChart,
     NotFoundError,
+    ParameterError,
     SpaceSummary,
     SqlChart,
     UpdateSqlChart,
@@ -16,6 +17,7 @@ import { DbProject, ProjectTableName } from '../database/entities/projects';
 import {
     DbSavedSql,
     DbSavedSqlVersion,
+    InsertSql,
     SavedSqlTableName,
     SavedSqlVersionsTableName,
 } from '../database/entities/savedSql';
@@ -291,27 +293,47 @@ export class SavedSqlModel {
         slug: string;
         savedSqlVersionUuid: string;
     }> {
+        // A SQL chart belongs either to a space or to a dashboard, never both
+        const spaceUuid = data.spaceUuid ?? null;
+        const dashboardUuid = data.dashboardUuid ?? null;
+
+        if (spaceUuid !== null && dashboardUuid !== null) {
+            throw new ParameterError(
+                'SQL chart must belong to either a space or a dashboard',
+            );
+        }
+
+        let ownership:
+            | { space_uuid: null; dashboard_uuid: string }
+            | { space_uuid: string; dashboard_uuid: null };
+        if (dashboardUuid !== null) {
+            ownership = { space_uuid: null, dashboard_uuid: dashboardUuid };
+        } else if (spaceUuid !== null) {
+            ownership = { space_uuid: spaceUuid, dashboard_uuid: null };
+        } else {
+            throw new ParameterError(
+                'SQL chart must belong to either a space or a dashboard',
+            );
+        }
+
         return this.database.transaction(async (trx) => {
+            const insertRow: InsertSql = {
+                slug:
+                    data.slug ??
+                    (await generateUniqueSlug(
+                        trx,
+                        SavedSqlTableName,
+                        data.name,
+                    )),
+                name: data.name,
+                description: data.description,
+                created_by_user_uuid: userUuid,
+                project_uuid: projectUuid,
+                ...ownership,
+            };
             const [{ saved_sql_uuid: savedSqlUuid, slug }] = await trx(
                 SavedSqlTableName,
-            ).insert(
-                {
-                    slug:
-                        data.slug ??
-                        (await generateUniqueSlug(
-                            trx,
-                            SavedSqlTableName,
-                            data.name,
-                        )),
-                    name: data.name,
-                    description: data.description,
-                    created_by_user_uuid: userUuid,
-                    project_uuid: projectUuid,
-                    space_uuid: data.spaceUuid,
-                    dashboard_uuid: null,
-                },
-                ['saved_sql_uuid', 'slug'],
-            );
+            ).insert(insertRow, ['saved_sql_uuid', 'slug']);
             const savedSqlVersionUuid = await SavedSqlModel.createVersion(trx, {
                 savedSqlUuid,
                 userUuid,
@@ -327,14 +349,32 @@ export class SavedSqlModel {
         userUuid: string;
         savedSqlUuid: string;
         sqlChart: UpdateSqlChart;
+        /**
+         * When true the ownership of the chart is left untouched. It is used
+         * for dashboard owned SQL charts, which must keep belonging to their
+         * dashboard and never to a space at the same time.
+         */
+        keepOwnership?: boolean;
     }): Promise<{ savedSqlUuid: string; savedSqlVersionUuid: string | null }> {
         return this.database.transaction(async (trx) => {
             if (data.sqlChart.unversionedData) {
+                // The ownership is only updated when a target space is given
+                // and the caller does not want to keep the current ownership.
+                // A SQL chart belongs either to a space or to a dashboard,
+                // never to both and never to none of them.
+                const targetSpaceUuid = data.keepOwnership
+                    ? undefined
+                    : data.sqlChart.unversionedData.spaceUuid;
                 await trx(SavedSqlTableName)
                     .update({
                         name: data.sqlChart.unversionedData.name,
                         description: data.sqlChart.unversionedData.description,
-                        space_uuid: data.sqlChart.unversionedData.spaceUuid,
+                        ...(targetSpaceUuid !== undefined
+                            ? {
+                                  space_uuid: targetSpaceUuid,
+                                  dashboard_uuid: null,
+                              }
+                            : {}),
                     })
                     .where('saved_sql_uuid', data.savedSqlUuid);
             }
@@ -377,7 +417,12 @@ export class SavedSqlModel {
         }
 
         const updateCount = await tx(SavedSqlTableName)
-            .update({ space_uuid: targetSpaceUuid })
+            .update({
+                space_uuid: targetSpaceUuid,
+                // A SQL chart belongs either to a space or to a dashboard,
+                // never to both
+                dashboard_uuid: null,
+            })
             .where('saved_sql_uuid', savedSqlUuid)
             .where('project_uuid', projectUuid);
 

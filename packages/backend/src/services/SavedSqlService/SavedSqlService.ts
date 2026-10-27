@@ -29,6 +29,7 @@ import {
     LightdashAnalytics,
 } from '../../analytics/LightdashAnalytics';
 import { AnalyticsModel } from '../../models/AnalyticsModel';
+import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
@@ -41,6 +42,7 @@ type SavedSqlServiceArguments = {
     projectModel: ProjectModel;
     spaceModel: SpaceModel;
     savedSqlModel: SavedSqlModel;
+    dashboardModel: DashboardModel;
     schedulerClient: SchedulerClient;
     analyticsModel: AnalyticsModel;
     /**
@@ -65,6 +67,8 @@ export class SavedSqlService
 
     private readonly savedSqlModel: SavedSqlModel;
 
+    private readonly dashboardModel: DashboardModel;
+
     private readonly schedulerClient: SchedulerClient;
 
     private readonly analyticsModel: AnalyticsModel;
@@ -77,6 +81,7 @@ export class SavedSqlService
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.savedSqlModel = args.savedSqlModel;
+        this.dashboardModel = args.dashboardModel;
         this.schedulerClient = args.schedulerClient;
         this.analyticsModel = args.analyticsModel;
         this.viewerContentScopeResolver = args.viewerContentScopeResolver;
@@ -265,6 +270,53 @@ export class SavedSqlService
         };
     }
 
+    /**
+     * Resolves the space a SQL chart is created in and validates that the
+     * target belongs to the given project.
+     *
+     * A SQL chart belongs either to a space (`spaceUuid`) or to a dashboard
+     * (`dashboardUuid`), never both. Dashboard-owned SQL charts are owned by
+     * the dashboard, but their permissions are still resolved through the
+     * space the dashboard lives in.
+     */
+    private async resolveTargetSpaceUuid(
+        projectUuid: string,
+        sqlChart: Pick<CreateSqlChart, 'spaceUuid' | 'dashboardUuid'>,
+    ): Promise<string> {
+        const spaceUuid = sqlChart.spaceUuid ?? null;
+        const dashboardUuid = sqlChart.dashboardUuid ?? null;
+
+        if ((spaceUuid === null) === (dashboardUuid === null)) {
+            throw new ParameterError(
+                'SQL chart must belong to either a space or a dashboard',
+            );
+        }
+
+        if (dashboardUuid !== null) {
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuid,
+            );
+            if (dashboard.projectUuid !== projectUuid) {
+                throw new ParameterError(
+                    'Dashboard does not belong to this project',
+                );
+            }
+            return dashboard.spaceUuid;
+        }
+
+        if (spaceUuid === null) {
+            throw new ParameterError(
+                'SQL chart must belong to either a space or a dashboard',
+            );
+        }
+
+        const space = await this.spaceModel.getSpaceSummary(spaceUuid);
+        if (space.projectUuid !== projectUuid) {
+            throw new ParameterError('Space does not belong to this project');
+        }
+        return space.uuid;
+    }
+
     async createSqlChart(
         user: SessionUser,
         projectUuid: string,
@@ -282,19 +334,32 @@ export class SavedSqlService
             throw new ForbiddenError();
         }
 
+        const targetSpaceUuid = await this.resolveTargetSpaceUuid(
+            projectUuid,
+            sqlChart,
+        );
+
         await this.hasAccess(
             'create',
             { user, projectUuid },
             {
                 savedSqlUuid: null,
-                spaceUuid: sqlChart.spaceUuid,
+                spaceUuid: targetSpaceUuid,
             },
         );
+
+        const ownership =
+            (sqlChart.dashboardUuid ?? null) !== null
+                ? { spaceUuid: undefined, dashboardUuid: sqlChart.dashboardUuid }
+                : { spaceUuid: targetSpaceUuid, dashboardUuid: undefined };
 
         const createdChart = await this.savedSqlModel.create(
             user.userUuid,
             projectUuid,
-            sqlChart,
+            {
+                ...sqlChart,
+                ...ownership,
+            },
         );
 
         this.analytics.track({
@@ -363,6 +428,13 @@ export class SavedSqlService
             userUuid: user.userUuid,
             savedSqlUuid,
             sqlChart,
+            // A dashboard owned SQL chart keeps belonging to its dashboard,
+            // unless it is explicitly moved to another space
+            keepOwnership:
+                !!savedChart.dashboard &&
+                (sqlChart.unversionedData === undefined ||
+                    sqlChart.unversionedData.spaceUuid ===
+                        savedChart.space.uuid),
         });
 
         this.analytics.track({

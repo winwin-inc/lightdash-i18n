@@ -14133,7 +14133,8 @@ const models: TsoaRoute.Models = {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
                 slug: { dataType: 'string' },
-                spaceUuid: { dataType: 'string', required: true },
+                dashboardUuid: { dataType: 'string' },
+                spaceUuid: { dataType: 'string' },
                 config: { ref: 'AllVizChartConfig', required: true },
                 limit: { dataType: 'double', required: true },
                 sql: { dataType: 'string', required: true },
