@@ -50,9 +50,14 @@ const StickyStackProvider: FC<{ children: ReactNode }> = ({ children }) => {
         (id: string) => {
             const layer = layers[id];
             if (!layer) return 0;
-            return Object.values(layers)
-                .filter((l) => l.order < layer.order)
-                .reduce((total, l) => total + l.height, 0);
+            return (
+                Object.values(layers)
+                    .filter((l) => l.order < layer.order)
+                    // Empty layers must not take up any space in the stack,
+                    // otherwise they leave a gap where content scrolls through
+                    .filter((l) => l.height > 0)
+                    .reduce((total, l) => total + l.height, 0)
+            );
         },
         [layers],
     );

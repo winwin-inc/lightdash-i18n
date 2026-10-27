@@ -10,6 +10,8 @@ const LAYER_HEIGHTS: Record<string, number> = {
     'layer-2': 20,
 };
 
+const DEFAULT_LAYER_HEIGHTS = { ...LAYER_HEIGHTS };
+
 const Layer: React.FC<{ id: string; order: number; enabled?: boolean }> = ({
     id,
     order,
@@ -21,6 +23,8 @@ const Layer: React.FC<{ id: string; order: number; enabled?: boolean }> = ({
 
 describe('StickyStack', () => {
     beforeEach(() => {
+        Object.assign(LAYER_HEIGHTS, DEFAULT_LAYER_HEIGHTS);
+
         vi.spyOn(
             HTMLElement.prototype,
             'getBoundingClientRect',
@@ -68,8 +72,8 @@ describe('StickyStack', () => {
             </StickyStackProvider>,
         );
 
-        expect(screen.getByTestId('layer-0')).toHaveStyle({ zIndex: '100' });
-        expect(screen.getByTestId('layer-1')).toHaveStyle({ zIndex: '99' });
+        expect(screen.getByTestId('layer-0')).toHaveStyle({ zIndex: '195' });
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ zIndex: '194' });
     });
 
     it('does not make disabled layers sticky', () => {
@@ -120,5 +124,43 @@ describe('StickyStack', () => {
 
         // now the layer exists and its height (30px) is taken into account
         expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '40px' });
+    });
+
+    it('ignores empty layers when stacking', () => {
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-empty" order={1} />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        // the empty layer (0px) does not take up any space
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '40px' });
+    });
+
+    it('releases the space of a layer that becomes empty', () => {
+        const { rerender } = render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '70px' });
+
+        // the layer is empty now and gets re-measured
+        LAYER_HEIGHTS['layer-1'] = 0;
+        rerender(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} key="empty" />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        // the layer does not take up any space anymore
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '40px' });
     });
 });

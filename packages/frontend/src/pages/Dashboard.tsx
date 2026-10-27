@@ -360,12 +360,13 @@ const Dashboard: FC = () => {
             order: 0,
             enabled: isStickyEnabled,
         });
-    const { ref: parametersRef, style: parametersStickyStyle } =
-        useStickyLayer({
+    const { ref: parametersRef, style: parametersStickyStyle } = useStickyLayer(
+        {
             id: 'dashboard-parameters',
             order: 1,
             enabled: isStickyEnabled,
-        });
+        },
+    );
 
     // 看板颜色同步状态
     const [syncChartColors, setSyncChartColors] = useState<boolean>(
@@ -1241,7 +1242,7 @@ const Dashboard: FC = () => {
                         px={'lg'}
                         style={{
                             ...globalFiltersStickyStyle,
-                            backgroundColor: 'var(--mantine-color-body)',
+                            backgroundColor: 'white',
                         }}
                     >
                         {/* This Group will take up remaining space (and not push DateZoom) */}
@@ -1576,7 +1577,7 @@ const Dashboard: FC = () => {
                             px={'lg'}
                             style={{
                                 ...parametersStickyStyle,
-                                backgroundColor: 'var(--mantine-color-body)',
+                                backgroundColor: 'white',
                             }}
                         >
                             <Parameters

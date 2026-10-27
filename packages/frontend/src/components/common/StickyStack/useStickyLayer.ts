@@ -7,6 +7,16 @@ import {
 } from 'react';
 import { useStickyStackContext } from './StickyStackContext';
 
+/**
+ * Base z-index for sticky layers.
+ *
+ * It needs to be above the dashboard tile loading overlay
+ * (`getDefaultZIndex('modal') - 10` = 190) so tiles never paint over the
+ * sticky bar, but below Mantine's modal (200), popover (300) and
+ * overlay (400) so dropdowns and dialogs still open on top of it.
+ */
+export const STICKY_Z_INDEX_BASE = 195;
+
 type UseStickyLayerProps = {
     /** Unique id of the layer */
     id: string;
@@ -75,7 +85,7 @@ export const useStickyLayer = ({
                       position: 'sticky',
                       top: offset,
                       // Layers closer to the top of the scroll container are painted on top
-                      zIndex: 100 - order,
+                      zIndex: STICKY_Z_INDEX_BASE - order,
                   }
                 : {},
         [enabled, offset, order],

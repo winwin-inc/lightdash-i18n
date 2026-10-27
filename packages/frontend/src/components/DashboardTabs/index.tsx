@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import { useVisibleDashboardFilters } from '../../hooks/dashboard/useVisibleDashboardFilters';
 import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
@@ -471,13 +472,23 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
         order: 2,
         enabled: isStickyEnabled,
     });
-    const { ref: tabFiltersRef, style: tabFiltersStickyStyle } =
-        useStickyLayer({
+    const { ref: tabFiltersRef, style: tabFiltersStickyStyle } = useStickyLayer(
+        {
             id: 'dashboard-tab-filters',
             order: 3,
             enabled: isStickyEnabled,
-        });
+        },
+    );
     const showTabFilters = hasTilesThatSupportFilters && !!activeTab?.uuid;
+    // When the tab has no filters at all, the row must not take up any space,
+    // otherwise it leaves a gap in the sticky stack
+    const { hasVisibleContent: hasVisibleTabFilters } =
+        useVisibleDashboardFilters({
+            filterScope: 'tab',
+            activeTabUuid: activeTab?.uuid,
+            isEditMode,
+        });
+    const hasTabFilters = showTabFilters && hasVisibleTabFilters;
 
     return (
         <DragDropContext
@@ -532,8 +543,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         // sit on the Tabs root, so the spacing
                                         // is kept when the bar sticks
                                         paddingTop: tabsEnabled ? 12 : 8,
-                                        backgroundColor:
-                                            'var(--mantine-color-body)',
+                                        backgroundColor: 'white',
                                     }}
                                 >
                                     {sortedTabs && sortedTabs?.length > 0 && (
@@ -617,11 +627,8 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         ref={tabFiltersRef}
                                         style={{
                                             ...tabFiltersStickyStyle,
-                                            paddingTop: showTabFilters
-                                                ? 12
-                                                : 0,
-                                            backgroundColor:
-                                                'var(--mantine-color-body)',
+                                            paddingTop: hasTabFilters ? 12 : 0,
+                                            backgroundColor: 'white',
                                         }}
                                     >
                                         <Group>
@@ -640,11 +647,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                     <div
                                         style={{
                                             position: 'relative',
-                                            marginTop: showTabFilters
+                                            marginTop: hasTabFilters
                                                 ? 0
                                                 : tabsEnabled
-                                                  ? 12
-                                                  : 0,
+                                                ? 12
+                                                : 0,
                                         }}
                                     >
                                         {tabsEnabled

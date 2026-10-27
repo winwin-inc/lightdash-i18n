@@ -13,6 +13,7 @@ import {
     enqueueAddFilterButtonVisibilityChanged,
     enqueueFilterBarVisibilityChanged,
 } from '../../hooks/dashboard/dashboardOperationEventQueue';
+import { useVisibleDashboardFilters } from '../../hooks/dashboard/useVisibleDashboardFilters';
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -220,6 +221,14 @@ const DashboardFilter: FC<Props> = ({
         [allFilters],
     );
 
+    // The filter row must not take up any space when there is nothing to
+    // show, otherwise it leaves a gap in the sticky stack of the dashboard.
+    const { hasVisibleContent } = useVisibleDashboardFilters({
+        filterScope,
+        activeTabUuid,
+        isEditMode,
+    });
+
     const handleBatchBind = useCallback(
         (updatedFilters: DashboardFilterRule[]) => {
             if (filterScope === 'tab' && activeTabUuid) {
@@ -236,6 +245,41 @@ const DashboardFilter: FC<Props> = ({
         },
         [filterScope, activeTabUuid, updateTabDimensionFilter],
     );
+
+    // 批量绑定 Modal
+    const batchBindModal =
+        filterScope === 'tab' ? (
+            <BatchBindModal
+                opened={batchBindModalOpened}
+                onClose={() => setBatchBindModalOpened(false)}
+                filters={currentFilters}
+                tiles={tiles || []}
+                availableTileFilters={filterableFieldsByTileUuid || {}}
+                allFilterableFieldsMap={allFilterableFieldsMap}
+                onApply={handleBatchBind}
+                globalFilters={globalFilters}
+                tabUuid={activeTabUuid}
+            />
+        ) : null;
+
+    // Nothing to show: the row is not rendered at all, so it doesn't take up
+    // any space in the sticky stack of the dashboard.
+    if (!hasVisibleContent) {
+        return (
+            <FiltersProvider<Record<string, DashboardFilterableField>>
+                projectUuid={projectUuid}
+                dashboardSlug={dashboard?.slug}
+                dashboardName={dashboard?.name}
+                itemsMap={allFilterableFieldsMap}
+                startOfWeek={
+                    project.data?.warehouseConnection?.startOfWeek ?? undefined
+                }
+                dashboardFilters={appliedFilters}
+            >
+                {batchBindModal}
+            </FiltersProvider>
+        );
+    }
 
     return (
         <FiltersProvider<Record<string, DashboardFilterableField>>
@@ -386,19 +430,7 @@ const DashboardFilter: FC<Props> = ({
             </Flex>
 
             {/* 批量绑定 Modal */}
-            {filterScope === 'tab' && (
-                <BatchBindModal
-                    opened={batchBindModalOpened}
-                    onClose={() => setBatchBindModalOpened(false)}
-                    filters={currentFilters}
-                    tiles={tiles || []}
-                    availableTileFilters={filterableFieldsByTileUuid || {}}
-                    allFilterableFieldsMap={allFilterableFieldsMap}
-                    onApply={handleBatchBind}
-                    globalFilters={globalFilters}
-                    tabUuid={activeTabUuid}
-                />
-            )}
+            {batchBindModal}
         </FiltersProvider>
     );
 };
