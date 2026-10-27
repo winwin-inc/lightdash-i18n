@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MetricType } from '../../../types/field';
+import { MetricType } from '../../types/field';
 
 export const customMetricBaseSchema = z.object({
     name: z

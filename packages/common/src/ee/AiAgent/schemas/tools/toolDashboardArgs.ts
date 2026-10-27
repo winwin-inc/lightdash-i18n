@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import assertUnreachable from '../../../../utils/assertUnreachable';
 import { AiResultType } from '../../types';
-import { customMetricsSchema } from '../customMetrics';
-import { filtersSchemaV2 } from '../filters';
-import { baseOutputMetadataSchema } from '../outputMetadata';
-import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
-import { createToolSchema } from '../toolSchemaBuilder';
-import visualizationMetadataSchema from '../visualizationMetadata';
+import { customMetricsSchema } from '../../../../schemas/mcp/customMetrics';
+import { filtersSchemaV2 } from '../../../../schemas/mcp/filters';
+import { baseOutputMetadataSchema } from '../../../../schemas/mcp/outputMetadata';
+import { tableCalcsSchema } from '../../../../schemas/mcp/tableCalcs/tableCalcs';
+import { createToolSchema } from '../../../../schemas/mcp/toolSchemaBuilder';
+import visualizationMetadataSchema from '../../../../schemas/mcp/visualizationMetadata';
+import { tableVizConfigSchema } from '../../../../schemas/mcp/tableVizConfig';
 import {
-    tableVizConfigSchema,
     verticalBarMetricVizConfigSchema,
 } from '../visualizations';
 import { timeSeriesMetricVizConfigSchema } from '../visualizations/timeSeriesViz';

@@ -7,8 +7,8 @@ import {
     TableCalculationTemplateType,
     TableCalculationType,
     type TableCalculation,
-} from '../../../../types/field';
-import assertUnreachable from '../../../../utils/assertUnreachable';
+} from '../../../types/field';
+import assertUnreachable from '../../../utils/assertUnreachable';
 import { tableCalcPercentChangeFromPreviousSchema } from './tableCalcPercentChangeFromPrevious';
 import { tableCalcPercentOfColumnTotalSchema } from './tableCalcPercentOfColumnTotal';
 import { tableCalcPercentOfPreviousValueSchema } from './tableCalcPercentOfPreviousValue';

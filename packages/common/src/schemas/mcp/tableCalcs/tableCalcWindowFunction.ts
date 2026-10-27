@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { WindowFunctionType } from '../../../../types/field';
+import { WindowFunctionType } from '../../../types/field';
 import { getFieldIdSchema } from '../fieldId';
 import {
     baseTableCalcSchema,

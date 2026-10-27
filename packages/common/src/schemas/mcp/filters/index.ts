@@ -5,8 +5,8 @@ import type {
     FilterRule,
     Filters,
     FilterType,
-} from '../../../../types/filter';
-import assertUnreachable from '../../../../utils/assertUnreachable';
+} from '../../../types/filter';
+import assertUnreachable from '../../../utils/assertUnreachable';
 import booleanFilterSchema from './booleanFilters';
 import dateFilterSchema from './dateFilters';
 import numberFilterSchema from './numberFilters';

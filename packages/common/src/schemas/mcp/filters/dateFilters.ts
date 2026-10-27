@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { DimensionType, MetricType } from '../../../../types/field';
+import { DimensionType, MetricType } from '../../../types/field';
 import {
     FilterOperator,
     FilterType,
     UnitOfTime,
-} from '../../../../types/filter';
+} from '../../../types/filter';
 import { getFieldIdSchema } from '../fieldId';
 
 const dateOrDateTimeSchema = z.union([

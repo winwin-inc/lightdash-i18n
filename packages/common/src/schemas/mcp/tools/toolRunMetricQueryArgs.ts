@@ -4,7 +4,7 @@ import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
 import { baseOutputMetadataSchema } from '../outputMetadata';
 import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
 import { createToolSchema } from '../toolSchemaBuilder';
-import { tableVizConfigSchema } from '../visualizations';
+import { tableVizConfigSchema } from '../tableVizConfig';
 
 export const TOOL_RUN_METRIC_QUERY_DESCRIPTION = `Tool: runMetricQuery
 

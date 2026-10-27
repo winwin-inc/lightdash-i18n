@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { DimensionType, MetricType } from '../../../../types/field';
-import { FilterOperator, FilterType } from '../../../../types/filter';
+import { DimensionType, MetricType } from '../../../types/field';
+import { FilterOperator, FilterType } from '../../../types/filter';
 import { getFieldIdSchema } from '../fieldId';
 
 const commonBooleanFilterRuleSchema = z.object({
