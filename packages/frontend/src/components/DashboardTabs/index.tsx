@@ -539,10 +539,12 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                     ref={tabsBarRef}
                                     style={{
                                         ...tabsBarStickyStyle,
-                                        // replaces the margin that used to
-                                        // sit on the Tabs root, so the spacing
-                                        // is kept when the bar sticks
-                                        paddingTop: tabsEnabled ? 12 : 8,
+                                        // the spacing used to sit on the
+                                        // Tabs root. It is a margin (and not a
+                                        // padding) so it scrolls away with the
+                                        // content instead of leaving a gap
+                                        // above the sticky bar
+                                        marginTop: tabsEnabled ? 12 : 8,
                                         backgroundColor: 'white',
                                     }}
                                 >
@@ -627,7 +629,11 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         ref={tabFiltersRef}
                                         style={{
                                             ...tabFiltersStickyStyle,
-                                            paddingTop: hasTabFilters ? 12 : 0,
+                                            // a margin (and not a padding) so it
+                                            // scrolls away with the content
+                                            // instead of leaving a gap above
+                                            // the sticky filters
+                                            marginTop: hasTabFilters ? 12 : 0,
                                             backgroundColor: 'white',
                                         }}
                                     >
