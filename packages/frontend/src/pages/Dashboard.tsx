@@ -41,6 +41,8 @@ import PinnedParameters from '../components/PinnedParameters';
 import DashboardHeader from '../components/common/Dashboard/DashboardHeader';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
+import StickyStackProvider from '../components/common/StickyStack/StickyStackProvider';
+import { useStickyLayer } from '../components/common/StickyStack/useStickyLayer';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardDeleteModal from '../components/common/modal/DashboardDeleteModal';
 import DashboardDuplicateModal from '../components/common/modal/DashboardDuplicateModal';
@@ -344,6 +346,20 @@ const Dashboard: FC = () => {
     );
 
     const isEditMode = useMemo(() => mode === 'edit', [mode]);
+
+    /**
+     * Sticky filters: in view mode the global filters stay visible while
+     * scrolling, so it is always clear which filters are applied.
+     * In edit mode sticky is disabled because it would block dragging tiles
+     * to the top of the dashboard.
+     */
+    const isStickyEnabled = !isEditMode;
+    const { ref: globalFiltersRef, style: globalFiltersStickyStyle } =
+        useStickyLayer({
+            id: 'dashboard-global-filters',
+            order: 0,
+            enabled: isStickyEnabled,
+        });
 
     // 看板颜色同步状态
     const [syncChartColors, setSyncChartColors] = useState<boolean>(
@@ -1212,10 +1228,15 @@ const Dashboard: FC = () => {
                     withFullHeight={true}
                 >
                     <Group
+                        ref={globalFiltersRef}
                         justify="space-between"
                         align="flex-start"
                         wrap="nowrap"
                         px={'lg'}
+                        style={{
+                            ...globalFiltersStickyStyle,
+                            backgroundColor: 'var(--mantine-color-body)',
+                        }}
                     >
                         {/* This Group will take up remaining space (and not push DateZoom) */}
                         <Group
@@ -1638,7 +1659,9 @@ const DashboardPage: FC = () => {
                 canCreateDashboardComments: false,
             }}
         >
-            <Dashboard />
+            <StickyStackProvider>
+                <Dashboard />
+            </StickyStackProvider>
         </DashboardProvider>
     );
 };
