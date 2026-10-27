@@ -285,6 +285,17 @@ const getVerifiedAt = (content: SummaryContent): Date | null => {
 };
 
 /**
+ * Checks whether the deployment supports the content verification feature.
+ *
+ * The feature is exposed by the content service. Deployments without it (the
+ * default) do not return any verification metadata, so the tool reports the
+ * feature as unsupported instead of returning an empty list that looks like
+ * "nothing is verified".
+ */
+const isContentVerificationSupported = (deps: McpToolDeps): boolean =>
+    typeof (deps.contentService as AnyType).listVerifiedContent === 'function';
+
+/**
  * Lists the content of a project through the content service, which applies
  * the project and space permission filtering.
  */
@@ -505,7 +516,7 @@ export const registerContentListTools = (
         McpToolName.LIST_VERIFIED_CONTENT,
         {
             description:
-                'List the verified charts and dashboards of a Lightdash project, i.e. the content items that have been verified. Content verification is a site feature: on deployments without it (the default) the list is always empty.',
+                'List the verified charts and dashboards of a Lightdash project, i.e. the content items that have been verified. Content verification is a site feature: on deployments without it the tool reports that the feature is not supported.',
             inputSchema: listVerifiedContentArgsSchema,
         },
         async (args, context) => {
@@ -523,6 +534,14 @@ export const registerContentListTools = (
             );
 
             assertCanViewProject(context, projectUuid);
+
+            if (!isContentVerificationSupported(deps)) {
+                return jsonToolResult({
+                    error: 'Content verification is not available on this Lightdash deployment',
+                    supported: false,
+                    hint: 'The content-verification feature is not deployed on this site. Use list_charts or list_dashboards instead.',
+                });
+            }
 
             const contents = await listContent(
                 deps,

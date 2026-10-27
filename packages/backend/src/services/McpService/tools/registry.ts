@@ -21,6 +21,22 @@ type McpToolHandler = (
 ) => Promise<CallToolResult>;
 
 /**
+ * Information about a tool call, used for observability.
+ */
+export type McpToolCallInfo = {
+    toolName: McpToolName;
+    context: McpToolContext;
+    args: AnyType;
+    durationMs: number;
+    success: boolean;
+    error?: Error;
+};
+
+export type McpToolCallHandler = (
+    info: McpToolCallInfo,
+) => void | Promise<void>;
+
+/**
  * Registers MCP tools on the MCP server.
  *
  * The registry is the only place where tools are attached to the server, which
@@ -33,6 +49,7 @@ export class McpToolRegistry {
     constructor(
         private readonly server: McpServer,
         private readonly lightdashConfig: LightdashConfig,
+        private readonly onToolCall?: McpToolCallHandler,
     ) {}
 
     /**
@@ -114,9 +131,47 @@ export class McpToolRegistry {
             async (args: AnyType, sdkContext: AnyType) => {
                 const context = McpToolRegistry.buildToolContext(sdkContext);
                 McpToolRegistry.assertToolAccess(context, name);
-                return handler(args, context);
+
+                const startedAt = Date.now();
+
+                try {
+                    const result = await handler(args, context);
+                    this.notifyToolCall({
+                        toolName: name,
+                        context,
+                        args,
+                        durationMs: Date.now() - startedAt,
+                        success: true,
+                    });
+                    return result;
+                } catch (error) {
+                    this.notifyToolCall({
+                        toolName: name,
+                        context,
+                        args,
+                        durationMs: Date.now() - startedAt,
+                        success: false,
+                        error: error as Error,
+                    });
+                    throw error;
+                }
             },
         );
+    }
+
+    /**
+     * Notifies the tool call handler, without ever failing the tool call.
+     */
+    private notifyToolCall(info: McpToolCallInfo): void {
+        try {
+            const result = this.onToolCall?.(info);
+            if (result instanceof Promise) {
+                // Observability must never break a tool call
+                result.catch(() => {});
+            }
+        } catch (error) {
+            // Observability must never break a tool call
+        }
     }
 
     /**

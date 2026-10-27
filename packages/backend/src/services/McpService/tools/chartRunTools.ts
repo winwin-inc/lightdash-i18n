@@ -10,7 +10,6 @@ import {
 } from '@lightdash/common';
 import { subject } from '@casl/ability';
 import { z } from 'zod';
-import { McpToolCallEvent } from '../../../analytics/LightdashAnalytics';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
@@ -148,26 +147,6 @@ const assertCanViewProject = async (
     }
 };
 
-const trackToolCall = (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    toolName: McpToolName,
-    projectUuid: string,
-): void => {
-    try {
-        deps.analytics.track<McpToolCallEvent>({
-            event: 'mcp_tool_call',
-            userId: context.user.userUuid,
-            properties: {
-                organizationId: context.organizationUuid,
-                projectId: projectUuid,
-                toolName,
-            },
-        });
-    } catch (error) {
-        // analytics failures must never break the tool
-    }
-};
 
 /**
  * Computes the row limit to apply, capped by the server side query limit.
@@ -343,12 +322,6 @@ export const registerChartRunTools = (
 
             await assertCanViewProject(deps, context, projectUuid);
 
-            trackToolCall(
-                deps,
-                context,
-                McpToolName.RUN_SAVED_CHART,
-                projectUuid,
-            );
 
             // `SavedChartService.get` applies the space permission filtering
             // and the viewer content scope of the calling user.
@@ -407,12 +380,6 @@ export const registerChartRunTools = (
 
             await assertCanViewProject(deps, context, projectUuid);
 
-            trackToolCall(
-                deps,
-                context,
-                McpToolName.RUN_DASHBOARD_TILES,
-                projectUuid,
-            );
 
             // `DashboardService.getByIdOrSlug` applies the space permission
             // filtering and the viewer dashboard allow list of the calling user.

@@ -2,7 +2,7 @@ import { AnyType, ForbiddenError } from '@lightdash/common';
 import { LightdashConfig } from '../../../config/parseConfig';
 import { McpAuthContext, McpAuthType } from '../McpAuthContext';
 import { McpToolName } from '../McpToolName';
-import { McpToolRegistry } from './registry';
+import { McpToolCallInfo, McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
 const buildAuthContext = ({
@@ -143,6 +143,123 @@ describe('McpToolRegistry', () => {
             expect(() => McpToolRegistry.buildToolContext({})).toThrow(
                 ForbiddenError,
             );
+        });
+    });
+
+    describe('register', () => {
+        const buildServer = () => {
+            const handlers: Record<
+                string,
+                (args: AnyType, context: AnyType) => Promise<AnyType>
+            > = {};
+
+            const server = {
+                registerTool: (
+                    name: string,
+                    _config: AnyType,
+                    cb: (args: AnyType, context: AnyType) => Promise<AnyType>,
+                ) => {
+                    handlers[name] = cb;
+                },
+            } as AnyType;
+
+            return { server, handlers };
+        };
+
+        const oauthContext = buildAuthContext({
+            authType: McpAuthType.OAuth,
+            scopes: ['mcp:read'],
+        });
+
+        it('reports successful tool calls', async () => {
+            const { server, handlers } = buildServer();
+            const calls: McpToolCallInfo[] = [];
+            const toolRegistry = new McpToolRegistry(
+                server,
+                lightdashConfig,
+                (info) => {
+                    calls.push(info);
+                },
+            );
+
+            toolRegistry.register(
+                McpToolName.GET_LIGHTDASH_VERSION,
+                {},
+                async () => ({ content: [] }),
+            );
+
+            await handlers[McpToolName.GET_LIGHTDASH_VERSION](
+                {},
+                buildSdkContext(oauthContext),
+            );
+
+            expect(calls).toHaveLength(1);
+            expect(calls[0].toolName).toEqual(McpToolName.GET_LIGHTDASH_VERSION);
+            expect(calls[0].success).toBe(true);
+            expect(calls[0].durationMs).toBeGreaterThanOrEqual(0);
+        });
+
+        it('reports failed tool calls and rethrows the error', async () => {
+            const { server, handlers } = buildServer();
+            const calls: McpToolCallInfo[] = [];
+            const toolRegistry = new McpToolRegistry(
+                server,
+                lightdashConfig,
+                (info) => {
+                    calls.push(info);
+                },
+            );
+
+            toolRegistry.register(
+                McpToolName.GET_LIGHTDASH_VERSION,
+                {},
+                async () => {
+                    throw new ForbiddenError('nope');
+                },
+            );
+
+            await expect(
+                handlers[McpToolName.GET_LIGHTDASH_VERSION](
+                    {},
+                    buildSdkContext(oauthContext),
+                ),
+            ).rejects.toThrow(ForbiddenError);
+
+            expect(calls).toHaveLength(1);
+            expect(calls[0].success).toBe(false);
+            expect(calls[0].error).toBeInstanceOf(ForbiddenError);
+        });
+
+        it('does not report tool calls that are rejected by the scope check', async () => {
+            const { server, handlers } = buildServer();
+            const calls: McpToolCallInfo[] = [];
+            const toolRegistry = new McpToolRegistry(
+                server,
+                lightdashConfig,
+                (info) => {
+                    calls.push(info);
+                },
+            );
+
+            toolRegistry.register(
+                McpToolName.GET_LIGHTDASH_VERSION,
+                {},
+                async () => ({ content: [] }),
+            );
+
+            await expect(
+                handlers[McpToolName.GET_LIGHTDASH_VERSION](
+                    {},
+                    buildSdkContext(
+                        buildAuthContext({
+                            authType: McpAuthType.OAuth,
+                            scopes: ['openid'],
+                        }),
+                    ),
+                ),
+            ).rejects.toThrow(ForbiddenError);
+
+            expect(calls).toHaveLength(0);
         });
     });
 });

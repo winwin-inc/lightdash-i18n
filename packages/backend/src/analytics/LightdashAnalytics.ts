@@ -1432,6 +1432,9 @@ export type McpToolCallEvent = BaseTrack & {
         organizationId: string;
         projectId?: string;
         toolName: string;
+        authType: 'oauth' | 'pat';
+        durationMs: number;
+        success: boolean;
     };
 };
 

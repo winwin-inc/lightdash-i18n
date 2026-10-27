@@ -59,9 +59,11 @@ const buildContent = (overrides: AnyType = {}): SummaryContent =>
 const buildDeps = ({
     contextProjectUuid,
     contents = [buildContent()],
+    supportsContentVerification = false,
 }: {
     contextProjectUuid?: string;
     contents?: SummaryContent[];
+    supportsContentVerification?: boolean;
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -122,11 +124,16 @@ const buildDeps = ({
         ],
     });
 
+    const contentService: AnyType = { find };
+    if (supportsContentVerification) {
+        contentService.listVerifiedContent = jest.fn();
+    }
+
     const deps = {
         lightdashConfig: {
             siteUrl: 'https://lightdash.example.com',
         },
-        contentService: { find },
+        contentService,
         dashboardService: { getByIdOrSlug },
         mcpContextModel: { getContext },
     } as unknown as McpToolDeps;
@@ -303,10 +310,31 @@ describe('registerContentListTools', () => {
             expect(find.mock.calls[0][3]).toEqual({ page: 2, pageSize: 10 });
         });
 
+        it('reports that the content verification feature is not supported', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, find } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerContentListTools(registry, deps);
+
+            const result = parseResult(
+                await registered[3].handler({}, buildContext()),
+            );
+
+            expect(result).toEqual(
+                expect.objectContaining({
+                    error: expect.any(String),
+                    supported: false,
+                }),
+            );
+            expect(find).not.toHaveBeenCalled();
+        });
+
         it('queries charts and dashboards for the verified content', async () => {
             const { registry, registered } = buildRegistry();
             const { deps, find } = buildDeps({
                 contextProjectUuid: 'project-uuid',
+                supportsContentVerification: true,
             });
             registerContentListTools(registry, deps);
 

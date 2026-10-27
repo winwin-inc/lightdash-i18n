@@ -117,9 +117,9 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 | P1 | ✅ | commit `23bf6df91`：MCP 与 AI 公共工具迁出 `ee/`，`ServiceRepository` 基础工厂接管 |
 | P2 | ✅ | commit `db812ab56`：OAuth/PAT 统一 `McpAuthContext`，恢复 `mcp:read`/`mcp:write` 校验，路由层缺 scope 返回 403 |
 | P3 | ✅ | commit `863761bc6` + 后续提交：无状态（无 `Mcp-Session-Id`）、上下文落 PG（user+organization 维度）、项目型工具支持显式 `projectUuid` 覆盖、MCP schema 去掉 AI agent 的 `type` 判别字段、引入 `McpToolRegistry` 工具注册框架 |
-| P4 | 🔄 进行中 | 工具按模块补齐：`contentTools` / `accessTools` / `docsTools` / `savedChartTools` / `dashboardTools` / `queryTools`，每块含单测 |
-| P5 | ⬜ | 待办 |
-| P6 | ⬜ | 待办 |
+| P4 | ✅ | 已完成全部 26 个工具：`get_site_info`（orgTools）、`get_my_access`（accessTools）、`get_mcp_docs`（docsTools）、`list_explores` + `run_semantic_metric_query`（queryTools）、`find_*`（contentSearchTools）、`list_*`（contentListTools）、`get_saved_chart`（savedChartTools）、`get_dashboard_code` / `get_dashboard_tiles`（dashboardTools）、`run_saved_chart` / `run_dashboard_tiles`（chartRunTools）；每个模块含单测 |
+| P5 | ✅ | 6 个 AI-SDK 包装的 MCP 工具抽出原生实现（`runFindExplores` / `runFindFields` / `runFindDashboards` / `runFindCharts` / `runRunMetricQuery` / `runSearchFieldValues`），MCP 侧不再经过 AI SDK，错误不再被压平，EE AI agent 继续使用原包装 |
+| P6 | ✅ | `GET /api/v1/mcp/health`；工具调用埋点统一收口到 `McpToolRegistry`（`mcp_tool_call` 事件新增 `authType`/`durationMs`/`success`）；路由层鉴权结构化日志；`pnpm generate-api` 重新生成 swagger |
 | P7 | ⬜ | 待办 |
 
 ### 风险与回滚

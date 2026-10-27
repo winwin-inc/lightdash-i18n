@@ -17,7 +17,6 @@ import {
 } from '@lightdash/common';
 import { subject } from '@casl/ability';
 import { z } from 'zod';
-import { McpToolCallEvent } from '../../../analytics/LightdashAnalytics';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
@@ -208,26 +207,6 @@ const assertCanViewProject = async (
     }
 };
 
-const trackToolCall = (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    toolName: McpToolName,
-    projectUuid: string,
-): void => {
-    try {
-        deps.analytics.track<McpToolCallEvent>({
-            event: 'mcp_tool_call',
-            userId: context.user.userUuid,
-            properties: {
-                organizationId: context.organizationUuid,
-                projectId: projectUuid,
-                toolName,
-            },
-        });
-    } catch (error) {
-        // analytics failures must never break the tool
-    }
-};
 
 const matchesExploreName = (
     exploreName: string,
@@ -379,7 +358,6 @@ export const registerQueryTools = (
 
             await assertCanViewProject(deps, context, projectUuid);
 
-            trackToolCall(deps, context, McpToolName.LIST_EXPLORES, projectUuid);
 
             // `getAllExploresSummary` applies the project view permission, the
             // viewer explore allow list and the user attribute filtering.
@@ -457,12 +435,6 @@ export const registerQueryTools = (
 
             await assertCanViewProject(deps, context, projectUuid);
 
-            trackToolCall(
-                deps,
-                context,
-                McpToolName.RUN_SEMANTIC_METRIC_QUERY,
-                projectUuid,
-            );
 
             if (metrics.length === 0 && dimensions.length === 0) {
                 throw new ParameterError(

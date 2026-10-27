@@ -74,7 +74,7 @@ import {
 import { McpSchemaCompatLayer } from './McpSchemaCompatLayer';
 import { McpAuthContext, McpAuthType } from './McpAuthContext';
 import { McpToolName } from './McpToolName';
-import { McpToolRegistry } from './tools/registry';
+import { McpToolCallInfo, McpToolRegistry } from './tools/registry';
 import { McpToolScope } from './tools/scopes';
 import { McpToolContext } from './tools/types';
 import { McpToolDeps } from './tools/deps';
@@ -199,6 +199,7 @@ export class McpService extends BaseService {
             this.toolRegistry = new McpToolRegistry(
                 this.mcpServer,
                 this.lightdashConfig,
+                (info) => this.handleToolCall(info),
             );
             this.setupHandlers();
         } catch (error) {
@@ -307,22 +308,14 @@ export class McpService extends BaseService {
                 description: 'Get the current Lightdash version',
                 inputSchema: {},
             },
-            async (_args, context) => {
-                this.trackToolCall(
-                    context,
-                    McpToolName.GET_LIGHTDASH_VERSION,
-                );
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: this.getLightdashVersion(
-                                context,
-                            ),
-                        },
-                    ],
-                };
-            },
+            async (_args, context) => ({
+                content: [
+                    {
+                        type: 'text',
+                        text: this.getLightdashVersion(context),
+                    },
+                ],
+            }),
         );
 
         this.registerMcpTool(
@@ -343,11 +336,6 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.FIND_EXPLORES,
-                    projectUuid,
-                );
 
                 const findExplores: FindExploresFn =
                     await this.getFindExploresFunction(
@@ -389,11 +377,6 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.FIND_FIELDS,
-                    projectUuid,
-                );
 
                 const findFields: FindFieldFn =
                     await this.getFindFieldsFunction(
@@ -432,10 +415,6 @@ export class McpService extends BaseService {
                     context,
                 );
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.LIST_PROJECTS,
-                );
 
                 const projects =
                     await this.projectModel.getAllByOrganizationUuid(
@@ -474,11 +453,6 @@ export class McpService extends BaseService {
                     context,
                 );
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.SET_PROJECT,
-                    args.projectUuid,
-                );
 
                 if (!args.projectUuid) {
                     throw new ParameterError('Project UUID is required');
@@ -549,10 +523,6 @@ export class McpService extends BaseService {
                     context,
                 );
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.GET_CURRENT_PROJECT,
-                );
 
                 const contextRow = await this.mcpContextModel.getContext(
                     user.userUuid,
@@ -615,11 +585,6 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.RUN_METRIC_QUERY,
-                    projectUuid,
-                );
 
                 const { getExplore, runMiniMetricQuery } =
                     await this.getRunMetricQueryDependencies(
@@ -665,11 +630,6 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-                this.trackToolCall(
-                    context,
-                    McpToolName.SEARCH_FIELD_VALUES,
-                    projectUuid,
-                );
 
                 const searchFieldValues: SearchFieldValuesFn =
                     await this.getSearchFieldValuesFunction(
@@ -1195,13 +1155,24 @@ export class McpService extends BaseService {
         return VERSION;
     }
 
-    private trackToolCall(
-        context: McpToolContext,
-        toolName: string,
-        projectUuid?: string,
-    ): void {
+    /**
+     * Handles the observability of a tool call: analytics event and
+     * structured log.
+     *
+     * Every tool goes through this handler, so the events are consistent
+     * across the legacy tools and the modular tool modules.
+     */
+    private async handleToolCall(info: McpToolCallInfo): Promise<void> {
+        const { toolName, context, durationMs, success, error } = info;
+
         try {
             const { user, organizationUuid } = this.getAccount(context);
+
+            const projectUuid = await this.getTrackedProjectUuid(
+                context,
+                info.args,
+            );
+
             this.analytics.track<McpToolCallEvent>({
                 event: 'mcp_tool_call',
                 userId: user.userUuid,
@@ -1209,10 +1180,55 @@ export class McpService extends BaseService {
                     organizationId: organizationUuid,
                     projectId: projectUuid,
                     toolName,
+                    authType:
+                        context.authType === McpAuthType.Pat ? 'pat' : 'oauth',
+                    durationMs,
+                    success,
                 },
             });
+
+            this.logger.info('MCP tool call', {
+                toolName,
+                userId: user.userUuid,
+                organizationUuid,
+                projectUuid,
+                authType: context.authType,
+                durationMs,
+                success,
+                ...(error ? { error: error.message } : {}),
+            });
+        } catch (trackingError) {
+            this.logger.debug(
+                'Failed to track MCP tool call',
+                trackingError as Error,
+            );
+        }
+    }
+
+    /**
+     * Resolves the project of a tool call for the analytics event.
+     *
+     * The project is optional: tools that do not need a project (or that were
+     * called without a project context) are tracked without it.
+     */
+    private async getTrackedProjectUuid(
+        context: McpToolContext,
+        args: AnyType,
+    ): Promise<string | undefined> {
+        try {
+            const explicitProjectUuid = args?.projectUuid;
+            if (typeof explicitProjectUuid === 'string') {
+                return explicitProjectUuid;
+            }
+
+            const storedContext = await this.mcpContextModel.getContext(
+                context.user.userUuid,
+                context.organizationUuid,
+            );
+
+            return storedContext?.context?.projectUuid;
         } catch (error) {
-            this.logger.debug('Failed to track MCP tool call', error);
+            return undefined;
         }
     }
 }

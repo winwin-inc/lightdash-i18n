@@ -24,6 +24,7 @@ import {
 } from '../controllers/authentication';
 import { McpService } from '../services/McpService/McpService';
 import { buildMcpAuthInfo } from '../services/McpService/mcpAuthInfo';
+import { McpAuthContext } from '../services/McpService/McpAuthContext';
 import Logger from '../logging/logger';
 
 const mcpRouter = express.Router({ mergeParams: true });
@@ -56,6 +57,10 @@ const returnHeaderIfUnauthenticated = (
     if (req.account?.isAuthenticated()) {
         next();
     } else {
+        Logger.warn('MCP request without authentication', {
+            path: req.originalUrl,
+            method: req.method,
+        });
         const oauthService = req.services.getOauthService();
         const baseUrl = oauthService.getSiteUrl();
         res.set(
@@ -153,6 +158,15 @@ mcpRouter.all(
                 // (e.g. OAuth tokens without the required MCP scopes)
                 mcpService.canAccessMcp(authInfo.extra);
 
+                const authContext = authInfo.extra as McpAuthContext;
+                Logger.info('MCP request authenticated', {
+                    userId: req.user?.userUuid,
+                    organizationUuid: authContext?.user?.organizationUuid,
+                    authType: authContext?.authType,
+                    scopes: authContext?.scopes,
+                    clientId: authInfo.clientId,
+                });
+
                 authReq.auth = authInfo;
 
                 return await transport.handleRequest(authReq, res, req.body);
@@ -161,7 +175,10 @@ mcpRouter.all(
             res.status(405).json({ error: 'Method not allowed' });
             return await Promise.resolve();
         } catch (error) {
-            Logger.error(`MCP endpoint error: ${getErrorMessage(error)}`);
+            Logger.error(`MCP endpoint error: ${getErrorMessage(error)}`, {
+                path: req.originalUrl,
+                method: req.method,
+            });
             if (error instanceof LightdashError) {
                 return res
                     .status(error.statusCode)
