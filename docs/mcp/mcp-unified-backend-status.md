@@ -138,6 +138,9 @@ search_field_values      set_project
 | 18 | **【2026-10-27 修订】四级兜底链**：显式 `args.projectUuid` → 用户级默认（`mcp_context`）→ 组织级默认（`organizations.default_project_uuid`）→ 部署级 `LIGHTDASH_PROJECT_UUID` |
 | 19 | **【2026-10-27 修订】逐级回落规则**：显式参数校验失败直接报错；隐式兜底校验失败自动降级到下一级 |
 | 20 | **【2026-10-27 修订】不以「与 `origin/feat/mcp-v2` 工具集完全对齐」为目标** —— v2 是分支不是规范，产品需求优先 |
+| 21 | **【2026-10-27 修订】工具名保留** `set_project` / `get_current_project`，不新增别名、不标 deprecated —— 无损优先 |
+| 22 | **【2026-10-27 修订】新增可选 `catalogTags` 参数**（`find_explores` / `find_fields`），优先级 `显式 > context` |
+| 23 | **【2026-10-27 修订】部署级 `LIGHTDASH_PROJECT_UUID` 不提供默认值**，由部署方显式配置 |
 
 ---
 
@@ -222,7 +225,7 @@ search_field_values      set_project
 
 - `set_project` 的 `tags` → 语义变为**「默认标签过滤」**（用户级偏好）："我默认只看这些标签的 explore / 字段"。
 - 沿用现有链路：`mcp_context.tags` → `filterExploreByTags` + `catalogSearch.yamlTags`。
-- 可选增强（P8.3，可延后）：给 `find_explores` / `find_fields` 增加**可选** `catalogTags` 显式参数，优先级 `显式 catalogTags > mcp_context.tags`。纯增量、不改旧行为。
+- **【已定稿，见 §4.9 决策 2】** `find_explores` / `find_fields` 新增**可选** `catalogTags` 显式参数，优先级 `显式 catalogTags > mcp_context.tags`；`catalogTags: []` 表示不过滤（不回落到 context）。纯增量、不改旧行为。纳入 P8.3 范围。
 
 ### 4.5 实施计划
 
@@ -230,7 +233,7 @@ search_field_values      set_project
 |---|---|---|---|
 | **P8.1** | 配置与依赖注入：`parseConfig.ts` 新增 `mcp.defaultProjectUuid`（来源 `LIGHTDASH_PROJECT_UUID`）；`McpToolDeps` 增加 `organizationModel`；`ServiceRepository` 注入 | S | typecheck 通过；config mock 同步 |
 | **P8.2** | 新增 `tools/projectContext.ts` 统一解析 helper；六个工具模块 + `McpService.resolveProjectUuid()` 全部改为委托；消除六份重复实现 | M | 单元测试覆盖四级兜底；模块测试更新 |
-| **P8.3** | 语义与文案：工具描述、`getProjectUuidFromContext` 错误文案、内置文档 `mcpDocsContent.ts`、analyst prompt；可选 `catalogTags` 增量参数 | S-M | 文档与 prompt 与新语义一致 |
+| **P8.3** | 语义与文案：按 §4.10 逐条改工具描述、共享常量、错误文案、内置文档 `mcpDocsContent.ts`、analyst prompt；**新增 `catalogTags` 参数**（`find_explores` / `find_fields`） | S-M | 文档与 prompt 与新语义一致；`catalogTags` 优先级有单测 |
 | **P8.4** | 文档更新：`mcp-v2-guide.md`、`mcp-tools-permissions.md`、本文件 §5 | S | 文档自洽 |
 | **P8.5** | 回归：typecheck + eslint + jest | S | 全绿 |
 
@@ -243,9 +246,9 @@ search_field_values      set_project
 | `packages/backend/src/config/parseConfig.ts` | `mcp` 配置新增 `defaultProjectUuid?: string`（`process.env.LIGHTDASH_PROJECT_UUID`） |
 | `packages/backend/src/config/lightdashConfig.mock.ts` | 同步 mock |
 | `packages/backend/src/services/McpService/tools/deps.ts` | `McpToolDeps` 增加 `organizationModel: OrganizationModel` |
-| `packages/backend/src/services/McpService/tools/projectContext.ts` | **新增**：统一项目解析 + 权限校验 helper |
-| `packages/backend/src/services/McpService/McpService.ts` | `resolveProjectUuid()` 委托新 helper；`getProjectUuidFromContext()` 语义调整（用户级默认项目）；新增组织级 / 部署级兜底；工具描述调整 |
-| `packages/backend/src/services/McpService/tools/queryTools.ts`<br>`contentSearchTools.ts` / `contentListTools.ts` / `savedChartTools.ts` / `dashboardTools.ts` / `chartRunTools.ts` | 删除各自复制的 `resolveProjectUuid` / `assertCanViewProject`，改用统一 helper |
+| `packages/backend/src/services/McpService/tools/projectContext.ts` | **新增**：统一项目解析 + 权限校验 helper + 共享文案常量（§4.10.1） |
+| `packages/backend/src/services/McpService/McpService.ts` | `resolveProjectUuid()` 委托新 helper；`getProjectUuidFromContext()` 语义调整（用户级默认项目）；新增组织级 / 部署级兜底；`set_project` / `get_current_project` 工具描述与返回字段 `source`；`getFindExploresFunction()` / `getFindFieldsFunction()` 支持 `catalogTags` |
+| `packages/backend/src/services/McpService/tools/queryTools.ts`<br>`contentSearchTools.ts` / `contentListTools.ts` / `savedChartTools.ts` / `dashboardTools.ts` / `chartRunTools.ts` | 删除各自复制的 `resolveProjectUuid` / `assertCanViewProject`，改用统一 helper；`projectUuid` 参数描述改用共享常量；错误文案改用共享常量 |
 | `packages/backend/src/services/ServiceRepository.ts` | `getMcpService()` 注入 `organizationModel` |
 
 **保持不变（明确不动的）**
@@ -272,6 +275,7 @@ search_field_values      set_project
 |---|---|
 | `packages/backend/src/services/McpService/McpService.context.test.ts` | 重写为四级兜底覆盖 |
 | `packages/backend/src/services/McpService/McpService.tools.test.ts` | 数量仍 26，**不需要改** |
+| `packages/backend/src/services/McpService/tools/projectContext.test.ts` | **新增**：四级兜底 + 逐级回落 + `catalogTags` 优先级 |
 | 各工具模块 `*.test.ts` | mock 调整（`organizationModel`、移除对模块内 `resolveProjectUuid` 的断言） |
 
 ### 4.7 测试计划
@@ -284,8 +288,15 @@ search_field_values      set_project
 - context 存在但已失效（`getProject` 抛错）→ 自动落到组织默认
 - 组织默认命中 → `source: 'organization_default'`
 - 组织默认失效 → 落到部署级 env
-- 全部缺失 → 抛 `ForbiddenError`，报错文案包含"显式传 projectUuid"指引
+- 全部缺失 → 抛 `ForbiddenError`，报错文案 = `NO_DEFAULT_PROJECT_ERROR` 且含 `NO_DEFAULT_PROJECT_HINT`
 - 每一级返回后，都再校验一次访问权限
+
+**`catalogTags` 优先级单测**
+
+- `catalogTags: ['a']` + context tags `['b']` → 生效 `['a']`
+- `catalogTags: []` + context tags `['b']` → **不过滤**（不回落到 context）
+- 不传 `catalogTags` + context tags `['b']` → 生效 `['b']`（保持旧行为）
+- 不传 `catalogTags` + 无 context tags → 不过滤（保持旧行为）
 
 **回归**
 
@@ -309,11 +320,101 @@ NODE_OPTIONS=--max-old-space-size=4096 TZ=UTC npx jest --config jest.config.js s
 
 **回滚**：全部改动在 `feat/mcp-unified-backend` 分支；`MCP_ENABLED=false` 可单独关停 MCP。
 
-### 4.9 仍待确认
+### 4.9 已定稿的三项决策（2026-10-27）
 
-1. **工具名是否改名。** 当前计划保留 `set_project` / `get_current_project` 不改名字（无损优先，避免打断存量客户端与 Skills 提示词），但名字与「默认项目」新语义不完全对齐。备选：新增 `set_default_project` / `get_default_project`，旧工具标 deprecated。**倾向保留旧名**。
-2. **是否加显式 `catalogTags` 参数**（§4.4）。倾向加（纯增量），但可延后到 P8.3 之后。
-3. **部署级 env 的默认值是否提供。** 倾向不提供默认（`undefined`），由部署方显式配置。
+| # | 议题 | 决定 |
+|---|---|---|
+| 1 | 工具名是否改名 | **保留** `set_project` / `get_current_project` 原名，不新增别名、不标 deprecated。无损优先 —— 存量客户端与 Skills 提示词按工具名引用，改名会打断它们。语义差异通过工具描述与新增返回字段 `source` 表达。 |
+| 2 | 是否加显式 `catalogTags` | **加**。`find_explores` / `find_fields` 新增可选 `catalogTags`，优先级 `显式 catalogTags > mcp_context.tags`。纯增量，不改旧调用行为。纳入 P8.3 范围。 |
+| 3 | 部署级 env 默认值 | **不提供默认值**。`mcp.defaultProjectUuid` 默认 `undefined`，由部署方显式配置 `LIGHTDASH_PROJECT_UUID`。多租户主站默认不设，避免误指向。 |
+
+### 4.10 文案草案（实施时直接照抄）
+
+> 工具描述一律英文（项目约定）。中文文案只出现在 `docs/` 文档里。
+
+#### 4.10.1 共享常量（新增，避免 6 处重复）
+
+在 `tools/projectContext.ts`（或 `tools/helpers.ts`）导出：
+
+```ts
+export const PROJECT_UUID_PARAM_DESCRIPTION =
+    'Project UUID to use for this call. When omitted, resolves to the default ' +
+    'project for the current user and organization, then the organization ' +
+    'default, then the server default. An explicit value always takes precedence.';
+
+export const NO_DEFAULT_PROJECT_ERROR =
+    'No default project available. Call set_project to set one, or pass projectUuid explicitly.';
+
+export const NO_DEFAULT_PROJECT_HINT =
+    'Resolution order: explicit projectUuid > user default (set_project) > ' +
+    'organization default > server default (LIGHTDASH_PROJECT_UUID).';
+```
+
+替换现有 6 处硬编码：
+
+| 文件 | 现有文案 | 改为 |
+|---|---|---|
+| `tools/queryTools.ts` | `Project UUID to list the explores of. Defaults to the project set with set_project.` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/queryTools.ts` | `Project UUID to run the query on. Defaults to the project set with set_project.` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/contentSearchTools.ts` | `Project UUID to search in. Defaults to the project set with set_project.` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/contentListTools.ts` | `Project UUID to list the spaces of. ...` / `... the space belongs to. ...` / `... the dashboard belongs to. ...` / `... list the verified content of. ...` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/savedChartTools.ts` | `Project UUID the chart belongs to. Defaults to the project set with set_project.` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/dashboardTools.ts` | `Project UUID the dashboard belongs to. Defaults to the project set with set_project.`（2 处） | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `tools/chartRunTools.ts` | `Project UUID the chart belongs to. ...` / `... the dashboard belongs to. ...` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| `McpService.ts` `getMcpCompatibleSchema()` | `Project to use for this call. Defaults to the project set with set_project.` | `PROJECT_UUID_PARAM_DESCRIPTION` |
+| 6 个模块的 `resolveProjectUuid` 失败分支 | `No project context set. Use set_project or provide projectUuid parameter.` | `NO_DEFAULT_PROJECT_ERROR` + `NO_DEFAULT_PROJECT_HINT` |
+
+#### 4.10.2 `set_project`
+
+| 位置 | 内容 |
+|---|---|
+| 工具描述 | `Set the default project for subsequent MCP operations. This is a per-user, per-organization preference stored in the database; it does not affect other users. An explicit projectUuid argument on a tool call always takes precedence over this default.` |
+| `projectUuid` 参数描述 | `Project UUID to use as the default. Must be a project you can view.` |
+| `tags` 参数描述 | `Optional catalog tags to filter explores and fields by default. Overrides any previously stored tags. Pass an empty array to clear them.` |
+| 返回结构 | **不变**：`{ projectUuid, projectName, selectedTags }` |
+| 实现备注 | 写入前仍需 `projectService.getProject()` + CASL `view Project` 校验（现有逻辑不变）；`tags` 语义改为「默认标签」 |
+
+#### 4.10.3 `get_current_project`
+
+| 位置 | 内容 |
+|---|---|
+| 工具描述 | `Get the default project for the current user and organization, and show which fallback level it came from.` |
+| 返回结构 | **新增** `source` 与 `hasUserDefault`，**保留**原有字段：<br>`{ projectUuid, projectName, selectedTags, source, hasUserDefault }`<br>`source` ∈ `user_default` \| `organization_default` \| `server_default` |
+| 无可用默认时 | `{ error: 'No default project available. Call set_project to set one, or pass projectUuid explicitly.', hint: NO_DEFAULT_PROJECT_HINT }`（**保留 `error` 键**，仅换文案） |
+| 兼容性 | 只做**新增**字段，不删改现有字段；`error` 字符串变更需在 `mcp-v2-guide.md` §7 错误表同步 |
+
+#### 4.10.4 `catalogTags` 新参数
+
+| 工具 | 参数描述 |
+|---|---|
+| `find_explores` | `Optional catalog tags to filter explores by. Overrides the tags stored by set_project for this call. Pass an empty array to disable tag filtering.` |
+| `find_fields` | `Optional catalog tags to filter fields by. Overrides the tags stored by set_project for this call. Pass an empty array to disable tag filtering.` |
+
+实现落点：`getFindExploresFunction()` / `getFindFieldsFunction()` 接受可选 `catalogTags`，计算 `effectiveTags = args.catalogTags ?? tagsFromContext`；`catalogTags: []` 视为「不过滤」（而不是回落到 context）。
+
+#### 4.10.5 内置文档 `tools/mcpDocsContent.ts`
+
+| 行 | 现有 | 改为 |
+|---|---|---|
+| 45 | `- Always pass \`projectUuid\` explicitly to query tools. The project set with \`set_project\` is only a convenience fallback.` | `- Always pass \`projectUuid\` explicitly to query tools. The default project set with \`set_project\` is only a convenience fallback and may be stale.` |
+| 48 | `  - Project context: \`list_projects\`, \`set_project\`, \`get_current_project\`.` | `  - Project context: \`list_projects\`, \`set_project\`, \`get_current_project\`.`<br>**新增**：`  - Project resolution order: explicit \`projectUuid\` > user default (\`set_project\`) > organization default > server default.` |
+| 84 | `3. Resolve the project with \`list_projects\` / \`set_project\`, or pass \`projectUuid\` to the tool call.` | `3. Resolve the project with \`list_projects\` / \`set_project\`, or pass \`projectUuid\` to the tool call. An explicit \`projectUuid\` always wins over any default.` |
+| 153 | `- Business state that used to live in the session is now stored per user and organization in the database: \`set_project\` writes the current project for the calling user, and \`get_current_project\` reads it back. It survives restarts and works across replicas.` | `- Business state that used to live in the session is now stored per user and organization in the database: \`set_project\` writes the **default** project for the calling user, and \`get_current_project\` reads it back. It survives restarts and works across replicas. When no default is set, the organization default and then the server default are used.` |
+
+#### 4.10.6 `tools/analystPrompt.ts` / `analystPromptTools.ts`
+
+| 位置 | 现有 | 改为 |
+|---|---|---|
+| `analystPrompt.ts` | `Call list_projects if you do not know the project, then set_project with the chosen projectUuid, or pass projectUuid on the individual tool calls.` | `Call list_projects if you do not know the project, then set_project with the chosen projectUuid, or pass projectUuid on the individual tool calls. Prefer passing projectUuid explicitly on each call: the stored default may be stale.` |
+| `analystPromptTools.ts` | `Optional project the agent should work on. The agent still has to select it with set_project.` | `Optional project the agent should work on. The agent still has to select it with set_project. Prefer passing this explicitly over relying on the stored default.` |
+
+#### 4.10.7 文档
+
+| 文件 | 改动 |
+|---|---|
+| `docs/mcp/mcp-v2-guide.md` §3.2 | 改写为四级兜底链 + 逐级回落规则；错误表同步 `NO_DEFAULT_PROJECT_ERROR`；新增 `get_current_project` 返回字段 `source` 说明 |
+| `docs/mcp/mcp-tools-permissions.md` | `set_project` → 「为当前用户 + 当前组织记住**默认**项目（持久化到数据库，跨重启/跨副本一致）」；`get_current_project` → 「读取默认项目及其来源」 |
+| `docs/mcp/mcp-unified-backend-plan.md` §3.2 | 同步四级链描述 |
 
 ## 5. 后续路线图（工具收敛 26 → 18）
 
