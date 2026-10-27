@@ -15,10 +15,6 @@ import {
     ParameterError,
     QueryExecutionContext,
     SessionUser,
-    ToolFindChartsArgs,
-    toolFindChartsArgsSchema,
-    ToolFindDashboardsArgs,
-    toolFindDashboardsArgsSchema,
     toolFindExploresArgsSchemaV2,
     ToolFindExploresArgsV2,
     ToolFindFieldsArgs,
@@ -64,15 +60,11 @@ import {
 } from '../UserAttributesService/UserAttributeUtils';
 import { wrapSentryTransaction } from '../../utils';
 import { VERSION } from '../../version';
-import { runFindCharts } from '../ai/tools/findCharts';
-import { runFindDashboards } from '../ai/tools/findDashboards';
 import { runFindExplores } from '../ai/tools/findExplores';
 import { runFindFields } from '../ai/tools/findFields';
 import { runRunMetricQuery } from '../ai/tools/runMetricQuery';
 import { runSearchFieldValues } from '../ai/tools/searchFieldValues';
 import {
-    FindChartsFn,
-    FindDashboardsFn,
     FindExploresFn,
     FindFieldFn,
     GetExploreFn,
@@ -90,8 +82,11 @@ import { registerOrgTools } from './tools/orgTools';
 import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
+import { registerContentSearchTools } from './tools/contentSearchTools';
+import { registerContentListTools } from './tools/contentListTools';
 import { registerSavedChartTools } from './tools/savedChartTools';
 import { registerDashboardTools } from './tools/dashboardTools';
+import { registerChartRunTools } from './tools/chartRunTools';
 import { registerAnalystPrompt } from './tools/analystPromptTools';
 
 type McpServiceArguments = {
@@ -292,8 +287,11 @@ export class McpService extends BaseService {
         registerAccessTools(this.toolRegistry, this.getToolDeps());
         registerDocsTools(this.toolRegistry, this.getToolDeps());
         registerQueryTools(this.toolRegistry, this.getToolDeps());
+        registerContentSearchTools(this.toolRegistry, this.getToolDeps());
+        registerContentListTools(this.toolRegistry, this.getToolDeps());
         registerSavedChartTools(this.toolRegistry, this.getToolDeps());
         registerDashboardTools(this.toolRegistry, this.getToolDeps());
+        registerChartRunTools(this.toolRegistry, this.getToolDeps());
         registerAnalystPrompt(this.toolRegistry);
 
         this.registerMcpTool(
@@ -401,112 +399,6 @@ export class McpService extends BaseService {
                     {
                         table: args.table,
                         fieldSearchQueries: args.fieldSearchQueries,
-                        page: args.page,
-                    },
-                );
-
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: result,
-                        },
-                    ],
-                };
-            },
-        );
-
-        this.registerMcpTool(
-            McpToolName.FIND_DASHBOARDS,
-            {
-                description: toolFindDashboardsArgsSchema.description,
-                inputSchema: this.getMcpCompatibleSchema(
-                    toolFindDashboardsArgsSchema,
-                    { projectUuid: true },
-                ) as AnyType,
-            },
-            async (_args, context) => {
-                const args = _args as McpToolArgs<ToolFindDashboardsArgs>;
-
-                const projectUuid = await this.resolveProjectUuid(
-                    context,
-                    args,
-                );
-                const argsWithProject = { ...args, projectUuid };
-
-                this.trackToolCall(
-                    context,
-                    McpToolName.FIND_DASHBOARDS,
-                    projectUuid,
-                );
-
-                const findDashboards: FindDashboardsFn =
-                    await this.getFindDashboardsFunction(
-                        argsWithProject,
-                        context,
-                    );
-
-                const result = await runFindDashboards(
-                    {
-                        findDashboards,
-                        pageSize: 10,
-                        siteUrl: this.lightdashConfig.siteUrl,
-                    },
-                    {
-                        dashboardSearchQueries: args.dashboardSearchQueries,
-                        page: args.page,
-                    },
-                );
-
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: result,
-                        },
-                    ],
-                };
-            },
-        );
-
-        this.registerMcpTool(
-            McpToolName.FIND_CHARTS,
-            {
-                description: toolFindChartsArgsSchema.description,
-                inputSchema: this.getMcpCompatibleSchema(
-                    toolFindChartsArgsSchema,
-                    { projectUuid: true },
-                ) as AnyType,
-            },
-            async (_args, context) => {
-                const args = _args as McpToolArgs<ToolFindChartsArgs>;
-
-                const projectUuid = await this.resolveProjectUuid(
-                    context,
-                    args,
-                );
-                const argsWithProject = { ...args, projectUuid };
-
-                this.trackToolCall(
-                    context,
-                    McpToolName.FIND_CHARTS,
-                    projectUuid,
-                );
-
-                const findCharts: FindChartsFn =
-                    await this.getFindChartsFunction(
-                        argsWithProject,
-                        context,
-                    );
-
-                const result = await runFindCharts(
-                    {
-                        findCharts,
-                        pageSize: 10,
-                        siteUrl: this.lightdashConfig.siteUrl,
-                    },
-                    {
-                        chartSearchQueries: args.chartSearchQueries,
                         page: args.page,
                     },
                 );
@@ -1096,162 +988,6 @@ export class McpService extends BaseService {
             });
 
         return findFields;
-    }
-
-    async getFindDashboardsFunction(
-        toolArgs: ToolFindDashboardsArgs & { projectUuid: string },
-        context: McpToolContext,
-    ): Promise<FindDashboardsFn> {
-        const { user, account } = context;
-        const { organizationUuid } = user;
-        const { projectUuid } = toolArgs;
-
-        if (!user || !organizationUuid || !account) {
-            throw new ForbiddenError();
-        }
-
-        const project = await this.projectService.getProject(
-            projectUuid,
-            account,
-        );
-
-        if (
-            user.ability.cannot(
-                'view',
-                subject('Project', {
-                    projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
-
-        const findDashboards: FindDashboardsFn = (args) =>
-            wrapSentryTransaction(
-                'McpService.findDashboards',
-                args,
-                async () => {
-                    const searchResults =
-                        await this.searchModel.searchDashboards(
-                            projectUuid,
-                            args.dashboardSearchQuery.label,
-                        );
-
-                    const filteredDashboards =
-                        await this.spaceService.filterBySpaceAccess(
-                            user,
-                            searchResults,
-                        );
-
-                    // Client-use projects: only the allow-listed dashboards
-                    // are visible to viewer / interactive_viewer
-                    const dashboardScope =
-                        await this.projectService.dashboardService.getViewerContentScope(
-                            user,
-                            projectUuid,
-                        );
-                    const visibleDashboards =
-                        dashboardScope === undefined
-                            ? filteredDashboards
-                            : filteredDashboards.filter((dashboard) =>
-                                  dashboardScope.dashboardUuids.includes(
-                                      dashboard.uuid,
-                                  ),
-                              );
-
-                    const totalResults = visibleDashboards.length;
-                    const totalPageCount = Math.ceil(
-                        totalResults / args.pageSize,
-                    );
-
-                    return {
-                        dashboards: visibleDashboards,
-                        pagination: {
-                            page: args.page,
-                            pageSize: args.pageSize,
-                            totalResults,
-                            totalPageCount,
-                        },
-                    };
-                },
-            );
-
-        return findDashboards;
-    }
-
-    async getFindChartsFunction(
-        toolArgs: ToolFindChartsArgs & { projectUuid: string },
-        context: McpToolContext,
-    ): Promise<FindChartsFn> {
-        const { user, account } = context;
-        const { organizationUuid } = user;
-        const { projectUuid } = toolArgs;
-
-        if (!user || !organizationUuid || !account) {
-            throw new ForbiddenError();
-        }
-
-        const project = await this.projectService.getProject(
-            projectUuid,
-            account,
-        );
-
-        if (
-            user.ability.cannot(
-                'view',
-                subject('Project', {
-                    projectUuid,
-                    organizationUuid: project.organizationUuid,
-                }),
-            )
-        ) {
-            throw new ForbiddenError();
-        }
-
-        const findCharts: FindChartsFn = (args) =>
-            wrapSentryTransaction('McpService.findCharts', args, async () => {
-                const searchResults = await this.searchModel.searchAllCharts(
-                    projectUuid,
-                    args.chartSearchQuery.label,
-                );
-
-                const filteredCharts =
-                    await this.spaceService.filterBySpaceAccess(
-                        user,
-                        searchResults,
-                    );
-
-                // Client-use projects: only the charts mounted on an
-                // allow-listed dashboard are visible to
-                // viewer / interactive_viewer
-                const chartScope =
-                    await this.projectService.dashboardService.getViewerContentScope(
-                        user,
-                        projectUuid,
-                    );
-                const visibleCharts =
-                    chartScope === undefined
-                        ? filteredCharts
-                        : filteredCharts.filter((chart) =>
-                              chartScope.chartUuids.includes(chart.uuid),
-                          );
-
-                const totalResults = visibleCharts.length;
-                const totalPageCount = Math.ceil(totalResults / args.pageSize);
-
-                return {
-                    charts: visibleCharts,
-                    pagination: {
-                        page: args.page,
-                        pageSize: args.pageSize,
-                        totalResults,
-                        totalPageCount,
-                    },
-                };
-            });
-
-        return findCharts;
     }
 
     async getRunMetricQueryDependencies(
