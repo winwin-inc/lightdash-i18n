@@ -105,6 +105,39 @@ const getDashboardsText = (
 </SearchResult>
 `.trim();
 
+/**
+ * Native implementation of the find dashboards tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runFindDashboards = async (
+    { findDashboards, pageSize, siteUrl }: Dependencies,
+    args: {
+        dashboardSearchQueries: { label: string }[];
+        page?: number | null;
+    },
+): Promise<string> => {
+    const dashboardSearchQueryResults = await Promise.all(
+        args.dashboardSearchQueries.map(async (dashboardSearchQuery) => ({
+            searchQuery: dashboardSearchQuery.label,
+            ...(await findDashboards({
+                dashboardSearchQuery,
+                page: args.page ?? 1,
+                pageSize,
+            })),
+        })),
+    );
+
+    const dashboardsText = dashboardSearchQueryResults
+        .map((dashboardSearchQueryResult) =>
+            getDashboardsText(dashboardSearchQueryResult, siteUrl),
+        )
+        .join('\n\n');
+
+    return `<SearchResults>${dashboardsText}</SearchResults>`;
+};
+
 export const getFindDashboards = ({
     findDashboards,
     pageSize,
@@ -116,27 +149,11 @@ export const getFindDashboards = ({
         outputSchema: toolFindDashboardsOutputSchema,
         execute: async (args) => {
             try {
-                const dashboardSearchQueryResults = await Promise.all(
-                    args.dashboardSearchQueries.map(
-                        async (dashboardSearchQuery) => ({
-                            searchQuery: dashboardSearchQuery.label,
-                            ...(await findDashboards({
-                                dashboardSearchQuery,
-                                page: args.page ?? 1,
-                                pageSize,
-                            })),
-                        }),
-                    ),
-                );
-
-                const dashboardsText = dashboardSearchQueryResults
-                    .map((dashboardSearchQueryResult) =>
-                        getDashboardsText(dashboardSearchQueryResult, siteUrl),
-                    )
-                    .join('\n\n');
-
                 return {
-                    result: `<SearchResults>${dashboardsText}</SearchResults>`,
+                    result: await runFindDashboards(
+                        { findDashboards, pageSize, siteUrl },
+                        args,
+                    ),
                     metadata: {
                         status: 'success',
                     },

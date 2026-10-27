@@ -64,12 +64,12 @@ import {
 } from '../UserAttributesService/UserAttributeUtils';
 import { wrapSentryTransaction } from '../../utils';
 import { VERSION } from '../../version';
-import { getFindCharts } from '../ai/tools/findCharts';
-import { getFindDashboards } from '../ai/tools/findDashboards';
-import { getFindExplores } from '../ai/tools/findExplores';
-import { getFindFields } from '../ai/tools/findFields';
-import { getRunMetricQuery } from '../ai/tools/runMetricQuery';
-import { getSearchFieldValues } from '../ai/tools/searchFieldValues';
+import { runFindCharts } from '../ai/tools/findCharts';
+import { runFindDashboards } from '../ai/tools/findDashboards';
+import { runFindExplores } from '../ai/tools/findExplores';
+import { runFindFields } from '../ai/tools/findFields';
+import { runRunMetricQuery } from '../ai/tools/runMetricQuery';
+import { runSearchFieldValues } from '../ai/tools/searchFieldValues';
 import {
     FindChartsFn,
     FindDashboardsFn,
@@ -209,31 +209,6 @@ export class McpService extends BaseService {
         }
     }
 
-    static async streamToolResult(
-        result:
-            | { result: string }
-            | AsyncIterable<{
-                  result: string;
-              }>,
-    ): Promise<string> {
-        if (
-            'result' in result &&
-            typeof result.result === 'string' &&
-            Symbol.asyncIterator in result === false
-        ) {
-            return result.result;
-        }
-
-        let out = '';
-        for await (const chunk of result as AsyncIterable<{
-            result: string;
-            metadata: { status: 'error' | 'success' };
-        }>) {
-            out += chunk.result;
-        }
-        return out;
-    }
-
     private getMcpCompatibleSchema(
         schema: z.ZodSchema<unknown>,
         options?: { projectUuid?: boolean },
@@ -369,23 +344,16 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const findExploresTool = getFindExplores({
-                    findExplores,
-                    fieldSearchSize: 200,
-                });
-                const result = await findExploresTool.execute!(
-                    argsWithProject,
-                    {
-                        toolCallId: '',
-                        messages: [],
-                    },
+                const result = await runFindExplores(
+                    { findExplores, fieldSearchSize: 200 },
+                    { exploreName: args.exploreName },
                 );
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };
@@ -422,20 +390,20 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const findFieldsTool = getFindFields({
-                    findFields,
-                    pageSize: 15,
-                });
-                const result = await findFieldsTool.execute!(argsWithProject, {
-                    toolCallId: '',
-                    messages: [],
-                });
+                const result = await runFindFields(
+                    { findFields, pageSize: 15 },
+                    {
+                        table: args.table,
+                        fieldSearchQueries: args.fieldSearchQueries,
+                        page: args.page,
+                    },
+                );
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };
@@ -472,16 +440,15 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const findDashboardsTool = getFindDashboards({
-                    findDashboards,
-                    pageSize: 10,
-                    siteUrl: this.lightdashConfig.siteUrl,
-                });
-                const result = await findDashboardsTool.execute!(
-                    argsWithProject,
+                const result = await runFindDashboards(
                     {
-                        toolCallId: '',
-                        messages: [],
+                        findDashboards,
+                        pageSize: 10,
+                        siteUrl: this.lightdashConfig.siteUrl,
+                    },
+                    {
+                        dashboardSearchQueries: args.dashboardSearchQueries,
+                        page: args.page,
                     },
                 );
 
@@ -489,7 +456,7 @@ export class McpService extends BaseService {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };
@@ -526,21 +493,23 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const findChartsTool = getFindCharts({
-                    findCharts,
-                    pageSize: 10,
-                    siteUrl: this.lightdashConfig.siteUrl,
-                });
-                const result = await findChartsTool.execute!(argsWithProject, {
-                    toolCallId: '',
-                    messages: [],
-                });
+                const result = await runFindCharts(
+                    {
+                        findCharts,
+                        pageSize: 10,
+                        siteUrl: this.lightdashConfig.siteUrl,
+                    },
+                    {
+                        chartSearchQueries: args.chartSearchQueries,
+                        page: args.page,
+                    },
+                );
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };
@@ -753,25 +722,20 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const runMetricQueryTool = getRunMetricQuery({
-                    getExplore,
-                    runMiniMetricQuery,
-                    maxLimit: this.lightdashConfig.ai.copilot.maxQueryLimit,
-                });
-
-                const result = await runMetricQueryTool.execute!(
-                    argsWithProject,
+                const result = await runRunMetricQuery(
                     {
-                        toolCallId: '',
-                        messages: [],
+                        getExplore,
+                        runMiniMetricQuery,
+                        maxLimit: this.lightdashConfig.ai.copilot.maxQueryLimit,
                     },
+                    argsWithProject,
                 );
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };
@@ -808,22 +772,16 @@ export class McpService extends BaseService {
                         context,
                     );
 
-                const searchFieldValuesTool = getSearchFieldValues({
-                    searchFieldValues,
-                });
-                const result = await searchFieldValuesTool.execute!(
+                const result = await runSearchFieldValues(
+                    { searchFieldValues },
                     argsWithProject,
-                    {
-                        toolCallId: '',
-                        messages: [],
-                    },
                 );
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: await McpService.streamToolResult(result),
+                            text: result,
                         },
                     ],
                 };

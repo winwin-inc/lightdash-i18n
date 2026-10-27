@@ -13,6 +13,23 @@ type Dependencies = {
     searchFieldValues: SearchFieldValuesFn;
 };
 
+/**
+ * Native implementation of the search field values tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runSearchFieldValues = async (
+    { searchFieldValues }: Dependencies,
+    toolArgs: unknown,
+): Promise<string> => {
+    const args = toolSearchFieldValuesArgsSchemaTransformed.parse(toolArgs);
+
+    const results = await searchFieldValues(args);
+
+    return serializeData(results, 'json');
+};
+
 export const getSearchFieldValues = ({ searchFieldValues }: Dependencies) =>
     tool({
         description: toolSearchFieldValuesArgsSchema.description,
@@ -20,13 +37,11 @@ export const getSearchFieldValues = ({ searchFieldValues }: Dependencies) =>
         outputSchema: toolSearchFieldValuesOutputSchema,
         execute: async (toolArgs) => {
             try {
-                const args =
-                    toolSearchFieldValuesArgsSchemaTransformed.parse(toolArgs);
-
-                const results = await searchFieldValues(args);
-
                 return {
-                    result: serializeData(results, 'json'),
+                    result: await runSearchFieldValues(
+                        { searchFieldValues },
+                        toolArgs,
+                    ),
                     metadata: {
                         status: 'success',
                     },

@@ -36,123 +36,125 @@ type Dependencies = {
     maxLimit: number;
 };
 
+const validateVizTool = (
+vizTool: ToolRunMetricQueryArgsTransformed,
+explore: Explore,
+) => {
+    const filterRules = getTotalFilterRules(vizTool.filters);
+    validateFieldEntityType(
+        explore,
+        vizTool.vizConfig.dimensions,
+        'dimension',
+    );
+    validateFieldEntityType(
+        explore,
+        vizTool.vizConfig.metrics,
+        'metric',
+        vizTool.customMetrics,
+    );
+    validateCustomMetricsDefinition(explore, vizTool.customMetrics);
+    validateFilterRules(
+        explore,
+        filterRules,
+        vizTool.customMetrics,
+        vizTool.tableCalculations,
+    );
+    validateMetricDimensionFilterPlacement(
+        explore,
+        vizTool.customMetrics,
+        vizTool.tableCalculations,
+        vizTool.filters,
+    );
+    validateSelectedFieldsExistence(
+        explore,
+        vizTool.vizConfig.sorts.map((sort) => sort.fieldId),
+        vizTool.customMetrics,
+        vizTool.tableCalculations,
+    );
+    validateSortFieldsAreSelected(
+        vizTool.vizConfig.sorts,
+        vizTool.vizConfig.dimensions,
+        vizTool.vizConfig.metrics,
+        vizTool.customMetrics,
+        vizTool.tableCalculations,
+    );
+};
+/**
+ * Native implementation of the run metric query tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runRunMetricQuery = async (
+    { getExplore, runMiniMetricQuery, maxLimit }: Dependencies,
+    toolArgs: unknown,
+): Promise<string> => {
+    const vizTool = toolRunMetricQueryArgsSchemaTransformed.parse(toolArgs);
+
+    const explore = await getExplore({
+        exploreName: vizTool.vizConfig.exploreName,
+    });
+
+    validateVizTool(vizTool, explore);
+
+    const query = metricQueryTableViz({
+        vizConfig: vizTool.vizConfig,
+        filters: vizTool.filters,
+        maxLimit,
+        customMetrics: vizTool.customMetrics,
+        tableCalculations: convertAiTableCalcsSchemaToTableCalcs(
+            vizTool.tableCalculations,
+        ),
+    });
+
+    const results = await runMiniMetricQuery(
+        query,
+        maxLimit,
+        populateCustomMetricsSQL(vizTool.customMetrics, explore),
+    );
+
+    if (results.rows.length === 0) {
+        return NO_RESULTS_RETRY_PROMPT;
+    }
+
+    const fieldIds = results.rows[0] ? Object.keys(results.rows[0]) : [];
+
+    const csvHeaders = fieldIds.map((fieldId) => {
+        const item = results.fields[fieldId];
+        if (!item) {
+            return fieldId;
+        }
+        return getItemLabelWithoutTableName(item);
+    });
+
+    const rows = results.rows.map((row) =>
+        CsvService.convertRowToCsv(row, results.fields, true, fieldIds),
+    );
+
+    const csv = stringify(rows, {
+        header: true,
+        columns: csvHeaders,
+    });
+
+    return serializeData(csv, 'csv');
+};
+
 export const getRunMetricQuery = ({
     getExplore,
     runMiniMetricQuery,
     maxLimit,
-}: Dependencies) => {
-    const validateVizTool = (
-        vizTool: ToolRunMetricQueryArgsTransformed,
-        explore: Explore,
-    ) => {
-        const filterRules = getTotalFilterRules(vizTool.filters);
-        validateFieldEntityType(
-            explore,
-            vizTool.vizConfig.dimensions,
-            'dimension',
-        );
-        validateFieldEntityType(
-            explore,
-            vizTool.vizConfig.metrics,
-            'metric',
-            vizTool.customMetrics,
-        );
-        validateCustomMetricsDefinition(explore, vizTool.customMetrics);
-        validateFilterRules(
-            explore,
-            filterRules,
-            vizTool.customMetrics,
-            vizTool.tableCalculations,
-        );
-        validateMetricDimensionFilterPlacement(
-            explore,
-            vizTool.customMetrics,
-            vizTool.tableCalculations,
-            vizTool.filters,
-        );
-        validateSelectedFieldsExistence(
-            explore,
-            vizTool.vizConfig.sorts.map((sort) => sort.fieldId),
-            vizTool.customMetrics,
-            vizTool.tableCalculations,
-        );
-        validateSortFieldsAreSelected(
-            vizTool.vizConfig.sorts,
-            vizTool.vizConfig.dimensions,
-            vizTool.vizConfig.metrics,
-            vizTool.customMetrics,
-            vizTool.tableCalculations,
-        );
-    };
-
-    return tool({
+}: Dependencies) =>
+    tool({
         description: toolRunMetricQueryArgsSchema.description,
         inputSchema: toolRunMetricQueryArgsSchema,
         outputSchema: toolRunMetricQueryOutputSchema,
         execute: async (toolArgs) => {
             try {
-                const vizTool =
-                    toolRunMetricQueryArgsSchemaTransformed.parse(toolArgs);
-
-                const explore = await getExplore({
-                    exploreName: vizTool.vizConfig.exploreName,
-                });
-
-                validateVizTool(vizTool, explore);
-
-                const query = metricQueryTableViz({
-                    vizConfig: vizTool.vizConfig,
-                    filters: vizTool.filters,
-                    maxLimit,
-                    customMetrics: vizTool.customMetrics,
-                    tableCalculations: convertAiTableCalcsSchemaToTableCalcs(
-                        vizTool.tableCalculations,
-                    ),
-                });
-
-                const results = await runMiniMetricQuery(
-                    query,
-                    maxLimit,
-                    populateCustomMetricsSQL(vizTool.customMetrics, explore),
-                );
-
-                if (results.rows.length === 0) {
-                    return {
-                        result: NO_RESULTS_RETRY_PROMPT,
-                        metadata: {
-                            status: 'success',
-                        },
-                    };
-                }
-
-                const fieldIds = results.rows[0]
-                    ? Object.keys(results.rows[0])
-                    : [];
-
-                const csvHeaders = fieldIds.map((fieldId) => {
-                    const item = results.fields[fieldId];
-                    if (!item) {
-                        return fieldId;
-                    }
-                    return getItemLabelWithoutTableName(item);
-                });
-
-                const rows = results.rows.map((row) =>
-                    CsvService.convertRowToCsv(
-                        row,
-                        results.fields,
-                        true,
-                        fieldIds,
-                    ),
-                );
-
-                const csv = stringify(rows, {
-                    header: true,
-                    columns: csvHeaders,
-                });
-
                 return {
-                    result: serializeData(csv, 'csv'),
+                    result: await runRunMetricQuery(
+                        { getExplore, runMiniMetricQuery, maxLimit },
+                        toolArgs,
+                    ),
                     metadata: {
                         status: 'success',
                     },
@@ -168,4 +170,3 @@ export const getRunMetricQuery = ({
         },
         toModelOutput: (output) => toModelOutput(output),
     });
-};

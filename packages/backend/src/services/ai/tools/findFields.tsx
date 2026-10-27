@@ -74,6 +74,39 @@ const getFieldsText = (
     </searchresult>
 );
 
+/**
+ * Native implementation of the find fields tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runFindFields = async (
+    { findFields, pageSize }: Dependencies,
+    args: {
+        table: string;
+        fieldSearchQueries: { label: string }[];
+        page?: number | null;
+    },
+): Promise<string> => {
+    const fieldSearchQueryResults = await Promise.all(
+        args.fieldSearchQueries.map(async (fieldSearchQuery) => ({
+            searchQuery: fieldSearchQuery.label,
+            ...(await findFields({
+                table: args.table,
+                fieldSearchQuery,
+                page: args.page ?? 1,
+                pageSize,
+            })),
+        })),
+    );
+
+    const fieldsText = fieldSearchQueryResults
+        .map((fieldSearchQueryResult) => getFieldsText(fieldSearchQueryResult))
+        .join('\n\n');
+
+    return (<searchresults>{fieldsText}</searchresults>) as string;
+};
+
 export const getFindFields = ({ findFields, pageSize }: Dependencies) =>
     tool({
         description: toolFindFieldsArgsSchema.description,
@@ -81,28 +114,11 @@ export const getFindFields = ({ findFields, pageSize }: Dependencies) =>
         outputSchema: toolFindFieldsOutputSchema,
         execute: async (args) => {
             try {
-                const fieldSearchQueryResults = await Promise.all(
-                    args.fieldSearchQueries.map(async (fieldSearchQuery) => ({
-                        searchQuery: fieldSearchQuery.label,
-                        ...(await findFields({
-                            table: args.table,
-                            fieldSearchQuery,
-                            page: args.page ?? 1,
-                            pageSize,
-                        })),
-                    })),
-                );
-
-                const fieldsText = fieldSearchQueryResults
-                    .map((fieldSearchQueryResult) =>
-                        getFieldsText(fieldSearchQueryResult),
-                    )
-                    .join('\n\n');
-
                 return {
-                    result: (
-                        <searchresults>{fieldsText}</searchresults>
-                    ) as string,
+                    result: await runFindFields(
+                        { findFields, pageSize },
+                        args,
+                    ),
                     metadata: {
                         status: 'success',
                     },

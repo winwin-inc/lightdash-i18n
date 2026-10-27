@@ -88,6 +88,39 @@ const getChartsText = (
 </SearchResult>
 `.trim();
 
+/**
+ * Native implementation of the find charts tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runFindCharts = async (
+    { findCharts, pageSize, siteUrl }: Dependencies,
+    args: {
+        chartSearchQueries: { label: string }[];
+        page?: number | null;
+    },
+): Promise<string> => {
+    const chartSearchQueryResults = await Promise.all(
+        args.chartSearchQueries.map(async (chartSearchQuery) => ({
+            searchQuery: chartSearchQuery.label,
+            ...(await findCharts({
+                chartSearchQuery,
+                page: args.page ?? 1,
+                pageSize,
+            })),
+        })),
+    );
+
+    const chartsText = chartSearchQueryResults
+        .map((chartSearchQueryResult) =>
+            getChartsText(chartSearchQueryResult, siteUrl),
+        )
+        .join('\n\n');
+
+    return `<SearchResults>${chartsText}</SearchResults>`;
+};
+
 export const getFindCharts = ({
     findCharts,
     pageSize,
@@ -99,25 +132,11 @@ export const getFindCharts = ({
         outputSchema: toolFindChartsOutputSchema,
         execute: async (args) => {
             try {
-                const chartSearchQueryResults = await Promise.all(
-                    args.chartSearchQueries.map(async (chartSearchQuery) => ({
-                        searchQuery: chartSearchQuery.label,
-                        ...(await findCharts({
-                            chartSearchQuery,
-                            page: args.page ?? 1,
-                            pageSize,
-                        })),
-                    })),
-                );
-
-                const chartsText = chartSearchQueryResults
-                    .map((chartSearchQueryResult) =>
-                        getChartsText(chartSearchQueryResult, siteUrl),
-                    )
-                    .join('\n\n');
-
                 return {
-                    result: `<SearchResults>${chartsText}</SearchResults>`,
+                    result: await runFindCharts(
+                        { findCharts, pageSize, siteUrl },
+                        args,
+                    ),
                     metadata: {
                         status: 'success',
                     },

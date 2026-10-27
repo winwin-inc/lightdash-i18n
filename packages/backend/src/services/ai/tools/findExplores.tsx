@@ -169,6 +169,27 @@ const generateExploreResponse = ({
         </explore>
     );
 };
+/**
+ * Native implementation of the find explores tool.
+ *
+ * It is shared between the AI agent (through the AI SDK wrapper below) and
+ * the MCP server, which calls it directly so that errors are not swallowed.
+ */
+export const runFindExplores = async (
+    { findExplores, fieldSearchSize }: Dependencies,
+    args: { exploreName: string },
+): Promise<string> => {
+    const { explore, catalogFields } = await findExplores({
+        exploreName: args.exploreName,
+        fieldSearchSize,
+    });
+
+    return generateExploreResponse({
+        explore,
+        catalogFields,
+    }) as string;
+};
+
 export const getFindExplores = ({
     findExplores,
     fieldSearchSize,
@@ -179,16 +200,11 @@ export const getFindExplores = ({
         outputSchema: toolFindExploresOutputSchema,
         execute: async (args) => {
             try {
-                const { explore, catalogFields } = await findExplores({
-                    exploreName: args.exploreName,
-                    fieldSearchSize,
-                });
-
                 return {
-                    result: generateExploreResponse({
-                        explore,
-                        catalogFields,
-                    }) as string,
+                    result: await runFindExplores(
+                        { findExplores, fieldSearchSize },
+                        args,
+                    ),
                     metadata: {
                         status: 'success',
                     },
