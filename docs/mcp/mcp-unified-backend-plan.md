@@ -1,5 +1,7 @@
 # MCP 统一改造方案：主站非 EE `/api/v1/mcp`
 
+> **⏸️ 当前状态（2026-10-27）**：P0–P7 全部完成。**"主站无状态项目模型"（移除 `set_project` / `get_current_project`，26 → 24 工具）已暂停开发**，调研结论与待实施方案完整归档在 **[`mcp-unified-backend-status.md`](./mcp-unified-backend-status.md)**。本文档保留原始方案设计，未完成部分以归档文档为准。
+
 > 分支：`feat/mcp-unified-backend`
 > 目标：把独立包 `packages/lightdash-mcp` 的工具能力，整体合并进主站后端 `/api/v1/mcp`，
 > 并把 MCP 从 EE 目录迁到非 EE，鉴权统一到主站自建 OAuth。
@@ -60,9 +62,9 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 
 ### 3.2 上下文（无状态下的"当前项目"）
 
-- `set_project` / `get_current_project` **保留**，写入已有的 PG 表 `mcp_context`（`user_uuid` + `organization_uuid` 维度）。
-  相比独立包的进程内存：跨实例、跨重启、不随连接失效。
-- 所有需要项目的工具同时支持显式 `projectUuid` 参数覆盖上下文。
+> ⏸️ 本节方案已被暂停。**当前实现仍是状态化的**：`set_project` / `get_current_project` 保留并写入 PG 表 `mcp_context`（`user_uuid` + `organization_uuid` 维度），所有需要项目的工具同时支持显式 `projectUuid` 参数覆盖上下文。
+>
+> 计划中的无状态终态（移除两个工具 + 删除 `mcp_context` 依赖 + 26 → 24 工具）见 [`mcp-unified-backend-status.md` §4](./mcp-unified-backend-status.md#4-未完成工作主站无状态项目模型)。
 
 ### 3.3 鉴权
 
@@ -74,7 +76,9 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 
 ---
 
-## 4. 工具矩阵（27 个）
+## 4. 工具矩阵（实际落地 26 个）
+
+> 原始方案按 27 个估算，实际注册 **26 个**（迁移对齐产物，非最终设计目标）。收敛方向 26 → 18 见归档文档 §5。
 
 | 工具 | 实现来源 | 状态 |
 |---|---|---|
@@ -108,6 +112,7 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 | P5 | 工具输出去 ai SDK 包装，改为 MCP 原生格式（参考独立包 `lib/toolOutput.ts`） | M | AI Copilot 无回归 |
 | P6 | 观测：`/api/v1/mcp/health`；结构化日志；`pnpm generate-api` 更新 swagger | S-M | 健康检查可用 |
 | P7 | 独立包退役评估 + 文档重写 + common schema 迁移 | S | — |
+| P8 ⏸️ | 无状态项目模型：移除 `set_project` / `get_current_project`，删除 `mcp_context` 依赖，26 → 24 工具 | M | **已暂停**，方案见归档文档 §4 |
 
 ### 进度（2026-10-27）
 
@@ -120,7 +125,8 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 | P4 | ✅ | 已完成全部 26 个工具：`get_site_info`（orgTools）、`get_my_access`（accessTools）、`get_mcp_docs`（docsTools）、`list_explores` + `run_semantic_metric_query`（queryTools）、`find_*`（contentSearchTools）、`list_*`（contentListTools）、`get_saved_chart`（savedChartTools）、`get_dashboard_code` / `get_dashboard_tiles`（dashboardTools）、`run_saved_chart` / `run_dashboard_tiles`（chartRunTools）；每个模块含单测 |
 | P5 | ✅ | 6 个 AI-SDK 包装的 MCP 工具抽出原生实现（`runFindExplores` / `runFindFields` / `runFindDashboards` / `runFindCharts` / `runRunMetricQuery` / `runSearchFieldValues`），MCP 侧不再经过 AI SDK，错误不再被压平，EE AI agent 继续使用原包装 |
 | P6 | ✅ | `GET /api/v1/mcp/health`；工具调用埋点统一收口到 `McpToolRegistry`（`mcp_tool_call` 事件新增 `authType`/`durationMs`/`success`）；路由层鉴权结构化日志；`pnpm generate-api` 重新生成 swagger |
-| P7 | 🟡 | 进行中：① common MCP schema 已从 `ee/AiAgent/schemas/` 迁至 `packages/common/src/schemas/mcp/`（含 `filters/`、`tableCalcs/`、`fieldId`、`customMetrics`、`outputMetadata`、`sortField`、`toolSchemaBuilder`、`tableVizConfig` 与 6 个 MCP 工具参数 schema）；② 独立包去留评估已出：`docs/mcp/lightdash-mcp-retirement-evaluation.md`，推荐分阶段退役（方案 C）；剩余：主站接入文档重写 |
+| P7 | ✅ | ① common MCP schema 已从 `ee/AiAgent/schemas/` 迁至 `packages/common/src/schemas/mcp/`（含 `filters/`、`tableCalcs/`、`fieldId`、`customMetrics`、`outputMetadata`、`sortField`、`toolSchemaBuilder`、`tableVizConfig` 与 6 个 MCP 工具参数 schema）；② 独立包去留评估已出：`docs/mcp/lightdash-mcp-retirement-evaluation.md`，推荐分阶段退役（方案 C）；③ 版本口径定稿：**v1 = 独立包（弃用），v2 = 主站 `/api/v1/mcp`（正式版）**，接入文档 `docs/mcp/mcp-v2-guide.md` |
+| P8 | ⏸️ | **已暂停**：主站无状态项目模型（移除 `set_project` / `get_current_project`，清理 `mcp_context` 依赖，26 → 24 工具）。调研已完成，实施方案与未决问题见 [`mcp-unified-backend-status.md` §4](./mcp-unified-backend-status.md#4-未完成工作主站无状态项目模型) |
 
 ### 风险与回滚
 
