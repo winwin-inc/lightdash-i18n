@@ -111,6 +111,12 @@ type McpServiceArguments = {
  */
 export type ExtraContext = McpAuthContext;
 
+/**
+ * MCP tool arguments: the AI agent arguments plus the optional explicit
+ * project override.
+ */
+type McpToolArgs<TArgs> = TArgs & { projectUuid?: string };
+
 export class McpService extends BaseService {
     private lightdashConfig: LightdashConfig;
 
@@ -225,8 +231,37 @@ export class McpService extends BaseService {
         return out;
     }
 
-    private getMcpCompatibleSchema(schema: z.ZodSchema<unknown>): ZodRawShape {
-        return this.mcpCompatLayer.processZodType(schema).shape;
+    private getMcpCompatibleSchema(
+        schema: z.ZodSchema<unknown>,
+        options?: { projectUuid?: boolean },
+    ): ZodRawShape {
+        const shape = this.mcpCompatLayer.processZodType(schema).shape as
+            | ZodRawShape
+            | undefined;
+
+        if (!shape) {
+            return {};
+        }
+
+        // The AI agent schemas carry a `type` discriminator that only makes
+        // sense for the agent, MCP clients should not have to send it.
+        const rest = Object.fromEntries(
+            Object.entries(shape).filter(([key]) => key !== 'type'),
+        ) as ZodRawShape;
+
+        if (options?.projectUuid) {
+            return {
+                ...rest,
+                projectUuid: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Project to use for this call. Defaults to the project set with set_project.',
+                    ),
+            };
+        }
+
+        return rest;
     }
 
     /**
@@ -304,13 +339,15 @@ export class McpService extends BaseService {
                 description: toolFindExploresArgsSchemaV2.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolFindExploresArgsSchemaV2,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolFindExploresArgsV2;
+                const args = _args as McpToolArgs<ToolFindExploresArgsV2>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -355,13 +392,15 @@ export class McpService extends BaseService {
                 description: toolFindFieldsArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolFindFieldsArgsSchema,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolFindFieldsArgs;
+                const args = _args as McpToolArgs<ToolFindFieldsArgs>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -403,13 +442,15 @@ export class McpService extends BaseService {
                 description: toolFindDashboardsArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolFindDashboardsArgsSchema,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolFindDashboardsArgs;
+                const args = _args as McpToolArgs<ToolFindDashboardsArgs>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -455,13 +496,15 @@ export class McpService extends BaseService {
                 description: toolFindChartsArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolFindChartsArgsSchema,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolFindChartsArgs;
+                const args = _args as McpToolArgs<ToolFindChartsArgs>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -680,13 +723,15 @@ export class McpService extends BaseService {
                 description: toolRunMetricQueryArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolRunMetricQueryArgsSchema,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolRunMetricQueryArgs;
+                const args = _args as McpToolArgs<ToolRunMetricQueryArgs>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -733,13 +778,15 @@ export class McpService extends BaseService {
                 description: toolSearchFieldValuesArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
                     toolSearchFieldValuesArgsSchema,
+                    { projectUuid: true },
                 ) as AnyType,
             },
             async (_args, context) => {
-                const args = _args as ToolSearchFieldValuesArgs;
+                const args = _args as McpToolArgs<ToolSearchFieldValuesArgs>;
 
                 const projectUuid = await this.resolveProjectUuid(
                     context,
+                    args,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
@@ -814,8 +861,14 @@ export class McpService extends BaseService {
         return contextRow?.context.tags || null;
     }
 
-    async resolveProjectUuid(context: McpToolContext): Promise<string> {
+    async resolveProjectUuid(
+        context: McpToolContext,
+        args?: { projectUuid?: string },
+    ): Promise<string> {
         // Use projectUuid from args or get from context
+        if (args?.projectUuid) {
+            return args.projectUuid;
+        }
         const projectUuid = await this.getProjectUuidFromContext(context);
         if (!projectUuid) {
             throw new ForbiddenError(

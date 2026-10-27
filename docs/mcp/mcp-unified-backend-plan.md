@@ -109,6 +109,19 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 | P6 | 观测：`/api/v1/mcp/health`；结构化日志；`pnpm generate-api` 更新 swagger | S-M | 健康检查可用 |
 | P7 | 独立包退役评估 + 文档重写 | S | — |
 
+### 进度（2026-10-27）
+
+| 阶段 | 状态 | 说明 |
+|---|---|---|
+| P0 | ✅ | 分支 `feat/mcp-unified-backend` + 本文档 + `docs/mcp/mcp-tool-porting-guide.md` |
+| P1 | ✅ | commit `23bf6df91`：MCP 与 AI 公共工具迁出 `ee/`，`ServiceRepository` 基础工厂接管 |
+| P2 | ✅ | commit `db812ab56`：OAuth/PAT 统一 `McpAuthContext`，恢复 `mcp:read`/`mcp:write` 校验，路由层缺 scope 返回 403 |
+| P3 | ✅ | commit `863761bc6` + 后续提交：无状态（无 `Mcp-Session-Id`）、上下文落 PG（user+organization 维度）、项目型工具支持显式 `projectUuid` 覆盖、MCP schema 去掉 AI agent 的 `type` 判别字段、引入 `McpToolRegistry` 工具注册框架 |
+| P4 | 🔄 进行中 | 工具按模块补齐：`contentTools` / `accessTools` / `docsTools` / `savedChartTools` / `dashboardTools` / `queryTools`，每块含单测 |
+| P5 | ⬜ | 待办 |
+| P6 | ⬜ | 待办 |
+| P7 | ⬜ | 待办 |
+
 ### 风险与回滚
 
 - **风险 1：漏迁 EE 依赖** → P1 以 typecheck 卡口；EE AI Copilot 侧保留原实现并行一个版本再删。

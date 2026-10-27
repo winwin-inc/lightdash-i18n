@@ -178,7 +178,13 @@ mcpRouter.all(
                     auth?: AuthInfo;
                 } = req;
 
-                authReq.auth = getMcpAuthInfo(req);
+                const authInfo = getMcpAuthInfo(req);
+
+                // Reject tokens that are not allowed to use MCP at all
+                // (e.g. OAuth tokens without the required MCP scopes)
+                mcpService.canAccessMcp(authInfo.extra);
+
+                authReq.auth = authInfo;
 
                 return await transport.handleRequest(authReq, res, req.body);
             }

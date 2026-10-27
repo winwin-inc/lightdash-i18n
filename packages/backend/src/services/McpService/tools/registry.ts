@@ -65,7 +65,7 @@ export class McpToolRegistry {
     /**
      * Checks that the caller has the scope required by a given tool.
      */
-    public assertToolAccess(
+    public static assertToolAccess(
         context: McpToolContext,
         toolName: McpToolName,
     ): void {
@@ -101,8 +101,8 @@ export class McpToolRegistry {
             name,
             config,
             async (args: AnyType, sdkContext: AnyType) => {
-                const context = this.buildToolContext(sdkContext);
-                this.assertToolAccess(context, name);
+                const context = McpToolRegistry.buildToolContext(sdkContext);
+                McpToolRegistry.assertToolAccess(context, name);
                 return handler(args, context);
             },
         );
@@ -111,7 +111,7 @@ export class McpToolRegistry {
     /**
      * Converts the raw MCP SDK context into the normalised tool context.
      */
-    public buildToolContext(sdkContext: AnyType): McpToolContext {
+    public static buildToolContext(sdkContext: AnyType): McpToolContext {
         const authContext = sdkContext?.authInfo?.extra as
             | McpAuthContext
             | undefined;
