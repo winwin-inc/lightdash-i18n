@@ -13,6 +13,7 @@
 | [权限查询 get_my_access](./mcp-get-my-access.md) | 当前令牌的组织/项目能力与可查表 |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查 |
 | [包 README](../../packages/lightdash-mcp/README.md) | 环境变量、工具清单、构建 |
-| [Skills](../lightdash-mcp-skills/README.md) | 对外挂技能 |
+| [Skills](../../packages/lightdash-skills/README.md) | 对外挂技能 |
+| [图表/看板内容即代码实施计划](../content-as-code-dev-plan.md) | CLI / MCP / Skill 三层改造计划（增改删审） |
 
 **0.4.x 要点：** 新接入用标准 Session；存量无 Session 走 compat；查询显式传 `projectUuid`；只有 `/health` 与 `/mcp`。
