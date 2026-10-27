@@ -106,6 +106,17 @@ const ruleMatchesSubject = (
     return subjects.includes(subject) || subjects.includes('all');
 };
 
+const ruleAppliesToScope = (
+    rule: AbilityRuleLike,
+    scope: AccessScope,
+): boolean => {
+    const scopedProjectUuid = ruleProjectUuid(rule);
+    if (scope.type === 'org') {
+        return scopedProjectUuid === null;
+    }
+    return scopedProjectUuid === scope.projectUuid;
+};
+
 /**
  * Checks if the given rules allow `action` on `subject` within the scope.
  */
@@ -118,28 +129,15 @@ export const canFromRules = (
     let allowed = false;
     for (const rule of rules) {
         if (
-            !ruleMatchesAction(rule, action) ||
-            !ruleMatchesSubject(rule, subject)
+            ruleMatchesAction(rule, action) &&
+            ruleMatchesSubject(rule, subject) &&
+            ruleAppliesToScope(rule, scope)
         ) {
-            continue;
-        }
-        const scopedProjectUuid = ruleProjectUuid(rule);
-        if (scope.type === 'org') {
-            if (scopedProjectUuid !== null) {
-                continue;
+            if (rule.inverted === true) {
+                return false;
             }
-        } else if (
-            scopedProjectUuid !== null &&
-            scopedProjectUuid !== scope.projectUuid
-        ) {
-            continue;
-        } else if (scopedProjectUuid === null && scope.type === 'project') {
-            continue;
+            allowed = true;
         }
-        if (rule.inverted === true) {
-            return false;
-        }
-        allowed = true;
     }
     return allowed;
 };

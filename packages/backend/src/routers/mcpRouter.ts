@@ -117,6 +117,26 @@ const returnHeaderIfUnauthenticated = (
     }
 };
 
+// MCP health endpoint - returns the state of the MCP server without
+// requiring a full MCP session.
+mcpRouter.get('/health', async (req, res) => {
+    try {
+        const mcpService = getMcpService(req);
+        const isEnabled = req.user
+            ? await mcpService.isEnabled(req.user)
+            : false;
+
+        return res.status(200).json({
+            status: isEnabled ? 'ok' : 'disabled',
+            version: McpService.getVersion(),
+            stateless: true,
+        });
+    } catch (error) {
+        Logger.error(`MCP health check error: ${getErrorMessage(error)}`);
+        return res.status(500).json({ status: 'error' });
+    }
+});
+
 // MCP endpoint - supports Streamable HTTP
 // Keep the MCP router as raw Express because:
 // - MCP protocol requirements don't align with REST/TSOA patterns

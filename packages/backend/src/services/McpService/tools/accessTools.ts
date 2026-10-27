@@ -46,6 +46,56 @@ type ProjectAccess = {
 };
 
 /**
+ * Lists the explores of a project and classifies them by what the user is
+ * allowed to do with them.
+ */
+const getProjectExplores = async (
+    deps: McpToolDeps,
+    context: McpToolContext,
+    projectUuid: string,
+    canRunQueries: boolean,
+): Promise<ClassifiedExplores> => {
+    const { user, account } = context;
+
+    const [allowedExplores, catalog] = await Promise.all([
+        deps.projectService.getAllExploresSummary(
+            account,
+            projectUuid,
+            false,
+            true,
+        ),
+        deps.catalogService.getCatalog(
+            user,
+            projectUuid,
+            { type: CatalogType.Table },
+            CatalogSearchContext.MCP,
+        ),
+    ]);
+
+    const allowedExploreNames = new Set(
+        allowedExplores.map((explore) => explore.name),
+    );
+
+    // Explores that exist in the project but that the user cannot access
+    // because of user attribute restrictions
+    const allExploreSummaries =
+        await deps.projectModel.getAllExploreSummaries(projectUuid);
+    const deniedExplores = allExploreSummaries.filter(
+        (explore) => !allowedExploreNames.has(explore.name),
+    );
+
+    const catalogTables = catalog.data.filter(
+        (item) => item.type === CatalogType.Table,
+    );
+
+    return classifyExplores(
+        collectExploreAccessItems(deniedExplores),
+        collectExploreAccessItems(catalogTables),
+        canRunQueries,
+    );
+};
+
+/**
  * Registers the tool that tells an agent what the current user is allowed to
  * do in the organisation and in each project.
  */
@@ -167,55 +217,5 @@ export const registerAccessTools = (
                 projects: projectAccess,
             });
         },
-    );
-};
-
-/**
- * Lists the explores of a project and classifies them by what the user is
- * allowed to do with them.
- */
-const getProjectExplores = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    projectUuid: string,
-    canRunQueries: boolean,
-): Promise<ClassifiedExplores> => {
-    const { user, account } = context;
-
-    const [allowedExplores, catalog] = await Promise.all([
-        deps.projectService.getAllExploresSummary(
-            account,
-            projectUuid,
-            false,
-            true,
-        ),
-        deps.catalogService.getCatalog(
-            user,
-            projectUuid,
-            { type: CatalogType.Table },
-            CatalogSearchContext.MCP,
-        ),
-    ]);
-
-    const allowedExploreNames = new Set(
-        allowedExplores.map((explore) => explore.name),
-    );
-
-    // Explores that exist in the project but that the user cannot access
-    // because of user attribute restrictions
-    const allExploreSummaries =
-        await deps.projectModel.getAllExploreSummaries(projectUuid);
-    const deniedExplores = allExploreSummaries.filter(
-        (explore) => !allowedExploreNames.has(explore.name),
-    );
-
-    const catalogTables = catalog.data.filter(
-        (item) => item.type === CatalogType.Table,
-    );
-
-    return classifyExplores(
-        collectExploreAccessItems(deniedExplores),
-        collectExploreAccessItems(catalogTables),
-        canRunQueries,
     );
 };

@@ -219,7 +219,7 @@ describe('registerAccessTools', () => {
         expect(getCatalog).toHaveBeenCalledTimes(1);
         expect(getAllExploreSummaries).toHaveBeenCalledTimes(1);
 
-        const explores = result.projects[0].explores;
+        const { explores } = result.projects[0];
         expect(explores.queryable.map((e: AnyType) => e.name)).toEqual([
             'orders',
         ]);

@@ -109,6 +109,31 @@ export class McpToolRegistry {
     }
 
     /**
+     * Registers a MCP prompt.
+     *
+     * The MCP SDK infers deep types from the zod args schema, we use a narrow
+     * signature to avoid TS2589.
+     */
+    public registerPrompt(
+        name: string,
+        config: {
+            description?: string;
+            argsSchema?: ZodRawShape;
+        },
+        handler: (args: AnyType) => Promise<{ messages: AnyType[] }>,
+    ): void {
+        const registerPrompt = this.server.prompt.bind(
+            this.server,
+        ) as unknown as (
+            name: string,
+            config: { description?: string; argsSchema?: ZodRawShape },
+            cb: (args: AnyType) => Promise<{ messages: AnyType[] }>,
+        ) => void;
+
+        registerPrompt(name, config, handler);
+    }
+
+    /**
      * Converts the raw MCP SDK context into the normalised tool context.
      */
     public static buildToolContext(sdkContext: AnyType): McpToolContext {

@@ -87,6 +87,9 @@ import { McpToolScope } from './tools/scopes';
 import { McpToolContext } from './tools/types';
 import { McpToolDeps } from './tools/deps';
 import { registerOrgTools } from './tools/orgTools';
+import { registerAccessTools } from './tools/accessTools';
+import { registerDocsTools } from './tools/docsTools';
+import { registerAnalystPrompt } from './tools/analystPromptTools';
 
 type McpServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -308,6 +311,9 @@ export class McpService extends BaseService {
     setupHandlers(): void {
         // Tools that are implemented as standalone modules
         registerOrgTools(this.toolRegistry, this.getToolDeps());
+        registerAccessTools(this.toolRegistry, this.getToolDeps());
+        registerDocsTools(this.toolRegistry, this.getToolDeps());
+        registerAnalystPrompt(this.toolRegistry);
 
         this.registerMcpTool(
             McpToolName.GET_LIGHTDASH_VERSION,
@@ -1410,6 +1416,10 @@ export class McpService extends BaseService {
             );
 
         return searchFieldValues;
+    }
+
+    public static getVersion(): string {
+        return VERSION;
     }
 
     public getServer(): McpServer {
