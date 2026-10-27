@@ -312,6 +312,12 @@ const Filter: FC<Props> = ({
 
     const isDraggable = isEditMode && !isTemporary;
 
+    /**
+     * 查看模式下，Tab 作用域的 × 语义是「清除用户选择并恢复作者默认值」，
+     * 不是删除筛选器定义（筛选器定义归作者，查看者改不了）。
+     */
+    const isRestoreDefaultAction = !isEditMode && filterScope === 'tab';
+
     const defaultFilterRule = useMemo(() => {
         if (filterableFieldsByTileUuid && field) {
             return applyDefaultTileTargets(
@@ -429,6 +435,11 @@ const Filter: FC<Props> = ({
     );
 
     const handleRemoveFilter = useCallback(() => {
+        if (isRestoreDefaultAction) {
+            // 查看模式：只清除用户选择，不删除筛选器定义
+            onRemove();
+            return;
+        }
         const tabName =
             dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
             null;
@@ -438,7 +449,14 @@ const Filter: FC<Props> = ({
             tabName,
         });
         onRemove();
-    }, [onRemove, filterRule, filterScope, activeTabUuid, dashboardTabs]);
+    }, [
+        onRemove,
+        filterRule,
+        filterScope,
+        activeTabUuid,
+        dashboardTabs,
+        isRestoreDefaultAction,
+    ]);
 
     const appliedDashboardTabs = useMemo(() => {
         if (filterScope === 'global') {
@@ -597,7 +615,9 @@ const Filter: FC<Props> = ({
                                     )
                                 }
                                 rightIcon={
-                                    (isEditMode || isTemporary) && (
+                                    (isEditMode ||
+                                        isTemporary ||
+                                        isRestoreDefaultAction) && (
                                         <Group spacing={2} noWrap>
                                             {isLockFilterEnabled &&
                                                 isEditMode &&
@@ -644,14 +664,30 @@ const Filter: FC<Props> = ({
                                                     </span>
                                                 )}
                                             {!isReadOnlyLocked &&
-                                                !isCascadeUpdating && (
+                                                !isCascadeUpdating &&
+                                                (isRestoreDefaultAction ? (
+                                                    <Tooltip
+                                                        fz="xs"
+                                                        withinPortal
+                                                        label={t(
+                                                            'components_dashboard_filter.filter.restore_default_value',
+                                                        )}
+                                                    >
+                                                        <CloseButton
+                                                            size="sm"
+                                                            onClick={
+                                                                handleRemoveFilter
+                                                            }
+                                                        />
+                                                    </Tooltip>
+                                                ) : (
                                                     <CloseButton
                                                         size="sm"
                                                         onClick={
                                                             handleRemoveFilter
                                                         }
                                                     />
-                                                )}
+                                                ))}
                                         </Group>
                                     )
                                 }

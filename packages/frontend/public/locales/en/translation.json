@@ -2871,7 +2871,8 @@
       "lock_unlock": "Unlock filter",
       "lock_unlock_tab": "Unlock filter on this tab",
       "locked": "Locked by the dashboard editor",
-      "locked_on_tab": "Locked on this tab"
+      "locked_on_tab": "Locked on this tab",
+      "restore_default_value": "Restore default filter value"
     },
     "filter_dashboard": {
       "title": "Filter dashboard to...",
