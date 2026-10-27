@@ -90,6 +90,8 @@ import { registerOrgTools } from './tools/orgTools';
 import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
+import { registerSavedChartTools } from './tools/savedChartTools';
+import { registerDashboardTools } from './tools/dashboardTools';
 import { registerAnalystPrompt } from './tools/analystPromptTools';
 
 type McpServiceArguments = {
@@ -290,6 +292,8 @@ export class McpService extends BaseService {
         registerAccessTools(this.toolRegistry, this.getToolDeps());
         registerDocsTools(this.toolRegistry, this.getToolDeps());
         registerQueryTools(this.toolRegistry, this.getToolDeps());
+        registerSavedChartTools(this.toolRegistry, this.getToolDeps());
+        registerDashboardTools(this.toolRegistry, this.getToolDeps());
         registerAnalystPrompt(this.toolRegistry);
 
         this.registerMcpTool(
