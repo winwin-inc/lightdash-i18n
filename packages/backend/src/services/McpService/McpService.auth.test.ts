@@ -63,6 +63,10 @@ describe('McpService authentication', () => {
             spaceService: {} as AnyType,
             mcpContextModel: {} as AnyType,
             featureFlagService: {} as AnyType,
+            contentService: {} as AnyType,
+            savedChartService: {} as AnyType,
+            dashboardService: {} as AnyType,
+            searchService: {} as AnyType,
         });
     });
 

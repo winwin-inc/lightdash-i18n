@@ -1068,6 +1068,10 @@ export class ServiceRepository
                     mcpContextModel: this.models.getMcpContextModel(),
                     projectModel: this.models.getProjectModel(),
                     featureFlagService: this.getFeatureFlagService(),
+                    contentService: this.getContentService(),
+                    savedChartService: this.getSavedChartService(),
+                    dashboardService: this.getDashboardService(),
+                    searchService: this.getSearchService(),
                 }),
         );
     }

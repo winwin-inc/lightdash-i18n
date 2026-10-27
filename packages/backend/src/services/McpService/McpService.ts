@@ -51,6 +51,10 @@ import { SpaceModel } from '../../models/SpaceModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
 import { BaseService } from '../BaseService';
 import { CatalogService } from '../CatalogService/CatalogService';
+import { ContentService } from '../ContentService/ContentService';
+import { DashboardService } from '../DashboardService/DashboardService';
+import { SavedChartService } from '../SavedChartsService/SavedChartService';
+import { SearchService } from '../SearchService/SearchService';
 import { FeatureFlagService } from '../FeatureFlag/FeatureFlagService';
 import { ProjectService } from '../ProjectService/ProjectService';
 import { SpaceService } from '../SpaceService/SpaceService';
@@ -77,20 +81,12 @@ import {
 } from '../ai/types/aiAgentDependencies';
 import { McpSchemaCompatLayer } from './McpSchemaCompatLayer';
 import { McpAuthContext, McpAuthType } from './McpAuthContext';
-import { OAuthScope } from '../OAuthService/OAuthService';
-
-export enum McpToolName {
-    GET_LIGHTDASH_VERSION = 'get_lightdash_version',
-    FIND_EXPLORES = 'find_explores',
-    FIND_FIELDS = 'find_fields',
-    FIND_DASHBOARDS = 'find_dashboards',
-    FIND_CHARTS = 'find_charts',
-    LIST_PROJECTS = 'list_projects',
-    SET_PROJECT = 'set_project',
-    GET_CURRENT_PROJECT = 'get_current_project',
-    RUN_METRIC_QUERY = 'run_metric_query',
-    SEARCH_FIELD_VALUES = 'search_field_values',
-}
+import { McpToolName } from './McpToolName';
+import { McpToolRegistry } from './tools/registry';
+import { McpToolScope } from './tools/scopes';
+import { McpToolContext } from './tools/types';
+import { McpToolDeps } from './tools/deps';
+import { registerOrgTools } from './tools/orgTools';
 
 type McpServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -104,42 +100,16 @@ type McpServiceArguments = {
     spaceService: SpaceService;
     mcpContextModel: McpContextModel;
     featureFlagService: FeatureFlagService;
+    contentService: ContentService;
+    savedChartService: SavedChartService;
+    dashboardService: DashboardService;
+    searchService: SearchService;
 };
 
 /**
  * @deprecated use McpAuthContext instead
  */
 export type ExtraContext = McpAuthContext;
-
-type McpProtocolContext = {
-    authInfo?: AuthInfo & {
-        extra: McpAuthContext;
-    };
-};
-
-/**
- * Scope required to call a given tool.
- *
- * `mcp:read` covers tools that only explore/query data.
- * `mcp:write` is reserved for tools that mutate content in Lightdash.
- */
-export enum McpToolScope {
-    Read = OAuthScope.MCP_READ,
-    Write = OAuthScope.MCP_WRITE,
-}
-
-const MCP_TOOL_SCOPES: Record<McpToolName, McpToolScope> = {
-    [McpToolName.GET_LIGHTDASH_VERSION]: McpToolScope.Read,
-    [McpToolName.FIND_EXPLORES]: McpToolScope.Read,
-    [McpToolName.FIND_FIELDS]: McpToolScope.Read,
-    [McpToolName.FIND_DASHBOARDS]: McpToolScope.Read,
-    [McpToolName.FIND_CHARTS]: McpToolScope.Read,
-    [McpToolName.LIST_PROJECTS]: McpToolScope.Read,
-    [McpToolName.SET_PROJECT]: McpToolScope.Read,
-    [McpToolName.GET_CURRENT_PROJECT]: McpToolScope.Read,
-    [McpToolName.RUN_METRIC_QUERY]: McpToolScope.Read,
-    [McpToolName.SEARCH_FIELD_VALUES]: McpToolScope.Read,
-};
 
 export class McpService extends BaseService {
     private lightdashConfig: LightdashConfig;
@@ -164,9 +134,19 @@ export class McpService extends BaseService {
 
     private featureFlagService: FeatureFlagService;
 
+    private contentService: ContentService;
+
+    private savedChartService: SavedChartService;
+
+    private dashboardService: DashboardService;
+
+    private searchService: SearchService;
+
     private mcpServer: McpServer;
 
     private mcpCompatLayer: McpSchemaCompatLayer;
+
+    private toolRegistry: McpToolRegistry;
 
     constructor({
         lightdashConfig,
@@ -180,6 +160,10 @@ export class McpService extends BaseService {
         projectModel,
         mcpContextModel,
         featureFlagService,
+        contentService,
+        savedChartService,
+        dashboardService,
+        searchService,
     }: McpServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -193,6 +177,10 @@ export class McpService extends BaseService {
         this.spaceService = spaceService;
         this.mcpContextModel = mcpContextModel;
         this.featureFlagService = featureFlagService;
+        this.contentService = contentService;
+        this.savedChartService = savedChartService;
+        this.dashboardService = dashboardService;
+        this.searchService = searchService;
         this.mcpCompatLayer = new McpSchemaCompatLayer();
         try {
             this.mcpServer = Sentry.wrapMcpServerWithSentry(
@@ -200,6 +188,10 @@ export class McpService extends BaseService {
                     name: 'Lightdash MCP Server',
                     version: VERSION,
                 }),
+            );
+            this.toolRegistry = new McpToolRegistry(
+                this.mcpServer,
+                this.lightdashConfig,
             );
             this.setupHandlers();
         } catch (error) {
@@ -238,6 +230,29 @@ export class McpService extends BaseService {
     }
 
     /**
+     * The services and models that are available to the MCP tools.
+     */
+    private getToolDeps(): McpToolDeps {
+        return {
+            lightdashConfig: this.lightdashConfig,
+            analytics: this.analytics,
+            catalogService: this.catalogService,
+            projectService: this.projectService,
+            projectModel: this.projectModel,
+            userAttributesModel: this.userAttributesModel,
+            searchModel: this.searchModel,
+            searchService: this.searchService,
+            spaceModel: this.spaceModel,
+            spaceService: this.spaceService,
+            contentService: this.contentService,
+            savedChartService: this.savedChartService,
+            dashboardService: this.dashboardService,
+            mcpContextModel: this.mcpContextModel,
+            featureFlagService: this.featureFlagService,
+        };
+    }
+
+    /**
      * Registers a MCP tool and enforces the authentication/scope requirements
      * before the tool handler is executed.
      */
@@ -249,31 +264,16 @@ export class McpService extends BaseService {
         },
         handler: (
             args: AnyType,
-            context: McpProtocolContext,
+            context: McpToolContext,
         ) => Promise<CallToolResult>,
     ): void {
-        // The MCP SDK infers deep types from the zod input schema, which can
-        // trigger TS2589. We use a narrow signature to avoid that.
-        const registerTool = this.mcpServer.registerTool.bind(
-            this.mcpServer,
-        ) as unknown as (
-            name: string,
-            config: { description?: string; inputSchema?: ZodRawShape },
-            cb: (args: AnyType, context: AnyType) => Promise<CallToolResult>,
-        ) => void;
-
-        registerTool(
-            name,
-            config,
-            async (args: AnyType, context: AnyType) => {
-                const mcpContext = context as McpProtocolContext;
-                this.assertToolAccess(mcpContext, name);
-                return handler(args, mcpContext);
-            },
-        );
+        this.toolRegistry.register(name, config, handler);
     }
 
     setupHandlers(): void {
+        // Tools that are implemented as standalone modules
+        registerOrgTools(this.toolRegistry, this.getToolDeps());
+
         this.registerMcpTool(
             McpToolName.GET_LIGHTDASH_VERSION,
             {
@@ -282,7 +282,7 @@ export class McpService extends BaseService {
             },
             async (_args, context) => {
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.GET_LIGHTDASH_VERSION,
                 );
                 return {
@@ -290,7 +290,7 @@ export class McpService extends BaseService {
                         {
                             type: 'text',
                             text: this.getLightdashVersion(
-                                context as McpProtocolContext,
+                                context,
                             ),
                         },
                     ],
@@ -310,12 +310,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolFindExploresArgsV2;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.FIND_EXPLORES,
                     projectUuid,
                 );
@@ -323,7 +323,7 @@ export class McpService extends BaseService {
                 const findExplores: FindExploresFn =
                     await this.getFindExploresFunction(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const findExploresTool = getFindExplores({
@@ -361,12 +361,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolFindFieldsArgs;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.FIND_FIELDS,
                     projectUuid,
                 );
@@ -374,7 +374,7 @@ export class McpService extends BaseService {
                 const findFields: FindFieldFn =
                     await this.getFindFieldsFunction(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const findFieldsTool = getFindFields({
@@ -409,12 +409,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolFindDashboardsArgs;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.FIND_DASHBOARDS,
                     projectUuid,
                 );
@@ -422,7 +422,7 @@ export class McpService extends BaseService {
                 const findDashboards: FindDashboardsFn =
                     await this.getFindDashboardsFunction(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const findDashboardsTool = getFindDashboards({
@@ -461,12 +461,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolFindChartsArgs;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.FIND_CHARTS,
                     projectUuid,
                 );
@@ -474,7 +474,7 @@ export class McpService extends BaseService {
                 const findCharts: FindChartsFn =
                     await this.getFindChartsFunction(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const findChartsTool = getFindCharts({
@@ -506,11 +506,11 @@ export class McpService extends BaseService {
             },
             async (_args, context) => {
                 const { user, organizationUuid, account } = this.getAccount(
-                    context as McpProtocolContext,
+                    context,
                 );
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.LIST_PROJECTS,
                 );
 
@@ -548,11 +548,11 @@ export class McpService extends BaseService {
             async (_args, context) => {
                 const args = _args as { projectUuid: string; tags?: string[] };
                 const { user, organizationUuid, account } = this.getAccount(
-                    context as McpProtocolContext,
+                    context,
                 );
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.SET_PROJECT,
                     args.projectUuid,
                 );
@@ -623,11 +623,11 @@ export class McpService extends BaseService {
             },
             async (_args, context) => {
                 const { user, organizationUuid } = this.getAccount(
-                    context as McpProtocolContext,
+                    context,
                 );
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.GET_CURRENT_PROJECT,
                 );
 
@@ -686,12 +686,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolRunMetricQueryArgs;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.RUN_METRIC_QUERY,
                     projectUuid,
                 );
@@ -699,7 +699,7 @@ export class McpService extends BaseService {
                 const { getExplore, runMiniMetricQuery } =
                     await this.getRunMetricQueryDependencies(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const runMetricQueryTool = getRunMetricQuery({
@@ -739,12 +739,12 @@ export class McpService extends BaseService {
                 const args = _args as ToolSearchFieldValuesArgs;
 
                 const projectUuid = await this.resolveProjectUuid(
-                    context as McpProtocolContext,
+                    context,
                 );
                 const argsWithProject = { ...args, projectUuid };
 
                 this.trackToolCall(
-                    context as McpProtocolContext,
+                    context,
                     McpToolName.SEARCH_FIELD_VALUES,
                     projectUuid,
                 );
@@ -752,7 +752,7 @@ export class McpService extends BaseService {
                 const searchFieldValues: SearchFieldValuesFn =
                     await this.getSearchFieldValuesFunction(
                         argsWithProject,
-                        context as McpProtocolContext,
+                        context,
                     );
 
                 const searchFieldValuesTool = getSearchFieldValues({
@@ -779,9 +779,9 @@ export class McpService extends BaseService {
     }
 
     async getProjectUuidFromContext(
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<string | undefined> {
-        const { user } = context.authInfo!.extra;
+        const { user } = context;
         const { organizationUuid } = user;
 
         if (!user || !organizationUuid) {
@@ -797,9 +797,9 @@ export class McpService extends BaseService {
     }
 
     async getTagsFromContext(
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<string[] | null> {
-        const { user } = context.authInfo!.extra;
+        const { user } = context;
         const { organizationUuid } = user;
 
         if (!user || !organizationUuid) {
@@ -814,7 +814,7 @@ export class McpService extends BaseService {
         return contextRow?.context.tags || null;
     }
 
-    async resolveProjectUuid(context: McpProtocolContext): Promise<string> {
+    async resolveProjectUuid(context: McpToolContext): Promise<string> {
         // Use projectUuid from args or get from context
         const projectUuid = await this.getProjectUuidFromContext(context);
         if (!projectUuid) {
@@ -900,9 +900,9 @@ export class McpService extends BaseService {
 
     async getFindExploresFunction(
         toolArgs: ToolFindExploresArgsV2 & { projectUuid: string },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<FindExploresFn> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1002,9 +1002,9 @@ export class McpService extends BaseService {
 
     async getFindFieldsFunction(
         toolArgs: ToolFindFieldsArgs & { projectUuid: string },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<FindFieldFn> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1077,9 +1077,9 @@ export class McpService extends BaseService {
 
     async getFindDashboardsFunction(
         toolArgs: ToolFindDashboardsArgs & { projectUuid: string },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<FindDashboardsFn> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1159,9 +1159,9 @@ export class McpService extends BaseService {
 
     async getFindChartsFunction(
         toolArgs: ToolFindChartsArgs & { projectUuid: string },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<FindChartsFn> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1235,12 +1235,12 @@ export class McpService extends BaseService {
         toolArgs: ToolRunMetricQueryArgs & {
             projectUuid: string;
         },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<{
         getExplore: GetExploreFn;
         runMiniMetricQuery: RunMiniMetricQueryFn;
     }> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1302,9 +1302,9 @@ export class McpService extends BaseService {
 
     async getSearchFieldValuesFunction(
         toolArgs: ToolSearchFieldValuesArgs & { projectUuid: string },
-        context: McpProtocolContext,
+        context: McpToolContext,
     ): Promise<SearchFieldValuesFn> {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
         const { projectUuid } = toolArgs;
 
@@ -1364,12 +1364,12 @@ export class McpService extends BaseService {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    public getAccount(context: McpProtocolContext): {
+    public getAccount(context: McpToolContext): {
         user: SessionUser;
         organizationUuid: string;
         account: Account;
     } {
-        const { user, account } = context.authInfo!.extra;
+        const { user, account } = context;
         const { organizationUuid } = user;
 
         if (!user || !organizationUuid || !account) {
@@ -1378,54 +1378,31 @@ export class McpService extends BaseService {
         return { user, organizationUuid, account };
     }
 
-    public canAccessMcp(context: McpProtocolContext): boolean {
-        if (!context.authInfo?.extra) {
-            throw new ForbiddenError('Invalid authInfo context');
-        }
-
-        const { authType, scopes } = context.authInfo.extra;
-
-        // Personal access tokens are not scope limited
-        if (authType === McpAuthType.Pat) {
-            return true;
-        }
-
-        const requiredScopes = this.lightdashConfig.mcp.oauthRequiredScopes;
-        const missingScopes = requiredScopes.filter(
-            (scope) => !scopes.includes(scope),
+    public canAccessMcp(context: AnyType): boolean {
+        return this.toolRegistry.canAccessMcp(
+            McpService.extractAuthContext(context),
         );
-
-        if (missingScopes.length > 0) {
-            throw new ForbiddenError(
-                `Missing required OAuth scope(s): ${missingScopes.join(', ')}`,
-            );
-        }
-
-        return true;
     }
 
     /**
-     * Checks that the caller is allowed to use MCP and that the token carries
-     * the scope required by the tool being called.
+     * Extracts the normalised authentication context from either a raw MCP SDK
+     * context or an already normalised context.
      */
-    private assertToolAccess(
-        context: McpProtocolContext,
-        toolName: McpToolName,
-    ): void {
-        this.canAccessMcp(context);
-
-        const requiredScope = MCP_TOOL_SCOPES[toolName] ?? McpToolScope.Read;
-        const { authType, scopes } = context.authInfo!.extra;
-
-        if (authType === McpAuthType.Pat) {
-            return;
+    private static extractAuthContext(
+        context: AnyType,
+    ): McpAuthContext | undefined {
+        if (!context) {
+            return undefined;
         }
-
-        if (!scopes.includes(requiredScope)) {
-            throw new ForbiddenError(
-                `Missing required OAuth scope "${requiredScope}" to call tool "${toolName}"`,
-            );
+        if (context.authType && Array.isArray(context.scopes)) {
+            return {
+                user: context.user,
+                account: context.account,
+                authType: context.authType,
+                scopes: context.scopes,
+            } as McpAuthContext;
         }
+        return context.authInfo?.extra as McpAuthContext | undefined;
     }
 
     // MCP is enabled if MCP_ENABLED is true OR if AI Copilot is enabled
@@ -1443,13 +1420,13 @@ export class McpService extends BaseService {
         return aiCopilotFlag.enabled;
     }
 
-    public getLightdashVersion(context: McpProtocolContext): string {
+    public getLightdashVersion(context: McpToolContext): string {
         this.canAccessMcp(context);
         return VERSION;
     }
 
     private trackToolCall(
-        context: McpProtocolContext,
+        context: McpToolContext,
         toolName: string,
         projectUuid?: string,
     ): void {
