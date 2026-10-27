@@ -5,7 +5,14 @@ import {
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
+import {
+    ActionIcon,
+    Group,
+    ScrollArea,
+    Stack,
+    Tabs,
+    useMantineTheme,
+} from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
@@ -165,6 +172,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     setGridWidth,
     setAddingTab,
 }) => {
+    const theme = useMantineTheme();
     const gridProps = useMemo(() => getResponsiveGridLayoutProps(), []);
     const { data: dashboardTabsInMemoryFlag } = useServerFeatureFlag(
         FeatureFlags.DashboardTabsInMemory,
@@ -629,13 +637,25 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         ref={tabFiltersRef}
                                         style={{
                                             ...tabFiltersStickyStyle,
-                                            // a padding (and not a margin) so the
-                                            // filters keep their distance to
-                                            // the tabs bar when it sticks
-                                            paddingTop: hasTabFilters ? 12 : 0,
                                             backgroundColor: 'white',
                                         }}
                                     >
+                                        {hasTabFilters && (
+                                            <div
+                                                style={{
+                                                    // the space between the
+                                                    // tabs bar and the
+                                                    // filters. It lives
+                                                    // inside the sticky
+                                                    // layer so the content
+                                                    // can't scroll through
+                                                    // it
+                                                    height: 12,
+                                                    backgroundColor:
+                                                        theme.colors.gray[0],
+                                                }}
+                                            />
+                                        )}
                                         <Group>
                                             {showTabFilters && (
                                                 <DashboardFilter
