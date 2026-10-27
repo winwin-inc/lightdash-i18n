@@ -207,6 +207,13 @@ export class McpService extends BaseService {
         }
     }
 
+    /**
+     * The names of the tools exposed by the MCP server, sorted alphabetically.
+     */
+    public get registeredToolNames(): string[] {
+        return this.toolRegistry.toolNames;
+    }
+
     private getMcpCompatibleSchema(
         schema: z.ZodSchema<unknown>,
         options?: { projectUuid?: boolean },

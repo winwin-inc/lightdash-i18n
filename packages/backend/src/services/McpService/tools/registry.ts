@@ -28,10 +28,19 @@ type McpToolHandler = (
  * checks.
  */
 export class McpToolRegistry {
+    private readonly registeredTools = new Set<string>();
+
     constructor(
         private readonly server: McpServer,
         private readonly lightdashConfig: LightdashConfig,
     ) {}
+
+    /**
+     * The names of the tools registered on the server, sorted alphabetically.
+     */
+    public get toolNames(): string[] {
+        return [...this.registeredTools].sort();
+    }
 
     /**
      * Checks that the caller is allowed to use the MCP server at all.
@@ -96,6 +105,8 @@ export class McpToolRegistry {
             config: McpToolConfig,
             cb: (args: AnyType, context: AnyType) => Promise<CallToolResult>,
         ) => void;
+
+        this.registeredTools.add(name);
 
         registerTool(
             name,
