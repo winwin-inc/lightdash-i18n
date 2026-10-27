@@ -120,7 +120,7 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 | P4 | ✅ | 已完成全部 26 个工具：`get_site_info`（orgTools）、`get_my_access`（accessTools）、`get_mcp_docs`（docsTools）、`list_explores` + `run_semantic_metric_query`（queryTools）、`find_*`（contentSearchTools）、`list_*`（contentListTools）、`get_saved_chart`（savedChartTools）、`get_dashboard_code` / `get_dashboard_tiles`（dashboardTools）、`run_saved_chart` / `run_dashboard_tiles`（chartRunTools）；每个模块含单测 |
 | P5 | ✅ | 6 个 AI-SDK 包装的 MCP 工具抽出原生实现（`runFindExplores` / `runFindFields` / `runFindDashboards` / `runFindCharts` / `runRunMetricQuery` / `runSearchFieldValues`），MCP 侧不再经过 AI SDK，错误不再被压平，EE AI agent 继续使用原包装 |
 | P6 | ✅ | `GET /api/v1/mcp/health`；工具调用埋点统一收口到 `McpToolRegistry`（`mcp_tool_call` 事件新增 `authType`/`durationMs`/`success`）；路由层鉴权结构化日志；`pnpm generate-api` 重新生成 swagger |
-| P7 | 🟡 | 进行中：common MCP schema 已从 `ee/AiAgent/schemas/` 迁至 `packages/common/src/schemas/mcp/`（含 `filters/`、`tableCalcs/`、`fieldId`、`customMetrics`、`outputMetadata`、`sortField`、`toolSchemaBuilder`、`tableVizConfig` 与 6 个 MCP 工具参数 schema）；剩余：独立包退役评估 + 主站接入文档重写 |
+| P7 | 🟡 | 进行中：① common MCP schema 已从 `ee/AiAgent/schemas/` 迁至 `packages/common/src/schemas/mcp/`（含 `filters/`、`tableCalcs/`、`fieldId`、`customMetrics`、`outputMetadata`、`sortField`、`toolSchemaBuilder`、`tableVizConfig` 与 6 个 MCP 工具参数 schema）；② 独立包去留评估已出：`docs/mcp/lightdash-mcp-retirement-evaluation.md`，推荐分阶段退役（方案 C）；剩余：主站接入文档重写 |
 
 ### 风险与回滚
 
