@@ -1233,6 +1233,7 @@ const Dashboard: FC = () => {
                         />
                     }
                     withFullHeight={true}
+                    noContentTopPadding={true}
                 >
                     <Group
                         ref={globalFiltersRef}
@@ -1242,6 +1243,11 @@ const Dashboard: FC = () => {
                         px={'lg'}
                         style={{
                             ...globalFiltersStickyStyle,
+                            // the scroll container no longer has a top
+                            // padding (it would leave a gap above the
+                            // sticky bar), the spacing is a margin so it
+                            // scrolls away with the content
+                            marginTop: 24,
                             backgroundColor: 'white',
                         }}
                     >

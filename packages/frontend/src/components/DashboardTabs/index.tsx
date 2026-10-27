@@ -629,11 +629,10 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         ref={tabFiltersRef}
                                         style={{
                                             ...tabFiltersStickyStyle,
-                                            // a margin (and not a padding) so it
-                                            // scrolls away with the content
-                                            // instead of leaving a gap above
-                                            // the sticky filters
-                                            marginTop: hasTabFilters ? 12 : 0,
+                                            // a padding (and not a margin) so the
+                                            // filters keep their distance to
+                                            // the tabs bar when it sticks
+                                            paddingTop: hasTabFilters ? 12 : 0,
                                             backgroundColor: 'white',
                                         }}
                                     >
