@@ -38,7 +38,7 @@ export const registerDocsTools = (
         McpToolName.GET_MCP_DOCS,
         {
             description:
-                'Get the Lightdash MCP documentation: how to connect to the Lightdash MCP server, how to browse content and run metric queries, and the list of the available MCP tools. Optionally pass a topic (for example overview, query_workflow, content_fields, session_lifecycle or security) to get the documentation sections that mention it together with the full documentation.',
+                'Get the Lightdash MCP documentation: how to connect to the Lightdash MCP server, how to browse content and run metric queries, and the list of the available MCP tools. Optionally pass a topic (for example overview, query_workflow, content_fields, request_lifecycle or security) to get the documentation sections that mention it together with the full documentation.',
             inputSchema: {
                 topic: z
                     .string()

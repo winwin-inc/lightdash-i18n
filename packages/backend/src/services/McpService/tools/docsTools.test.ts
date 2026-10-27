@@ -113,7 +113,21 @@ describe('registerDocsTools', () => {
         const parsed = JSON.parse(getText(result));
 
         expect(parsed.found).toEqual(true);
-        expect(parsed.documentation).toContain('x-api-key');
+        expect(parsed.documentation).toContain('Authorization: ApiKey');
+    });
+
+    it('accepts the legacy session_lifecycle topic as an alias', async () => {
+        const { registry, registered } = buildRegistry();
+        registerDocsTools(registry, buildDeps());
+
+        const result = await registered[0].handler(
+            { topic: 'session_lifecycle' },
+            buildContext(),
+        );
+        const parsed = JSON.parse(getText(result));
+
+        expect(parsed.found).toEqual(true);
+        expect(parsed.documentation).toContain('Request lifecycle');
     });
 
     it('says clearly when the topic was not found', async () => {

@@ -1,11 +1,14 @@
 # Lightdash MCP 文档
 
-> **口径变更提示**：MCP 能力已合并进主站 `/api/v1/mcp`（统一 26 个工具、OAuth + PAT、无状态）。
-> `packages/lightdash-mcp` 独立包进入**弃用期**，去留评估见 [独立包去留评估](./lightdash-mcp-retirement-evaluation.md)。
-> 下表中标注「独立包」的文档描述的是旧部署形态；主站接入方式见 [主站 MCP 接入](./mcp-unified-backend-plan.md)。
+> **版本口径**：
+> - **v2（正式版）** = 主站内置 MCP，入口 `https://<site>/api/v1/mcp` → [v2 接入指南](./mcp-v2-guide.md) **（新接入只看这篇）**
+> - **v1（弃用）** = 独立包 `packages/lightdash-mcp`，入口 `http://<host>:<port>/mcp` → [独立包去留评估](./lightdash-mcp-retirement-evaluation.md)
+>
+> 下表中未标注的文档描述的是 v1 旧部署形态。
 
 | 文档 | 给谁 |
 |------|------|
+| **[v2 接入指南（主站正式版）](./mcp-v2-guide.md)** | **新接入方 / 运维**：URL、OAuth + PAT、26 工具、无状态语义、v1→v2 迁移清单 |
 | [**独立包去留评估**](./lightdash-mcp-retirement-evaluation.md) | **决策者**：独立包继续维护 / 转薄壳 / 退役的对比与推荐路径 |
 | [**外部接入指南**](./lightdash-mcp-external-guide.md) | **可单独转发给外部接入方**（含流程图） |
 | [**MCP 服务上线流程**](./mcp-service-launch.md) | **上线负责人**：打 tag → GitHub Actions → Jenkins → 集群（四套部署目标），含配置清单、关联关系、权限模型、验收与回滚 |

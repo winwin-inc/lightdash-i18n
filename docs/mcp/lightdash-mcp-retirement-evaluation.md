@@ -11,8 +11,9 @@
 | 问题 | 结论 |
 |---|---|
 | 独立包还有独有能力吗？ | **没有工具层面的独有价值**。两侧工具集合完全一致（26 个），语义、参数、返回结构已对齐。剩下的差异全部是「运行形态」差异（session 头、鉴权方式、部署位置），不是能力差异。 |
-| 继续维护的成本 | **高**。同一套工具逻辑有两份实现（独立包 ~11.3k 行 TS + 主站 MCP 模块），任何语义变更都要改两处并跑两套测试，已经出现漂移（独立包仍带 `sharedExploreCache`、内存 session、PAT-only）。 |
-| 推荐方案 | **方案 C：分阶段退役**。先在文档与客户端配置上把主站 `/api/v1/mcp` 立为唯一推荐路径，独立包保持原样运行一个弃用窗口（建议 1–2 个发布周期），窗口结束后删除包、Docker 镜像工作流与旧文档。 |
+| 版本口径怎么算？ | **v1 = 独立包**（弃用），**v2 = 主站 `/api/v1/mcp`**（正式版，唯一推荐）。接入文档见 [v2 接入指南](./mcp-v2-guide.md)。 |
+| 继续维护的成本 | **高**。同一套工具逻辑有两份实现（独立包 ~11.3k 行 TS + 主站 MCP 模块），任何语义变更都要改两处并跑两套测试，已经出现漂移（独立包仍带 `sharedExploreCache`、内存 session、错误压平）。 |
+| 推荐方案 | **方案 C：分阶段退役**。先在文档与客户端配置上把主站 `/api/v1/mcp` 立为唯一推荐路径（v2），独立包保持原样运行一个弃用窗口（建议 1–2 个发布周期），窗口结束后删除包、Docker 镜像工作流与旧文档。 |
 | 为什么不做方案 B（薄壳） | 薄壳 = 一个持有 PAT 的**bearer token 中继**，为了「让老客户端 URL 不变」而新增一个需要托管长期凭据的进程，同时还要把主站的无状态语义重新包装成有状态 session。这是在用新风险换零功能收益。 |
 
 ---
@@ -23,8 +24,8 @@
 |---|---|---|
 | 部署形态 | 复用主站进程与发布流水线 | 独立进程 + 独立 Docker 镜像 `winwin/lightdash-mcp`（`.github/workflows/build-docker-mcp.yml`，tag `mcp-v*`） |
 | 工具集合 | 26 个（`McpToolName` 注册表） | 26 个（注册名与主站逐一 diff，零差异） |
-| 鉴权 | 主站 OAuth（`mcp:read`/`mcp:write` scope 校验）+ PAT | 仅 PAT（`LIGHTDASH_API_KEY`），无 scope 概念 |
-| 身份粒度 | **按用户**：OAuth token / PAT 绑定真实用户，CASL 逐用户鉴权 | **按 API Key**：所有客户端共享同一把 PAT，即同一个 Lightdash 身份 |
+| 鉴权 | 主站 OAuth（`mcp:read`/`mcp:write` scope 校验）+ PAT | OAuth（`MCP_OAUTH_ENABLED`，回主站 `/oauth/introspect` 校验）+ PAT（`LIGHTDASH_API_KEY`） |
+| 身份粒度 | **按用户**：OAuth token / PAT 绑定真实用户，CASL 逐用户鉴权 | **按凭据**：OAuth 走 introspect 拿 subject，PAT 走 `/api/v1/user` 拿邮箱；随后所有请求都用**同一把服务端 PAT** 调主站 REST，实际执行身份 = 该 PAT 的主人 |
 | 审计 | `mcp_tool_call` 埋点带 `user`/`organization`/`project`/`authType`/`durationMs`/`success` | 无统一埋点，仅 stdout 日志 |
 | 会话 | **无状态**，不返回 `Mcp-Session-Id` | 有状态：`initialize` 返回 `Mcp-Session-Id`，内存 session registry（TTL / LRU / 容量上限） |
 | 项目上下文 | PostgreSQL `mcp_context` 表，按 `user_uuid + organization_uuid` 隔离，**重启不丢** | 进程内存，按 PAT 哈希隔离，**重启即丢**（文档已提示多副本风险） |
@@ -39,8 +40,9 @@
 
 - ✅ 独立进程可与主站分开扩缩容 —— 主站 MCP 本身是轻量 I/O 型负载，拆分收益有限。
 - ✅ 标准 session 模式（`Mcp-Session-Id`）—— 这是**兼容性包袱而非能力**：主站刻意选择无状态，因为多副本/滚动发布下内存 session 必然丢（独立包文档里也把「会话丢了」列为已知问题）。
-- ✅ PAT-only 鉴权 —— 主站 PAT 通道完全兼容，且主站还多了 OAuth。
 - ✅ 独立包自带 Skills 分发说明 —— 与 MCP 服务本身无关，迁到主站文档即可。
+
+> 注：独立包**也支持 OAuth**（`MCP_OAUTH_ENABLED`，默认开），但它是**旁挂式**的：客户端把 OAuth token 给独立包，独立包拿自己的 PAT 去主站 `/oauth/introspect` 验一遍，然后把**真实业务请求全部换成服务端那把 PAT** 打给主站 REST。因此 OAuth 在独立包里只起到「入口准入 + scope 门槛」的作用，**下游执行身份始终是服务端 PAT 的主人**；主站则全程用调用者本人的身份鉴权。
 
 结论：独立包目前是**同一能力的第二个部署形态**，不是新能力。
 
@@ -109,7 +111,7 @@
 | 差异点 | 独立包 | 主站 | 迁移影响 |
 |---|---|---|---|
 | 端点 URL | `http://<host>:<port>/mcp` | `https://<site>/api/v1/mcp` | 必须改 URL |
-| 鉴权 | 请求头带 PAT（`Authorization: Bearer <PAT>` 或自定义头） | OAuth（`mcp:read`/`mcp:write`）或 PAT | PAT 可直接沿用；OAuth 需走 DCR + PKCE |
+| 鉴权 | 请求头带 PAT（`x-api-key` / `Authorization: ApiKey <PAT>`）或 OAuth（`Authorization: Bearer <token>`，独立包代验） | OAuth（`mcp:read`/`mcp:write` scope 校验）或 PAT | PAT 可直接沿用；OAuth 需走 DCR + PKCE |
 | `Mcp-Session-Id` | `initialize` 响应头返回，后续请求需回传 | **不返回**，也不需要 | 严格 session 的客户端需关闭 session 依赖；宽松客户端（多数）无感 |
 | 缺 session 报错 | 404 `mcp_session_missing_header` / `mcp_session_not_found` | 不存在 | 迁移后该错误类型消失 |
 | session 容量错误 | `mcp_session_capacity`（LRU/TTL/每 owner 上限） | 不存在 | 迁移后该错误类型消失 |
