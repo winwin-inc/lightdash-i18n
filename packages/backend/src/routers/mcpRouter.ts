@@ -23,11 +23,7 @@ import {
     isAuthenticated,
 } from '../controllers/authentication';
 import { McpService } from '../services/McpService/McpService';
-import {
-    McpAuthContext,
-    McpAuthType,
-    PAT_SCOPES,
-} from '../services/McpService/McpAuthContext';
+import { buildMcpAuthInfo } from '../services/McpService/mcpAuthInfo';
 import Logger from '../logging/logger';
 
 const mcpRouter = express.Router({ mergeParams: true });
@@ -47,53 +43,6 @@ MCP only supports token based authentication:
 - Lightdash OAuth access token (scope limited)
 - Personal access token (not scope limited)
 */
-function getMcpAuthInfo(req: express.Request): AuthInfo {
-    const { user, account } = req;
-
-    if (!user || !account) {
-        throw new AuthorizationError('Unauthenticated');
-    }
-
-    if (account.isOauthUser()) {
-        const oauthAccount = account as OauthAccount;
-        const scopes = oauthAccount.authentication.scopes ?? [];
-        const authContext: McpAuthContext = {
-            user,
-            account: oauthAccount,
-            authType: McpAuthType.OAuth,
-            scopes,
-        };
-
-        return {
-            token: oauthAccount.authentication.token,
-            clientId: oauthAccount.authentication.clientId,
-            scopes,
-            extra: authContext,
-        };
-    }
-
-    if (account.isPatUser()) {
-        const apiKeyAccount = account as ApiKeyAccount;
-        const authContext: McpAuthContext = {
-            user,
-            account: apiKeyAccount,
-            authType: McpAuthType.Pat,
-            scopes: PAT_SCOPES,
-        };
-
-        return {
-            token: apiKeyAccount.authentication.source,
-            clientId: 'API key',
-            scopes: PAT_SCOPES,
-            extra: authContext,
-        };
-    }
-
-    throw new AuthorizationError(
-        'MCP requires an OAuth access token or a personal access token',
-    );
-}
-
 /*
 MCP servers MUST use the HTTP header WWW-Authenticate when returning a 401 Unauthorized to indicate
 the location of the resource server metadata URL as described in RFC9728 Section 5.1 “WWW-Authenticate Response”.
@@ -198,7 +147,7 @@ mcpRouter.all(
                     auth?: AuthInfo;
                 } = req;
 
-                const authInfo = getMcpAuthInfo(req);
+                const authInfo = buildMcpAuthInfo(req.user, req.account);
 
                 // Reject tokens that are not allowed to use MCP at all
                 // (e.g. OAuth tokens without the required MCP scopes)
