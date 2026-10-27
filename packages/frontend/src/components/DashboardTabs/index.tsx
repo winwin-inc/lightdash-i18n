@@ -547,13 +547,21 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                     ref={tabsBarRef}
                                     style={{
                                         ...tabsBarStickyStyle,
-                                        // the spacing used to sit on the
-                                        // Tabs root. It is a margin (and not a
-                                        // padding) so it scrolls away with the
-                                        // content instead of leaving a gap
-                                        // above the sticky bar
-                                        marginTop: tabsEnabled ? 12 : 8,
-                                        backgroundColor: 'white',
+                                        // the spacing to the content above.
+                                        // It is a padding (and not a margin)
+                                        // so it is part of the sticky layer:
+                                        // a margin scrolls away and the bar
+                                        // would stick right below the header
+                                        paddingTop:
+                                            sortedTabs && sortedTabs.length > 0
+                                                ? tabsEnabled
+                                                    ? 12
+                                                    : 8
+                                                : 0,
+                                        // the page background, it has to be
+                                        // opaque so the content can't
+                                        // scroll through the bar
+                                        backgroundColor: theme.colors.gray[0],
                                     }}
                                 >
                                     {sortedTabs && sortedTabs?.length > 0 && (
