@@ -39,25 +39,25 @@ import { z, ZodRawShape } from 'zod';
 import {
     LightdashAnalytics,
     McpToolCallEvent,
-} from '../../../analytics/LightdashAnalytics';
-import { LightdashConfig } from '../../../config/parseConfig';
-import { CatalogSearchContext } from '../../../models/CatalogModel/CatalogModel';
-import { McpContextModel } from '../../../models/McpContextModel';
-import { ProjectModel } from '../../../models/ProjectModel/ProjectModel';
-import { SearchModel } from '../../../models/SearchModel';
-import { SpaceModel } from '../../../models/SpaceModel';
-import { UserAttributesModel } from '../../../models/UserAttributesModel';
-import { BaseService } from '../../../services/BaseService';
-import { CatalogService } from '../../../services/CatalogService/CatalogService';
-import { FeatureFlagService } from '../../../services/FeatureFlag/FeatureFlagService';
-import { ProjectService } from '../../../services/ProjectService/ProjectService';
-import { SpaceService } from '../../../services/SpaceService/SpaceService';
+} from '../../analytics/LightdashAnalytics';
+import { LightdashConfig } from '../../config/parseConfig';
+import { CatalogSearchContext } from '../../models/CatalogModel/CatalogModel';
+import { McpContextModel } from '../../models/McpContextModel';
+import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
+import { SearchModel } from '../../models/SearchModel';
+import { SpaceModel } from '../../models/SpaceModel';
+import { UserAttributesModel } from '../../models/UserAttributesModel';
+import { BaseService } from '../BaseService';
+import { CatalogService } from '../CatalogService/CatalogService';
+import { FeatureFlagService } from '../FeatureFlag/FeatureFlagService';
+import { ProjectService } from '../ProjectService/ProjectService';
+import { SpaceService } from '../SpaceService/SpaceService';
 import {
     doesExploreMatchRequiredAttributes,
     getFilteredExplore,
-} from '../../../services/UserAttributesService/UserAttributeUtils';
-import { wrapSentryTransaction } from '../../../utils';
-import { VERSION } from '../../../version';
+} from '../UserAttributesService/UserAttributeUtils';
+import { wrapSentryTransaction } from '../../utils';
+import { VERSION } from '../../version';
 import { getFindCharts } from '../ai/tools/findCharts';
 import { getFindDashboards } from '../ai/tools/findDashboards';
 import { getFindExplores } from '../ai/tools/findExplores';

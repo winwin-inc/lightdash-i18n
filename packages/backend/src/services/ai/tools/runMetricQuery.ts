@@ -11,7 +11,7 @@ import {
 } from '@lightdash/common';
 import { tool } from 'ai';
 import { stringify } from 'csv-stringify/sync';
-import { CsvService } from '../../../../services/CsvService/CsvService';
+import { CsvService } from '../../CsvService/CsvService';
 import { NO_RESULTS_RETRY_PROMPT } from '../prompts/noResultsRetry';
 import type {
     GetExploreFn,

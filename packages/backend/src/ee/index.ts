@@ -32,7 +32,6 @@ import { AppGenerateService } from './services/AppGenerateService/AppGenerateSer
 import { CommercialCacheService } from './services/CommercialCacheService';
 import { CommercialSlackIntegrationService } from './services/CommercialSlackIntegrationService';
 import { EmbedService } from './services/EmbedService/EmbedService';
-import { McpService } from './services/McpService/McpService';
 import { OrganizationWarehouseCredentialsService } from './services/OrganizationWarehouseCredentialsService';
 import { ScimService } from './services/ScimService/ScimService';
 import { ServiceAccountService } from './services/ServiceAccountService/ServiceAccountService';
@@ -411,20 +410,6 @@ export async function getEnterpriseAppArguments(): Promise<EnterpriseAppArgument
                     projectModel: models.getProjectModel(),
                     storageClient: clients.getResultsFileStorageClient(),
                     featureFlagModel: models.getFeatureFlagModel(),
-                }),
-            mcpService: ({ context, repository, models }) =>
-                new McpService({
-                    lightdashConfig: context.lightdashConfig,
-                    analytics: context.lightdashAnalytics,
-                    catalogService: repository.getCatalogService(),
-                    projectService: repository.getProjectService(),
-                    userAttributesModel: models.getUserAttributesModel(),
-                    searchModel: models.getSearchModel(),
-                    spaceModel: models.getSpaceModel(),
-                    spaceService: repository.getSpaceService(),
-                    mcpContextModel: models.getMcpContextModel(),
-                    projectModel: models.getProjectModel(),
-                    featureFlagService: repository.getFeatureFlagService(),
                 }),
             slackService: ({ repository, clients }) =>
                 new CommercialSlackService({

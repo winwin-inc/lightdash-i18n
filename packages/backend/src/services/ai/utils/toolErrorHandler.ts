@@ -1,6 +1,6 @@
 import { getErrorMessage } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
-import Logger from '../../../../logging/logger';
+import Logger from '../../../logging/logger';
 import { serializeData } from './serializeData';
 
 export const toolErrorHandler = (error: unknown, message: string) => {

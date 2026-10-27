@@ -39,7 +39,7 @@ import {
     WeekDay,
     WindowFunctionType,
 } from '@lightdash/common';
-import Logger from '../../../../logging/logger';
+import Logger from '../../../logging/logger';
 import { populateCustomMetricsSQL } from './populateCustomMetricsSQL';
 import { serializeData } from './serializeData';
 /**

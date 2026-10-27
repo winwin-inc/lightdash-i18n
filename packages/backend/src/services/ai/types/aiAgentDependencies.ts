@@ -27,8 +27,8 @@ import {
 import {
     AiAgentResponseStreamed,
     AiAgentToolCallEvent,
-} from '../../../../analytics/LightdashAnalytics';
-import { PostSlackFile } from '../../../../clients/Slack/SlackClient';
+} from '../../../analytics/LightdashAnalytics';
+import { PostSlackFile } from '../../../clients/Slack/SlackClient';
 
 type Pagination = KnexPaginateArgs & {
     totalPageCount: number;

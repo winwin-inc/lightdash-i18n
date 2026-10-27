@@ -13,16 +13,16 @@ import {
 } from 'ai';
 import Logger from '../../../../logging/logger';
 import { getSystemPromptV2 } from '../prompts/systemV2';
-import { getFindCharts } from '../tools/findCharts';
-import { getFindDashboards } from '../tools/findDashboards';
+import { getFindCharts } from '../../../../services/ai/tools/findCharts';
+import { getFindDashboards } from '../../../../services/ai/tools/findDashboards';
 // eslint-disable-next-line import/extensions
-import { getFindExplores } from '../tools/findExplores';
-import { getFindFields } from '../tools/findFields';
+import { getFindExplores } from '../../../../services/ai/tools/findExplores';
+import { getFindFields } from '../../../../services/ai/tools/findFields';
 import { getGenerateDashboard } from '../tools/generateDashboard';
 import { getImproveContext } from '../tools/improveContext';
 import { getProposeChange } from '../tools/proposeChange';
 import { getRunQuery } from '../tools/runQuery';
-import { getSearchFieldValues } from '../tools/searchFieldValues';
+import { getSearchFieldValues } from '../../../../services/ai/tools/searchFieldValues';
 import type {
     AiAgentArgs,
     AiAgentDependencies,
