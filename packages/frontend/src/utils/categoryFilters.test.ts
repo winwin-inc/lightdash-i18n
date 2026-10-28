@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lightdashApi } from '../api';
 import {
     clearFieldSearchCacheForTests,
+    createCategoryRequestSession,
     getCategoryFiltersSignature,
     getCategoryLevel,
     getParentFieldId,
@@ -859,6 +860,162 @@ describe('initializeCategoryFiltersAsync', () => {
         await p2;
 
         expect(api).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops queued requests when the session is cancelled', async () => {
+        const session = createCategoryRequestSession();
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['B']);
+
+        const p1 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+        const p2 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+
+        // 用户又改了一次：旧会话作废
+        session.cancel();
+
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+
+        const result1 = await p1;
+        const result2 = await p2;
+
+        // 排队中的第二个请求被丢弃：不会再发出去
+        expect(api).toHaveBeenCalledTimes(1);
+        // 取消的操作不写回：值保持原样
+        expect(result1).toEqual(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+        );
+        expect(result2).toEqual(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+        );
+    });
+
+    it('does not send a request when the session is already cancelled', async () => {
+        const session = createCategoryRequestSession();
+        session.cancel();
+
+        await initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('does not reuse a cancelled request result in the cache', async () => {
+        const session = createCategoryRequestSession();
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['A']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['A'],
+            }),
+        ]);
+
+        const p1 = initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        // 取消会话：缓存作废、请求 abort
+        session.cancel();
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+        await p1;
+
+        // 新会话重新请求（不复用被取消的那次）
+        const p2 = initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { session: createCategoryRequestSession() },
+        );
+        await p2;
+
+        expect(api).toHaveBeenCalledTimes(2);
+    });
+
+    it('can be cancelled repeatedly without side effects', () => {
+        const session = createCategoryRequestSession();
+        expect(session.isCancelled()).toBe(false);
+        session.cancel();
+        session.cancel();
+        expect(session.isCancelled()).toBe(true);
     });
 
     it('does not share cache across different filter contexts', async () => {

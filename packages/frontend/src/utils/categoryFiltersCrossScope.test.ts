@@ -8,6 +8,7 @@ import { lightdashApi } from '../api';
 import {
     buildCategoryChain,
     clearFieldSearchCacheForTests,
+    createCategoryRequestSession,
     findParentCategoryEntry,
     getCategoryFiltersSignature,
     initializeCategoryFiltersAsync,
@@ -331,6 +332,75 @@ describe('categoryFilters cross scope', () => {
                     }),
                 ]),
             );
+        });
+
+        it('keeps the tab value when the cross scope cascade is cancelled', async () => {
+            const session = createCategoryRequestSession();
+            let resolveSearch: ((value: unknown) => void) | undefined;
+            api.mockImplementationOnce(
+                () =>
+                    new Promise((resolve) => {
+                        resolveSearch = resolve;
+                    }) as never,
+            );
+
+            const g1 = categoryFilter({
+                id: 'g1',
+                fieldId: 'cls_1',
+                categoryLevel: 1,
+                values: ['P1'],
+            });
+            const g2 = categoryFilter({
+                id: 'g2',
+                fieldId: 'cls_2',
+                categoryLevel: 2,
+                values: ['C1'],
+                parentFieldId: 'cls_1',
+                parentScope: 'global',
+            });
+            const t3 = categoryFilter({
+                id: 't3',
+                fieldId: 'cls_3',
+                categoryLevel: 3,
+                values: ['OLD'],
+                parentFieldId: 'cls_2',
+                parentScope: 'global',
+            });
+
+            const promise = updateCrossScopeCategoryCascadeAsync(
+                {
+                    globalFilters: asFilters([g1, g2]),
+                    tabFilters: { [TAB_UUID]: asFilters([t3]) },
+                },
+                g2,
+                'C2',
+                projectUuid,
+                dashboardContext,
+                { session },
+            );
+
+            // 等请求真的发出去
+            await vi.waitFor(() => {
+                expect(api).toHaveBeenCalledTimes(1);
+            });
+
+            // 用户又改了一次：作废本次联动
+            session.cancel();
+            resolveSearch?.({
+                search: '',
+                results: ['T1'],
+                cached: false,
+                refreshedAt: new Date(),
+            });
+
+            const result = await promise;
+
+            // 在途的请求被 abort（释放仓库引擎的查询内存）
+            expect(api.mock.calls[0][0].signal?.aborted).toBe(true);
+            // 取消的联动不写回：Tab 的值保持原样
+            expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+                'OLD',
+            ]);
         });
 
         it('cascades inside a tab from level 3 to level 4', async () => {

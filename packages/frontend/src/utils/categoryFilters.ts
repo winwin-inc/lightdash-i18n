@@ -348,12 +348,6 @@ const enqueueFieldSearch = <T>(task: () => Promise<T>): Promise<T> => {
     });
 };
 
-const isAbortError = (error: unknown): boolean =>
-    typeof error === 'object' &&
-    error !== null &&
-    'name' in error &&
-    (error as { name?: unknown }).name === 'AbortError';
-
 /**
  * 类目解析失败时的日志：
  * - 仓库资源限额错误（引擎内存打满）：给出可读提示，避免刷屏的 HGERR 原文
@@ -377,9 +371,50 @@ const logCategorySearchError = (
 type FieldSearchCacheEntry = {
     expiresAt: number;
     promise: Promise<FieldSearchResult>;
+    /** 发起该请求的会话 id：会话被取消时缓存作废 */
+    sessionId?: number;
 };
 
 const fieldSearchCache = new Map<string, FieldSearchCacheEntry>();
+
+/* -------------------------------------------------------------------------- *
+ * 请求会话（用于取消过期的类目请求）
+ *
+ * 一次「类目操作」（初始化 / 父改子联动）对应一个会话。
+ * 当同一个作用域开始了新的操作时，旧会话被取消：
+ * - 旧会话**排队中**的请求直接丢弃（根本不会发到仓库）
+ * - 旧会话**在途**的请求被 abort（立刻释放仓库引擎的查询内存）
+ * - 旧会话的结果不会写回（不会覆盖用户的新选择）
+ * -------------------------------------------------------------------------- */
+export type CategoryRequestSession = {
+    readonly id: number;
+    readonly signal: AbortSignal;
+    isCancelled: () => boolean;
+    cancel: () => void;
+};
+
+let categoryRequestSessionCounter = 0;
+
+export const createCategoryRequestSession = (): CategoryRequestSession => {
+    const controller = new AbortController();
+    const id = ++categoryRequestSessionCounter;
+    return {
+        id,
+        signal: controller.signal,
+        isCancelled: () => controller.signal.aborted,
+        cancel: () => {
+            if (!controller.signal.aborted) {
+                controller.abort();
+            }
+            // 被取消的会话产生的缓存结果不能再被后续操作复用
+            for (const [key, entry] of fieldSearchCache.entries()) {
+                if (entry.sessionId === id) {
+                    fieldSearchCache.delete(key);
+                }
+            }
+        },
+    };
+};
 
 /** 清除 field/search 内存缓存（仅测试使用） */
 export const clearFieldSearchCacheForTests = (): void => {
@@ -477,7 +512,8 @@ export const getCategoryFiltersSignature = (
  */
 type FieldSearchResult =
     | { status: 'ok'; values: string[] }
-    | { status: 'error'; error: unknown };
+    | { status: 'error'; error: unknown }
+    | { status: 'cancelled' };
 
 /**
  * 类目值解析结果。
@@ -485,12 +521,14 @@ type FieldSearchResult =
  * - clear: 链路断裂（父级没有值 / 父级被删除）→ 当前级应被清空
  * - keep: 无法判断类目是否存在（没有候选值）→ 保留当前值
  * - error: 请求失败，无法判断
+ * - cancelled: 操作已被更新的操作取代 → 放弃本次解析，不写回
  */
 type CategoryValueResolution =
     | { status: 'resolved'; value: string }
     | { status: 'clear'; reason: 'parent-unresolved' }
     | { status: 'keep'; reason: 'no-candidates' }
-    | { status: 'error'; error: unknown };
+    | { status: 'error'; error: unknown }
+    | { status: 'cancelled' };
 
 /**
  * 调用 field/search 接口获取字段的实际可用值（含看板上下文以触发 dbt sql_filter）
@@ -501,7 +539,13 @@ const fetchFieldSearchValues = async (
     tableName: string,
     filters: DashboardFilterRule[] | undefined,
     dashboardContext: DashboardFilterContext | undefined,
+    session?: CategoryRequestSession,
 ): Promise<FieldSearchResult> => {
+    // 会话已取消：不再发请求
+    if (session?.isCancelled()) {
+        return { status: 'cancelled' };
+    }
+
     const now = Date.now();
     pruneExpiredFieldSearchCache(now);
 
@@ -520,11 +564,19 @@ const fetchFieldSearchValues = async (
 
     const requestPromise = enqueueFieldSearch(
         async (): Promise<FieldSearchResult> => {
+            // 排队期间操作被取消 → 直接丢弃，不发到仓库
+            if (session?.isCancelled()) {
+                fieldSearchCache.delete(cacheKey);
+                return { status: 'cancelled' };
+            }
+
             const controller = new AbortController();
             const timeoutId = setTimeout(
                 () => controller.abort(),
                 FIELD_SEARCH_TIMEOUT_MS,
             );
+            const onSessionCancel = () => controller.abort();
+            session?.signal.addEventListener('abort', onSessionCancel);
             try {
                 try {
                     const filterGroup =
@@ -560,6 +612,11 @@ const fetchFieldSearchValues = async (
                         }),
                         signal: controller.signal,
                     });
+                    // 响应回来时操作可能已被取消：丢弃结果
+                    if (session?.isCancelled()) {
+                        fieldSearchCache.delete(cacheKey);
+                        return { status: 'cancelled' };
+                    }
                     return {
                         status: 'ok',
                         values: result.results.filter(
@@ -568,7 +625,13 @@ const fetchFieldSearchValues = async (
                     };
                 } catch (error) {
                     fieldSearchCache.delete(cacheKey);
-                    if (isAbortError(error)) {
+                    // 会话被取消：不是错误，也不再报错
+                    if (session?.isCancelled()) {
+                        return { status: 'cancelled' };
+                    }
+                    // 自己的 controller 被 abort → 说明是超时（fetch 的 AbortError
+                    // 会被 api.ts 包装成 NetworkError，不能靠错误类型判断）
+                    if (controller.signal.aborted) {
                         return {
                             status: 'error',
                             error: new Error(
@@ -580,6 +643,7 @@ const fetchFieldSearchValues = async (
                 }
             } finally {
                 clearTimeout(timeoutId);
+                session?.signal.removeEventListener('abort', onSessionCancel);
             }
         },
     );
@@ -587,6 +651,7 @@ const fetchFieldSearchValues = async (
     fieldSearchCache.set(cacheKey, {
         expiresAt: now + FIELD_SEARCH_CACHE_TTL_MS,
         promise: requestPromise,
+        sessionId: session?.id,
     });
 
     return requestPromise;
@@ -603,6 +668,8 @@ type ResolveCategoryValueArgs = {
      * 只用于恢复被误清空的筛选器（寻常路径不需要，避免请求翻倍）。
      */
     allowUnfilteredFallback?: boolean;
+    /** 请求会话：会话被取消时放弃本次解析 */
+    session?: CategoryRequestSession;
 };
 
 /**
@@ -733,6 +800,7 @@ const resolveCategoryFilterValueAsync = async ({
     dashboardContext,
     parentValueOverride,
     allowUnfilteredFallback = false,
+    session,
 }: ResolveCategoryValueArgs): Promise<CategoryValueResolution> => {
     if (!isCategoryField(filter)) {
         return { status: 'keep', reason: 'no-candidates' };
@@ -755,7 +823,12 @@ const resolveCategoryFilterValueAsync = async ({
         filter.target.tableName,
         searchFilters,
         dashboardContext,
+        session,
     );
+
+    if (result.status === 'cancelled') {
+        return { status: 'cancelled' };
+    }
 
     if (result.status === 'error') {
         return { status: 'error', error: result.error };
@@ -778,7 +851,12 @@ const resolveCategoryFilterValueAsync = async ({
                 filter.target.tableName,
                 undefined,
                 dashboardContext,
+                session,
             );
+
+            if (fallback.status === 'cancelled') {
+                return { status: 'cancelled' };
+            }
 
             if (fallback.status === 'error') {
                 return { status: 'error', error: fallback.error };
@@ -841,6 +919,8 @@ type CascadeContext = {
     recoverableFilterIds: Set<string>;
     /** 只有返回 true 的规则才允许被写回（用于限定作用域） */
     canUpdate: (entry: CategoryChainEntry) => boolean;
+    /** 请求会话：会话被取消时放弃本次联动 */
+    session?: CategoryRequestSession;
 };
 
 /**
@@ -909,11 +989,16 @@ const cascadeChildrenAsync = async (
     parentEntry: CategoryChainEntry,
     parentValue: string | null,
     ctx: CascadeContext,
-): Promise<{ chain: CategoryChain; hasChanges: boolean }> => {
+): Promise<{ chain: CategoryChain; hasChanges: boolean; cancelled: boolean }> => {
     let currentChain = chain;
     let hasChanges = false;
 
     for (const originalChild of getChildEntries(chain, parentEntry)) {
+        // 操作已被新操作取代：立即放弃，不再发请求
+        if (ctx.session?.isCancelled()) {
+            return { chain: currentChain, hasChanges: false, cancelled: true };
+        }
+
         const child =
             currentChain.find(
                 (entry) => entry.rule.id === originalChild.rule.id,
@@ -955,6 +1040,9 @@ const cascadeChildrenAsync = async (
             );
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
+            if (childResult.cancelled) {
+                return { chain: currentChain, hasChanges: false, cancelled: true };
+            }
             continue;
         }
 
@@ -964,7 +1052,13 @@ const cascadeChildrenAsync = async (
             projectUuid: ctx.projectUuid,
             dashboardContext: ctx.dashboardContext,
             parentValueOverride: parentValue,
+            session: ctx.session,
         });
+
+        if (resolution.status === 'cancelled') {
+            // 已被新操作取代：放弃本次联动（不写回）
+            return { chain: currentChain, hasChanges: false, cancelled: true };
+        }
 
         if (resolution.status === 'error') {
             // 请求失败：无法判断，保留子级当前值
@@ -980,6 +1074,9 @@ const cascadeChildrenAsync = async (
             );
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
+            if (childResult.cancelled) {
+                return { chain: currentChain, hasChanges: false, cancelled: true };
+            }
             continue;
         }
 
@@ -995,6 +1092,9 @@ const cascadeChildrenAsync = async (
             );
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
+            if (childResult.cancelled) {
+                return { chain: currentChain, hasChanges: false, cancelled: true };
+            }
             continue;
         }
 
@@ -1053,9 +1153,12 @@ const cascadeChildrenAsync = async (
         );
         currentChain = childResult.chain;
         hasChanges = hasChanges || childResult.hasChanges;
+        if (childResult.cancelled) {
+            return { chain: currentChain, hasChanges: false, cancelled: true };
+        }
     }
 
-    return { chain: currentChain, hasChanges };
+    return { chain: currentChain, hasChanges, cancelled: false };
 };
 
 /**
@@ -1084,6 +1187,8 @@ export const initializeCategoryFiltersAsync = async (
             location: CategoryFilterLocation;
             chain: CategoryChain;
         };
+        /** 请求会话：会话被取消时放弃本次初始化（不写回） */
+        session?: CategoryRequestSession;
     },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
@@ -1107,6 +1212,10 @@ export const initializeCategoryFiltersAsync = async (
 
     // 按层级顺序（一级 → 四级）处理，保证父级先重置，子级再基于新父级值解析
     for (const filter of sortCategoryFiltersByLevel(filters)) {
+        if (options?.session?.isCancelled()) {
+            // 已被新操作取代：放弃本次初始化
+            return filters;
+        }
         if (!isCategoryField(filter) || skipFilterIds.has(filter.id)) {
             continue;
         }
@@ -1159,7 +1268,13 @@ export const initializeCategoryFiltersAsync = async (
             projectUuid,
             dashboardContext,
             allowUnfilteredFallback: recoverableFilterIds.has(filter.id),
+            session: options?.session,
         });
+
+        if (resolution.status === 'cancelled') {
+            // 已被新操作取代：放弃本次初始化，不写回
+            return filters;
+        }
 
         if (resolution.status === 'error') {
             // 请求失败：无法判断当前值是否有效，保留原值
@@ -1259,6 +1374,8 @@ export const updateCategoryFilterCascadeAsync = async (
             location: CategoryFilterLocation;
             chain: CategoryChain;
         };
+        /** 请求会话：会话被取消时放弃本次联动（不写回） */
+        session?: CategoryRequestSession;
     },
 ): Promise<DashboardFilters> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1286,8 +1403,14 @@ export const updateCategoryFilterCascadeAsync = async (
             dashboardContext,
             recoverableFilterIds,
             canUpdate: (entry) => scopeRuleIds.has(entry.rule.id),
+            session: options?.session,
         },
     );
+
+    if (result.cancelled) {
+        // 已被新操作取代：放弃本次联动
+        return filters;
+    }
 
     if (!result.hasChanges) {
         return filters;
@@ -1310,6 +1433,8 @@ export const updateCrossScopeCategoryCascadeAsync = async (
     dashboardContext?: DashboardFilterContext,
     options?: {
         recoverableFilterIds?: string[];
+        /** 请求会话：会话被取消时放弃本次联动（不写回） */
+        session?: CategoryRequestSession;
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1332,6 +1457,10 @@ export const updateCrossScopeCategoryCascadeAsync = async (
     ];
 
     for (const scope of scopes) {
+        if (options?.session?.isCancelled()) {
+            // 已被新操作取代：放弃本次跨作用域联动
+            return { globalFilters, tabFilters };
+        }
         const chain = buildCategoryChain(
             { globalFilters, tabFilters },
             scope.tabUuid,
@@ -1352,8 +1481,14 @@ export const updateCrossScopeCategoryCascadeAsync = async (
                 recoverableFilterIds,
                 canUpdate: (entry) =>
                     isSameCategoryLocation(entry.location, scope),
+                session: options?.session,
             },
         );
+
+        if (result.cancelled) {
+            // 已被新操作取代：放弃本次跨作用域联动
+            return { globalFilters, tabFilters };
+        }
 
         if (!result.hasChanges) continue;
 

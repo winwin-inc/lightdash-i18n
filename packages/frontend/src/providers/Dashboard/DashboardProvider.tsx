@@ -79,6 +79,7 @@ import {
 import {
     areFilterDimensionsEqual,
     buildCategoryChain,
+    createCategoryRequestSession,
     getCategoryChainFilters,
     getCategoryFiltersSignature,
     hasCategoryFilters,
@@ -87,6 +88,7 @@ import {
     updateCategoryFilterCascadeAsync,
     updateCrossScopeCategoryCascadeAsync,
     type CategoryFilterLocation,
+    type CategoryRequestSession,
 } from '../../utils/categoryFilters';
 import {
     applySelectionToTabFilters,
@@ -304,6 +306,70 @@ const DashboardProvider: React.FC<
     const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>({});
     const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
 
+    /* ------------------------------------------------------------------ *
+     * 类目请求会话
+     *
+     * 同一个作用域开始新的操作时，取消上一个操作的请求：
+     * - 排队中的请求直接丢弃（不会发到仓库）
+     * - 在途的请求被 abort（立刻释放仓库引擎的查询内存）
+     * - 旧操作的结果不会写回
+     *
+     * 会话与 generation 一一对应：init 与 cascade 各自独立，
+     * 手动改动会同时作废在途的 init（与现有 generation 语义一致）。
+     * ------------------------------------------------------------------ */
+    const globalCategoryInitSessionRef =
+        useRef<CategoryRequestSession | null>(null);
+    const globalCategoryCascadeSessionRef =
+        useRef<CategoryRequestSession | null>(null);
+    const tabCategoryInitSessionRef = useRef<
+        Record<string, CategoryRequestSession>
+    >({});
+    const tabCategoryCascadeSessionRef = useRef<
+        Record<string, CategoryRequestSession>
+    >({});
+
+    const startGlobalCategoryInitSession = useCallback(() => {
+        globalCategoryInitSessionRef.current?.cancel();
+        const session = createCategoryRequestSession();
+        globalCategoryInitSessionRef.current = session;
+        return session;
+    }, []);
+
+    const startGlobalCategoryCascadeSession = useCallback(() => {
+        // 手动改动作废在途的自动初始化
+        globalCategoryInitSessionRef.current?.cancel();
+        globalCategoryInitSessionRef.current = null;
+        // 并作废更早的一次手动联动
+        globalCategoryCascadeSessionRef.current?.cancel();
+        const session = createCategoryRequestSession();
+        globalCategoryCascadeSessionRef.current = session;
+        return session;
+    }, []);
+
+    const startTabCategoryInitSession = useCallback(
+        (targetTabUuid: string) => {
+            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+            const session = createCategoryRequestSession();
+            tabCategoryInitSessionRef.current[targetTabUuid] = session;
+            return session;
+        },
+        [],
+    );
+
+    const startTabCategoryCascadeSession = useCallback(
+        (targetTabUuid: string) => {
+            // 手动改动作废在途的自动初始化
+            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+            delete tabCategoryInitSessionRef.current[targetTabUuid];
+            // 并作废更早的一次手动联动
+            tabCategoryCascadeSessionRef.current[targetTabUuid]?.cancel();
+            const session = createCategoryRequestSession();
+            tabCategoryCascadeSessionRef.current[targetTabUuid] = session;
+            return session;
+        },
+        [],
+    );
+
     // 首屏类目解析状态：解析完成前不发起图表查询。
     // 否则图表会先按「类目还没解析出来」的值跑一次，类目解析完再跑第二次，
     // 表现为看板加载时图表先出一版数据、随后又刷新一次。
@@ -435,12 +501,14 @@ const DashboardProvider: React.FC<
             const generation = ++globalCategoryInitGenerationRef.current;
             const { signature } = decision;
             globalCategoryPendingSignatureRef.current = signature;
+            // 新的自动初始化：作废上一个初始化会话的请求
+            const session = startGlobalCategoryInitSession();
 
             void initializeCategoryFiltersAsync(
                 filters,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds },
+                { recoverableFilterIds: recoverableCategoryFilterIds, session },
             )
                 .then((refined) => {
                     setDashboardFilters((currentFilters) => {
@@ -491,6 +559,7 @@ const DashboardProvider: React.FC<
             recoverableCategoryFilterIds,
             clearCategoryResolutionTimeout,
             setDashboardFilters,
+            startGlobalCategoryInitSession,
         ],
     );
 
@@ -506,6 +575,7 @@ const DashboardProvider: React.FC<
             filters: DashboardFilters,
             changedFilter: DashboardFilterRule,
             newValue: string | null,
+            session?: CategoryRequestSession,
         ): Promise<DashboardFilters> => {
             if (!canApplyCategoryFilters || !projectUuid) return filters;
             const location: CategoryFilterLocation = {
@@ -530,6 +600,7 @@ const DashboardProvider: React.FC<
                             targetTabUuid,
                         ),
                     },
+                    session,
                 },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
@@ -551,6 +622,7 @@ const DashboardProvider: React.FC<
                             targetTabUuid,
                         ),
                     },
+                    session,
                 },
             );
         },
@@ -786,6 +858,7 @@ const DashboardProvider: React.FC<
             filters: DashboardFilters,
             changedFilter: DashboardFilterRule,
             newValue: string | null,
+            session?: CategoryRequestSession,
         ): Promise<{
             globalFilters: DashboardFilters;
             tabFilters: Record<string, DashboardFilters>;
@@ -799,7 +872,7 @@ const DashboardProvider: React.FC<
                 newValue,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds },
+                { recoverableFilterIds: recoverableCategoryFilterIds, session },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
             // 否则会把用户的显式选择重置成别的类目（或直接清空）。
@@ -810,6 +883,7 @@ const DashboardProvider: React.FC<
                 {
                     skipFilterIds: [changedFilter.id],
                     recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
                 },
             );
             return {
@@ -885,6 +959,8 @@ const DashboardProvider: React.FC<
             const generation = ++globalCategoryCascadeGenerationRef.current;
             // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
             globalCategoryPendingSignatureRef.current = null;
+            // 取消旧会话的请求：排队中的直接丢弃，在途的 abort
+            const session = startGlobalCategoryCascadeSession();
             const requestSignature = projectUuid
                 ? getCategoryFiltersSignature(
                       nextFilters,
@@ -896,8 +972,12 @@ const DashboardProvider: React.FC<
                 nextFilters,
                 item,
                 newValue,
+                session,
             ).then(
                 ({ globalFilters: refinedGlobal, tabFilters: refinedTabs }) => {
+                    // 会话已被取消（用户又改了一次）→ 丢弃本次结果，不写回
+                    if (session.isCancelled()) return;
+
                     setDashboardFilters((currentFilters) => {
                         if (
                             !projectUuid ||
@@ -958,7 +1038,20 @@ const DashboardProvider: React.FC<
                         });
                     }
                 },
-            );
+            )
+                .catch(() => {
+                    // 写回失败不阻断：状态更新不应抛出
+                })
+                .finally(() => {
+                    // 手动联动完成：图表可以按最终类目发起查询。
+                    // （否则要一直等到初始化超时才放行，看板会白等好几秒）
+                    if (
+                        !session.isCancelled() &&
+                        !globalCategoryPendingSignatureRef.current
+                    ) {
+                        setIsGlobalCategoryResolutionPending(false);
+                    }
+                });
         },
         [
             originalUpdateDimensionDashboardFilter,
@@ -975,6 +1068,7 @@ const DashboardProvider: React.FC<
             projectUuid,
             dashboardFilterContext,
             recordUserSelection,
+            startGlobalCategoryCascadeSession,
         ],
     );
 
@@ -1105,6 +1199,8 @@ const DashboardProvider: React.FC<
             tabCategoryPendingSignatureRef.current[targetTabUuid] = signature;
             // 该 Tab 的图表会等类目解析完成再查，设置等待上限防止一直转圈
             armCategoryResolutionTimeout();
+            // 新的自动初始化：作废上一个初始化会话的请求
+            const session = startTabCategoryInitSession(targetTabUuid);
 
             void initializeCategoryFiltersAsync(
                 filters,
@@ -1116,6 +1212,7 @@ const DashboardProvider: React.FC<
                         location: { scope: 'tab', tabUuid: targetTabUuid },
                         chain,
                     },
+                    session,
                 },
             )
                 .then((refined) => {
@@ -1188,6 +1285,7 @@ const DashboardProvider: React.FC<
             recoverableCategoryFilterIds,
             getTabCategoryChainSignature,
             markTabCategoryProcessed,
+            startTabCategoryInitSession,
         ],
     );
 
@@ -1245,6 +1343,8 @@ const DashboardProvider: React.FC<
                     uuid,
                     committedBase,
                 );
+                // 新的自动初始化：作废上一个初始化会话的请求
+                const session = startTabCategoryInitSession(uuid);
 
                 void initializeCategoryFiltersAsync(
                     mergedDisplay.filters,
@@ -1264,9 +1364,12 @@ const DashboardProvider: React.FC<
                                 uuid,
                             ),
                         },
+                        session,
                     },
                 )
                     .then((refined) => {
+                        // 会话已被取消 → 丢弃本次结果
+                        if (session.isCancelled()) return;
                         if (
                             (tabCategoryInitGenerationRef.current[uuid] ??
                                 0) !== generation
@@ -1350,6 +1453,8 @@ const DashboardProvider: React.FC<
             // 手动改动同时作废在途的 init 与更早的 cascade
             bumpTabCategoryGeneration(uuid);
             const generation = bumpTabCategoryCascadeGeneration(uuid);
+            // 取消旧会话的请求：排队中的直接丢弃，在途的 abort
+            const session = startTabCategoryCascadeSession(uuid);
             // 签名覆盖全局祖先：全局父级变化时，在途的 Tab 级联结果需要作废
             const requestSignature = getTabCategoryChainSignature(
                 uuid,
@@ -1361,8 +1466,11 @@ const DashboardProvider: React.FC<
                 displayState.filters,
                 item,
                 newValue,
+                session,
             )
                 .then((refined) => {
+                    // 会话已被取消（用户又改了一次）→ 丢弃本次结果
+                    if (session.isCancelled()) return;
                     if (
                         (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) !==
                         generation
@@ -1417,6 +1525,19 @@ const DashboardProvider: React.FC<
                     ) {
                         clearTabCategoryDisplay(uuid);
                     }
+                })
+                .finally(() => {
+                    // 手动联动完成：该 Tab 的图表可以按最终类目发起查询
+                    if (
+                        !session.isCancelled() &&
+                        !tabCategoryPendingSignatureRef.current[uuid]
+                    ) {
+                        setPendingTabCategoryResolutions((prev) => {
+                            // 已经是 false：不产生新对象，避免无谓的重渲染
+                            if (prev[uuid] === false) return prev;
+                            return { ...prev, [uuid]: false };
+                        });
+                    }
                 });
         },
         [
@@ -1436,6 +1557,8 @@ const DashboardProvider: React.FC<
             recoverableCategoryFilterIds,
             bumpTabCategoryGeneration,
             bumpTabCategoryCascadeGeneration,
+            startTabCategoryCascadeSession,
+            startTabCategoryInitSession,
             clearTabCategoryDisplay,
             getTabCategoryChainSignature,
             recordUserSelection,
