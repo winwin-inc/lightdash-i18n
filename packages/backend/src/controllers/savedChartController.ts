@@ -282,6 +282,7 @@ export class SavedChartController extends BaseController {
             parameters?: ParametersValuesMap;
             dashboardSlug?: string;
             dashboardName?: string;
+            dashboardUuid?: string;
         },
         @Request() req: express.Request,
     ): Promise<ApiCalculateTotalResponse> {
@@ -297,6 +298,7 @@ export class SavedChartController extends BaseController {
                 {
                     dashboardSlug: body.dashboardSlug,
                     dashboardName: body.dashboardName,
+                    dashboardUuid: body.dashboardUuid,
                 },
             );
         return {
@@ -323,6 +325,7 @@ export class SavedChartController extends BaseController {
             parameters?: ParametersValuesMap;
             dashboardSlug?: string;
             dashboardName?: string;
+            dashboardUuid?: string;
         },
         @Request() req: express.Request,
     ): Promise<ApiCalculateCountResponse> {
@@ -338,6 +341,7 @@ export class SavedChartController extends BaseController {
                 {
                     dashboardSlug: body.dashboardSlug,
                     dashboardName: body.dashboardName,
+                    dashboardUuid: body.dashboardUuid,
                 },
             );
         return {

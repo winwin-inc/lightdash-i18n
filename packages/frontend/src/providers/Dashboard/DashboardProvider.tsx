@@ -325,12 +325,16 @@ const DashboardProvider: React.FC<
     // 类目联动按 field/search 实际数据（含 dashboardSlug → dbt RLS），不依赖 Admin 类目接口
     const dashboardSlug = (dashboard || embedDashboard)?.slug;
     const dashboardName = (dashboard || embedDashboard)?.name;
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车），
+    // 优先传 uuid 让服务端反查到正确的看板
+    const currentDashboardUuid = (dashboard || embedDashboard)?.uuid;
     const dashboardFilterContext = useMemo(
         () => ({
             dashboardSlug,
             dashboardName,
+            dashboardUuid: currentDashboardUuid,
         }),
-        [dashboardSlug, dashboardName],
+        [dashboardSlug, dashboardName, currentDashboardUuid],
     );
     // 须有 dashboardSlug，避免未就绪时按 NA 绕过 dbt 控制码
     const canApplyCategoryFilters =

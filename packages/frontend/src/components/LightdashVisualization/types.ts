@@ -153,6 +153,8 @@ export type VisualizationTableConfigProps =
         parameters?: ParametersValuesMap;
         dashboardSlug?: string;
         dashboardName?: string;
+        /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+        dashboardUuid?: string;
     };
 
 // Treemap

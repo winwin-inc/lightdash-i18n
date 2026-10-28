@@ -22,6 +22,8 @@ type Args = {
     dashboardContext?: {
         dashboardSlug?: string;
         dashboardName?: string;
+        /** Dashboard uuid is globally unique, the slug is only unique per project */
+        dashboardUuid?: string;
     };
 };
 

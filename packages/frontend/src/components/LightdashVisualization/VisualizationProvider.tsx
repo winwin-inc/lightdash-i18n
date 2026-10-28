@@ -93,6 +93,8 @@ export type VisualizationProviderProps = {
     apiErrorDetail?: ApiErrorDetail | null;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+    dashboardUuid?: string;
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
     /** 看板级系列手配色，跨 Tab 预取后传入 */
@@ -132,6 +134,7 @@ const VisualizationProvider: FC<
     unsavedMetricQuery,
     dashboardSlug,
     dashboardName,
+    dashboardUuid,
     useHashBased = false,
     knownHashAssignments = EMPTY_COLOR_MAP,
     hashAssignments = EMPTY_COLOR_MAP,
@@ -629,6 +632,7 @@ const VisualizationProvider: FC<
                     parameters={parameters}
                     dashboardSlug={dashboardSlug}
                     dashboardName={dashboardName}
+                    dashboardUuid={dashboardUuid}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

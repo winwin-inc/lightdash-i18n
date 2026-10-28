@@ -325,6 +325,8 @@ const ValidDashboardChartTile: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车）
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const showResultsTotalWithoutPagination = useMemo(() => {
         if (tablePagination?.enabled) {
             return false;
@@ -351,6 +353,7 @@ const ValidDashboardChartTile: FC<{
         dashboardContext: {
             dashboardSlug,
             dashboardName,
+            dashboardUuid,
         },
         enabled:
             (Boolean(tablePagination?.enabled) ||
@@ -426,6 +429,7 @@ const ValidDashboardChartTile: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            dashboardUuid={dashboardUuid}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
             knownHashAssignments={knownHashAssignments}
@@ -503,6 +507,8 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车）
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const {
         shouldSyncColors,
         colorPalette,
@@ -542,6 +548,7 @@ const ValidDashboardChartTileMinimal: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            dashboardUuid={dashboardUuid}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
             knownHashAssignments={knownHashAssignments}

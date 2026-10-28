@@ -859,6 +859,8 @@ export type CalculateTotalFromQuery = {
     parameters?: ParametersValuesMap;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 export type ApiCalculateTotalResponse = {
@@ -872,6 +874,8 @@ export type CalculateCountFromQuery = {
     parameters?: ParametersValuesMap;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 export type ApiCalculateCountResponse = {

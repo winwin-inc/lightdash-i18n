@@ -130,5 +130,5 @@ testings/
 /data-apps/*
 !/data-apps/.gitkeep
 
-# code index (local index db)
+# code index
 .codeindex/

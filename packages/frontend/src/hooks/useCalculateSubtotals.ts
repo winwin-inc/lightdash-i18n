@@ -17,6 +17,8 @@ import { useProjectUuid } from './useProjectUuid';
 type DashboardContextInput = {
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 const calculateSubtotalsFromQuery = async (
@@ -45,6 +47,7 @@ const calculateSubtotalsFromQuery = async (
             ...timezoneFixPayload,
             dashboardSlug: dashboardContext?.dashboardSlug,
             dashboardName: dashboardContext?.dashboardName,
+            dashboardUuid: dashboardContext?.dashboardUuid,
         }),
     });
 };
