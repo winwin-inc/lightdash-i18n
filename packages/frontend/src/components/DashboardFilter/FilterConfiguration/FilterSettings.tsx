@@ -740,6 +740,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     // 自动查找并设置父级筛选器：
                                     // 优先同作用域的上一级，其次全局的上一级
                                     // （Tab 三级可以自动绑定全局二级）
+                                    // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
+                                    // 交由作者在「父级筛选器」里显式选择
                                     let autoParentRef: ParentFilterRef | null =
                                         null;
                                     if (
@@ -755,17 +757,22 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                                     option.categoryLevel ===
                                                     targetParentLevel,
                                             );
-                                        const preferred =
-                                            candidates.find(
-                                                (option) =>
-                                                    option.scope ===
-                                                    filterScope,
-                                            ) ??
-                                            candidates.find(
+                                        const sameScope = candidates.filter(
+                                            (option) =>
+                                                option.scope === filterScope,
+                                        );
+                                        const globalScope =
+                                            candidates.filter(
                                                 (option) =>
                                                     option.scope === 'global',
-                                            ) ??
-                                            candidates[0];
+                                            );
+                                        const preferred =
+                                            sameScope.length === 1
+                                                ? sameScope[0]
+                                                : sameScope.length === 0 &&
+                                                    globalScope.length === 1
+                                                  ? globalScope[0]
+                                                  : undefined;
                                         autoParentRef = preferred
                                             ? decodeParentFilterRef(
                                                   preferred.value,
