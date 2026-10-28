@@ -773,6 +773,7 @@ export class DashboardService
         | {
               dashboardSlug: string;
               dashboardName: string;
+              dashboardUuid: string;
               filterTableNames: string[];
           }
         | undefined
@@ -872,6 +873,7 @@ export class DashboardService
         return {
             dashboardSlug: dashboard.slug,
             dashboardName: dashboard.name,
+            dashboardUuid: dashboard.uuid,
             filterTableNames: [
                 ...new Set(
                     [
