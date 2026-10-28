@@ -810,6 +810,57 @@ describe('initializeCategoryFiltersAsync', () => {
         await expect(p2).resolves.toBe(filters);
     });
 
+    it('serializes concurrent field/search requests to protect warehouse memory', async () => {
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['B']);
+
+        const p1 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+        );
+        const p2 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+        );
+
+        // 并发 1：第二个请求必须等第一个结束才发出
+        expect(api).toHaveBeenCalledTimes(1);
+
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+
+        await p1;
+        await p2;
+
+        expect(api).toHaveBeenCalledTimes(2);
+    });
+
     it('does not share cache across different filter contexts', async () => {
         mockSearchResults(['A']);
         mockSearchResults(['B']);

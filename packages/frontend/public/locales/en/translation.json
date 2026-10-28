@@ -243,7 +243,8 @@
     "validation_error": "Validation error",
     "validation_error_subtitle": "Invalid field {{keys}} with value {{values}}. The team has been already notified, we'll fix it soon",
     "unknown_validation_error": "Unknown validation error",
-    "chart_error": "Chart '{{chartName}}': Error"
+    "chart_error": "Chart '{{chartName}}': Error",
+    "warehouse_resource_limit": "The warehouse query ran out of resources (engine memory limit reached). Please try again later or narrow down the filters."
   },
   "hooks_explorer_route": {
     "parse_url_error": "Error parsing url",

@@ -7,13 +7,21 @@ import {
     IconInfoCircleFilled,
 } from '@tabler/icons-react';
 import React, { useCallback, useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 import { v4 as uuid } from 'uuid';
 import MantineIcon from '../../components/common/MantineIcon';
 import { Markdown } from '../../components/common/Markdown/Markdown';
+import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import ApiErrorDisplay from './ApiErrorDisplay';
 import MultipleToastBody from './MultipleToastBody';
 import { type NotificationData } from './types';
+
+/**
+ * 仓库资源限额错误的 toast key：
+ * 同一类错误用固定 key → 重复发生时更新同一个 toast，而不是堆一屏。
+ */
+const WAREHOUSE_RESOURCE_LIMIT_TOAST_KEY = 'warehouse-resource-limit';
 
 const shouldSuppressNetworkSubtitle = (
     subtitle: NotificationData['subtitle'],
@@ -22,6 +30,7 @@ const shouldSuppressNetworkSubtitle = (
     /unable to reach the (lightdash|lghtdash) server/i.test(subtitle);
 
 const useToaster = () => {
+    const { t } = useTranslation();
     const openedKeys = useRef(new Set<string>());
     const currentErrors = useRef<Record<string, NotificationData[]>>({});
 
@@ -193,7 +202,14 @@ const useToaster = () => {
 
             const title: ReactNode | undefined = props.title ?? 'Error';
 
-            const subtitle: ReactNode = props.apiError ? (
+            // 仓库资源限额错误（引擎内存打满）：原始报文很长且不可操作，
+            // 换成友好提示；同一个错误用固定 key，避免多个并发请求刷一屏 toast。
+            const isResourceLimitError =
+                isWarehouseResourceLimitError(props.apiError);
+
+            const subtitle: ReactNode = isResourceLimitError ? (
+                t('hooks_query_error.warehouse_resource_limit')
+            ) : props.apiError ? (
                 <ApiErrorDisplay apiError={props.apiError} />
             ) : (
                 ''
@@ -207,9 +223,16 @@ const useToaster = () => {
                 title,
                 subtitle,
                 ...props,
+                // 固定 key 放在最后：同一类错误只更新同一个 toast，不堆叠
+                ...(isResourceLimitError
+                    ? {
+                          key:
+                              props.key ?? WAREHOUSE_RESOURCE_LIMIT_TOAST_KEY,
+                      }
+                    : {}),
             });
         },
-        [showToast],
+        [showToast, t],
     );
 
     const showToastInfo = useCallback(

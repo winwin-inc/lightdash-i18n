@@ -5,6 +5,7 @@ import {
     FilterOperator,
 } from '@lightdash/common';
 import { lightdashApi } from '../api';
+import { isWarehouseResourceLimitError } from './warehouseError';
 
 /**
  * 类目字段名映射
@@ -302,6 +303,77 @@ export type DashboardFilterContext = {
 
 const FIELD_SEARCH_CACHE_TTL_MS = 5000;
 
+/**
+ * 类目 field/search 的单个请求超时。
+ * 超时的请求会被 abort，避免一个卡死的查询把整条队列堵住。
+ */
+const FIELD_SEARCH_TIMEOUT_MS = 30000;
+
+/**
+ * 类目 field/search 请求队列（并发 1）。
+ *
+ * 仓库引擎的内存限额是**所有 query 合计**的全局限额：类目解析 / 级联用的
+ * field/search 是重查询（带 dbt sql_filter + GROUP BY），并发跑容易把引擎内存打满
+ * （HGERR_code 53200），连带把看板自己的查询一起拒绝。
+ * 这里把所有类目解析请求串行化，减轻引擎压力。
+ *
+ * 队列空闲时立即启动（不推迟到下一个 microtask），
+ * 避免无谓地拖慢第一个请求。
+ */
+let fieldSearchInFlight = false;
+const fieldSearchWaiters: (() => void)[] = [];
+
+const runFieldSearchTask = async <T>(task: () => Promise<T>): Promise<T> => {
+    try {
+        return await task();
+    } finally {
+        const next = fieldSearchWaiters.shift();
+        if (next) {
+            next();
+        } else {
+            fieldSearchInFlight = false;
+        }
+    }
+};
+
+const enqueueFieldSearch = <T>(task: () => Promise<T>): Promise<T> => {
+    if (!fieldSearchInFlight) {
+        fieldSearchInFlight = true;
+        return runFieldSearchTask(task);
+    }
+    return new Promise<T>((resolve, reject) => {
+        fieldSearchWaiters.push(() => {
+            runFieldSearchTask(task).then(resolve, reject);
+        });
+    });
+};
+
+const isAbortError = (error: unknown): boolean =>
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError';
+
+/**
+ * 类目解析失败时的日志：
+ * - 仓库资源限额错误（引擎内存打满）：给出可读提示，避免刷屏的 HGERR 原文
+ * - 其他错误：保留原始信息便于排查
+ */
+const logCategorySearchError = (
+    context: string,
+    error: unknown,
+): void => {
+    if (isWarehouseResourceLimitError(error)) {
+        // eslint-disable-next-line no-console
+        console.warn(
+            `[categoryFilters] ${context}: warehouse resource limit reached (engine memory limit), keeping current value`,
+        );
+        return;
+    }
+    // eslint-disable-next-line no-console
+    console.warn(`[categoryFilters] ${context}`, error);
+};
+
 type FieldSearchCacheEntry = {
     expiresAt: number;
     promise: Promise<FieldSearchResult>;
@@ -446,50 +518,71 @@ const fetchFieldSearchValues = async (
         return cachedEntry.promise;
     }
 
-    const requestPromise = (async (): Promise<FieldSearchResult> => {
-        try {
-            const filterGroup =
-                filters && filters.length > 0
-                    ? {
-                          id: 'category_cascade_filter',
-                          // 条件必须与下拉搜索发送的规则保持一致（对齐
-                          // getAutocompleteFilterGroup）：后端按规则原文编译 SQL。
-                          // - 不能丢 settings：日期条件的单位在 settings 里，
-                          //   丢掉后「过去 13 个月」会退化成「过去 13 天」，查询没有数据。
-                          // - 不能带 disabled：编译器遇到 disabled 会渲染 1=1，
-                          //   等于把父级条件整个丢掉。
-                          // - tileTargets 只用于图表定向，查询时不需要。
-                          and: filters.map((rule) => {
-                              const { tileTargets, disabled, ...rest } = rule;
-                              return { ...rest, disabled: false };
-                          }),
-                      }
-                    : undefined;
+    const requestPromise = enqueueFieldSearch(
+        async (): Promise<FieldSearchResult> => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(
+                () => controller.abort(),
+                FIELD_SEARCH_TIMEOUT_MS,
+            );
+            try {
+                try {
+                    const filterGroup =
+                        filters && filters.length > 0
+                            ? {
+                                  id: 'category_cascade_filter',
+                                  // 条件必须与下拉搜索发送的规则保持一致（对齐
+                                  // getAutocompleteFilterGroup）：后端按规则原文编译 SQL。
+                                  // - 不能丢 settings：日期条件的单位在 settings 里，
+                                  //   丢掉后「过去 13 个月」会退化成「过去 13 天」，查询没有数据。
+                                  // - 不能带 disabled：编译器遇到 disabled 会渲染 1=1，
+                                  //   等于把父级条件整个丢掉。
+                                  // - tileTargets 只用于图表定向，查询时不需要。
+                                  and: filters.map((rule) => {
+                                      const { tileTargets, disabled, ...rest } =
+                                          rule;
+                                      return { ...rest, disabled: false };
+                                  }),
+                              }
+                            : undefined;
 
-            const result = await lightdashApi<FieldValueSearchResult>({
-                url: `/projects/${projectUuid}/field/${fieldId}/search`,
-                method: 'POST',
-                body: JSON.stringify({
-                    search: '',
-                    limit: 1000,
-                    table: tableName,
-                    filters: filterGroup,
-                    forceRefresh: false,
-                    dashboardSlug: dashboardContext?.dashboardSlug,
-                    dashboardName: dashboardContext?.dashboardName,
-                }),
-            });
-            return {
-                status: 'ok',
-                values: result.results.filter(
-                    (v): v is string => typeof v === 'string',
-                ),
-            };
-        } catch (error) {
-            fieldSearchCache.delete(cacheKey);
-            return { status: 'error', error };
-        }
-    })();
+                    const result = await lightdashApi<FieldValueSearchResult>({
+                        url: `/projects/${projectUuid}/field/${fieldId}/search`,
+                        method: 'POST',
+                        body: JSON.stringify({
+                            search: '',
+                            limit: 1000,
+                            table: tableName,
+                            filters: filterGroup,
+                            forceRefresh: false,
+                            dashboardSlug: dashboardContext?.dashboardSlug,
+                            dashboardName: dashboardContext?.dashboardName,
+                        }),
+                        signal: controller.signal,
+                    });
+                    return {
+                        status: 'ok',
+                        values: result.results.filter(
+                            (v): v is string => typeof v === 'string',
+                        ),
+                    };
+                } catch (error) {
+                    fieldSearchCache.delete(cacheKey);
+                    if (isAbortError(error)) {
+                        return {
+                            status: 'error',
+                            error: new Error(
+                                `Category field search timed out after ${FIELD_SEARCH_TIMEOUT_MS}ms`,
+                            ),
+                        };
+                    }
+                    return { status: 'error', error };
+                }
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        },
+    );
 
     fieldSearchCache.set(cacheKey, {
         expiresAt: now + FIELD_SEARCH_CACHE_TTL_MS,
@@ -875,6 +968,10 @@ const cascadeChildrenAsync = async (
 
         if (resolution.status === 'error') {
             // 请求失败：无法判断，保留子级当前值
+            logCategorySearchError(
+                `Failed to cascade category filter ${child.rule.target.fieldId}, keeping current value`,
+                resolution.error,
+            );
             const childResult = await cascadeChildrenAsync(
                 currentChain,
                 child,
@@ -1066,10 +1163,9 @@ export const initializeCategoryFiltersAsync = async (
 
         if (resolution.status === 'error') {
             // 请求失败：无法判断当前值是否有效，保留原值
-            // eslint-disable-next-line no-console
-            console.warn(
-                `[categoryFilters] Failed to resolve category filter ${currentFilter.target.fieldId}, keeping current value`,
-                resolution,
+            logCategorySearchError(
+                `Failed to resolve category filter ${currentFilter.target.fieldId}, keeping current value`,
+                resolution.error,
             );
             continue;
         }

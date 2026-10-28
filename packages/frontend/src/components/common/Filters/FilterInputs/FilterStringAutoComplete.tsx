@@ -30,6 +30,7 @@ import {
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
+import { isWarehouseResourceLimitError } from '../../../../utils/warehouseError';
 import MantineIcon from '../../MantineIcon';
 import useFiltersContext from '../useFiltersContext';
 import classes from './FilterMultiStringInput.module.css';
@@ -690,10 +691,14 @@ const FilterStringAutoComplete: FC<Props> = ({
                     ) : isError ? (
                         <Tooltip
                             label={
-                                error?.error?.message ||
-                                t(
-                                    'components_common_filters_inputs.filter_not_available',
-                                )
+                                isWarehouseResourceLimitError(error)
+                                    ? t(
+                                          'hooks_query_error.warehouse_resource_limit',
+                                      )
+                                    : error?.error?.message ||
+                                      t(
+                                          'components_common_filters_inputs.filter_not_available',
+                                      )
                             }
                             withinPortal
                         >
