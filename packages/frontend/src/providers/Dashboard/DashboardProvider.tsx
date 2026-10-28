@@ -58,7 +58,6 @@ import {
     useDashboardFilters,
 } from '../../hooks/dashboard/useDashboardFilters';
 import { useDashboardFilterState } from '../../hooks/dashboard/useDashboardFilterState';
-import { useDashboardFilterMemory } from '../../hooks/dashboard/useDashboardFilterMemory';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import {
     isEmptyTabFilters,
@@ -85,6 +84,7 @@ import {
     hasCategoryFilters,
     initializeCategoryFiltersAsync,
     isCategoryField,
+    updateCategoryCascadeForLocationsAsync,
     updateCategoryFilterCascadeAsync,
     updateCrossScopeCategoryCascadeAsync,
     type CategoryFilterLocation,
@@ -94,19 +94,23 @@ import {
 import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import {
     applySelectionToTabFilters,
-    getFilterDefinitionFingerprints,
+    findRuleByIdentity,
     getFilterIdentityKey,
     getFilterIdentityKeys,
-    getFilterMemoryFingerprint,
-    getFilterSelection,
-    pruneSelectionsByDefinition,
     restoreAuthorDefaults,
-    restoreSelectionToFilters,
     type FilterNamespace,
 } from '../../utils/userFilterSelections';
 import DashboardChartColorSyncProvider from '../DashboardChartColorSync/DashboardChartColorSyncProvider';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
+
+/**
+ * 跨 Tab 继承的结果：接收方 Tab 与它们同步后的筛选器。
+ */
+type CrossTabSyncResult = {
+    tabFilters: Record<string, DashboardFilters>;
+    changedTabUuids: string[];
+};
 
 const DashboardProvider: React.FC<
     React.PropsWithChildren<{
@@ -406,6 +410,33 @@ const DashboardProvider: React.FC<
         },
         [],
     );
+
+    /**
+     * 作废某个 Tab 在途的类目初始化（不新建会话）。
+     *
+     * 场景：Tab A 的值被 Tab B 继承时，Tab B 的初始化结果已经没有意义
+     * （父级取值已经变了），继续跑只会多打一次仓库并可能覆盖继承结果。
+     */
+    const cancelTabCategoryInitSession = useCallback(
+        (targetTabUuid: string) => {
+            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+            delete tabCategoryInitSessionRef.current[targetTabUuid];
+        },
+        [],
+    );
+
+    /**
+     * 跨 Tab 继承后的统一联动会话：
+     * 新的继承联动会取消上一次（排队中的请求丢弃、在途的 abort）。
+     */
+    const crossTabCascadeSessionRef =
+        useRef<CategoryRequestSession | null>(null);
+    const startCrossTabCascadeSession = useCallback(() => {
+        crossTabCascadeSessionRef.current?.cancel();
+        const session = createCategoryRequestSession();
+        crossTabCascadeSessionRef.current = session;
+        return session;
+    }, []);
 
     // 首屏类目解析状态：解析完成前不发起图表查询。
     // 否则图表会先按「类目还没解析出来」的值跑一次，类目解析完再跑第二次，
@@ -723,53 +754,8 @@ const DashboardProvider: React.FC<
     });
 
     /* ------------------------------------------------------------------ */
-    /*                     用户选择层（跨 Tab 继承）                       */
+    /*                     跨 Tab 取值继承与统一联动                       */
     /* ------------------------------------------------------------------ */
-
-    /**
-     * 选择层：用户在查看模式下的显式选择（操作符 + 取值 + 设置）。
-     *
-     * - 只存用户自己选中的内容，类目级联派生值与权限回退值都不进来
-     * - Tab 作用域在所有 Tab 之间共享（同一字段的显式选择跨 Tab 继承）
-     * - 全局作用域独立，不与 Tab 作用域互相影响
-     * - 选择层同时就是本地记忆（localStorage），重新进入看板时恢复
-     */
-    const filterMemory = useDashboardFilterMemory({
-        dashboardUuid,
-        enabled: !isEditMode,
-    });
-
-    /**
-     * 记录一次用户显式选择：写选择层 + 写本地记忆
-     */
-    const recordUserSelection = useCallback(
-        (
-            scope: 'global' | 'tab',
-            rule: DashboardFilterRule,
-            namespace: FilterNamespace,
-        ) => {
-            if (isEditMode) return;
-            const identityKey = getFilterIdentityKey(rule, namespace);
-            const selection = getFilterSelection(rule);
-            const fingerprint = getFilterMemoryFingerprint(rule, identityKey);
-
-            filterMemory.setSelection(scope, identityKey, {
-                fingerprint,
-                ...selection,
-            });
-        },
-        [filterMemory, isEditMode],
-    );
-
-    /**
-     * 清除一条用户选择（查看态移除 / 重置筛选器）
-     */
-    const clearUserSelection = useCallback(
-        (scope: 'global' | 'tab', identityKey: string) => {
-            filterMemory.removeSelection(scope, identityKey);
-        },
-        [filterMemory],
-    );
 
     /**
      * 跨 Tab 继承：把用户的显式选择同步到所有含该字段规则的 Tab。
@@ -779,51 +765,50 @@ const DashboardProvider: React.FC<
      *
      * 来源 Tab 自身不参与同步：它的写入由原有的更新路径负责，
      * 否则会与类目级联的签名校验冲突。
+     *
+     * 返回同步结果：接收方 Tab 与它们的新规则，供后续统一联动使用。
+     * （写入用函数式更新，避免用旧快照覆盖并发的写回；返回值取自同一份快照，
+     *   规则定义（id / 层级 / 父级）不会在并发中变化。）
      */
     const syncSelectionToAllTabs = useCallback(
         (
             rule: DashboardFilterRule,
             namespace: FilterNamespace,
             sourceTabUuid?: string,
-        ) => {
-            if (isEditMode) return;
+        ): CrossTabSyncResult => {
+            const snapshot = applySelectionToTabFilters(
+                tabFilters,
+                rule,
+                namespace,
+                sourceTabUuid,
+            );
             setTabFilters((prev) => {
-                const { tabFilters: next, changedTabUuids } =
-                    applySelectionToTabFilters(
-                        prev,
-                        rule,
-                        namespace,
-                        sourceTabUuid,
-                    );
-                return changedTabUuids.length > 0 ? next : prev;
+                const result = applySelectionToTabFilters(
+                    prev,
+                    rule,
+                    namespace,
+                    sourceTabUuid,
+                );
+                return result.changedTabUuids.length > 0
+                    ? result.tabFilters
+                    : prev;
             });
+            return {
+                tabFilters: snapshot.tabFilters,
+                changedTabUuids: snapshot.changedTabUuids,
+            };
         },
-        [isEditMode, setTabFilters],
+        [tabFilters, setTabFilters],
     );
 
     /**
-     * 查看态移除全局筛选器：除了移除运行时筛选器，还要清掉本地记忆，
-     * 否则下次进入看板时记忆会把用户的筛选值恢复回来。
+     * 查看态移除全局筛选器：移除运行时筛选器。
      */
     const wrappedRemoveDimensionDashboardFilter = useCallback(
         (index: number, isTemporary: boolean) => {
-            if (!isEditMode && !isTemporary) {
-                const rule = dashboardFilters.dimensions[index];
-                if (rule) {
-                    clearUserSelection(
-                        'global',
-                        getFilterIdentityKey(rule, 'dimension'),
-                    );
-                }
-            }
             removeDimensionDashboardFilter(index, isTemporary);
         },
-        [
-            isEditMode,
-            dashboardFilters.dimensions,
-            removeDimensionDashboardFilter,
-            clearUserSelection,
-        ],
+        [removeDimensionDashboardFilter],
     );
 
     // This implements the reset logic directly (instead of using resetDashboardFilters from useDashboardFilters)
@@ -842,11 +827,6 @@ const DashboardProvider: React.FC<
         setDashboardFilters(filteredFilters);
         setDashboardTemporaryFilters(emptyFilters);
         resetSavedFilterOverrides();
-
-        // 查看模式：重置筛选器 = 清除全局作用域的用户选择与本地记忆
-        if (!isEditMode) {
-            filterMemory.clearScope('global');
-        }
     }, [
         dashboard,
         embedDashboard,
@@ -854,8 +834,6 @@ const DashboardProvider: React.FC<
         setDashboardTemporaryFilters,
         resetSavedFilterOverrides,
         applyInteractivityFiltering,
-        isEditMode,
-        filterMemory,
     ]);
 
     /** 类目级联期间顶部筛选项即时展示；图表仍读已提交 tabFilters */
@@ -891,6 +869,130 @@ const DashboardProvider: React.FC<
             return generation;
         },
         [],
+    );
+
+    /**
+     * 跨 Tab 继承后的统一联动。
+     *
+     * 场景：用户在 Tab A 选了某个类目，Tab B 里有同一字段的规则（兼容时才会继承）。
+     * Tab B 拿到新值后，它的子级类目筛选器必须跟着重新级联，
+     * 否则会出现「二级是新值、三级还是旧值」的矛盾组合。
+     *
+     * 这里对所有接收方 Tab 走同一个联动入口（updateCategoryCascadeForLocationsAsync），
+     * 每个接收方只在自己的作用域内写回。
+     */
+    const cascadeInheritedTabChildren = useCallback(
+        async (
+            requests: {
+                targetTabUuid: string;
+                rule: DashboardFilterRule;
+            }[],
+            newValue: string | null,
+            layers: {
+                globalFilters: DashboardFilters;
+                tabFilters: Record<string, DashboardFilters>;
+            },
+        ): Promise<void> => {
+            if (
+                !canApplyCategoryFilters ||
+                !projectUuid ||
+                requests.length === 0
+            ) {
+                return;
+            }
+
+            // 作废接收方在途的初始化与更早的一次联动：
+            // 用户在接收方 Tab 里已经改过值时，本次继承结果不能覆盖它。
+            const generations = new Map<string, number>();
+            requests.forEach(({ targetTabUuid }) => {
+                bumpTabCategoryGeneration(targetTabUuid);
+                // 接收方的初始化结果已过时（父级取值变了）→ 直接作废
+                cancelTabCategoryInitSession(targetTabUuid);
+                generations.set(
+                    targetTabUuid,
+                    bumpTabCategoryCascadeGeneration(targetTabUuid),
+                );
+            });
+            const session = startCrossTabCascadeSession();
+
+            const cascaded = await updateCategoryCascadeForLocationsAsync(
+                layers,
+                requests.map(({ targetTabUuid, rule }) => ({
+                    location: { scope: 'tab' as const, tabUuid: targetTabUuid },
+                    rule,
+                    newValue,
+                })),
+                projectUuid,
+                dashboardFilterContext,
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                },
+            );
+
+            // 已被新的操作取代：丢弃本次结果
+            if (session.isCancelled()) return;
+
+            const changedTabs: Record<string, DashboardFilters> = {};
+            requests.forEach(({ targetTabUuid }) => {
+                const next = cascaded.tabFilters[targetTabUuid];
+                if (!next) return;
+                // 接收方在本次联动期间又发生了新的操作 → 丢弃
+                if (
+                    (tabCategoryCascadeGenerationRef.current[targetTabUuid] ??
+                        0) !== generations.get(targetTabUuid)
+                ) {
+                    return;
+                }
+                if (
+                    areFilterDimensionsEqual(
+                        layers.tabFilters[targetTabUuid] ?? emptyFilters,
+                        next,
+                    )
+                ) {
+                    return;
+                }
+                changedTabs[targetTabUuid] = next;
+            });
+
+            if (Object.keys(changedTabs).length === 0) return;
+
+            setTabFilters((prev) => {
+                let hasChanges = false;
+                const next = { ...prev };
+                Object.entries(changedTabs).forEach(
+                    ([targetTabUuid, filters]) => {
+                        next[targetTabUuid] = filters;
+                        hasChanges = true;
+                        markTabCategoryProcessed(targetTabUuid, filters);
+                    },
+                );
+                return hasChanges ? next : prev;
+            });
+            // 接收方 Tab 的筛选器被联动修改：标记为已修改
+            setHaveTabFiltersChanged((prev) => {
+                const next = { ...prev };
+                Object.keys(changedTabs).forEach((targetTabUuid) => {
+                    next[targetTabUuid] = true;
+                });
+                return next;
+            });
+        },
+        [
+            canApplyCategoryFilters,
+            projectUuid,
+            dashboardFilterContext,
+            recoverableCategoryFilterIds,
+            handleCategoryResolutionIssue,
+            bumpTabCategoryGeneration,
+            bumpTabCategoryCascadeGeneration,
+            cancelTabCategoryInitSession,
+            startCrossTabCascadeSession,
+            markTabCategoryProcessed,
+            setTabFilters,
+            setHaveTabFiltersChanged,
+        ],
     );
 
     // 父改子联动（全局作用域）：跨作用域传播到各 Tab 的子类目筛选器
@@ -961,11 +1063,6 @@ const DashboardProvider: React.FC<
         ) => {
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
-
-            // 查看模式：记录用户的显式选择（全局作用域独立，不与 Tab 互相继承）
-            if (!isEdit && !isTemporary) {
-                recordUserSelection('global', item, 'dimension');
-            }
 
             if (
                 !canApplyCategoryFilters ||
@@ -1118,7 +1215,6 @@ const DashboardProvider: React.FC<
             markTabCategoryProcessed,
             projectUuid,
             dashboardFilterContext,
-            recordUserSelection,
             startGlobalCategoryCascadeSession,
         ],
     );
@@ -1354,11 +1450,63 @@ const DashboardProvider: React.FC<
                 item.values !== undefined && item.values.length > 0;
             const existingDisplay = tabCategoryDisplayFilters[uuid];
 
-            // 查看模式：记录用户的显式选择，并同步到其他含该字段的 Tab。
-            // 类目级联派生值与权限回退值不会进入选择层（它们只写本 Tab 运行时）。
+            // 查看模式：跨 Tab 继承：把用户的显式选择同步到其他含该字段的 Tab。
+            // 类目级联派生值与权限回退值不会进入继承（它们只写本 Tab 运行时）。
+            let crossTabSync: CrossTabSyncResult = {
+                tabFilters,
+                changedTabUuids: [],
+            };
             if (!isEditMode && !isTemporary) {
-                recordUserSelection('tab', item, 'dimension');
-                syncSelectionToAllTabs(item, 'dimension', uuid);
+                crossTabSync = syncSelectionToAllTabs(
+                    item,
+                    'dimension',
+                    uuid,
+                );
+            }
+
+            // 跨 Tab 继承的接收方：它们拿到了新的父级取值，
+            // 各自的子级类目筛选器必须跟着重新级联，
+            // 否则会出现「二级是新值、三级还是旧值」的矛盾组合。
+            //
+            // 这里在同步之后立即触发：清空取值时同样要级联（父级没值 → 子级清空）。
+            if (crossTabSync.changedTabUuids.length > 0) {
+                const identityKey = getFilterIdentityKey(item, 'dimension');
+                const inheritedRequests = crossTabSync.changedTabUuids
+                    .map((targetTabUuid) => {
+                        const targetFilters =
+                            crossTabSync.tabFilters[targetTabUuid];
+                        const targetRule = targetFilters
+                            ? findRuleByIdentity(
+                                  targetFilters,
+                                  identityKey,
+                                  'dimension',
+                              )
+                            : undefined;
+                        return targetRule
+                            ? { targetTabUuid, rule: targetRule }
+                            : undefined;
+                    })
+                    .filter(
+                        (
+                            request,
+                        ): request is {
+                            targetTabUuid: string;
+                            rule: DashboardFilterRule;
+                        } => request !== undefined,
+                    );
+
+                if (inheritedRequests.length > 0) {
+                    void cascadeInheritedTabChildren(
+                        inheritedRequests,
+                        hasSelectedValue ? String(item.values![0]) : null,
+                        {
+                            globalFilters: dashboardFilters,
+                            tabFilters: crossTabSync.tabFilters,
+                        },
+                    ).catch(() => {
+                        // 联动失败不阻断：状态更新不应抛出
+                    });
+                }
             }
 
             // pending 期间改普通筛选：合并进展示态、同步已提交，并重启类目校验
@@ -1615,15 +1763,14 @@ const DashboardProvider: React.FC<
             startTabCategoryInitSession,
             clearTabCategoryDisplay,
             getTabCategoryChainSignature,
-            recordUserSelection,
             syncSelectionToAllTabs,
+            cascadeInheritedTabChildren,
             handleCategoryResolutionIssue,
         ],
     );
 
     /**
      * 查看态移除 Tab 作用域的筛选器：
-     * - 清除用户显式选择（选择层 + 本地记忆）
      * - 各 Tab 恢复各自的作者默认值
      * - 筛选器定义保留（作者配置的规则还在）
      */
@@ -1635,10 +1782,7 @@ const DashboardProvider: React.FC<
 
             const identityKey = getFilterIdentityKey(rule, 'dimension');
 
-            // 1. 清除用户选择（选择层 + 记忆）
-            clearUserSelection('tab', identityKey);
-
-            // 2. 各 Tab 恢复各自的作者默认值
+            // 各 Tab 恢复各自的作者默认值
             const currentDashboard = dashboard || embedDashboard;
             const serverTabs = currentDashboard?.tabs ?? [];
             setTabFilters((prev) => {
@@ -1661,13 +1805,7 @@ const DashboardProvider: React.FC<
                 return changed ? next : prev;
             });
         },
-        [
-            tabFilters,
-            dashboard,
-            embedDashboard,
-            clearUserSelection,
-            setTabFilters,
-        ],
+        [tabFilters, dashboard, embedDashboard, setTabFilters],
     );
 
     const wrappedRemoveTabDimensionFilter = useCallback(
@@ -1708,9 +1846,6 @@ const DashboardProvider: React.FC<
             if (!serverFilters) return;
 
             const identityKeys = getFilterIdentityKeys(serverFilters);
-            identityKeys.forEach((identityKey) =>
-                clearUserSelection('tab', identityKey),
-            );
 
             setTabFilters((prev) => {
                 let changed = false;
@@ -1739,7 +1874,6 @@ const DashboardProvider: React.FC<
             isEditMode,
             dashboard,
             embedDashboard,
-            clearUserSelection,
             setTabFilters,
         ],
     );
@@ -2152,47 +2286,6 @@ const DashboardProvider: React.FC<
             // Step 1: Start with base filters
             let updatedDashboardFilters = clone(currentDashboard.filters);
 
-            // Step 1.5: 恢复本地记忆里用户的显式选择（仅查看模式）
-            // - 作者删除 / 大改了筛选器定义后，旧记忆在这里被剪枝（不会套回新定义上）
-            // - URL / SDK override 优先级更高，会在 Step 2 覆盖恢复出来的值
-            const memoryState = filterMemory.getState();
-            const globalFingerprints = getFilterDefinitionFingerprints(
-                currentDashboard.filters,
-            );
-            const tabFingerprints = new Map<string, Set<string>>();
-            (currentDashboard.tabs ?? []).forEach((tab) => {
-                getFilterDefinitionFingerprints(tab.filters ?? emptyFilters).forEach(
-                    (fingerprints, identityKey) => {
-                        const existing = tabFingerprints.get(identityKey);
-                        if (existing) {
-                            fingerprints.forEach((fingerprint) =>
-                                existing.add(fingerprint),
-                            );
-                        } else {
-                            tabFingerprints.set(
-                                identityKey,
-                                new Set(fingerprints),
-                            );
-                        }
-                    },
-                );
-            });
-            const prunedMemory = pruneSelectionsByDefinition(memoryState, {
-                global: globalFingerprints,
-                tab: tabFingerprints,
-            });
-            if (prunedMemory !== memoryState) {
-                filterMemory.replaceState(prunedMemory);
-            }
-
-            if (!isEditMode) {
-                const restoredGlobal = restoreSelectionToFilters(
-                    updatedDashboardFilters,
-                    prunedMemory.global,
-                );
-                updatedDashboardFilters = restoredGlobal.filters;
-            }
-
             // Step 2: Apply SDK Filters
             const sdkFilters =
                 embed.mode === 'sdk' && embed.filters ? embed.filters : [];
@@ -2327,20 +2420,6 @@ const DashboardProvider: React.FC<
                     {} as Record<string, DashboardFilters>,
                 );
 
-                // 恢复本地记忆：同一个字段的显式选择会被恢复进所有含该字段的 Tab
-                if (!isEditMode) {
-                    updatedTabFilters = Object.entries(
-                        updatedTabFilters,
-                    ).reduce((acc, [uuid, filters]) => {
-                        const restored = restoreSelectionToFilters(
-                            filters,
-                            prunedMemory.tab,
-                        );
-                        acc[uuid] = restored.filters;
-                        return acc;
-                    }, {} as Record<string, DashboardFilters>);
-                }
-
                 setTabFilters(updatedTabFilters);
 
                 setPendingTabCategoryResolutions(
@@ -2373,48 +2452,14 @@ const DashboardProvider: React.FC<
         activeTab,
         showToastInfo,
         t,
-        filterMemory,
     ]);
-    /**
-     * 把本地记忆里的用户选择恢复到运行时筛选器（查看模式）。
-     *
-     * 首次加载时由加载 effect 调用；从编辑模式回到查看模式时也调用，
-     * 否则编辑模式的重置会把用户的运行时选择一并清掉。
-     */
-    const restoreMemoryToRuntime = useCallback(() => {
-        const memoryState = filterMemory.getState();
-
-        setDashboardFilters((prev) => {
-            const restored = restoreSelectionToFilters(
-                prev,
-                memoryState.global,
-            );
-            return restored.filters;
-        });
-
-        setTabFilters((prev) => {
-            let changed = false;
-            const next = { ...prev };
-            Object.entries(prev).forEach(([uuid, filters]) => {
-                const restored = restoreSelectionToFilters(
-                    filters,
-                    memoryState.tab,
-                );
-                if (restored.filters !== filters) {
-                    next[uuid] = restored.filters;
-                    changed = true;
-                }
-            });
-            return changed ? next : prev;
-        });
-    }, [filterMemory, setDashboardFilters, setTabFilters]);
 
     /**
      * 进入编辑模式时，用服务端快照重置运行时筛选器。
      *
      * 背景：查看模式下 Provider 不会因为 URL 变成 /edit 而重新挂载，
      * 查看者的选择会一直留在运行时筛选器里，作者一点保存就把查看者的值写回服务端。
-     * 这里在 view → edit 的瞬间用服务端快照重置，并清空用户选择层。
+     * 这里在 view → edit 的瞬间用服务端快照重置。
      */
     const prevIsEditModeRef = useRef(isEditMode);
     useEffect(() => {
@@ -2438,12 +2483,6 @@ const DashboardProvider: React.FC<
             );
             setTabTemporaryFilters({});
             setHaveTabFiltersChanged({});
-            return;
-        }
-
-        if (wasEditMode && !isEditMode) {
-            // 回到查看模式：把本地记忆里的用户选择恢复回来
-            restoreMemoryToRuntime();
         }
     }, [
         isEditMode,
@@ -2454,7 +2493,6 @@ const DashboardProvider: React.FC<
         setTabFilters,
         setTabTemporaryFilters,
         setHaveTabFiltersChanged,
-        restoreMemoryToRuntime,
     ]);
 
     // Initialize global category filters once dashboard filters and slug context are ready

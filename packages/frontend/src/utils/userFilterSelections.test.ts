@@ -9,18 +9,11 @@ import { describe, expect, it } from 'vitest';
 import {
     applySelectionToFilters,
     applySelectionToTabFilters,
-    emptyUserFilterSelections,
     findFilterRuleById,
-    getFilterDefinitionFingerprints,
     getFilterIdentityKey,
     getFilterIdentityKeys,
-    getFilterMemoryFingerprint,
     isRuleSelectionCompatible,
-    pruneSelections,
-    pruneSelectionsByDefinition,
     restoreAuthorDefaults,
-    restoreSelectionToFilters,
-    type FilterMemoryEntry,
 } from './userFilterSelections';
 
 const rule = (
@@ -281,89 +274,7 @@ describe('applySelectionToTabFilters', () => {
     });
 });
 
-describe('memory', () => {
-    const memoryRule = rule({
-        id: 'r1',
-        fieldId: 'status',
-        values: ['x'],
-        categoryLevel: 2,
-        parentFieldId: 'p1',
-    });
-    const identityKey = getFilterIdentityKey(memoryRule, 'dimension');
-
-    const entry: FilterMemoryEntry = {
-        fingerprint: getFilterMemoryFingerprint(memoryRule, identityKey),
-        operator: FilterOperator.EQUALS,
-        values: ['x'],
-    };
-
-    it('restores a matching memory entry', () => {
-        const result = restoreSelectionToFilters(
-            filters([rule({ id: 'r1', fieldId: 'status', categoryLevel: 2, parentFieldId: 'p1' })]),
-            { [identityKey]: entry },
-        );
-        expect(result.filters.dimensions[0].values).toEqual(['x']);
-        expect(result.restored[identityKey]).toBeDefined();
-    });
-
-    it('does not restore when the fingerprint changed', () => {
-        const result = restoreSelectionToFilters(
-            filters([
-                rule({
-                    id: 'r1',
-                    fieldId: 'status',
-                    categoryLevel: 3,
-                    parentFieldId: 'p1',
-                }),
-            ]),
-            { [identityKey]: entry },
-        );
-        expect(result.filters.dimensions[0].values).toBeUndefined();
-        expect(result.restored).toEqual({});
-    });
-
-    it('does not restore when the operator is incompatible', () => {
-        const result = restoreSelectionToFilters(
-            filters([
-                rule({
-                    id: 'r1',
-                    fieldId: 'status',
-                    categoryLevel: 2,
-                    parentFieldId: 'p1',
-                    operator: FilterOperator.IN_BETWEEN,
-                }),
-            ]),
-            { [identityKey]: entry },
-        );
-        expect(result.filters.dimensions[0].values).toBeUndefined();
-    });
-
-    it('prunes entries for filters that no longer exist', () => {
-        const validKeys = {
-            global: new Set<string>(),
-            tab: new Set([identityKey]),
-        };
-        const selections = {
-            global: { 'dimension:orders.status': { operator: FilterOperator.EQUALS } },
-            tab: {
-                [identityKey]: { operator: FilterOperator.EQUALS },
-                'dimension:orders.gone': { operator: FilterOperator.EQUALS },
-            },
-        };
-        const pruned = pruneSelections(selections, validKeys);
-        expect(Object.keys(pruned.tab)).toEqual([identityKey]);
-        expect(Object.keys(pruned.global)).toEqual([]);
-    });
-
-    it('returns the same object when there is nothing to prune', () => {
-        const selections = emptyUserFilterSelections;
-        const pruned = pruneSelections(selections, {
-            global: new Set<string>(),
-            tab: new Set<string>(),
-        });
-        expect(pruned).toBe(selections);
-    });
-
+describe('getFilterIdentityKeys', () => {
     it('collects the identity keys of a filter set', () => {
         const keys = getFilterIdentityKeys(
             filters([
@@ -375,72 +286,6 @@ describe('memory', () => {
             'dimension:orders.status',
             'dimension:orders.amount',
         ]);
-    });
-});
-
-describe('pruneSelectionsByDefinition', () => {
-    const serverRule = rule({
-        id: 'r1',
-        fieldId: 'status',
-        categoryLevel: 2,
-        parentFieldId: 'p1',
-    });
-    const identityKey = getFilterIdentityKey(serverRule, 'dimension');
-
-    it('keeps entries that still match the definition', () => {
-        const fingerprints = getFilterDefinitionFingerprints(
-            filters([serverRule]),
-        );
-        const memory = {
-            version: 1,
-            updatedAt: 0,
-            global: {},
-            tab: {
-                [identityKey]: {
-                    fingerprint: getFilterMemoryFingerprint(
-                        serverRule,
-                        identityKey,
-                    ),
-                    operator: FilterOperator.EQUALS,
-                },
-            },
-        };
-        const pruned = pruneSelectionsByDefinition(memory, {
-            global: new Map(),
-            tab: fingerprints,
-        });
-        expect(Object.keys(pruned.tab)).toEqual([identityKey]);
-    });
-
-    it('drops entries whose definition changed (or was deleted)', () => {
-        const changedRule = rule({
-            id: 'r1',
-            fieldId: 'status',
-            categoryLevel: 3,
-            parentFieldId: 'p1',
-        });
-        const fingerprints = getFilterDefinitionFingerprints(
-            filters([changedRule]),
-        );
-        const memory = {
-            version: 1,
-            updatedAt: 0,
-            global: {},
-            tab: {
-                [identityKey]: {
-                    fingerprint: getFilterMemoryFingerprint(
-                        serverRule,
-                        identityKey,
-                    ),
-                    operator: FilterOperator.EQUALS,
-                },
-            },
-        };
-        const pruned = pruneSelectionsByDefinition(memory, {
-            global: new Map(),
-            tab: fingerprints,
-        });
-        expect(pruned.tab).toEqual({});
     });
 });
 

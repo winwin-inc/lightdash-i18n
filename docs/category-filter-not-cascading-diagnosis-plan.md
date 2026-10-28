@@ -390,6 +390,65 @@ pnpm -F frontend test
    （`packages/frontend/src/utils/fieldSearchQueue.ts`），避免两者同时打满
    仓库引擎的全局内存额度（`HGERR_code 53200`）。
 
+---
+
+## 十、已实施（跨 Tab 统一：去掉 localStorage 记忆 + 接收方重新级联）
+
+### 背景
+
+之前跨 Tab 有两套状态：
+
+- localStorage 记忆（`useDashboardFilterMemory`）：刷新后恢复用户选择；
+- 运行时的"把值复制进每个 Tab"（`syncSelectionToAllTabs`）。
+
+两份真源并存时会出现「二级已更新、三级仍是旧值」的矛盾组合：
+选择层只写了值，接收 Tab 的子类目**没有重新级联**。
+
+### 本次改动
+
+| 项 | 处理 |
+| --- | --- |
+| localStorage 记忆层 | **删除**（`useDashboardFilterMemory.ts` 及其测试一并删除） |
+| 记忆指纹 / 剪枝 / 恢复 | 从 `userFilterSelections.ts` 删除（`getFilterMemoryFingerprint`、`isMemoryEntryApplicable`、`getFilterDefinitionFingerprints`、`pruneSelections*`、`restoreSelectionToFilters`） |
+| 跨 Tab 取值继承 | 保留为**纯内存态**（`applySelectionToTabFilters` + `syncSelectionToAllTabs`） |
+| 接收方重新级联 | **新增** `cascadeInheritedTabChildren` → `updateCategoryCascadeForLocationsAsync`（`utils/categoryFilters.ts` 里的统一联动入口，`updateCrossScopeCategoryCascadeAsync` 也复用它） |
+| 刷新后恢复筛选值 | **不再恢复**（有意简化，不是回归）。以后若要"记忆筛选"，应在统一后的选择层上加持久化，而不是恢复旧的 localStorage 多副本方案 |
+
+### 统一后的语义
+
+1. **查看模式**：
+   - 用户在 Tab A 显式选择 → 同步到所有**兼容**的 Tab（兼容性闸门 `isRuleSelectionCompatible` 不变）。
+   - 接收方 Tab 拿到新值后，走**同一个联动入口**重新级联它的子类目：
+     - 子级显式绑定父级 + 当前有确认值 → 跟随（重新解析）。
+     - 子级显式绑定父级 + 当前无值（作者没配默认值） → 不请求，保持"任何值"，并按断链清理后代。
+     - 父级被清空 → 子级一并清空。
+   - 接收方 Tab 自己的显式选择优先：自动级联不会覆盖比它更新的用户操作
+     （generation / signature / session 三重守卫继续保留）。
+2. **编辑模式**：
+   - 只保留作者保存的规则定义、父子绑定与默认值，**不自动解析、不自动级联**
+     （`canApplyCategoryFilters = !isEditMode && ...`）。
+   - 进入编辑模式时用服务端快照重置运行时筛选器，不会把查看者的值写回看板配置。
+3. **查看态删除 / 重置筛选器**：直接恢复服务端作者默认值，不再需要清除本地记忆。
+
+### 配套改动
+
+- `cancelTabCategoryInitSession`：接收方被继承时，作废它在途的初始化请求
+  （父级取值已变，初始化结果已过时）。
+- `crossTabCascadeSessionRef` / `startCrossTabCascadeSession`：新的跨 Tab 联动会取消上一次
+  （排队中的请求丢弃、在途的 abort）。
+- `updateCategoryCascadeForLocationsAsync`：一次可传多个 `{ location, rule, newValue }`，
+  每个请求只在自己的作用域内写回；`updateCrossScopeCategoryCascadeAsync` 改为复用它。
+
+### 新增测试
+
+`packages/frontend/src/utils/categoryFiltersCrossTab.test.ts`：
+
+- Tab A 改二级 → Tab B 继承后，三级 / 四级重新级联；
+- 接收方子级无确认值 → 不请求仓库，保持"任何值"；
+- 接收方子级没有父级绑定 → 不参与级联；
+- 规则不兼容 → 不继承；
+- 继承值被清空 → 接收方子级一并清空。
+
 ### 仍需人工确认
 
 - 目标看板里三/四级类目是否**确实绑定了父级筛选器**（没有绑定请在配置界面补上）。

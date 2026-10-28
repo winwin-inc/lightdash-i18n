@@ -20,23 +20,7 @@ export type FilterSelection = {
     settings?: unknown;
 };
 
-/**
- * 选择层：按作用域（全局 / Tab）分桶，按字段（identityKey）索引。
- * Tab 作用域在所有 Tab 之间共享（跨 Tab 继承），全局作用域独立。
- */
-export type UserFilterSelections = {
-    global: Record<string, FilterSelection>;
-    tab: Record<string, FilterSelection>;
-};
-
-export const emptyUserFilterSelections: UserFilterSelections = {
-    global: {},
-    tab: {},
-};
-
 export type FilterNamespace = 'dimension' | 'metric' | 'tableCalculation';
-
-export type FilterScope = keyof UserFilterSelections;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -88,9 +72,7 @@ export const findFilterRuleById = (
 /**
  * 取出规则上的「用户选择」（操作符 + 取值 + 设置）
  */
-export const getFilterSelection = (
-    rule: DashboardFilterRule,
-): FilterSelection => ({
+const getFilterSelection = (rule: DashboardFilterRule): FilterSelection => ({
     operator: rule.operator,
     values: rule.values,
     settings: rule.settings,
@@ -247,57 +229,6 @@ export const applySelectionToTabFilters = (
 };
 
 /**
- * 记忆条目：用户的一次显式选择 + 指纹
- */
-export type FilterMemoryEntry = {
-    /** 指纹：字段身份 + 类目层级 + 父级字段 */
-    fingerprint: string;
-    operator: FilterOperator;
-    values?: unknown[];
-    settings?: unknown;
-};
-
-/**
- * 记忆指纹：字段身份 + 类目层级 + 父级字段 + 字段类型。
- *
- * 不包含 rule id（不同 Tab 的 id 不同）、不包含 operator / settings
- * （用户自己改操作符不应该让自己的记忆失效）。
- * 作者改了类目层级 / 父子绑定 / 字段类型 → 指纹变化 → 旧记忆自动失效。
- */
-export const getFilterMemoryFingerprint = (
-    rule: DashboardFilterRule,
-    identityKey: string,
-): string =>
-    [
-        identityKey,
-        rule.categoryLevel ?? '',
-        rule.parentFieldId ?? '',
-        rule.target.fallbackType ?? '',
-    ].join('|');
-
-/**
- * 记忆条目能否套用到目标规则上
- */
-export const isMemoryEntryApplicable = (
-    rule: DashboardFilterRule,
-    entry: FilterMemoryEntry,
-): boolean => {
-    if (rule.disabled) {
-        return false;
-    }
-    if (rule.operator !== entry.operator) {
-        return false;
-    }
-    if (hasUnitOfTime(rule.settings) !== hasUnitOfTime(entry.settings)) {
-        return false;
-    }
-    if (hasDateRange(rule.settings) !== hasDateRange(entry.settings)) {
-        return false;
-    }
-    return true;
-};
-
-/**
  * 收集筛选器集合里所有字段的身份，用于剪枝失效的记忆
  */
 export const getFilterIdentityKeys = (
@@ -314,69 +245,6 @@ export const getFilterIdentityKeys = (
         keys.add(getFilterIdentityKey(rule, 'tableCalculation')),
     );
     return keys;
-};
-
-/**
- * 从本地记忆恢复选择：把记忆里的用户选择套回筛选器集合。
- *
- * 命中条件：指纹一致（作者没改过类目层级 / 父子绑定）+ 兼容性闸门通过。
- * 恢复出来的选择同时回填选择层（它是用户意图的权威副本）。
- */
-export const restoreSelectionToFilters = (
-    filters: DashboardFilters,
-    entries: Record<string, FilterMemoryEntry>,
-): {
-    filters: DashboardFilters;
-    restored: Record<string, FilterSelection>;
-} => {
-    const restored: Record<string, FilterSelection> = {};
-    let changed = false;
-
-    const restoreList = (
-        rules: DashboardFilterRule[],
-        namespace: FilterNamespace,
-    ): DashboardFilterRule[] =>
-        rules.map((rule) => {
-            const identityKey = getFilterIdentityKey(rule, namespace);
-            const entry = entries[identityKey];
-            if (!entry) {
-                return rule;
-            }
-            const fingerprint = getFilterMemoryFingerprint(rule, identityKey);
-            if (entry.fingerprint !== fingerprint) {
-                return rule;
-            }
-            if (!isMemoryEntryApplicable(rule, entry)) {
-                return rule;
-            }
-            changed = true;
-            restored[identityKey] = {
-                operator: entry.operator,
-                values: entry.values,
-                settings: entry.settings,
-            };
-            return applyFilterSelection(rule, {
-                operator: entry.operator,
-                values: entry.values,
-                settings: entry.settings,
-            });
-        });
-
-    const dimensions = restoreList(filters.dimensions, 'dimension');
-    const metrics = restoreList(filters.metrics, 'metric');
-    const tableCalculations = restoreList(
-        filters.tableCalculations,
-        'tableCalculation',
-    );
-
-    if (!changed) {
-        return { filters, restored };
-    }
-
-    return {
-        filters: { ...filters, dimensions, metrics, tableCalculations },
-        restored,
-    };
 };
 
 /**
@@ -453,118 +321,4 @@ export const restoreAuthorDefaults = (
     }
 
     return { ...filters, dimensions, metrics, tableCalculations };
-};
-
-/**
- * 收集筛选器集合里每个字段身份对应的定义指纹。
- *
- * 指纹 = 字段身份 + 类目层级 + 父级字段。
- * 作者改了定义（换字段 / 改类目层级 / 改父子绑定）后，指纹会变，
- * 旧记忆就不再对应当前定义。
- */
-export const getFilterDefinitionFingerprints = (
-    filters: DashboardFilters,
-): Map<string, Set<string>> => {
-    const result = new Map<string, Set<string>>();
-
-    const collect = (
-        rules: DashboardFilterRule[],
-        namespace: FilterNamespace,
-    ) => {
-        rules.forEach((rule) => {
-            const identityKey = getFilterIdentityKey(rule, namespace);
-            const fingerprint = getFilterMemoryFingerprint(rule, identityKey);
-            const existing = result.get(identityKey);
-            if (existing) {
-                existing.add(fingerprint);
-            } else {
-                result.set(identityKey, new Set([fingerprint]));
-            }
-        });
-    };
-
-    collect(filters.dimensions, 'dimension');
-    collect(filters.metrics, 'metric');
-    collect(filters.tableCalculations, 'tableCalculation');
-
-    return result;
-};
-
-/**
- * 按筛选器定义剪枝记忆：
- * - 筛选器被作者删了 → 记忆条目丢弃
- * - 作者改了筛选器定义 → 旧指纹的记忆条目丢弃
- *
- * 这样记忆里只保留「还对应当前定义」的用户选择，
- * 看板升级 / 编辑模式大改之后不会把旧值套回新定义上。
- */
-export const pruneSelectionsByDefinition = <
-    T extends {
-        global: Record<string, FilterMemoryEntry>;
-        tab: Record<string, FilterMemoryEntry>;
-    },
->(
-    selections: T,
-    valid: {
-        global: Map<string, Set<string>>;
-        tab: Map<string, Set<string>>;
-    },
-): T => {
-    const prune = (
-        source: Record<string, FilterMemoryEntry>,
-        fingerprints: Map<string, Set<string>>,
-    ): Record<string, FilterMemoryEntry> => {
-        const next: Record<string, FilterMemoryEntry> = {};
-        let changed = false;
-        Object.entries(source).forEach(([key, entry]) => {
-            const validFingerprints = fingerprints.get(key);
-            if (validFingerprints?.has(entry.fingerprint)) {
-                next[key] = entry;
-            } else {
-                changed = true;
-            }
-        });
-        return changed ? next : source;
-    };
-
-    const global = prune(selections.global, valid.global);
-    const tab = prune(selections.tab, valid.tab);
-    if (global === selections.global && tab === selections.tab) {
-        return selections;
-    }
-    return { ...selections, global, tab };
-};
-
-/**
- * 剪枝：服务端已经删掉的筛选器，其记忆条目要一并丢弃
- */
-export const pruneSelections = <
-    T,
-    S extends { global: Record<string, T>; tab: Record<string, T> },
->(
-    selections: S,
-    validKeys: { global: Set<string>; tab: Set<string> },
-): S => {
-    const prune = (
-        source: Record<string, T>,
-        valid: Set<string>,
-    ): Record<string, T> => {
-        const next: Record<string, T> = {};
-        let changed = false;
-        Object.entries(source).forEach(([key, value]) => {
-            if (valid.has(key)) {
-                next[key] = value;
-            } else {
-                changed = true;
-            }
-        });
-        return changed ? next : source;
-    };
-
-    const global = prune(selections.global, validKeys.global);
-    const tab = prune(selections.tab, validKeys.tab);
-    if (global === selections.global && tab === selections.tab) {
-        return selections;
-    }
-    return { ...selections, global, tab } as S;
 };

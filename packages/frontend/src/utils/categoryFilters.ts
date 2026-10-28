@@ -1471,15 +1471,22 @@ export const updateCategoryFilterCascadeAsync = async (
 };
 
 /**
- * 跨作用域联动：全局筛选器变更时，把联动传播到各 Tab 的子类目筛选器。
+ * 统一联动入口：对一组「作用域 + 变更规则 + 新值」分别做类目级联。
  *
- * 处理顺序：先全局（全局一二级），再各 Tab（Tab 三四级）。
- * 这样 Tab 解析时拿到的全局父级值已经是最终值。
+ * 一次用户操作可能同时影响多个作用域：
+ * - 全局筛选器变更 → 全局链 + 各 Tab 中绑定该全局父级的链
+ * - Tab 筛选器变更 → 该 Tab 的链 + 继承了同一取值的其他 Tab 的链
+ *
+ * 每个请求只在自己的作用域里写回（canUpdate 限定作用域），互不干扰。
+ * 链里找不到变更规则的作用域会被跳过（例如别的 Tab 的筛选器）。
  */
-export const updateCrossScopeCategoryCascadeAsync = async (
+export const updateCategoryCascadeForLocationsAsync = async (
     layers: CategoryFilterLayers,
-    changedFilter: DashboardFilterRule,
-    newValue: string | null,
+    requests: {
+        location: CategoryFilterLocation;
+        rule: DashboardFilterRule;
+        newValue: string | null;
+    }[],
     projectUuid: string,
     dashboardContext?: DashboardFilterContext,
     options?: {
@@ -1491,35 +1498,24 @@ export const updateCrossScopeCategoryCascadeAsync = async (
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
-    if (!isCategoryField(changedFilter)) {
-        return {
-            globalFilters: layers.globalFilters,
-            tabFilters: layers.tabFilters,
-        };
-    }
 
     let globalFilters = layers.globalFilters;
     let tabFilters: Record<string, DashboardFilters> = { ...layers.tabFilters };
 
-    const scopes: CategoryFilterLocation[] = [
-        GLOBAL_FILTER_LOCATION,
-        ...Object.keys(tabFilters).map((tabUuid) => ({
-            scope: 'tab' as const,
-            tabUuid,
-        })),
-    ];
-
-    for (const scope of scopes) {
+    for (const request of requests) {
         if (options?.session?.isCancelled()) {
             // 已被新操作取代：放弃本次跨作用域联动
             return { globalFilters, tabFilters };
         }
+        if (!isCategoryField(request.rule)) continue;
+
+        const scope = request.location;
         const chain = buildCategoryChain(
             { globalFilters, tabFilters },
             scope.tabUuid,
         );
         const changedEntry = chain.find(
-            (entry) => entry.rule.id === changedFilter.id,
+            (entry) => entry.rule.id === request.rule.id,
         );
         // 变更的筛选器不在该作用域的链里（例如别的 Tab 的筛选器）→ 跳过
         if (!changedEntry) continue;
@@ -1527,7 +1523,7 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         const result = await cascadeChildrenAsync(
             chain,
             changedEntry,
-            newValue ? String(newValue) : null,
+            request.newValue ? String(request.newValue) : null,
             {
                 projectUuid,
                 dashboardContext,
@@ -1565,4 +1561,53 @@ export const updateCrossScopeCategoryCascadeAsync = async (
     }
 
     return { globalFilters, tabFilters };
+};
+
+/**
+ * 跨作用域联动：全局筛选器变更时，把联动传播到各 Tab 的子类目筛选器。
+ *
+ * 处理顺序：先全局（全局一二级），再各 Tab（Tab 三四级）。
+ * 这样 Tab 解析时拿到的全局父级值已经是最终值。
+ */
+export const updateCrossScopeCategoryCascadeAsync = async (
+    layers: CategoryFilterLayers,
+    changedFilter: DashboardFilterRule,
+    newValue: string | null,
+    projectUuid: string,
+    dashboardContext?: DashboardFilterContext,
+    options?: {
+        recoverableFilterIds?: string[];
+        /** 请求会话：会话被取消时放弃本次联动（不写回） */
+        session?: CategoryRequestSession;
+        /** 解析异常回调：请求失败时保留原值，需要提示用户 */
+        onResolutionIssue?: CategoryResolutionIssueHandler;
+    },
+): Promise<CategoryFilterLayers> => {
+    if (!isCategoryField(changedFilter)) {
+        return {
+            globalFilters: layers.globalFilters,
+            tabFilters: layers.tabFilters,
+        };
+    }
+
+    const scopes: CategoryFilterLocation[] = [
+        GLOBAL_FILTER_LOCATION,
+        ...Object.keys(layers.tabFilters).map((tabUuid) => ({
+            scope: 'tab' as const,
+            tabUuid,
+        })),
+    ];
+
+    // 所有作用域都作为候选：链里没有该筛选器的作用域会被自动跳过
+    return updateCategoryCascadeForLocationsAsync(
+        layers,
+        scopes.map((scope) => ({
+            location: scope,
+            rule: changedFilter,
+            newValue,
+        })),
+        projectUuid,
+        dashboardContext,
+        options,
+    );
 };
