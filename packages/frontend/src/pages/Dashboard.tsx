@@ -58,6 +58,7 @@ import {
 } from '../hooks/dashboard/useDashboard';
 import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
+import { useVisibleDashboardFilters } from '../hooks/dashboard/useVisibleDashboardFilters';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
 import { getChartTypeLabel } from '../hooks/useChartColorConfig/chartTypeLabel';
@@ -1023,11 +1024,17 @@ const Dashboard: FC = () => {
     );
     /**
      * The global filters bar is the topmost sticky layer. It only takes up
-     * space when it actually renders something, otherwise it would leave a
-     * gap in the sticky stack.
+     * space (and its spacing above) when the filter row actually renders
+     * something, otherwise it would leave an empty band in the sticky stack.
      */
+    const { hasVisibleContent: hasVisibleGlobalFilters } =
+        useVisibleDashboardFilters({
+            filterScope: 'global',
+            activeTabUuid: activeTab?.uuid,
+            isEditMode,
+        });
     const hasGlobalFiltersContent =
-        hasTilesThatSupportFilters || (isEditMode && !!hasDashboardTiles);
+        isEditMode || (hasTilesThatSupportFilters && hasVisibleGlobalFilters);
 
     if (dashboardError) {
         return t('pages_dashboard.loading');
