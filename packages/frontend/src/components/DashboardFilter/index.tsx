@@ -236,6 +236,7 @@ const DashboardFilter: FC<Props> = ({
             projectUuid={projectUuid}
             dashboardSlug={dashboard?.slug}
             dashboardName={dashboard?.name}
+            dashboardUuid={dashboard?.uuid}
             itemsMap={allFilterableFieldsMap}
             startOfWeek={
                 project.data?.warehouseConnection?.startOfWeek ?? undefined

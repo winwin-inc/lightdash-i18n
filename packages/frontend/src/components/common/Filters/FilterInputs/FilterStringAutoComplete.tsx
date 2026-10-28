@@ -93,6 +93,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         getAutocompleteFilterGroup,
         dashboardSlug,
         dashboardName,
+        dashboardUuid,
     } = useFiltersContext();
     if (!projectUuid) {
         throw new Error(t('components_common_filters_inputs.filters_error'));
@@ -136,6 +137,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         {
             dashboardSlug,
             dashboardName,
+            dashboardUuid,
         },
     );
 

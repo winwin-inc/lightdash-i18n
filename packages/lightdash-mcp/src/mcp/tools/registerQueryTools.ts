@@ -186,6 +186,7 @@ export function registerQueryTools(
             query: z.string().nullable().optional(),
             filters: z.any().optional(),
             full: z.boolean().optional(),
+            dashboardUuid: z.string().optional(),
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
@@ -218,6 +219,7 @@ export function registerQueryTools(
                         search: queryText,
                         filters: args.filters,
                         limit: 100,
+                        dashboardUuid: args.dashboardUuid as string | undefined,
                     },
                 )) as Record<string, unknown>;
                 const rawValues = extractV1FieldValues(directResult);

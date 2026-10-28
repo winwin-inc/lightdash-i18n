@@ -28,6 +28,7 @@ const EmbedDashboardFilters: FC = () => {
             projectUuid={projectUuid}
             dashboardSlug={dashboard?.slug}
             dashboardName={dashboard?.name}
+            dashboardUuid={dashboard?.uuid}
             itemsMap={{}}
             startOfWeek={undefined}
         >
