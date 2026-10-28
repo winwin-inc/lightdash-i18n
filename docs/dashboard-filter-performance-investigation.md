@@ -131,8 +131,12 @@ ProjectService.searchFieldUniqueValues             → 筛选下拉 / 类目解�
 ### 3.7 availableFilters 一次算全量
 
 `useDashboardsAvailableFilters`（`hooks/dashboard/useDashboard.ts:109`）把**整块看板**
-（含其他 Tab）的 chart uuid 一次性发给后端算可筛选字段。不是数仓查询，但看板越大越慢，
-且与当前 Tab 无关的 Tab 也在算。
+（含其他 Tab）的 chart uuid 一次性发给后端算可筛选字段（`DashboardProvider.tsx:1933`）。
+不是数仓查询，但看板越大越慢。
+
+> **注意：这里不能按 Tab 收敛。** 全局筛选器需要作用于所有 Tab 的图表，
+> 后端必须拿到全量 chart 才能算出全局可筛选字段；
+> 只传当前 Tab 会让全局筛选器在其它 Tab 上缺少可筛选字段。
 
 ---
 
@@ -222,9 +226,12 @@ RESULTS_CACHE_ENABLED=true        # 图表结果缓存（S3），key = project +
 `useCalculateCount` 的 `enabled` 加上 `!isCategoryResolutionPending`，
 避免第 1 轮（子级旧值）多打一次 count。
 
-### 5.5 availableFilters 按当前 Tab 收敛
+### 5.5 ~~availableFilters 按当前 Tab 收敛~~（已作废）
 
-只把当前 Tab 的 chart uuid 传给后端；或后端按 Tab 分组缓存。
+**不能这么做**：全局筛选器要能作用于所有 Tab 的图表，后端 `getAvailableFiltersForSavedQueries`
+必须拿到全量 chart 才能算出全局可筛选字段；只传当前 Tab 会让全局筛选器在其它 Tab 上缺少字段。
+
+真正可做的是**后端按 Tab 分组缓存**（同一块看板的可用字段不随筛选变化，可复用）。
 
 ### 5.6 表格侧
 
