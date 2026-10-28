@@ -6,7 +6,7 @@
 > - [类目筛选器跨作用域绑定](./category-filter-cross-scope-binding.md)（全局 ⇄ Tab 的 `parentScope` / `parentTabUuid` 模型）
 > - [看板筛选器性能排查](./dashboard-filter-performance-investigation.md)
 >
-> 状态：**仅排查与计划，尚未改动代码**（本文档即为备份存档）
+> 状态：Stage 1 已实施（见文末「已实施」），Stage 2（跨 Tab 继承后触发级联）仍未实施
 > 分支：`feat/tab-filter-category-binding`
 
 ---
@@ -125,12 +125,26 @@ const shouldResolveCategoryFilter = (filter, recoverableFilterIds) => {
 
 ⇒ 父值/条件变化都会绕开缓存，**缓存不会造成"父级变了子级没变"**。
 
-### 事实 8：`disabled` 子级不参与联动的既有语义（本次不改）
+### 事实 8：`disabled` 子级是否参与联动（已按「绑定关系是底线」调整）
 
 - `disabled` + 有值 → 参与（历史残留值也会被纠正）；
-- `disabled` + 无值 → 不参与、不发请求，并按"断链"清空其后代；
-  对应既有单测：`packages/frontend/src/utils/categoryFilters.test.ts` 的
-  *"does not cascade into a child without a confirmed value"*。
+- `disabled` + 无值 + **未绑定父级** → 不参与、不发请求，并按"断链"清空其后代；
+- `disabled` + 无值 + **已绑定父级筛选器** → **参与联动**：初始化按父级的值解析，
+  父级变化时同步跟随（否则会出现「绑了父级却不动」）。
+
+对应单测：`packages/frontend/src/utils/categoryFilters.test.ts` 的
+*"cascades into a bound child even when it has no default value"* /
+*"does not cascade into a child without a parent binding"* /
+*"resolves a bound child that has no default value"*。
+
+### 事实 9：联动的**必要条件**是「绑定了父级筛选器」
+
+- 只有显式绑定父级筛选器（`parentFieldId` + `parentScope` / `parentTabUuid`）的类目
+  才参与父子联动；**不根据 `categoryLevel` 推断父级**。
+- 未绑定父级的类目：既不参与级联，也不参与初始化赋值。
+- 配置界面在「类目层级」变更时会自动绑定父级：
+  同作用域上一级候选唯一 → 自动绑定；同作用域无候选但全局上一级唯一 → 自动绑定；
+  存在多个同层级候选 → **不猜**，由作者在「父级筛选器」里显式选择。
 
 ---
 
@@ -339,3 +353,40 @@ pnpm -F frontend test
 - 不用"中文值字符串白名单"改候选口径。
 
 **工作区纪律**：仓库已有与本任务无关的未提交修改（promotion / SavedSql / Coder 等），实施时只动本计划列出的文件，不得覆盖或混入那些改动。
+
+
+---
+
+## 九、已实施（Stage 1 + 用户提示 + 仓库压力）
+
+提交（分支 `feat/tab-filter-category-binding`）：
+
+| 提交 | 内容 |
+| --- | --- |
+| `c45c0ad1e` | 抽取共享 `field/search` 串行队列（并发 1），筛选器自动补全接入 |
+| `56f5df4c6` | 绑定父级的类目必须参与联动；类目解析失败/无候选给出提示；级联诊断日志；类目解析与自动补全共用队列 |
+| `b0afb361f` | 类目层级自动绑定父级时不再猜候选，有歧义交由作者显式选择 |
+
+要点：
+
+1. **联动规则**（见事实 8 / 事实 9）
+   - 只有绑定父级筛选器的类目参与联动；未绑定的不参与（初始化也不赋值）。
+   - 已绑定但没有默认值的子级：初始化按父级解析，级联时跟随父级。
+2. **用户提示**：`CategoryResolutionIssue` / `onResolutionIssue` 上报
+   - 请求失败 → error toast（固定 key `dashboard-category-resolution-failed`）
+   - 级联无候选 → warning toast（固定 key `dashboard-category-no-candidates`）
+   - 仓库资源超限 → 复用 `warehouse-resource-limit` 提示
+   - 失败一律**保留原值**，不写坏看板
+3. **诊断日志**（`[categoryFilters]` 前缀）
+   - `Skip cascading <field>: no confirmed value (disabled), descendants will be cleared`
+   - `Cascaded <field>: <old> → <new>`
+4. **仓库压力**：类目 `field/search` 与筛选器自动补全共用同一个全局并发 1 的队列
+   （`packages/frontend/src/utils/fieldSearchQueue.ts`），避免两者同时打满
+   仓库引擎的全局内存额度（`HGERR_code 53200`）。
+
+### 仍需人工确认
+
+- 目标看板里三/四级类目是否**确实绑定了父级筛选器**（没有绑定请在配置界面补上）。
+- 若已绑定仍不联动，请提供浏览器 Network 中
+  `/projects/:projectId/field/:fieldId/search` 的响应，以及控制台里的
+  `[categoryFilters]` 日志。
