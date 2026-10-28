@@ -972,19 +972,73 @@ const DashboardProvider: React.FC<
         ],
     );
 
+    /**
+     * 顶部筛选 UI 用的合并结果：同样按 Tab 缓存引用，
+     * 避免看板上下文任意变化都让筛选栏整块重渲染。
+     */
+    const displayedMergedFiltersCache = useRef<
+        Map<
+            string,
+            {
+                displayFilters: DashboardFilters | undefined;
+                globalFilters: DashboardFilters;
+                globalTemporaryFilters: DashboardFilters | undefined;
+                tabFilters: DashboardFilters;
+                tabTemporaryFilters: DashboardFilters;
+                isGlobalFilterEnabled: boolean;
+                isTabFilterEnabled: boolean;
+                value: DashboardFilters;
+            }
+        >
+    >(new Map());
+
     const getDisplayedMergedFiltersForTab = useCallback(
         (targetTabUuid: string) => {
             const display = tabCategoryDisplayFilters[targetTabUuid];
-            return mergeFiltersForTab({
+            const displayFilters = display?.filters;
+            const tabFiltersForTab =
+                displayFilters ?? getActiveTabFilters(targetTabUuid);
+            const tabTemporaryFiltersForTab =
+                getActiveTabTemporaryFilters(targetTabUuid);
+            const isTabFilterEnabledForTab =
+                isTabFilterEnabled[targetTabUuid] ?? true;
+
+            const cached =
+                displayedMergedFiltersCache.current.get(targetTabUuid);
+            if (
+                cached &&
+                cached.displayFilters === displayFilters &&
+                cached.globalFilters === dashboardFilters &&
+                cached.globalTemporaryFilters === dashboardTemporaryFilters &&
+                cached.tabFilters === tabFiltersForTab &&
+                cached.tabTemporaryFilters === tabTemporaryFiltersForTab &&
+                cached.isGlobalFilterEnabled === isGlobalFilterEnabled &&
+                cached.isTabFilterEnabled === isTabFilterEnabledForTab
+            ) {
+                return cached.value;
+            }
+
+            const value = mergeFiltersForTab({
                 globalFilters: dashboardFilters,
                 globalTemporaryFilters: dashboardTemporaryFilters,
-                tabFilters:
-                    display?.filters ?? getActiveTabFilters(targetTabUuid),
-                tabTemporaryFilters:
-                    getActiveTabTemporaryFilters(targetTabUuid),
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
                 isGlobalFilterEnabled,
-                isTabFilterEnabled: isTabFilterEnabled[targetTabUuid] ?? true,
+                isTabFilterEnabled: isTabFilterEnabledForTab,
             });
+
+            displayedMergedFiltersCache.current.set(targetTabUuid, {
+                displayFilters,
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isTabFilterEnabledForTab,
+                value,
+            });
+
+            return value;
         },
         [
             tabCategoryDisplayFilters,
@@ -2525,18 +2579,15 @@ const DashboardProvider: React.FC<
     ]);
 
     const allFilterableFieldsMap = useMemo(() => {
-        return dashboardAvailableFiltersData?.allFilterableFields &&
-            dashboardAvailableFiltersData.allFilterableFields.length > 0
-            ? dashboardAvailableFiltersData.allFilterableFields.reduce<
-                  Record<string, DashboardFilterableField>
-              >(
-                  (sum, field) => ({
-                      ...sum,
-                      [getItemId(field)]: field,
-                  }),
-                  {},
-              )
-            : {};
+        const fields = dashboardAvailableFiltersData?.allFilterableFields;
+        if (!fields || fields.length === 0) return {};
+
+        // 直接累积，避免在 reduce 里展开对象（O(n²) 的对象拷贝）
+        const map: Record<string, DashboardFilterableField> = {};
+        fields.forEach((field) => {
+            map[getItemId(field)] = field;
+        });
+        return map;
     }, [dashboardAvailableFiltersData]);
 
     // Watch for filter changes and emit events (skip initial render)

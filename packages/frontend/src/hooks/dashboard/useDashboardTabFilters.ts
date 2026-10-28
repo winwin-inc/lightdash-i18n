@@ -3,7 +3,7 @@ import {
     type DashboardFilterRule,
     type DashboardFilters,
 } from '@lightdash/common';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { emptyFilters } from './useDashboardFilters';
 
@@ -98,16 +98,72 @@ export const useDashboardTabFilters = ({
         [tabTemporaryFilters],
     );
 
+    /**
+     * 合并后的筛选器按 Tab 缓存，保证引用稳定：
+     *
+     * 图表 tile 通过 useDashboardContext((c) => c.getMergedFiltersForTab(uuid))
+     * 订阅这个值。如果每次调用都返回新对象：
+     * - useContextSelector 认为值变了 → 看板上下文任何变化都会让所有 tile 重渲染
+     * - tile 侧 useMemo 的依赖（tabFilters）每次都变 → 过滤规则重算 + 查询 key 重算
+     *
+     * 缓存只在输入（全局筛选器 / Tab 筛选器 / 开关）真正变化时失效。
+     */
+    const mergedFiltersCache = useRef<
+        Map<
+            string,
+            {
+                globalFilters: DashboardFilters;
+                globalTemporaryFilters: DashboardFilters | undefined;
+                tabFilters: DashboardFilters;
+                tabTemporaryFilters: DashboardFilters;
+                isGlobalFilterEnabled: boolean;
+                isTabFilterEnabled: boolean;
+                value: DashboardFilters;
+            }
+        >
+    >(new Map());
+
     const getMergedFiltersForTab = useCallback(
-        (tabUuid: string) =>
-            mergeFiltersForTab({
+        (tabUuid: string) => {
+            const tabFiltersForTab = getActiveTabFilters(tabUuid);
+            const tabTemporaryFiltersForTab =
+                getActiveTabTemporaryFilters(tabUuid);
+            const isTabFilterEnabledForTab = isFilterEnabled(tabUuid);
+
+            const cached = mergedFiltersCache.current.get(tabUuid);
+            if (
+                cached &&
+                cached.globalFilters === dashboardFilters &&
+                cached.globalTemporaryFilters === dashboardTemporaryFilters &&
+                cached.tabFilters === tabFiltersForTab &&
+                cached.tabTemporaryFilters === tabTemporaryFiltersForTab &&
+                cached.isGlobalFilterEnabled === isGlobalFilterEnabled &&
+                cached.isTabFilterEnabled === isTabFilterEnabledForTab
+            ) {
+                return cached.value;
+            }
+
+            const value = mergeFiltersForTab({
                 globalFilters: dashboardFilters,
                 globalTemporaryFilters: dashboardTemporaryFilters,
-                tabFilters: getActiveTabFilters(tabUuid),
-                tabTemporaryFilters: getActiveTabTemporaryFilters(tabUuid),
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
                 isGlobalFilterEnabled,
-                isTabFilterEnabled: isFilterEnabled(tabUuid),
-            }),
+                isTabFilterEnabled: isTabFilterEnabledForTab,
+            });
+
+            mergedFiltersCache.current.set(tabUuid, {
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isTabFilterEnabledForTab,
+                value,
+            });
+
+            return value;
+        },
         [
             dashboardFilters,
             dashboardTemporaryFilters,
