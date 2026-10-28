@@ -20,7 +20,6 @@ import {
     useMantineTheme,
 } from '@mantine/core';
 import { IconCode } from '@tabler/icons-react';
-import ReactMarkdownPreview from '@uiw/react-markdown-preview';
 import { Fragment, useState, type FC, type PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
@@ -31,6 +30,7 @@ import {
 import { rehypeRemoveHeaderLinks } from '../../../../utils/markdownUtils';
 import { useFilterOperatorLabel } from '../../../common/Filters/FilterInputs/constants';
 import MantineIcon from '../../../common/MantineIcon';
+import { Markdown } from '../../../common/Markdown/Markdown';
 
 /**
  * Renders markdown for an item's description, with additional constraints
@@ -40,7 +40,7 @@ import MantineIcon from '../../../common/MantineIcon';
 export const ItemDetailMarkdown: FC<{ source: string }> = ({ source }) => {
     const theme = useMantineTheme();
     return (
-        <ReactMarkdownPreview
+        <Markdown
             skipHtml
             components={{
                 h1: ({ children }) => <Title order={2}>{children}</Title>,

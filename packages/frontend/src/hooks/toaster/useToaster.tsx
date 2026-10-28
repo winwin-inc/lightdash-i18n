@@ -6,11 +6,11 @@ import {
     IconCircleCheckFilled,
     IconInfoCircleFilled,
 } from '@tabler/icons-react';
-import MarkdownPreview from '@uiw/react-markdown-preview';
 import React, { useCallback, useRef, type ReactNode } from 'react';
 import rehypeExternalLinks from 'rehype-external-links';
 import { v4 as uuid } from 'uuid';
 import MantineIcon from '../../components/common/MantineIcon';
+import { Markdown } from '../../components/common/Markdown/Markdown';
 import ApiErrorDisplay from './ApiErrorDisplay';
 import MultipleToastBody from './MultipleToastBody';
 import { type NotificationData } from './types';
@@ -58,7 +58,7 @@ const useToaster = () => {
                     subtitle || action ? (
                         <Stack spacing="xs" align="flex-start">
                             {typeof subtitle == 'string' ? (
-                                <MarkdownPreview
+                                <Markdown
                                     source={subtitle}
                                     rehypePlugins={[
                                         [

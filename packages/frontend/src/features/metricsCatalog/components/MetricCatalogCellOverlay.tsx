@@ -6,11 +6,10 @@ import {
     px,
     useMantineTheme,
 } from '@mantine/core';
-import MarkdownPreview, {
-    type MarkdownPreviewProps,
-} from '@uiw/react-markdown-preview';
+import { type MarkdownPreviewProps } from '@uiw/react-markdown-preview';
 import { type MRT_TableInstance } from 'mantine-react-table';
 import { useEffect, useRef, type FC } from 'react';
+import { Markdown } from '../../../components/common/Markdown/Markdown';
 import { useLockScroll } from '../../../hooks/useLockScroll';
 
 type Props = {
@@ -91,7 +90,7 @@ export const MetricCatalogCellOverlay: FC<Props> = ({
                     boxShadow: theme.shadows.sm,
                 }}
             >
-                <MarkdownPreview
+                <Markdown
                     {...markdownPreviewProps}
                     source={content}
                     style={{

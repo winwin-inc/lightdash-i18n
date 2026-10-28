@@ -4,11 +4,11 @@ import {
     IconAlertTriangleFilled,
     IconCircleCheckFilled,
 } from '@tabler/icons-react';
-import MDEditor from '@uiw/react-md-editor';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 import MantineIcon from '../common/MantineIcon';
+import { Markdown } from '../common/Markdown/Markdown';
 
 type ProjectStatusCalloutProps = Omit<AlertProps, 'children'> & {
     isSuccess: boolean;
@@ -56,8 +56,8 @@ const ProjectStatusCallout: FC<ProjectStatusCalloutProps> = ({
             ),
             icon: <MantineIcon icon={IconAlertTriangleFilled} size="lg" />,
             children: error ? (
-                <MDEditor.Markdown
-                    source={error.error.message.replaceAll('\n', '\n\n')}
+                <Markdown
+                    source={error.error.message}
                     rehypePlugins={[
                         [rehypeExternalLinks, { target: '_blank' }],
                     ]}

@@ -9,12 +9,12 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
-import MarkdownPreview from '@uiw/react-markdown-preview';
 import { Fragment, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 
 import MantineIcon from '../../common/MantineIcon';
+import { Markdown } from '../../common/Markdown/Markdown';
 import PaginateControl from '../../common/PaginateControl';
 
 const WARNINGS_PER_PAGE = 3;
@@ -65,7 +65,7 @@ const QueryWarnings: FC<QueryWarningsProps> = ({ queryWarnings }) => {
                         .map((warning, index, array) => (
                             <Fragment key={index}>
                                 <Box>
-                                    <MarkdownPreview
+                                    <Markdown
                                         source={warning.message}
                                         rehypePlugins={[
                                             [

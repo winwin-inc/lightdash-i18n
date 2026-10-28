@@ -1,10 +1,9 @@
 import { type CatalogField } from '@lightdash/common';
 import { Box, Text, useMantineTheme } from '@mantine/core';
-import MarkdownPreview, {
-    type MarkdownPreviewProps,
-} from '@uiw/react-markdown-preview';
+import { type MarkdownPreviewProps } from '@uiw/react-markdown-preview';
 import { type MRT_Row, type MRT_TableInstance } from 'mantine-react-table';
 import { useRef, useState, type FC } from 'react';
+import { Markdown } from '../../../components/common/Markdown/Markdown';
 import { useIsLineClamped } from '../../../hooks/useIsLineClamped';
 import { useAppDispatch, useAppSelector } from '../../sqlRunner/store/hooks';
 import { setDescriptionPopoverIsClosing } from '../store/metricsCatalogSlice';
@@ -80,7 +79,7 @@ export const MetricsCatalogColumnDescription: FC<Props> = ({ row, table }) => {
                     color: row.original.description ? 'dark.4' : 'dark.1',
                 }}
             >
-                <MarkdownPreview
+                <Markdown
                     source={row.original.description ?? '\\-'}
                     {...markdownPreviewProps}
                 />
