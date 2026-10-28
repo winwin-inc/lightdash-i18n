@@ -14,6 +14,10 @@ import { useDebounce } from 'react-use';
 
 import { lightdashApi } from '../api';
 import useEmbed from '../ee/providers/Embed/useEmbed';
+import {
+    enqueueFieldSearch,
+    isSupersededFieldSearchError,
+} from '../utils/fieldSearchQueue';
 
 export const MAX_AUTOCOMPLETE_RESULTS = 50;
 
@@ -76,20 +80,40 @@ export const getFieldValues = async (
         throw new Error('Table is required to search for field values');
     }
 
-    return lightdashApi<FieldValueSearchResult>({
-        url: `/projects/${projectId}/field/${fieldId}/search`,
-        method: 'POST',
-        body: JSON.stringify({
-            search,
-            limit,
-            table,
-            filters,
-            forceRefresh,
-            parameters: parameterValues,
-            dashboardSlug: dashboardContext?.dashboardSlug,
-            dashboardName: dashboardContext?.dashboardName,
-        }),
-    });
+    /**
+     * field/search 是重查询（带 dbt sql_filter + GROUP BY），
+     * 仓库引擎的内存限额是所有 query 合计的全局限额：
+     * 并发跑会打满引擎内存（HGERR_code 53200），
+     * 连带把看板查询和类目联动一起拒绝。
+     *
+     * 因此自动补全也走类目解析用的同一条串行队列。
+     * 同一个字段的新搜索词会让排队中的旧请求直接作废（避免排一堆用不上的重查询）。
+     */
+    return enqueueFieldSearch(
+        () =>
+            lightdashApi<FieldValueSearchResult>({
+                url: `/projects/${projectId}/field/${fieldId}/search`,
+                method: 'POST',
+                body: JSON.stringify({
+                    search,
+                    limit,
+                    table,
+                    filters,
+                    forceRefresh,
+                    parameters: parameterValues,
+                    dashboardSlug: dashboardContext?.dashboardSlug,
+                    dashboardName: dashboardContext?.dashboardName,
+                }),
+            }),
+        {
+            // 同一个字段：新搜索词作废排队中的旧请求
+            key: `autocomplete:${projectId}:${fieldId}`,
+            // 同一个搜索词：视为重复请求，不互相作废
+            dedupeKey: `autocomplete:${projectId}:${fieldId}:${search}:${String(
+                forceRefresh,
+            )}`,
+        },
+    );
 };
 
 export const useFieldValues = (
@@ -180,7 +204,14 @@ export const useFieldValues = (
                     undefined,
                     parameterValues,
                     dashboardContext,
-                );
+                ).catch((error: unknown) => {
+                    if (isSupersededFieldSearchError(error)) {
+                        // 被更新的搜索词取代：不再 settle，
+                        // 避免把旧的（空）结果写进下拉框
+                        return new Promise<FieldValueSearchResult>(() => {});
+                    }
+                    throw error;
+                });
             }
         },
         {
