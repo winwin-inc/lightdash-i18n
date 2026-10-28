@@ -67,6 +67,10 @@ import { useParams } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 
 import { formatChartErrorMessage } from '../../utils/chartErrorUtils';
+import {
+    resolveEffectiveTabUuid,
+    shouldQueryTileForTab,
+} from '../../utils/dashboardTabs';
 
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
@@ -259,6 +263,25 @@ const ValidDashboardChartTile: FC<{
     const countDashboardFilters = tabUuid
         ? dashboardTabFilters
         : dashboardFilters;
+    // 与 useDashboardChartReadyQuery 保持一致：未访问过的 Tab 不发查询，
+    // 避免多 Tab 看板把所有 Tab 的查询一次性打进数仓排队
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const visitedTabUuids = useDashboardContext((c) => c.visitedTabUuids);
+    const isGlobalCategoryResolutionPending = useDashboardContext(
+        (c) => c.isGlobalCategoryResolutionPending,
+    );
+    const isTabCategoryResolutionPending = useDashboardContext((c) =>
+        tabUuid ? c.pendingTabCategoryResolutions[tabUuid] === true : false,
+    );
+    const isCategoryResolutionPending =
+        isGlobalCategoryResolutionPending || isTabCategoryResolutionPending;
+    const isTileTabVisited = useMemo(() => {
+        const effectiveTabUuid = resolveEffectiveTabUuid(
+            tabUuid,
+            dashboardTabs,
+        );
+        return shouldQueryTileForTab(effectiveTabUuid, visitedTabUuids);
+    }, [tabUuid, dashboardTabs, visitedTabUuids]);
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
 
     const { health } = useApp();
@@ -330,8 +353,12 @@ const ValidDashboardChartTile: FC<{
             dashboardName,
         },
         enabled:
-            Boolean(tablePagination?.enabled) ||
-            showResultsTotalWithoutPagination,
+            (Boolean(tablePagination?.enabled) ||
+                showResultsTotalWithoutPagination) &&
+            // 与图表查询保持一致：未访问过的 Tab 不查（避免多 Tab 看板首屏查询风暴），
+            // 类目还没解析完时也不查（否则会拿到未级联的结果再查一次）
+            isTileTabVisited &&
+            !isCategoryResolutionPending,
     });
     const resolvedTablePagination = useMemo(():
         | TablePaginationState

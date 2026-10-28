@@ -8,15 +8,15 @@
 
 ## 1. 结论摘要
 
-| # | 结论 | 证据强度 | 状态 |
-|---|------|---------|------|
-| 1 | 每个 chart tile 各自发一条 SQL 到数仓，首屏并发 N 条；数仓排队是首屏慢的最大嫌疑 | 代码路径明确，需客户 `query_history` 佐证 | 待客户数据确认 |
-| 2 | 全局类目筛选器改动会触发**两轮** tile 查询：第一轮用「父级新值 + 子级旧值」（结果多半是空），级联解析完再第二轮 | 代码路径明确（`DashboardProvider.tsx` 全局路径 vs Tab 路径行为不一致） | 已在报告中给出改法，未改 |
-| 3 | 类目解析链（一级→四级）是**串行**的 field/search 往返，且首屏会**阻塞**图表查询（最多等 10s） | 代码路径明确 | 未改（见 §5.2） |
-| 4 | 表格 tile 每次筛选变化会额外发一条 count 查询（`calculate-count`），不受类目解析闸门约束 | 代码路径明确 | 未改（见 §5.4） |
-| 5 | 筛选下拉每次打开都会打数仓（DISTINCT 查询，limit 500），前端不缓存 | 代码路径明确 | 建议开缓存（§5.1） |
-| 6 | 合并后的筛选器每次都是新对象 → 看板上下文变化时**所有 tile 重渲染**、过滤规则重算；叠加 `addResultsCacheTime` 的逐 tile 更新会放大成 O(N²) | 代码路径明确 | ✅ 已修 |
-| 7 | `allFilterableFieldsMap` 用带对象展开的 `reduce` → O(n²) 对象拷贝 | 代码路径明确 | ✅ 已修 |
+| #   | 结论                                                                                                                                       | 证据强度                                                               | 状态                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------ |
+| 1   | 每个 chart tile 各自发一条 SQL 到数仓，首屏并发 N 条；数仓排队是首屏慢的最大嫌疑                                                           | 代码路径明确，需客户 `query_history` 佐证                              | 待客户数据确认           |
+| 2   | 全局类目筛选器改动会触发**两轮** tile 查询：第一轮用「父级新值 + 子级旧值」（结果多半是空），级联解析完再第二轮                            | 代码路径明确（`DashboardProvider.tsx` 全局路径 vs Tab 路径行为不一致） | 已在报告中给出改法，未改 |
+| 3   | 类目解析链（一级 → 四级）是**串行**的 field/search 往返，且首屏会**阻塞**图表查询（最多等 10s）                                            | 代码路径明确                                                           | 未改（见 §5.2）          |
+| 4   | 表格 tile 每次筛选变化会额外发一条 count 查询（`calculate-count`），不受类目解析闸门约束                                                   | 代码路径明确                                                           | 未改（见 §5.4）          |
+| 5   | 筛选下拉每次打开都会打数仓（DISTINCT 查询，limit 500），前端不缓存                                                                         | 代码路径明确                                                           | 建议开缓存（§5.1）       |
+| 6   | 合并后的筛选器每次都是新对象 → 看板上下文变化时**所有 tile 重渲染**、过滤规则重算；叠加 `addResultsCacheTime` 的逐 tile 更新会放大成 O(N²) | 代码路径明确                                                           | ✅ 已修                  |
+| 7   | `allFilterableFieldsMap` 用带对象展开的 `reduce` → O(n²) 对象拷贝                                                                          | 代码路径明确                                                           | ✅ 已修                  |
 
 已提交的改动见 §4。
 
@@ -61,6 +61,7 @@ ProjectService.searchFieldUniqueValues             → 筛选下拉 / 类目解�
 - 结论：首屏慢**大概率是数仓侧**，不是前端。
 
 **建议**：
+
 - 客户侧看 `query_history`：统计首屏每张图的实际耗时与是否排队。
 - 打开结果缓存（`RESULTS_CACHE_ENABLED=true` + S3 配置）：缓存 key = `projectUuid + sql + timezone`
   （`AsyncQueryService.ts:1881`），第二次打开同筛选条件的看板可直接命中。
@@ -128,6 +129,7 @@ ProjectService.searchFieldUniqueValues             → 筛选下拉 / 类目解�
   已修（§4.1/§4.2）。
   注意：React Query 的 query key 是**内容哈希**，所以引用抖动**不会**造成重复发请求，
   只会造成多余渲染与 CPU 开销。
+
 ### 3.7 availableFilters 一次算全量
 
 `useDashboardsAvailableFilters`（`hooks/dashboard/useDashboard.ts:109`）把**整块看板**
@@ -190,6 +192,62 @@ context value 重建 → 所有 tile 的 selector 重跑。
 
 覆盖：相同输入返回同一引用；全局筛选器变化 / Tab 筛选器变化 / 开关变化后引用失效并重算；
 不同 Tab 各自独立。
+
+---
+
+## 4bis. 「切多 Tab 慢」的根因与优化（第二轮）
+
+客户反馈的第二个场景：**在一块多 Tab 看板上反复切 Tab 很慢**。
+
+### 4bis.1 根因一：所有 Tab 的 tile 都挂载且都发查询
+
+- `components/DashboardTabs/index.tsx` 对**每个 Tab** 都渲染 `TabGridPanel`，
+  非激活 Tab 只是 `contentVisibility: hidden`（隐藏，不是卸载）；
+- `hooks/dashboard/useDashboardChartReadyQuery.ts` 的 `enabled` 原来只判断
+  `chartUuid / dashboardUuid / chart / explore / 类目闸门`，**没有判断 tile 是否属于当前 Tab**；
+
+结果：打开一块 N 个 Tab、每个 Tab M 个 tile 的看板，首屏一次性打出 **N × M** 条数仓查询。
+这些查询在数仓侧排队，用户在任何一个 Tab 上都要等“别人占着资源”。
+切 Tab 本身不发新请求（query key 不含 activeTab），但用户切过去后看到的仍是排队中的图。
+
+### 4bis.2 根因二：类目闸门是全局的，切 Tab 会拖累其它 Tab
+
+`DashboardProvider` 的 `isCategoryResolutionPending` =
+「全局类目在解析」 **或**「当前 activeTab 的类目在解析」。
+切到某个 Tab 会触发它的类目解析（`runTabCategoryInit`）→ pending 置为 true
+→ **整块看板的所有 tile 查询都被禁用**（含其它 Tab）。
+后果：在解析期间修改全局筛选器，受影响的 Tab 不会重新查询，图不刷新。
+
+### 4bis.3 优化一：只有访问过的 Tab 才发起查询
+
+- `DashboardProvider` 新增 `visitedTabUuids`（只增不减，引用稳定）；
+- 新增 `utils/dashboardTabs.ts`：
+  - `resolveEffectiveTabUuid(tileTabUuid, dashboardTabs)`：解析 tile 实际所属 Tab
+    （与 `DashboardTabs.tilesByTab` 的 fallback 一致：Tab 列表尚未加载时，
+    tile 带 `tabUuid` 不能当成「无 Tab 看板」放行，否则首屏风暴依旧）；
+  - `shouldQueryTileForTab(effectiveTabUuid, visitedTabUuids)`：无 Tab 作用域 → 放行。
+- `useDashboardChartReadyQuery` 与 `DashboardChartTile` 的 count 查询
+  的 `enabled` 都加上这个判断。
+
+效果：3 个 Tab × 5 个 tile 的看板，首屏从 **15 条降到 5 条**；
+未访问过的 Tab 不会占用数仓资源；切到新 Tab 时该 Tab 才发起查询（React Query
+在 `enabled` 由 false 变 true 时会 fetch，命中不了缓存的情况才真的打数仓）。
+
+### 4bis.4 优化二：类目闸门按 Tab 隔离
+
+- Provider 暴露 `isGlobalCategoryResolutionPending` 与 `pendingTabCategoryResolutions`；
+- tile 的闸门改成：全局在解析 **或 自己的 Tab 在解析** 才挡住；
+- 其它 Tab 的类目解析不再阻塞本 Tab 的查询与刷新。
+
+### 4bis.5 优化三：count 查询与图表查询对齐
+
+表格的 `calculate-count` 查询此前不看 Tab、也不受类目闸门约束，
+现在与图表查询使用同一套条件（Tab 可见 + 类目已解析完）。
+
+### 4bis.6 新增单测
+
+文件：`packages/frontend/src/utils/dashboardTabs.test.ts`（7 个用例）
+覆盖：Tab 归属解析（含脏数据 fallback、Tab 列表未加载）、访问判定。
 
 ---
 

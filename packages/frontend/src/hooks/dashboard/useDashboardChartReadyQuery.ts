@@ -17,6 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { lightdashApi } from '../../api';
 import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import {
+    resolveEffectiveTabUuid,
+    shouldQueryTileForTab,
+} from '../../utils/dashboardTabs';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import {
     getTableChartPageSize,
@@ -108,9 +112,28 @@ export const useDashboardChartReadyQuery = (
     );
     // 首屏类目还在解析时先不查询：等类目解析完成后按最终类目一次性查询，
     // 避免图表先按未解析的类目跑一次、解析完再刷新一次
-    const isCategoryResolutionPending = useDashboardContext(
-        (c) => c.isCategoryResolutionPending,
+    const isGlobalCategoryResolutionPending = useDashboardContext(
+        (c) => c.isGlobalCategoryResolutionPending,
     );
+    // 多 Tab 看板的所有 Tab 面板都会挂载（隐藏而非卸载），
+    // 若每个 tile 都无条件查询，首屏会把所有 Tab 的查询一次性打进数仓排队。
+    // 只有用户访问过的 Tab 才发起查询，切到新 Tab 时再补查该 Tab。
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const visitedTabUuids = useDashboardContext((c) => c.visitedTabUuids);
+    // 类目闸门按 Tab 隔离：只有「自己的 Tab 还在解析」才挡住查询，
+    // 否则切到某个 Tab 解析类目时会把其它 Tab 的查询也一起按住
+    const isTabCategoryResolutionPending = useDashboardContext((c) =>
+        tabUuid ? c.pendingTabCategoryResolutions[tabUuid] === true : false,
+    );
+    const isCategoryResolutionPending =
+        isGlobalCategoryResolutionPending || isTabCategoryResolutionPending;
+    const isTileTabVisited = useMemo(() => {
+        const effectiveTabUuid = resolveEffectiveTabUuid(
+            tabUuid,
+            dashboardTabs,
+        );
+        return shouldQueryTileForTab(effectiveTabUuid, visitedTabUuids);
+    }, [tabUuid, dashboardTabs, visitedTabUuids]);
 
     const sortKey =
         dashboardSorts
@@ -361,6 +384,7 @@ export const useDashboardChartReadyQuery = (
                 dashboardUuid &&
                 chartQuery.data &&
                 explore &&
+                isTileTabVisited &&
                 !isCategoryResolutionPending,
         ),
         retry: false,

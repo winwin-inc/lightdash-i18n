@@ -40,6 +40,21 @@ export type DashboardContextType = {
     setActiveTab: Dispatch<
         SetStateAction<Dashboard['tabs'][number] | undefined>
     >;
+    /**
+     * 全局类目是否正在解析（解析中时所有 Tab 的图表都要等）。
+     */
+    isGlobalCategoryResolutionPending: boolean;
+    /**
+     * 每个 Tab 的类目解析状态（key = tab uuid）。
+     * 只有「自己的 Tab 还在解析」才需要挡住该 Tab 的图表查询，
+     * 避免切到某个 Tab 后把其它 Tab 的查询也一起按住。
+     */
+    pendingTabCategoryResolutions: Record<string, boolean>;
+    /**
+     * 用户访问过的 Tab（只增不减）。
+     * 只有访问过的 Tab 才让 tile 发起查询，避免多 Tab 看板首屏查询风暴。
+     */
+    visitedTabUuids: Set<string>;
     dashboardFilters: DashboardFilters;
     dashboardTemporaryFilters: DashboardFilters;
     allFilters: DashboardFilters;

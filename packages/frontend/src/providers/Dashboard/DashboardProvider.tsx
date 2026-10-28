@@ -205,6 +205,12 @@ const DashboardProvider: React.FC<
     const [activeTab, setActiveTab] = useState<
         Dashboard['tabs'][number] | undefined
     >();
+    // 访问过的 Tab：只有访问过的 Tab 才允许发起 tile 查询，
+    // 避免打开多 Tab 看板时一次性把所有 Tab 的数仓查询全打出去排队。
+    // 引用保持稳定：只有新增 Tab 时才换新 Set，避免无关重渲染。
+    const [visitedTabUuids, setVisitedTabUuids] = useState<Set<string>>(
+        () => new Set(),
+    );
     const { setDashboardActiveTabUuid, getDashboardLastTabUuid } =
         useDashboardStorage();
 
@@ -2292,6 +2298,14 @@ const DashboardProvider: React.FC<
         ? tabFilters[activeTabUuid]
         : undefined;
 
+    // 记录访问过的 Tab（只增不减），供 tile 查询调度使用
+    useEffect(() => {
+        if (!activeTabUuid) return;
+        setVisitedTabUuids((prev) =>
+            prev.has(activeTabUuid) ? prev : new Set(prev).add(activeTabUuid),
+        );
+    }, [activeTabUuid]);
+
     useEffect(() => {
         if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
         if (!activeTabUuid || !activeTabFilters) return;
@@ -2767,6 +2781,9 @@ const DashboardProvider: React.FC<
         setDashboardTabs,
         activeTab,
         setActiveTab,
+        visitedTabUuids,
+        isGlobalCategoryResolutionPending,
+        pendingTabCategoryResolutions,
         setDashboardTemporaryFilters,
         dashboardFilters,
         dashboardTemporaryFilters,
