@@ -898,6 +898,12 @@ describe('DashboardService', () => {
                     subject: 'SavedChart',
                     action: ['view', 'update', 'delete', 'create'],
                 },
+                {
+                    // duplicating a dashboard with SQL charts creates SQL
+                    // chart resources
+                    subject: 'CustomSql',
+                    action: ['manage'],
+                },
             ]),
         };
 
@@ -1309,6 +1315,39 @@ describe('DashboardService', () => {
             ).rejects.toThrow(ForbiddenError);
 
             expect(savedChartModel.create).not.toHaveBeenCalled();
+        });
+
+        test('throws when the user cannot manage custom SQL and the dashboard has SQL charts', async () => {
+            sourceDashboard = buildSourceDashboard({ tiles: [sqlChartTile] });
+
+            const restrictedUser: SessionUser = {
+                ...user,
+                ability: new Ability<PossibleAbilities>([
+                    {
+                        subject: 'Dashboard',
+                        action: ['view', 'create'],
+                    },
+                    {
+                        subject: 'SavedChart',
+                        action: ['view'],
+                    },
+                ]),
+            };
+
+            await expect(
+                service.duplicate(
+                    restrictedUser,
+                    projectUuid,
+                    SOURCE_DASHBOARD_UUID,
+                    duplicateParams,
+                ),
+            ).rejects.toThrow(
+                "You don't have permission to duplicate dashboards with SQL charts",
+            );
+
+            // nothing is created: the check happens before the copy starts
+            expect(dashboardModel.create).not.toHaveBeenCalled();
+            expect(savedSqlModel.create).not.toHaveBeenCalled();
         });
 
         test('keeps the tiles of a dashboard without chart resources and does not duplicate any chart', async () => {

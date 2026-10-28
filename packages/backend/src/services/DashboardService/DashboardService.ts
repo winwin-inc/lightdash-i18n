@@ -1546,9 +1546,8 @@ export class DashboardService
         }
 
         // The user must be able to see the space the SQL chart lives in.
-        // Creating and editing SQL charts still requires the `CustomSql`
-        // ability, but duplicating a chart the user can already see does not
-        // give them access to any new SQL.
+        // The `CustomSql` ability is checked upfront, when the dashboard is
+        // duplicated: creating a SQL chart requires it, copying one too.
         await this.assertCanViewSpaceContent(
             user,
             projectUuid,
@@ -1680,6 +1679,28 @@ export class DashboardService
         if (user.ability.cannot('create', subject('Dashboard', dashboard))) {
             throw new ForbiddenError(
                 "You don't have access to the space this dashboard belongs to",
+            );
+        }
+
+        // A duplicated SQL chart is a new SQL chart resource: creating one
+        // requires the `CustomSql` ability, copying a SQL chart included.
+        // The check happens before anything is created, so a dashboard with
+        // SQL charts is not copied at all when the user is not allowed to.
+        const hasSqlChartTiles = dashboard.tiles.some((tile) =>
+            isDashboardSqlChartTile(tile),
+        );
+        if (
+            hasSqlChartTiles &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', {
+                    organizationUuid: dashboard.organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have permission to duplicate dashboards with SQL charts",
             );
         }
 
