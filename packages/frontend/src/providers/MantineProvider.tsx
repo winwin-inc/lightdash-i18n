@@ -29,7 +29,9 @@ const MantineProvider: FC<React.PropsWithChildren<Props>> = ({
     notificationsLimit,
 }) => {
     const { i18n } = useTranslation();
-    const normalizedLanguage = i18n.language.toLowerCase();
+    // i18n 未初始化时（测试环境 / 资源加载前）i18n.language 可能是 undefined，
+    // 这里兵底成 'en'，避免整个应用白屏。
+    const normalizedLanguage = (i18n.language ?? 'en').toLowerCase();
     const locale = normalizedLanguage.startsWith('zh') ? 'zh-cn' : 'en';
 
     return (
