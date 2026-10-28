@@ -1016,17 +1016,14 @@ const cascadeChildrenAsync = async (
         }
 
         // 联动的判断依据是「当前是否有确认选中的值」：
-        // 有选中值就必须跟着父级联动（disabled 可能只是历史残留）；
-        // 没有值时才沿用既有语义（禁用 = 没有配置默认值 → 不参与）。
-        // 例外：已经绑定父级筛选器的子级，即使自己没配默认值也要参与联动
-        // —— 否则会出现「绑了父级却不动」。
-        const resolvedParent = findParentCategoryEntry(currentChain, child);
+        // 有选中值就必须跟着父级联动（disabled 只说明作者没配默认值，
+        // 用户自己筛过值就应当跟随）；
+        // 没有值 → 不参与联动，保持「任何值」。
         if (
             !shouldCascadeCategoryFilter(
                 child.rule,
                 ctx.recoverableFilterIds,
-            ) &&
-            !resolvedParent
+            )
         ) {
             // 断链：当前级没有值（被禁用）→ 后代失去依据 → 清空后代
             // eslint-disable-next-line no-console
@@ -1278,41 +1275,31 @@ export const initializeCategoryFiltersAsync = async (
             if (getFilterCurrentValue(currentFilter) !== undefined) {
                 continue;
             }
-            // 绑定了父级筛选器 → 这一级的取值由父级推导，
-            // 即使作者没配默认值也要解析，保持和联动一致
-            if (
-                !findParentCategoryEntry(workingChain, {
+            // 被禁用且没有值：链路在这一级断开 → 更下级（子类目）失去依据
+            const cleared = await clearDescendantsAsync(
+                workingChain,
+                {
                     rule: currentFilter,
                     location,
-                })
-            ) {
-                // 被禁用且没有值：链路在这一级断开 → 更下级（子类目）失去依据
-                const cleared = await clearDescendantsAsync(
+                },
+                {
+                    projectUuid,
+                    dashboardContext,
+                    recoverableFilterIds,
+                    canUpdate: (entry) =>
+                        isSameCategoryLocation(entry.location, location),
+                },
+            );
+            workingChain = cleared.chain;
+            if (cleared.hasChanges) {
+                hasChanges = true;
+                workingFilters = getScopeFiltersFromChain(
                     workingChain,
-                    {
-                        rule: currentFilter,
-                        location,
-                    },
-                    {
-                        projectUuid,
-                        dashboardContext,
-                        recoverableFilterIds,
-                        canUpdate: (entry) =>
-                            isSameCategoryLocation(entry.location, location),
-                    },
+                    location,
+                    workingFilters,
                 );
-                workingChain = cleared.chain;
-                if (cleared.hasChanges) {
-                    hasChanges = true;
-                    workingFilters = getScopeFiltersFromChain(
-                        workingChain,
-                        location,
-                        workingFilters,
-                    );
-                }
-                continue;
             }
-            // 绑定了父级 → 继续往下走，按父级的值解析这一级
+            continue;
         }
 
         const resolution = await resolveCategoryFilterValueAsync({

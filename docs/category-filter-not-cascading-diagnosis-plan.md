@@ -125,22 +125,27 @@ const shouldResolveCategoryFilter = (filter, recoverableFilterIds) => {
 
 ⇒ 父值/条件变化都会绕开缓存，**缓存不会造成"父级变了子级没变"**。
 
-### 事实 8：`disabled` 子级是否参与联动（已按「绑定关系是底线」调整）
+### 事实 8：子级是否参与联动的判定（最终语义）
 
-- `disabled` + 有值 → 参与（历史残留值也会被纠正）；
-- `disabled` + 无值 + **未绑定父级** → 不参与、不发请求，并按"断链"清空其后代；
-- `disabled` + 无值 + **已绑定父级筛选器** → **参与联动**：初始化按父级的值解析，
-  父级变化时同步跟随（否则会出现「绑了父级却不动」）。
+**链路的连通性**由绑定关系决定（事实 9）；**子级是否参与联动**由「当前是否有确认
+选中的值」决定：
+
+| 父级绑定 | 子级当前值 | 是否跟随父级 | 说明 |
+| --- | --- | --- | --- |
+| 有 | 有值 | **跟随** | 即使作者没配默认值（`disabled: true`），用户自己筛过值就必须跟随 |
+| 有 | 无值 | **不跟随** | 保持"任何值"，不发请求，并按"断链"清空它的后代 |
+| 无 | 任意 | 不跟随 | 不是链上的子级，不参与级联 |
 
 对应单测：`packages/frontend/src/utils/categoryFilters.test.ts` 的
-*"cascades into a bound child even when it has no default value"* /
+*"cascades into a bound child that has a confirmed value"* /
+*"does not cascade into a bound child without a confirmed value"* /
 *"does not cascade into a child without a parent binding"* /
-*"resolves a bound child that has no default value"*。
+*"keeps a bound child without a default value empty"*。
 
 ### 事实 9：联动的**必要条件**是「绑定了父级筛选器」
 
 - 只有显式绑定父级筛选器（`parentFieldId` + `parentScope` / `parentTabUuid`）的类目
-  才参与父子联动；**不根据 `categoryLevel` 推断父级**。
+  才是链上的子级；**不根据 `categoryLevel` 推断父级**。
 - 未绑定父级的类目：既不参与级联，也不参与初始化赋值。
 - 配置界面在「类目层级」变更时会自动绑定父级：
   同作用域上一级候选唯一 → 自动绑定；同作用域无候选但全局上一级唯一 → 自动绑定；
@@ -370,8 +375,9 @@ pnpm -F frontend test
 要点：
 
 1. **联动规则**（见事实 8 / 事实 9）
-   - 只有绑定父级筛选器的类目参与联动；未绑定的不参与（初始化也不赋值）。
-   - 已绑定但没有默认值的子级：初始化按父级解析，级联时跟随父级。
+   - 只有绑定父级筛选器的类目才是链上的子级；未绑定的不参与（初始化也不赋值）。
+   - 子级有确认选中的值 → 跟随父级（哪怕作者没配默认值，用户筛过值就要跟随）。
+   - 子级没有值 → 不跟随，保持"任何值"，并清空它的后代。
 2. **用户提示**：`CategoryResolutionIssue` / `onResolutionIssue` 上报
    - 请求失败 → error toast（固定 key `dashboard-category-resolution-failed`）
    - 级联无候选 → warning toast（固定 key `dashboard-category-no-candidates`）

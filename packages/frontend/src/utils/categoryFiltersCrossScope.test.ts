@@ -724,11 +724,75 @@ describe('categoryFilters screenshot scenario', () => {
         expect(tabFilters[2].values).toEqual(['乳饮料A1']);
     });
 
-    it('cascades to tab level 3 and 4 that are bound but have no default value', async () => {
-        // 已绑定父级筛选器 → 父级变化时必须联动（即使自己没有默认值）
+    it('cascades to tab level 3 and 4 that are bound and have a confirmed value', async () => {
+        // 已绑定父级筛选器、且已经筛过值 → 父级变化时必须联动
         mockSearchResults(['乳饮料']);
         mockSearchResults(['乳饮料A']);
         mockSearchResults(['乳饮料A1']);
+
+        const layers = {
+            globalFilters: asFilters([
+                categoryFilter({
+                    id: 'g1',
+                    fieldId: 'cls_1',
+                    categoryLevel: 1,
+                    values: ['饮料和酒'],
+                }),
+            ]),
+            tabFilters: {
+                [TAB_UUID]: asFilters([
+                    categoryFilter({
+                        id: 't2',
+                        fieldId: 'cls_2',
+                        categoryLevel: 2,
+                        values: ['饮料'],
+                        parentFieldId: 'cls_1',
+                        parentScope: 'global',
+                    }),
+                    categoryFilter({
+                        id: 't3',
+                        fieldId: 'cls_3',
+                        categoryLevel: 3,
+                        values: ['旧三级'],
+                        parentFieldId: 'cls_2',
+                        parentScope: 'tab',
+                        parentTabUuid: TAB_UUID,
+                        disabled: true,
+                    }),
+                    categoryFilter({
+                        id: 't4',
+                        fieldId: 'cls_4',
+                        categoryLevel: 4,
+                        values: ['旧四级'],
+                        parentFieldId: 'cls_3',
+                        parentScope: 'tab',
+                        parentTabUuid: TAB_UUID,
+                        disabled: true,
+                    }),
+                ]),
+            },
+        };
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        const tabFilters = result.tabFilters[TAB_UUID].dimensions;
+        expect(tabFilters[0].values).toEqual(['乳饮料']);
+        expect(tabFilters[1].values).toEqual(['乳饮料A']);
+        expect(tabFilters[2].values).toEqual(['乳饮料A1']);
+        // 补齐后恢复成可用状态，筛选器才会真正生效
+        expect(tabFilters[1].disabled).toBe(false);
+        expect(tabFilters[2].disabled).toBe(false);
+    });
+
+    it('does not cascade to tab levels that are bound but have no value', async () => {
+        // 绑定了父级、但自己没有任何值 → 不联动，保持「任何值」
+        mockSearchResults(['乳饮料']);
 
         const layers = {
             globalFilters: asFilters([
@@ -759,16 +823,6 @@ describe('categoryFilters screenshot scenario', () => {
                         parentTabUuid: TAB_UUID,
                         disabled: true,
                     }),
-                    categoryFilter({
-                        id: 't4',
-                        fieldId: 'cls_4',
-                        categoryLevel: 4,
-                        values: [],
-                        parentFieldId: 'cls_3',
-                        parentScope: 'tab',
-                        parentTabUuid: TAB_UUID,
-                        disabled: true,
-                    }),
                 ]),
             },
         };
@@ -783,11 +837,8 @@ describe('categoryFilters screenshot scenario', () => {
 
         const tabFilters = result.tabFilters[TAB_UUID].dimensions;
         expect(tabFilters[0].values).toEqual(['乳饮料']);
-        expect(tabFilters[1].values).toEqual(['乳饮料A']);
-        expect(tabFilters[2].values).toEqual(['乳饮料A1']);
-        // 补齐后恢复成可用状态，筛选器才会真正生效
-        expect(tabFilters[1].disabled).toBe(false);
-        expect(tabFilters[2].disabled).toBe(false);
+        // 没有值 → 不联动
+        expect(tabFilters[1].values).toEqual([]);
     });
 
     it('does not cascade to tab levels that are not bound to a parent', async () => {

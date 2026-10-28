@@ -440,10 +440,9 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(api).not.toHaveBeenCalled();
     });
 
-    it('resolves a bound child that has no default value', async () => {
-        // 绑定了父级筛选器 → 初始化时按父级的值解析这一级（和联动保持一致）
+    it('keeps a bound child without a default value empty', async () => {
+        // 绑定了父级筛选器、但自己没有任何值 → 初始化不赋值，保持「任何值」
         mockSearchResults(['P1']);
-        mockSearchResults(['C1']);
 
         const filters = asFilters([
             categoryFilter({
@@ -468,9 +467,8 @@ describe('initializeCategoryFiltersAsync', () => {
             dashboardContext,
         );
 
-        expect(result).not.toBe(filters);
-        expect(result.dimensions[1].values).toEqual(['C1']);
-        expect(result.dimensions[1].disabled).toBe(false);
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toEqual([]);
     });
 
     it('keeps a child without a parent binding empty', async () => {
@@ -1235,9 +1233,8 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(result.dimensions[1].disabled).toBe(false);
     });
 
-    it('cascades into a bound child even when it has no default value', async () => {
-        // 已绑定父级 → 父级变化时子级必须跟着走，
-        // 否则用户会看到「绑了父级却不动」
+    it('does not cascade into a bound child without a confirmed value', async () => {
+        // 绑定了父级、但自己没有值（没有默认值也没筛过）→ 不联动，保持「任何值」
         mockSearchResults(['C1', 'C2']);
 
         const parent = categoryFilter({
@@ -1246,7 +1243,6 @@ describe('updateCategoryFilterCascadeAsync', () => {
             categoryLevel: 1,
             values: ['P2'],
         });
-        // 下级类目没有默认值（disabled）→ 父级变化时按实际数据补齐
         const child = categoryFilter({
             id: 'l2',
             fieldId: 'dim_categories_cls_2',
@@ -1264,10 +1260,41 @@ describe('updateCategoryFilterCascadeAsync', () => {
             dashboardContext,
         );
 
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toBeUndefined();
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('cascades into a bound child that has a confirmed value', async () => {
+        // 绑定了父级、并且此时已经筛过值（即使没有默认值）→ 必须跟随父级
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            parentFieldId: 'dim_categories_cls_1',
+            values: ['OLD'],
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
         expect(result).not.toBe(filters);
         expect(result.dimensions[1].values).toEqual(['C1']);
-        // 补齐后筛选器恢复成可用状态
-        expect(result.dimensions[1].disabled).toBe(false);
         expect(api).toHaveBeenCalledTimes(1);
     });
 
