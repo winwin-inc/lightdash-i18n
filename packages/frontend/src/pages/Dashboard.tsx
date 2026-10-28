@@ -1021,6 +1021,13 @@ const Dashboard: FC = () => {
     const hasTilesThatSupportFilters = useDashboardContext(
         (c) => c.hasTilesThatSupportFilters,
     );
+    /**
+     * The global filters bar is the topmost sticky layer. It only takes up
+     * space when it actually renders something, otherwise it would leave a
+     * gap in the sticky stack.
+     */
+    const hasGlobalFiltersContent =
+        hasTilesThatSupportFilters || (isEditMode && !!hasDashboardTiles);
 
     if (dashboardError) {
         return t('pages_dashboard.loading');
@@ -1244,11 +1251,12 @@ const Dashboard: FC = () => {
                         px={'lg'}
                         style={{
                             ...globalFiltersStickyStyle,
-                            // the scroll container no longer has a top
-                            // padding (it would leave a gap above the
-                            // sticky bar), the spacing is a margin so it
-                            // scrolls away with the content
-                            marginTop: 24,
+                            // the spacing to the content above (the
+                            // header). It is a padding (and not a margin)
+                            // so it is part of the sticky layer: a margin
+                            // scrolls away and the bar would stick right
+                            // below the header
+                            paddingTop: hasGlobalFiltersContent ? 24 : 0,
                             // the page background, it has to be opaque so
                             // the content can't scroll through the bar
                             backgroundColor: theme.colors.gray[0],
