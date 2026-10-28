@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 
 import { type SqlChartTileMetadata } from '../../providers/Dashboard/types';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import { resolveEffectiveTabUuid } from '../../utils/dashboardTabs';
 
 export type DashboardFilterScope = 'global' | 'tab';
 
@@ -31,6 +32,20 @@ export const mergeFilterableFields = (
 };
 
 /**
+ * tile 实际所属的 Tab。
+ *
+ * 与 tab 栏渲染保持一致（DashboardTabs.tilesByTab → defaultTab = dashboardTabs[0]）：
+ * - tile.tabUuid 指向存在的 Tab → 用它
+ * - tile.tabUuid 为空 / 指向已删除的 Tab（脏数据）→ 落到第一个 Tab
+ * - Tab 列表尚未加载 → 仍按 tile 自己的 tabUuid 处理（首屏不误判）
+ */
+export const getTileEffectiveTabUuid = (
+    tile: DashboardTile,
+    dashboardTabs: DashboardTab[] | undefined,
+): string | undefined =>
+    resolveEffectiveTabUuid(tile.tabUuid, dashboardTabs ?? []);
+
+/**
  * 取指定 tab 内图表的可筛选字段（tile -> fields）
  */
 export const getTabFilterableFieldsByTileUuid = (
@@ -39,12 +54,17 @@ export const getTabFilterableFieldsByTileUuid = (
         | undefined,
     dashboardTiles: DashboardTile[] | undefined,
     activeTabUuid: string | undefined,
+    dashboardTabs?: DashboardTab[],
 ): Record<string, DashboardFilterableField[]> => {
     if (!activeTabUuid) return {};
 
     const tabTileUuids = new Set(
         (dashboardTiles ?? [])
-            .filter((tile) => tile.tabUuid === activeTabUuid)
+            .filter(
+                (tile) =>
+                    getTileEffectiveTabUuid(tile, dashboardTabs) ===
+                    activeTabUuid,
+            )
             .map((tile) => tile.uuid),
     );
 
@@ -92,8 +112,14 @@ export const useDashboardFilterScope = (
         if (filterScope === 'global') {
             return dashboardTiles;
         }
-        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterScope]);
+        // 用 tile 的「实际所属 Tab」过滤，与 tab 栏渲染保持一致：
+        // 脏数据 tile（tabUuid 为空 / 指向已删除的 Tab）会渲染在第一个 Tab，
+        // 它的字段也必须出现在第一个 Tab 的筛选器里，否则「图能选到、字段选不到」
+        return dashboardTiles?.filter(
+            (tile) =>
+                getTileEffectiveTabUuid(tile, dashboardTabs) === activeTabUuid,
+        );
+    }, [dashboardTiles, dashboardTabs, activeTabUuid, filterScope]);
 
     /** 当前作用域下每个图表的可筛选字段 */
     const appliedFilterableFieldsByTileUuid = useMemo(() => {
@@ -104,10 +130,12 @@ export const useDashboardFilterScope = (
             filterableFieldsByTileUuid,
             dashboardTiles,
             activeTabUuid,
+            dashboardTabs,
         );
     }, [
         filterableFieldsByTileUuid,
         dashboardTiles,
+        dashboardTabs,
         activeTabUuid,
         filterScope,
     ]);

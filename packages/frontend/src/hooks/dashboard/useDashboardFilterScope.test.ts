@@ -7,6 +7,7 @@ import {
 
 import {
     getTabFilterableFieldsByTileUuid,
+    getTileEffectiveTabUuid,
     mergeFilterableFields,
 } from './useDashboardFilterScope';
 
@@ -25,9 +26,9 @@ const field = (
         tableReference: table,
         hidden: false,
         index: 0,
-    }) as unknown as DashboardFilterableField;
+    } as unknown as DashboardFilterableField);
 
-const tile = (uuid: string, tabUuid: string): DashboardTile =>
+const tile = (uuid: string, tabUuid: string | undefined): DashboardTile =>
     ({
         uuid,
         tabUuid,
@@ -36,7 +37,12 @@ const tile = (uuid: string, tabUuid: string): DashboardTile =>
         y: 0,
         h: 1,
         w: 1,
-    }) as unknown as DashboardTile;
+    } as unknown as DashboardTile);
+
+const tabs = [
+    { uuid: 'tab-1', name: 'Tab 1', order: 0 },
+    { uuid: 'tab-2', name: 'Tab 2', order: 1 },
+];
 
 describe('mergeFilterableFields', () => {
     it('dedupes fields with the same id', () => {
@@ -93,5 +99,77 @@ describe('getTabFilterableFieldsByTileUuid', () => {
         );
 
         expect(result).toEqual({});
+    });
+
+    it('keeps the tile tab while the tab list is not loaded yet', () => {
+        // 首屏：Tab 列表还没拿到，tile 带 tabUuid 仍应归属自己的 Tab
+        const result = getTabFilterableFieldsByTileUuid(
+            filterableFieldsByTileUuid,
+            tiles,
+            'tab-2',
+            [],
+        );
+
+        expect(Object.keys(result)).toEqual(['tile-2']);
+    });
+
+    it('falls back to the first tab for tiles with a stale tab reference', () => {
+        // 脏数据：tile 指向已删除的 Tab —— tab 栏会把它渲染在第一个 Tab，
+        // 字段也必须出现在第一个 Tab 的筛选器里
+        const dirtyTiles = [tile('tile-1', 'deleted-tab')];
+        const fieldsByTile = { 'tile-1': [field('champions', 'region')] };
+
+        const firstTabResult = getTabFilterableFieldsByTileUuid(
+            fieldsByTile,
+            dirtyTiles,
+            'tab-1',
+            tabs,
+        );
+        const secondTabResult = getTabFilterableFieldsByTileUuid(
+            fieldsByTile,
+            dirtyTiles,
+            'tab-2',
+            tabs,
+        );
+
+        expect(Object.keys(firstTabResult)).toEqual(['tile-1']);
+        expect(secondTabResult).toEqual({});
+    });
+
+    it('falls back to the first tab for tiles without a tab reference', () => {
+        const dirtyTiles = [tile('tile-1', undefined)];
+        const fieldsByTile = { 'tile-1': [field('champions', 'region')] };
+
+        const result = getTabFilterableFieldsByTileUuid(
+            fieldsByTile,
+            dirtyTiles,
+            'tab-1',
+            tabs,
+        );
+
+        expect(Object.keys(result)).toEqual(['tile-1']);
+    });
+});
+
+describe('getTileEffectiveTabUuid', () => {
+    it('returns the tile tab when it exists', () => {
+        expect(getTileEffectiveTabUuid(tile('tile-1', 'tab-2'), tabs)).toBe(
+            'tab-2',
+        );
+    });
+
+    it('falls back to the first tab when the tile tab is unknown', () => {
+        expect(
+            getTileEffectiveTabUuid(tile('tile-1', 'deleted-tab'), tabs),
+        ).toBe('tab-1');
+        expect(getTileEffectiveTabUuid(tile('tile-1', undefined), tabs)).toBe(
+            'tab-1',
+        );
+    });
+
+    it('keeps the tile tab while the tab list is not loaded yet', () => {
+        expect(getTileEffectiveTabUuid(tile('tile-1', 'tab-2'), [])).toBe(
+            'tab-2',
+        );
     });
 });
