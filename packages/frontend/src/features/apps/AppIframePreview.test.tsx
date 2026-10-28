@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { MantineProvider as Mantine8Provider } from '@mantine-8/core';
 import { type FC } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import MantineProvider from '../../providers/MantineProvider';
@@ -40,15 +41,19 @@ const Harness: FC<HarnessProps> = ({
     src = SRC,
 }) => (
     <MantineProvider forceColorScheme={hostColorScheme}>
-        <AppIframePreview
-            src={src}
-            previewToken={previewToken}
-            expectedPreviewOrigin="https://preview.example"
-            projectUuid="p"
-            appUuid="a"
-            identityKey="a:1"
-            forceColorScheme={forceColorScheme}
-        />
+        {/* 组件用的是 Mantine v8（@mantine-8/core）的配色 hook，
+            颜色方案要由 v8 的 provider 控制 */}
+        <Mantine8Provider forceColorScheme={hostColorScheme}>
+            <AppIframePreview
+                src={src}
+                previewToken={previewToken}
+                expectedPreviewOrigin="https://preview.example"
+                projectUuid="p"
+                appUuid="a"
+                identityKey="a:1"
+                forceColorScheme={forceColorScheme}
+            />
+        </Mantine8Provider>
     </MantineProvider>
 );
 
