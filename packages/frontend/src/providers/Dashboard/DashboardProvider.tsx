@@ -89,7 +89,9 @@ import {
     updateCrossScopeCategoryCascadeAsync,
     type CategoryFilterLocation,
     type CategoryRequestSession,
+    type CategoryResolutionIssue,
 } from '../../utils/categoryFilters';
+import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import {
     applySelectionToTabFilters,
     getFilterDefinitionFingerprints,
@@ -134,7 +136,42 @@ const DashboardProvider: React.FC<
     const navigate = useNavigate();
 
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-    const { showToastInfo } = useToaster();
+    const { showToastInfo, showToastError, showToastWarning } = useToaster();
+
+    /**
+     * 类目解析异常（请求失败 / 没有候选值）的用户提示。
+     *
+     * 解析失败时前端会「保留原值」，如果不做任何提示，
+     * 用户看到的现象就是「父级绑定了但联动没生效」，无法定位原因。
+     * 相同类型用固定 key：重复发生时更新同一个 toast，而不是刷一屏。
+     */
+    const handleCategoryResolutionIssue = useCallback(
+        (issue: CategoryResolutionIssue) => {
+            if (issue.kind === 'error') {
+                if (isWarehouseResourceLimitError(issue.error)) {
+                    showToastError({
+                        key: 'warehouse-resource-limit',
+                        title: t('hooks_query_error.warehouse_resource_limit'),
+                        autoClose: 10000,
+                    });
+                    return;
+                }
+                showToastError({
+                    key: 'dashboard-category-resolution-failed',
+                    title: t('hooks_query_error.category_resolution_failed'),
+                    autoClose: 10000,
+                });
+                return;
+            }
+
+            showToastWarning({
+                key: 'dashboard-category-no-candidates',
+                title: t('hooks_query_error.category_no_candidates'),
+                autoClose: 10000,
+            });
+        },
+        [showToastError, showToastWarning, t],
+    );
 
     const { dashboardUuid, tabUuid, mode } = useParams<{
         dashboardUuid: string;
@@ -508,7 +545,11 @@ const DashboardProvider: React.FC<
                 filters,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds, session },
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                },
             )
                 .then((refined) => {
                     setDashboardFilters((currentFilters) => {
@@ -560,6 +601,7 @@ const DashboardProvider: React.FC<
             clearCategoryResolutionTimeout,
             setDashboardFilters,
             startGlobalCategoryInitSession,
+            handleCategoryResolutionIssue,
         ],
     );
 
@@ -601,6 +643,7 @@ const DashboardProvider: React.FC<
                         ),
                     },
                     session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
                 },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
@@ -623,6 +666,7 @@ const DashboardProvider: React.FC<
                         ),
                     },
                     session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
                 },
             );
         },
@@ -632,6 +676,7 @@ const DashboardProvider: React.FC<
             dashboardFilterContext,
             recoverableCategoryFilterIds,
             dashboardFilters,
+            handleCategoryResolutionIssue,
         ],
     );
 
@@ -872,7 +917,11 @@ const DashboardProvider: React.FC<
                 newValue,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds, session },
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
             // 否则会把用户的显式选择重置成别的类目（或直接清空）。
@@ -884,6 +933,7 @@ const DashboardProvider: React.FC<
                     skipFilterIds: [changedFilter.id],
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
                 },
             );
             return {
@@ -897,6 +947,7 @@ const DashboardProvider: React.FC<
             dashboardFilterContext,
             recoverableCategoryFilterIds,
             tabFilters,
+            handleCategoryResolutionIssue,
         ],
     );
 
@@ -1213,6 +1264,7 @@ const DashboardProvider: React.FC<
                         chain,
                     },
                     session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
                 },
             )
                 .then((refined) => {
@@ -1286,6 +1338,7 @@ const DashboardProvider: React.FC<
             getTabCategoryChainSignature,
             markTabCategoryProcessed,
             startTabCategoryInitSession,
+            handleCategoryResolutionIssue,
         ],
     );
 
@@ -1365,6 +1418,7 @@ const DashboardProvider: React.FC<
                             ),
                         },
                         session,
+                        onResolutionIssue: handleCategoryResolutionIssue,
                     },
                 )
                     .then((refined) => {
@@ -1563,6 +1617,7 @@ const DashboardProvider: React.FC<
             getTabCategoryChainSignature,
             recordUserSelection,
             syncSelectionToAllTabs,
+            handleCategoryResolutionIssue,
         ],
     );
 

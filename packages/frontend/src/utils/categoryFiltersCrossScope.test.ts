@@ -647,3 +647,233 @@ describe('categoryFilters cross scope', () => {
         });
     });
 });
+
+describe('categoryFilters screenshot scenario', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    // 场景：全局「一级类目」；Tab 内「二级类目」绑定全局一级类目，
+    // 「三级类目」「四级类目」依次绑定（与截图一致）
+    const buildLayers = () => ({
+        globalFilters: asFilters([
+            categoryFilter({
+                id: 'g1',
+                fieldId: 'cls_1',
+                categoryLevel: 1,
+                values: ['饮料和酒'],
+            }),
+        ]),
+        tabFilters: {
+            [TAB_UUID]: asFilters([
+                categoryFilter({
+                    id: 't2',
+                    fieldId: 'cls_2',
+                    categoryLevel: 2,
+                    values: ['饮料'],
+                    parentFieldId: 'cls_1',
+                    parentScope: 'global',
+                }),
+                categoryFilter({
+                    id: 't3',
+                    fieldId: 'cls_3',
+                    categoryLevel: 3,
+                    values: [],
+                    parentFieldId: 'cls_2',
+                    parentScope: 'tab',
+                    parentTabUuid: TAB_UUID,
+                }),
+                categoryFilter({
+                    id: 't4',
+                    fieldId: 'cls_4',
+                    categoryLevel: 4,
+                    values: [],
+                    parentFieldId: 'cls_3',
+                    parentScope: 'tab',
+                    parentTabUuid: TAB_UUID,
+                }),
+            ]),
+        },
+    });
+
+    it('updates the tab level 2 filter when the global level 1 filter changes', async () => {
+        // 二级类目的候选（受全局一级类目条件约束）
+        mockSearchResults(['乳饮料']);
+        // 三级类目的候选
+        mockSearchResults(['乳饮料A']);
+        // 四级类目的候选
+        mockSearchResults(['乳饮料A1']);
+
+        const layers = buildLayers();
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        const tabFilters = result.tabFilters[TAB_UUID].dimensions;
+        expect(tabFilters[0].values).toEqual(['乳饮料']);
+        expect(tabFilters[1].values).toEqual(['乳饮料A']);
+        expect(tabFilters[2].values).toEqual(['乳饮料A1']);
+    });
+
+    it('cascades to tab level 3 and 4 that are bound but have no default value', async () => {
+        // 已绑定父级筛选器 → 父级变化时必须联动（即使自己没有默认值）
+        mockSearchResults(['乳饮料']);
+        mockSearchResults(['乳饮料A']);
+        mockSearchResults(['乳饮料A1']);
+
+        const layers = {
+            globalFilters: asFilters([
+                categoryFilter({
+                    id: 'g1',
+                    fieldId: 'cls_1',
+                    categoryLevel: 1,
+                    values: ['饮料和酒'],
+                }),
+            ]),
+            tabFilters: {
+                [TAB_UUID]: asFilters([
+                    categoryFilter({
+                        id: 't2',
+                        fieldId: 'cls_2',
+                        categoryLevel: 2,
+                        values: ['饮料'],
+                        parentFieldId: 'cls_1',
+                        parentScope: 'global',
+                    }),
+                    categoryFilter({
+                        id: 't3',
+                        fieldId: 'cls_3',
+                        categoryLevel: 3,
+                        values: [],
+                        parentFieldId: 'cls_2',
+                        parentScope: 'tab',
+                        parentTabUuid: TAB_UUID,
+                        disabled: true,
+                    }),
+                    categoryFilter({
+                        id: 't4',
+                        fieldId: 'cls_4',
+                        categoryLevel: 4,
+                        values: [],
+                        parentFieldId: 'cls_3',
+                        parentScope: 'tab',
+                        parentTabUuid: TAB_UUID,
+                        disabled: true,
+                    }),
+                ]),
+            },
+        };
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        const tabFilters = result.tabFilters[TAB_UUID].dimensions;
+        expect(tabFilters[0].values).toEqual(['乳饮料']);
+        expect(tabFilters[1].values).toEqual(['乳饮料A']);
+        expect(tabFilters[2].values).toEqual(['乳饮料A1']);
+        // 补齐后恢复成可用状态，筛选器才会真正生效
+        expect(tabFilters[1].disabled).toBe(false);
+        expect(tabFilters[2].disabled).toBe(false);
+    });
+
+    it('does not cascade to tab levels that are not bound to a parent', async () => {
+        // 没有绑定父级筛选器 → 不参与联动（绑定关系是联动的必要条件）
+        mockSearchResults(['乳饮料']);
+
+        const layers = {
+            globalFilters: asFilters([
+                categoryFilter({
+                    id: 'g1',
+                    fieldId: 'cls_1',
+                    categoryLevel: 1,
+                    values: ['饮料和酒'],
+                }),
+            ]),
+            tabFilters: {
+                [TAB_UUID]: asFilters([
+                    categoryFilter({
+                        id: 't2',
+                        fieldId: 'cls_2',
+                        categoryLevel: 2,
+                        values: ['饮料'],
+                        parentFieldId: 'cls_1',
+                        parentScope: 'global',
+                    }),
+                    categoryFilter({
+                        id: 't3',
+                        fieldId: 'cls_3',
+                        categoryLevel: 3,
+                        values: [],
+                        disabled: true,
+                    }),
+                ]),
+            },
+        };
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        const tabFilters = result.tabFilters[TAB_UUID].dimensions;
+        expect(tabFilters[0].values).toEqual(['乳饮料']);
+        // 未绑定父级 → 保持原值
+        expect(tabFilters[1].values).toEqual([]);
+    });
+
+    it('reports an issue and keeps the old value when the cross scope request fails', async () => {
+        const warehouseError = {
+            status: 'error',
+            error: {
+                name: 'ApiError',
+                statusCode: 500,
+                message: 'HGERR_code 53200 memory limitation',
+            },
+        } as never;
+        // 一级失败后，级联会继续请求三级类目，这里同样返回仓库错误
+        api.mockRejectedValueOnce(warehouseError);
+        api.mockRejectedValueOnce(warehouseError);
+
+        const layers = buildLayers();
+        const onResolutionIssue = vi.fn();
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        // 失败时保留 Tab 里的旧值
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '饮料',
+        ]);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'error',
+                filterId: 't2',
+                phase: 'cascade',
+                scope: TAB_UUID,
+            }),
+        );
+    });
+});

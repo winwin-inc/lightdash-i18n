@@ -238,7 +238,9 @@
     "validation_error_subtitle": "字段 {{keys}} 的值 {{values}} 无效。团队已收到通知，我们将尽快修复。",
     "unknown_validation_error": "未知验证错误",
     "chart_error": "图表「{{chartName}}」：出错了",
-    "warehouse_resource_limit": "仓库查询资源不足（引擎内存已达上限），请稍后重试或缩小筛选范围。"
+    "warehouse_resource_limit": "仓库查询资源不足（引擎内存已达上限），请稍后重试或缩小筛选范围。",
+    "category_resolution_failed": "类目筛选器解析失败，已保留原值，联动可能未生效。",
+    "category_no_candidates": "父级下没有可选的类目，子级筛选器已保留原值。"
   },
   "hooks_explorer_route": {
     "parse_url_error": "解析 URL 出错",

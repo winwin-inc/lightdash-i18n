@@ -5,6 +5,7 @@ import {
     FilterOperator,
 } from '@lightdash/common';
 import { lightdashApi } from '../api';
+import { enqueueFieldSearch } from './fieldSearchQueue';
 import { isWarehouseResourceLimitError } from './warehouseError';
 
 /**
@@ -131,6 +132,12 @@ export const isSameCategoryLocation = (
 ): boolean => a.scope === b.scope && a.tabUuid === b.tabUuid;
 
 /**
+ * 作用域的可读标识：全局用 'global'，Tab 用 tabUuid
+ */
+export const getLocationScopeLabel = (location: CategoryFilterLocation) =>
+    location.scope === 'global' ? 'global' : (location.tabUuid ?? 'tab');
+
+/**
  * 跨作用域的筛选器集合：全局 + 各 Tab
  */
 export type CategoryFilterLayers = {
@@ -219,7 +226,7 @@ const isValidParentLevel = (
 };
 
 /**
- * 在链中查找子筛选器的父级：
+ * 查找子筛选器的父级：
  * - 显式声明作用域（parentScope / parentTabUuid）→ 精确匹配，找不到即视为绑定失效
  * - 旧数据（未声明作用域）→ 同作用域优先，其次全局
  */
@@ -310,43 +317,9 @@ const FIELD_SEARCH_CACHE_TTL_MS = 5000;
 const FIELD_SEARCH_TIMEOUT_MS = 30000;
 
 /**
- * 类目 field/search 请求队列（并发 1）。
- *
- * 仓库引擎的内存限额是**所有 query 合计**的全局限额：类目解析 / 级联用的
- * field/search 是重查询（带 dbt sql_filter + GROUP BY），并发跑容易把引擎内存打满
- * （HGERR_code 53200），连带把看板自己的查询一起拒绝。
- * 这里把所有类目解析请求串行化，减轻引擎压力。
- *
- * 队列空闲时立即启动（不推迟到下一个 microtask），
- * 避免无谓地拖慢第一个请求。
+ * 类目 field/search 请求队列（并发 1）与自动补全共用，
+ * 避免多个重查询同时打满仓库引擎的全局内存额度。
  */
-let fieldSearchInFlight = false;
-const fieldSearchWaiters: (() => void)[] = [];
-
-const runFieldSearchTask = async <T>(task: () => Promise<T>): Promise<T> => {
-    try {
-        return await task();
-    } finally {
-        const next = fieldSearchWaiters.shift();
-        if (next) {
-            next();
-        } else {
-            fieldSearchInFlight = false;
-        }
-    }
-};
-
-const enqueueFieldSearch = <T>(task: () => Promise<T>): Promise<T> => {
-    if (!fieldSearchInFlight) {
-        fieldSearchInFlight = true;
-        return runFieldSearchTask(task);
-    }
-    return new Promise<T>((resolve, reject) => {
-        fieldSearchWaiters.push(() => {
-            runFieldSearchTask(task).then(resolve, reject);
-        });
-    });
-};
 
 /**
  * 类目解析失败时的日志：
@@ -705,6 +678,7 @@ const collectFieldSearchFilters = (
             entry.rule.values.length > 0,
     );
 
+    // 只有显式绑定父级筛选器的类目才参与父子联动（绑定的父级字段 + 作用域）
     const parentFieldId = getParentFieldId(child.rule);
     if (!parentFieldId) {
         return leftEntries.length > 0
@@ -713,6 +687,7 @@ const collectFieldSearchFilters = (
     }
 
     const parentEntry = findParentCategoryEntry(chain, child);
+
     if (!parentEntry || !isCategoryField(parentEntry.rule)) {
         // 父级不存在（被删除 / 绑定失效）→ 链路断裂
         return undefined;
@@ -911,6 +886,32 @@ const replaceRuleInFilters = (
 });
 
 /**
+ * 类目解析结果异常（请求失败或没有候选值）的上下文信息
+ */
+export type CategoryResolutionIssue = {
+    /** 异常类型：error = 请求失败；no-candidates = 没有候选值 */
+    kind: 'error' | 'no-candidates';
+    /** 出问题的筛选器 id */
+    filterId: string;
+    /** 出问题的字段 id */
+    fieldId: string;
+    /** 异常发生的阶段 */
+    phase: 'init' | 'cascade';
+    /** 所属作用域（'global' 或 Tab uuid） */
+    scope: string;
+    /** 原始错误（kind === 'error' 时有值） */
+    error?: unknown;
+};
+
+/**
+ * 类目解析异常回调：解析失败时前端会保留原值，
+ * 必须把失败暴露给用户，否则表现为「联动没生效」却没有任何提示。
+ */
+export type CategoryResolutionIssueHandler = (
+    issue: CategoryResolutionIssue,
+) => void;
+
+/**
  * 联动上下文
  */
 type CascadeContext = {
@@ -921,6 +922,8 @@ type CascadeContext = {
     canUpdate: (entry: CategoryChainEntry) => boolean;
     /** 请求会话：会话被取消时放弃本次联动 */
     session?: CategoryRequestSession;
+    /** 解析异常回调（用于提示用户） */
+    onResolutionIssue?: CategoryResolutionIssueHandler;
 };
 
 /**
@@ -932,6 +935,7 @@ const getChildEntries = (
 ): CategoryChainEntry[] =>
     chain.filter((entry) => {
         if (!isCategoryField(entry.rule)) return false;
+        // 只有显式绑定父级筛选器的类目才是子级
         const resolvedParent = findParentCategoryEntry(chain, entry);
         return resolvedParent?.rule.id === parent.rule.id;
     });
@@ -1014,10 +1018,21 @@ const cascadeChildrenAsync = async (
         // 联动的判断依据是「当前是否有确认选中的值」：
         // 有选中值就必须跟着父级联动（disabled 可能只是历史残留）；
         // 没有值时才沿用既有语义（禁用 = 没有配置默认值 → 不参与）。
+        // 例外：已经绑定父级筛选器的子级，即使自己没配默认值也要参与联动
+        // —— 否则会出现「绑了父级却不动」。
+        const resolvedParent = findParentCategoryEntry(currentChain, child);
         if (
-            !shouldCascadeCategoryFilter(child.rule, ctx.recoverableFilterIds)
+            !shouldCascadeCategoryFilter(
+                child.rule,
+                ctx.recoverableFilterIds,
+            ) &&
+            !resolvedParent
         ) {
             // 断链：当前级没有值（被禁用）→ 后代失去依据 → 清空后代
+            // eslint-disable-next-line no-console
+            console.debug(
+                `[categoryFilters] Skip cascading ${child.rule.target.fieldId}: no confirmed value (disabled), descendants will be cleared`,
+            );
             const cleared = await clearDescendantsAsync(
                 currentChain,
                 child,
@@ -1066,6 +1081,14 @@ const cascadeChildrenAsync = async (
                 `Failed to cascade category filter ${child.rule.target.fieldId}, keeping current value`,
                 resolution.error,
             );
+            ctx.onResolutionIssue?.({
+                kind: 'error',
+                filterId: child.rule.id,
+                fieldId: child.rule.target.fieldId,
+                phase: 'cascade',
+                scope: getLocationScopeLabel(child.location),
+                error: resolution.error,
+            });
             const childResult = await cascadeChildrenAsync(
                 currentChain,
                 child,
@@ -1083,6 +1106,16 @@ const cascadeChildrenAsync = async (
         if (resolution.status === 'keep') {
             // 无法判断类目是否存在：保留子级当前值，并按当前值继续向下级联
             const keptValue = getFilterCurrentValue(child.rule) ?? null;
+
+            // 父级刚变过却拿不到候选值 → 子级保留旧值，表现为「联动没生效」，
+            // 明确告知用户原因（初始化阶段不提示：空结果在首屏很常见）。
+            ctx.onResolutionIssue?.({
+                kind: 'no-candidates',
+                filterId: child.rule.id,
+                fieldId: child.rule.target.fieldId,
+                phase: 'cascade',
+                scope: getLocationScopeLabel(child.location),
+            });
 
             const childResult = await cascadeChildrenAsync(
                 currentChain,
@@ -1143,6 +1176,14 @@ const cascadeChildrenAsync = async (
                 appliedRule,
             );
             hasChanges = true;
+
+            // 诊断日志：联动是否生效、值改成了什么
+            // eslint-disable-next-line no-console
+            console.debug(
+                `[categoryFilters] Cascaded ${child.rule.target.fieldId}: ${String(
+                    currentValue ?? 'any',
+                )} → ${resolvedValue}`,
+            );
         }
 
         const childResult = await cascadeChildrenAsync(
@@ -1189,6 +1230,8 @@ export const initializeCategoryFiltersAsync = async (
         };
         /** 请求会话：会话被取消时放弃本次初始化（不写回） */
         session?: CategoryRequestSession;
+        /** 解析异常回调：请求失败时保留原值，需要提示用户 */
+        onResolutionIssue?: CategoryResolutionIssueHandler;
     },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
@@ -1235,31 +1278,41 @@ export const initializeCategoryFiltersAsync = async (
             if (getFilterCurrentValue(currentFilter) !== undefined) {
                 continue;
             }
-            // 被禁用且没有值：链路在这一级断开 → 更下级（子类目）失去依据
-            const cleared = await clearDescendantsAsync(
-                workingChain,
-                {
+            // 绑定了父级筛选器 → 这一级的取值由父级推导，
+            // 即使作者没配默认值也要解析，保持和联动一致
+            if (
+                !findParentCategoryEntry(workingChain, {
                     rule: currentFilter,
                     location,
-                },
-                {
-                    projectUuid,
-                    dashboardContext,
-                    recoverableFilterIds,
-                    canUpdate: (entry) =>
-                        isSameCategoryLocation(entry.location, location),
-                },
-            );
-            workingChain = cleared.chain;
-            if (cleared.hasChanges) {
-                hasChanges = true;
-                workingFilters = getScopeFiltersFromChain(
+                })
+            ) {
+                // 被禁用且没有值：链路在这一级断开 → 更下级（子类目）失去依据
+                const cleared = await clearDescendantsAsync(
                     workingChain,
-                    location,
-                    workingFilters,
+                    {
+                        rule: currentFilter,
+                        location,
+                    },
+                    {
+                        projectUuid,
+                        dashboardContext,
+                        recoverableFilterIds,
+                        canUpdate: (entry) =>
+                            isSameCategoryLocation(entry.location, location),
+                    },
                 );
+                workingChain = cleared.chain;
+                if (cleared.hasChanges) {
+                    hasChanges = true;
+                    workingFilters = getScopeFiltersFromChain(
+                        workingChain,
+                        location,
+                        workingFilters,
+                    );
+                }
+                continue;
             }
-            continue;
+            // 绑定了父级 → 继续往下走，按父级的值解析这一级
         }
 
         const resolution = await resolveCategoryFilterValueAsync({
@@ -1282,6 +1335,14 @@ export const initializeCategoryFiltersAsync = async (
                 `Failed to resolve category filter ${currentFilter.target.fieldId}, keeping current value`,
                 resolution.error,
             );
+            options?.onResolutionIssue?.({
+                kind: 'error',
+                filterId: currentFilter.id,
+                fieldId: currentFilter.target.fieldId,
+                phase: 'init',
+                scope: getLocationScopeLabel(location),
+                error: resolution.error,
+            });
             continue;
         }
 
@@ -1376,6 +1437,8 @@ export const updateCategoryFilterCascadeAsync = async (
         };
         /** 请求会话：会话被取消时放弃本次联动（不写回） */
         session?: CategoryRequestSession;
+        /** 解析异常回调：请求失败时保留原值，需要提示用户 */
+        onResolutionIssue?: CategoryResolutionIssueHandler;
     },
 ): Promise<DashboardFilters> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1404,6 +1467,7 @@ export const updateCategoryFilterCascadeAsync = async (
             recoverableFilterIds,
             canUpdate: (entry) => scopeRuleIds.has(entry.rule.id),
             session: options?.session,
+            onResolutionIssue: options?.onResolutionIssue,
         },
     );
 
@@ -1435,6 +1499,8 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         recoverableFilterIds?: string[];
         /** 请求会话：会话被取消时放弃本次联动（不写回） */
         session?: CategoryRequestSession;
+        /** 解析异常回调：请求失败时保留原值，需要提示用户 */
+        onResolutionIssue?: CategoryResolutionIssueHandler;
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1482,6 +1548,7 @@ export const updateCrossScopeCategoryCascadeAsync = async (
                 canUpdate: (entry) =>
                     isSameCategoryLocation(entry.location, scope),
                 session: options?.session,
+                onResolutionIssue: options?.onResolutionIssue,
             },
         );
 

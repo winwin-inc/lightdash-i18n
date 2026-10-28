@@ -440,6 +440,71 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(api).not.toHaveBeenCalled();
     });
 
+    it('resolves a bound child that has no default value', async () => {
+        // 绑定了父级筛选器 → 初始化时按父级的值解析这一级（和联动保持一致）
+        mockSearchResults(['P1']);
+        mockSearchResults(['C1']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['P1'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: [],
+                parentFieldId: 'dim_categories_cls_1',
+                disabled: true,
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).not.toBe(filters);
+        expect(result.dimensions[1].values).toEqual(['C1']);
+        expect(result.dimensions[1].disabled).toBe(false);
+    });
+
+    it('keeps a child without a parent binding empty', async () => {
+        // 没有绑定父级筛选器 → 不参与父子联动，初始化也不赋值
+        mockSearchResults(['P1']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['P1'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: [],
+                disabled: true,
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toEqual([]);
+        // 只有一级类目发了请求
+        expect(api).toHaveBeenCalledTimes(1);
+    });
+
     it('restores a filter that was wrongly cleared when the server still has a value', async () => {
         mockSearchResults(['方便速食']);
 
@@ -1170,7 +1235,9 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(result.dimensions[1].disabled).toBe(false);
     });
 
-    it('does not cascade into a child without a confirmed value', async () => {
+    it('cascades into a bound child even when it has no default value', async () => {
+        // 已绑定父级 → 父级变化时子级必须跟着走，
+        // 否则用户会看到「绑了父级却不动」
         mockSearchResults(['C1', 'C2']);
 
         const parent = categoryFilter({
@@ -1179,12 +1246,45 @@ describe('updateCategoryFilterCascadeAsync', () => {
             categoryLevel: 1,
             values: ['P2'],
         });
-        // 下级类目既没有默认值也没有确认选中的值 → 保持为空，不发请求
+        // 下级类目没有默认值（disabled）→ 父级变化时按实际数据补齐
         const child = categoryFilter({
             id: 'l2',
             fieldId: 'dim_categories_cls_2',
             categoryLevel: 2,
             parentFieldId: 'dim_categories_cls_1',
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).not.toBe(filters);
+        expect(result.dimensions[1].values).toEqual(['C1']);
+        // 补齐后筛选器恢复成可用状态
+        expect(result.dimensions[1].disabled).toBe(false);
+        expect(api).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not cascade into a child without a parent binding', async () => {
+        // 没有绑定父级筛选器 → 不参与父子联动（绑定关系是联动的必要条件）
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
             disabled: true,
         });
         const filters = asFilters([parent, child]);
@@ -1280,6 +1380,149 @@ describe('updateCategoryFilterCascadeAsync', () => {
 
         expect(result).toBe(filters);
         expect(api).not.toHaveBeenCalled();
+    });
+});
+
+describe('category resolution issues', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    const buildParentChild = () => {
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P1'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            values: ['OLD'],
+            parentFieldId: 'dim_categories_cls_1',
+        });
+        return { parent, child, filters: asFilters([parent, child]) };
+    };
+
+    it('reports an issue when the cascade request fails', async () => {
+        api.mockRejectedValueOnce({
+            status: 'error',
+            error: {
+                name: 'ApiError',
+                statusCode: 500,
+                message: 'HGERR_code 53200 memory limitation',
+            },
+        } as never);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        // 失败时保留原值，不清空
+        expect(result.dimensions[1].values).toEqual(['OLD']);
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'error',
+                filterId: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                phase: 'cascade',
+            }),
+        );
+    });
+
+    it('reports an issue when the cascade has no candidates', async () => {
+        mockSearchResults([]);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'no-candidates',
+                filterId: 'l2',
+                phase: 'cascade',
+            }),
+        );
+    });
+
+    it('reports an issue when the initialization request fails', async () => {
+        api.mockRejectedValueOnce({
+            status: 'error',
+            error: {
+                name: 'ApiError',
+                statusCode: 500,
+                message: 'HGERR_code 53200 memory limitation',
+            },
+        } as never);
+
+        const filter = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P1'],
+        });
+        const onResolutionIssue = vi.fn();
+
+        const result = await initializeCategoryFiltersAsync(
+            asFilters([filter]),
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(result.dimensions[0].values).toEqual(['P1']);
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'error',
+                filterId: 'l1',
+                phase: 'init',
+                scope: 'global',
+            }),
+        );
+    });
+
+    it('does not report an issue when the resolution succeeds', async () => {
+        mockSearchResults(['C1']);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(onResolutionIssue).not.toHaveBeenCalled();
     });
 });
 

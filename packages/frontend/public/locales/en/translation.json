@@ -244,7 +244,9 @@
     "validation_error_subtitle": "Invalid field {{keys}} with value {{values}}. The team has been already notified, we'll fix it soon",
     "unknown_validation_error": "Unknown validation error",
     "chart_error": "Chart '{{chartName}}': Error",
-    "warehouse_resource_limit": "The warehouse query ran out of resources (engine memory limit reached). Please try again later or narrow down the filters."
+    "warehouse_resource_limit": "The warehouse query ran out of resources (engine memory limit reached). Please try again later or narrow down the filters.",
+    "category_resolution_failed": "Failed to resolve the category filter. The previous value was kept, so cascading may not have applied.",
+    "category_no_candidates": "There are no category options under the parent. The child filter kept its previous value."
   },
   "hooks_explorer_route": {
     "parse_url_error": "Error parsing url",
