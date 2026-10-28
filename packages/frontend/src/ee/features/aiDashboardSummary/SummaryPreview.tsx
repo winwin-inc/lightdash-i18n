@@ -1,12 +1,12 @@
 import { type DashboardSummary } from '@lightdash/common';
 import { ActionIcon, Alert, Flex, Stack, Text, Tooltip } from '@mantine/core';
 import { IconExclamationCircle, IconRefresh } from '@tabler/icons-react';
-import ReactMarkdownPreview from '@uiw/react-markdown-preview';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import rehypeExternalLinks from 'rehype-external-links';
 import MantineIcon from '../../../components/common/MantineIcon';
+import { Markdown } from '../../../components/common/Markdown/Markdown';
 import { useTimeAgo } from '../../../hooks/useTimeAgo';
 
 type SummaryPreviewProps = {
@@ -37,7 +37,7 @@ const SummaryPreview: FC<SummaryPreviewProps> = ({
                     {t('ai_dashboard_summary_preview.dashboard_has_changed')}
                 </Alert>
             )}
-            <ReactMarkdownPreview
+            <Markdown
                 source={summary.summary}
                 rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
             />

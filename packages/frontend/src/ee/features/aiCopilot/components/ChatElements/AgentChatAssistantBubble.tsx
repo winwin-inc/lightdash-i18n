@@ -31,11 +31,11 @@ import {
     IconThumbUp,
     IconThumbUpFilled,
 } from '@tabler/icons-react';
-import MDEditor from '@uiw/react-md-editor';
 import { memo, useCallback, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../../../../components/common/MantineIcon';
+import { Markdown } from '../../../../../components/common/Markdown/Markdown';
 import { getChartIcon } from '../../../../../components/common/ResourceIcon/utils';
 import {
     mdEditorComponents,
@@ -190,7 +190,7 @@ const AssistantBubbleContent: FC<{
                 />
             )}
             {messageContent.length > 0 ? (
-                <MDEditor.Markdown
+                <Markdown
                     rehypeRewrite={rehypeRemoveHeaderLinks}
                     source={messageContent}
                     style={{ ...mdStyle, padding: `0.5rem 0` }}

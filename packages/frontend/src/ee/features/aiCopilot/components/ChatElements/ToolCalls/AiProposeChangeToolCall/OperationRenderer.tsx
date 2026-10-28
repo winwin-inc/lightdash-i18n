@@ -1,7 +1,7 @@
 import { assertUnreachable, capitalize } from '@lightdash/common';
 import { Paper, Stack, Text } from '@mantine-8/core';
-import MDEditor from '@uiw/react-md-editor';
 import rehypeExternalLinks from 'rehype-external-links';
+import { Markdown } from '../../../../../../../components/common/Markdown/Markdown';
 import {
     mdEditorComponents,
     rehypeRemoveHeaderLinks,
@@ -22,7 +22,7 @@ const ReplaceOrAddOperation = ({ value, name }: ReplaceOperationProps) => {
             <Text component="code" size="xs" fw={600} c="gray.7">
                 {capitalize(name)}
             </Text>
-            <MDEditor.Markdown
+            <Markdown
                 source={value}
                 style={mdStyle}
                 rehypeRewrite={rehypeRemoveHeaderLinks}

@@ -1,9 +1,9 @@
 import { type AiAgentMessageUser, type AiAgentUser } from '@lightdash/common';
 import { Anchor, Card, Stack, Text, Tooltip } from '@mantine-8/core';
-import MDEditor from '@uiw/react-md-editor';
 import { format, parseISO } from 'date-fns';
 import { type FC } from 'react';
 import { Link, useParams } from 'react-router';
+import { Markdown } from '../../../../../components/common/Markdown/Markdown';
 import { useTimeAgo } from '../../../../../hooks/useTimeAgo';
 import useApp from '../../../../../providers/App/useApp';
 
@@ -58,7 +58,7 @@ export const UserBubble: FC<Props> = ({ message, isActive = false }) => {
                     overflow: 'unset',
                 }}
             >
-                <MDEditor.Markdown
+                <Markdown
                     source={message.message}
                     style={{
                         backgroundColor: 'transparent',

@@ -1,7 +1,6 @@
 import { type DashboardMarkdownTile } from '@lightdash/common';
 import { Menu, Text, useMantineTheme } from '@mantine/core';
 import { IconCopy } from '@tabler/icons-react';
-import MarkdownPreview from '@uiw/react-markdown-preview';
 import React, { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
@@ -12,6 +11,7 @@ import { appendNewTilesToBottom } from '../../hooks/dashboard/useDashboard';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
+import { Markdown } from '../common/Markdown/Markdown';
 import TileBase from './TileBase/index';
 
 export type Props = Pick<
@@ -114,7 +114,7 @@ const MarkdownTile: FC<Props> = (props) => {
                 }}
             >
                 <div data-color-mode={theme.colorScheme}>
-                    <MarkdownPreview
+                    <Markdown
                         className="markdown-tile"
                         source={content}
                         rehypePlugins={[
