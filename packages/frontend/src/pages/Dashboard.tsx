@@ -50,7 +50,6 @@ import DashboardDuplicateModal from '../components/common/modal/DashboardDuplica
 import { DashboardExportModal } from '../components/common/modal/DashboardExportModal';
 // import useApp from '../providers/App/useApp';
 // import { useDashboardCommentsCheck } from '../features/comments';
-import { DateZoom } from '../features/dateZoom';
 import { Parameters } from '../features/parameters';
 import { drainDashboardOperationEvents } from '../hooks/dashboard/dashboardOperationEventQueue';
 import {
@@ -1255,7 +1254,7 @@ const Dashboard: FC = () => {
                             backgroundColor: theme.colors.gray[0],
                         }}
                     >
-                        {/* This Group will take up remaining space (and not push DateZoom) */}
+                        {/* This Group will take up remaining space */}
                         <Group
                             justify="space-between"
                             align="flex-start"
@@ -1273,7 +1272,7 @@ const Dashboard: FC = () => {
                                 />
                             )}
                         </Group>
-                        {/* DateZoom: visible in view mode; sync-colors controls stay edit-only */}
+                        {/* sync-colors controls stay edit-only */}
                         {hasDashboardTiles && (
                             <Group gap="xs" style={{ marginLeft: 'auto' }}>
                                 {isEditMode && (
@@ -1572,9 +1571,9 @@ const Dashboard: FC = () => {
                                             </Popover.Dropdown>
                                         </Popover>
                                     )}
-                                <Group ml="md">
-                                    <DateZoom isEditMode={isEditMode} />
-                                </Group>
+                                {/* 日期缩放（DateZoom）功能暂时下线：
+                                    入口已隐藏，且不占用任何布局空间。
+                                    组件代码保留在 features/dateZoom，暂不再使用。 */}
                             </Group>
                         )}
                     </Group>

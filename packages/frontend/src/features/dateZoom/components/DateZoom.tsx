@@ -20,6 +20,11 @@ type Props = {
     isEditMode: boolean;
 };
 
+/**
+ * @deprecated 日期缩放功能暂时下线，暂不再使用。
+ * 该组件已不再在任何界面中渲染（入口已隐藏且不占布局空间），
+ * 代码保留仅作备份，后续如有需要可重新启用。
+ */
 export const DateZoom: FC<Props> = ({ isEditMode }) => {
     const { t } = useTranslation();
     const [showOpenIcon, setShowOpenIcon] = useState(false);

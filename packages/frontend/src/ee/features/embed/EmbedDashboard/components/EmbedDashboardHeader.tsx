@@ -5,7 +5,6 @@ import {
 } from '@lightdash/common';
 import { Flex } from '@mantine/core';
 import { type FC } from 'react';
-import { DateZoom } from '../../../../../features/dateZoom';
 import EmbedDashboardExportPdf from './EmbedDashboardExportPdf';
 import EmbedDashboardFilters from './EmbedDashboardFilters';
 
@@ -15,8 +14,9 @@ type Props = {
 };
 
 const EmbedDashboardHeader: FC<Props> = ({ dashboard, projectUuid }) => {
+    // 日期缩放（DateZoom）功能暂时下线：入口已隐藏且不占空间，
+    // 所以 canDateZoom 不再决定是否需要渲染头部。
     const hasHeader =
-        dashboard.canDateZoom ||
         isFilterInteractivityEnabled(dashboard.dashboardFiltersInteractivity);
 
     // If no header, and exportPagePdf is enabled, show the Export button on the top right corner
@@ -44,7 +44,6 @@ const EmbedDashboardHeader: FC<Props> = ({ dashboard, projectUuid }) => {
             style={{ flexGrow: 1 }}
         >
             {isFilteringEnabled && <EmbedDashboardFilters />}
-            {dashboard.canDateZoom && <DateZoom isEditMode={false} />}
 
             {dashboard.canExportPagePdf && (
                 <EmbedDashboardExportPdf
