@@ -2788,7 +2788,9 @@
         "parent_filter_placeholder": "不设置父级筛选器",
         "parent_scope_global": "全局",
         "parent_scope_tab": "当前 Tab",
-        "parent_scope_hint": "Tab 筛选器可以把全局筛选器设为父级（全局二级 → Tab 三级 → Tab 四级）。父级所在层级没有取值时，其下层级会被清空。"
+        "parent_scope_hint": "Tab 筛选器可把全局筛选器设为父级；父级无取值时，下级会被清空。",
+        "parent_option_label": "{{label}} • {{level}}（{{scope}}）",
+        "parent_option_label_short": "{{level}}（{{scope}}）"
       },
       "filter_read_only": "筛选器只读",
       "filter_hidden": "筛选器隐藏",

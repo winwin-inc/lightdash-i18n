@@ -525,22 +525,23 @@ const FilterConfiguration: FC<Props> = ({
         const currentId = draftFilterRule.id;
         const currentFieldId = draftFilterRule.target.fieldId;
 
-        return candidates
-            .filter(({ rule: candidate }) => {
-                if (!isCategoryField(candidate)) return false;
-                if (candidate.id && currentId && candidate.id === currentId)
-                    return false;
-                if (candidate.target.fieldId === currentFieldId) return false;
-                if (
-                    childLevel &&
-                    candidate.categoryLevel &&
-                    candidate.categoryLevel >= childLevel
-                ) {
-                    return false;
-                }
-                return true;
-            })
-            .map(({ rule: candidate, scope, tabUuid: candidateTabUuid }) => {
+        const validCandidates = candidates.filter(({ rule: candidate }) => {
+            if (!isCategoryField(candidate)) return false;
+            if (candidate.id && currentId && candidate.id === currentId)
+                return false;
+            if (candidate.target.fieldId === currentFieldId) return false;
+            if (
+                childLevel &&
+                candidate.categoryLevel &&
+                candidate.categoryLevel >= childLevel
+            ) {
+                return false;
+            }
+            return true;
+        });
+
+        const prepared = validCandidates.map(
+            ({ rule: candidate, scope, tabUuid: candidateTabUuid }) => {
                 const baseLabel =
                     candidate.label ||
                     candidate.target.fieldLabel ||
@@ -561,21 +562,77 @@ const FilterConfiguration: FC<Props> = ({
                               'components_dashboard_filter.configuration.category_level.parent_scope_tab',
                           );
 
+                // 层级与作用域合并成一个括号后缀，避免「字段 • 层级 • 作用域」三段拼接
+                const fullLabel = levelLabel
+                    ? t(
+                          'components_dashboard_filter.configuration.category_level.parent_option_label',
+                          {
+                              label: baseLabel,
+                              level: levelLabel,
+                              scope: scopeLabel,
+                          },
+                      )
+                    : [baseLabel, scopeLabel].filter(Boolean).join(' • ');
+
+                // 筛选器名字与层级名相同时（如筛选器叫「一级类目」），
+                // 前一段是重复信息 → 只显示「一级类目（当前 Tab）」
+                const isRedundantBase =
+                    !!levelLabel &&
+                    baseLabel.trim().toLowerCase() ===
+                        levelLabel.trim().toLowerCase();
+
+                const shortLabel = levelLabel
+                    ? t(
+                          'components_dashboard_filter.configuration.category_level.parent_option_label_short',
+                          {
+                              level: levelLabel,
+                              scope: scopeLabel,
+                          },
+                      )
+                    : fullLabel;
+
                 return {
                     value: encodeParentFilterRef({
                         scope,
                         tabUuid: candidateTabUuid,
                         fieldId: candidate.target.fieldId,
                     }),
-                    label: [baseLabel, levelLabel, scopeLabel]
-                        .filter(Boolean)
-                        .join(' • '),
+                    fullLabel,
+                    shortLabel,
+                    isRedundantBase,
                     categoryLevel: candidate.categoryLevel,
                     scope,
                     tabUuid: candidateTabUuid,
                     fieldId: candidate.target.fieldId,
                 };
-            });
+            },
+        );
+
+        // 省略后如果出现重名（例如两个同层级同名字段），回退到完整标签
+        const shortLabelCounts = prepared.reduce<Map<string, number>>(
+            (acc, option) => {
+                if (!option.isRedundantBase) return acc;
+                acc.set(
+                    option.shortLabel,
+                    (acc.get(option.shortLabel) ?? 0) + 1,
+                );
+                return acc;
+            },
+            new Map(),
+        );
+
+        return prepared.map((option) => ({
+            value: option.value,
+            label:
+                option.isRedundantBase &&
+                (shortLabelCounts.get(option.shortLabel) ?? 0) < 2
+                    ? option.shortLabel
+                    : option.fullLabel,
+            categoryLevel: option.categoryLevel,
+            scope: option.scope,
+            tabUuid: option.tabUuid,
+            fieldId: option.fieldId,
+        }));
     }, [
         draftFilterRule,
         filterScope,
