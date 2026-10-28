@@ -1043,16 +1043,31 @@ export class DashboardModel {
     }): Promise<
         Pick<
             DashboardDAO,
-            'uuid' | 'name' | 'spaceUuid' | 'description' | 'slug'
+            'uuid' | 'name' | 'spaceUuid' | 'description' | 'slug' | 'updatedAt'
         >[]
     > {
-        const query = this.database(DashboardsTableName).select(
-            `${DashboardsTableName}.name`,
-            `${DashboardsTableName}.dashboard_uuid`,
-            `${SpaceTableName}.space_uuid`,
-            `${DashboardsTableName}.description`,
-            `${DashboardsTableName}.slug`,
-        );
+        // The last update of a dashboard is the creation date of its latest
+        // version, the `dashboards` table does not have an `updated_at` column
+        const latestVersion = this.database(DashboardVersionsTableName)
+            .select('dashboard_id')
+            .max('created_at as latest_version_created_at')
+            .groupBy('dashboard_id')
+            .as('latest_dashboard_version');
+
+        const query = this.database(DashboardsTableName)
+            .leftJoin(
+                latestVersion,
+                `${DashboardsTableName}.dashboard_id`,
+                'latest_dashboard_version.dashboard_id',
+            )
+            .select(
+                `${DashboardsTableName}.name`,
+                `${DashboardsTableName}.dashboard_uuid`,
+                `${SpaceTableName}.space_uuid`,
+                `${DashboardsTableName}.description`,
+                `${DashboardsTableName}.slug`,
+                'latest_dashboard_version.latest_version_created_at as updated_at',
+            );
 
         if (projectUuid) {
             void query
@@ -1088,12 +1103,14 @@ export class DashboardModel {
                 space_uuid,
                 description,
                 slug: dashboardSlug,
+                updated_at: updatedAt,
             }) => ({
                 name,
                 description,
                 uuid: dashboard_uuid,
                 spaceUuid: space_uuid,
                 slug: dashboardSlug,
+                updatedAt,
             }),
         );
     }

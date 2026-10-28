@@ -1215,10 +1215,24 @@
       "groups": {
         "spaces": "空间",
         "dashboards": "看板",
-        "charts": "图表"
+        "charts": "图表",
+        "sql_charts": "SQL 图表",
+        "apps": "数据应用"
       },
       "no_changes": "没有需要升级的内容",
       "without_changes": "我们只升级此项目中最新的内容。",
+      "conflicts": {
+        "upstream_changed": {
+          "title": "线上项目中的看板已被修改",
+          "description": "线上项目中的看板在上次提升之后被修改过，再次提升会覆盖这些修改。",
+          "confirm": "我确认可以覆盖线上项目中的修改"
+        },
+        "name_mismatch": {
+          "title": "线上项目中的看板名称不同",
+          "description": "线上项目中的看板名称为“{{upstreamName}}”，本项目中的名称为“{{sourceName}}”。默认保留线上名称，除非你选择同步。",
+          "sync": "同步看板名称到线上项目"
+        }
+      },
       "cancel": "取消",
       "promote": "升级"
     },

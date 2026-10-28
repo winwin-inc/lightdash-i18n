@@ -1155,6 +1155,9 @@ export class CoderService extends BaseService {
                     ? [{ action: PromotionAction.CREATE, data: space }]
                     : [],
                 dashboards: [],
+                sqlCharts: [],
+                conflicts: [],
+                apps: [],
             };
             return promotionChanges;
         }
@@ -1439,6 +1442,9 @@ export class CoderService extends BaseService {
                 spaces: spaceCreated
                     ? [{ action: PromotionAction.CREATE, data: space }]
                     : [],
+                sqlCharts: [],
+                conflicts: [],
+                apps: [],
                 ...(warnings.length > 0 ? { warnings } : {}),
             };
         }
@@ -1518,6 +1524,7 @@ export class CoderService extends BaseService {
         promotionChanges = await this.promoteService.updateDashboard(
             user,
             promotionChanges,
+            true,
         );
 
         this.logger.info(
@@ -1905,6 +1912,9 @@ export class CoderService extends BaseService {
                 spaces: spaceCreated
                     ? [{ action: PromotionAction.CREATE, data: space }]
                     : [],
+                sqlCharts: [],
+                conflicts: [],
+                apps: [],
             };
         }
 
@@ -1947,6 +1957,9 @@ export class CoderService extends BaseService {
             ],
             dashboards: [],
             spaces: [],
+            sqlCharts: [],
+            conflicts: [],
+            apps: [],
         };
     }
 

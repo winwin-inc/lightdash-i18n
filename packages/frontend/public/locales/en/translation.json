@@ -1207,10 +1207,24 @@
       "groups": {
         "spaces": "Spaces",
         "dashboards": "Dashboards",
-        "charts": "Charts"
+        "charts": "Charts",
+        "sql_charts": "SQL charts",
+        "apps": "Data apps"
       },
       "no_changes": "No changes to promote",
       "without_changes": "We only promote content that is more recent in this project.",
+      "conflicts": {
+        "upstream_changed": {
+          "title": "The dashboard was changed in the upstream project",
+          "description": "The dashboard in the upstream project was updated after it was promoted for the last time. Promoting again will overwrite those changes.",
+          "confirm": "I confirm that the changes in the upstream project can be overwritten"
+        },
+        "name_mismatch": {
+          "title": "The dashboard has a different name in the upstream project",
+          "description": "The dashboard in the upstream project is named \"{{upstreamName}}\" and the one in this project is named \"{{sourceName}}\". The name in the upstream project is kept unless you sync it.",
+          "sync": "Sync the name to the upstream project"
+        }
+      },
       "cancel": "Cancel",
       "promote": "Promote"
     },

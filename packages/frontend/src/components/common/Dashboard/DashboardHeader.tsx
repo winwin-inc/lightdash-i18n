@@ -641,12 +641,19 @@ const DashboardHeader = ({
                                 onClose={() => {
                                     resetPromoteDashboardDiff();
                                 }}
-                                onConfirm={() => {
-                                    promoteDashboard(dashboardUuid, {
-                                        onSuccess: () => {
-                                            resetPromoteDashboardDiff();
+                                onConfirm={({ confirmConflicts, syncDashboardName }) => {
+                                    promoteDashboard(
+                                        {
+                                            dashboardUuid,
+                                            confirmConflicts,
+                                            syncDashboardName,
                                         },
-                                    });
+                                        {
+                                            onSuccess: () => {
+                                                resetPromoteDashboardDiff();
+                                            },
+                                        },
+                                    );
                                 }}
                                 isPromoting={isPromoteDashboardPending}
                             />

@@ -14836,13 +14836,7 @@
                         "type": "string"
                     }
                 },
-                "required": [
-                    "config",
-                    "limit",
-                    "sql",
-                    "description",
-                    "name"
-                ],
+                "required": ["config", "limit", "sql", "description", "name"],
                 "type": "object"
             },
             "ApiUpdateSqlChart": {
@@ -17181,8 +17175,131 @@
                     }
                 ]
             },
+            "PromotedSqlChart": {
+                "properties": {
+                    "projectUuid": {
+                        "type": "string",
+                        "description": "Project the chart is promoted to"
+                    },
+                    "dashboardUuid": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Uuid of the dashboard that owns the chart in the source project.\nNull when the chart belongs to a space."
+                    },
+                    "spaceUuid": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Uuid of the space the chart belongs to in the source project.\nNull when the chart is owned by a dashboard."
+                    },
+                    "spacePath": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Path of the space the chart belongs to in the source project.\nNull when the chart is owned by a dashboard."
+                    },
+                    "config": {
+                        "$ref": "#/components/schemas/AllVizChartConfig"
+                    },
+                    "limit": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "sql": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "upstreamUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "savedSqlUuid": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "projectUuid",
+                    "dashboardUuid",
+                    "spaceUuid",
+                    "spacePath",
+                    "config",
+                    "limit",
+                    "sql",
+                    "slug",
+                    "description",
+                    "name",
+                    "upstreamUuid",
+                    "savedSqlUuid"
+                ],
+                "type": "object",
+                "description": "A SQL chart referenced by a dashboard tile, as seen from the project the\npromotion is coming from. `savedSqlUuid` is the uuid in the source project,\n`upstreamUuid` is the uuid of the matching chart in the target project\n(null when it does not exist there yet)."
+            },
+            "PromotedDataApp": {
+                "properties": {
+                    "upstreamUuid": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "uuid": {
+                        "type": "string"
+                    }
+                },
+                "required": ["upstreamUuid", "name", "uuid"],
+                "type": "object",
+                "description": "A data app referenced by a dashboard tile. `uuid` is the app in the source\nproject, `upstreamUuid` is the promoted (production) app."
+            },
             "PromotionChanges": {
                 "properties": {
+                    "conflicts": {
+                        "items": {
+                            "$ref": "#/components/schemas/PromotionConflict"
+                        },
+                        "type": "array",
+                        "description": "Changes in the upstream project that need to be confirmed before\npromoting, otherwise they would be silently overwritten."
+                    },
+
+                    "apps": {
+                        "items": {
+                            "properties": {
+                                "data": {
+                                    "$ref": "#/components/schemas/PromotedDataApp"
+                                },
+                                "action": {
+                                    "$ref": "#/components/schemas/PromotionAction"
+                                }
+                            },
+                            "required": ["data", "action"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    },
+
+                    "sqlCharts": {
+                        "items": {
+                            "properties": {
+                                "data": {
+                                    "$ref": "#/components/schemas/PromotedSqlChart"
+                                },
+                                "action": {
+                                    "$ref": "#/components/schemas/PromotionAction"
+                                }
+                            },
+                            "required": ["data", "action"],
+                            "type": "object"
+                        },
+                        "type": "array"
+                    },
+
                     "charts": {
                         "items": {
                             "properties": {
@@ -17229,8 +17346,56 @@
                         "type": "array"
                     }
                 },
-                "required": ["charts", "dashboards", "spaces"],
+                "required": [
+                    "conflicts",
+                    "apps",
+                    "sqlCharts",
+                    "charts",
+                    "dashboards",
+                    "spaces"
+                ],
                 "type": "object"
+            },
+            "PromotionConflict": {
+                "properties": {
+                    "upstreamUpdatedAt": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "When the dashboard in the upstream project was updated for the last time"
+                    },
+                    "lastPromotedAt": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "When the dashboard was promoted for the last time"
+                    },
+                    "upstreamName": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Name of the dashboard in the upstream project, null when it does not exist yet"
+                    },
+                    "sourceName": {
+                        "type": "string",
+                        "description": "Name of the dashboard in the source project"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/PromotionConflictType"
+                    }
+                },
+                "required": [
+                    "upstreamUpdatedAt",
+                    "lastPromotedAt",
+                    "upstreamName",
+                    "sourceName",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "PromotionConflictType": {
+                "enum": [
+                    "upstream_modified_after_promotion",
+                    "upstream_name_mismatch"
+                ],
+                "type": "string"
             },
             "ApiPromotionChangesResponse": {
                 "properties": {
@@ -39156,6 +39321,24 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "description": "confirm that the changes made in the upstream project after the last promotion can be overwritten",
+                        "in": "query",
+                        "name": "confirmConflicts",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "copy the name of the dashboard to the upstream project",
+                        "in": "query",
+                        "name": "syncDashboardName",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ]

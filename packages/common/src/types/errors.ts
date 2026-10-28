@@ -134,6 +134,20 @@ export class NonCompiledModelError extends LightdashError {
     }
 }
 
+export class PromotionConflictError extends LightdashError {
+    constructor(
+        message: string = 'This promotion has conflicts that need to be confirmed',
+        data: { [key: string]: AnyType } = {},
+    ) {
+        super({
+            message,
+            name: 'PromotionConflictError',
+            statusCode: 409,
+            data,
+        });
+    }
+}
+
 export class MissingCatalogEntryError extends LightdashError {
     constructor(message: string, data: { [key: string]: AnyType }) {
         super({

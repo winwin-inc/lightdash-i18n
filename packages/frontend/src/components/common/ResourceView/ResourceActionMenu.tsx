@@ -474,10 +474,17 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                     onClose={() => {
                         resetPromoteDashboardDiff();
                     }}
-                    onConfirm={() => {
-                        promoteDashboard(item.data.uuid, {
-                            onSuccess: () => resetPromoteDashboardDiff(),
-                        });
+                    onConfirm={({ confirmConflicts, syncDashboardName }) => {
+                        promoteDashboard(
+                            {
+                                dashboardUuid: item.data.uuid,
+                                confirmConflicts,
+                                syncDashboardName,
+                            },
+                            {
+                                onSuccess: () => resetPromoteDashboardDiff(),
+                            },
+                        );
                     }}
                     isPromoting={isPromoteDashboardPending}
                 />

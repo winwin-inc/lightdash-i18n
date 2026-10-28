@@ -251,6 +251,23 @@ export class SavedSqlModel {
         return SavedSqlModel.convertSelectSavedSql(result);
     }
 
+    /**
+     * Finds the SQL charts matching the given filters, in the shape used by
+     * the services (instead of the raw database rows).
+     */
+    async findSqlCharts(options: {
+        uuid?: string;
+        slug?: string;
+        projectUuid?: string;
+    }): Promise<
+        (Omit<SqlChart, 'space'> & {
+            space: Pick<SpaceSummary, 'uuid' | 'name' | 'isPrivate'>;
+        })[]
+    > {
+        const rows = await this.find(options);
+        return rows.map((row) => SavedSqlModel.convertSelectSavedSql(row));
+    }
+
     static async createVersion(
         trx: Knex,
         data: {
