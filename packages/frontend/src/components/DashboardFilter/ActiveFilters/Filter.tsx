@@ -37,6 +37,7 @@ import {
     enqueueFilterDeleted,
     enqueueFilterUpdatedFromDiff,
 } from '../../../hooks/dashboard/dashboardOperationEventQueue';
+import { useDashboardFilterScope } from '../../../hooks/dashboard/useDashboardFilterScope';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -128,7 +129,6 @@ const Filter: FC<Props> = ({
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
-    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     const { data: lockDashboardFiltersFlag } = useServerFeatureFlag(
         FeatureFlags.LockDashboardFilters,
@@ -465,33 +465,11 @@ const Filter: FC<Props> = ({
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
     }, [dashboardTabs, activeTabUuid, filterScope]);
 
-    const appliedDashboardTiles = useMemo(() => {
-        if (filterScope === 'global') {
-            return dashboardTiles;
-        }
-        return dashboardTiles?.filter((tl) => tl.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterScope]);
-
-    const appliedFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterScope === 'global') {
-            return filterableFieldsByTileUuid;
-        }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
-            (acc, tileUuid) => {
-                const tile = appliedDashboardTiles?.find(
-                    (tl) => tl.uuid === tileUuid,
-                );
-
-                if (tile) {
-                    acc[tileUuid] =
-                        filterableFieldsByTileUuid?.[tileUuid] || [];
-                }
-
-                return acc;
-            },
-            {} as Record<string, DashboardFilterableField[]>,
-        );
-    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
+    const {
+        appliedDashboardTiles,
+        appliedFilterableFields,
+        appliedFilterableFieldsByTileUuid,
+    } = useDashboardFilterScope(filterScope, activeTabUuid);
 
     return (
         <>
@@ -800,7 +778,7 @@ const Filter: FC<Props> = ({
                                 isEditMode={isEditMode}
                                 isTemporary={isTemporary}
                                 field={field}
-                                fields={allFilterableFields || []}
+                                fields={appliedFilterableFields}
                                 tiles={appliedDashboardTiles}
                                 tabs={appliedDashboardTabs}
                                 activeTabUuid={activeTabUuid}

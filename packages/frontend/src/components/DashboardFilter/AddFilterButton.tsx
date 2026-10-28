@@ -1,7 +1,4 @@
-import {
-    type DashboardFilterRule,
-    type DashboardFilterableField,
-} from '@lightdash/common';
+import { type DashboardFilterRule } from '@lightdash/common';
 import { Box, Button, Popover, Text, Tooltip } from '@mantine/core';
 
 import { useDisclosure, useId } from '@mantine/hooks';
@@ -18,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useFilterDropdownStyles } from './filterDropdownStyles';
 
 import { enqueueFilterCreated } from '../../hooks/dashboard/dashboardOperationEventQueue';
+import { useDashboardFilterScope } from '../../hooks/dashboard/useDashboardFilterScope';
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import MantineIcon from '../common/MantineIcon';
@@ -50,7 +48,6 @@ const AddFilterButton: FC<Props> = ({
     const { t } = useTranslation();
 
     const popoverId = useId();
-    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     const allFilterableFields = useDashboardContext(
         (c) => c.allFilterableFields,
@@ -58,16 +55,34 @@ const AddFilterButton: FC<Props> = ({
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
     );
+    const {
+        appliedDashboardTiles,
+        appliedFilterableFields,
+        appliedFilterableFieldsByTileUuid,
+        appliedSqlChartTilesMetadata,
+    } = useDashboardFilterScope(filterScope, activeTabUuid);
     const disabled = useMemo(() => {
+        if (!isFilterEnabled) return true;
+
+        if (filterScope === 'global') {
+            return (
+                !allFilterableFields &&
+                Object.keys(sqlChartTilesMetadata).length === 0
+            );
+        }
+
         return (
-            !isFilterEnabled ||
-            (!allFilterableFields &&
-                Object.keys(sqlChartTilesMetadata).length === 0)
+            appliedFilterableFields.length === 0 &&
+            Object.keys(appliedSqlChartTilesMetadata).length === 0
         );
-    }, [isFilterEnabled, allFilterableFields, sqlChartTilesMetadata]);
-    const filterableFieldsByTileUuid = useDashboardContext(
-        (c) => c.filterableFieldsByTileUuid,
-    );
+    }, [
+        isFilterEnabled,
+        filterScope,
+        allFilterableFields,
+        sqlChartTilesMetadata,
+        appliedFilterableFields,
+        appliedSqlChartTilesMetadata,
+    ]);
     const isLoadingDashboardFilters = useDashboardContext(
         (c) => c.isLoadingDashboardFilters,
     );
@@ -215,34 +230,6 @@ const AddFilterButton: FC<Props> = ({
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
     }, [dashboardTabs, activeTabUuid, filterScope]);
 
-    const appliedDashboardTiles = useMemo(() => {
-        if (filterScope === 'global') {
-            return dashboardTiles;
-        }
-        return dashboardTiles?.filter((tile) => tile.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterScope]);
-
-    const appliedFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterScope === 'global') {
-            return filterableFieldsByTileUuid;
-        }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
-            (acc, tileUuid) => {
-                const tile = appliedDashboardTiles?.find(
-                    (item) => item.uuid === tileUuid,
-                );
-
-                if (tile) {
-                    acc[tileUuid] =
-                        filterableFieldsByTileUuid?.[tileUuid] || [];
-                }
-
-                return acc;
-            },
-            {} as Record<string, DashboardFilterableField[]>,
-        );
-    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
-
     // view mode
     if (!isEditMode && !showAddFilterButton) return null;
 
@@ -331,7 +318,7 @@ const AddFilterButton: FC<Props> = ({
                             <FilterConfiguration
                                 isCreatingNew={true}
                                 isEditMode={isEditMode}
-                                fields={allFilterableFields || []}
+                                fields={appliedFilterableFields}
                                 tiles={appliedDashboardTiles}
                                 tabs={appliedDashboardTabs}
                                 activeTabUuid={activeTabUuid}

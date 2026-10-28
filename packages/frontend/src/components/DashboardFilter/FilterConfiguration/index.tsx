@@ -45,6 +45,7 @@ import { useTranslation } from 'react-i18next';
 
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import { type SqlChartTileMetadata } from '../../../providers/Dashboard/types';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import { isCategoryField } from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
@@ -240,15 +241,31 @@ const FilterConfiguration: FC<Props> = ({
     );
     const allFiltersFromContext = useDashboardContext((c) => c.allFilters);
     const tabFiltersFromContext = useDashboardContext((c) => c.tabFilters);
+    /**
+     * 当前作用域（全局 / 单个 tab）内的 SQL Runner 图表元数据，
+     * 避免 tab 筛选器里出现其它 tab 的 SQL 列
+     */
+    const scopedSqlChartTilesMetadata = useMemo(() => {
+        return (tiles ?? []).reduce<Record<string, SqlChartTileMetadata>>(
+            (acc, tile) => {
+                const tileMetadata = sqlChartTilesMetadata[tile.uuid];
+                if (tileMetadata) {
+                    acc[tile.uuid] = tileMetadata;
+                }
+                return acc;
+            },
+            {},
+        );
+    }, [tiles, sqlChartTilesMetadata]);
     const columnsOptions = useMemo(() => {
-        const allColumns = Object.values(sqlChartTilesMetadata).flatMap(
+        const allColumns = Object.values(scopedSqlChartTilesMetadata).flatMap(
             (tileMetadata) => tileMetadata.columns,
         );
         const uniqueColumnsMap = new Map(
             allColumns.map((column) => [column.reference, column]),
         );
         return Array.from(uniqueColumnsMap.values());
-    }, [sqlChartTilesMetadata]);
+    }, [scopedSqlChartTilesMetadata]);
 
     const handleChangeColumn = useCallback(
         (newColumn: ResultColumn) => {
@@ -257,7 +274,7 @@ const FilterConfiguration: FC<Props> = ({
                 createDashboardFilterRuleFromSqlColumn({
                     column: newColumn,
                     availableTileColumns: Object.fromEntries(
-                        Object.entries(sqlChartTilesMetadata).map(
+                        Object.entries(scopedSqlChartTilesMetadata).map(
                             ([tileUuid, tileMetadata]) => [
                                 tileUuid,
                                 tileMetadata.columns,
@@ -268,7 +285,7 @@ const FilterConfiguration: FC<Props> = ({
                 }),
             );
         },
-        [isCreatingNew, isEditMode, sqlChartTilesMetadata],
+        [isCreatingNew, isEditMode, scopedSqlChartTilesMetadata],
     );
 
     const filterType: FilterType = useMemo(() => {
@@ -314,7 +331,8 @@ const FilterConfiguration: FC<Props> = ({
                         // Find fallback target
                         if (!target) {
                             const defaultColumn: ResultColumn | undefined =
-                                sqlChartTilesMetadata[tileUuid]?.columns[0];
+                                scopedSqlChartTilesMetadata[tileUuid]
+                                    ?.columns[0];
                             const defaultField = selectedField
                                 ? getDefaultField(
                                       availableTileFilters[tileUuid] ?? [],
@@ -363,7 +381,7 @@ const FilterConfiguration: FC<Props> = ({
             availableTileFilters,
             setDraftFilterRule,
             draftFilterRule,
-            sqlChartTilesMetadata,
+            scopedSqlChartTilesMetadata,
         ],
     );
 
@@ -660,6 +678,7 @@ const FilterConfiguration: FC<Props> = ({
                                         onDropdownOpen={popoverProps?.onOpen}
                                         onDropdownClose={popoverProps?.onClose}
                                         hasGrouping
+                                        searchByTableLabel
                                         item={selectedField}
                                         items={fields}
                                         onChange={(newField) => {
