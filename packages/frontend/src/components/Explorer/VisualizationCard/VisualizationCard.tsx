@@ -173,6 +173,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             ? {
                   dashboardSlug: fromDashboardData.slug,
                   dashboardName: fromDashboardData.name,
+                  dashboardUuid: fromDashboardData.uuid,
               }
             : undefined,
     });
@@ -203,6 +204,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             ? {
                   dashboardSlug: fromDashboardData.slug,
                   dashboardName: fromDashboardData.name,
+                  dashboardUuid: fromDashboardData.uuid,
               }
             : undefined,
         enabled: showResultsTotalWithoutPagination && Boolean(tableName),

@@ -48,6 +48,7 @@ import {
     type ExploreError,
     type ExportContentPayload,
     type ExportContentRequest,
+    type MemberAbility,
     type SchedulerCsvOptions,
     type UserDashboardsSummary,
     type UUID,
@@ -92,6 +93,20 @@ import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
 /** Fields needed to resolve client-use dashboard / explore allow-lists. */
 export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
+
+/**
+ * User information needed to resolve a dashboard context.
+ *
+ * It is deliberately narrower than `SessionUser` so that the same resolution
+ * can be done for accounts that are not session users (eg: a personal access
+ * token), where the user is only available through the account.
+ */
+export type DashboardContextUser = {
+    userUuid: string;
+    email: string | undefined;
+    organizationUuid?: string;
+    ability: MemberAbility;
+};
 
 /**
  * Result of the client-use allow-list resolution.
@@ -739,10 +754,21 @@ export class DashboardService
      * a table that none of its tiles uses), but the user has to be able to
      * read their values to use the dashboard filters.
      */
+    /**
+     * Resolves the dashboard context used for metadata queries (eg: field value
+     * searches) so that the dbt `sql_filter` (row level security) can be
+     * applied with the canonical dashboard slug.
+     *
+     * The dashboard can be referenced by uuid (globally unique, preferred) or by
+     * slug (only unique within a project, so the lookup is scoped to the
+     * project). As a last resort the dashboard name is used, still scoped to
+     * the project, so that a stale slug cannot silently disable the row filter.
+     */
     async resolveDashboardContextForMetadata(
-        user: SessionUser,
+        user: DashboardContextUser,
         projectUuid: string,
-        dashboardSlug: string,
+        dashboardUuidOrSlug?: string,
+        dashboardName?: string,
     ): Promise<
         | {
               dashboardSlug: string;
@@ -753,16 +779,58 @@ export class DashboardService
     > {
         let dashboard: DashboardDAO | undefined;
         try {
-            dashboard = await this.dashboardModel.getByIdOrSlug(dashboardSlug);
+            // Scope the lookup to the project: slugs are only unique within a
+            // project, so an unscoped lookup can resolve a dashboard that
+            // belongs to another project and silently drop the row filter.
+            if (dashboardUuidOrSlug) {
+                dashboard = await this.dashboardModel.getByIdOrSlug(
+                    dashboardUuidOrSlug,
+                    projectUuid,
+                );
+            }
         } catch (error) {
             // A missing dashboard is a valid answer, any other error is not
-            if (error instanceof NotFoundError) {
-                return undefined;
+            if (!(error instanceof NotFoundError)) {
+                throw error;
             }
-            throw error;
+            dashboard = undefined;
+        }
+
+        if (!dashboard && dashboardName) {
+            // Fallback: resolve the dashboard by name within the project, so a
+            // stale/duplicated slug still resolves to the right dashboard.
+            const matchingDashboardUuids =
+                await this.dashboardModel.getUuidsByNameInProject(
+                    projectUuid,
+                    dashboardName,
+                );
+            if (matchingDashboardUuids.length === 1) {
+                try {
+                    dashboard = await this.dashboardModel.getByIdOrSlug(
+                        matchingDashboardUuids[0],
+                        projectUuid,
+                    );
+                } catch (error) {
+                    if (!(error instanceof NotFoundError)) {
+                        throw error;
+                    }
+                    dashboard = undefined;
+                }
+            }
         }
 
         if (!dashboard || dashboard.projectUuid !== projectUuid) {
+            this.logger.warn(
+                `[DASHBOARD_CONTEXT][DashboardService.resolveDashboardContextForMetadata] Dashboard context could not be verified, ignoring client context ${JSON.stringify(
+                    {
+                        projectUuid,
+                        dashboardUuidOrSlug,
+                        dashboardName,
+                        dashboardProjectUuid: dashboard?.projectUuid,
+                        userUuid: user.userUuid,
+                    },
+                )}`,
+            );
             return undefined;
         }
 
@@ -795,6 +863,7 @@ export class DashboardService
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
         if (
             allowedDashboardUuids !== undefined &&
+            typeof user.organizationUuid === 'string' &&
             !allowedDashboardUuids.has(dashboard.uuid)
         ) {
             throw new ForbiddenError("You don't have access to this dashboard");

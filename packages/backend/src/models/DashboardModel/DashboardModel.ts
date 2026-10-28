@@ -1098,7 +1098,44 @@ export class DashboardModel {
         );
     }
 
-    async getByIdOrSlug(dashboardUuidOrSlug: string): Promise<DashboardDAO> {
+    /**
+     * Resolves a dashboard by uuid or slug.
+     *
+     * `slug` is only unique within a project (slugs are generated per project
+     * and can be duplicated across projects), so a global `WHERE slug = ?` lookup
+     * can return a dashboard that belongs to a different project. When
+     * `projectUuid` is provided the lookup is scoped to that project so the
+     * resolved dashboard always belongs to the requested project.
+     */
+    /**
+     * Returns the uuids of the dashboards with the given name inside a project.
+     * Used as a fallback when a dashboard slug cannot be resolved (slugs are
+     * only unique within a project and can be duplicated across projects).
+     */
+    async getUuidsByNameInProject(
+        projectUuid: string,
+        name: string,
+    ): Promise<string[]> {
+        return this.database(DashboardsTableName)
+            .innerJoin(
+                SpaceTableName,
+                `${DashboardsTableName}.space_id`,
+                `${SpaceTableName}.space_id`,
+            )
+            .innerJoin(
+                ProjectTableName,
+                `${SpaceTableName}.project_id`,
+                `${ProjectTableName}.project_id`,
+            )
+            .where(`${ProjectTableName}.project_uuid`, projectUuid)
+            .where(`${DashboardsTableName}.name`, name)
+            .pluck(`${DashboardsTableName}.dashboard_uuid`);
+    }
+
+    async getByIdOrSlug(
+        dashboardUuidOrSlug: string,
+        projectUuid?: string,
+    ): Promise<DashboardDAO> {
         const query = this.database(DashboardsTableName)
             .leftJoin(
                 DashboardVersionsTableName,
@@ -1199,6 +1236,13 @@ export class DashboardModel {
             void query.where(
                 `${DashboardsTableName}.slug`,
                 dashboardUuidOrSlug,
+            );
+        }
+
+        if (projectUuid) {
+            void query.where(
+                `${ProjectTableName}.project_uuid`,
+                projectUuid,
             );
         }
 

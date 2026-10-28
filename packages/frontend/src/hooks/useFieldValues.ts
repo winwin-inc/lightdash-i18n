@@ -59,6 +59,8 @@ const getEmbedFilterValues = async (options: {
 type DashboardFilterContext = {
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 export const getFieldValues = async (
@@ -88,6 +90,7 @@ export const getFieldValues = async (
             parameters: parameterValues,
             dashboardSlug: dashboardContext?.dashboardSlug,
             dashboardName: dashboardContext?.dashboardName,
+            dashboardUuid: dashboardContext?.dashboardUuid,
         }),
     });
 };

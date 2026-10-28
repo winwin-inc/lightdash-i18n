@@ -17,6 +17,8 @@ import {
 type DashboardContextInput = {
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 const calculateCountFromQuery = async (
@@ -35,6 +37,7 @@ const calculateCountFromQuery = async (
         parameters,
         dashboardSlug: dashboardContext?.dashboardSlug,
         dashboardName: dashboardContext?.dashboardName,
+        dashboardUuid: dashboardContext?.dashboardUuid,
     };
     return lightdashApi<ApiCalculateCountResponse['results']>({
         url: `/projects/${projectUuid}/calculate-count`,
@@ -62,6 +65,7 @@ const calculateCountFromSavedChart = async (
             parameters,
             dashboardSlug: dashboardContext?.dashboardSlug,
             dashboardName: dashboardContext?.dashboardName,
+            dashboardUuid: dashboardContext?.dashboardUuid,
         }),
     });
 };

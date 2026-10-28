@@ -1,3 +1,4 @@
+import { Ability } from '@casl/ability';
 import {
     defineUserAbility,
     FilterOperator,
@@ -8,6 +9,7 @@ import {
     PROJECT_OPERATION_LOG_ACTIONS,
     ProjectMemberRole,
     SessionUser,
+    type PossibleAbilities,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
@@ -112,16 +114,45 @@ const onboardingModel = {
 };
 const savedChartModel = {
     getAllSpaces: jest.fn(async () => spacesWithSavedCharts),
+    get: jest.fn(async () => savedChart),
 };
 const jobModel = {
     get: jest.fn(async () => job),
 };
 const spaceModel = {
     getAllSpaces: jest.fn(async () => spacesWithSavedCharts),
+    getSpaceSummary: jest.fn(async () => spaceSummary),
+    getUserSpaceAccess: jest.fn(async () => []),
 };
 
 const userAttributesModel = {
     getAttributeValuesForOrgMember: jest.fn(async () => ({})),
+};
+
+const spaceSummary = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    uuid: 'spaceUuid',
+    name: 'space',
+    isPrivate: false,
+    pinnedListUuid: null,
+    pinnedListOrder: null,
+    slug: 'space',
+    parentSpaceUuid: null,
+    path: 'space',
+    userAccess: undefined,
+    access: [],
+    chartCount: 0,
+    dashboardCount: 0,
+};
+
+const savedChart = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    tableName: 'valid_explore',
+    spaceUuid: 'spaceUuid',
+    metricQuery: METRIC_QUERY,
+    parameters: undefined,
 };
 
 const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
@@ -158,7 +189,9 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
         contentModel: {} as ContentModel,
         encryptionUtil: {} as EncryptionUtil,
         userModel: {} as UserModel,
-        featureFlagModel: {} as FeatureFlagModel,
+        featureFlagModel: {
+            get: jest.fn(async () => ({ enabled: false })),
+        } as unknown as FeatureFlagModel,
         projectParametersModel: {
             find: jest.fn(async () => []),
         } as unknown as ProjectParametersModel,
@@ -785,6 +818,89 @@ describe('ProjectService', () => {
             ).rejects.toThrow(ForbiddenError);
         });
 
+        test('should reject field values when the client dashboard context cannot be verified', async () => {
+            // A client that claims a dashboard context must have it verified
+            // against the database. Otherwise the dbt `sql_filter` would be
+            // silently skipped and the user would see rows they cannot access.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce(undefined);
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'a',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'duplicated-slug',
+                        dashboardName: 'Duplicated slug dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should resolve the dashboard context from the dashboard uuid when provided', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'trusted-slug',
+                dashboardName: 'Trusted dashboard',
+                filterTableNames: ['a'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+            (
+                projectModel.getWarehouseClientFromCredentials as jest.Mock
+            ).mockImplementation(() => ({
+                ...warehouseClientMock,
+                runQuery: jest.fn(async () => resultsWith1Row),
+            }));
+
+            await service.searchFieldUniqueValues(
+                user,
+                projectUuid,
+                'a',
+                'a_dim1',
+                '',
+                10,
+                undefined,
+                false,
+                undefined,
+                {
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardName: 'Trusted dashboard',
+                },
+            );
+
+            expect(
+                (
+                    service.dashboardService
+                        .resolveDashboardContextForMetadata as jest.Mock
+                ).mock.calls[0],
+            ).toEqual([
+                user,
+                projectUuid,
+                'dashboard-uuid',
+                'Trusted dashboard',
+            ]);
+        });
+
         test('should allow field values of a table the dashboard filters on', async () => {
             (
                 service.dashboardService
@@ -828,6 +944,110 @@ describe('ProjectService', () => {
                     },
                 ),
             ).resolves.toBeDefined();
+        });
+    });
+
+    describe('calculateTotalFromSavedChart', () => {
+        // An account with full access, so that the request only fails on the
+        // dashboard context resolution
+        const accountWithFullAccess = {
+            ...account,
+            user: {
+                ...account.user,
+                ability: new Ability<PossibleAbilities>([
+                    { action: 'manage', subject: 'all' },
+                ]),
+            },
+        };
+
+        afterEach(() => {
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue(undefined);
+        });
+
+        test('should reject the request when the client dashboard context cannot be verified', async () => {
+            // A client that claims a dashboard context must have it verified
+            // against the database, otherwise the row level security filter
+            // would be silently skipped.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue(undefined);
+
+            await expect(
+                service.calculateTotalFromSavedChart(
+                    accountWithFullAccess,
+                    'chart-uuid',
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'duplicated-slug',
+                        dashboardName: 'Duplicated slug dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should use the canonical dashboard slug of the verified dashboard', async () => {
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue({
+                dashboardSlug: 'canonical-slug',
+                dashboardName: 'Canonical dashboard',
+                filterTableNames: [],
+            });
+            const calculateSpy = jest
+                .spyOn(service, '_calculateTotalFromCacheOrWarehouse')
+                .mockResolvedValue({} as never);
+
+            await service.calculateTotalFromSavedChart(
+                accountWithFullAccess,
+                'chart-uuid',
+                undefined,
+                false,
+                undefined,
+                {
+                    dashboardSlug: 'duplicated-slug',
+                    dashboardName: 'Duplicated slug dashboard',
+                },
+            );
+
+            expect(calculateSpy).toHaveBeenCalledWith(
+                expect.anything(),
+                projectUuid,
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                {
+                    dashboardSlug: 'canonical-slug',
+                    dashboardName: 'Canonical dashboard',
+                },
+            );
+            calculateSpy.mockRestore();
+        });
+
+        test('should not resolve a dashboard context when the client sends none', async () => {
+            const calculateSpy = jest
+                .spyOn(service, '_calculateTotalFromCacheOrWarehouse')
+                .mockResolvedValue({} as never);
+
+            await service.calculateTotalFromSavedChart(
+                accountWithFullAccess,
+                'chart-uuid',
+            );
+            expect(
+                (
+                    service.dashboardService
+                        .resolveDashboardContextForMetadata as jest.Mock
+                ).mock.calls,
+            ).toHaveLength(0);
+            calculateSpy.mockRestore();
         });
     });
 

@@ -53,6 +53,8 @@ const useTableConfig = (
     parameters?: ParametersValuesMap,
     dashboardSlug?: string,
     dashboardName?: string,
+    /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+    dashboardUuid?: string,
 ) => {
     const { embedToken } = useEmbed();
 
@@ -300,8 +302,8 @@ const useTableConfig = (
     }, [dimensions.length, numUnpivotedDimensions]);
 
     const dashboardContext =
-        dashboardSlug || dashboardName
-            ? { dashboardSlug, dashboardName }
+        dashboardSlug || dashboardName || dashboardUuid
+            ? { dashboardSlug, dashboardName, dashboardUuid }
             : undefined;
 
     const { data: totalCalculations } = useCalculateTotal(

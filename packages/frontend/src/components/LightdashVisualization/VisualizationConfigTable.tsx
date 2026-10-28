@@ -18,6 +18,7 @@ const VisualizationTableConfig: FC<VisualizationTableConfigProps> = ({
     parameters,
     dashboardSlug,
     dashboardName,
+    dashboardUuid,
 }) => {
     const tableConfig = useTableConfig(
         initialChartConfig,
@@ -32,6 +33,7 @@ const VisualizationTableConfig: FC<VisualizationTableConfigProps> = ({
         parameters,
         dashboardSlug,
         dashboardName,
+        dashboardUuid,
     );
 
     const { validConfig } = tableConfig;
