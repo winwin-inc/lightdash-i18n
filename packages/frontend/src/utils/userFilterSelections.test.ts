@@ -209,6 +209,51 @@ describe('userFilterSelections', () => {
             ]);
         });
 
+        it('derives the category level from the column name when only one side declares it', () => {
+            // 客户现场：一级类目在四级类目 Tab 里是 group_cls2_insight_list_cls_1（没配类目层级），
+            // 三级类目 Tab 里是 cls_insight_list_cls_1（配了 1）—— 应该视为同一个筛选器。
+            const source = rule({
+                id: 'a',
+                fieldId: 'group_cls2_insight_list_cls_1',
+                tableName: 'group_cls2_insight_list',
+                values: ['饮料和酒'],
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'cls_insight_list_cls_1',
+                tableName: 'cls_insight_list',
+                categoryLevel: 1,
+                values: ['日化品'],
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([{ index: 0, matchKind: 'category-level' }]);
+
+            const result = applySelectionToFilters(
+                filters([target]),
+                source,
+                'dimension',
+            );
+            expect(result.changed).toBe(true);
+            expect(result.filters.dimensions[0].values).toEqual(['饮料和酒']);
+        });
+
+        it('does not match unrelated fields across marts', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_status',
+                tableName: 'mart_a',
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'mart_b_status',
+                tableName: 'mart_b',
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([]);
+        });
+
         it('does not match a different category level', () => {
             const source = rule({
                 id: 'a',
