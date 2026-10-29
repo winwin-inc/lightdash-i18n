@@ -2033,7 +2033,16 @@ export const GenericDashboardChartTile: FC<
         );
     }
 
-    if (isLoading || !dashboardChartReadyQuery || !resultsData) {
+    // 已经有结果就优先渲染：分页/总行数（fetchAll）这类"后台补数"的 loading
+    // 不应该把已经拿到的数据挡在骨架图后面（移动端曾出现数据已返回但一直 loading）。
+    const hasResults =
+        (resultsData?.rows?.length ?? 0) > 0 ||
+        (resultsData?.totalResults ?? 0) > 0;
+    if (
+        !dashboardChartReadyQuery ||
+        !resultsData ||
+        (isLoading && !hasResults)
+    ) {
         return (
             <TileBase
                 isEditMode={isEditMode}
