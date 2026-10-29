@@ -1,7 +1,6 @@
 import { assertUnreachable, ProjectType } from '@lightdash/common';
 import {
     Box,
-    getDefaultZIndex,
     Header,
     MantineProvider,
     type MantineTheme,
@@ -12,7 +11,11 @@ import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
 import { useActiveProjectUuid } from '../../hooks/useActiveProject';
 import { useProjects } from '../../hooks/useProjects';
 import useFullscreen from '../../providers/Fullscreen/useFullscreen';
-import { BANNER_HEIGHT, NAVBAR_HEIGHT } from '../common/Page/constants';
+import {
+    BANNER_HEIGHT,
+    NAVBAR_HEIGHT,
+    NAVBAR_Z_INDEX,
+} from '../common/Page/constants';
 import { DashboardExplorerBanner } from './DashboardExplorerBanner';
 import { MainNavBarContent } from './MainNavBarContent';
 import { PreviewBanner } from './PreviewBanner';
@@ -103,7 +106,7 @@ const NavBar = memo(() => {
                 mt={isCurrentProjectPreview ? BANNER_HEIGHT : 0}
                 display={isFullscreen ? 'none' : 'flex'}
                 px="md"
-                zIndex={getDefaultZIndex('app')}
+                zIndex={NAVBAR_Z_INDEX}
                 styles={(theme) => ({ root: getHeaderStyles(theme) })}
             >
                 {renderNavBarContent()}
