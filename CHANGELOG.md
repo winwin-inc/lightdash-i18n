@@ -6,6 +6,29 @@
 > -   生产环境上线更新次要版本号（如 v0.2092, v0.2093）
 > -   自 **v2.0** 起产品主版本独立编号
 
+## v2.4.8 (2026-10-29)
+
+-   **新功能**
+    -   看板筛选器跨 Tab 继承：在一个 Tab 选定类目 / 时间后，切到其它 Tab 时自动沿用同一取值并真正参与过滤；原本「任何值」的筛选器被继承后会启用生效（有值不再被判为"没有配置"）
+    -   类目层级识别增强：同一套类目列（`cls_1` ~ `cls_4`）冗余在多个 mart 时，按 `categoryLevel` 或列名推导识别为同一个筛选器 —— 两侧一侧配了层级、一侧没配也能对上，父级变更可跨 Tab 传播
+    -   时间筛选器按形态继承：同字段 + 同 operator + 同形态（`unitOfTime` / `completed` / 动态默认 / 区间粒度）才继承；接收方若为「最近可用月」「动态区间」默认，继承后转为固定取值，避免查询前被预设值覆盖
+-   **Bug 修复**
+    -   跨 mart 类目 fieldId 不一致导致父子联动失效（父级条件被后端静默丢弃，候选退化成全集）；改为按列名重映射，并在后端日志标记被丢弃的过滤字段
+    -   修复 Tab 类目联动写回被签名守卫误杀：值不生效且筛选 pill 一直停留「更新中」（改为世代判定，并在 finally 兜底清除展示态）
+    -   修复重置后生效状态（`disabled`）与动态日期默认未还原、且可能被在途联动写回的问题；统一由 `invalidateTabCategoryState` 作废在途请求后恢复作者默认值
+    -   修复 `DashboardService.resolveDashboardContextForMetadata` 未同步断言 `dashboardUuid` 的测试失败（分支上 CI lint/test 红）
+-   **调优**
+    -   跨 Tab 继承改为懒解析：未打开的 Tab 不再后台预先解析各级类目。此前一次改类目会发出「Tab 数 × 层级数」个 `field/search`（4~6 Tab 看板十几个请求，界面渲染完仍在打），现在一次操作只花当前 Tab 的 3~4 次；接收 Tab 的取值在用户切过去时按其自身数据与权限解析（有权限保留并继续联动，无权限回落到该 Tab 第一个合法类目）
+    -   类目初始化只处理「被改级别的后代」，祖先不再重复查询（全局与 Tab 路径一致）
+    -   新增真实请求计数与 `[category-cascade] cascade finished { fieldSearchRequests }`、`[cross-tab-inherit]`（命中 / 跳过原因）诊断日志，均为 DEV-only
+-   **文档**
+    -   新增 `docs/dashboard-filter-flow-overview.md`：7 条筛选流程 + 12 条功能保全清单 + 状态机守卫表 + 10 步手工验收脚本 + 优化前后取舍
+    -   更新 `docs/category-filter-not-cascading-diagnosis-plan.md`（§12 记录跨 Tab 继承的懒解析语义与取舍）
+-   **工程**
+    -   backend / e2e 显式关闭 `no-void`（`airbnb-base` 在 extends 中位于根配置之后，把根配置的 `'no-void': 'off'` 覆盖回 error，导致 `pnpm lint` 失败）
+    -   验证：frontend / backend / common `tsc` 0 error；前端 utils+hooks 单测 216 例、后端 DashboardService 44 / SavedSql 16 / PromoteService 34 全绿；改动文件 prettier 通过
+    -   包版本 2.4.8（发版时执行 `pnpm bump-version`）
+
 ## v2.3.6 ~ v2.4.2 (2026-10-23)
 
 -   **新功能**
