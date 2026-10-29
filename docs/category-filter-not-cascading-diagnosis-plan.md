@@ -455,3 +455,97 @@ pnpm -F frontend test
 - 若已绑定仍不联动，请提供浏览器 Network 中
   `/projects/:projectId/field/:fieldId/search` 的响应，以及控制台里的
   `[categoryFilters]` 日志。
+
+---
+
+## 十一、最终根因（已修复）：跨 mart 的类目 fieldId 不同
+
+> 前面的「根因判定表」（第三节）把 `categoryLevel` 缺失列为首要嫌疑，
+> **实测证明不是**。真实根因在**字段标识**层，与联动算法、绑定配置都无关。
+
+### 现象与证据
+
+查看态改全局「一级类目」（日化品 → 食品）后，Tab 的二级类目仍停留在「饮料」。
+
+控制台 `[category-cascade]` 日志显示整条链路**全部正常**：
+
+- `global filter update: cascade start` —— 入口进来了
+- `cascade child detected` / `cascade child resolved { status: 'resolved' }` —— 二级被识别为子级并成功解析
+- 但 `field/search response` 返回了**未过滤的全集**（15 个二级类目，含「饮料」）
+
+请求体是决定性证据：
+
+```jsonc
+{
+  "table": "cls_insight_list",
+  "filters": {
+    "and": [
+      { "fieldId": "cls_insight_list_period",       "tableName": "cls_insight_list" },        // 同表 → 生效
+      { "fieldId": "group_cls2_insight_list_cls_1", "tableName": "group_cls2_insight_list" }  // 跨 mart → 被丢弃
+    ]
+  }
+}
+```
+
+后端 `ProjectService._getFieldValuesMetricQuery` 只保留「在目标 explore 里能找到的字段」：
+
+```ts
+const filtersCompatibleWithExplore = filters.and.filter(
+    (filter) => isFilterRule(filter) &&
+        findFieldByIdInExplore(explore, filter.target.fieldId),  // 找不到就丢弃
+);
+```
+
+`group_cls2_insight_list_cls_1` 不在 `cls_insight_list` 的 explore 里 → **条件被静默丢弃**
+→ 候选是全集 → 「饮料」恰好在全集里 → 按「当前值仍合法则保留」的规则保留
+→ 用户看到「联动没生效」。
+
+### 为什么不是 dbt 的问题
+
+两个 mart **都冗余了完整的类目列**，无需加 join：
+
+- `group_cls2_insight_list`：`cls_1, cls_2, ...`
+- `cls_insight_list`：`cls_1, cls_2, cls_3, cls_4`（schema 里已声明「一级类目」维度）
+
+同一个物理列 `cls_1`，在两个 mart 里是**两个不同的 fieldId**
+（`group_cls2_insight_list_cls_1` vs `cls_insight_list_cls_1`）。
+全局筛选器绑定的是前者，子级在后者所在的 explore，于是对不上。
+
+### 修复
+
+`packages/frontend/src/utils/categoryFilters.ts` 新增 `remapRuleToTable`：
+发 field/search 前，把**类目筛选器**的 fieldId 重映射到**子级表的同名列**。
+
+```
+group_cls2_insight_list_cls_1  →  cls_insight_list_cls_1
+```
+
+- 父级条件与左侧类目条件都重映射（全局一/二级可能都在别的 mart 上）；
+- **非类目筛选器不重映射**（日期等字段名在各表并不对应，改写会构造出不存在的字段）；
+- 列名在子级表不存在时，后端仍会丢弃并打 warning（与改动前等价，无回归）。
+
+### 回归测试
+
+`packages/frontend/src/utils/categoryFiltersCrossScope.test.ts`：
+
+- `remaps the parent category field to the child table before querying`
+  —— 断言发出的 `filters.and` 里是 `cls_insight_list_cls_1` + `values: ['食品']`，且原 fieldId 不再出现；
+- `keeps same-table filters untouched` —— 同表不重映射。
+
+### 配套改进
+
+| 改动 | 目的 |
+|---|---|
+| backend `_getFieldValuesMetricQuery` 记录被丢弃的过滤字段 | 同类问题不再静默，一眼看到「哪些条件没进 SQL」 |
+| `[category-cascade]` 日志收敛为 DEV-only | 生产环境不刷屏 |
+| `[category-cascade] field/search request/response` | 直接看到实际发出的条件与返回的候选 |
+| 全局类目变更只级联「全局 + 当前 Tab」 | 多 Tab 看板从 N 次请求降到 1~2 次；其它 Tab 靠各自懒初始化重算 |
+| `findParentCategoryEntry` 作用域未命中时按 fieldId 兜底 | `parentScope='tab'` 但 `parentTabUuid` 缺失/失效时绑定不再静默失效 |
+| field/search 透传 `dashboardUuid` | 与筛选器下拉一致，dbt 行级过滤（`sql_filter`）在级联查询里也生效 |
+
+### 下次排查的正确顺序
+
+1. 先看 `[category-cascade] field/search request`：父级条件**有没有**进查询。
+2. 没进 → 看是不是「条件被后端丢弃」（`[field-search] Dropped filter field(s)`）→ 比对 fieldId 前缀是否与子级表一致。
+3. 进了但候选仍不对 → 再看 `field/search response` 的 `values` 与 `[category-cascade] cascade child resolved` 的 `status`。
+4. `status: 'keep'` 表示「当前值仍在候选里 → 保留」，这本身是正确语义，不是 bug。
