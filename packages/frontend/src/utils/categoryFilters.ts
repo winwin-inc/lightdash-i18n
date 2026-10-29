@@ -825,6 +825,34 @@ const collectFieldSearchFilters = (
         operator: FilterOperator.EQUALS,
     };
 
+    // 跨表父级无法作为过滤条件：
+    //
+    // field/search 只能对「目标字段所在 explore（含 join 表）」里的字段生效，
+    // 后端会把不在该 explore 里的过滤条件静默丢弃
+    // （ProjectService._getFieldValuesMetricQuery）。
+    // 于是父级条件根本没进 SQL，返回的是未过滤的全集，
+    // 而当前值恰好在全集里 → 被「保留」，表现成「配了绑定但联动无效」。
+    // 这里给出明确线索，而不是让作者反复查配置。
+    const childTableName = child.rule.target.tableName;
+    const parentTableName = parentEntry.rule.target.tableName;
+    if (
+        childTableName &&
+        parentTableName &&
+        childTableName !== parentTableName
+    ) {
+        logCategoryCascadeWarning(
+            'parent filter is on a different table than the child field; ' +
+                'the backend will drop it unless the two tables are joined in the same explore',
+            {
+                childFieldId: child.rule.target.fieldId,
+                childTableName,
+                parentFieldId: parentEntry.rule.target.fieldId,
+                parentTableName,
+                parentValue: parentLabel,
+            },
+        );
+    }
+
     const withoutParent = leftEntries.filter(
         (entry) => entry.rule.target.fieldId !== parentFieldId,
     );

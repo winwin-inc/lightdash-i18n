@@ -3720,6 +3720,36 @@ export class ProjectService extends BaseService {
                         filter.target.fieldId,
                     ),
             );
+            // 被丢弃的条件必须留下痕迹。
+            //
+            // 类目父子联动会把「父级类目 = 某值」作为一个过滤条件传进来，
+            // 如果父级字段不在这个 explore 里（业务库里 cls_1 与 cls_2 分属
+            // 两张表且没有 join），条件会被静默丢掉：返回的是未过滤的全集，
+            // 前端按「当前值仍在候选里 → 保留」处理，表现成「配了绑定但联动无效」，
+            // 极难排查。这里明确记录，避免再静默。
+            const droppedFilterFieldIds = filters.and
+                .filter(
+                    (filter) =>
+                        isFilterRule(filter) &&
+                        !findFieldByIdInExplore(
+                            explore as Explore,
+                            filter.target.fieldId,
+                        ),
+                )
+                .map((filter) =>
+                    isFilterRule(filter) ? filter.target.fieldId : '',
+                )
+                .filter((droppedFieldId) => droppedFieldId !== '');
+            if (droppedFilterFieldIds.length > 0) {
+                this.logger.warn(
+                    `[field-search] Dropped filter field(s) not present in explore "${
+                        explore.name
+                    }" (base table "${
+                        explore.baseTable
+                    }"): ${droppedFilterFieldIds.join(', ')}. ` +
+                        `Candidate values are returned unfiltered; category cascade relying on these fields will not work until they are joined into the same explore.`,
+                );
+            }
             autocompleteDimensionFilters.push(...filtersCompatibleWithExplore);
         }
         const metricQuery: MetricQuery = {
