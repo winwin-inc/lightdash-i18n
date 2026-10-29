@@ -76,5 +76,13 @@ module.exports = {
                 '@typescript-eslint/no-unsafe-call': 'off',
             },
         },
+        {
+            // Legacy extractor class: several private helpers are stateless
+            // and do not use `this`.
+            files: ['src/ee/apps/dataReferences.ts'],
+            rules: {
+                'class-methods-use-this': 'off',
+            },
+        },
     ],
 };

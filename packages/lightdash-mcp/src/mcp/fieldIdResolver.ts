@@ -31,6 +31,19 @@ export function exploreRequiresDashboardContext(explore: unknown): boolean {
     );
 }
 
+/**
+ * Reads the table name from a table node, supporting both `table` and `tableName`.
+ */
+function readTableName(obj: Record<string, unknown>): string | undefined {
+    if (typeof obj.table === 'string') {
+        return obj.table;
+    }
+    if (typeof obj.tableName === 'string') {
+        return obj.tableName;
+    }
+    return undefined;
+}
+
 export function createFieldIdResolverFromExplore(
     explore: unknown,
     exploreName: string,
@@ -50,12 +63,7 @@ export function createFieldIdResolverFromExplore(
         }
         if (!node || typeof node !== 'object') return;
         const obj = node as Record<string, unknown>;
-        const tableName =
-            typeof obj.table === 'string'
-                ? obj.table
-                : typeof obj.tableName === 'string'
-                  ? obj.tableName
-                  : undefined;
+        const tableName = readTableName(obj);
         const fallbackFieldId =
             tableName && typeof obj.name === 'string'
                 ? getItemId({ table: tableName, name: obj.name })

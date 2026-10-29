@@ -10,6 +10,7 @@ import {
     ProjectMemberRole,
     SessionUser,
     type PossibleAbilities,
+    type SessionAccount,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
@@ -82,6 +83,32 @@ jest.mock('@lightdash/warehouses', () => ({
     })),
 }));
 
+const spaceSummary = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    uuid: 'spaceUuid',
+    name: 'space',
+    isPrivate: false,
+    pinnedListUuid: null,
+    pinnedListOrder: null,
+    slug: 'space',
+    parentSpaceUuid: null,
+    path: 'space',
+    userAccess: undefined,
+    access: [],
+    chartCount: 0,
+    dashboardCount: 0,
+};
+
+const savedChart = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    tableName: 'valid_explore',
+    spaceUuid: 'spaceUuid',
+    metricQuery: METRIC_QUERY,
+    parameters: undefined,
+};
+
 const projectModel = {
     getWithSensitiveFields: jest.fn(async () => projectWithSensitiveFields),
     get: jest.fn(async () => projectWithSensitiveFields),
@@ -127,32 +154,6 @@ const spaceModel = {
 
 const userAttributesModel = {
     getAttributeValuesForOrgMember: jest.fn(async () => ({})),
-};
-
-const spaceSummary = {
-    organizationUuid: 'organizationUuid',
-    projectUuid: defaultProject.projectUuid,
-    uuid: 'spaceUuid',
-    name: 'space',
-    isPrivate: false,
-    pinnedListUuid: null,
-    pinnedListOrder: null,
-    slug: 'space',
-    parentSpaceUuid: null,
-    path: 'space',
-    userAccess: undefined,
-    access: [],
-    chartCount: 0,
-    dashboardCount: 0,
-};
-
-const savedChart = {
-    organizationUuid: 'organizationUuid',
-    projectUuid: defaultProject.projectUuid,
-    tableName: 'valid_explore',
-    spaceUuid: 'spaceUuid',
-    metricQuery: METRIC_QUERY,
-    parameters: undefined,
 };
 
 const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
@@ -208,10 +209,12 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
         } as never,
     });
 
+// Narrow to a session account so that spreading it keeps a concrete,
+// discriminated account type (helpers + session authentication).
 const account = buildAccount({
     accountType: 'session',
     userType: 'registered',
-});
+}) as SessionAccount;
 
 describe('ProjectService', () => {
     const { projectUuid } = defaultProject;

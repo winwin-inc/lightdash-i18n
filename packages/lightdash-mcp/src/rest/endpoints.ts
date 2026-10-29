@@ -178,6 +178,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
             parameters?: Record<string, unknown>;
             dashboardSlug?: string;
             dashboardName?: string;
+            dashboardUuid?: string;
         },
     ): Promise<unknown> {
         const json = await requestJson<{ results?: unknown }>(
@@ -196,6 +197,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
                     parameters: args.parameters,
                     dashboardSlug: args.dashboardSlug,
                     dashboardName: args.dashboardName,
+                    dashboardUuid: args.dashboardUuid,
                 }),
             },
         );
