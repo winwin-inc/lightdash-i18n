@@ -769,6 +769,63 @@ const summarizeChain = (chain: CategoryChain) =>
     }));
 
 /**
+ * 把筛选规则重映射到目标表的同名列。
+ *
+ * 类目看板的 dbt mart 通常是「同一套类目列在多个 mart 里冗余」的结构：
+ * 例如 `group_cls2_insight_list` 与 `cls_insight_list` 都有 `cls_1..cls_4`。
+ *
+ * 后果：全局筛选器绑定的是 A mart 的字段（`group_cls2_insight_list_cls_1`），
+ * 而子级类目在 B mart 上（`cls_insight_list_cls_2`）。直接把 A 的 fieldId
+ * 传给 field/search，后端的 explore 里没有这个字段
+ * （`findFieldByIdInExplore` 只在该 explore 及其 join 表里找）→ 条件被丢弃，
+ * 返回未过滤的全集，前端按「当前值仍在候选里」保留旧值，
+ * 表现为「配好父子绑定但联动无效」。
+ *
+ * 这里把 fieldId 改写成「子级表 + 同样的列名」。列名不存在时后端会丢弃并打
+ * warning（`[field-search] Dropped filter field(s)...`），与改动前行为一致。
+ */
+const remapRuleToTable = (
+    rule: DashboardFilterRule,
+    targetTableName: string | undefined,
+): DashboardFilterRule => {
+    // 只重映射类目筛选器：跨 mart 冗余的是类目列（cls_1..cls_4）。
+    // 日期 / 字符串等普通筛选器在各自表里的字段名并不对应，
+    // 改写反而会构造出不存在或不等价的字段。
+    if (!isCategoryField(rule)) return rule;
+
+    const sourceTableName = rule.target.tableName;
+    if (
+        !targetTableName ||
+        !sourceTableName ||
+        sourceTableName === targetTableName
+    ) {
+        return rule;
+    }
+
+    const prefix = `${sourceTableName}_`;
+    if (!rule.target.fieldId.startsWith(prefix)) return rule;
+
+    const columnName = rule.target.fieldId.slice(prefix.length);
+    if (!columnName) return rule;
+
+    const remappedFieldId = `${targetTableName}_${columnName}`;
+    logCategoryCascade('remapped filter to child table', {
+        fromFieldId: rule.target.fieldId,
+        toFieldId: remappedFieldId,
+        values: rule.values ?? null,
+    });
+
+    return {
+        ...rule,
+        target: {
+            ...rule.target,
+            fieldId: remappedFieldId,
+            tableName: targetTableName,
+        },
+    };
+};
+
+/**
  * 收集 field/search 级联条件：目标筛选器左侧已有值的规则（对齐下拉 getAutocompleteFilterGroup），
  * 并对父级类目应用 override。
  */
@@ -819,44 +876,29 @@ const collectFieldSearchFilters = (
         return undefined;
     }
 
-    const parentRule: DashboardFilterRule = {
-        ...parentEntry.rule,
-        values: [parentLabel],
-        operator: FilterOperator.EQUALS,
-    };
-
-    // 跨表父级无法作为过滤条件：
-    //
-    // field/search 只能对「目标字段所在 explore（含 join 表）」里的字段生效，
-    // 后端会把不在该 explore 里的过滤条件静默丢弃
-    // （ProjectService._getFieldValuesMetricQuery）。
-    // 于是父级条件根本没进 SQL，返回的是未过滤的全集，
-    // 而当前值恰好在全集里 → 被「保留」，表现成「配了绑定但联动无效」。
-    // 这里给出明确线索，而不是让作者反复查配置。
     const childTableName = child.rule.target.tableName;
-    const parentTableName = parentEntry.rule.target.tableName;
-    if (
-        childTableName &&
-        parentTableName &&
-        childTableName !== parentTableName
-    ) {
-        logCategoryCascadeWarning(
-            'parent filter is on a different table than the child field; ' +
-                'the backend will drop it unless the two tables are joined in the same explore',
-            {
-                childFieldId: child.rule.target.fieldId,
-                childTableName,
-                parentFieldId: parentEntry.rule.target.fieldId,
-                parentTableName,
-                parentValue: parentLabel,
-            },
-        );
-    }
 
+    const parentRule: DashboardFilterRule = remapRuleToTable(
+        {
+            ...parentEntry.rule,
+            values: [parentLabel],
+            operator: FilterOperator.EQUALS,
+        },
+        childTableName,
+    );
+
+    // 左侧条件同样要重映射：
+    // 全局一/二级类目可能绑定在另一个 mart 上，不重映射就会被后端丢弃，
+    // 导致子级候选其实是「只按时间过滤」的全集。
     const withoutParent = leftEntries.filter(
         (entry) => entry.rule.target.fieldId !== parentFieldId,
     );
-    return [...withoutParent.map((entry) => entry.rule), parentRule];
+    return [
+        ...withoutParent.map((entry) =>
+            remapRuleToTable(entry.rule, childTableName),
+        ),
+        parentRule,
+    ];
 };
 
 /**

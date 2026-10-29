@@ -1270,3 +1270,155 @@ describe('updateCrossScopeCategoryCascadeAsync active tab scoping', () => {
         ]);
     });
 });
+
+describe('category cascade across denormalized marts', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    /**
+     * 真实场景（MSY150 品类洞察）：
+     * - 全局「一级类目」绑定在 group_cls2_insight_list mart 上
+     * - Tab 的二级/三级/四级在 cls_insight_list mart 上
+     * 两个 mart 都冗余了 cls_1..cls_4，但 fieldId 前缀不同。
+     */
+    const crossMartFilter = (
+        overrides: Partial<DashboardFilterRule> & {
+            id: string;
+            fieldId: string;
+            tableName: string;
+            categoryLevel: 1 | 2 | 3 | 4;
+            values?: string[];
+            parentFieldId?: string;
+            parentScope?: 'global' | 'tab';
+            parentTabUuid?: string;
+        },
+    ): DashboardFilterRule => ({
+        id: overrides.id,
+        target: {
+            fieldId: overrides.fieldId,
+            tableName: overrides.tableName,
+        },
+        operator: FilterOperator.EQUALS,
+        values: overrides.values,
+        label: undefined,
+        categoryLevel: overrides.categoryLevel,
+        parentFieldId: overrides.parentFieldId,
+        parentScope: overrides.parentScope,
+        parentTabUuid: overrides.parentTabUuid,
+    });
+
+    it('remaps the parent category field to the child table before querying', async () => {
+        // 父级字段属于 group_cls2_insight_list，子级属于 cls_insight_list。
+        // 必须改写成 cls_insight_list_cls_1，否则后端会丢弃该条件，
+        // 返回未过滤的全集导致「饮料」被错误保留。
+        mockSearchResults(['乳制品']);
+
+        const globalL1 = crossMartFilter({
+            id: 'g1',
+            fieldId: 'group_cls2_insight_list_cls_1',
+            tableName: 'group_cls2_insight_list',
+            categoryLevel: 1,
+            values: ['日化品'],
+        });
+        const tabL2 = crossMartFilter({
+            id: 't2',
+            fieldId: 'cls_insight_list_cls_2',
+            tableName: 'cls_insight_list',
+            categoryLevel: 2,
+            values: ['饮料'],
+            parentFieldId: 'group_cls2_insight_list_cls_1',
+            parentScope: 'global',
+        });
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            {
+                globalFilters: asFilters([globalL1]),
+                tabFilters: { [TAB_UUID]: asFilters([tabL2]) },
+            },
+            globalL1,
+            '食品',
+            projectUuid,
+            dashboardContext,
+            { activeTabUuid: TAB_UUID },
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+
+        // 查询条件里的父级字段被重映射到子级表
+        const body = JSON.parse(String(api.mock.calls[0][0].body));
+        expect(body.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: expect.objectContaining({
+                        fieldId: 'cls_insight_list_cls_1',
+                        tableName: 'cls_insight_list',
+                    }),
+                    values: ['食品'],
+                }),
+            ]),
+        );
+        // 重映射后的条件不应再出现原字段
+        expect(
+            JSON.stringify(body.filters.and).includes(
+                'group_cls2_insight_list_cls_1',
+            ),
+        ).toBe(false);
+
+        // 子级被解析成新值（不是被清空，也不是保留旧值）
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '乳制品',
+        ]);
+    });
+
+    it('keeps same-table filters untouched', async () => {
+        mockSearchResults(['乳制品']);
+
+        const tabL2 = crossMartFilter({
+            id: 't2',
+            fieldId: 'cls_insight_list_cls_2',
+            tableName: 'cls_insight_list',
+            categoryLevel: 2,
+            values: ['饮料'],
+        });
+        const tabL3 = crossMartFilter({
+            id: 't3',
+            fieldId: 'cls_insight_list_cls_3',
+            tableName: 'cls_insight_list',
+            categoryLevel: 3,
+            values: ['茶饮料'],
+            parentFieldId: 'cls_insight_list_cls_2',
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+
+        await updateCrossScopeCategoryCascadeAsync(
+            {
+                globalFilters: asFilters([]),
+                tabFilters: { [TAB_UUID]: asFilters([tabL2, tabL3]) },
+            },
+            tabL2,
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+            { activeTabUuid: TAB_UUID },
+        );
+
+        const body = JSON.parse(String(api.mock.calls[0][0].body));
+        expect(body.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: expect.objectContaining({
+                        fieldId: 'cls_insight_list_cls_2',
+                        tableName: 'cls_insight_list',
+                    }),
+                }),
+            ]),
+        );
+    });
+});
