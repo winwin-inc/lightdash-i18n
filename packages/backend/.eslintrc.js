@@ -19,6 +19,9 @@ module.exports = {
         }
     },
     rules: {
+        // airbnb-base 在 extends 里位于根配置之后，会把根配置的 'no-void': 'off' 覆盖掉；
+        // `void` 是本仓库标记「显式忽略 promise」的惯用写法，这里显式关闭。
+        'no-void': 'off',
         'import/prefer-default-export': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
         'no-console': 'off',
