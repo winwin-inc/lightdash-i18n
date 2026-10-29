@@ -625,3 +625,70 @@ if (requestSignature !== currentSignature) return prev;                 // 结�
 | `skip cascade: no confirmed value` | 子级无值且被禁用 → 按语义不跟随 |
 | `tab cascade write-back rejected` | 算出来了但写回被世代判定拒绝 |
 | `field/search request` 里 `filters: null` | 根本没带父级条件 |
+
+---
+
+## 十二、已实施（跨 Tab 筛选继承：身份 / 「任何值」 / 时间形态 / 重置）
+
+### 现象（客户反馈）
+
+品类洞察看板里，在一个 Tab 选了「一级类目」（二级自动联动）或「时间（近3个月）」，
+切到其它 Tab 时那边**仍是作者默认值 / 灰色「任何值」**，完全没触发继承，
+于是每个 Tab 都要重新筛一遍。
+
+### 根因：三道静默拒绝的闸门
+
+| 闸门 | 位置（改前） | 后果 |
+| --- | --- | --- |
+| 目标规则 `disabled` 直接拒绝继承 | `utils/userFilterSelections.ts` `isRuleSelectionCompatible` | 作者没给该 Tab 配默认值的筛选器就是 `disabled: true`（UI 只显示灰名字）→ 永远收不到继承 |
+| 身份按 `tableName.fieldId` 全等匹配 | `getFilterIdentityKey` | 跨 mart 同名列（`group_cls2_insight_list_cls_2` vs `cls_insight_list_cls_2`）判成两个不同筛选器 → 一行值都传不过去 |
+| 兼容闸门要求 `parentFieldId` 完全相等 | `isRuleSelectionCompatible` | 各 Tab 的父级绑定指向自己 Tab 的父级 fieldId，跨 mart 必然不同 → 类目被拒 |
+
+三道闸门都**没有任何日志或提示**，表现与"根本没配置"完全一致。
+
+### 实施要点
+
+1. **身份认定**（`findMatchingRuleIndices` / `findInheritedRule`）
+   - 精确字段（`namespace + tableName + fieldId`）优先，命中后不再兜底；
+   - 无精确命中时，**同级类目（`categoryLevel` 相同）视为同一筛选器**，覆盖跨 mart 同名列；
+   - SQL 列仍按 rule id；日期/普通筛选器不做兜底（"首单时间" ≠ "月份"）。
+2. **「任何值」语义**：`values: []` / `disabled: true` 表示"当前没有生效取值"，
+   **不是作者禁用**。所以目标 Tab 是"任何值"时，源 Tab 有值就要
+   **写入值 + `disabled: false`**（真正参与过滤）；源被清空则同步成"任何值"；
+   两边都"任何值"时不做任何写入（不标脏、不发请求、不触发级联）。
+3. **时间筛选器严格同形态**：只承认「同字段 + 同 operator + 同形态」。
+   - 相对时间（`inThePast` 等）要求 `unitOfTime` 与 `completed` 相同；
+   - 区间（`inBetween`）要求 `dateRangeGranularity ?? DAY` 相同；
+   - 接收方是动态默认（`singleDate` / `dateRange` `mode: 'dynamic'`）时**允许继承并剥掉动态默认**，
+     否则查询前 `prepareDashboardFilterRuleForQuery` 会用 preset 把继承值覆盖回去；
+   - `近N个月` ↔ `月份绝对单选` 这类**不做换算**：不同形态就是不同筛选器，
+     正确做法是各 Tab 统一形态，或用全局筛选器承载。
+4. **继承内容**：只搬"取值 + 生效状态"，不覆盖作者的 operator / 粒度 / 日期边界 / 排除项
+   （唯一例外就是剥掉接收方的动态默认）。
+5. **接收方权限校验**（新增 `utils/categoryFilters.ts` `applyInheritedCategorySelectionsAsync`）：
+   - 继承值出现在接收方自己的 `field/search` 候选里 → 保留，并用接收方自己的链继续联动子级；
+   - 不在候选里（无权限 / 该 Tab 数据范围没有）→ **用同步前的规则原样回退**，不联动子级；
+   - 请求失败 → 保留继承值并提示（`onResolutionIssue`）；
+   - 之后对该 Tab 跑一次 `initializeCategoryFiltersAsync`，让作者配置的子级按数据补值。
+6. **重置对齐**（`wrappedResetTabFilters` / `clearTabFilterSelection`）：
+   - 恢复内容补上 `disabled`（被继承启用的筛选器会回到作者的"任何值"）；
+   - 匹配用与继承一致的规则，跨 mart 同级类目一起恢复；
+   - 重置前新增 `invalidateTabCategoryState`：同时作废 init / cascade 两个 generation、
+     在途会话（含跨 Tab 继承会话）、pending / processed 签名与展示态，
+     避免"重置后又被晚到的级联写回"；
+   - 重置后按"该 Tab 是否有类目筛选器"重建 pending 并 arm 超时，让作者默认值重新按权限解析。
+
+### 诊断日志（DEV-only）
+
+- `[cross-tab-inherit]`：`inherited`（含 `matchKind`）/ `skip: incompatible`（含 reason：
+  `operator-mismatch` / `category-level-mismatch` / `parent-mismatch` / `fallback-type-mismatch` /
+  `source-dynamic` / `date-unit-mismatch` / `date-completed-mismatch` / `date-shape-mismatch` /
+  `date-range-granularity-mismatch`）/ `skip: no change` / `multiple matches`；
+- `[category-cascade]`：`inherited value not available in tab, reverted`。
+
+### 验收
+
+- 单测：`utils/userFilterSelections.test.ts`（身份 / 兼容 / 取值套用 / 恢复默认值）、
+  新增 `utils/categoryFiltersInheritedSelection.test.ts`（校验 / 回退 / 子级联动 / 会话取消）；
+- 手工：品类洞察看板按「一级 → 二级 → 切 Tab」验证；目标 Tab 原本"任何值"的筛选器要变有值并生效；
+  跨 mart 仍继承；无权限时保持原值；重置后各 Tab 回到作者默认值且不被写回。
