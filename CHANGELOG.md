@@ -29,6 +29,29 @@
     -   验证：frontend / backend / common `tsc` 0 error；前端 utils+hooks 单测 216 例、后端 DashboardService 44 / SavedSql 16 / PromoteService 34 全绿；改动文件 prettier 通过
     -   包版本 2.4.8（发版时执行 `pnpm bump-version`）
 
+## v2.4.3 ~ v2.4.7 (2026-10-28)
+
+-   **新功能**
+    -   自定义图表（Vega-Lite）跟随看板同步颜色：写死的颜色字面量、`mark.line` 覆盖线、条件色（含无 field 的条件色编码）都参与同步；支持复合视图与展示值兜底、显式 `color.domain` 作为系列集合；开启同步后由看板色板接管配色
+    -   看板深度复制：复制看板时深拷贝图表与 SQL 图表资源（不再共享原图），补齐 tab / tile / 筛选器 `tileTargets` / `lockedTabUuids` / `parentTabUuid` 的 uuid 重映射；复制含 SQL 图表的看板需 `CustomSql` 权限，失败时补偿删除半成品
+    -   看板滚动时筛选器与标签栏吸顶（参数行一并吸顶，贴顶不留白）
+    -   添加筛选器按作用域收窄：只展示当前 Tab 引用的数据集字段与 SQL 列
+    -   查看模式筛选器跨 Tab 取值继承（初版；后续在 v2.4.8 调整为懒解析并修正「任何值」语义）
+    -   Markdown 渲染统一保留段落内换行
+-   **Bug 修复**
+    -   修复类目筛选器下级不跟随上级联动；修复首屏图表重复查询
+    -   修复类目联动 `field/search` 条件丢失 `settings` 与 `disabled` 导致查不到数据
+    -   修复看板上下文跨项目串号导致行级权限失效
+    -   修复自定义图表配色的多个问题：调色板下拉无法打开、同步范围过宽导致同色、`color.sort` 顺序与 null 分类中性灰、调色板变化/重置后系列名未重新注册
+    -   标准图表类型标注改为「（标准图表）」
+    -   修复 backend 构建失败（ProjectService 测试类型错误）
+-   **调优**
+    -   vite 预构建 vega / vega-lite，避免 dev server 首屏整页 reload
+    -   自定义图表 transform 派生数据改为懒加载，避免 vega 进入首屏主 chunk
+    -   类型标注映射抽成可测试的 `chartTypeLabel` 模块
+-   **工程**
+    -   包版本历经 2.4.3 / 2.4.4 / 2.4.5 / 2.4.6 / 2.4.7
+
 ## v2.3.6 ~ v2.4.2 (2026-10-23)
 
 -   **新功能**
