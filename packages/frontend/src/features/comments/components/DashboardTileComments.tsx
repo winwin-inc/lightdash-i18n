@@ -18,6 +18,7 @@ import useApp from '../../../providers/App/useApp';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../../providers/Tracking/useTracking';
 import { EventName } from '../../../types/Events';
+import { DASHBOARD_COMMENTS_NOTIFICATIONS_ENABLED } from '../../notifications/constants';
 import { useGetNotifications } from '../../notifications';
 import { useUpdateNotification } from '../../notifications/hooks/useNotifications';
 import { useCreateComment } from '../hooks/useComments';
@@ -96,9 +97,10 @@ export const DashboardTileComments: FC<
         ],
     );
 
+    // NOTE: Dashboard comment notifications are disabled, so we don't poll for them
     const { data: notifications } = useGetNotifications(
         NotificationResourceType.DashboardComments,
-        true,
+        DASHBOARD_COMMENTS_NOTIFICATIONS_ENABLED,
     );
     const { mutate: updateNotification } = useUpdateNotification();
 
