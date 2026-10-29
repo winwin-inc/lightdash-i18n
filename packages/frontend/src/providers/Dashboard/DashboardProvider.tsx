@@ -436,39 +436,68 @@ const DashboardProvider: React.FC<
     ] = useState(false);
     const [pendingTabCategoryResolutions, setPendingTabCategoryResolutions] =
         useState<Record<string, boolean>>({});
-    const categoryResolutionTimeoutRef = useRef<ReturnType<
-        typeof setTimeout
-    > | null>(null);
+    /**
+     * 类目解析的兜底超时：**每个作用域各一个**（`global` 或 tabUuid）。
+     *
+     * 之前全局只用一个 timer：任何一个作用域解析结束都会 `clearTimeout`，
+     * 把其它作用域的兜底一起取消。跨 Tab 继承会给未打开的 Tab 置 pending，
+     * 一旦兜底被取消、而那个 Tab 又一直没被打开（移动端只显示一个 Tab 时很常见），
+     * pending 就永久为 true → 该 Tab 的图表永远不查询 / 一直 loading。
+     */
+    const categoryResolutionTimeoutsRef = useRef<
+        Map<string, ReturnType<typeof setTimeout>>
+    >(new Map());
 
     // 首屏最多等类目解析这么久：超时后先放行图表，类目解析完成后再校正一次，
     // 避免 field/search 卡住时看板一直转圈
     const CATEGORY_RESOLUTION_MAX_WAIT_MS = 10000;
 
-    const armCategoryResolutionTimeout = useCallback(() => {
-        if (categoryResolutionTimeoutRef.current) {
-            clearTimeout(categoryResolutionTimeoutRef.current);
-        }
-        categoryResolutionTimeoutRef.current = setTimeout(() => {
-            categoryResolutionTimeoutRef.current = null;
+    const releaseCategoryResolution = useCallback((key: string) => {
+        if (key === 'global') {
             setIsGlobalCategoryResolutionPending(false);
-            setPendingTabCategoryResolutions((prev) =>
-                Object.fromEntries(
-                    Object.entries(prev).map(([uuid]) => [uuid, false]),
-                ),
-            );
-        }, CATEGORY_RESOLUTION_MAX_WAIT_MS);
+            return;
+        }
+        setPendingTabCategoryResolutions((prev) => {
+            if (prev[key] === false) return prev;
+            return { ...prev, [key]: false };
+        });
     }, []);
 
-    const clearCategoryResolutionTimeout = useCallback(() => {
-        if (categoryResolutionTimeoutRef.current) {
-            clearTimeout(categoryResolutionTimeoutRef.current);
-            categoryResolutionTimeoutRef.current = null;
+    const armCategoryResolutionTimeout = useCallback(
+        (key: string) => {
+            const timeouts = categoryResolutionTimeoutsRef.current;
+            const existing = timeouts.get(key);
+            if (existing) {
+                clearTimeout(existing);
+            }
+            timeouts.set(
+                key,
+                setTimeout(() => {
+                    timeouts.delete(key);
+                    releaseCategoryResolution(key);
+                }, CATEGORY_RESOLUTION_MAX_WAIT_MS),
+            );
+        },
+        [releaseCategoryResolution],
+    );
+
+    const clearCategoryResolutionTimeout = useCallback((key: string) => {
+        const timeouts = categoryResolutionTimeoutsRef.current;
+        const existing = timeouts.get(key);
+        if (existing) {
+            clearTimeout(existing);
+            timeouts.delete(key);
         }
     }, []);
 
     useEffect(
-        () => clearCategoryResolutionTimeout,
-        [clearCategoryResolutionTimeout],
+        () => () => {
+            categoryResolutionTimeoutsRef.current.forEach((timeout) =>
+                clearTimeout(timeout),
+            );
+            categoryResolutionTimeoutsRef.current.clear();
+        },
+        [],
     );
 
     const markGlobalCategoryProcessed = useCallback(
@@ -616,7 +645,7 @@ const DashboardProvider: React.FC<
                         globalCategoryInitGenerationRef.current === generation
                     ) {
                         globalCategoryPendingSignatureRef.current = null;
-                        clearCategoryResolutionTimeout();
+                        clearCategoryResolutionTimeout('global');
                         // 类目解析结束：图表可以按最终类目发起查询
                         setIsGlobalCategoryResolutionPending(false);
                     }
@@ -1363,7 +1392,7 @@ const DashboardProvider: React.FC<
             const { signature } = decision;
             tabCategoryPendingSignatureRef.current[targetTabUuid] = signature;
             // 该 Tab 的图表会等类目解析完成再查，设置等待上限防止一直转圈
-            armCategoryResolutionTimeout();
+            armCategoryResolutionTimeout(targetTabUuid);
             // 新的自动初始化：作废上一个初始化会话的请求
             const session = startTabCategoryInitSession(targetTabUuid);
 
@@ -1431,7 +1460,7 @@ const DashboardProvider: React.FC<
                         delete tabCategoryPendingSignatureRef.current[
                             targetTabUuid
                         ];
-                        clearCategoryResolutionTimeout();
+                        clearCategoryResolutionTimeout(targetTabUuid);
                         // 类目解析结束：该 Tab 的图表可以按最终类目发起查询
                         setPendingTabCategoryResolutions((prev) => ({
                             ...prev,
@@ -1502,7 +1531,10 @@ const DashboardProvider: React.FC<
                     });
                     return next;
                 });
-                armCategoryResolutionTimeout();
+                // 每个接收 Tab 各自一个兜底：任一 Tab 解析结束不会取消其它 Tab 的兜底
+                inheritedTabUuids.forEach((targetTabUuid) => {
+                    armCategoryResolutionTimeout(targetTabUuid);
+                });
                 // 取值被继承修改过：标记为已修改，使「重置全部筛选」可用
                 setHaveTabFiltersChanged((prev) => {
                     const next = { ...prev };
@@ -1953,7 +1985,7 @@ const DashboardProvider: React.FC<
                     !!resetServerFilters &&
                     hasCategoryFilters(resetServerFilters),
             }));
-            armCategoryResolutionTimeout();
+            armCategoryResolutionTimeout(uuid);
             // 各 Tab 都已回到作者默认值：不再算"已修改"
             setHaveTabFiltersChanged((prev) => {
                 const affected = [uuid, ...Object.keys(restoredTabs)];
@@ -2511,7 +2543,7 @@ const DashboardProvider: React.FC<
                 canApplyCategoryFilters &&
                 hasCategoryFilters(updatedDashboardFilters)
             ) {
-                armCategoryResolutionTimeout();
+                armCategoryResolutionTimeout('global');
             }
 
             // tab filters
@@ -2530,13 +2562,20 @@ const DashboardProvider: React.FC<
 
                 setTabFilters(updatedTabFilters);
 
-                setPendingTabCategoryResolutions(
-                    currentDashboard.tabs.reduce((acc, tab) => {
-                        acc[tab.uuid] =
-                            canApplyCategoryFilters &&
-                            hasCategoryFilters(tab.filters ?? emptyFilters);
-                        return acc;
-                    }, {} as Record<string, boolean>),
+                const pendingTabs = currentDashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] =
+                        canApplyCategoryFilters &&
+                        hasCategoryFilters(tab.filters ?? emptyFilters);
+                    return acc;
+                }, {} as Record<string, boolean>);
+                setPendingTabCategoryResolutions(pendingTabs);
+                // 每个 pending 的 Tab 各自一个兜底超时
+                Object.entries(pendingTabs).forEach(
+                    ([pendingTabUuid, isPending]) => {
+                        if (isPending) {
+                            armCategoryResolutionTimeout(pendingTabUuid);
+                        }
+                    },
                 );
             }
         }
