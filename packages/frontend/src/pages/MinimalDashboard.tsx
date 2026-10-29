@@ -16,7 +16,6 @@ import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import { STICKY_Z_INDEX_BASE } from '../components/common/StickyStack/constants';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardFilter from '../components/DashboardFilter';
 import {
@@ -238,24 +237,12 @@ const MinimalDashboard: FC = () => {
     return (
         <>
             {/*
-             * 移动端吸顶：**一个**整块（全局筛选器 + Tab 切换栏 + Tab 筛选器）
-             * 统一用 position: sticky 吸在顶部。
-             *
-             * 之前是三层各自 sticky、靠 JS 量高度累加 top 偏移（StickyStack），
-             * 移动端滚动时（尤其 iOS 地址栏收放导致视口高度变化）高度测量与偏移
-             * 反复更新，会出现可见的抖动。合成一层后不再依赖运行时测量，滚动稳定。
+             * 移动端**暂不吸顶**：sticky 在移动端（尤其 iOS 地址栏收放、
+             * 内部滚动容器场景）会出现滚动抖动，先退回普通流式布局，
+             * 保证滚动顺滑。两段筛选器仍保留灰色底与间距。
              */}
             {hasStickyBar && (
-                <Box
-                    style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: STICKY_Z_INDEX_BASE,
-                        // 容器本身用白底兜住段与段之间的缝隙；
-                        // 灰色只给两段筛选器，Tab 切换栏保持白色
-                        backgroundColor: 'white',
-                    }}
-                >
+                <Box style={{ backgroundColor: 'white' }}>
                     {/* dashboard global filters */}
                     {hasTilesThatSupportFilters && (
                         <Group
@@ -304,7 +291,9 @@ const MinimalDashboard: FC = () => {
                             position="apart"
                             align="flex-start"
                             px={'md'}
-                            pt={canNavigateBetweenTabs ? 'xs' : 'md'}
+                            // 与上方 Tab 切换栏之间的间距，放在筛选器这一侧
+                            // （Tab 栏自身不再带顶部 padding）
+                            pt={canNavigateBetweenTabs ? 'sm' : 'md'}
                             pb={'xs'}
                             sx={{
                                 width: '100%',
