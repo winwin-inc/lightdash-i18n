@@ -878,27 +878,35 @@ const collectFieldSearchFilters = (
 
     const childTableName = child.rule.target.tableName;
 
-    const parentRule: DashboardFilterRule = remapRuleToTable(
-        {
-            ...parentEntry.rule,
-            values: [parentLabel],
-            operator: FilterOperator.EQUALS,
-        },
-        childTableName,
-    );
+    // 只对「全局父级」做跨 mart 重映射。
+    //
+    // 原因：全局筛选器是在看板的全局筛选集合里授权的，它绑定的字段可能属于
+    // 另一个 mart（例如 group_cls2_insight_list），而子级类目在 cls_insight_list 上。
+    // 直接把全局的 fieldId 传给 field/search 会被后端丢弃（不在该 explore 里）。
+    //
+    // Tab 内部的父子绑定则保持原样：它们在同一个 Tab 里配置，
+    // 字段本就可直接用于查询，改写反而可能把本来能用的条件改坏。
+    const shouldRemapParent = parentEntry.location.scope === 'global';
 
-    // 左侧条件同样要重映射：
-    // 全局一/二级类目可能绑定在另一个 mart 上，不重映射就会被后端丢弃，
-    // 导致子级候选其实是「只按时间过滤」的全集。
+    const parentRule: DashboardFilterRule = shouldRemapParent
+        ? remapRuleToTable(
+              {
+                  ...parentEntry.rule,
+                  values: [parentLabel],
+                  operator: FilterOperator.EQUALS,
+              },
+              childTableName,
+          )
+        : {
+              ...parentEntry.rule,
+              values: [parentLabel],
+              operator: FilterOperator.EQUALS,
+          };
+
     const withoutParent = leftEntries.filter(
         (entry) => entry.rule.target.fieldId !== parentFieldId,
     );
-    return [
-        ...withoutParent.map((entry) =>
-            remapRuleToTable(entry.rule, childTableName),
-        ),
-        parentRule,
-    ];
+    return [...withoutParent.map((entry) => entry.rule), parentRule];
 };
 
 /**

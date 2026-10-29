@@ -1499,10 +1499,14 @@ describe('tab-only cascade (no global filters) via updateCategoryFilterCascadeAs
         expect(result.dimensions[1].values).toEqual(['沙宣A']);
     });
 
-    it('cascades when the parent lives in another mart', async () => {
+    it('does not remap a tab-scoped parent (keeps production behaviour)', async () => {
+        // Tab 内部的父子绑定是在同一个 Tab 里配置的，字段本就可直接用于查询。
+        // 只有全局父级才做跨 mart 重映射（见下一条用例）。
+        // 这条用例锁定「Tab 自身级联不被重映射影响」——线上能用的配置不能因为修复
+        // 全局联动而改变发出的查询条件。
         mockSearchResults(['沙宣A']);
 
-        const result = await runTabCascade(
+        await runTabCascade(
             'group_cls2_insight_list_cls_1',
             'group_cls2_insight_list',
             'cls_insight_list_cls_2',
@@ -1510,15 +1514,14 @@ describe('tab-only cascade (no global filters) via updateCategoryFilterCascadeAs
         );
 
         expect(api).toHaveBeenCalledTimes(1);
-        expect(result.dimensions[1].values).toEqual(['沙宣A']);
 
-        // 父级条件被重映射到子级表
+        // 父级字段保持原样，不被重写到子级表
         const body = JSON.parse(String(api.mock.calls[0][0].body));
         expect(body.filters.and).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     target: expect.objectContaining({
-                        fieldId: 'cls_insight_list_cls_1',
+                        fieldId: 'group_cls2_insight_list_cls_1',
                     }),
                     values: ['沙宣'],
                 }),

@@ -1790,10 +1790,15 @@ const DashboardProvider: React.FC<
                     let applied = false;
                     setTabFilters((prev) => {
                         const currentFilters = prev[uuid] ?? emptyFilters;
-                        if (
-                            !projectUuid ||
-                            !requestSignature ||
-                            !shouldApplyCategoryInitResult({
+                        const currentSignature =
+                            getTabCategoryChainSignature(
+                                uuid,
+                                currentFilters,
+                            ) ?? undefined;
+                        const canApply =
+                            !!projectUuid &&
+                            !!requestSignature &&
+                            shouldApplyCategoryInitResult({
                                 requestGeneration: generation,
                                 currentGeneration:
                                     tabCategoryCascadeGenerationRef.current[
@@ -1803,13 +1808,41 @@ const DashboardProvider: React.FC<
                                 currentFilters,
                                 projectUuid,
                                 dashboardContext: dashboardFilterContext,
-                                currentSignature:
-                                    getTabCategoryChainSignature(
-                                        uuid,
-                                        currentFilters,
-                                    ) ?? undefined,
-                            })
-                        ) {
+                                currentSignature,
+                            });
+                        if (!canApply) {
+                            // 诊断：级联可能已经算出了新值，但写回被守卫丢弃，
+                            // 界面就会停在「任何值」/旧值，表现为「联动失效」。
+                            // 这里把拒绝原因写清楚，否则这条路径完全静默。
+                            logCategoryCascade(
+                                'tab cascade write-back rejected',
+                                {
+                                    tabUuid: uuid,
+                                    hasProjectUuid: !!projectUuid,
+                                    hasRequestSignature: !!requestSignature,
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        tabCategoryCascadeGenerationRef.current[
+                                            uuid
+                                        ] ?? 0,
+                                    requestSignature,
+                                    currentSignature,
+                                    signatureMatched:
+                                        requestSignature === currentSignature,
+                                    refined: refined.dimensions.map((d) => ({
+                                        id: d.id,
+                                        fieldId: d.target.fieldId,
+                                        values: d.values,
+                                    })),
+                                    current: currentFilters.dimensions.map(
+                                        (d) => ({
+                                            id: d.id,
+                                            fieldId: d.target.fieldId,
+                                            values: d.values,
+                                        }),
+                                    ),
+                                },
+                            );
                             return prev;
                         }
 
