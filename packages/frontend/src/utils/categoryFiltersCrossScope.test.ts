@@ -14,6 +14,7 @@ import {
     getCategoryFiltersSignature,
     initializeCategoryFiltersAsync,
     shouldCascadeCategoryFilterUpdate,
+    updateCategoryFilterCascadeAsync,
     updateCrossScopeCategoryCascadeAsync,
     type CategoryChain,
 } from './categoryFilters';
@@ -1417,6 +1418,109 @@ describe('category cascade across denormalized marts', () => {
                         fieldId: 'cls_insight_list_cls_2',
                         tableName: 'cls_insight_list',
                     }),
+                }),
+            ]),
+        );
+    });
+});
+
+describe('tab-only cascade (no global filters) via updateCategoryFilterCascadeAsync', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    // 复现场景：去掉全局筛选器后，Tab 内自建 一级类目 并让 二级类目 绑定它。
+    // Tab 的一级/二级可能仍在不同的 mart 上（cls_1 列冗余）。
+    const runTabCascade = async (
+        l1FieldId: string,
+        l1Table: string,
+        l2FieldId: string,
+        l2Table: string,
+    ) => {
+        const l1: DashboardFilterRule = {
+            id: 't1',
+            target: { fieldId: l1FieldId, tableName: l1Table },
+            operator: FilterOperator.EQUALS,
+            values: ['沙宣'],
+            label: undefined,
+            categoryLevel: 1,
+        };
+        const l2: DashboardFilterRule = {
+            id: 't2',
+            target: { fieldId: l2FieldId, tableName: l2Table },
+            operator: FilterOperator.EQUALS,
+            values: ['旧值'],
+            label: undefined,
+            categoryLevel: 2,
+            parentFieldId: l1FieldId,
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        };
+        const tabFiltersForTab = asFilters([l1, l2]);
+        const location = { scope: 'tab' as const, tabUuid: TAB_UUID };
+
+        return updateCategoryFilterCascadeAsync(
+            tabFiltersForTab,
+            l1,
+            '沙宣',
+            projectUuid,
+            dashboardContext,
+            {
+                scope: {
+                    location,
+                    chain: buildCategoryChain(
+                        {
+                            globalFilters: asFilters([]),
+                            tabFilters: { [TAB_UUID]: tabFiltersForTab },
+                        },
+                        TAB_UUID,
+                    ),
+                },
+            },
+        );
+    };
+
+    it('cascades when parent and child are in the same table', async () => {
+        mockSearchResults(['沙宣A']);
+
+        const result = await runTabCascade(
+            'cls_insight_list_cls_1',
+            'cls_insight_list',
+            'cls_insight_list_cls_2',
+            'cls_insight_list',
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.dimensions[1].values).toEqual(['沙宣A']);
+    });
+
+    it('cascades when the parent lives in another mart', async () => {
+        mockSearchResults(['沙宣A']);
+
+        const result = await runTabCascade(
+            'group_cls2_insight_list_cls_1',
+            'group_cls2_insight_list',
+            'cls_insight_list_cls_2',
+            'cls_insight_list',
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.dimensions[1].values).toEqual(['沙宣A']);
+
+        // 父级条件被重映射到子级表
+        const body = JSON.parse(String(api.mock.calls[0][0].body));
+        expect(body.filters.and).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    target: expect.objectContaining({
+                        fieldId: 'cls_insight_list_cls_1',
+                    }),
+                    values: ['沙宣'],
                 }),
             ]),
         );
