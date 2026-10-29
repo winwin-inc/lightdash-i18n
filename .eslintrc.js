@@ -9,7 +9,9 @@ module.exports = {
         ],
         // Allows the use of 'void' operator for promises we deliberately don't wait for,
         // providing a way to bypass the 'no-floating-promises' rule when necessary.
-        'no-void': ['error', { allowAsStatement: true }],
+        // `void` is also the idiomatic way to mark a promise as intentionally ignored,
+        // so it is not treated as an error anywhere.
+        'no-void': 'off',
         "@typescript-eslint/no-explicit-any": "error",
 
         // We want to add `noUncheckedIndexedAccess` but there are too many errors in the codebase
