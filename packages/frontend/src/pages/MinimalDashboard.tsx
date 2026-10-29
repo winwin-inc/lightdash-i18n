@@ -251,8 +251,9 @@ const MinimalDashboard: FC = () => {
                         position: 'sticky',
                         top: 0,
                         zIndex: STICKY_Z_INDEX_BASE,
-                        // 必须不透明：否则滚动时内容会从吸顶层后面透出来
-                        backgroundColor: theme.colors.gray[1],
+                        // 容器本身用白底兜住段与段之间的缝隙；
+                        // 灰色只给两段筛选器，Tab 切换栏保持白色
+                        backgroundColor: 'white',
                     }}
                 >
                     {/* dashboard global filters */}
@@ -262,10 +263,12 @@ const MinimalDashboard: FC = () => {
                             align="flex-start"
                             px={'md'}
                             pt={'md'}
+                            pb={'xs'}
                             sx={{
                                 width: '100%',
                                 maxWidth: '100%',
                                 minWidth: 0,
+                                backgroundColor: theme.colors.gray[1],
                             }}
                         >
                             <Group
@@ -307,6 +310,7 @@ const MinimalDashboard: FC = () => {
                                 width: '100%',
                                 maxWidth: '100%',
                                 minWidth: 0,
+                                backgroundColor: theme.colors.gray[1],
                             }}
                         >
                             <Group
