@@ -8,7 +8,7 @@ import {
     isDashboardScheduler,
     SessionStorageKeys,
 } from '@lightdash/common';
-import { Box, Group, useMantineTheme } from '@mantine/core';
+import { Group } from '@mantine/core';
 import { useSessionStorage } from '@mantine/hooks';
 import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
@@ -63,8 +63,6 @@ const MinimalDashboard: FC = () => {
             void navigate('/no-dashboard-access', { replace: true });
         }
     }, [dashboardError, navigate]);
-
-    const theme = useMantineTheme();
 
     const activeTab = useDashboardContext((c) => c.activeTab);
     const setActiveTab = useDashboardContext((c) => c.setActiveTab);
@@ -232,95 +230,78 @@ const MinimalDashboard: FC = () => {
         return <>{t('pages_minimal_dashboard.loading')}</>;
     }
 
-    const hasStickyBar = hasTilesThatSupportFilters || canNavigateBetweenTabs;
-
     return (
         <>
-            {/*
-             * 移动端**暂不吸顶**：sticky 在移动端（尤其 iOS 地址栏收放、
-             * 内部滚动容器场景）会出现滚动抖动，先退回普通流式布局，
-             * 保证滚动顺滑。两段筛选器仍保留灰色底与间距。
-             */}
-            {hasStickyBar && (
-                <Box style={{ backgroundColor: 'white' }}>
-                    {/* dashboard global filters */}
-                    {hasTilesThatSupportFilters && (
-                        <Group
-                            position="apart"
-                            align="flex-start"
-                            px={'md'}
-                            pt={'md'}
-                            pb={'xs'}
-                            sx={{
-                                width: '100%',
-                                maxWidth: '100%',
-                                minWidth: 0,
-                                backgroundColor: theme.colors.gray[1],
-                            }}
-                        >
-                            <Group
-                                position="apart"
-                                align="flex-start"
-                                grow
-                                sx={{
-                                    width: '100%',
-                                    maxWidth: '100%',
-                                    minWidth: 0,
-                                }}
-                            >
-                                <DashboardFilter
-                                    isEditMode={false}
-                                    activeTabUuid={activeTab?.uuid}
-                                    filterScope="global"
-                                />
-                            </Group>
-                        </Group>
-                    )}
-
-                    {/* Tab 切换栏（移动端在 Tab 之间切换） */}
-                    {canNavigateBetweenTabs && (
-                        <MinimalDashboardTabs
-                            tabs={tabsWithUrls}
-                            activeTabId={activeTab?.uuid || null}
+            {/* dashboard global filters */}
+            {hasTilesThatSupportFilters && (
+                <Group
+                    position="apart"
+                    align="flex-start"
+                    px={'md'}
+                    mt={'md'}
+                    sx={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                    }}
+                >
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        grow
+                        sx={{
+                            width: '100%',
+                            maxWidth: '100%',
+                            minWidth: 0,
+                        }}
+                    >
+                        <DashboardFilter
+                            isEditMode={false}
+                            activeTabUuid={activeTab?.uuid}
+                            filterScope="global"
                         />
-                    )}
+                    </Group>
+                </Group>
+            )}
 
-                    {/* dashboard tab filters */}
-                    {hasTilesThatSupportFilters && activeTab?.uuid && (
-                        <Group
-                            position="apart"
-                            align="flex-start"
-                            px={'md'}
-                            // 与上方 Tab 切换栏之间的间距，放在筛选器这一侧
-                            // （Tab 栏自身不再带顶部 padding）
-                            pt={canNavigateBetweenTabs ? 'sm' : 'md'}
-                            pb={'xs'}
-                            sx={{
-                                width: '100%',
-                                maxWidth: '100%',
-                                minWidth: 0,
-                                backgroundColor: theme.colors.gray[1],
-                            }}
-                        >
-                            <Group
-                                position="apart"
-                                align="flex-start"
-                                grow
-                                sx={{
-                                    width: '100%',
-                                    maxWidth: '100%',
-                                    minWidth: 0,
-                                }}
-                            >
-                                <DashboardFilter
-                                    isEditMode={false}
-                                    activeTabUuid={activeTab?.uuid}
-                                    filterScope="tab"
-                                />
-                            </Group>
-                        </Group>
-                    )}
-                </Box>
+            {/* This is when viewing a dashboard with tabs in mobile mode - you can navigate between tabs. */}
+            {canNavigateBetweenTabs && (
+                <MinimalDashboardTabs
+                    tabs={tabsWithUrls}
+                    activeTabId={activeTab?.uuid || null}
+                />
+            )}
+
+            {/* dashboard tab filters */}
+            {hasTilesThatSupportFilters && activeTab?.uuid && (
+                <Group
+                    position="apart"
+                    align="flex-start"
+                    px={'md'}
+                    mt={'md'}
+                    sx={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                    }}
+                >
+                    <Group
+                        position="apart"
+                        align="flex-start"
+                        grow
+                        sx={{
+                            width: '100%',
+                            maxWidth: '100%',
+                            minWidth: 0,
+                        }}
+                    >
+                        <DashboardFilter
+                            isEditMode={false}
+                            activeTabUuid={activeTab?.uuid}
+                            filterScope="tab"
+                        />
+                    </Group>
+                </Group>
             )}
 
             {isTabEmpty ? (

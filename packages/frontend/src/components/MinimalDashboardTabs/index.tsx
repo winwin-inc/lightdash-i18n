@@ -29,9 +29,8 @@ const MinimalDashboardTabs = ({
 
     const activeTab = tabs.find((tab) => tab.uuid === activeTabId) ?? tabs[0];
 
-    // 顶部不留 padding：与上方元素的间距由筛选器那一侧负责
     return (
-        <Group px="xs" pb="xs" bg="white" sx={{ gap: '10px' }}>
+        <Group p="xs" bg="white" sx={{ gap: '10px' }}>
             <ActionIcon
                 size="md"
                 color="blue.6"
