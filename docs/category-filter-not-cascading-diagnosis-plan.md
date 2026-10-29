@@ -665,11 +665,14 @@ if (requestSignature !== currentSignature) return prev;                 // 结�
      正确做法是各 Tab 统一形态，或用全局筛选器承载。
 4. **继承内容**：只搬"取值 + 生效状态"，不覆盖作者的 operator / 粒度 / 日期边界 / 排除项
    （唯一例外就是剥掉接收方的动态默认）。
-5. **接收方权限校验**（新增 `utils/categoryFilters.ts` `applyInheritedCategorySelectionsAsync`）：
-   - 继承值出现在接收方自己的 `field/search` 候选里 → 保留，并用接收方自己的链继续联动子级；
-   - 不在候选里（无权限 / 该 Tab 数据范围没有）→ **用同步前的规则原样回退**，不联动子级；
-   - 请求失败 → 保留继承值并提示（`onResolutionIssue`）；
-   - 之后对该 Tab 跑一次 `initializeCategoryFiltersAsync`，让作者配置的子级按数据补值。
+5. **接收方解析改为懒执行**（重要变更）：
+   - 继承时**只同步取值 + 作废接收方的解析状态**（`invalidateTabCategoryState`：bump init/cascade 世代、
+     取消在途会话、删除 pending/processed 签名、清展示态），并 `pending=true` / 标记已修改；
+   - **不在后台为未打开的 Tab 跑校验与级联**：一次改类目曾因此发出「Tab 数 × 层级数」个
+     `field/search`（4~6 Tab 的看板十几个请求，界面渲染完还在打），现在未激活 Tab **零请求**；
+   - 用户切到该 Tab 时由 `runTabCategoryInit` 按**它自己**的数据与权限解析整链：
+     继承值在候选里 → 保留并继续联动子级；不在候选里 → 取该 Tab 自己的第一个合法类目；
+   - 取舍：不再"回退成打开前的旧值"，但语义仍是「有权限才生效」，且未打开的 Tab 不会渲染/查询图表。
 6. **重置对齐**（`wrappedResetTabFilters` / `clearTabFilterSelection`）：
    - 恢复内容补上 `disabled`（被继承启用的筛选器会回到作者的"任何值"）；
    - 匹配用与继承一致的规则，跨 mart 同级类目一起恢复；

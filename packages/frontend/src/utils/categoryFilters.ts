@@ -1840,6 +1840,7 @@ export const updateCategoryCascadeForLocationsAsync = async (
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
+    const requestsAtStart = getFieldSearchRequestCountForDev();
 
     let globalFilters = layers.globalFilters;
     let tabFilters: Record<string, DashboardFilters> = { ...layers.tabFilters };
@@ -1920,6 +1921,14 @@ export const updateCategoryCascadeForLocationsAsync = async (
             };
         }
     }
+
+    // 诊断：一次联动真实发到仓库的查询数（命中缓存的不计），
+    // 用于核对「一次筛选操作应该发几个 field/search」。
+    logCategoryCascade('cascade finished', {
+        scopes: requests.map((request) => request.location),
+        fieldSearchRequests:
+            getFieldSearchRequestCountForDev() - requestsAtStart,
+    });
 
     return { globalFilters, tabFilters };
 };
@@ -2036,241 +2045,4 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         dashboardContext,
         options,
     );
-};
-
-/* -------------------------------------------------------------------------- */
-/*              跨 Tab 继承：接收方权限校验后再联动（含"任何值"）               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * 一条「接收方 Tab 继承到的类目取值」。
- *
- * - `rule`：同步后的规则（值已写入、已启用）
- * - `previousRule`：同步前的规则。该值在接收方自己的数据范围里不存在
- *   （无权限 / 该 mart 没有这个类目）时，用它原样回退，避免把别处的类目
- *   硬塞进来后查出一片空数据。
- */
-export type InheritedCategorySelection = {
-    tabUuid: string;
-    rule: DashboardFilterRule;
-    previousRule: DashboardFilterRule | null;
-};
-
-export type InheritedCategorySelectionResult = {
-    layers: CategoryFilterLayers;
-    /** 处理后确实有变化的 Tab（值来自继承 + 子级重新解析） */
-    changedTabUuids: string[];
-    /** 继承值在接收方不可用、已回退的 Tab */
-    rejectedTabUuids: string[];
-};
-
-/**
- * 接收方继承后的处理：校验 → 回退或保留 → 子级联动 → 重新初始化。
- *
- * 语义：
- * - 继承值出现在接收方自己的 field/search 候选里（有权限）→ 保留，并用
- *   接收方自己的链（全局 + 该 Tab 筛选器）继续向下联动；
- * - 不在候选里（无权限 / 该 Tab 数据范围没有）→ 用 previousRule 原样回退，
- *   不联动子级（宁可不动，也不要套一个用户没选的类目）；
- * - 请求失败 → 无法判定，保留继承值并按现状继续联动；
- * - 继承值为 null（来源清空）→ 保留空值，子级由级联按"断链"清空。
- */
-export const applyInheritedCategorySelectionsAsync = async (
-    layers: CategoryFilterLayers,
-    selections: InheritedCategorySelection[],
-    projectUuid: string,
-    dashboardContext?: DashboardFilterContext,
-    options?: {
-        recoverableFilterIds?: string[];
-        session?: CategoryRequestSession;
-        onResolutionIssue?: CategoryResolutionIssueHandler;
-    },
-): Promise<InheritedCategorySelectionResult> => {
-    const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
-
-    let globalFilters = layers.globalFilters;
-    let tabFilters: Record<string, DashboardFilters> = {
-        ...layers.tabFilters,
-    };
-    const rejectedTabUuids: string[] = [];
-    const requestsAtStart = getFieldSearchRequestCountForDev();
-
-    const abort = (): InheritedCategorySelectionResult => ({
-        layers,
-        changedTabUuids: [],
-        rejectedTabUuids: [],
-    });
-
-    for (const selection of selections) {
-        if (options?.session?.isCancelled()) return abort();
-
-        const { tabUuid } = selection;
-        const filtersForTab = tabFilters[tabUuid];
-        if (!filtersForTab) continue;
-        const currentRule = filtersForTab.dimensions.find(
-            (dimension) => dimension.id === selection.rule.id,
-        );
-        if (!currentRule) continue;
-        // 非类目（时间 / 字符串等）：取值已同步，不需要联动
-        if (!isCategoryField(currentRule)) continue;
-
-        const location: CategoryFilterLocation = { scope: 'tab', tabUuid };
-        const newValue = getFilterCurrentValue(selection.rule) ?? null;
-        const chain = buildCategoryChain(
-            { globalFilters, tabFilters },
-            tabUuid,
-        );
-        const entry = chain.find(
-            (chainEntry) => chainEntry.rule.id === currentRule.id,
-        );
-        // 接收方这一级的后代：只有它们需要重算。
-        // 祖先（以及没有任何后代的情况）不重复查询 —— 否则每次继承会多出
-        // 「Tab 数 × 祖先数」次仓库查询，联动一次几十个 search。
-        const descendants = entry ? getChildEntries(chain, entry) : [];
-        const descendantIds = descendants.map(
-            (descendant) => descendant.rule.id,
-        );
-
-        // 1. 权限校验：继承值必须是接收方自己的合法类目
-        if (newValue !== null) {
-            const resolution = await resolveCategoryFilterValueAsync({
-                filter: currentRule,
-                chain,
-                projectUuid,
-                dashboardContext,
-                allowUnfilteredFallback: false,
-                session: options?.session,
-            });
-
-            if (resolution.status === 'cancelled') return abort();
-
-            if (resolution.status === 'error') {
-                // 无法判定（仓库报错）：保留继承值，按现状继续联动
-                logCategorySearchError(
-                    `Failed to validate inherited category filter ${currentRule.target.fieldId}, keeping inherited value`,
-                    resolution.error,
-                );
-                options?.onResolutionIssue?.({
-                    kind: 'error',
-                    filterId: currentRule.id,
-                    fieldId: currentRule.target.fieldId,
-                    phase: 'cascade',
-                    scope: tabUuid,
-                    error: resolution.error,
-                });
-            }
-
-            const isUnavailable =
-                resolution.status === 'clear' ||
-                (resolution.status === 'resolved' &&
-                    resolution.value !== newValue);
-
-            if (isUnavailable) {
-                // 该值在接收方不可用（无权限 / 数据范围没有）：原样回退
-                logCategoryCascade(
-                    'inherited value not available in tab, reverted',
-                    {
-                        tabUuid,
-                        fieldId: currentRule.target.fieldId,
-                        inheritedValue: newValue,
-                        status: resolution.status,
-                        fallbackValue:
-                            resolution.status === 'resolved'
-                                ? resolution.value
-                                : null,
-                    },
-                );
-                if (selection.previousRule) {
-                    tabFilters = {
-                        ...tabFilters,
-                        [tabUuid]: replaceRuleInFilters(
-                            tabFilters[tabUuid] ?? filtersForTab,
-                            currentRule.id,
-                            selection.previousRule,
-                        ),
-                    };
-                }
-                rejectedTabUuids.push(tabUuid);
-                continue;
-            }
-        }
-
-        // 没有后代（叶子级）：取值已校验完毕，不需要额外查询
-        if (descendantIds.length === 0) {
-            continue;
-        }
-
-        // 2. 子级联动：接收方拿到新的父级取值，用它自己的链重新解析子类目
-        const cascaded = await updateCategoryCascadeForLocationsAsync(
-            { globalFilters, tabFilters },
-            [{ location, rule: currentRule, newValue }],
-            projectUuid,
-            dashboardContext,
-            {
-                recoverableFilterIds: Array.from(recoverableFilterIds),
-                session: options?.session,
-                onResolutionIssue: options?.onResolutionIssue,
-            },
-        );
-        if (options?.session?.isCancelled()) return abort();
-        globalFilters = cascaded.globalFilters;
-        tabFilters = cascaded.tabFilters;
-
-        // 3. 重新初始化：接收方作者配置的子级（含原本"任何值"的）按自己的数据补值，
-        //    继承来的这一级本身也会被校验（当前值合法则保留）。
-        const cascadedFilters = tabFilters[tabUuid];
-        if (!cascadedFilters) continue;
-
-        const refined = await initializeCategoryFiltersAsync(
-            cascadedFilters,
-            projectUuid,
-            dashboardContext,
-            {
-                recoverableFilterIds: Array.from(recoverableFilterIds),
-                // 继承来的这一级不参与重新赋值：它已经过权限校验（或来源就是「任何值」），
-                // 让 init 再"补第一个合法值"会把用户的「任何值」清空意图反掉。
-                skipFilterIds: [currentRule.id],
-                // 只处理被继承那一级的后代：祖先已经确定且被校验过，
-                // 再查一遍就是“Tab 数 × 祖先数”的重复请求。
-                onlyFilterIds: descendantIds,
-                scope: {
-                    location,
-                    chain: buildCategoryChain(
-                        { globalFilters, tabFilters },
-                        tabUuid,
-                    ),
-                },
-                session: options?.session,
-                onResolutionIssue: options?.onResolutionIssue,
-            },
-        );
-        if (options?.session?.isCancelled()) return abort();
-
-        if (refined !== cascadedFilters) {
-            tabFilters = { ...tabFilters, [tabUuid]: refined };
-        }
-    }
-
-    const changedTabUuids = selections
-        .map((selection) => selection.tabUuid)
-        .filter((tabUuid) => {
-            const before = layers.tabFilters[tabUuid];
-            const after = tabFilters[tabUuid];
-            if (!before || !after) return false;
-            return !areFilterDimensionsEqual(before, after);
-        });
-
-    logCategoryCascade('inherited selections resolved', {
-        tabs: selections.length,
-        rejectedTabs: rejectedTabUuids.length,
-        // 只统计真实发到仓库的查询（命中缓存的不计）
-        fieldSearchRequests:
-            getFieldSearchRequestCountForDev() - requestsAtStart,
-    });
-
-    return {
-        layers: { globalFilters, tabFilters },
-        changedTabUuids,
-        rejectedTabUuids: Array.from(new Set(rejectedTabUuids)),
-    };
 };
