@@ -313,8 +313,12 @@ const Filter: FC<Props> = ({
     const isDraggable = isEditMode && !isTemporary;
 
     /**
-     * 查看模式下，Tab 作用域的 × 语义是「清除用户选择并恢复作者默认值」，
-     * 不是删除筛选器定义（筛选器定义归作者，查看者改不了）。
+     * 查看模式下不允许修改筛选器：筛选器定义归作者，查看者改不了，
+     * 因此不展示 × （删除/恢复默认）入口。
+     *
+     * 这里只影响「以什么语义执行删除」：如果其他入口在查看模式移除了
+     * Tab 作用域的筛选器，只清除用户选择并恢复作者默认值，
+     * 不删除筛选器定义。
      */
     const isRestoreDefaultAction = !isEditMode && filterScope === 'tab';
 
@@ -593,9 +597,7 @@ const Filter: FC<Props> = ({
                                     )
                                 }
                                 rightIcon={
-                                    (isEditMode ||
-                                        isTemporary ||
-                                        isRestoreDefaultAction) && (
+                                    (isEditMode || isTemporary) && (
                                         <Group spacing={2} noWrap>
                                             {isLockFilterEnabled &&
                                                 isEditMode &&
@@ -642,30 +644,14 @@ const Filter: FC<Props> = ({
                                                     </span>
                                                 )}
                                             {!isReadOnlyLocked &&
-                                                !isCascadeUpdating &&
-                                                (isRestoreDefaultAction ? (
-                                                    <Tooltip
-                                                        fz="xs"
-                                                        withinPortal
-                                                        label={t(
-                                                            'components_dashboard_filter.filter.restore_default_value',
-                                                        )}
-                                                    >
-                                                        <CloseButton
-                                                            size="sm"
-                                                            onClick={
-                                                                handleRemoveFilter
-                                                            }
-                                                        />
-                                                    </Tooltip>
-                                                ) : (
+                                                !isCascadeUpdating && (
                                                     <CloseButton
                                                         size="sm"
                                                         onClick={
                                                             handleRemoveFilter
                                                         }
                                                     />
-                                                ))}
+                                                )}
                                         </Group>
                                     )
                                 }

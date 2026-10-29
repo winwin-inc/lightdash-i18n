@@ -2904,8 +2904,7 @@
       "lock_unlock": "解锁筛选器",
       "lock_unlock_tab": "在此标签页解锁筛选器",
       "locked": "已由看板编辑者锁定",
-      "locked_on_tab": "已在此标签页锁定",
-      "restore_default_value": "恢复默认筛选值"
+      "locked_on_tab": "已在此标签页锁定"
     },
     "filter_dashboard": {
       "title": "筛选看板为...",
