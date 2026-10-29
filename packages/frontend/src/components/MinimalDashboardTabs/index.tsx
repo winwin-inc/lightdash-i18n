@@ -30,7 +30,7 @@ const MinimalDashboardTabs = ({
     const activeTab = tabs.find((tab) => tab.uuid === activeTabId) ?? tabs[0];
 
     return (
-        <Group p="xs" bg="white" sx={{ gap: '10px' }}>
+        <Group p="xs" sx={{ gap: '10px' }}>
             <ActionIcon
                 size="md"
                 color="blue.6"

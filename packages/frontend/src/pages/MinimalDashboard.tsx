@@ -311,13 +311,16 @@ const MinimalDashboard: FC = () => {
                     style={{
                         ...tabFiltersStickyStyle,
                         backgroundColor: theme.colors.gray[1],
+                        // 与上方 tabs 切换栏的间距；用 padding 让间距留在吸顶层里，
+                        // 滚动时不会出现"内容从缝里透过去"
+                        paddingTop: theme.spacing.xs,
+                        paddingBottom: theme.spacing.xs,
                     }}
                 >
                     <Group
                         position="apart"
                         align="flex-start"
                         px={'md'}
-                        mt={'md'}
                         sx={{
                             width: '100%',
                             maxWidth: '100%',
