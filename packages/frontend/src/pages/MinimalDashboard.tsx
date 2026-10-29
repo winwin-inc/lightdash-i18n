@@ -17,6 +17,8 @@ import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
+import StickyStackProvider from '../components/common/StickyStack/StickyStackProvider';
+import { useStickyLayer } from '../components/common/StickyStack/useStickyLayer';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardFilter from '../components/DashboardFilter';
 import {
@@ -200,6 +202,21 @@ const MinimalDashboard: FC = () => {
         }
     }
 
+    /**
+     * 移动端吸顶：移动端走的是 MinimalDashboard（不走 pages/Dashboard），
+     * 所以 PC 的吸顶栈在这里不存在。这里给「全局筛选器 / 标签栏 / Tab 筛选器」
+     * 各注册一层，滚动时逐层叠在顶部，保证任何时候都能看到当前 Tab 与生效的筛选。
+     */
+    const { ref: globalFiltersRef, style: globalFiltersStickyStyle } =
+        useStickyLayer({ id: 'minimal-dashboard-global-filters', order: 0 });
+    const { ref: tabsRef, style: tabsStickyStyle } = useStickyLayer({
+        id: 'minimal-dashboard-tabs',
+        order: 1,
+    });
+    const { ref: tabFiltersRef, style: tabFiltersStickyStyle } = useStickyLayer(
+        { id: 'minimal-dashboard-tab-filters', order: 2 },
+    );
+
     if (!dashboard) {
         return <>{t('pages_minimal_dashboard.loading')}</>;
     }
@@ -216,74 +233,80 @@ const MinimalDashboard: FC = () => {
         <>
             {/* dashboard global filters */}
             {hasTilesThatSupportFilters && (
-                <Group
-                    position="apart"
-                    align="flex-start"
-                    px={'md'}
-                    mt={'md'}
-                    sx={{
-                        width: '100%',
-                        maxWidth: '100%',
-                        minWidth: 0,
-                    }}
-                >
+                <div ref={globalFiltersRef} style={globalFiltersStickyStyle}>
                     <Group
                         position="apart"
                         align="flex-start"
-                        grow
+                        px={'md'}
+                        mt={'md'}
                         sx={{
                             width: '100%',
                             maxWidth: '100%',
                             minWidth: 0,
                         }}
                     >
-                        <DashboardFilter
-                            isEditMode={false}
-                            activeTabUuid={activeTab?.uuid}
-                            filterScope="global"
-                        />
+                        <Group
+                            position="apart"
+                            align="flex-start"
+                            grow
+                            sx={{
+                                width: '100%',
+                                maxWidth: '100%',
+                                minWidth: 0,
+                            }}
+                        >
+                            <DashboardFilter
+                                isEditMode={false}
+                                activeTabUuid={activeTab?.uuid}
+                                filterScope="global"
+                            />
+                        </Group>
                     </Group>
-                </Group>
+                </div>
             )}
 
             {/* This is when viewing a dashboard with tabs in mobile mode - you can navigate between tabs. */}
             {canNavigateBetweenTabs && (
-                <MinimalDashboardTabs
-                    tabs={tabsWithUrls}
-                    activeTabId={activeTab?.uuid || null}
-                />
+                <div ref={tabsRef} style={tabsStickyStyle}>
+                    <MinimalDashboardTabs
+                        tabs={tabsWithUrls}
+                        activeTabId={activeTab?.uuid || null}
+                    />
+                </div>
             )}
 
             {/* dashboard tab filters */}
             {hasTilesThatSupportFilters && activeTab?.uuid && (
-                <Group
-                    position="apart"
-                    align="flex-start"
-                    px={'md'}
-                    mt={'md'}
-                    sx={{
-                        width: '100%',
-                        maxWidth: '100%',
-                        minWidth: 0,
-                    }}
-                >
+                <div ref={tabFiltersRef} style={tabFiltersStickyStyle}>
                     <Group
                         position="apart"
                         align="flex-start"
-                        grow
+                        px={'md'}
+                        mt={'md'}
                         sx={{
                             width: '100%',
                             maxWidth: '100%',
                             minWidth: 0,
                         }}
                     >
-                        <DashboardFilter
-                            isEditMode={false}
-                            activeTabUuid={activeTab?.uuid}
-                            filterScope="tab"
-                        />
+                        <Group
+                            position="apart"
+                            align="flex-start"
+                            grow
+                            sx={{
+                                width: '100%',
+                                maxWidth: '100%',
+                                minWidth: 0,
+                            }}
+                        >
+                            <DashboardFilter
+                                isEditMode={false}
+                                activeTabUuid={activeTab?.uuid}
+                                filterScope="tab"
+                            />
+                        </Group>
                     </Group>
-                </Group>
+                </div>
             )}
 
             {isTabEmpty ? (
@@ -402,7 +425,9 @@ const MinimalDashboardPage: FC = () => {
             dateZoom={dateZoom}
             defaultInvalidateCache={true}
         >
-            <MinimalDashboard />
+            <StickyStackProvider>
+                <MinimalDashboard />
+            </StickyStackProvider>
         </DashboardProvider>
     );
 };
