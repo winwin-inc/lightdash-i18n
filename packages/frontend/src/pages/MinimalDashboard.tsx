@@ -16,8 +16,7 @@ import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import StickyStackProvider from '../components/common/StickyStack/StickyStackProvider';
-import { useStickyLayer } from '../components/common/StickyStack/useStickyLayer';
+import { STICKY_Z_INDEX_BASE } from '../components/common/StickyStack/constants';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardFilter from '../components/DashboardFilter';
 import {
@@ -222,16 +221,6 @@ const MinimalDashboard: FC = () => {
      * 所以 PC 的吸顶栈在这里不存在。这里给「全局筛选器 / 标签栏 / Tab 筛选器」
      * 各注册一层，滚动时逐层叠在顶部，保证任何时候都能看到当前 Tab 与生效的筛选。
      */
-    const { ref: globalFiltersRef, style: globalFiltersStickyStyle } =
-        useStickyLayer({ id: 'minimal-dashboard-global-filters', order: 0 });
-    const { ref: tabsRef, style: tabsStickyStyle } = useStickyLayer({
-        id: 'minimal-dashboard-tabs',
-        order: 1,
-    });
-    const { ref: tabFiltersRef, style: tabFiltersStickyStyle } = useStickyLayer(
-        { id: 'minimal-dashboard-tab-filters', order: 2 },
-    );
-
     if (!dashboard) {
         return <>{t('pages_minimal_dashboard.loading')}</>;
     }
@@ -244,106 +233,100 @@ const MinimalDashboard: FC = () => {
         return <>{t('pages_minimal_dashboard.loading')}</>;
     }
 
+    const hasStickyBar = hasTilesThatSupportFilters || canNavigateBetweenTabs;
+
     return (
         <>
-            {/* dashboard global filters */}
-            {hasTilesThatSupportFilters && (
+            {/*
+             * 移动端吸顶：**一个**整块（全局筛选器 + Tab 切换栏 + Tab 筛选器）
+             * 统一用 position: sticky 吸在顶部。
+             *
+             * 之前是三层各自 sticky、靠 JS 量高度累加 top 偏移（StickyStack），
+             * 移动端滚动时（尤其 iOS 地址栏收放导致视口高度变化）高度测量与偏移
+             * 反复更新，会出现可见的抖动。合成一层后不再依赖运行时测量，滚动稳定。
+             */}
+            {hasStickyBar && (
                 <Box
-                    ref={globalFiltersRef}
                     style={{
-                        ...globalFiltersStickyStyle,
-                        // 吸顶层必须不透明：否则滚动时内容会从它后面透出来；
-                        // 用偏灰的底色，和白色内容区区分开
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: STICKY_Z_INDEX_BASE,
+                        // 必须不透明：否则滚动时内容会从吸顶层后面透出来
                         backgroundColor: theme.colors.gray[1],
                     }}
                 >
-                    <Group
-                        position="apart"
-                        align="flex-start"
-                        px={'md'}
-                        mt={'md'}
-                        sx={{
-                            width: '100%',
-                            maxWidth: '100%',
-                            minWidth: 0,
-                        }}
-                    >
+                    {/* dashboard global filters */}
+                    {hasTilesThatSupportFilters && (
                         <Group
                             position="apart"
                             align="flex-start"
-                            grow
+                            px={'md'}
+                            pt={'md'}
                             sx={{
                                 width: '100%',
                                 maxWidth: '100%',
                                 minWidth: 0,
                             }}
                         >
-                            <DashboardFilter
-                                isEditMode={false}
-                                activeTabUuid={activeTab?.uuid}
-                                filterScope="global"
-                            />
+                            <Group
+                                position="apart"
+                                align="flex-start"
+                                grow
+                                sx={{
+                                    width: '100%',
+                                    maxWidth: '100%',
+                                    minWidth: 0,
+                                }}
+                            >
+                                <DashboardFilter
+                                    isEditMode={false}
+                                    activeTabUuid={activeTab?.uuid}
+                                    filterScope="global"
+                                />
+                            </Group>
                         </Group>
-                    </Group>
-                </Box>
-            )}
+                    )}
 
-            {/* This is when viewing a dashboard with tabs in mobile mode - you can navigate between tabs. */}
-            {canNavigateBetweenTabs && (
-                <Box
-                    ref={tabsRef}
-                    style={{
-                        ...tabsStickyStyle,
-                        backgroundColor: theme.colors.gray[1],
-                    }}
-                >
-                    <MinimalDashboardTabs
-                        tabs={tabsWithUrls}
-                        activeTabId={activeTab?.uuid || null}
-                    />
-                </Box>
-            )}
+                    {/* Tab 切换栏（移动端在 Tab 之间切换） */}
+                    {canNavigateBetweenTabs && (
+                        <MinimalDashboardTabs
+                            tabs={tabsWithUrls}
+                            activeTabId={activeTab?.uuid || null}
+                        />
+                    )}
 
-            {/* dashboard tab filters */}
-            {hasTilesThatSupportFilters && activeTab?.uuid && (
-                <Box
-                    ref={tabFiltersRef}
-                    style={{
-                        ...tabFiltersStickyStyle,
-                        backgroundColor: theme.colors.gray[1],
-                        // 与上方 tabs 切换栏的间距；用 padding 让间距留在吸顶层里，
-                        // 滚动时不会出现"内容从缝里透过去"
-                        paddingTop: theme.spacing.xs,
-                        paddingBottom: theme.spacing.xs,
-                    }}
-                >
-                    <Group
-                        position="apart"
-                        align="flex-start"
-                        px={'md'}
-                        sx={{
-                            width: '100%',
-                            maxWidth: '100%',
-                            minWidth: 0,
-                        }}
-                    >
+                    {/* dashboard tab filters */}
+                    {hasTilesThatSupportFilters && activeTab?.uuid && (
                         <Group
                             position="apart"
                             align="flex-start"
-                            grow
+                            px={'md'}
+                            pt={canNavigateBetweenTabs ? 'xs' : 'md'}
+                            pb={'xs'}
                             sx={{
                                 width: '100%',
                                 maxWidth: '100%',
                                 minWidth: 0,
                             }}
                         >
-                            <DashboardFilter
-                                isEditMode={false}
-                                activeTabUuid={activeTab?.uuid}
-                                filterScope="tab"
-                            />
+                            <Group
+                                position="apart"
+                                align="flex-start"
+                                grow
+                                sx={{
+                                    width: '100%',
+                                    maxWidth: '100%',
+                                    minWidth: 0,
+                                }}
+                            >
+                                <DashboardFilter
+                                    isEditMode={false}
+                                    activeTabUuid={activeTab?.uuid}
+                                    filterScope="tab"
+                                />
+                            </Group>
                         </Group>
-                    </Group>
+                    )}
                 </Box>
             )}
 
@@ -463,9 +446,7 @@ const MinimalDashboardPage: FC = () => {
             dateZoom={dateZoom}
             defaultInvalidateCache={true}
         >
-            <StickyStackProvider>
-                <MinimalDashboard />
-            </StickyStackProvider>
+            <MinimalDashboard />
         </DashboardProvider>
     );
 };
