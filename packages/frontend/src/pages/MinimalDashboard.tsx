@@ -1,6 +1,5 @@
 import type {
     DashboardFilterRule,
-    DashboardTab,
     ParametersValuesMap,
 } from '@lightdash/common';
 import {
@@ -9,7 +8,7 @@ import {
     isDashboardScheduler,
     SessionStorageKeys,
 } from '@lightdash/common';
-import { Group } from '@mantine/core';
+import { Box, Group, useMantineTheme } from '@mantine/core';
 import { useSessionStorage } from '@mantine/hooks';
 import { IconLayoutDashboard } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
@@ -67,7 +66,11 @@ const MinimalDashboard: FC = () => {
         }
     }, [dashboardError, navigate]);
 
-    const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
+    const theme = useMantineTheme();
+
+    const activeTab = useDashboardContext((c) => c.activeTab);
+    const setActiveTab = useDashboardContext((c) => c.setActiveTab);
+    const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
 
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
@@ -76,12 +79,24 @@ const MinimalDashboard: FC = () => {
         (c) => c.hasTilesThatSupportFilters,
     );
 
+    /**
+     * 把 Tab 列表与当前 Tab 同步给 Provider。
+     *
+     * Provider 的「已访问 Tab」调度（visitedTabUuids → 图表查询开关）依赖它自己的
+     * `dashboardTabs` / `activeTab`：PC 页面会同步，而这里以前只在本地保存 activeTab，
+     * Provider 的 tabs 一直是空 → activeTab 解析不出来 → visitedTabUuids 永远为空
+     * → 所有图表的查询被永久 disable（表现就是移动端一直 loading）。
+     */
     useEffect(() => {
+        if (!dashboard?.tabs) return;
+        setDashboardTabs(dashboard.tabs);
         const matchedTab =
-            dashboard?.tabs.find((tab) => tab.uuid === tabUuid) ??
-            dashboard?.tabs[0];
-        setActiveTab(matchedTab || null);
-    }, [tabUuid, dashboard?.tabs]);
+            dashboard.tabs.find((tab) => tab.uuid === tabUuid) ??
+            dashboard.tabs[0];
+        if (matchedTab) {
+            setActiveTab(matchedTab);
+        }
+    }, [tabUuid, dashboard?.tabs, setDashboardTabs, setActiveTab]);
 
     useEffect(() => {
         if (isDashboardLoading) return;
@@ -233,7 +248,15 @@ const MinimalDashboard: FC = () => {
         <>
             {/* dashboard global filters */}
             {hasTilesThatSupportFilters && (
-                <div ref={globalFiltersRef} style={globalFiltersStickyStyle}>
+                <Box
+                    ref={globalFiltersRef}
+                    style={{
+                        ...globalFiltersStickyStyle,
+                        // 吸顶层必须不透明：否则滚动时内容会从它后面透出来；
+                        // 用偏灰的底色，和白色内容区区分开
+                        backgroundColor: theme.colors.gray[1],
+                    }}
+                >
                     <Group
                         position="apart"
                         align="flex-start"
@@ -262,22 +285,34 @@ const MinimalDashboard: FC = () => {
                             />
                         </Group>
                     </Group>
-                </div>
+                </Box>
             )}
 
             {/* This is when viewing a dashboard with tabs in mobile mode - you can navigate between tabs. */}
             {canNavigateBetweenTabs && (
-                <div ref={tabsRef} style={tabsStickyStyle}>
+                <Box
+                    ref={tabsRef}
+                    style={{
+                        ...tabsStickyStyle,
+                        backgroundColor: theme.colors.gray[1],
+                    }}
+                >
                     <MinimalDashboardTabs
                         tabs={tabsWithUrls}
                         activeTabId={activeTab?.uuid || null}
                     />
-                </div>
+                </Box>
             )}
 
             {/* dashboard tab filters */}
             {hasTilesThatSupportFilters && activeTab?.uuid && (
-                <div ref={tabFiltersRef} style={tabFiltersStickyStyle}>
+                <Box
+                    ref={tabFiltersRef}
+                    style={{
+                        ...tabFiltersStickyStyle,
+                        backgroundColor: theme.colors.gray[1],
+                    }}
+                >
                     <Group
                         position="apart"
                         align="flex-start"
@@ -306,7 +341,7 @@ const MinimalDashboard: FC = () => {
                             />
                         </Group>
                     </Group>
-                </div>
+                </Box>
             )}
 
             {isTabEmpty ? (
