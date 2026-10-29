@@ -69,6 +69,7 @@ import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOv
 import {
     buildOptimisticCategoryDisplayState,
     decideCategoryInit,
+    getDescendantCategoryFilterIds,
     mergeDimensionIntoDisplayState,
     resolveActiveTabCategoryInit,
     shouldApplyCategoryInitResult,
@@ -693,12 +694,19 @@ const DashboardProvider: React.FC<
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
             // 否则会把用户的显式选择重置成别的类目（或直接清空）。
+            //
+            // 另外只处理「被改这一级的后代」：祖先取值没变、且已经校验过，
+            // 再查一遍纯属多余请求（一次改四级的操作会因此少发 3 个查询）。
             return initializeCategoryFiltersAsync(
                 cascaded,
                 projectUuid,
                 dashboardFilterContext,
                 {
                     skipFilterIds: [changedFilter.id],
+                    onlyFilterIds: getDescendantCategoryFilterIds(
+                        cascaded,
+                        changedFilter.target.fieldId,
+                    ),
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     scope: {
                         location,

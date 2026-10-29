@@ -503,6 +503,9 @@ describe('DashboardService', () => {
             expect(result).toEqual({
                 dashboardSlug: 'name',
                 dashboardName: 'name',
+                // dashboardUuid 全局唯一（slug 只在项目内唯一），
+                // field/search 与 MCP 取值查询按它反查看板上下文（dbt 行级过滤）
+                dashboardUuid: dashboard.uuid,
                 filterTableNames: [],
             });
         });

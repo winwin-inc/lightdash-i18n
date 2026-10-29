@@ -289,7 +289,60 @@ describe('categoryFilters inherited selection', () => {
 
             expect(result.changedTabUuids).toEqual([]);
             expect(result.rejectedTabUuids).toEqual([]);
-            // 校验确实跑过（只是没有产生任何变化）
+            // 叶子级（没有后代）：只发 1 次校验请求，不再做额外的初始化查询
+            expect(requestedFieldIds()).toEqual(['cls_2']);
+        });
+
+        it('does not re-query the ancestors of the inherited level', async () => {
+            // 接收方有 一级 → 二级（被继承） → 三级。
+            // 只应查「二级校验 + 三级联动/初始化」，不能再查一次一级。
+            mockFieldSearch((request) => {
+                if (request.fieldId === 'cls_1') return ['parent'];
+                if (request.fieldId === 'cls_2') return ['inherited'];
+                if (request.fieldId === 'cls_3') return ['new3'];
+                return [];
+            });
+
+            const layers: CategoryFilterLayers = {
+                globalFilters: asFilters([]),
+                tabFilters: {
+                    [TAB_B]: asFilters([
+                        categoryFilter({
+                            id: 'b1',
+                            fieldId: 'cls_1',
+                            categoryLevel: 1,
+                            values: ['parent'],
+                        }),
+                        categoryFilter({
+                            id: 'b2',
+                            fieldId: 'cls_2',
+                            categoryLevel: 2,
+                            values: ['inherited'],
+                            parentFieldId: 'cls_1',
+                            parentScope: 'tab',
+                            parentTabUuid: TAB_B,
+                        }),
+                        categoryFilter({
+                            id: 'b3',
+                            fieldId: 'cls_3',
+                            categoryLevel: 3,
+                            values: ['old3'],
+                            parentFieldId: 'cls_2',
+                            parentScope: 'tab',
+                            parentTabUuid: TAB_B,
+                        }),
+                    ]),
+                },
+            };
+
+            await applyInheritedCategorySelectionsAsync(
+                layers,
+                [selection(TAB_B, getRule(layers.tabFilters[TAB_B], 'b2')!)],
+                projectUuid,
+                dashboardContext,
+            );
+
+            expect(requestedFieldIds()).not.toContain('cls_1');
             expect(requestedFieldIds()).toContain('cls_2');
         });
     });
