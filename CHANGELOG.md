@@ -9,48 +9,36 @@
 ## v2.4.8 (2026-10-29)
 
 -   **新功能**
-    -   看板筛选器跨 Tab 继承：在一个 Tab 选定类目 / 时间后，切到其它 Tab 时自动沿用同一取值并真正参与过滤；原本「任何值」的筛选器被继承后会启用生效（有值不再被判为"没有配置"）
-    -   类目层级识别增强：同一套类目列（`cls_1` ~ `cls_4`）冗余在多个 mart 时，按 `categoryLevel` 或列名推导识别为同一个筛选器 —— 两侧一侧配了层级、一侧没配也能对上，父级变更可跨 Tab 传播
-    -   时间筛选器按形态继承：同字段 + 同 operator + 同形态（`unitOfTime` / `completed` / 动态默认 / 区间粒度）才继承；接收方若为「最近可用月」「动态区间」默认，继承后转为固定取值，避免查询前被预设值覆盖
+    -   看板筛选器跨 Tab 继承：在一个 Tab 选定类目 / 时间后，其它 Tab 自动沿用并生效（含跨 mart 同名列）
+    -   类目层级按 `categoryLevel` 或列名（`cls_1` ~ `cls_4`）识别，跨 mart 的同一级类目视为同一筛选器
+    -   时间筛选器同字段 + 同形态才继承；接收方为「动态默认」时转为固定取值
 -   **Bug 修复**
-    -   跨 mart 类目 fieldId 不一致导致父子联动失效（父级条件被后端静默丢弃，候选退化成全集）；改为按列名重映射，并在后端日志标记被丢弃的过滤字段
-    -   修复 Tab 类目联动写回被签名守卫误杀：值不生效且筛选 pill 一直停留「更新中」（改为世代判定，并在 finally 兜底清除展示态）
-    -   修复重置后生效状态（`disabled`）与动态日期默认未还原、且可能被在途联动写回的问题；统一由 `invalidateTabCategoryState` 作废在途请求后恢复作者默认值
-    -   修复 `DashboardService.resolveDashboardContextForMetadata` 未同步断言 `dashboardUuid` 的测试失败（分支上 CI lint/test 红）
+    -   跨 mart 类目 fieldId 不一致导致父子联动失效（父级条件被静默丢弃）
+    -   Tab 类目联动写回被签名守卫误杀：值不生效且筛选 pill 停留在「更新中」
+    -   重置未还原生效状态（`disabled`）与动态日期默认，且可能被在途联动写回
 -   **调优**
-    -   跨 Tab 继承改为懒解析：未打开的 Tab 不再后台预先解析各级类目。此前一次改类目会发出「Tab 数 × 层级数」个 `field/search`（4~6 Tab 看板十几个请求，界面渲染完仍在打），现在一次操作只花当前 Tab 的 3~4 次；接收 Tab 的取值在用户切过去时按其自身数据与权限解析（有权限保留并继续联动，无权限回落到该 Tab 第一个合法类目）
-    -   类目初始化只处理「被改级别的后代」，祖先不再重复查询（全局与 Tab 路径一致）
-    -   新增真实请求计数与 `[category-cascade] cascade finished { fieldSearchRequests }`、`[cross-tab-inherit]`（命中 / 跳过原因）诊断日志，均为 DEV-only
+    -   跨 Tab 继承改为懒解析：未打开的 Tab 零请求，一次改类目从约 23 次 `field/search` 降到 3~4 次
+    -   类目初始化只算「被改级别的后代」；新增请求数与继承诊断日志（DEV-only）
 -   **文档**
-    -   新增 `docs/dashboard-filter-flow-overview.md`：7 条筛选流程 + 12 条功能保全清单 + 状态机守卫表 + 10 步手工验收脚本 + 优化前后取舍
-    -   更新 `docs/category-filter-not-cascading-diagnosis-plan.md`（§12 记录跨 Tab 继承的懒解析语义与取舍）
+    -   新增 `docs/dashboard-filter-flow-overview.md`（流程 / 功能清单 / 验收脚本）
 -   **工程**
-    -   backend / e2e 显式关闭 `no-void`（`airbnb-base` 在 extends 中位于根配置之后，把根配置的 `'no-void': 'off'` 覆盖回 error，导致 `pnpm lint` 失败）
-    -   验证：frontend / backend / common `tsc` 0 error；前端 utils+hooks 单测 216 例、后端 DashboardService 44 / SavedSql 16 / PromoteService 34 全绿；改动文件 prettier 通过
-    -   包版本 2.4.8（发版时执行 `pnpm bump-version`）
+    -   backend / e2e 关闭 `no-void`（被 `airbnb-base` 覆盖导致 `pnpm lint` 失败）
 
 ## v2.4.3 ~ v2.4.7 (2026-10-28)
 
 -   **新功能**
-    -   自定义图表（Vega-Lite）跟随看板同步颜色：写死的颜色字面量、`mark.line` 覆盖线、条件色（含无 field 的条件色编码）都参与同步；支持复合视图与展示值兜底、显式 `color.domain` 作为系列集合；开启同步后由看板色板接管配色
-    -   看板深度复制：复制看板时深拷贝图表与 SQL 图表资源（不再共享原图），补齐 tab / tile / 筛选器 `tileTargets` / `lockedTabUuids` / `parentTabUuid` 的 uuid 重映射；复制含 SQL 图表的看板需 `CustomSql` 权限，失败时补偿删除半成品
-    -   看板滚动时筛选器与标签栏吸顶（参数行一并吸顶，贴顶不留白）
-    -   添加筛选器按作用域收窄：只展示当前 Tab 引用的数据集字段与 SQL 列
-    -   查看模式筛选器跨 Tab 取值继承（初版；后续在 v2.4.8 调整为懒解析并修正「任何值」语义）
-    -   Markdown 渲染统一保留段落内换行
+    -   自定义图表（Vega-Lite）跟随看板同步颜色（颜色字面量 / 条件色 / `mark.line` / 复合视图）
+    -   看板深度复制：深拷贝图表与 SQL 图表资源，含权限校验与失败补偿
+    -   筛选器与标签栏吸顶；添加筛选器只展示当前 Tab 引用的数据集与 SQL 列
+    -   查看模式筛选器跨 Tab 取值继承（初版）；Markdown 保留段落内换行
 -   **Bug 修复**
-    -   修复类目筛选器下级不跟随上级联动；修复首屏图表重复查询
-    -   修复类目联动 `field/search` 条件丢失 `settings` 与 `disabled` 导致查不到数据
-    -   修复看板上下文跨项目串号导致行级权限失效
-    -   修复自定义图表配色的多个问题：调色板下拉无法打开、同步范围过宽导致同色、`color.sort` 顺序与 null 分类中性灰、调色板变化/重置后系列名未重新注册
-    -   标准图表类型标注改为「（标准图表）」
-    -   修复 backend 构建失败（ProjectService 测试类型错误）
+    -   修复类目下级不跟随上级联动、首屏图表重复查询
+    -   修复类目联动 `field/search` 丢 `settings` / `disabled` 导致查不到数据
+    -   修复看板上下文跨项目串号导致行级权限失效；自定义图表配色若干问题
 -   **调优**
-    -   vite 预构建 vega / vega-lite，避免 dev server 首屏整页 reload
-    -   自定义图表 transform 派生数据改为懒加载，避免 vega 进入首屏主 chunk
-    -   类型标注映射抽成可测试的 `chartTypeLabel` 模块
+    -   vega / vega-lite 预构建，transform 派生数据懒加载，避免进首屏主 chunk
 -   **工程**
-    -   包版本历经 2.4.3 / 2.4.4 / 2.4.5 / 2.4.6 / 2.4.7
+    -   包版本历经 2.4.3 ~ 2.4.7
 
 ## v2.3.6 ~ v2.4.2 (2026-10-23)
 
