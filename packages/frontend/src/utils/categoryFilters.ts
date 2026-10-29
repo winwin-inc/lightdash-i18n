@@ -212,6 +212,38 @@ export const getParentFilterLocation = (
     return null;
 };
 
+/* -------------------------------------------------------------------------- */
+/*                              类目级联诊断日志                              */
+/* -------------------------------------------------------------------------- */
+
+const CATEGORY_CASCADE_LOG = '[category-cascade]';
+
+/**
+ * 是否开发模式：诊断日志只在开发模式输出，避免生产环境刷屏。
+ * （前端是 vite 工程，import.meta.env.DEV 在生产构建里为 false）
+ */
+const isDevMode = (): boolean => import.meta.env.DEV === true;
+
+/**
+ * 类目级联诊断日志：用于排查「联动没有生效」到底卡在哪一步。
+ * 用 console.log 而不是 console.debug：浏览器默认会过滤 debug 级别。
+ * 仅开发模式输出。
+ */
+export const logCategoryCascade = (...args: unknown[]): void => {
+    if (!isDevMode()) return;
+    // eslint-disable-next-line no-console
+    console.log(CATEGORY_CASCADE_LOG, ...args);
+};
+
+/**
+ * 类目级联告警日志：绑定 / 作用域异常时提示（仅开发模式输出）。
+ */
+const logCategoryCascadeWarning = (...args: unknown[]): void => {
+    if (!isDevMode()) return;
+    // eslint-disable-next-line no-console
+    console.warn(CATEGORY_CASCADE_LOG, ...args);
+};
+
 /**
  * 父级层级必须低于子级，否则视为无效绑定（避免成环）
  */
@@ -227,7 +259,8 @@ const isValidParentLevel = (
 
 /**
  * 查找子筛选器的父级：
- * - 显式声明作用域（parentScope / parentTabUuid）→ 精确匹配，找不到即视为绑定失效
+ * - 显式声明作用域（parentScope / parentTabUuid）→ 精确匹配；
+ *   匹配不到时按 fieldId 兜底（同作用域 → 全局 → 任意），避免绑定「静默失效」
  * - 旧数据（未声明作用域）→ 同作用域优先，其次全局
  */
 export const findParentCategoryEntry = (
@@ -247,14 +280,39 @@ export const findParentCategoryEntry = (
 
     const explicit = getParentFilterLocation(child.rule);
     if (explicit) {
-        return (
-            candidates.find(
-                (entry) =>
-                    entry.location.scope === explicit.scope &&
-                    (explicit.scope === 'global' ||
-                        entry.location.tabUuid === explicit.tabUuid),
-            ) ?? null
+        const matched = candidates.find(
+            (entry) =>
+                entry.location.scope === explicit.scope &&
+                (explicit.scope === 'global' ||
+                    entry.location.tabUuid === explicit.tabUuid),
         );
+        if (matched) return matched;
+
+        // 显式作用域没有命中（例如 parentScope='tab' 但 parentTabUuid 缺失 /
+        // 指向了已删除的 Tab）：按 fieldId 兜底，否则父级绑定会静默失效，
+        // 子级就会「保留旧值」（用户看到的现象：联动完全没起作用）。
+        const fallback =
+            candidates.find((entry) =>
+                isSameCategoryLocation(entry.location, child.location),
+            ) ??
+            candidates.find((entry) => entry.location.scope === 'global') ??
+            candidates[0];
+        if (fallback) {
+            logCategoryCascadeWarning(
+                'explicit parent scope not matched, fell back to fieldId match',
+                {
+                    childId: child.rule.id,
+                    childFieldId: child.rule.target.fieldId,
+                    requestedScope: explicit.scope,
+                    requestedTabUuid: explicit.tabUuid,
+                    fallbackParentId: fallback.rule.id,
+                    fallbackParentFieldId: fallback.rule.target.fieldId,
+                    fallbackScope: fallback.location.scope,
+                    fallbackTabUuid: fallback.location.tabUuid,
+                },
+            );
+        }
+        return fallback ?? null;
     }
 
     const sameScope = candidates.find((entry) =>
@@ -306,6 +364,8 @@ export const getScopeFiltersFromChain = (
 export type DashboardFilterContext = {
     dashboardSlug?: string;
     dashboardName?: string;
+    /** 看板 uuid：全局唯一，slug 只在项目内唯一（跨项目可能撞车） */
+    dashboardUuid?: string;
 };
 
 const FIELD_SEARCH_CACHE_TTL_MS = 5000;
@@ -435,6 +495,7 @@ const getFieldSearchCacheKey = (
         filters: serializeFieldSearchFilters(filters),
         dashboardSlug: dashboardContext?.dashboardSlug ?? null,
         dashboardName: dashboardContext?.dashboardName ?? null,
+        dashboardUuid: dashboardContext?.dashboardUuid ?? null,
     });
 
 /**
@@ -463,6 +524,7 @@ export const getCategoryFiltersSignature = (
         projectUuid,
         dashboardSlug: dashboardContext?.dashboardSlug ?? null,
         dashboardName: dashboardContext?.dashboardName ?? null,
+        dashboardUuid: dashboardContext?.dashboardUuid ?? null,
         dimensions: relevantDimensions.map((filter) => ({
             id: filter.id,
             fieldId: filter.target.fieldId,
@@ -582,6 +644,7 @@ const fetchFieldSearchValues = async (
                             forceRefresh: false,
                             dashboardSlug: dashboardContext?.dashboardSlug,
                             dashboardName: dashboardContext?.dashboardName,
+                            dashboardUuid: dashboardContext?.dashboardUuid,
                         }),
                         signal: controller.signal,
                     });
@@ -656,6 +719,35 @@ const getFilterCurrentValue = (
     }
     return undefined;
 };
+
+/* -------------------------------------------------------------------------- */
+/*                              类目级联诊断日志                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 筛选器摘要（诊断用）：只打印联动相关的关键字段
+ */
+const summarizeRule = (rule: DashboardFilterRule) => ({
+    id: rule.id,
+    fieldId: rule.target.fieldId,
+    level: getCategoryLevel(rule) ?? null,
+    parentFieldId: rule.parentFieldId ?? null,
+    parentScope: rule.parentScope ?? null,
+    parentTabUuid: rule.parentTabUuid ?? null,
+    value: getFilterCurrentValue(rule) ?? null,
+    operator: rule.operator,
+    disabled: rule.disabled ?? false,
+});
+
+/**
+ * 链摘要（诊断用）：按链顺序打印每条规则及其作用域
+ */
+const summarizeChain = (chain: CategoryChain) =>
+    chain.map((entry) => ({
+        ...summarizeRule(entry.rule),
+        scope: entry.location.scope,
+        tabUuid: entry.location.tabUuid,
+    }));
 
 /**
  * 收集 field/search 级联条件：目标筛选器左侧已有值的规则（对齐下拉 getAutocompleteFilterGroup），
@@ -941,6 +1033,34 @@ const getChildEntries = (
     });
 
 /**
+ * 诊断：链上某个规则识别到的父级（用于排查父子绑定是否生效）
+ */
+const logParentResolution = (
+    chain: CategoryChain,
+    parent: CategoryChainEntry,
+): void => {
+    const children = chain
+        .filter((entry) => isCategoryField(entry.rule))
+        .map((entry) => ({
+            child: summarizeRule(entry.rule),
+            resolvedParentFieldId:
+                findParentCategoryEntry(chain, entry)?.rule.target.fieldId ??
+                null,
+            resolvedParentScope:
+                findParentCategoryEntry(chain, entry)?.location.scope ?? null,
+            isChildOfGivenParent:
+                findParentCategoryEntry(chain, entry)?.rule.id ===
+                parent.rule.id,
+        }));
+    logCategoryCascade('parent resolution', {
+        parent: summarizeRule(parent.rule),
+        parentScope: parent.location.scope,
+        parentTabUuid: parent.location.tabUuid,
+        candidates: children,
+    });
+};
+
+/**
  * 清空某个规则的所有后代（链路断裂时调用）
  */
 const clearDescendantsAsync = async (
@@ -985,6 +1105,56 @@ const clearDescendantsAsync = async (
 };
 
 /**
+ * 诊断：链上每条「可能参与父子联动」的规则与当前父级的匹配情况。
+ * 用于回答「为什么这个父级没有子级」。
+ */
+const describeChainChildMatches = (
+    chain: CategoryChain,
+    parent: CategoryChainEntry,
+) =>
+    chain
+        .filter(
+            (entry) =>
+                isCategoryField(entry.rule) ||
+                getParentFieldId(entry.rule) !== null,
+        )
+        .map((entry) => {
+            if (!isCategoryField(entry.rule)) {
+                return {
+                    ...summarizeRule(entry.rule),
+                    match: 'notCategory',
+                };
+            }
+            const parentFieldId = getParentFieldId(entry.rule);
+            if (!parentFieldId) {
+                return {
+                    ...summarizeRule(entry.rule),
+                    match: 'noParentFieldId',
+                };
+            }
+            const resolved = findParentCategoryEntry(chain, entry);
+            if (!resolved) {
+                return {
+                    ...summarizeRule(entry.rule),
+                    match: 'parentNotFound',
+                };
+            }
+            if (resolved.rule.id !== parent.rule.id) {
+                return {
+                    ...summarizeRule(entry.rule),
+                    match: 'scopeMismatch',
+                    resolvedParentFieldId: resolved.rule.target.fieldId,
+                    resolvedParentScope: resolved.location.scope,
+                    resolvedParentTabUuid: resolved.location.tabUuid,
+                };
+            }
+            return {
+                ...summarizeRule(entry.rule),
+                match: 'child',
+            };
+        });
+
+/**
  * 父改子联动（链上）：父改子时按 field/search 实际类目纠正选中值；
  * 链路断裂（中间某级没有值）时清空更下级，避免带着失效值查询出空页面。
  */
@@ -997,7 +1167,28 @@ const cascadeChildrenAsync = async (
     let currentChain = chain;
     let hasChanges = false;
 
-    for (const originalChild of getChildEntries(chain, parentEntry)) {
+    logParentResolution(currentChain, parentEntry);
+
+    const childEntries = getChildEntries(chain, parentEntry);
+    if (childEntries.length === 0) {
+        // 链上没有识别到子级：把每条规则的匹配情况写清楚，
+        // 便于定位「绑定了但没联动」到底卡在哪一步
+        logCategoryCascade('no category children found for parent', {
+            parent: summarizeRule(parentEntry.rule),
+            parentScope: parentEntry.location.scope,
+            parentTabUuid: parentEntry.location.tabUuid,
+            candidates: describeChainChildMatches(chain, parentEntry),
+        });
+    }
+
+    for (const originalChild of childEntries) {
+        logCategoryCascade('cascade child detected', {
+            parent: summarizeRule(parentEntry.rule),
+            parentValue,
+            child: summarizeRule(originalChild.rule),
+            childScope: originalChild.location.scope,
+            childTabUuid: originalChild.location.tabUuid,
+        });
         // 操作已被新操作取代：立即放弃，不再发请求
         if (ctx.session?.isCancelled()) {
             return { chain: currentChain, hasChanges: false, cancelled: true };
@@ -1012,6 +1203,11 @@ const cascadeChildrenAsync = async (
 
         // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
         if (child.rule.operator !== FilterOperator.EQUALS) {
+            logCategoryCascade('skip cascade: operator is not EQUALS', {
+                child: summarizeRule(child.rule),
+                childOperator: child.rule.operator,
+                parent: summarizeRule(parentEntry.rule),
+            });
             continue;
         }
 
@@ -1019,12 +1215,14 @@ const cascadeChildrenAsync = async (
         // 有选中值就必须跟着父级联动（disabled 只说明作者没配默认值，
         // 用户自己筛过值就应当跟随）；
         // 没有值 → 不参与联动，保持「任何值」。
-        if (
-            !shouldCascadeCategoryFilter(
-                child.rule,
-                ctx.recoverableFilterIds,
-            )
-        ) {
+        if (!shouldCascadeCategoryFilter(
+            child.rule,
+            ctx.recoverableFilterIds,
+        )) {
+            logCategoryCascade('skip cascade: no confirmed value', {
+                child: summarizeRule(child.rule),
+                parent: summarizeRule(parentEntry.rule),
+            });
             // 断链：当前级没有值（被禁用）→ 后代失去依据 → 清空后代
             // eslint-disable-next-line no-console
             console.debug(
@@ -1065,6 +1263,17 @@ const cascadeChildrenAsync = async (
             dashboardContext: ctx.dashboardContext,
             parentValueOverride: parentValue,
             session: ctx.session,
+        });
+
+        logCategoryCascade('cascade child resolved', {
+            child: summarizeRule(child.rule),
+            parent: summarizeRule(parentEntry.rule),
+            parentValue,
+            status: resolution.status,
+            reason:
+                'reason' in resolution ? resolution.reason : undefined,
+            resolvedValue:
+                resolution.status === 'resolved' ? resolution.value : undefined,
         });
 
         if (resolution.status === 'cancelled') {
@@ -1514,9 +1723,18 @@ export const updateCategoryCascadeForLocationsAsync = async (
             { globalFilters, tabFilters },
             scope.tabUuid,
         );
+
         const changedEntry = chain.find(
             (entry) => entry.rule.id === request.rule.id,
         );
+        logCategoryCascade('scope cascade start', {
+            scope: scope.scope,
+            tabUuid: scope.tabUuid,
+            changedFilter: summarizeRule(request.rule),
+            newValue: request.newValue,
+            changedEntryFound: !!changedEntry,
+            chain: summarizeChain(chain),
+        });
         // 变更的筛选器不在该作用域的链里（例如别的 Tab 的筛选器）→ 跳过
         if (!changedEntry) continue;
 
@@ -1537,10 +1755,20 @@ export const updateCategoryCascadeForLocationsAsync = async (
 
         if (result.cancelled) {
             // 已被新操作取代：放弃本次跨作用域联动
+            logCategoryCascade('scope cascade cancelled', {
+                scope: scope.scope,
+                tabUuid: scope.tabUuid,
+            });
             return { globalFilters, tabFilters };
         }
 
-        if (!result.hasChanges) continue;
+        if (!result.hasChanges) {
+            logCategoryCascade('scope cascade no change', {
+                scope: scope.scope,
+                tabUuid: scope.tabUuid,
+            });
+            continue;
+        }
 
         if (scope.scope === 'global') {
             globalFilters = getScopeFiltersFromChain(
@@ -1561,6 +1789,48 @@ export const updateCategoryCascadeForLocationsAsync = async (
     }
 
     return { globalFilters, tabFilters };
+};
+
+/**
+ * 筛选器变更时是否需要走类目级联。
+ *
+ * - 非类目筛选器（且没有绑定它的类目子级）→ 不级联
+ * - 编辑模式（isEdit）→ 不级联（编辑态不应该触发自动解析）
+ * - 临时筛选器（isTemporary，图表交叉筛选）→ 不级联：
+ *   级联结果会写回永久筛选器，污染看板自身的类目配置
+ * - 类目筛选器 → 级联，**包括被清空成「任何值」的情况**：
+ *   父级没有值时，子级（全局子级 + 各 Tab 里绑定该父级的子级）
+ *   必须一起清空，否则会出现「父级是任何值、子级还留着旧类目」的矛盾状态。
+ *
+ */
+export const shouldCascadeCategoryFilterUpdate = ({
+    filter,
+    isEdit,
+    isTemporary,
+    canApplyCategoryFilters,
+}: {
+    filter: DashboardFilterRule;
+    isEdit: boolean;
+    isTemporary: boolean;
+    canApplyCategoryFilters: boolean;
+}): boolean =>
+    canApplyCategoryFilters &&
+    isCategoryField(filter) &&
+    !isEdit &&
+    !isTemporary;
+
+/**
+ * 筛选器变更后的有效取值：被清空（「任何值」）时为 null。
+ *
+ * 级联把 null 视为「父级没有值」：后代类目随之清空
+ * （cascadeChildrenAsync 的 clear 分支）。
+ */
+export const getCategoryFilterUpdateValue = (
+    filter: DashboardFilterRule,
+): string | null => {
+    const values = filter.values;
+    if (!values || values.length === 0) return null;
+    return String(values[0]);
 };
 
 /**

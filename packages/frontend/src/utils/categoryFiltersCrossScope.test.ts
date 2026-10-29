@@ -10,8 +10,10 @@ import {
     clearFieldSearchCacheForTests,
     createCategoryRequestSession,
     findParentCategoryEntry,
+    getCategoryFilterUpdateValue,
     getCategoryFiltersSignature,
     initializeCategoryFiltersAsync,
+    shouldCascadeCategoryFilterUpdate,
     updateCrossScopeCategoryCascadeAsync,
     type CategoryChain,
 } from './categoryFilters';
@@ -438,6 +440,76 @@ describe('categoryFilters cross scope', () => {
             ]);
         });
 
+        it('clears the cross scope tab child when the global parent is cleared', async () => {
+            // 回归：全局一级类目被清空（「任何值」）时，
+            // 跨作用域的 Tab 子级必须一起清空，
+            // 否则会出现「父级是任何值、子级还留着旧类目」。
+            const g1 = categoryFilter({
+                id: 'g1',
+                fieldId: 'cls_1',
+                categoryLevel: 1,
+                values: [],
+            });
+            const g2 = categoryFilter({
+                id: 'g2',
+                fieldId: 'cls_2',
+                categoryLevel: 2,
+                values: ['C1'],
+                parentFieldId: 'cls_1',
+                parentScope: 'global',
+            });
+            const t2 = categoryFilter({
+                id: 't2',
+                fieldId: 'cls_2',
+                categoryLevel: 2,
+                values: ['TAB-C1'],
+                parentFieldId: 'cls_1',
+                parentScope: 'global',
+            });
+            const t3 = categoryFilter({
+                id: 't3',
+                fieldId: 'cls_3',
+                categoryLevel: 3,
+                values: ['T1'],
+                parentFieldId: 'cls_2',
+                parentScope: 'global',
+            });
+
+            const result = await updateCrossScopeCategoryCascadeAsync(
+                {
+                    globalFilters: asFilters([g1, g2]),
+                    tabFilters: { [TAB_UUID]: asFilters([t2, t3]) },
+                },
+                g1,
+                null,
+                projectUuid,
+                dashboardContext,
+            );
+
+            // 全局二级（绑定全局一级）被清空
+            expect(result.globalFilters.dimensions[1].values).toEqual([]);
+            // 跨作用域的 Tab 二级（绑定全局一级）被清空
+            expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual(
+                [],
+            );
+            // Tab 三级（绑定全局二级）跟着清空
+            expect(result.tabFilters[TAB_UUID].dimensions[1].values).toEqual(
+                [],
+            );
+            // 链路断裂 → 不需要请求仓库
+            expect(api).not.toHaveBeenCalled();
+
+            // 用户显式的「清空」优先：后续的自动解析不能把父级重新赋值
+            const refined = await initializeCategoryFiltersAsync(
+                result.globalFilters,
+                projectUuid,
+                dashboardContext,
+                { skipFilterIds: ['g1'] },
+            );
+            expect(refined.dimensions[0].values).toEqual([]);
+            expect(refined.dimensions[1].values).toEqual([]);
+        });
+
         it('clears the tab descendants when the global parent has no value', async () => {
             const g1 = categoryFilter({
                 id: 'g1',
@@ -645,6 +717,84 @@ describe('categoryFilters cross scope', () => {
 
             expect(a).not.toBe(b);
         });
+    });
+});
+
+describe('shouldCascadeCategoryFilterUpdate', () => {
+    const clearedCategory = categoryFilter({
+        id: 'g1',
+        fieldId: 'cls_1',
+        categoryLevel: 1,
+        values: [],
+    });
+
+    it('still cascades when a global category filter is cleared', () => {
+        // 回归：清空全局类目筛选器（「任何值」）时必须继续级联，
+        // 否则后代类目（全局 + 跨作用域 Tab）会保留旧值。
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: clearedCategory,
+                isEdit: false,
+                isTemporary: false,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(true);
+    });
+
+    it('treats a cleared category filter as no value', () => {
+        expect(getCategoryFilterUpdateValue(clearedCategory)).toBeNull();
+        expect(
+            getCategoryFilterUpdateValue(
+                categoryFilter({
+                    id: 'g1',
+                    fieldId: 'cls_1',
+                    categoryLevel: 1,
+                    values: ['P1'],
+                }),
+            ),
+        ).toBe('P1');
+    });
+
+    it('does not cascade for non category filters, temporary filters or edit mode', () => {
+        const normalFilter: DashboardFilterRule = {
+            id: 'd1',
+            target: { fieldId: 'orders_status', tableName: 'orders' },
+            operator: FilterOperator.EQUALS,
+            values: [],
+            label: undefined,
+        };
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: normalFilter,
+                isEdit: false,
+                isTemporary: false,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(false);
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: clearedCategory,
+                isEdit: false,
+                isTemporary: true,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(false);
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: clearedCategory,
+                isEdit: true,
+                isTemporary: false,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(false);
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: clearedCategory,
+                isEdit: false,
+                isTemporary: false,
+                canApplyCategoryFilters: false,
+            }),
+        ).toBe(false);
     });
 });
 
@@ -928,3 +1078,100 @@ describe('categoryFilters screenshot scenario', () => {
         );
     });
 });
+
+describe('category cascade parent scope fallback', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+        vi.restoreAllMocks();
+    });
+
+    it('falls back to the global parent when parentScope is tab without parentTabUuid', async () => {
+        // parentScope='tab' 但没有 parentTabUuid：绑定不完整，
+        // 必须按 fieldId 兜底到全局父级，否则子级永远保留旧值。
+        mockSearchResults(['乳饮料']);
+
+        const g1 = categoryFilter({
+            id: 'g1',
+            fieldId: 'cls_1',
+            categoryLevel: 1,
+            values: ['饮料和酒'],
+        });
+        const t2 = categoryFilter({
+            id: 't2',
+            fieldId: 'cls_2',
+            categoryLevel: 2,
+            values: ['饮料'],
+            parentFieldId: 'cls_1',
+            parentScope: 'tab',
+        });
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            {
+                globalFilters: asFilters([g1]),
+                tabFilters: { [TAB_UUID]: asFilters([t2]) },
+            },
+            g1,
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '乳饮料',
+        ]);
+    });
+
+    it('falls back to another scope and warns when parentTabUuid points to another tab', async () => {
+        // parentTabUuid 指向了别的 Tab：显式作用域匹配不到，
+        // 按 fieldId 兜底（全局父级）并记录一条 warning。
+        mockSearchResults(['乳饮料']);
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const g1 = categoryFilter({
+            id: 'g1',
+            fieldId: 'cls_1',
+            categoryLevel: 1,
+            values: ['饮料和酒'],
+        });
+        const t2 = categoryFilter({
+            id: 't2',
+            fieldId: 'cls_2',
+            categoryLevel: 2,
+            values: ['饮料'],
+            parentFieldId: 'cls_1',
+            parentScope: 'tab',
+            parentTabUuid: 'tab-2',
+        });
+
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            {
+                globalFilters: asFilters([g1]),
+                tabFilters: { [TAB_UUID]: asFilters([t2]) },
+            },
+            g1,
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '乳饮料',
+        ]);
+        expect(
+            warnSpy.mock.calls.some(
+                (call) =>
+                    call[0] === '[category-cascade]' &&
+                    typeof call[1] === 'string' &&
+                    call[1].includes('explicit parent scope not matched'),
+            ),
+        ).toBe(true);
+    });
+});
+

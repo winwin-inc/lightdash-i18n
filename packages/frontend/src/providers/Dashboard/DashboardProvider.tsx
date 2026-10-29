@@ -81,9 +81,12 @@ import {
     createCategoryRequestSession,
     getCategoryChainFilters,
     getCategoryFiltersSignature,
+    getCategoryFilterUpdateValue,
     hasCategoryFilters,
     initializeCategoryFiltersAsync,
     isCategoryField,
+    logCategoryCascade,
+    shouldCascadeCategoryFilterUpdate,
     updateCategoryCascadeForLocationsAsync,
     updateCategoryFilterCascadeAsync,
     updateCrossScopeCategoryCascadeAsync,
@@ -563,6 +566,15 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                logCategoryCascade('global init skipped', {
+                    action: decision.action,
+                    canApplyCategoryFilters,
+                    hasProjectUuid: !!projectUuid,
+                    pendingSignature:
+                        globalCategoryPendingSignatureRef.current ?? null,
+                    processedSignature:
+                        globalCategoryProcessedSignatureRef.current ?? null,
+                });
                 // 没有可执行的任务（例如没有类目筛选器）：首屏不再等待类目解析
                 if (!globalCategoryPendingSignatureRef.current) {
                     setIsGlobalCategoryResolutionPending(false);
@@ -1067,14 +1079,31 @@ const DashboardProvider: React.FC<
         ) => {
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
+            const isCategoryFilterUpdate = isCategoryField(item);
+            // 清空类目筛选器（「任何值」）同样要级联：
+            // 父级没有值 → 子级（全局子级 + 各 Tab 里绑定该父级的子级）
+            // 必须一起清空，否则会出现「父级是任何值、子级还留着旧类目」的矛盾状态。
+            const isClearingCategory =
+                isCategoryFilterUpdate && !hasSelectedValue;
+            const shouldCascade = shouldCascadeCategoryFilterUpdate({
+                filter: item,
+                isEdit,
+                isTemporary,
+                canApplyCategoryFilters,
+            });
 
-            if (
-                !canApplyCategoryFilters ||
-                !isCategoryField(item) ||
-                isEdit ||
-                isTemporary ||
-                !hasSelectedValue
-            ) {
+            if (!shouldCascade) {
+                // 诊断：为什么没走类目联动
+                logCategoryCascade('global filter update: cascade skipped', {
+                    filterId: item.id,
+                    fieldId: item.target.fieldId,
+                    values: item.values,
+                    canApplyCategoryFilters,
+                    isCategoryFilter: isCategoryFilterUpdate,
+                    isEdit,
+                    isTemporary,
+                    hasSelectedValue,
+                });
                 // 临时筛选器（图表交叉筛选）不做类目联动：
                 // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
                 originalUpdateDimensionDashboardFilter(
@@ -1086,7 +1115,18 @@ const DashboardProvider: React.FC<
                 return;
             }
 
-            const newValue = String(item.values![0]);
+            // 清空时传 null：级联把父级视为「没有值」，
+            // 后代类目随之清空（cascadeChildrenAsync 的 clear 分支）。
+            const newValue = getCategoryFilterUpdateValue(item);
+            logCategoryCascade('global filter update: cascade start', {
+                filterId: item.id,
+                fieldId: item.target.fieldId,
+                oldValue: dashboardFilters.dimensions[index]?.values?.[0] ?? null,
+                newValue,
+                isEdit,
+                isTemporary,
+                isClearing: isClearingCategory,
+            });
             const nextFilters = replaceDimensionFilterAtIndex(
                 dashboardFilters,
                 index,
@@ -1179,8 +1219,29 @@ const DashboardProvider: React.FC<
                         });
                         return hasChanges ? nextTabs : currentTabs;
                     });
+                    // Tab 的 pill 展示态缓存了级联前的旧值：
+                    // 写回 tabFilters 后必须清掉展示态，
+                    // 否则界面一直显示旧类目（ActiveFilters 读 tabDisplayState）。
+                    changedTabUuids.forEach((targetTabUuid) => {
+                        clearTabCategoryDisplay(targetTabUuid);
+                    });
                     // Tab 筛选器被全局父级联动修改：标记为已修改，随看板一起保存
                     if (changedTabUuids.length > 0) {
+                        logCategoryCascade(
+                            'global cascade write-back: tabs changed',
+                            changedTabUuids.map((uuid) => ({
+                                tabUuid: uuid,
+                                dimensions: (
+                                    refinedTabs[uuid]?.dimensions ?? []
+                                ).map((d) => ({
+                                    id: d.id,
+                                    fieldId: d.target.fieldId,
+                                    values: d.values,
+                                    parentFieldId: d.parentFieldId ?? null,
+                                    parentScope: d.parentScope ?? null,
+                                })),
+                            })),
+                        );
                         setHaveTabFiltersChanged((prev) => {
                             const next = { ...prev };
                             changedTabUuids.forEach((uuid) => {
@@ -1188,6 +1249,26 @@ const DashboardProvider: React.FC<
                             });
                             return next;
                         });
+                    } else {
+                        logCategoryCascade(
+                            'global cascade write-back: no tab changed',
+                            {
+                                tabUuids: Object.keys(refinedTabs),
+                                dimensions: Object.entries(refinedTabs).map(
+                                    ([uuid, f]) => ({
+                                        tabUuid: uuid,
+                                        dimensions: f.dimensions.map((d) => ({
+                                            id: d.id,
+                                            fieldId: d.target.fieldId,
+                                            values: d.values,
+                                            parentFieldId:
+                                                d.parentFieldId ?? null,
+                                            parentScope: d.parentScope ?? null,
+                                        })),
+                                    }),
+                                ),
+                            },
+                        );
                     }
                 },
             )
@@ -1220,6 +1301,7 @@ const DashboardProvider: React.FC<
             projectUuid,
             dashboardFilterContext,
             startGlobalCategoryCascadeSession,
+            clearTabCategoryDisplay,
         ],
     );
 
@@ -1333,6 +1415,19 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                logCategoryCascade('tab init skipped', {
+                    tabUuid: targetTabUuid,
+                    action: decision.action,
+                    canApplyCategoryFilters,
+                    hasProjectUuid: !!projectUuid,
+                    pendingSignature:
+                        tabCategoryPendingSignatureRef.current[targetTabUuid] ??
+                        null,
+                    processedSignature:
+                        tabCategoryProcessedSignatureRef.current[
+                            targetTabUuid
+                        ] ?? null,
+                });
                 // 没有可执行的任务：不再等待该 Tab 的类目解析
                 if (!tabCategoryPendingSignatureRef.current[targetTabUuid]) {
                     setPendingTabCategoryResolutions((prev) => ({
