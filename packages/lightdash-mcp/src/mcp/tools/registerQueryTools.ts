@@ -1,11 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { QueryExecutionContext, QueryHistoryStatus } from '@lightdash/common';
+import { QueryExecutionContext } from '@lightdash/common';
 import { z } from 'zod';
 import type { LightdashMcpEnvConfig } from '../../config';
 import {
     buildDashboardSelectionRequiredResult,
     createDashboardContextResolver,
 } from '../../lib/dashboardContextResolver';
+import { buildUnresolvedDashboardNote } from '../../lib/dashboardContextNote';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
 import { assertExploreQueryable } from '../access/assertExploreQueryable';
@@ -110,17 +111,30 @@ export function isFieldValuesEndpointMissing(message: string): boolean {
     return isHttp404 && mentionsFieldValues;
 }
 
+/**
+ * Returns the first array found in the given keys of the payload.
+ */
+function pickFirstArray(
+    payload: Record<string, unknown>,
+    keys: string[],
+): unknown[] {
+    for (const key of keys) {
+        const value = payload[key];
+        if (Array.isArray(value)) {
+            return value;
+        }
+    }
+    return [];
+}
+
 export function extractV1FieldValues(
     directResult: Record<string, unknown>,
 ): string[] {
-    const candidates =
-        Array.isArray(directResult.results)
-            ? directResult.results
-            : Array.isArray(directResult.values)
-              ? directResult.values
-              : Array.isArray(directResult.rows)
-                ? directResult.rows
-                : [];
+    const candidates = pickFirstArray(directResult, [
+        'results',
+        'values',
+        'rows',
+    ]);
     return candidates
         .map((value) => {
             if (value === null || value === undefined) return null;
@@ -524,12 +538,18 @@ export function registerQueryTools(
                                   resolvedDashboardContext: {
                                       source: 'unresolved',
                                       candidateCount: 0,
-                                      note:
-                                          resolveResult?.status === 'none'
-                                              ? resolveResult.hint
-                                              : requiresDashboardContext
-                                                ? '未找到 explore 关联 dashboard，已按原语义查询执行'
-                                                : '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                      note: buildUnresolvedDashboardNote({
+                                          resolveStatus: resolveResult?.status,
+                                          hint:
+                                              resolveResult?.status === 'none'
+                                                  ? resolveResult.hint
+                                                  : undefined,
+                                          requiresDashboardContext,
+                                          contextMissingMessage:
+                                              '未找到 explore 关联 dashboard，已按原语义查询执行',
+                                          contextNotRequiredMessage:
+                                              '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                      }),
                                   },
                               }),
                     },
@@ -712,12 +732,20 @@ export function registerQueryTools(
                                   resolvedDashboardContext: {
                                       source: 'unresolved',
                                       candidateCount: 0,
-                                      note:
-                                          resolveResult?.status === 'none'
-                                              ? resolveResult.hint
-                                              : exploreMetadata.requiresDashboardContext
-                                                ? '未找到 explore 关联 dashboard，已按原语义查询执行'
-                                                : '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                      note: buildUnresolvedDashboardNote({
+                                          resolveStatus: resolveResult?.status,
+                                          hint:
+                                              resolveResult?.status === 'none'
+                                                  ? resolveResult.hint
+                                                  : undefined,
+                                          requiresDashboardContext:
+                                              exploreMetadata
+                                                  .requiresDashboardContext,
+                                          contextMissingMessage:
+                                              '未找到 explore 关联 dashboard，已按原语义查询执行',
+                                          contextNotRequiredMessage:
+                                              '该 explore 的 sql_filter 不依赖 dashboardSlug，已按原语义查询执行',
+                                      }),
                                   },
                               }),
                     },

@@ -1,5 +1,4 @@
 export * from './AiAgent';
-export * from './apps/dataAppVizConfigOptions';
 export * from './apps/deliveryCapture';
 export * from './apps/sdkBridgeRoutes';
 export * from './apps/sdkFeatures';

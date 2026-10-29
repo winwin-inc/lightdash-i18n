@@ -10,6 +10,7 @@ import {
     buildDashboardSelectionRequiredResult,
     createDashboardContextResolver,
 } from '../lib/dashboardContextResolver';
+import { buildUnresolvedDashboardNote } from '../lib/dashboardContextNote';
 import {
     maybeSlimList,
     rowsToScalarFlat,
@@ -349,12 +350,18 @@ export function registerExtensionTools(
                               resolvedDashboardContext: {
                                   source: 'unresolved',
                                   candidateCount: 0,
-                                  note:
-                                      resolveResult?.status === 'none'
-                                          ? resolveResult.hint
-                                          : requiresDashboardContext
-                                            ? '未找到 chart 关联 dashboard，已回退普通 saved chart 查询'
-                                            : '该 chart 所属 explore 的 sql_filter 不依赖 dashboardSlug，已按原 saved chart 查询执行',
+                                  note: buildUnresolvedDashboardNote({
+                                      resolveStatus: resolveResult?.status,
+                                      hint:
+                                          resolveResult?.status === 'none'
+                                              ? resolveResult.hint
+                                              : undefined,
+                                      requiresDashboardContext,
+                                      contextMissingMessage:
+                                          '未找到 chart 关联 dashboard，已回退普通 saved chart 查询',
+                                      contextNotRequiredMessage:
+                                          '该 chart 所属 explore 的 sql_filter 不依赖 dashboardSlug，已按原 saved chart 查询执行',
+                                  }),
                               },
                           }),
                 },
