@@ -1175,3 +1175,98 @@ describe('category cascade parent scope fallback', () => {
     });
 });
 
+describe('updateCrossScopeCategoryCascadeAsync active tab scoping', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    // 全局一级类目 + 两个 Tab 各自绑定它的二级类目
+    const buildTwoTabs = () => ({
+        globalFilters: asFilters([
+            categoryFilter({
+                id: 'g1',
+                fieldId: 'cls_1',
+                categoryLevel: 1,
+                values: ['饮料和酒'],
+            }),
+        ]),
+        tabFilters: {
+            [TAB_UUID]: asFilters([
+                categoryFilter({
+                    id: 't2',
+                    fieldId: 'cls_2',
+                    categoryLevel: 2,
+                    values: ['饮料'],
+                    parentFieldId: 'cls_1',
+                    parentScope: 'global',
+                }),
+            ]),
+            'tab-2': asFilters([
+                categoryFilter({
+                    id: 'u2',
+                    fieldId: 'cls_2',
+                    categoryLevel: 2,
+                    values: ['饮料'],
+                    parentFieldId: 'cls_1',
+                    parentScope: 'global',
+                }),
+            ]),
+        },
+    });
+
+    it('only cascades the active tab and leaves other tabs untouched', async () => {
+        // 性能回归：多 Tab 看板下一次全局类目变更不应触发所有 Tab 的请求。
+        // 未访问的 Tab 由各自的懒初始化兜底重算，不需要在全局变更时同步跑。
+        mockSearchResults(['乳饮料']);
+
+        const layers = buildTwoTabs();
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+            { activeTabUuid: TAB_UUID },
+        );
+
+        // 只有当前 Tab 发出了请求
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '乳饮料',
+        ]);
+        // 其它 Tab 原样返回（等它被激活时再解析）
+        expect(result.tabFilters['tab-2'].dimensions[0].values).toEqual([
+            '饮料',
+        ]);
+        expect(result.tabFilters['tab-2']).toBe(layers.tabFilters['tab-2']);
+    });
+
+    it('does not fall back to other tabs when the active tab is unknown', async () => {
+        mockSearchResults(['乳饮料']);
+
+        const layers = buildTwoTabs();
+        const result = await updateCrossScopeCategoryCascadeAsync(
+            layers,
+            layers.globalFilters.dimensions[0],
+            '乳制品',
+            projectUuid,
+            dashboardContext,
+            { activeTabUuid: 'tab-does-not-exist' },
+        );
+
+        // 指定的 Tab 不在 layers 里 → 只处理全局作用域，
+        // 不能回退成「所有 Tab 都级联」（那正是要避免的请求风暴）。
+        expect(api).not.toHaveBeenCalled();
+        expect(result.tabFilters[TAB_UUID].dimensions[0].values).toEqual([
+            '饮料',
+        ]);
+        expect(result.tabFilters['tab-2'].dimensions[0].values).toEqual([
+            '饮料',
+        ]);
+    });
+});

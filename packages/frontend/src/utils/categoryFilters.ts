@@ -135,7 +135,7 @@ export const isSameCategoryLocation = (
  * 作用域的可读标识：全局用 'global'，Tab 用 tabUuid
  */
 export const getLocationScopeLabel = (location: CategoryFilterLocation) =>
-    location.scope === 'global' ? 'global' : (location.tabUuid ?? 'tab');
+    location.scope === 'global' ? 'global' : location.tabUuid ?? 'tab';
 
 /**
  * 跨作用域的筛选器集合：全局 + 各 Tab
@@ -386,10 +386,7 @@ const FIELD_SEARCH_TIMEOUT_MS = 30000;
  * - 仓库资源限额错误（引擎内存打满）：给出可读提示，避免刷屏的 HGERR 原文
  * - 其他错误：保留原始信息便于排查
  */
-const logCategorySearchError = (
-    context: string,
-    error: unknown,
-): void => {
+const logCategorySearchError = (context: string, error: unknown): void => {
     if (isWarehouseResourceLimitError(error)) {
         // eslint-disable-next-line no-console
         console.warn(
@@ -633,6 +630,21 @@ const fetchFieldSearchValues = async (
                               }
                             : undefined;
 
+                    // 诊断：把实际发往仓库的过滤条件打出来。
+                    // 「父级条件到底有没有传 / 传了什么」只能从这里看，
+                    // 下拉自动补全的请求（and: []、limit 500）不是级联请求。
+                    logCategoryCascade('field/search request', {
+                        fieldId,
+                        tableName,
+                        filters:
+                            filterGroup?.and.map((rule) => ({
+                                fieldId: rule.target.fieldId,
+                                tableName: rule.target.tableName,
+                                operator: rule.operator,
+                                values: rule.values,
+                            })) ?? null,
+                    });
+
                     const result = await lightdashApi<FieldValueSearchResult>({
                         url: `/projects/${projectUuid}/field/${fieldId}/search`,
                         method: 'POST',
@@ -653,11 +665,18 @@ const fetchFieldSearchValues = async (
                         fieldSearchCache.delete(cacheKey);
                         return { status: 'cancelled' };
                     }
+                    const values = result.results.filter(
+                        (v): v is string => typeof v === 'string',
+                    );
+                    // 诊断：把候选值打出来（验证父级条件是否真的生效）
+                    logCategoryCascade('field/search response', {
+                        fieldId,
+                        count: values.length,
+                        values,
+                    });
                     return {
                         status: 'ok',
-                        values: result.results.filter(
-                            (v): v is string => typeof v === 'string',
-                        ),
+                        values,
                     };
                 } catch (error) {
                     fieldSearchCache.delete(cacheKey);
@@ -1163,7 +1182,11 @@ const cascadeChildrenAsync = async (
     parentEntry: CategoryChainEntry,
     parentValue: string | null,
     ctx: CascadeContext,
-): Promise<{ chain: CategoryChain; hasChanges: boolean; cancelled: boolean }> => {
+): Promise<{
+    chain: CategoryChain;
+    hasChanges: boolean;
+    cancelled: boolean;
+}> => {
     let currentChain = chain;
     let hasChanges = false;
 
@@ -1215,10 +1238,9 @@ const cascadeChildrenAsync = async (
         // 有选中值就必须跟着父级联动（disabled 只说明作者没配默认值，
         // 用户自己筛过值就应当跟随）；
         // 没有值 → 不参与联动，保持「任何值」。
-        if (!shouldCascadeCategoryFilter(
-            child.rule,
-            ctx.recoverableFilterIds,
-        )) {
+        if (
+            !shouldCascadeCategoryFilter(child.rule, ctx.recoverableFilterIds)
+        ) {
             logCategoryCascade('skip cascade: no confirmed value', {
                 child: summarizeRule(child.rule),
                 parent: summarizeRule(parentEntry.rule),
@@ -1251,7 +1273,11 @@ const cascadeChildrenAsync = async (
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
             if (childResult.cancelled) {
-                return { chain: currentChain, hasChanges: false, cancelled: true };
+                return {
+                    chain: currentChain,
+                    hasChanges: false,
+                    cancelled: true,
+                };
             }
             continue;
         }
@@ -1270,8 +1296,7 @@ const cascadeChildrenAsync = async (
             parent: summarizeRule(parentEntry.rule),
             parentValue,
             status: resolution.status,
-            reason:
-                'reason' in resolution ? resolution.reason : undefined,
+            reason: 'reason' in resolution ? resolution.reason : undefined,
             resolvedValue:
                 resolution.status === 'resolved' ? resolution.value : undefined,
         });
@@ -1304,7 +1329,11 @@ const cascadeChildrenAsync = async (
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
             if (childResult.cancelled) {
-                return { chain: currentChain, hasChanges: false, cancelled: true };
+                return {
+                    chain: currentChain,
+                    hasChanges: false,
+                    cancelled: true,
+                };
             }
             continue;
         }
@@ -1332,7 +1361,11 @@ const cascadeChildrenAsync = async (
             currentChain = childResult.chain;
             hasChanges = hasChanges || childResult.hasChanges;
             if (childResult.cancelled) {
-                return { chain: currentChain, hasChanges: false, cancelled: true };
+                return {
+                    chain: currentChain,
+                    hasChanges: false,
+                    cancelled: true,
+                };
             }
             continue;
         }
@@ -1386,9 +1419,9 @@ const cascadeChildrenAsync = async (
             // 诊断日志：联动是否生效、值改成了什么
             // eslint-disable-next-line no-console
             console.debug(
-                `[categoryFilters] Cascaded ${child.rule.target.fieldId}: ${String(
-                    currentValue ?? 'any',
-                )} → ${resolvedValue}`,
+                `[categoryFilters] Cascaded ${
+                    child.rule.target.fieldId
+                }: ${String(currentValue ?? 'any')} → ${resolvedValue}`,
             );
         }
 
@@ -1851,6 +1884,14 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         session?: CategoryRequestSession;
         /** 解析异常回调：请求失败时保留原值，需要提示用户 */
         onResolutionIssue?: CategoryResolutionIssueHandler;
+        /**
+         * 当前激活的 Tab：只级联「全局 + 该 Tab」。
+         *
+         * 其它 Tab 不在这里重算：它们有各自的懒初始化（切过去时按最新的全局值
+         * 重新解析），效果一致但不会一次发 N 个 Tab × M 个子孙的请求。
+         * 多 Tab 看板下一次全局类目变更从「12 次请求」降到「1~2 次」。
+         */
+        activeTabUuid?: string | null;
     },
 ): Promise<CategoryFilterLayers> => {
     if (!isCategoryField(changedFilter)) {
@@ -1860,13 +1901,28 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         };
     }
 
+    const activeTabUuid = options?.activeTabUuid ?? null;
+    const tabUuids = activeTabUuid
+        ? Object.keys(layers.tabFilters).filter(
+              (tabUuid) => tabUuid === activeTabUuid,
+          )
+        : Object.keys(layers.tabFilters);
+
     const scopes: CategoryFilterLocation[] = [
         GLOBAL_FILTER_LOCATION,
-        ...Object.keys(layers.tabFilters).map((tabUuid) => ({
+        ...tabUuids.map((tabUuid) => ({
             scope: 'tab' as const,
             tabUuid,
         })),
     ];
+
+    logCategoryCascade('cross scope cascade scopes', {
+        changedFieldId: changedFilter.target.fieldId,
+        newValue,
+        activeTabUuid,
+        allTabCount: Object.keys(layers.tabFilters).length,
+        cascadedTabCount: tabUuids.length,
+    });
 
     // 所有作用域都作为候选：链里没有该筛选器的作用域会被自动跳过
     return updateCategoryCascadeForLocationsAsync(

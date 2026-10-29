@@ -94,7 +94,6 @@ import {
     type CategoryRequestSession,
     type CategoryResolutionIssue,
 } from '../../utils/categoryFilters';
-import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import {
     applySelectionToTabFilters,
     findRuleByIdentity,
@@ -103,6 +102,7 @@ import {
     restoreAuthorDefaults,
     type FilterNamespace,
 } from '../../utils/userFilterSelections';
+import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import DashboardChartColorSyncProvider from '../DashboardChartColorSync/DashboardChartColorSyncProvider';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
@@ -365,8 +365,9 @@ const DashboardProvider: React.FC<
      * 会话与 generation 一一对应：init 与 cascade 各自独立，
      * 手动改动会同时作废在途的 init（与现有 generation 语义一致）。
      * ------------------------------------------------------------------ */
-    const globalCategoryInitSessionRef =
-        useRef<CategoryRequestSession | null>(null);
+    const globalCategoryInitSessionRef = useRef<CategoryRequestSession | null>(
+        null,
+    );
     const globalCategoryCascadeSessionRef =
         useRef<CategoryRequestSession | null>(null);
     const tabCategoryInitSessionRef = useRef<
@@ -394,15 +395,12 @@ const DashboardProvider: React.FC<
         return session;
     }, []);
 
-    const startTabCategoryInitSession = useCallback(
-        (targetTabUuid: string) => {
-            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
-            const session = createCategoryRequestSession();
-            tabCategoryInitSessionRef.current[targetTabUuid] = session;
-            return session;
-        },
-        [],
-    );
+    const startTabCategoryInitSession = useCallback((targetTabUuid: string) => {
+        tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+        const session = createCategoryRequestSession();
+        tabCategoryInitSessionRef.current[targetTabUuid] = session;
+        return session;
+    }, []);
 
     const startTabCategoryCascadeSession = useCallback(
         (targetTabUuid: string) => {
@@ -436,8 +434,9 @@ const DashboardProvider: React.FC<
      * 跨 Tab 继承后的统一联动会话：
      * 新的继承联动会取消上一次（排队中的请求丢弃、在途的 abort）。
      */
-    const crossTabCascadeSessionRef =
-        useRef<CategoryRequestSession | null>(null);
+    const crossTabCascadeSessionRef = useRef<CategoryRequestSession | null>(
+        null,
+    );
     const startCrossTabCascadeSession = useCallback(() => {
         crossTabCascadeSessionRef.current?.cancel();
         const session = createCategoryRequestSession();
@@ -1039,6 +1038,9 @@ const DashboardProvider: React.FC<
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    // 只级联当前 Tab：其它 Tab 切过去时由各自的懒初始化重算，
+                    // 避免一次全局类目变更触发 N 个 Tab × M 个子孙的请求。
+                    activeTabUuid: activeTab?.uuid ?? null,
                 },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
@@ -1065,6 +1067,7 @@ const DashboardProvider: React.FC<
             dashboardFilterContext,
             recoverableCategoryFilterIds,
             tabFilters,
+            activeTab?.uuid,
             handleCategoryResolutionIssue,
         ],
     );
@@ -1121,7 +1124,8 @@ const DashboardProvider: React.FC<
             logCategoryCascade('global filter update: cascade start', {
                 filterId: item.id,
                 fieldId: item.target.fieldId,
-                oldValue: dashboardFilters.dimensions[index]?.values?.[0] ?? null,
+                oldValue:
+                    dashboardFilters.dimensions[index]?.values?.[0] ?? null,
                 newValue,
                 isEdit,
                 isTemporary,
@@ -1165,113 +1169,122 @@ const DashboardProvider: React.FC<
                 item,
                 newValue,
                 session,
-            ).then(
-                ({ globalFilters: refinedGlobal, tabFilters: refinedTabs }) => {
-                    // 会话已被取消（用户又改了一次）→ 丢弃本次结果，不写回
-                    if (session.isCancelled()) return;
-
-                    setDashboardFilters((currentFilters) => {
-                        if (
-                            !projectUuid ||
-                            !requestSignature ||
-                            !shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    globalCategoryCascadeGenerationRef.current,
-                                requestSignature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                            })
-                        ) {
-                            return currentFilters;
-                        }
-
-                        markGlobalCategoryProcessed(refinedGlobal);
-                        return refinedGlobal;
-                    });
-
-                    // 跨作用域级联：全局父级的变化要传播到各 Tab 的子类目筛选器
-                    // （级联基于闭包里的 tabFilters，这里用同一份快照判断哪些 Tab 变了）
-                    const changedTabUuids = Object.entries(refinedTabs)
-                        .filter(
-                            ([targetTabUuid, filtersForTab]) =>
-                                !areFilterDimensionsEqual(
-                                    tabFilters[targetTabUuid] ?? emptyFilters,
-                                    filtersForTab,
-                                ),
-                        )
-                        .map(([targetTabUuid]) => targetTabUuid);
-
-                    setTabFilters((currentTabs) => {
-                        let hasChanges = false;
-                        const nextTabs = { ...currentTabs };
-                        changedTabUuids.forEach((targetTabUuid) => {
-                            const filtersForTab = refinedTabs[targetTabUuid];
-                            if (!filtersForTab) return;
-                            nextTabs[targetTabUuid] = filtersForTab;
-                            hasChanges = true;
-                            markTabCategoryProcessed(
-                                targetTabUuid,
-                                filtersForTab,
-                                refinedGlobal,
-                            );
-                        });
-                        return hasChanges ? nextTabs : currentTabs;
-                    });
-                    // Tab 的 pill 展示态缓存了级联前的旧值：
-                    // 写回 tabFilters 后必须清掉展示态，
-                    // 否则界面一直显示旧类目（ActiveFilters 读 tabDisplayState）。
-                    changedTabUuids.forEach((targetTabUuid) => {
-                        clearTabCategoryDisplay(targetTabUuid);
-                    });
-                    // Tab 筛选器被全局父级联动修改：标记为已修改，随看板一起保存
-                    if (changedTabUuids.length > 0) {
-                        logCategoryCascade(
-                            'global cascade write-back: tabs changed',
-                            changedTabUuids.map((uuid) => ({
-                                tabUuid: uuid,
-                                dimensions: (
-                                    refinedTabs[uuid]?.dimensions ?? []
-                                ).map((d) => ({
-                                    id: d.id,
-                                    fieldId: d.target.fieldId,
-                                    values: d.values,
-                                    parentFieldId: d.parentFieldId ?? null,
-                                    parentScope: d.parentScope ?? null,
-                                })),
-                            })),
-                        );
-                        setHaveTabFiltersChanged((prev) => {
-                            const next = { ...prev };
-                            changedTabUuids.forEach((uuid) => {
-                                next[uuid] = true;
-                            });
-                            return next;
-                        });
-                    } else {
-                        logCategoryCascade(
-                            'global cascade write-back: no tab changed',
-                            {
-                                tabUuids: Object.keys(refinedTabs),
-                                dimensions: Object.entries(refinedTabs).map(
-                                    ([uuid, f]) => ({
-                                        tabUuid: uuid,
-                                        dimensions: f.dimensions.map((d) => ({
-                                            id: d.id,
-                                            fieldId: d.target.fieldId,
-                                            values: d.values,
-                                            parentFieldId:
-                                                d.parentFieldId ?? null,
-                                            parentScope: d.parentScope ?? null,
-                                        })),
-                                    }),
-                                ),
-                            },
-                        );
-                    }
-                },
             )
+                .then(
+                    ({
+                        globalFilters: refinedGlobal,
+                        tabFilters: refinedTabs,
+                    }) => {
+                        // 会话已被取消（用户又改了一次）→ 丢弃本次结果，不写回
+                        if (session.isCancelled()) return;
+
+                        setDashboardFilters((currentFilters) => {
+                            if (
+                                !projectUuid ||
+                                !requestSignature ||
+                                !shouldApplyCategoryInitResult({
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        globalCategoryCascadeGenerationRef.current,
+                                    requestSignature,
+                                    currentFilters,
+                                    projectUuid,
+                                    dashboardContext: dashboardFilterContext,
+                                })
+                            ) {
+                                return currentFilters;
+                            }
+
+                            markGlobalCategoryProcessed(refinedGlobal);
+                            return refinedGlobal;
+                        });
+
+                        // 跨作用域级联：全局父级的变化要传播到各 Tab 的子类目筛选器
+                        // （级联基于闭包里的 tabFilters，这里用同一份快照判断哪些 Tab 变了）
+                        const changedTabUuids = Object.entries(refinedTabs)
+                            .filter(
+                                ([targetTabUuid, filtersForTab]) =>
+                                    !areFilterDimensionsEqual(
+                                        tabFilters[targetTabUuid] ??
+                                            emptyFilters,
+                                        filtersForTab,
+                                    ),
+                            )
+                            .map(([targetTabUuid]) => targetTabUuid);
+
+                        setTabFilters((currentTabs) => {
+                            let hasChanges = false;
+                            const nextTabs = { ...currentTabs };
+                            changedTabUuids.forEach((targetTabUuid) => {
+                                const filtersForTab =
+                                    refinedTabs[targetTabUuid];
+                                if (!filtersForTab) return;
+                                nextTabs[targetTabUuid] = filtersForTab;
+                                hasChanges = true;
+                                markTabCategoryProcessed(
+                                    targetTabUuid,
+                                    filtersForTab,
+                                    refinedGlobal,
+                                );
+                            });
+                            return hasChanges ? nextTabs : currentTabs;
+                        });
+                        // Tab 的 pill 展示态缓存了级联前的旧值：
+                        // 写回 tabFilters 后必须清掉展示态，
+                        // 否则界面一直显示旧类目（ActiveFilters 读 tabDisplayState）。
+                        changedTabUuids.forEach((targetTabUuid) => {
+                            clearTabCategoryDisplay(targetTabUuid);
+                        });
+                        // Tab 筛选器被全局父级联动修改：标记为已修改，随看板一起保存
+                        if (changedTabUuids.length > 0) {
+                            logCategoryCascade(
+                                'global cascade write-back: tabs changed',
+                                changedTabUuids.map((uuid) => ({
+                                    tabUuid: uuid,
+                                    dimensions: (
+                                        refinedTabs[uuid]?.dimensions ?? []
+                                    ).map((d) => ({
+                                        id: d.id,
+                                        fieldId: d.target.fieldId,
+                                        values: d.values,
+                                        parentFieldId: d.parentFieldId ?? null,
+                                        parentScope: d.parentScope ?? null,
+                                    })),
+                                })),
+                            );
+                            setHaveTabFiltersChanged((prev) => {
+                                const next = { ...prev };
+                                changedTabUuids.forEach((uuid) => {
+                                    next[uuid] = true;
+                                });
+                                return next;
+                            });
+                        } else {
+                            logCategoryCascade(
+                                'global cascade write-back: no tab changed',
+                                {
+                                    tabUuids: Object.keys(refinedTabs),
+                                    dimensions: Object.entries(refinedTabs).map(
+                                        ([uuid, f]) => ({
+                                            tabUuid: uuid,
+                                            dimensions: f.dimensions.map(
+                                                (d) => ({
+                                                    id: d.id,
+                                                    fieldId: d.target.fieldId,
+                                                    values: d.values,
+                                                    parentFieldId:
+                                                        d.parentFieldId ?? null,
+                                                    parentScope:
+                                                        d.parentScope ?? null,
+                                                }),
+                                            ),
+                                        }),
+                                    ),
+                                },
+                            );
+                        }
+                    },
+                )
                 .catch(() => {
                     // 写回失败不阻断：状态更新不应抛出
                 })
@@ -1556,11 +1569,7 @@ const DashboardProvider: React.FC<
                 changedTabUuids: [],
             };
             if (!isEditMode && !isTemporary) {
-                crossTabSync = syncSelectionToAllTabs(
-                    item,
-                    'dimension',
-                    uuid,
-                );
+                crossTabSync = syncSelectionToAllTabs(item, 'dimension', uuid);
             }
 
             // 跨 Tab 继承的接收方：它们拿到了新的父级取值，
@@ -2572,13 +2581,10 @@ const DashboardProvider: React.FC<
             setDashboardFilters(clone(currentDashboard.filters));
             setDashboardTemporaryFilters(emptyFilters);
             setTabFilters(
-                (currentDashboard.tabs ?? []).reduce(
-                    (acc, tab) => {
-                        acc[tab.uuid] = tab.filters ?? emptyFilters;
-                        return acc;
-                    },
-                    {} as Record<string, DashboardFilters>,
-                ),
+                (currentDashboard.tabs ?? []).reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters ?? emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
             );
             setTabTemporaryFilters({});
             setHaveTabFiltersChanged({});
