@@ -100,7 +100,11 @@ type ContextResolver = {
         projectUuid: string,
         dashboardUuid: string | undefined,
     ) => Promise<
-        | { dashboardSlug?: string; dashboardName?: string; dashboardUuid?: string }
+        | {
+              dashboardSlug?: string;
+              dashboardName?: string;
+              dashboardUuid?: string;
+          }
         | undefined
     >;
     resolveDashboardContextForProject: (
@@ -120,11 +124,9 @@ const resolveForQuery = (
     | { dashboardSlug?: string; dashboardName?: string; dashboardUuid?: string }
     | undefined
 > =>
-    (getService() as unknown as ContextResolver).resolveDashboardContextForQuery(
-        account,
-        PROJECT_UUID,
-        dashboardUuid,
-    );
+    (
+        getService() as unknown as ContextResolver
+    ).resolveDashboardContextForQuery(account, PROJECT_UUID, dashboardUuid);
 
 const resolveForProject = (
     dashboardUuidOrSlug: string,
@@ -217,9 +219,7 @@ describe('ProjectService dashboard context', () => {
 
     describe('resolveDashboardContextForProject', () => {
         test('resolves the dashboard scoped to the project', async () => {
-            await expect(
-                resolveForProject(DASHBOARD_UUID),
-            ).resolves.toEqual({
+            await expect(resolveForProject(DASHBOARD_UUID)).resolves.toEqual({
                 dashboardSlug: DASHBOARD_SLUG,
                 dashboardName: dashboard.name,
                 dashboardUuid: DASHBOARD_UUID,

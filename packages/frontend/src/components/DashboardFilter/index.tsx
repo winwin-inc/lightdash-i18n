@@ -77,7 +77,7 @@ const DashboardFilter: FC<Props> = ({
     const isFilterEnabled =
         filterScope === 'global'
             ? isGlobalFilterEnabled
-            : (isTabFilterEnabled[activeTabUuid || ''] ?? true);
+            : isTabFilterEnabled[activeTabUuid || ''] ?? true;
     const setIsFilterEnabled =
         filterScope === 'global'
             ? setIsGlobalFilterEnabled
@@ -94,7 +94,7 @@ const DashboardFilter: FC<Props> = ({
     const showAddFilterButton =
         filterScope === 'global'
             ? showGlobalAddFilterButton
-            : (showTabAddFilterButton[activeTabUuid || ''] ?? false);
+            : showTabAddFilterButton[activeTabUuid || ''] ?? false;
     const setShowAddFilterButton =
         filterScope === 'global'
             ? setShowGlobalAddFilterButton
@@ -305,8 +305,8 @@ const DashboardFilter: FC<Props> = ({
                                         ? 'xl'
                                         : 'none'
                                     : isFilterEnabled
-                                      ? 'xl'
-                                      : 'xs'
+                                    ? 'xl'
+                                    : 'xs'
                             }
                             styles={{
                                 input: { cursor: 'pointer' },

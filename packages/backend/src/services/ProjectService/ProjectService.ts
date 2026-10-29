@@ -51,13 +51,13 @@ import {
     DashboardBasicDetails,
     type DashboardFilterableField,
     DashboardFilters,
+    DashboardQueryContextAttributes,
     type DataTimezonePreviewRequest,
     DateZoom,
     DbtExposure,
     DbtExposureType,
     DbtManifestVersion,
     DbtProjectEnvironmentVariable,
-    DashboardQueryContextAttributes,
     DbtProjectType,
     DbtRawModelNode,
     deepEqual,
@@ -285,8 +285,8 @@ import {
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
 import {
-    DashboardService,
     type DashboardContextUser,
+    DashboardService,
 } from '../DashboardService/DashboardService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
@@ -4568,7 +4568,9 @@ export class ProjectService extends BaseService {
         projectUuid: string,
         dashboard: { uuid: string; spaceUuid: string },
     ): Promise<void> {
-        const space = await this.spaceModel.getSpaceSummary(dashboard.spaceUuid);
+        const space = await this.spaceModel.getSpaceSummary(
+            dashboard.spaceUuid,
+        );
         const access = await this.spaceModel.getUserSpaceAccess(
             account.user.id,
             dashboard.spaceUuid,
@@ -4607,9 +4609,13 @@ export class ProjectService extends BaseService {
             return undefined;
         }
 
-        return this.resolveDashboardContextForRowLevelSecurity(account, projectUuid, {
-            dashboardUuid,
-        });
+        return this.resolveDashboardContextForRowLevelSecurity(
+            account,
+            projectUuid,
+            {
+                dashboardUuid,
+            },
+        );
     }
 
     /**
@@ -4679,7 +4685,8 @@ export class ProjectService extends BaseService {
             // from the JWT controls), but the dashboard still has to be the one
             // the token gives access to, and it has to belong to the project.
             const dashboardUuidOrSlug =
-                dashboardContext.dashboardUuid ?? dashboardContext.dashboardSlug;
+                dashboardContext.dashboardUuid ??
+                dashboardContext.dashboardSlug;
             if (!dashboardUuidOrSlug) {
                 throw new ForbiddenError(
                     'Dashboard context cannot be used by this user, the row level security filter cannot be applied',
@@ -4710,7 +4717,8 @@ export class ProjectService extends BaseService {
             await this.dashboardService.resolveDashboardContextForMetadata(
                 user,
                 projectUuid,
-                dashboardContext.dashboardUuid ?? dashboardContext.dashboardSlug,
+                dashboardContext.dashboardUuid ??
+                    dashboardContext.dashboardSlug,
                 dashboardContext.dashboardName,
             );
 

@@ -5,14 +5,14 @@ import {
 
 describe('getIntrinsicUserAttributes', () => {
     test('returns the email only when there is no dashboard context', () => {
-        expect(getIntrinsicUserAttributes({ email: 'user@example.com' })).toEqual(
-            {
-                email: 'user@example.com',
-                dashboardSlug: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
-                dashboardName: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
-                dashboardUuid: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
-            },
-        );
+        expect(
+            getIntrinsicUserAttributes({ email: 'user@example.com' }),
+        ).toEqual({
+            email: 'user@example.com',
+            dashboardSlug: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+            dashboardName: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+            dashboardUuid: DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+        });
     });
 
     test('passes the dashboard context to the dbt schema', () => {
