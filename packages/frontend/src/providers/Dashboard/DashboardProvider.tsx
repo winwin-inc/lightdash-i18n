@@ -1221,6 +1221,11 @@ const DashboardProvider: React.FC<
                                 if (!filtersForTab) return;
                                 nextTabs[targetTabUuid] = filtersForTab;
                                 hasChanges = true;
+                                // 全局父级已经变了：作废该 Tab 在途的联动结果，
+                                // 否则它可能拿着旧的全局父值盖回本次结果。
+                                // （Tab 写回现在只用世代判断有效性）
+                                bumpTabCategoryCascadeGeneration(targetTabUuid);
+                                cancelTabCategoryInitSession(targetTabUuid);
                                 markTabCategoryProcessed(
                                     targetTabUuid,
                                     filtersForTab,
@@ -1315,6 +1320,8 @@ const DashboardProvider: React.FC<
             dashboardFilterContext,
             startGlobalCategoryCascadeSession,
             clearTabCategoryDisplay,
+            bumpTabCategoryCascadeGeneration,
+            cancelTabCategoryInitSession,
         ],
     );
 
@@ -1790,57 +1797,40 @@ const DashboardProvider: React.FC<
                     let applied = false;
                     setTabFilters((prev) => {
                         const currentFilters = prev[uuid] ?? emptyFilters;
-                        const currentSignature =
-                            getTabCategoryChainSignature(
-                                uuid,
-                                currentFilters,
-                            ) ?? undefined;
+                        // 与全局联动路径保持一致：只用「世代」判断本次结果是否仍有效。
+                        //
+                        // 之前这里额外要求「签名未变」，但请求签名是在用户改动之前
+                        // 算的（committedFilters），而级联是按改动后的展示态算的，
+                        // 两边的输入本来就不是同一个状态，很容易误杀：
+                        // 结果被静默丢弃 → 值不生效 + pill 一直转圈。
+                        // 世代在每次用户改动该 Tab 时都会 bump，已足够作废旧结果；
+                        // 全局父级变更也会 bump（见全局写回处）。
                         const canApply =
                             !!projectUuid &&
-                            !!requestSignature &&
-                            shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    tabCategoryCascadeGenerationRef.current[
-                                        uuid
-                                    ] ?? 0,
-                                requestSignature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                                currentSignature,
-                            });
+                            (tabCategoryCascadeGenerationRef.current[uuid] ??
+                                0) === generation;
                         if (!canApply) {
-                            // 诊断：级联可能已经算出了新值，但写回被守卫丢弃，
-                            // 界面就会停在「任何值」/旧值，表现为「联动失效」。
-                            // 这里把拒绝原因写清楚，否则这条路径完全静默。
                             logCategoryCascade(
                                 'tab cascade write-back rejected',
                                 {
                                     tabUuid: uuid,
                                     hasProjectUuid: !!projectUuid,
-                                    hasRequestSignature: !!requestSignature,
                                     requestGeneration: generation,
                                     currentGeneration:
                                         tabCategoryCascadeGenerationRef.current[
                                             uuid
                                         ] ?? 0,
                                     requestSignature,
-                                    currentSignature,
-                                    signatureMatched:
-                                        requestSignature === currentSignature,
+                                    currentSignature:
+                                        getTabCategoryChainSignature(
+                                            uuid,
+                                            currentFilters,
+                                        ) ?? undefined,
                                     refined: refined.dimensions.map((d) => ({
                                         id: d.id,
                                         fieldId: d.target.fieldId,
                                         values: d.values,
                                     })),
-                                    current: currentFilters.dimensions.map(
-                                        (d) => ({
-                                            id: d.id,
-                                            fieldId: d.target.fieldId,
-                                            values: d.values,
-                                        }),
-                                    ),
                                 },
                             );
                             return prev;
@@ -1870,6 +1860,22 @@ const DashboardProvider: React.FC<
                     }
                 })
                 .finally(() => {
+                    // 「更新中」展示态必须在这里兜底清除。
+                    //
+                    // 展示态由 buildOptimisticCategoryDisplayState 写入（乐观状态，
+                    // 子孙类目标记为更新中），只在「成功写回」时清除。
+                    // 一旦写回被签名守卫拒绝、或世代已变，展示态就永远不会被清掉，
+                    // pill 会一直转圈（用户看到的就是「一直 loading、不消失」）。
+                    //
+                    // 只要这次尝试仍是最新的一次（世代未变），
+                    // 无论成功 / 被拒绝 / 失败，都要落回已提交状态。
+                    if (
+                        (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) ===
+                        generation
+                    ) {
+                        clearTabCategoryDisplay(uuid);
+                    }
+
                     // 手动联动完成：该 Tab 的图表可以按最终类目发起查询
                     if (
                         !session.isCancelled() &&

@@ -2861,6 +2861,7 @@
       }
     },
     "filter": {
+      "cascade_updating": "Updating",
       "tooltip_creating_new": {
         "label": {
           "part_1": "Only filters added in",

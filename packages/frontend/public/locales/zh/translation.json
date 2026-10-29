@@ -2875,6 +2875,7 @@
       }
     },
     "filter": {
+      "cascade_updating": "更新中",
       "tooltip_creating_new": {
         "label": {
           "part_1": "只有在",
