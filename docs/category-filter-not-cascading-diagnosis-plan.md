@@ -549,3 +549,79 @@ group_cls2_insight_list_cls_1  →  cls_insight_list_cls_1
 2. 没进 → 看是不是「条件被后端丢弃」（`[field-search] Dropped filter field(s)`）→ 比对 fieldId 前缀是否与子级表一致。
 3. 进了但候选仍不对 → 再看 `field/search response` 的 `values` 与 `[category-cascade] cascade child resolved` 的 `status`。
 4. `status: 'keep'` 表示「当前值仍在候选里 → 保留」，这本身是正确语义，不是 bug。
+
+---
+
+## 十二、后续修复：Tab 自身级联（改全局修复时踩出的两个坑）
+
+修完全局 → Tab 的跨 mart 问题后，Tab **自身**（一级 → 二级）的联动反而失效过两次。
+两次都是修复本身引入的，记录如下，避免重复。
+
+### 12.1 重映射范围过大：把能用的 Tab 绑定也改写了
+
+**现象**：同样的配置线上能用，本地 Tab 内一级 → 二级不联动。
+
+**原因**：`remapRuleToTable` 一开始对**所有**父子条件生效（父级 + 左侧条件）：
+
+```ts
+// 错：左侧条件与父级都被重写
+return [
+    ...withoutParent.map((entry) => remapRuleToTable(entry.rule, childTableName)),
+    parentRule,
+];
+```
+
+跨 mart 的 fieldId 错配**只发生在全局筛选器**上（全局筛选器是在另一个 mart 上授权的）。
+Tab 内部的父子绑定是在同一个 Tab 里配置的，字段本来就能直接用于查询，
+改写它等于把一条原本有效的条件换成另一条 → 线上可用的配置本地失效。
+
+**修复**（`d37d14a6d`）：只对全局父级重映射，其它保持原样。
+
+```ts
+const shouldRemapParent = parentEntry.location.scope === 'global';
+```
+
+回归测试：`does not remap a tab-scoped parent (keeps production behaviour)`
+—— 断言 Tab 场景下父级 fieldId 逐字节保持原样。
+
+### 12.2 写回被签名守卫误杀：值不生效 + 一直 loading
+
+**现象**：级联算对了（`field/search` 返回 7 个正确候选、`status: 'resolved'`），
+但筛选器 pill 不切换，且二级/三级一直是「更新中」转圈不消失。
+
+**原因**：Tab 写回要求「签名未变」才落库：
+
+```ts
+requestSignature = getTabCategoryChainSignature(uuid, committedFilters) // 用户改动之前
+currentSignature = getTabCategoryChainSignature(uuid, currentFilters)   // 当前状态
+if (requestSignature !== currentSignature) return prev;                 // 结果被丢弃
+```
+
+而级联是按 `displayState.filters`（含用户新值）算的，`requestSignature` 却取自改动前的
+`committedFilters`，两边输入本就不是同一个状态 → 容易被误杀。
+全局路径没有这道守卫，所以一直表现为「全局能用、Tab 不能用」。
+
+两个症状是同一个根因：结果被丢弃 → `setTabFilters` 没执行（值不变），
+且「更新中」展示态只在**成功写回**时清除（spinner 永久转圈）。
+
+**修复**（`b3727e4e1`）：
+
+1. 写回改为与全局路径一致的**世代判定**（每次用户改动该 Tab、以及全局父级变更都 bump 世代）；
+2. `finally` 中按世代兜底清除「更新中」展示态 —— 无论成功/被拒/失败都落回已提交状态；
+3. 补偿：全局级联写回时 bump 对应 Tab 的 cascade 世代并取消其 init，
+   保住「全局父级已变则作废 Tab 在途结果」的语义（原本由签名守卫承担）；
+4. 补 `components_dashboard_filter.filter.cascade_updating` 中英文案
+   （此前页面直接显示原始 i18n key）。
+
+### 12.3 一条有用的判读规则
+
+`[category-cascade] field/search response` 的 `values` 里**仍包含当前值**时，
+`status` 会是 `resolved` 且**保留原值**——这是既定语义（旧值仍合法就不重置），
+不是「联动失效」。要判断联动是否真的没发生，看的是：
+
+| 日志 | 含义 |
+|---|---|
+| `no category children found for parent` | 绑定没对上（看 `candidates[].match`） |
+| `skip cascade: no confirmed value` | 子级无值且被禁用 → 按语义不跟随 |
+| `tab cascade write-back rejected` | 算出来了但写回被世代判定拒绝 |
+| `field/search request` 里 `filters: null` | 根本没带父级条件 |
