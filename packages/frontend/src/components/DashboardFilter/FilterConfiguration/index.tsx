@@ -501,6 +501,18 @@ const FilterConfiguration: FC<Props> = ({
         const tabDimensions = tabUuid
             ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
             : [];
+        // 已存储父级的查找范围要覆盖所有 Tab：筛选器的 tileTargets 可能指向别的
+        // Tab（appliesToTabs 与筛选器定义所在 Tab 不一定一致），只在当前 Tab 找
+        // 会把「已绑定的父级」误判成「已失效」
+        const allTabCandidates: ParentCandidate[] = Object.entries(
+            tabFiltersFromContext ?? {},
+        ).flatMap(([candidateTabUuid, filters]) =>
+            filters.dimensions.map((rule) => ({
+                rule,
+                scope: 'tab' as const,
+                tabUuid: candidateTabUuid,
+            })),
+        );
 
         // 候选来源（父级必须能对当前作用域生效）：
         // - 全局作用域：只允许全局筛选器作为父级
@@ -578,8 +590,9 @@ const FilterConfiguration: FC<Props> = ({
         // 已存储的父级绑定：父级不在候选里时（没有显式层级 / 已被删除）
         // 也要在下拉框里出现，否则「绑定已写入但显示空白」
         const storedParentOption = buildStoredParentOption({
-            // 查找范围比候选更宽：不限层级（父级可能只是 cls_2 列名，没有显式层级）
-            candidates: [...globalCandidates, ...tabCandidates].filter(
+            // 查找范围比候选更宽：所有 Tab（含父级实际所在 Tab）+ 全局，
+            // 且不限层级（父级可能只有 cls_2 列名，没有显式 categoryLevel）
+            candidates: [...globalCandidates, ...allTabCandidates].filter(
                 ({ rule }) => rule.id !== currentId,
             ),
             parentFieldId: draftFilterRule.parentFieldId,

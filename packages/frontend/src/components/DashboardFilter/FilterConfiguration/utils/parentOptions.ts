@@ -241,6 +241,22 @@ export const buildStoredParentOption = ({
         };
     }
 
+    if (import.meta.env.DEV) {
+        // 诊断：已存储的父级为什么没找到（字段被删 / 跨 Tab / 字段被重映射）
+        // eslint-disable-next-line no-console
+        console.warn('[parent-binding] stored parent not found', {
+            parentFieldId,
+            parentScope,
+            parentTabUuid,
+            currentTabUuid,
+            candidateFieldIds: candidates.slice(0, 20).map((candidate) => ({
+                fieldId: candidate.rule.target.fieldId,
+                scope: candidate.scope,
+                tabUuid: candidate.tabUuid,
+            })),
+        });
+    }
+
     // 父级已被删除 / 字段不存在：仍然补一个选项，让作者看到「绑定已失效」
     const invalidScope = parentScope ?? 'tab';
     const invalidTabUuid =

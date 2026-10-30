@@ -2792,7 +2792,6 @@
         "parent_scope_global": "Global",
         "parent_scope_tab": "Current tab",
         "parent_scope_hint": "Tab filters can bind a global filter as parent. If a parent has no value, the levels below it are cleared.",
-        "parent_missing_level_hint": "The parent filter has no category level set, so the cascade may not work. Set it via batch bind.",
         "parent_invalid": "Missing parent",
         "parent_option_label": "{{label}} • {{level}} ({{scope}})",
         "parent_option_label_short": "{{level}} ({{scope}})"

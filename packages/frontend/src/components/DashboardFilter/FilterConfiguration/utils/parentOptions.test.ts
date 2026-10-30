@@ -1,5 +1,6 @@
 import { FilterOperator, type DashboardFilterRule } from '@lightdash/common';
 import { type TFunction } from 'i18next';
+import { afterEach, beforeEach, vi } from 'vitest';
 
 import {
     buildStoredParentOption,
@@ -9,6 +10,15 @@ import {
 
 /** 假的翻译函数：直接返回 key，断言只关心「用了哪个 key」 */
 const t = ((key: string) => key) as unknown as TFunction;
+
+beforeEach(() => {
+    // 找不到父级时会打 DEV 诊断日志，测试里静音
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 const createFilterRule = (
     fieldId: string,

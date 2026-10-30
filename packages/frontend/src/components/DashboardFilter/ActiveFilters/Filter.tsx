@@ -783,9 +783,12 @@ const Filter: FC<Props> = ({
                                 }}
                                 onSelectedTabChange={setFilterConfigTab}
                                 filterScope={filterScope}
+                                // 父级绑定按「筛选器所在的 Tab」解析，而不是
+                                // 第一个引用它的图块所属 Tab：跨 Tab 的 tileTargets
+                                // 会把父级候选带到错误的 Tab，导致已绑定父级显示「已失效」
                                 tabUuid={
                                     filterScope === 'tab'
-                                        ? (appliesToTabs[0] ?? activeTabUuid)
+                                        ? activeTabUuid
                                         : undefined
                                 }
                             />

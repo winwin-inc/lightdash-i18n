@@ -2792,7 +2792,6 @@
         "parent_scope_global": "全局",
         "parent_scope_tab": "当前 Tab",
         "parent_scope_hint": "Tab 筛选器可把全局筛选器设为父级；父级无取值时，下级会被清空。",
-        "parent_missing_level_hint": "父级筛选器还没有设置「类目层级」，联动可能不生效；可在批量绑定里一起补写。",
         "parent_invalid": "已失效的父级",
         "parent_option_label": "{{label}} • {{level}}（{{scope}}）",
         "parent_option_label_short": "{{level}}（{{scope}}）"

@@ -173,30 +173,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         parentFilterOptions,
     ]);
 
-    /**
-     * 当前选中的父级选项（按 value 匹配）：
-     * - 找不到 → 父级已被删除 / 字段不存在
-     * - categoryLevel 为空 → 父级没有显式层级，运行时不会被当成类目父级
-     *   （绑定虽然写进去了，但联动不会生效）
-     */
-    const parentOption = useMemo(() => {
-        if (!parentOptionValue) return null;
-        return (
-            parentFilterOptions.find(
-                (option) => option.value === parentOptionValue,
-            ) ?? null
-        );
-    }, [parentOptionValue, parentFilterOptions]);
-
-    const showParentMissingLevelHint = useMemo(
-        () =>
-            !!filterRule.parentFieldId &&
-            (parentOption === null ||
-                parentOption.categoryLevel === null ||
-                parentOption.categoryLevel === undefined),
-        [filterRule.parentFieldId, parentOption],
-    );
-
     const filterOperatorOptions = useMemo(
         () =>
             getVisibleFilterOperatorOptions(
@@ -837,13 +813,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     )
                                 }
                             />
-                            {showParentMissingLevelHint && (
-                                <Text size="xs" c="orange" mt={4}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.category_level.parent_missing_level_hint',
-                                    )}
-                                </Text>
-                            )}
                             <Text size="xs" c="dimmed" mt={4}>
                                 {t(
                                     'components_dashboard_filter.configuration.category_level.parent_scope_hint',
