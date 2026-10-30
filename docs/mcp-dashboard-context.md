@@ -99,6 +99,7 @@ flowchart TD
 | `run_metric_query` / `run_semantic_metric_query` 不依赖 `dashboardSlug` | 保持原查询 |
 | `run_metric_query` / `run_semantic_metric_query` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 有候选则取排序后第一个并跑数，返回选中项 + candidates；0 个候选才返回空列表 |
 | 已显式传入 `dashboardUuid` | 始终优先，后端据此解析 `dashboardSlug` |
+| 无看板 ID 数据集（强制模式） | 外部部署返回 `dashboard_configuration_required`，不查数；内部保持原行为。见 [强制看板模式设计稿](./mcp/lightdash-mcp-dashboard-strict-mode.md) |
 
 语义查询参数：
 
@@ -125,3 +126,14 @@ flowchart TD
 - 不处理 dbt 权限模型自身的 fan-out 问题。
 - 不修改非看板入口、非 `dashboardSlug` 数据集的原查询行为。
 - 当前只检查 base table；如果未来 joined table 也依赖 `dashboardSlug`，需要扩展检测范围。
+
+## 强制看板模式（计划中）
+
+外部客户部署拟增加 `MCP_DASHBOARD_STRICT=true` 的强制模式：
+
+- 查询类工具必须先解析出 `dashboardUuid`，否则不执行查询；
+- 有看板 ID 但无权限 → 返回看板链接 + 客服联系文案；
+- 无看板 ID 且反查不到可见看板 → 按 `clientUse.scopeApplied` 区分“权限问题”与“未配置看板”，分别给出对应提示；
+- 反查多个看板 → 返回候选（含链接）要求选择，不再自动取第一个。
+
+设计稿与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./mcp/lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**。

@@ -125,7 +125,11 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
 | `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
+| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | **计划中（未实现）**：强制看板模式。外部品牌 CT 拟设 `MCP_DASHBOARD_STRICT=true`；内部保持不设。详见 [设计稿](./lightdash-mcp-dashboard-strict-mode.md) |
+
 > MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
+>
+> 强制看板模式目前仅完成设计，尚未实现；设置上述变量不会改变运行时行为。
 
 ### 4.2 Lightdash 主站
 
