@@ -2792,6 +2792,8 @@
         "parent_scope_global": "Global",
         "parent_scope_tab": "Current tab",
         "parent_scope_hint": "Tab filters can bind a global filter as parent. If a parent has no value, the levels below it are cleared.",
+        "parent_missing_level_hint": "The parent filter has no category level set, so the cascade may not work. Set it via batch bind.",
+        "parent_invalid": "Missing parent",
         "parent_option_label": "{{label}} • {{level}} ({{scope}})",
         "parent_option_label_short": "{{level}} ({{scope}})"
       },
@@ -2827,7 +2829,8 @@
     "batch_bind": {
       "button": "Batch bind",
       "title": "Batch bind category filters",
-      "bind_hint": "Parent relationships are generated from category names and levels; the parent does not need a value yet. Select rows to apply to this tab.",
+      "bind_hint": "Parent relationships are generated from category names and levels; the parent does not need a value yet. Selected rows are written to the current scope.",
+      "bind_hint_global": "Parent relationships are generated from category names and levels for global filters. Global relationships apply to all tabs.",
       "no_changes": "All category filters are already bound as expected; nothing to update.",
       "no_category_filters": "This tab has no category filters. Set a category level on a filter first.",
       "select_filters": "Filters to update",

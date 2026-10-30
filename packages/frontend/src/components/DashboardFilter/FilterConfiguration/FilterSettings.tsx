@@ -52,7 +52,8 @@ import {
 type ParentFilterOption = {
     value: string;
     label: string;
-    categoryLevel?: number;
+    /** 父级的显式类目层级（父级没配层级时为 null / undefined） */
+    categoryLevel?: number | null;
     /** 父级所在作用域 */
     scope?: 'global' | 'tab';
     /** 父级所在的 Tab uuid（scope === 'tab'） */
@@ -171,6 +172,30 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         filterRule.parentTabUuid,
         parentFilterOptions,
     ]);
+
+    /**
+     * 当前选中的父级选项（按 value 匹配）：
+     * - 找不到 → 父级已被删除 / 字段不存在
+     * - categoryLevel 为空 → 父级没有显式层级，运行时不会被当成类目父级
+     *   （绑定虽然写进去了，但联动不会生效）
+     */
+    const parentOption = useMemo(() => {
+        if (!parentOptionValue) return null;
+        return (
+            parentFilterOptions.find(
+                (option) => option.value === parentOptionValue,
+            ) ?? null
+        );
+    }, [parentOptionValue, parentFilterOptions]);
+
+    const showParentMissingLevelHint = useMemo(
+        () =>
+            !!filterRule.parentFieldId &&
+            (parentOption === null ||
+                parentOption.categoryLevel === null ||
+                parentOption.categoryLevel === undefined),
+        [filterRule.parentFieldId, parentOption],
+    );
 
     const filterOperatorOptions = useMemo(
         () =>
@@ -761,18 +786,17 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                             (option) =>
                                                 option.scope === filterScope,
                                         );
-                                        const globalScope =
-                                            candidates.filter(
-                                                (option) =>
-                                                    option.scope === 'global',
-                                            );
+                                        const globalScope = candidates.filter(
+                                            (option) =>
+                                                option.scope === 'global',
+                                        );
                                         const preferred =
                                             sameScope.length === 1
                                                 ? sameScope[0]
                                                 : sameScope.length === 0 &&
-                                                    globalScope.length === 1
-                                                  ? globalScope[0]
-                                                  : undefined;
+                                                  globalScope.length === 1
+                                                ? globalScope[0]
+                                                : undefined;
                                         autoParentRef = preferred
                                             ? decodeParentFilterRef(
                                                   preferred.value,
@@ -813,6 +837,13 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     )
                                 }
                             />
+                            {showParentMissingLevelHint && (
+                                <Text size="xs" c="orange" mt={4}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.category_level.parent_missing_level_hint',
+                                    )}
+                                </Text>
+                            )}
                             <Text size="xs" c="dimmed" mt={4}>
                                 {t(
                                     'components_dashboard_filter.configuration.category_level.parent_scope_hint',

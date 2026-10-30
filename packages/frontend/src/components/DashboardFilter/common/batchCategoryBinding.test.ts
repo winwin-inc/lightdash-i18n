@@ -417,6 +417,120 @@ describe('buildBatchCategoryBindingPlan', () => {
     });
 });
 
+describe('global scope plans', () => {
+    const globalPlanFor = (filters: DashboardFilterRule[]) =>
+        buildBatchCategoryBindingPlan({
+            filters,
+            globalFilters: [],
+            tabUuid: null,
+            scope: 'global',
+        });
+
+    it('binds global level 2 to global level 1', () => {
+        const level1 = globalRule(1);
+        const level2 = globalRule(2);
+        const plan = globalPlanFor([level1, level2]);
+
+        const entry = entryOf(plan, 'global-cls-2');
+        expect(entry.resolvedParent?.rule.id).toBe('global-cls-1');
+        expect(entry.resolvedParent?.scope).toBe('global');
+
+        const next = applyBatchCategoryBindingPlan(
+            [level1, level2],
+            plan,
+            new Set(['global-cls-2']),
+        );
+        expect(next[1].parentFieldId).toBe('mart_global_cls_1');
+        expect(next[1].parentScope).toBe('global');
+        expect(next[1].parentTabUuid).toBeUndefined();
+    });
+
+    it('normalizes inferred global levels in global scope', () => {
+        // 全局只有 cls 列名：全局批量绑定自己拥有写入权，应补写层级
+        const level1 = rule({
+            id: 'global-inferred-1',
+            fieldId: 'mart_global_cls_1',
+            tableName: 'mart_global',
+        });
+        const level2 = rule({
+            id: 'global-inferred-2',
+            fieldId: 'mart_global_cls_2',
+            tableName: 'mart_global',
+        });
+        const plan = globalPlanFor([level1, level2]);
+
+        const entry = entryOf(plan, 'global-inferred-2');
+        expect(entry.categoryLevel).toBe(2);
+        expect(entry.resolvedParent?.rule.id).toBe('global-inferred-1');
+
+        const next = applyBatchCategoryBindingPlan(
+            [level1, level2],
+            plan,
+            new Set(['global-inferred-2']),
+        );
+        // 选中子级时，祖先层级被一并补写
+        expect(next[0].categoryLevel).toBe(1);
+        expect(next[1].parentFieldId).toBe('mart_global_cls_1');
+    });
+
+    it('does not treat label-only filters as global categories', () => {
+        const labeled = rule({
+            id: 'global-labeled',
+            fieldId: 'mart_global_dim_x',
+            tableName: 'mart_global',
+            label: '一级类目',
+        });
+        const level2 = globalRule(2);
+        const plan = globalPlanFor([labeled, level2]);
+
+        expect(plan.map((entry) => entry.filter.id)).toEqual(['global-cls-2']);
+        // 没有被识别的更低层级 → 二级是根，不报错
+        expect(entryOf(plan, 'global-cls-2').skipReason).toBeNull();
+    });
+
+    it('ignores tab filters even if passed in the candidate list', () => {
+        const plan = buildBatchCategoryBindingPlan({
+            filters: [globalRule(2)],
+            globalFilters: [tabRule(1)],
+            tabUuid: TAB_UUID,
+            scope: 'global',
+        });
+
+        const entry = entryOf(plan, 'global-cls-2');
+        expect(entry.resolvedParent).toBeNull();
+        expect(entry.skipReason).toBeNull();
+    });
+
+    it('writes the parent level when an already-bound tab child is selected', () => {
+        // 三级已经绑定二级，但二级只有 cls 列名（无显式层级）：
+        // 选中三级应用时，应补写二级的层级，否则配置弹窗里父级匹配不到候选
+        const parent = rule({
+            id: 'tab-inferred-1',
+            fieldId: 'mart_a_cls_1',
+            tableName: 'mart_a',
+        });
+        const child = tabRule(2, {
+            parentFieldId: 'mart_a_cls_1',
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+        const filters = [parent, child];
+        const plan = planFor(filters);
+
+        const entry = entryOf(plan, 'tab-cls-2');
+        expect(entry.parentChanged).toBe(false);
+        expect(entry.categoryLevelChanged).toBe(false);
+
+        const next = applyBatchCategoryBindingPlan(
+            filters,
+            plan,
+            new Set(['tab-cls-2']),
+        );
+        expect(next[0].categoryLevel).toBe(1);
+        expect(next[1]).toBe(child);
+    });
+});
+
 describe('applyBatchCategoryBindingPlan', () => {
     it('writes categoryLevel and scoped parent fields', () => {
         const plan = planFor([tabRule(2)], [globalRule(1)]);

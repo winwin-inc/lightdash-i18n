@@ -32,6 +32,12 @@ interface BatchBindModalProps {
     globalFilters?: DashboardFilterRule[];
     /** 当前 Tab uuid（父级在同 Tab 时写入） */
     tabUuid?: string;
+    /**
+     * 本次批量绑定的目标作用域：
+     * - tab（默认）：写当前 Tab，父级可以是本 Tab 或全局
+     * - global：写全局筛选器，父级只能是全局
+     */
+    scope?: 'global' | 'tab';
     onApply: (updatedFilters: DashboardFilterRule[]) => void;
 }
 
@@ -47,6 +53,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     filters,
     globalFilters = EMPTY_FILTERS,
     tabUuid,
+    scope = 'tab',
     onApply,
 }) => {
     const { t } = useTranslation();
@@ -60,8 +67,9 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                 filters,
                 globalFilters,
                 tabUuid: tabUuid ?? null,
+                scope,
             }),
-        [filters, globalFilters, tabUuid],
+        [filters, globalFilters, tabUuid, scope],
     );
 
     const actionableEntries = useMemo(
@@ -110,8 +118,8 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     );
 
     const scopeLabel = useCallback(
-        (scope: CategoryBindingCandidate['scope']) =>
-            scope === 'global'
+        (candidateScope: CategoryBindingCandidate['scope']) =>
+            candidateScope === 'global'
                 ? t(
                       'components_dashboard_filter.configuration.category_level.parent_scope_global',
                   )
@@ -196,7 +204,11 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
         >
             <Stack spacing="md">
                 <Text size="xs" c="dimmed">
-                    {t('components_dashboard_filter.batch_bind.bind_hint')}
+                    {t(
+                        scope === 'global'
+                            ? 'components_dashboard_filter.batch_bind.bind_hint_global'
+                            : 'components_dashboard_filter.batch_bind.bind_hint',
+                    )}
                 </Text>
 
                 {plan.length === 0 && (

@@ -205,6 +205,9 @@ const DashboardFilter: FC<Props> = ({
     const updateTabDimensionFilter = useDashboardContext(
         (c) => c.updateTabDimensionFilter,
     );
+    const updateDimensionDashboardFilter = useDashboardContext(
+        (c) => c.updateDimensionDashboardFilter,
+    );
 
     const currentFilters = useMemo(() => {
         if (filterScope === 'global') {
@@ -221,6 +224,12 @@ const DashboardFilter: FC<Props> = ({
         [dashboardFilters],
     );
 
+    // 批量绑定入口：当前作用域有筛选器就显示（不要求筛选器行已启用）
+    const hasBatchBindableFilters =
+        filterScope === 'global'
+            ? globalFilters.length > 0
+            : currentFilters.length > 0;
+
     // The filter row must not take up any space when there is nothing to
     // show, otherwise it leaves a gap in the sticky stack of the dashboard.
     const { hasVisibleContent } = useVisibleDashboardFilters({
@@ -231,56 +240,90 @@ const DashboardFilter: FC<Props> = ({
 
     const handleBatchBind = useCallback(
         (updatedFilters: DashboardFilterRule[]) => {
-            if (filterScope !== 'tab' || !activeTabUuid) return;
-            // 只写回真正变化的规则：未变化的保持原引用，避免多余的 setState /
-            // 脏标记（批量绑定一次最多 4 条，但没必要整表重写）。
-            //
-            // 两条并发保护：
-            // 1. 下标按最新 tabFilters 的 id 重新求（modal 打开期间筛选器可能被
-            //    重新加载/初始化改写，闭包里的旧下标会写错位置）
-            // 2. 只把批量绑定负责的 4 个字段合并到最新规则上，不整条覆盖：
-            //    期间被级联改掉的取值 / 生效状态不会被旧快照写回
+            // 批量绑定只改「类目层级 + 父级」四个字段；合并到最新规则上，
+            // 避免 modal 打开期间被级联改掉的取值 / 生效状态被旧快照覆盖。
+            const mergeBindingFields = (
+                latest: DashboardFilterRule,
+                filter: DashboardFilterRule,
+            ): DashboardFilterRule => ({
+                ...latest,
+                categoryLevel: filter.categoryLevel,
+                parentFieldId: filter.parentFieldId,
+                parentScope: filter.parentScope,
+                parentTabUuid: filter.parentTabUuid,
+            });
+            const hasBindingDiff = (
+                latest: DashboardFilterRule,
+                merged: DashboardFilterRule,
+            ) =>
+                merged.categoryLevel !== latest.categoryLevel ||
+                merged.parentFieldId !== latest.parentFieldId ||
+                merged.parentScope !== latest.parentScope ||
+                merged.parentTabUuid !== latest.parentTabUuid;
+
+            // 全局行：写全局筛选器（编辑模式直接落值，不触发级联）
+            if (filterScope === 'global') {
+                const latestFilters = dashboardFilters?.dimensions ?? [];
+                updatedFilters.forEach((filter) => {
+                    const index = latestFilters.findIndex(
+                        (latestRule) => latestRule.id === filter.id,
+                    );
+                    if (index === -1) return;
+                    const latest = latestFilters[index];
+                    const merged = mergeBindingFields(latest, filter);
+                    if (!hasBindingDiff(latest, merged)) return;
+                    updateDimensionDashboardFilter(
+                        merged,
+                        index,
+                        false,
+                        isEditMode,
+                    );
+                });
+                return;
+            }
+
+            if (!activeTabUuid) return;
+            // Tab 行：写当前 Tab。
+            // 下标按最新 tabFilters 的 id 重新求（modal 打开期间筛选器可能被
+            // 重新加载/初始化改写，闭包里的旧下标会写错位置）。
             const latestFilters = tabFilters?.[activeTabUuid]?.dimensions ?? [];
             updatedFilters.forEach((filter) => {
                 const index = latestFilters.findIndex(
-                    (latest) => latest.id === filter.id,
+                    (latestRule) => latestRule.id === filter.id,
                 );
                 if (index === -1) return;
 
                 const latest = latestFilters[index];
-                const merged: DashboardFilterRule = {
-                    ...latest,
-                    categoryLevel: filter.categoryLevel,
-                    parentFieldId: filter.parentFieldId,
-                    parentScope: filter.parentScope,
-                    parentTabUuid: filter.parentTabUuid,
-                };
-                if (
-                    merged.categoryLevel === latest.categoryLevel &&
-                    merged.parentFieldId === latest.parentFieldId &&
-                    merged.parentScope === latest.parentScope &&
-                    merged.parentTabUuid === latest.parentTabUuid
-                ) {
-                    return;
-                }
+                const merged = mergeBindingFields(latest, filter);
+                if (!hasBindingDiff(latest, merged)) return;
                 updateTabDimensionFilter(activeTabUuid, merged, index, false);
             });
         },
-        [filterScope, activeTabUuid, tabFilters, updateTabDimensionFilter],
+        [
+            filterScope,
+            activeTabUuid,
+            dashboardFilters,
+            tabFilters,
+            isEditMode,
+            updateDimensionDashboardFilter,
+            updateTabDimensionFilter,
+        ],
     );
 
-    // 批量绑定 Modal
-    const batchBindModal =
-        filterScope === 'tab' ? (
-            <BatchBindModal
-                opened={batchBindModalOpened}
-                onClose={() => setBatchBindModalOpened(false)}
-                filters={currentFilters}
-                onApply={handleBatchBind}
-                globalFilters={globalFilters}
-                tabUuid={activeTabUuid}
-            />
-        ) : null;
+    // 批量绑定 Modal：全局行只写全局；Tab 行只写当前 Tab（父级可绑全局）
+    const batchBindModal = (
+        <BatchBindModal
+            opened={batchBindModalOpened}
+            onClose={() => setBatchBindModalOpened(false)}
+            filters={filterScope === 'global' ? globalFilters : currentFilters}
+            onApply={handleBatchBind}
+            // 始终传稳定引用：global scope 下 plan 会忽略它，
+            // 但传新数组会触发 plan/effect 无限重算
+            globalFilters={globalFilters}
+            tabUuid={filterScope === 'tab' ? activeTabUuid : undefined}
+            scope={filterScope}
+        />
+    );
 
     // Nothing to show: the row is not rendered at all, so it doesn't take up
     // any space in the sticky stack of the dashboard.
@@ -422,29 +465,26 @@ const DashboardFilter: FC<Props> = ({
                                         'components_dashboard_filter.show_add_filter_button',
                                     )}
                                 />
-                                {filterScope === 'tab' &&
-                                    currentFilters.length > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="subtle"
-                                            compact
-                                            ml="sm"
-                                            onClick={() =>
-                                                setBatchBindModalOpened(true)
-                                            }
-                                            styles={{
-                                                root: {
-                                                    fontWeight: 400,
-                                                    fontSize: '14px',
-                                                },
-                                            }}
-                                        >
-                                            {t(
-                                                'components_dashboard_filter.batch_bind.button',
-                                            )}
-                                        </Button>
-                                    )}
                             </>
+                        )}
+                        {hasBatchBindableFilters && (
+                            <Button
+                                size="sm"
+                                variant="subtle"
+                                compact
+                                ml="sm"
+                                onClick={() => setBatchBindModalOpened(true)}
+                                styles={{
+                                    root: {
+                                        fontWeight: 400,
+                                        fontSize: '14px',
+                                    },
+                                }}
+                            >
+                                {t(
+                                    'components_dashboard_filter.batch_bind.button',
+                                )}
+                            </Button>
                         )}
                     </>
                 )}

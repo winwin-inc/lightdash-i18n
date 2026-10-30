@@ -64,12 +64,18 @@ export type BatchCategoryBindingEntry = {
 export type BatchCategoryBindingPlan = BatchCategoryBindingEntry[];
 
 export type BatchCategoryBindingPlanParams = {
-    /** 当前 Tab 的筛选器（批量绑定只写它们） */
+    /** 要写入的筛选器（Tab 批量绑定 = 当前 Tab 的筛选器；全局批量绑定 = 全局筛选器） */
     filters: DashboardFilterRule[];
-    /** 全局筛选器：只能作为父级候选，不被本操作修改 */
+    /** 全局筛选器：Tab 批量绑定时只作为父级候选，不被本操作修改 */
     globalFilters: DashboardFilterRule[];
     /** 当前 Tab uuid（父级在同一个 Tab 时写入 parentTabUuid） */
     tabUuid: string | null;
+    /**
+     * 本次要绑定哪一层：
+     * - tab（默认）：只写当前 Tab，父级可以是本 Tab 或全局
+     * - global：只写全局筛选器，父级只能是全局（全局不能依赖 Tab）
+     */
+    scope?: CategoryBindingScope;
 };
 
 export type BatchCategoryBindingUpdate = {
@@ -135,23 +141,35 @@ export const getCategoryLevelFromLabel = (
  */
 export const getBindableCategoryLevel = (
     rule: DashboardFilterRule,
+    options: { allowLabelFallback?: boolean } = {},
 ): CategoryLevel | null =>
-    getCategoryLevelOf(rule) ?? getCategoryLevelFromLabel(rule);
+    getCategoryLevelOf(rule) ??
+    (options.allowLabelFallback === false
+        ? null
+        : getCategoryLevelFromLabel(rule));
 
 const buildCandidates = (
     filters: DashboardFilterRule[],
     scope: CategoryBindingScope,
     tabUuid: string | null,
+    /** 候选是否必须已经显式声明层级（本操作不会写它们时） */
+    requireDeclaredLevel: boolean,
+    /**
+     * 是否允许用 label 文案兜底推导层级。
+     * 全局写入必须关闭：label 是展示文案，误判会把普通筛选器变成类目筛选器，
+     * 而全局层级会影响所有 Tab。
+     */
+    allowLabelFallback: boolean,
 ): CategoryBindingCandidate[] =>
     filters.flatMap((rule) => {
-        const level = getBindableCategoryLevel(rule);
+        const level = getBindableCategoryLevel(rule, { allowLabelFallback });
         if (level === null) return [];
 
-        const declaredLevel = getDeclaredCategoryLevel(rule);
-        // 全局筛选器不在本操作里修改，因此不能补写 categoryLevel。
-        // 运行时 `isCategoryField` 只认显式层级：没有显式层级的全局类目不能当父级
-        // （否则子级的 field/search 会因父级不是类目而断裂 → 子级被清空）。
-        if (scope === 'global' && declaredLevel === null) return [];
+        // Tab 批量绑定不改全局筛选器：没有显式层级的全局类目不能当父级
+        // （运行时 `isCategoryField` 只认显式层级，否则子级会被清空）。
+        if (requireDeclaredLevel && getDeclaredCategoryLevel(rule) === null) {
+            return [];
+        }
 
         return [
             {
@@ -320,13 +338,26 @@ export const buildBatchCategoryBindingPlan = ({
     filters,
     globalFilters,
     tabUuid,
+    scope = 'tab',
 }: BatchCategoryBindingPlanParams): BatchCategoryBindingPlan => {
-    const tabCandidates = buildCandidates(filters, 'tab', tabUuid);
-    const globalCandidates = buildCandidates(globalFilters, 'global', null);
+    const isGlobalScope = scope === 'global';
+    const allowLabelFallback = !isGlobalScope;
+    const levelOf = (rule: DashboardFilterRule) =>
+        getBindableCategoryLevel(rule, { allowLabelFallback });
+
+    // 全局批量绑定：只处理全局筛选器之间的父子关系，候选也只能是全局筛选器
+    // （全局值对所有 Tab 生效，不能依赖某个 Tab 的筛选器）。
+    // Tab 批量绑定：候选 = 当前 Tab（本操作会写）+ 全局（本操作不写，必须已显式层级）。
+    const tabCandidates = isGlobalScope
+        ? []
+        : buildCandidates(filters, 'tab', tabUuid, false, true);
+    const globalCandidates = isGlobalScope
+        ? buildCandidates(filters, 'global', null, false, false)
+        : buildCandidates(globalFilters, 'global', null, true, false);
     const allCandidates = [...tabCandidates, ...globalCandidates];
 
     return filters.flatMap((filter) => {
-        const categoryLevel = getBindableCategoryLevel(filter);
+        const categoryLevel = levelOf(filter);
         if (categoryLevel === null) return [];
 
         const currentBinding = getParentBindingRef(filter);
@@ -358,10 +389,13 @@ export const buildBatchCategoryBindingPlan = ({
                 ambiguousParentCandidates = found.ambiguous;
             } else {
                 // 区分「本来就没有更低层级（本层就是根）」与「有更低层级但不可用」
-                const hasLowerLevelFilter = [...filters, ...globalFilters].some(
+                const lowerLevelSource = isGlobalScope
+                    ? filters
+                    : [...filters, ...globalFilters];
+                const hasLowerLevelFilter = lowerLevelSource.some(
                     (candidate) => {
                         if (candidate.id === filter.id) return false;
-                        const level = getBindableCategoryLevel(candidate);
+                        const level = levelOf(candidate);
                         return level !== null && level < categoryLevel;
                     },
                 );
@@ -438,7 +472,7 @@ export const getImplicitCategoryLevelEntries = (
         const visited = new Set<string>();
         // 选中的子级会写入重算后的父级；未选中的祖先保持它自己的存储绑定
         let parent = entry.resolvedParent;
-        while (parent && parent.scope === 'tab') {
+        while (parent) {
             const parentEntry = entryById.get(parent.rule.id);
             if (!parentEntry || visited.has(parentEntry.filter.id)) return;
             visited.add(parentEntry.filter.id);
@@ -456,7 +490,8 @@ export const getImplicitCategoryLevelEntries = (
 
     plan.forEach((entry) => {
         if (!selectedFilterIds.has(entry.filter.id)) return;
-        if (!isBatchCategoryBindingEntryActionable(entry)) return;
+        // 已正确绑定的行也要走：它的祖先可能缺显式 categoryLevel，
+        // 不补写的话配置弹窗里父级会匹配不到候选、显示成「不设置父级」
         walkAncestors(entry);
     });
 

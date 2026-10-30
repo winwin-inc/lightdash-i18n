@@ -2792,6 +2792,8 @@
         "parent_scope_global": "全局",
         "parent_scope_tab": "当前 Tab",
         "parent_scope_hint": "Tab 筛选器可把全局筛选器设为父级；父级无取值时，下级会被清空。",
+        "parent_missing_level_hint": "父级筛选器还没有设置「类目层级」，联动可能不生效；可在批量绑定里一起补写。",
+        "parent_invalid": "已失效的父级",
         "parent_option_label": "{{label}} • {{level}}（{{scope}}）",
         "parent_option_label_short": "{{level}}（{{scope}}）"
       },
@@ -2827,7 +2829,8 @@
     "batch_bind": {
       "button": "批量绑定",
       "title": "批量绑定类目筛选器",
-      "bind_hint": "按类目名称与层级生成父子关系，不需要父级先选值；勾选后应用到当前 Tab。",
+      "bind_hint": "按类目名称与层级生成父子关系，不需要父级先选值；勾选后写入当前作用域。",
+      "bind_hint_global": "按类目名称与层级生成全局筛选器的父子关系；全局关系对所有 Tab 生效。",
       "no_changes": "所有类目筛选器都已按规则绑定好，无需更新。",
       "no_category_filters": "当前 Tab 没有类目筛选器。请先在筛选器的「类目层级」里选择层级。",
       "select_filters": "选择要更新的筛选器",

@@ -66,6 +66,12 @@ import {
     removeValuesExcludedFromFilterRule,
     validateDashboardFilterDynamicDateRange,
 } from './utils';
+import {
+    buildParentOptionLabels,
+    buildStoredParentOption,
+    type ParentCandidate,
+    type ParentOptionDraft,
+} from './utils/parentOptions';
 
 interface Props {
     tiles: DashboardTile[];
@@ -93,6 +99,10 @@ const getDefaultField = (
     selectedField: DashboardFilterableField,
 ) => findDefaultTileFilterField(fields, selectedField);
 
+/**
+ * 父级选项的中间结构（展示文案 + 归属信息）
+ */
+type ParentFilterOptionDraft = ParentOptionDraft;
 const FilterConfiguration: FC<Props> = ({
     isEditMode,
     isCreatingNew = false,
@@ -221,8 +231,8 @@ const FilterConfiguration: FC<Props> = ({
             const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
                 ? false
                 : isEditMode
-                  ? newFilterRule.disabled
-                  : true;
+                ? newFilterRule.disabled
+                : true;
             const updatedRule = {
                 ...newFilterRule,
                 disabled: isNewFilterDisabled,
@@ -486,7 +496,7 @@ const FilterConfiguration: FC<Props> = ({
             dashboardFiltersFromContext?.dimensions &&
             dashboardFiltersFromContext.dimensions.length > 0
                 ? dashboardFiltersFromContext.dimensions
-                : (allFiltersFromContext?.dimensions ?? []);
+                : allFiltersFromContext?.dimensions ?? [];
 
         const tabDimensions = tabUuid
             ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
@@ -497,29 +507,23 @@ const FilterConfiguration: FC<Props> = ({
         //   （全局筛选器不能依赖 Tab 筛选器：全局值在所有 Tab 生效）
         // - Tab 作用域：可以绑定全局筛选器，或同一 Tab 的筛选器
         //   （全局二级 → Tab 三级 → Tab 四级的跨作用域联动）
-        const candidates: {
-            rule: DashboardFilterRule;
-            scope: 'global' | 'tab';
-            tabUuid: string | null;
-        }[] =
+        const globalCandidates: ParentCandidate[] = globalFilters.map(
+            (rule) => ({
+                rule,
+                scope: 'global',
+                tabUuid: null,
+            }),
+        );
+        const tabCandidates: ParentCandidate[] = tabDimensions.map((rule) => ({
+            rule,
+            scope: 'tab',
+            tabUuid: tabUuid ?? null,
+        }));
+
+        const candidates: ParentCandidate[] =
             filterScope === 'global'
-                ? globalFilters.map((rule) => ({
-                      rule,
-                      scope: 'global' as const,
-                      tabUuid: null,
-                  }))
-                : [
-                      ...globalFilters.map((rule) => ({
-                          rule,
-                          scope: 'global' as const,
-                          tabUuid: null,
-                      })),
-                      ...tabDimensions.map((rule) => ({
-                          rule,
-                          scope: 'tab' as const,
-                          tabUuid: tabUuid ?? null,
-                      })),
-                  ];
+                ? globalCandidates
+                : [...globalCandidates, ...tabCandidates];
 
         const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
@@ -540,56 +544,19 @@ const FilterConfiguration: FC<Props> = ({
             return true;
         });
 
-        const prepared = validCandidates.map(
+        const prepared: ParentFilterOptionDraft[] = validCandidates.map(
             ({ rule: candidate, scope, tabUuid: candidateTabUuid }) => {
                 const baseLabel =
                     candidate.label ||
                     candidate.target.fieldLabel ||
                     candidate.target.fieldId;
 
-                const levelLabel = candidate.categoryLevel
-                    ? t(
-                          `components_dashboard_filter.configuration.category_level.level${candidate.categoryLevel}`,
-                      )
-                    : undefined;
-
-                const scopeLabel =
-                    scope === 'global'
-                        ? t(
-                              'components_dashboard_filter.configuration.category_level.parent_scope_global',
-                          )
-                        : t(
-                              'components_dashboard_filter.configuration.category_level.parent_scope_tab',
-                          );
-
-                // 层级与作用域合并成一个括号后缀，避免「字段 • 层级 • 作用域」三段拼接
-                const fullLabel = levelLabel
-                    ? t(
-                          'components_dashboard_filter.configuration.category_level.parent_option_label',
-                          {
-                              label: baseLabel,
-                              level: levelLabel,
-                              scope: scopeLabel,
-                          },
-                      )
-                    : [baseLabel, scopeLabel].filter(Boolean).join(' • ');
-
-                // 筛选器名字与层级名相同时（如筛选器叫「一级类目」），
-                // 前一段是重复信息 → 只显示「一级类目（当前 Tab）」
-                const isRedundantBase =
-                    !!levelLabel &&
-                    baseLabel.trim().toLowerCase() ===
-                        levelLabel.trim().toLowerCase();
-
-                const shortLabel = levelLabel
-                    ? t(
-                          'components_dashboard_filter.configuration.category_level.parent_option_label_short',
-                          {
-                              level: levelLabel,
-                              scope: scopeLabel,
-                          },
-                      )
-                    : fullLabel;
+                const { fullLabel, shortLabel, isRedundantBase } =
+                    buildParentOptionLabels(t, {
+                        baseLabel,
+                        categoryLevel: candidate.categoryLevel,
+                        scope,
+                    });
 
                 return {
                     value: encodeParentFilterRef({
@@ -608,20 +575,38 @@ const FilterConfiguration: FC<Props> = ({
             },
         );
 
-        // 省略后如果出现重名（例如两个同层级同名字段），回退到完整标签
-        const shortLabelCounts = prepared.reduce<Map<string, number>>(
-            (acc, option) => {
-                if (!option.isRedundantBase) return acc;
-                acc.set(
-                    option.shortLabel,
-                    (acc.get(option.shortLabel) ?? 0) + 1,
-                );
-                return acc;
-            },
-            new Map(),
-        );
+        // 已存储的父级绑定：父级不在候选里时（没有显式层级 / 已被删除）
+        // 也要在下拉框里出现，否则「绑定已写入但显示空白」
+        const storedParentOption = buildStoredParentOption({
+            // 查找范围比候选更宽：不限层级（父级可能只是 cls_2 列名，没有显式层级）
+            candidates: [...globalCandidates, ...tabCandidates].filter(
+                ({ rule }) => rule.id !== currentId,
+            ),
+            parentFieldId: draftFilterRule.parentFieldId,
+            parentScope: draftFilterRule.parentScope ?? null,
+            parentTabUuid: draftFilterRule.parentTabUuid ?? null,
+            currentTabUuid: tabUuid ?? null,
+            t,
+        });
 
-        return prepared.map((option) => ({
+        const optionsWithStoredParent =
+            storedParentOption &&
+            !prepared.some(
+                (option) => option.value === storedParentOption.value,
+            )
+                ? [...prepared, storedParentOption]
+                : prepared;
+
+        // 省略后如果出现重名（例如两个同层级同名字段），回退到完整标签
+        const shortLabelCounts = optionsWithStoredParent.reduce<
+            Map<string, number>
+        >((acc, option) => {
+            if (!option.isRedundantBase) return acc;
+            acc.set(option.shortLabel, (acc.get(option.shortLabel) ?? 0) + 1);
+            return acc;
+        }, new Map());
+
+        return optionsWithStoredParent.map((option) => ({
             value: option.value,
             label:
                 option.isRedundantBase &&

@@ -56,6 +56,7 @@ const globalRule = (
 const renderModal = (props: {
     filters: DashboardFilterRule[];
     globalFilters?: DashboardFilterRule[];
+    scope?: 'global' | 'tab';
     onApply?: (filters: DashboardFilterRule[]) => void;
 }) => {
     const onApply = props.onApply ?? vi.fn();
@@ -68,6 +69,7 @@ const renderModal = (props: {
                 filters={props.filters}
                 globalFilters={props.globalFilters}
                 tabUuid={TAB_UUID}
+                scope={props.scope}
                 onApply={onApply}
             />
         </MantineProvider>,
@@ -199,6 +201,27 @@ describe('BatchBindModal', () => {
         expect(
             screen.getByText(/This tab has no category filters/),
         ).toBeInTheDocument();
+    });
+
+    it('renders and applies global scope bindings', () => {
+        const { onApply } = renderModal({
+            filters: [globalRule(1), globalRule(2)],
+            scope: 'global',
+        });
+
+        // 全局范围提示
+        expect(
+            screen.getByText(
+                /for global filters\. Global relationships apply to all tabs/,
+            ),
+        ).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+        const [updated] = vi.mocked(onApply).mock.calls[0];
+        expect(updated[1].parentFieldId).toBe('mart_global_cls_1');
+        expect(updated[1].parentScope).toBe('global');
+        expect(updated[1].parentTabUuid).toBeUndefined();
     });
 
     it('applies the selected binding updates', () => {
