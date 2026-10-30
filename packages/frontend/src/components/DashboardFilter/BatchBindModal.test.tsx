@@ -89,7 +89,7 @@ describe('BatchBindModal', () => {
         expect(screen.getByText(/Parent filter: None → /)).toBeInTheDocument();
     });
 
-    it('keeps an unresolvable binding visible but not selectable', () => {
+    it('shows an unresolvable binding with an explanation', () => {
         const child = tabRule(2, {
             parentFieldId: 'deleted_filter_field',
             parentScope: 'tab',
@@ -97,10 +97,11 @@ describe('BatchBindModal', () => {
         renderModal({ filters: [child] });
 
         expect(
-            screen.getByText(/No usable parent category found/),
+            screen.getByText(/The existing parent is no longer resolvable/),
         ).toBeInTheDocument();
-        expect(screen.getByRole('checkbox')).toBeDisabled();
-        expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+        // 编辑模式：行仍可勾选（取消勾选即跳过），不是禁用态
+        expect(screen.getByRole('checkbox')).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
     });
 
     it('explains when a category filter has no bindable parent', () => {
@@ -117,9 +118,71 @@ describe('BatchBindModal', () => {
         });
 
         expect(
-            screen.getByText(/No bindable parent category found/),
+            screen.getByText(/has no category level set/),
         ).toBeInTheDocument();
-        expect(screen.getByRole('checkbox')).toBeDisabled();
+        expect(screen.getByRole('checkbox')).toBeEnabled();
+    });
+
+    it('shows the current binding for filters that need no change', () => {
+        const level2 = tabRule(2);
+        const level3 = tabRule(3, {
+            parentFieldId: 'mart_a_cls_2',
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+        const level4 = tabRule(4, {
+            parentFieldId: 'mart_a_cls_3',
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+        renderModal({ filters: [level2, level3, level4] });
+
+        // 三级 / 四级虽然无需更新，也必须列出来并显示已绑定关系
+        expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+        // 编辑模式：所有类目筛选器都可勾选（默认全选），已绑定行显示关系
+        expect(
+            screen.getByRole('checkbox', { name: 'mart_a_cls_2' }),
+        ).toBeEnabled();
+        expect(
+            screen.getByRole('checkbox', { name: 'mart_a_cls_3' }),
+        ).toBeEnabled();
+        expect(
+            screen.getByRole('checkbox', { name: 'mart_a_cls_4' }),
+        ).toBeEnabled();
+        expect(screen.getAllByText(/\(bound\)/)).toHaveLength(2);
+        expect(
+            screen.getByText(/already bound as expected/),
+        ).toBeInTheDocument();
+    });
+
+    it('can re-apply an already bound suggestion when selected', () => {
+        const level2 = tabRule(2);
+        const level3 = tabRule(3, {
+            parentFieldId: 'mart_a_cls_2',
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+        const { onApply } = renderModal({ filters: [level2, level3] });
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'mart_a_cls_3' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+        const [updated] = vi.mocked(onApply).mock.calls[0];
+        expect(updated[1].parentFieldId).toBe('mart_a_cls_2');
+        expect(updated[1].parentScope).toBe('tab');
+    });
+
+    it('does not warn about the top category level having no parent', () => {
+        // 只有二级（没有一级）：它是根，应说明「无需绑定」而不是报错
+        renderModal({ filters: [tabRule(2)] });
+
+        expect(
+            screen.getByText(/top category level; no parent is needed/),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/has no category level set/),
+        ).not.toBeInTheDocument();
+        expect(screen.getByRole('checkbox')).toBeEnabled();
     });
 
     it('shows an empty state when there are no category filters', () => {

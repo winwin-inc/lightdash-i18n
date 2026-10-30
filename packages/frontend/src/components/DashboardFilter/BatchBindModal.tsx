@@ -68,14 +68,18 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
         () => plan.filter(isBatchCategoryBindingEntryActionable),
         [plan],
     );
-    // 有变化、或明确提示「找不到可用父级」的条目才展示
-    const visibleEntries = useMemo(
+    // 展示全部识别到的类目筛选器（按层级排序）：即使没有变化也要能看到
+    // 当前绑定关系，否则「三级/四级已绑定」会被误认为批量绑定没生效
+    const orderedEntries = useMemo(
         () =>
-            plan.filter(
-                (entry) =>
-                    isBatchCategoryBindingEntryActionable(entry) ||
-                    entry.skipReason !== null,
-            ),
+            plan
+                .map((entry, index) => ({ entry, index }))
+                .sort(
+                    (a, b) =>
+                        a.entry.categoryLevel - b.entry.categoryLevel ||
+                        a.index - b.index,
+                )
+                .map(({ entry }) => entry),
         [plan],
     );
 
@@ -90,13 +94,12 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
         [plan, selectedFilterIds],
     );
 
-    // 每次打开（或配置变化）默认勾选所有会产生变化的条目
+    // 编辑模式的批量绑定 = 构建绑定关系：默认勾选全部类目筛选器，
+    // 作者只需取消不想改的条目（无需把行做成禁用态）
     useEffect(() => {
         if (!opened) return;
-        setSelectedFilterIds(
-            new Set(actionableEntries.map((entry) => entry.filter.id)),
-        );
-    }, [opened, actionableEntries]);
+        setSelectedFilterIds(new Set(plan.map((entry) => entry.filter.id)));
+    }, [opened, plan]);
 
     const levelLabel = useCallback(
         (level: CategoryLevel) =>
@@ -161,15 +164,15 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     }, []);
 
     const handleToggleAll = useCallback(() => {
-        const allSelected = actionableEntries.every((entry) =>
+        const allSelected = plan.every((entry) =>
             selectedFilterIds.has(entry.filter.id),
         );
         setSelectedFilterIds(
             allSelected
                 ? new Set()
-                : new Set(actionableEntries.map((entry) => entry.filter.id)),
+                : new Set(plan.map((entry) => entry.filter.id)),
         );
-    }, [actionableEntries, selectedFilterIds]);
+    }, [plan, selectedFilterIds]);
 
     const handleApply = useCallback(() => {
         onApply(
@@ -179,12 +182,10 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     }, [filters, plan, selectedFilterIds, onApply, onClose]);
 
     const hasChanges = actionableEntries.length > 0;
-    const selectedCount = actionableEntries.filter((entry) =>
+    const selectedCount = plan.filter((entry) =>
         selectedFilterIds.has(entry.filter.id),
     ).length;
-    const allSelected =
-        actionableEntries.length > 0 &&
-        selectedCount === actionableEntries.length;
+    const allSelected = plan.length > 0 && selectedCount === plan.length;
 
     return (
         <Modal
@@ -194,6 +195,10 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
             size="lg"
         >
             <Stack spacing="md">
+                <Text size="xs" c="dimmed">
+                    {t('components_dashboard_filter.batch_bind.bind_hint')}
+                </Text>
+
                 {plan.length === 0 && (
                     <Text size="sm" c="dimmed">
                         {t(
@@ -202,17 +207,13 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                     </Text>
                 )}
 
-                {plan.length > 0 &&
-                    !hasChanges &&
-                    visibleEntries.length === 0 && (
-                        <Text size="sm" c="dimmed">
-                            {t(
-                                'components_dashboard_filter.batch_bind.no_changes',
-                            )}
-                        </Text>
-                    )}
+                {plan.length > 0 && !hasChanges && (
+                    <Text size="sm" c="dimmed">
+                        {t('components_dashboard_filter.batch_bind.no_changes')}
+                    </Text>
+                )}
 
-                {hasChanges && (
+                {plan.length > 0 && (
                     <>
                         <Flex justify="space-between" align="center">
                             <Text size="sm" fw={500}>
@@ -237,11 +238,9 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                     </>
                 )}
 
-                {visibleEntries.length > 0 && (
+                {orderedEntries.length > 0 && (
                     <Stack spacing="xs">
-                        {visibleEntries.map((entry) => {
-                            const actionable =
-                                isBatchCategoryBindingEntryActionable(entry);
+                        {orderedEntries.map((entry) => {
                             const implicit = implicitLevelFilterIds.has(
                                 entry.filter.id,
                             );
@@ -252,7 +251,6 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                                     sx={(theme) => ({
                                         border: `1px solid ${theme.colors.gray[3]}`,
                                         borderRadius: theme.radius.sm,
-                                        opacity: actionable ? 1 : 0.65,
                                     })}
                                 >
                                     <Flex gap="md" align="flex-start">
@@ -265,7 +263,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                                                     entry.filter.id,
                                                 ) || implicit
                                             }
-                                            disabled={!actionable || implicit}
+                                            disabled={implicit}
                                             onChange={() =>
                                                 handleToggleFilter(
                                                     entry.filter.id,
@@ -327,18 +325,49 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                                                 </Text>
                                             )}
 
+                                            {!entry.parentChanged &&
+                                                entry.currentParent !==
+                                                    null && (
+                                                    <Text size="xs" c="green">
+                                                        {t(
+                                                            'components_dashboard_filter.batch_bind.parent_bound',
+                                                            {
+                                                                parent: candidateLabel(
+                                                                    entry.currentParent,
+                                                                ),
+                                                            },
+                                                        )}
+                                                    </Text>
+                                                )}
+
                                             {entry.skipReason ===
-                                                'no-parent' && (
+                                                'parent-missing-level' && (
                                                 <Text size="xs" c="orange">
-                                                    {entry.preserveExistingParent
-                                                        ? t(
-                                                              'components_dashboard_filter.batch_bind.skipped_no_parent',
-                                                          )
-                                                        : t(
-                                                              'components_dashboard_filter.batch_bind.unbound_no_parent',
-                                                          )}
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.unbound_no_parent',
+                                                    )}
                                                 </Text>
                                             )}
+
+                                            {entry.skipReason ===
+                                                'orphan-parent' && (
+                                                <Text size="xs" c="orange">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.orphan_parent',
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {entry.skipReason === null &&
+                                                !entry.parentChanged &&
+                                                entry.currentParent ===
+                                                    null && (
+                                                    <Text size="xs" c="dimmed">
+                                                        {t(
+                                                            'components_dashboard_filter.batch_bind.root_no_parent',
+                                                        )}
+                                                    </Text>
+                                                )}
 
                                             {entry.ambiguousParentCandidates && (
                                                 <Text size="xs" c="orange">
@@ -369,7 +398,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                     </Button>
                     <Button
                         onClick={handleApply}
-                        disabled={!hasChanges || selectedCount === 0}
+                        disabled={selectedCount === 0}
                     >
                         {t('components_dashboard_filter.batch_bind.apply')}
                     </Button>

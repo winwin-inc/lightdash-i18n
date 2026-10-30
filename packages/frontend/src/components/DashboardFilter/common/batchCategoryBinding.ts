@@ -35,8 +35,15 @@ export type CategoryBindingCandidate = {
     level: CategoryLevel;
 };
 
-/** 批量绑定无法处理的筛选器：没有可用的上级类目（保持原绑定） */
-export type CategoryBindingSkipReason = 'no-parent';
+/**
+ * 批量绑定无法处理的原因：
+ * - parent-missing-level：存在更低层级的筛选器，但它没有显式 categoryLevel，
+ *   无法在运行时作为父级（典型：全局一级只有 cls 列名）
+ * - orphan-parent：原父级已失效，且候选范围里没有任何更低层级的筛选器
+ */
+export type CategoryBindingSkipReason =
+    | 'parent-missing-level'
+    | 'orphan-parent';
 
 export type BatchCategoryBindingEntry = {
     filter: DashboardFilterRule;
@@ -350,10 +357,25 @@ export const buildBatchCategoryBindingPlan = ({
                 resolvedParent = found.candidate;
                 ambiguousParentCandidates = found.ambiguous;
             } else {
-                // 候选范围里没有任何更低层级：保持原绑定（可能是别的 Tab /
-                // 已删除筛选器，批量绑定无法判断，不静默清空）
-                preserveExistingParent = currentBinding !== null;
-                skipReason = 'no-parent';
+                // 区分「本来就没有更低层级（本层就是根）」与「有更低层级但不可用」
+                const hasLowerLevelFilter = [...filters, ...globalFilters].some(
+                    (candidate) => {
+                        if (candidate.id === filter.id) return false;
+                        const level = getBindableCategoryLevel(candidate);
+                        return level !== null && level < categoryLevel;
+                    },
+                );
+
+                if (hasLowerLevelFilter) {
+                    // 存在可选层级，但候选都不可用（例如全局筛选器没有显式层级）
+                    preserveExistingParent = currentBinding !== null;
+                    skipReason = 'parent-missing-level';
+                } else if (currentBinding !== null) {
+                    // 没有更低层级可绑定，但历史绑定指向了已删除 / 不可解析的父级
+                    preserveExistingParent = true;
+                    skipReason = 'orphan-parent';
+                }
+                // 否则：本层就是最高层级（或没有上级），无需绑定父级
             }
         }
 
@@ -448,6 +470,7 @@ export const getBatchCategoryBindingUpdates = (
     const updates = new Map<string, BatchCategoryBindingUpdate>();
     plan.forEach((entry) => {
         if (!selectedFilterIds.has(entry.filter.id)) return;
+        // 勾选已正确绑定的行只是「确认建议」，不产生写入
         if (!isBatchCategoryBindingEntryActionable(entry)) return;
         updates.set(entry.filter.id, {
             categoryLevel: entry.categoryLevel,

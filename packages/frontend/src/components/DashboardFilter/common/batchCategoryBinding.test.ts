@@ -264,7 +264,7 @@ describe('buildBatchCategoryBindingPlan', () => {
         expect(entry.resolvedParent).toBeNull();
         expect(entry.parentChanged).toBe(false);
         expect(entry.preserveExistingParent).toBe(true);
-        expect(entry.skipReason).toBe('no-parent');
+        expect(entry.skipReason).toBe('orphan-parent');
 
         const next = applyBatchCategoryBindingPlan([child], plan, allIds(plan));
         // 没有可用的新父级：原绑定不动，不会被静默清空
@@ -356,7 +356,7 @@ describe('buildBatchCategoryBindingPlan', () => {
 
         const entry = entryOf(plan, 'tab-cls-2');
         expect(entry.resolvedParent).toBeNull();
-        expect(entry.skipReason).toBe('no-parent');
+        expect(entry.skipReason).toBe('parent-missing-level');
     });
 
     it('normalizes the level of an inferred tab parent used by a selected child', () => {
@@ -396,7 +396,24 @@ describe('buildBatchCategoryBindingPlan', () => {
 
         const level2 = entryOf(plan, 'tab-cls-2');
         expect(level2.resolvedParent).toBeNull();
-        expect(level2.skipReason).toBe('no-parent');
+        // 没有更低层级 → 它本身就是最高层级，不算异常
+        expect(level2.skipReason).toBeNull();
+        expect(level2.preserveExistingParent).toBe(false);
+    });
+
+    it('treats the lowest configured level as the root without a warning', () => {
+        // 只有二级 / 三级：二级是根，不应提示「找不到父级」
+        const plan = planFor([tabRule(2), tabRule(3)]);
+
+        const level2 = entryOf(plan, 'tab-cls-2');
+        expect(level2.categoryLevel).toBe(2);
+        expect(level2.resolvedParent).toBeNull();
+        expect(level2.skipReason).toBeNull();
+        expect(level2.preserveExistingParent).toBe(false);
+
+        const level3 = entryOf(plan, 'tab-cls-3');
+        expect(level3.resolvedParent?.rule.id).toBe('tab-cls-2');
+        expect(level3.parentChanged).toBe(true);
     });
 });
 
