@@ -2824,6 +2824,25 @@
         "placeholder": "Select filter methods available to viewers"
       }
     },
+    "batch_bind": {
+      "button": "Batch bind",
+      "title": "Batch bind category filters",
+      "no_changes": "All category filters are already bound as expected; nothing to update.",
+      "no_category_filters": "This tab has no category filters. Set a category level on a filter first.",
+      "select_filters": "Filters to update",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "category_level_change": "Category level: {{from}} → {{to}}",
+      "parent_filter_change": "Parent filter: {{from}} → {{to}}",
+      "none": "None",
+      "unset": "Not set",
+      "skipped_no_parent": "No usable parent category found; the existing binding is kept. Make sure the parent filter exists and has a category level set (global filters derived only from column names are not bound automatically).",
+      "unbound_no_parent": "No bindable parent category found, so it is left unbound. Set a category level on the parent filter first.",
+      "ambiguous_parent": "Multiple filters share this level; the existing binding or a same-table candidate is preferred. Please check the binding.",
+      "implicit_level": "A selected filter below uses this as its parent, so its category level is applied too.",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
     "tabs": {
       "tooltip_filter": {
         "label": "Select the value you want to filter your dimension by",

@@ -7,6 +7,12 @@ import {
     type DashboardFilters,
 } from '@lightdash/common';
 
+import {
+    getCategoryColumnName,
+    getCategoryLevelOf,
+    type CategoryLevel,
+} from './categoryLevel';
+
 /**
  * 用户在查看模式下的显式选择。
  *
@@ -22,8 +28,6 @@ export type FilterSelection = {
 };
 
 export type FilterNamespace = 'dimension' | 'metric' | 'tableCalculation';
-
-type CategoryLevel = 1 | 2 | 3 | 4;
 
 /**
  * 跨 Tab 匹配结果的类型（仅用于诊断日志）：
@@ -57,57 +61,6 @@ const logCrossTabInheritance = (...args: unknown[]): void => {
     console.log('[cross-tab-inherit]', ...args);
 };
 
-const getDeclaredCategoryLevel = (
-    rule: DashboardFilterRule,
-): CategoryLevel | null => {
-    const level = rule.categoryLevel;
-    if (typeof level !== 'number') return null;
-    if (level !== 1 && level !== 2 && level !== 3 && level !== 4) return null;
-    return level;
-};
-
-/**
- * 类目列名 → 层级。类目 mart 的约定是同一套列冗余在多个表里，
- * 列名固定为 cls_1..cls_4（或 cls1..cls4）。
- */
-const CATEGORY_COLUMN_LEVELS: Record<string, CategoryLevel> = {
-    cls_1: 1,
-    cls1: 1,
-    cls_2: 2,
-    cls2: 2,
-    cls_3: 3,
-    cls3: 3,
-    cls_4: 4,
-    cls4: 4,
-};
-
-/**
- * 字段的列名：fieldId 通常是 `${tableName}_${columnName}`，取掉表名前缀。
- */
-const getColumnName = (rule: DashboardFilterRule): string => {
-    const { fieldId, tableName } = rule.target;
-    if (tableName && fieldId.startsWith(`${tableName}_`)) {
-        return fieldId.slice(tableName.length + 1);
-    }
-    const parts = fieldId.split('_');
-    return parts.length > 1 ? parts[parts.length - 1] : fieldId;
-};
-
-/**
- * 类目层级：优先取作者显式配置的 `categoryLevel`，其次按列名推导（cls_1..cls_4）。
- *
- * 推导的原因：跨 mart 的同一套类目列，有的 Tab 配了类目层级、有的没配。
- * 只认显式层级时，“没配层级”的那一侧连身份都匹配不上，跨 Tab 继承会静默失效。
- */
-const getCategoryLevelOf = (
-    rule: DashboardFilterRule,
-): CategoryLevel | null => {
-    const declared = getDeclaredCategoryLevel(rule);
-    if (declared !== null) return declared;
-    if (rule.target.isSqlColumn) return null;
-    return CATEGORY_COLUMN_LEVELS[getColumnName(rule)] ?? null;
-};
-
 /**
  * 规则摘要（诊断日志用）：身份匹配失败时，一眼看到两侧的字段 / 列名 / 层级。
  */
@@ -115,7 +68,7 @@ const summarizeRuleForLog = (rule: DashboardFilterRule) => ({
     id: rule.id,
     fieldId: rule.target.fieldId,
     tableName: rule.target.tableName,
-    column: getColumnName(rule),
+    column: getCategoryColumnName(rule),
     isSqlColumn: rule.target.isSqlColumn ?? false,
     categoryLevel: rule.categoryLevel ?? null,
     effectiveCategoryLevel: getCategoryLevelOf(rule),
@@ -202,7 +155,7 @@ const isCategoryRulePair = (
     if (source.target.isSqlColumn || candidate.target.isSqlColumn) {
         return false;
     }
-    const sourceLevel = getCategoryLevelOf(source);
+    const sourceLevel: CategoryLevel | null = getCategoryLevelOf(source);
     if (sourceLevel === null) return false;
     return sourceLevel === getCategoryLevelOf(candidate);
 };
@@ -355,7 +308,7 @@ const getSelectionIncompatibility = (
 ): string | null => {
     if (source.operator !== target.operator) return 'operator-mismatch';
 
-    const sourceLevel = getCategoryLevelOf(source);
+    const sourceLevel: CategoryLevel | null = getCategoryLevelOf(source);
     if (sourceLevel !== getCategoryLevelOf(target)) {
         return 'category-level-mismatch';
     }

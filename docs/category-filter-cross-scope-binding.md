@@ -87,8 +87,44 @@ chain(某个 Tab) = [全局筛选器..., 该 Tab 的筛选器...]
 
 ### 4.2 批量绑定（`BatchBindModal`）
 
-- 父级查找规则：同 Tab 优先 → 其次全局
-- 应用时写入 `parentFieldId` + `parentScope` + `parentTabUuid`
+用于一次性补齐 / 修复**当前 Tab** 的类目筛选器父级关系（只在编辑模式出现，只写当前 Tab）。
+
+**层级识别**（`getBindableCategoryLevel`，`utils/categoryLevel.ts` + `common/batchCategoryBinding.ts`）：
+
+1. 显式 `categoryLevel`
+2. `cls_1..cls_4` / `cls1..cls4` 列名推导（跨 mart 同一套类目列；与跨 Tab 继承一致；
+   级联运行时仍只认显式 `categoryLevel`，因此全局父级必须显式设置层级）
+3. label 文案兜底：`一级类目`… 或 `Level N Category`（**只有批量绑定用**；
+   批量绑定会把推导出的层级写回 `categoryLevel`，运行时不再依赖文案）
+
+**父级选择规则**（`buildBatchCategoryBindingPlan`）：
+
+1. 精确层级优先：先找「上一级」（n-1）
+2. 同一层级内：**当前 Tab 优先 → 其次全局**（全局二级 → Tab 三级）
+3. 上一级在整个候选范围都不存在时，向下找**最近的更低层级**
+   （典型：一级类目只配在全局；或某个 Tab 只配了三级 / 四级）
+4. 已有绑定与新规则指向同一父级时不重写（旧数据无 `parentScope` 也视为同一父级）；
+   指向别的父级时按上述优先级**重算**（批量绑定是显式操作，不保留非最优绑定）
+5. 一级类目不允许有父级：遗留的父级绑定会被清除
+6. 候选范围里找不到任何更低层级：**保持原绑定**并提示「找不到可用上级类目」，
+   不静默清空（父级可能在别的 Tab / 配置尚未加载）
+7. 同层级同作用域有多个候选：先取作者已绑定的候选 → 再取与子级同一张表的候选
+   → 最后按配置顺序；仍有多个候选时提示作者确认。
+   与运行时一致：只排除同一条规则，允许「同字段不同规则」的父子绑定
+8. 全局候选必须已显式设置 `categoryLevel`：运行时 `isCategoryField` 只认显式层级，
+   而批量绑定无法修改全局筛选器；绑定到「仅靠 cls 列名推导」的全局父级会让
+   运行时父子链路断裂（子级被清空）
+9. 选中子级时，其 **Tab 祖先链**的 `categoryLevel` 会被一并写入（即使祖先未勾选）：
+   Tab 祖先可以由批量绑定自己补层级，但运行时要认它是类目筛选器，否则链路仍会断。
+   祖先未被选中时沿它**实际存储的父级绑定**继续向上补层级（不按重算后的绑定）
+
+**预览与写回**：
+
+- 变更预览里的父级标签解析 `当前 Tab + 全局` 两侧，并带作用域（`全局` / `当前 Tab`）
+- 勾选后才写入父级；未勾选 / 无变化的筛选器保持原对象引用（上层只对变化的规则做写回）
+- 例外：选中的子级依赖的 Tab 祖先层级会被一并补写（祖先不勾选也会写 `categoryLevel`；
+  UI 会把该行显示为选中 + 禁用并给出说明）
+- 写回字段：`categoryLevel` + `parentFieldId` + `parentScope` + `parentTabUuid`（四个字段同写同清）
 
 ### 4.3 作用域的传递
 
@@ -196,16 +232,18 @@ flowchart TD
 
 ## 八、关键代码
 
-| 位置                                                                         | 职责                                               |
-| ---------------------------------------------------------------------------- | -------------------------------------------------- |
-| `packages/common/src/types/filter.ts`                                        | `parentScope` / `parentTabUuid` 类型定义           |
-| `packages/frontend/src/utils/categoryFilters.ts`                             | 链模型、作用域解析、初始化与跨作用域级联、断链清空 |
-| `packages/frontend/src/utils/categoryFilterInitHelpers.ts`                   | Tab 初始化决策、跨作用域签名、乐观展示态           |
-| `packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`            | 全局/Tab 两条级联流程、generation、pending         |
-| `packages/frontend/src/components/DashboardFilter/common/parentFilterRef.ts` | 父级引用的复合键编解码                             |
-| `packages/frontend/src/components/DashboardFilter/FilterConfiguration/*`     | 父级候选与配置 UI                                  |
-| `packages/frontend/src/components/DashboardFilter/BatchBindModal.tsx`        | 批量绑定的父级选择                                 |
-| `packages/frontend/src/hooks/dashboard/dashboardOperationEventQueue.ts`      | 绑定变更（含作用域）的操作日志                     |
+| 位置                                                                              | 职责                                                |
+| --------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `packages/common/src/types/filter.ts`                                             | `parentScope` / `parentTabUuid` 类型定义            |
+| `packages/frontend/src/utils/categoryFilters.ts`                                  | 链模型、作用域解析、初始化与跨作用域级联、断链清空  |
+| `packages/frontend/src/utils/categoryLevel.ts`                                    | 类目层级推导（显式 → 列名），跨 Tab 继承 / 批量共用 |
+| `packages/frontend/src/utils/categoryFilterInitHelpers.ts`                        | Tab 初始化决策、跨作用域签名、乐观展示态            |
+| `packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`                 | 全局/Tab 两条级联流程、generation、pending          |
+| `packages/frontend/src/components/DashboardFilter/common/parentFilterRef.ts`      | 父级引用的复合键编解码                              |
+| `packages/frontend/src/components/DashboardFilter/common/batchCategoryBinding.ts` | 批量绑定计划（层级推导 + 父级选择 + 应用）          |
+| `packages/frontend/src/components/DashboardFilter/FilterConfiguration/*`          | 父级候选与配置 UI                                   |
+| `packages/frontend/src/components/DashboardFilter/BatchBindModal.tsx`             | 批量绑定的预览 / 勾选 / 应用                        |
+| `packages/frontend/src/hooks/dashboard/dashboardOperationEventQueue.ts`           | 绑定变更（含作用域）的操作日志                      |
 
 主要函数：
 
@@ -229,3 +267,14 @@ flowchart TD
 9. 用户显式选择不被随后的自动初始化覆盖
 10. 临时筛选器（交叉筛选）不参与类目级联、不写回永久配置
 11. 跨作用域绑定随看板保存 / 重新加载后仍然生效（as-code 往返保留新字段）
+12. 批量绑定：Tab 只有二级 / 三级、一级只配在全局（且全局一级已显式设置类目层级）
+    → 二级绑全局一级，三级绑 Tab 二级
+13. 批量绑定：上一级缺失（例如只有三级）→ 三级绑到更低层级里最近的候选；
+    完全没有更低层级 → 提示「找不到可用上级类目」，原绑定不被清空
+14. 批量绑定：已有绑定会被重算到「上一级优先 / 当前 Tab 优先」的父级；
+    旧数据只有 `parentFieldId` 且指向同一字段时不重写；一级类目的遗留父级被清除
+15. 批量绑定：未勾选的筛选器不写回；应用后父级标签同时显示作用域（全局 / 当前 Tab）
+16. 批量绑定：全局父级只有 cls 列名、没有显式类目层级 → 不当父级（避免运行时链路断），
+    界面提示「找不到可绑定的上级类目」；选中子级时，依赖的 Tab 祖先层级会被一并补写
+    （沿其实际存储的父级链），且该行不能被取消勾选
+17. 批量绑定：同层级有多个候选 → 保持作者已绑定的那个；没有绑定时优先同表候选

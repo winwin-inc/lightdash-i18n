@@ -110,6 +110,8 @@ const DashboardFilter: FC<Props> = ({
 
     // all filters
     const allFilters = useDashboardContext((c) => c.allFilters);
+    // 作者保存的全局筛选器（不含临时筛选器）：批量绑定的父级候选只能是它们
+    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const resetDashboardFilters = useDashboardContext(
         (c) => c.resetDashboardFilters,
     );
@@ -199,10 +201,6 @@ const DashboardFilter: FC<Props> = ({
     }, []);
 
     // 批量绑定相关
-    const tiles = useDashboardContext((c) => c.dashboardTiles);
-    const filterableFieldsByTileUuid = useDashboardContext(
-        (c) => c.filterableFieldsByTileUuid,
-    );
     const tabFilters = useDashboardContext((c) => c.tabFilters);
     const updateTabDimensionFilter = useDashboardContext(
         (c) => c.updateTabDimensionFilter,
@@ -215,10 +213,12 @@ const DashboardFilter: FC<Props> = ({
         return tabFilters?.[activeTabUuid || '']?.dimensions || [];
     }, [filterScope, allFilters, tabFilters, activeTabUuid]);
 
-    // 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级 → Tab 四级）
+    // 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级 → Tab 四级）。
+    // 用永久筛选器（dashboardFilters）而不是 allFilters：临时/交叉筛选器不写回配置，
+    // 绑定到临时筛选器会在移除后断链。
     const globalFilters = useMemo(
-        () => allFilters?.dimensions || [],
-        [allFilters],
+        () => dashboardFilters?.dimensions || [],
+        [dashboardFilters],
     );
 
     // The filter row must not take up any space when there is nothing to
@@ -231,19 +231,42 @@ const DashboardFilter: FC<Props> = ({
 
     const handleBatchBind = useCallback(
         (updatedFilters: DashboardFilterRule[]) => {
-            if (filterScope === 'tab' && activeTabUuid) {
-                // 批量更新筛选器
-                updatedFilters.forEach((filter, index) => {
-                    updateTabDimensionFilter(
-                        activeTabUuid,
-                        filter,
-                        index,
-                        false,
-                    );
-                });
-            }
+            if (filterScope !== 'tab' || !activeTabUuid) return;
+            // 只写回真正变化的规则：未变化的保持原引用，避免多余的 setState /
+            // 脏标记（批量绑定一次最多 4 条，但没必要整表重写）。
+            //
+            // 两条并发保护：
+            // 1. 下标按最新 tabFilters 的 id 重新求（modal 打开期间筛选器可能被
+            //    重新加载/初始化改写，闭包里的旧下标会写错位置）
+            // 2. 只把批量绑定负责的 4 个字段合并到最新规则上，不整条覆盖：
+            //    期间被级联改掉的取值 / 生效状态不会被旧快照写回
+            const latestFilters = tabFilters?.[activeTabUuid]?.dimensions ?? [];
+            updatedFilters.forEach((filter) => {
+                const index = latestFilters.findIndex(
+                    (latest) => latest.id === filter.id,
+                );
+                if (index === -1) return;
+
+                const latest = latestFilters[index];
+                const merged: DashboardFilterRule = {
+                    ...latest,
+                    categoryLevel: filter.categoryLevel,
+                    parentFieldId: filter.parentFieldId,
+                    parentScope: filter.parentScope,
+                    parentTabUuid: filter.parentTabUuid,
+                };
+                if (
+                    merged.categoryLevel === latest.categoryLevel &&
+                    merged.parentFieldId === latest.parentFieldId &&
+                    merged.parentScope === latest.parentScope &&
+                    merged.parentTabUuid === latest.parentTabUuid
+                ) {
+                    return;
+                }
+                updateTabDimensionFilter(activeTabUuid, merged, index, false);
+            });
         },
-        [filterScope, activeTabUuid, updateTabDimensionFilter],
+        [filterScope, activeTabUuid, tabFilters, updateTabDimensionFilter],
     );
 
     // 批量绑定 Modal
@@ -253,9 +276,6 @@ const DashboardFilter: FC<Props> = ({
                 opened={batchBindModalOpened}
                 onClose={() => setBatchBindModalOpened(false)}
                 filters={currentFilters}
-                tiles={tiles || []}
-                availableTileFilters={filterableFieldsByTileUuid || {}}
-                allFilterableFieldsMap={allFilterableFieldsMap}
                 onApply={handleBatchBind}
                 globalFilters={globalFilters}
                 tabUuid={activeTabUuid}
