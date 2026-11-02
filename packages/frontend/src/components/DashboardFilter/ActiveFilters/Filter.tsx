@@ -774,13 +774,21 @@ const Filter: FC<Props> = ({
                                                     component="span"
                                                     ml={4}
                                                     sx={{
+                                                        // 行内图标与文字垂直居中：
+                                                        // - inline-flex + height:1em 让盒子高度等于一行文字
+                                                        // - lineHeight:0 去掉 svg 自带行高带来的额外行距
                                                         display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent:
+                                                            'center',
+                                                        height: '1em',
+                                                        lineHeight: 0,
                                                         verticalAlign: 'middle',
                                                     }}
                                                 >
                                                     <MantineIcon
                                                         icon={IconWand}
-                                                        size={12}
+                                                        size={11}
                                                         color="gray.6"
                                                     />
                                                 </Box>
