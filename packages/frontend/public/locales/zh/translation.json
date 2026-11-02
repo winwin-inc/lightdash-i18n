@@ -2781,6 +2781,9 @@
       },
       "category_level": {
         "label": "类目层级",
+        "follow_parent_label": "跟随父级筛选器",
+        "follow_parent_placeholder": "选择一个类目筛选器",
+        "follow_parent_hint": "父级类目变化时，会按实际数据自动校正该筛选器的取值",
         "tooltip": "将此筛选器绑定到类目字段，用于类目筛选器联动",
         "placeholder": "不绑定类目",
         "level1": "一级类目",
@@ -2885,6 +2888,7 @@
       }
     },
     "filter": {
+      "auto_adjusted_hint": "已按当前类目自动调整（原值：",
       "cascade_updating": "更新中",
       "tooltip_creating_new": {
         "label": {

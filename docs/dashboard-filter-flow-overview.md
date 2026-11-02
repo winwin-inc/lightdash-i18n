@@ -120,24 +120,46 @@ SQL 列仍只按 rule id；日期字段按列名命中后还要过流程 8 的�
   来源是动态默认 → 拒绝（占位值无法搬）；接收方是动态默认 → 允许，写入后剥掉动态默认；
 - `disabled` **不再是拒绝条件**（"任何值"要能被写值并启用）。
 
+### 流程 9：绑定父级类目的普通字段（集团 / 品牌 / 包装类型 / 商品名称…）
+
+1. 身份：这些字段**不是类目**，不能用 `categoryLevel` 匹配；它们靠作者显式绑定的
+   `parentFieldId / parentScope / parentTabUuid` 挂在某个类目筛选器下面
+   （父级必须是类目 —— `isValidParentLevel` 强制，链上不会出现「非类目 → 非类目」，永不成环）。
+2. 触发：父级类目变化（手改 / 跨 Tab 继承 / 重置后重新初始化）→ `getChildEntries` 收集
+   类目子级 + 绑定字段子级 → `cascadeChildrenAsync` 分流：
+   类目走 `resolveCategoryFilterValueAsync`（单值、断链清空），
+   绑定字段走 `resolveBoundValuesAsync`（单值/多值、断链**保留原值**）。
+3. 解析规则（`resolveBoundValuesAsync`）：用父类目 + 链上左侧条件调 `field/search`；
+   当前值 ∈ 候选 → 保留；否则取候选；多值时保留 `values ∩ 候选` 并用候选补齐到
+   `N = max(values.length, 1)`（「商品 5 个」天然是 5）；`disabled`（任何值）不动；
+   候选空 / 请求失败 → 保留原值。
+4. 写回安全：init 结果**按 filter id 合并**（`mergeAutoResolvedFilters`），解析期间用户手改的
+   字段不会被回滚；签名（`getCategoryFiltersSignature`）追加绑定字段的取值/父级引用，
+   避免 `skip-already-processed` 假跳过与守卫假通过。
+5. 可见性：被自动改写的字段写入 `autoAdjustedFilterIds`（运行时，不落库），pill 上显示
+   魔法棒标记，tooltip 展示被替换前的原值；用户手改 / 重置 / 进编辑模式时清除。
+6. 请求量：每个绑定字段 **1 次** `field/search`，串行在类目解析之后；未激活 Tab 零请求。
+
 ---
 
 ## 三、功能保全清单（每条都能追到代码 + 测试）
 
-| #   | 能力                                                                                   | 代码落点                                                                                                             | 测试 / 验收                                                                                                    |
-| --- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| F1  | 父子类目联动（同 Tab，含跨 mart 字段重映射）                                           | `categoryFilters.cascadeChildrenAsync` + `remapRuleToTable`                                                          | `categoryFilters.test.ts`、`categoryFiltersCrossScope.test.ts`                                                 |
-| F2  | 全局 ⇄ Tab 跨作用域绑定（`parentScope`/`parentTabUuid`，含兜底）                       | `findParentCategoryEntry`、`buildCategoryChain`                                                                      | `categoryFiltersCrossScope.test.ts`                                                                            |
-| F3  | 子级"有值才跟随、无值不跟随"，断链清空后代                                             | `shouldCascadeCategoryFilter`、`clearDescendantsAsync`                                                               | `categoryFilters.test.ts`（4 条语义用例）                                                                      |
-| F4  | 未绑定父级的类目不参与联动                                                             | `getChildEntries`（依赖 `findParentCategoryEntry`）                                                                  | `categoryFilters.test.ts`                                                                                      |
-| F5  | 跨 Tab 继承取值（任何值 → 启用；源清空 → 清空；跨 mart 同名列 / 同级类目；两边都任何值 → 零写入） | `applySelectionToTabFilters` / `applySelectionValues` / `findMatchingRuleIndices`                                    | `userFilterSelections.test.ts`（70 例，含无变化不写、跨 mart 类目/同名列、label 不一致不认、disabled 跟随）  |
-| F6  | 时间筛选器严格同形态才继承；动态默认被剥掉                                             | `getDateShape` / `getSelectionIncompatibility` / `stripDynamicDateSettings`                                          | `userFilterSelections.test.ts`（日期形态 5+5 例）                                                              |
-| F7  | 接收方按自己的数据/权限解析（无权限不会被套上别处的类目）                              | 流程 6 `initializeCategoryFiltersAsync`（切 Tab 时校验当前值是否在候选里，不在则取该 Tab 第一个合法类目）            | 手工：客户账号在该 Tab 无权限的类目 → 切过去后回落为该 Tab 合法类目；日志 `Could not confirm …` / `Cascaded …` |
-| F8  | 重置回到作者默认值（值 + 生效状态 + 动态默认），不被在途请求写回                       | `invalidateTabCategoryState` + `restoreAuthorDefaults`                                                               | `userFilterSelections.test.ts`（restore 相关 7 例）                                                            |
-| F9  | 编辑模式不级联、不继承；进入编辑模式用服务端快照重置                                   | `shouldCascadeCategoryFilterUpdate`、`canApplyCategoryFilters`、编辑模式 effect                                      | 手工：编辑态改类目 / 保存                                                                                      |
-| F10 | 类目解析期间图表不抢跑（含未激活但已挂载的 Tab）                                       | `pendingTabCategoryResolutions` 被 `DashboardChartTile`/`useDashboardChartReadyQuery` **按 tabUuid** 读取 + 10s 兜底 | `useDashboardFilterScope.test.ts`、手工看 Network                                                              |
-| F11 | 请求量可控：未激活 Tab 零请求；一次操作只算当前 Tab；只重算被改级别的后代              | 流程 4 第 3 步（懒作废）+ `onlyFilterIds`                                                                            | 日志 `[category-cascade] cascade finished { fieldSearchRequests }`；手工数 Network                             |
-| F12 | 诊断可见：身份/兼容/无变化/多命中/回退/请求数                                          | `[cross-tab-inherit]`、`[category-cascade]`（DEV-only）                                                              | 控制台                                                                                                         |
+| #   | 能力                                                                                              | 代码落点                                                                                                                  | 测试 / 验收                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| F1  | 父子类目联动（同 Tab，含跨 mart 字段重映射）                                                      | `categoryFilters.cascadeChildrenAsync` + `remapRuleToTable`                                                               | `categoryFilters.test.ts`、`categoryFiltersCrossScope.test.ts`                                                 |
+| F2  | 全局 ⇄ Tab 跨作用域绑定（`parentScope`/`parentTabUuid`，含兜底）                                  | `findParentCategoryEntry`、`buildCategoryChain`                                                                           | `categoryFiltersCrossScope.test.ts`                                                                            |
+| F3  | 子级"有值才跟随、无值不跟随"，断链清空后代                                                        | `shouldCascadeCategoryFilter`、`clearDescendantsAsync`                                                                    | `categoryFilters.test.ts`（4 条语义用例）                                                                      |
+| F4  | 未绑定父级的类目不参与联动                                                                        | `getChildEntries`（依赖 `findParentCategoryEntry`）                                                                       | `categoryFilters.test.ts`                                                                                      |
+| F5  | 跨 Tab 继承取值（任何值 → 启用；源清空 → 清空；跨 mart 同名列 / 同级类目；两边都任何值 → 零写入） | `applySelectionToTabFilters` / `applySelectionValues` / `findMatchingRuleIndices`                                         | `userFilterSelections.test.ts`（70 例，含无变化不写、跨 mart 类目/同名列、label 不一致不认、disabled 跟随）    |
+| F6  | 时间筛选器严格同形态才继承；动态默认被剥掉                                                        | `getDateShape` / `getSelectionIncompatibility` / `stripDynamicDateSettings`                                               | `userFilterSelections.test.ts`（日期形态 5+5 例）                                                              |
+| F7  | 接收方按自己的数据/权限解析（无权限不会被套上别处的类目）                                         | 流程 6 `initializeCategoryFiltersAsync`（切 Tab 时校验当前值是否在候选里，不在则取该 Tab 第一个合法类目）                 | 手工：客户账号在该 Tab 无权限的类目 → 切过去后回落为该 Tab 合法类目；日志 `Could not confirm …` / `Cascaded …` |
+| F8  | 重置回到作者默认值（值 + 生效状态 + 动态默认），不被在途请求写回                                  | `invalidateTabCategoryState` + `restoreAuthorDefaults`                                                                    | `userFilterSelections.test.ts`（restore 相关 7 例）                                                            |
+| F9  | 编辑模式不级联、不继承；进入编辑模式用服务端快照重置                                              | `shouldCascadeCategoryFilterUpdate`、`canApplyCategoryFilters`、编辑模式 effect                                           | 手工：编辑态改类目 / 保存                                                                                      |
+| F10 | 类目解析期间图表不抢跑（含未激活但已挂载的 Tab）                                                  | `pendingTabCategoryResolutions` 被 `DashboardChartTile`/`useDashboardChartReadyQuery` **按 tabUuid** 读取 + 10s 兜底      | `useDashboardFilterScope.test.ts`、手工看 Network                                                              |
+| F11 | 请求量可控：未激活 Tab 零请求；一次操作只算当前 Tab；只重算被改级别的后代                         | 流程 4 第 3 步（懒作废）+ `onlyFilterIds`                                                                                 | 日志 `[category-cascade] cascade finished { fieldSearchRequests }`；手工数 Network                             |
+| F12 | 诊断可见：身份/兼容/无变化/多命中/回退/请求数                                                     | `[cross-tab-inherit]`、`[category-cascade]`（DEV-only）                                                                   | 控制台                                                                                                         |
+| F13 | 绑定父级类目的普通维度（集团/品牌/商品名称…）按候选值自动解析（保留有效值 + 补齐到 N）            | `isBoundValueFilter` / `resolveBoundValuesAsync` / `initializeCategoryFiltersAsync` 绑定字段遍历 / `cascadeChildrenAsync` | `categoryFiltersBoundValues.test.ts`（16 例）；`[category-cascade] bound values resolved`                      |
+| F14 | 自动调整可见（pill 标记 + tooltip 原值），用户手改/重置/编辑模式即时清除                          | `DashboardProvider.autoAdjustedFilterIds` / `clearAutoAdjusted` / `ActiveFilters` + `Filter.tsx`                          | 手工：切类目后 pill 出现标记，点重置消失                                                                       |
 
 ---
 

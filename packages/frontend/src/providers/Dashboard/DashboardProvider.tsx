@@ -83,8 +83,9 @@ import {
     getCategoryChainFilters,
     getCategoryFiltersSignature,
     getCategoryFilterUpdateValue,
-    hasCategoryFilters,
+    hasBoundFilters,
     initializeCategoryFiltersAsync,
+    isBoundValueFilter,
     isCategoryField,
     logCategoryCascade,
     shouldCascadeCategoryFilterUpdate,
@@ -110,6 +111,90 @@ import { type SqlChartTileMetadata } from './types';
 type CrossTabSyncResult = {
     tabFilters: Record<string, DashboardFilters>;
     changedTabUuids: string[];
+};
+
+/**
+ * 自动解析改写过的筛选器（用于 pill 提示），key = 作用域（'global' / tab uuid）
+ * value = { filterId: 被替换前的取值 }
+ */
+type AutoAdjustedFilterIds = Record<string, Record<string, string[]>>;
+
+/** 两个规则的用户可见状态是否等价（取值 + 生效状态 + operator） */
+const isSameResolvedFilterState = (
+    a: DashboardFilterRule,
+    b: DashboardFilterRule,
+): boolean =>
+    // 字段身份：解析期间用户可能把该筛选器换成别的字段（同 id、就地更新）
+    a.target.fieldId === b.target.fieldId &&
+    a.target.tableName === b.target.tableName &&
+    a.operator === b.operator &&
+    (a.disabled ?? false) === (b.disabled ?? false) &&
+    (a.values ?? []).map(String).join('\u0000') ===
+        (b.values ?? []).map(String).join('\u0000') &&
+    JSON.stringify(a.settings ?? null) === JSON.stringify(b.settings ?? null) &&
+    JSON.stringify(a.excludedValues ?? null) ===
+        JSON.stringify(b.excludedValues ?? null);
+
+/**
+ * 找出「本次解析自动改写了哪些绑定字段」，用于 pill 标记。
+ *
+ * 只比较「请求快照 → 最终写回结果」，所以在写回被守卫拒绝时**不会**产生假标记。
+ */
+const collectAutoAdjusted = (
+    snapshot: DashboardFilters,
+    resolved: DashboardFilters,
+): { filterId: string; previousValues: string[] }[] => {
+    const snapshotById = new Map(
+        snapshot.dimensions.map((rule) => [rule.id, rule]),
+    );
+
+    return resolved.dimensions.flatMap((rule) => {
+        if (!isBoundValueFilter(rule)) return [];
+        const before = snapshotById.get(rule.id);
+        if (!before) return [];
+        if (isSameResolvedFilterState(before, rule)) return [];
+        return [
+            {
+                filterId: rule.id,
+                previousValues: (before.values ?? []).map(String),
+            },
+        ];
+    });
+};
+
+/**
+ * 把自动解析结果按 filter id 合并进当前筛选器。
+ *
+ * 解析是异步的：期间用户可能手改了某个筛选器（包括本次要写的字段）。
+ * 直接整体替换请求快照会把用户的选择回滚（表现为「选完值又跳回去」）。
+ * 只采纳「本次解析确实改动了、且用户没有同时改动」的字段。
+ */
+const mergeAutoResolvedFilters = (
+    current: DashboardFilters,
+    requestSnapshot: DashboardFilters,
+    resolved: DashboardFilters,
+): DashboardFilters => {
+    const snapshotById = new Map(
+        requestSnapshot.dimensions.map((rule) => [rule.id, rule]),
+    );
+    const resolvedById = new Map(
+        resolved.dimensions.map((rule) => [rule.id, rule]),
+    );
+
+    let changed = false;
+    const dimensions = current.dimensions.map((rule) => {
+        const resolvedRule = resolvedById.get(rule.id);
+        const snapshotRule = snapshotById.get(rule.id);
+        if (!resolvedRule || !snapshotRule) return rule;
+        // 本次解析没有改它
+        if (isSameResolvedFilterState(snapshotRule, resolvedRule)) return rule;
+        // 用户在请求期间改过它 → 用户优先
+        if (!isSameResolvedFilterState(rule, snapshotRule)) return rule;
+        changed = true;
+        return resolvedRule;
+    });
+
+    return changed ? { ...current, dimensions } : current;
 };
 
 const DashboardProvider: React.FC<
@@ -559,6 +644,82 @@ const DashboardProvider: React.FC<
         [getTabCategoryChainSignature],
     );
 
+    /**
+     * 被自动解析改写过的筛选器（仅运行时）：pill 上给个标记，
+     * 让用户知道「这个值不是你上次选的，是按当前类目自动调整的」。
+     */
+    const [autoAdjustedFilterIds, setAutoAdjustedFilterIds] =
+        useState<AutoAdjustedFilterIds>({});
+
+    const recordAutoAdjusted = useCallback(
+        (
+            scope: string,
+            info: {
+                filterId: string;
+                previousValues: string[];
+            },
+        ) => {
+            setAutoAdjustedFilterIds((prev) => ({
+                ...prev,
+                [scope]: {
+                    ...(prev[scope] ?? {}),
+                    [info.filterId]: info.previousValues,
+                },
+            }));
+        },
+        [],
+    );
+
+    const recordAutoAdjustedMany = useCallback(
+        (
+            scope: string,
+            entries: { filterId: string; previousValues: string[] }[],
+        ) => {
+            if (entries.length === 0) return;
+            setAutoAdjustedFilterIds((prev) => {
+                const nextScope = { ...(prev[scope] ?? {}) };
+                entries.forEach((entry) => {
+                    nextScope[entry.filterId] = entry.previousValues;
+                });
+                return { ...prev, [scope]: nextScope };
+            });
+        },
+        [],
+    );
+
+    /**
+     * 当前筛选器快照（供写回时同步判断 + 计算标记）。
+     * 写回仍带签名/世代守卫，这里的 ref 只是让「合并 + 标记」能同步完成。
+     */
+    const dashboardFiltersRef = useRef(dashboardFilters);
+    useEffect(() => {
+        dashboardFiltersRef.current = dashboardFilters;
+    }, [dashboardFilters]);
+
+    const clearAutoAdjusted = useCallback(
+        (scope: string, filterId?: string) => {
+            setAutoAdjustedFilterIds((prev) => {
+                const current = prev[scope];
+                if (!current) return prev;
+                if (filterId === undefined) {
+                    const next = { ...prev };
+                    delete next[scope];
+                    return next;
+                }
+                if (!(filterId in current)) return prev;
+                const nextScope = { ...current };
+                delete nextScope[filterId];
+                if (Object.keys(nextScope).length === 0) {
+                    const next = { ...prev };
+                    delete next[scope];
+                    return next;
+                }
+                return { ...prev, [scope]: nextScope };
+            });
+        },
+        [],
+    );
+
     const runGlobalCategoryInit = useCallback(
         (filters: DashboardFilters) => {
             const decision = decideCategoryInit({
@@ -607,36 +768,46 @@ const DashboardProvider: React.FC<
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted('global', info),
                 },
             )
                 .then((refined) => {
-                    setDashboardFilters((currentFilters) => {
-                        if (
-                            !shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    globalCategoryInitGenerationRef.current,
-                                requestSignature: signature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                            })
-                        ) {
-                            return currentFilters;
-                        }
+                    const currentFilters = dashboardFiltersRef.current;
+                    if (
+                        !shouldApplyCategoryInitResult({
+                            requestGeneration: generation,
+                            currentGeneration:
+                                globalCategoryInitGenerationRef.current,
+                            requestSignature: signature,
+                            currentFilters,
+                            projectUuid,
+                            dashboardContext: dashboardFilterContext,
+                        })
+                    ) {
+                        return;
+                    }
 
-                        const nextFilters =
-                            refined === currentFilters
-                                ? currentFilters
-                                : refined;
-                        globalCategoryProcessedSignatureRef.current =
-                            getCategoryFiltersSignature(
-                                nextFilters,
-                                projectUuid,
-                                dashboardFilterContext,
-                            );
-                        return nextFilters;
-                    });
+                    // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                    const nextFilters = mergeAutoResolvedFilters(
+                        currentFilters,
+                        filters,
+                        refined,
+                    );
+                    if (nextFilters === currentFilters) return;
+
+                    setDashboardFilters(nextFilters);
+                    globalCategoryProcessedSignatureRef.current =
+                        getCategoryFiltersSignature(
+                            nextFilters,
+                            projectUuid,
+                            dashboardFilterContext,
+                        );
+                    // 写回被接受后才打标记（避免「值没改却显示已自动调整」）
+                    recordAutoAdjustedMany(
+                        'global',
+                        collectAutoAdjusted(filters, nextFilters),
+                    );
                 })
                 .finally(() => {
                     if (
@@ -660,6 +831,8 @@ const DashboardProvider: React.FC<
             setDashboardFilters,
             startGlobalCategoryInitSession,
             handleCategoryResolutionIssue,
+            recordAutoAdjusted,
+            recordAutoAdjustedMany,
         ],
     );
 
@@ -702,6 +875,8 @@ const DashboardProvider: React.FC<
                     },
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted(targetTabUuid, info),
                 },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
@@ -742,6 +917,7 @@ const DashboardProvider: React.FC<
             recoverableCategoryFilterIds,
             dashboardFilters,
             handleCategoryResolutionIssue,
+            recordAutoAdjusted,
         ],
     );
 
@@ -786,6 +962,12 @@ const DashboardProvider: React.FC<
         isGlobalFilterEnabled,
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
+
+    /** 当前 Tab 筛选器快照（见 dashboardFiltersRef 的说明） */
+    const tabFiltersRef = useRef(tabFilters);
+    useEffect(() => {
+        tabFiltersRef.current = tabFilters;
+    }, [tabFilters]);
 
     /* ------------------------------------------------------------------ */
     /*                     跨 Tab 取值继承与统一联动                       */
@@ -961,6 +1143,8 @@ const DashboardProvider: React.FC<
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted('global', info),
                     // 只级联当前 Tab：其它 Tab 切过去时由各自的懒初始化重算，
                     // 避免一次全局类目变更触发 N 个 Tab × M 个子孙的请求。
                     activeTabUuid: activeTab?.uuid ?? null,
@@ -997,6 +1181,7 @@ const DashboardProvider: React.FC<
             tabFilters,
             activeTab?.uuid,
             handleCategoryResolutionIssue,
+            recordAutoAdjusted,
         ],
     );
 
@@ -1035,6 +1220,14 @@ const DashboardProvider: React.FC<
                     isTemporary,
                     hasSelectedValue,
                 });
+                // 用户手改绑定父级的普通维度：作废在途的自动解析，
+                // 避免晚到的结果覆盖用户刚选的值。
+                if (!isEdit && !isTemporary && isBoundValueFilter(item)) {
+                    ++globalCategoryInitGenerationRef.current;
+                    globalCategoryPendingSignatureRef.current = null;
+                    startGlobalCategoryCascadeSession();
+                    clearAutoAdjusted('global', item.id);
+                }
                 // 临时筛选器（图表交叉筛选）不做类目联动：
                 // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
                 originalUpdateDimensionDashboardFilter(
@@ -1250,6 +1443,7 @@ const DashboardProvider: React.FC<
             clearTabCategoryDisplay,
             bumpTabCategoryCascadeGeneration,
             cancelTabCategoryInitSession,
+            clearAutoAdjusted,
         ],
     );
 
@@ -1411,43 +1605,47 @@ const DashboardProvider: React.FC<
                 },
             )
                 .then((refined) => {
-                    setTabFilters((currentTabFilters) => {
-                        const currentFilters =
-                            currentTabFilters[targetTabUuid] ?? emptyFilters;
-                        if (
-                            !shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    tabCategoryInitGenerationRef.current[
-                                        targetTabUuid
-                                    ] ?? 0,
-                                requestSignature: signature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                                currentSignature:
-                                    getTabCategoryChainSignature(
-                                        targetTabUuid,
-                                        currentFilters,
-                                    ) ?? undefined,
-                            })
-                        ) {
-                            return currentTabFilters;
-                        }
+                    const currentFilters =
+                        tabFiltersRef.current[targetTabUuid] ?? emptyFilters;
+                    if (
+                        !shouldApplyCategoryInitResult({
+                            requestGeneration: generation,
+                            currentGeneration:
+                                tabCategoryInitGenerationRef.current[
+                                    targetTabUuid
+                                ] ?? 0,
+                            requestSignature: signature,
+                            currentFilters,
+                            projectUuid,
+                            dashboardContext: dashboardFilterContext,
+                            currentSignature:
+                                getTabCategoryChainSignature(
+                                    targetTabUuid,
+                                    currentFilters,
+                                ) ?? undefined,
+                        })
+                    ) {
+                        return;
+                    }
 
-                        const nextFilters =
-                            refined === currentFilters
-                                ? currentFilters
-                                : refined;
-                        markTabCategoryProcessed(targetTabUuid, nextFilters);
-                        if (nextFilters === currentFilters) {
-                            return currentTabFilters;
-                        }
-                        return {
-                            ...currentTabFilters,
-                            [targetTabUuid]: nextFilters,
-                        };
-                    });
+                    // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                    const nextFilters = mergeAutoResolvedFilters(
+                        currentFilters,
+                        filters,
+                        refined,
+                    );
+                    if (nextFilters === currentFilters) return;
+
+                    setTabFilters((prev) => ({
+                        ...prev,
+                        [targetTabUuid]: nextFilters,
+                    }));
+                    markTabCategoryProcessed(targetTabUuid, nextFilters);
+                    // 写回被接受后才打标记
+                    recordAutoAdjustedMany(
+                        targetTabUuid,
+                        collectAutoAdjusted(filters, nextFilters),
+                    );
                 })
                 .finally(() => {
                     if (
@@ -1482,6 +1680,7 @@ const DashboardProvider: React.FC<
             markTabCategoryProcessed,
             startTabCategoryInitSession,
             handleCategoryResolutionIssue,
+            recordAutoAdjustedMany,
         ],
     );
 
@@ -1496,6 +1695,16 @@ const DashboardProvider: React.FC<
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
             const existingDisplay = tabCategoryDisplayFilters[uuid];
+
+            // 用户手改「绑定父级的普通维度」（集团/品牌/包装类型/商品名称…）：
+            // 作废在途的自动解析，确保用户最后的选择不会被晚到的结果覆盖。
+            if (!isEditMode && !isTemporary && isBoundValueFilter(item)) {
+                bumpTabCategoryGeneration(uuid);
+                bumpTabCategoryCascadeGeneration(uuid);
+                startTabCategoryCascadeSession(uuid);
+                clearTabCategoryDisplay(uuid);
+                clearAutoAdjusted(uuid, item.id);
+            }
 
             // 查看模式：跨 Tab 继承：把用户的显式选择同步到其他含该字段的 Tab。
             // 类目级联派生值与权限回退值不会进入继承（它们只写本 Tab 运行时）。
@@ -1589,6 +1798,8 @@ const DashboardProvider: React.FC<
                     dashboardFilterContext,
                     {
                         recoverableFilterIds: recoverableCategoryFilterIds,
+                        // 用户刚刚手改的字段（含绑定父级的普通维度）不能被自动解析覆盖
+                        skipFilterIds: [item.id],
                         scope: {
                             location: { scope: 'tab', tabUuid: uuid },
                             chain: buildCategoryChain(
@@ -1639,9 +1850,15 @@ const DashboardProvider: React.FC<
                             ) {
                                 return prev;
                             }
+                            const merged = mergeAutoResolvedFilters(
+                                currentFilters,
+                                mergedDisplay.filters,
+                                refined,
+                            );
+                            if (merged === currentFilters) return prev;
                             applied = true;
-                            markTabCategoryProcessed(uuid, refined);
-                            return { ...prev, [uuid]: refined };
+                            markTabCategoryProcessed(uuid, merged);
+                            return { ...prev, [uuid]: merged };
                         });
                         if (applied) {
                             clearTabCategoryDisplay(uuid);
@@ -1835,6 +2052,7 @@ const DashboardProvider: React.FC<
             handleCategoryResolutionIssue,
             invalidateTabCategoryState,
             armCategoryResolutionTimeout,
+            clearAutoAdjusted,
         ],
     );
 
@@ -1873,6 +2091,7 @@ const DashboardProvider: React.FC<
                 }
             });
 
+            clearAutoAdjusted(targetTabUuid, rule.id);
             // 恢复默认值后这些 Tab 的类目链也变了：作废在途解析，
             // 避免晚到的级联结果把刚恢复的值又写回去
             invalidateTabCategoryState([
@@ -1898,6 +2117,7 @@ const DashboardProvider: React.FC<
             embedDashboard,
             setTabFilters,
             invalidateTabCategoryState,
+            clearAutoAdjusted,
         ],
     );
 
@@ -1956,6 +2176,11 @@ const DashboardProvider: React.FC<
             // 重置前先作废在途的类目解析（init / cascade / 跨 Tab 继承）：
             // 否则晚到的结果会把重置后的值又写回去（"重置无效"）。
             invalidateTabCategoryState([uuid, ...Object.keys(restoredTabs)]);
+            // 回到作者默认值：自动调整标记一并清掉
+            clearAutoAdjusted(uuid);
+            Object.keys(restoredTabs).forEach((restoredTabUuid) =>
+                clearAutoAdjusted(restoredTabUuid),
+            );
 
             // 当前 Tab 退回它自己的作者默认值
             resetTabFilters(uuid);
@@ -1983,7 +2208,7 @@ const DashboardProvider: React.FC<
                 [uuid]:
                     canApplyCategoryFilters &&
                     !!resetServerFilters &&
-                    hasCategoryFilters(resetServerFilters),
+                    hasBoundFilters(resetServerFilters),
             }));
             armCategoryResolutionTimeout(uuid);
             // 各 Tab 都已回到作者默认值：不再算"已修改"
@@ -2015,6 +2240,7 @@ const DashboardProvider: React.FC<
             armCategoryResolutionTimeout,
             canApplyCategoryFilters,
             setHaveTabFiltersChanged,
+            clearAutoAdjusted,
         ],
     );
 
@@ -2537,11 +2763,11 @@ const DashboardProvider: React.FC<
             // 首屏类目解析完成前不发起图表查询（避免图表先按未解析的类目跑一次）
             setIsGlobalCategoryResolutionPending(
                 canApplyCategoryFilters &&
-                    hasCategoryFilters(updatedDashboardFilters),
+                    hasBoundFilters(updatedDashboardFilters),
             );
             if (
                 canApplyCategoryFilters &&
-                hasCategoryFilters(updatedDashboardFilters)
+                hasBoundFilters(updatedDashboardFilters)
             ) {
                 armCategoryResolutionTimeout('global');
             }
@@ -2565,7 +2791,7 @@ const DashboardProvider: React.FC<
                 const pendingTabs = currentDashboard.tabs.reduce((acc, tab) => {
                     acc[tab.uuid] =
                         canApplyCategoryFilters &&
-                        hasCategoryFilters(tab.filters ?? emptyFilters);
+                        hasBoundFilters(tab.filters ?? emptyFilters);
                     return acc;
                 }, {} as Record<string, boolean>);
                 setPendingTabCategoryResolutions(pendingTabs);
@@ -2627,6 +2853,8 @@ const DashboardProvider: React.FC<
             );
             setTabTemporaryFilters({});
             setHaveTabFiltersChanged({});
+            // 编辑模式用服务端快照覆盖运行时筛选器：自动调整标记全部失效
+            setAutoAdjustedFilterIds({});
         }
     }, [
         isEditMode,
@@ -3219,6 +3447,7 @@ const DashboardProvider: React.FC<
         getActiveTabTemporaryFilters,
         getMergedFiltersForTab,
         getDisplayedMergedFiltersForTab,
+        tabAutoAdjustedFilterIds: autoAdjustedFilterIds,
         tabCategoryDisplayFilters,
         addTabDimensionFilter,
         updateTabDimensionFilter: wrappedUpdateTabDimensionFilter,

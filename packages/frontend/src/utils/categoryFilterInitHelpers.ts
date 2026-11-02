@@ -7,7 +7,8 @@ import {
     getCategoryChainFilters,
     getCategoryFiltersSignature,
     getParentFieldId,
-    hasCategoryFilters,
+    hasBoundFilters,
+    isBoundValueFilter,
     isCategoryField,
     type DashboardFilterContext,
 } from './categoryFilters';
@@ -35,7 +36,10 @@ export const getDescendantCategoryFilterIds = (
 
     const collect = (fieldId: string) => {
         filters.dimensions.forEach((filter) => {
-            if (!isCategoryField(filter)) return;
+            // 类目子级 + 绑定了父级的普通维度（集团/品牌/商品名称…）
+            if (!isCategoryField(filter) && !isBoundValueFilter(filter)) {
+                return;
+            }
             if (getParentFieldId(filter) !== fieldId) return;
             ids.push(filter.id);
             collect(filter.target.fieldId);
@@ -139,7 +143,7 @@ export const decideCategoryInit = ({
         return { action: 'skip-ready' };
     }
 
-    if (!hasCategoryFilters(filters)) {
+    if (!hasBoundFilters(filters)) {
         return { action: 'skip-ready' };
     }
 

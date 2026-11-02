@@ -89,6 +89,32 @@ export const getParentFieldId = (
 };
 
 /**
+ * 绑定了父级筛选器的**普通维度**（集团 / 品牌 / 包装类型 / 商品名称…）。
+ *
+ * 语义：它也是父级类目的「下游」，父类目变了要按实际数据重新解析取值；
+ * 但它不是类目（没有层级、不参与同级跨 Tab 兜底匹配）。
+ *
+ * 限制：
+ * - SQL 列不参与（表达式在不同 mart 不可比，且 field/search 无法校验）
+ * - 父级必须是类目（由 `isValidParentLevel` 保证）→ 链上不会出现
+ *   「非类目 → 非类目」，永远不会成环
+ */
+export const isBoundValueFilter = (filter: DashboardFilterRule): boolean => {
+    if (isCategoryField(filter)) return false;
+    if (filter.target.isSqlColumn) return false;
+    return getParentFieldId(filter) !== null;
+};
+
+/**
+ * 是否存在需要按类目链解析的筛选器（类目 + 绑定父级的普通维度）。
+ * 用于替代「有类目筛选器才初始化」的门禁。
+ */
+export const hasBoundFilters = (filters: DashboardFilters): boolean =>
+    filters.dimensions.some(
+        (filter) => isCategoryField(filter) || isBoundValueFilter(filter),
+    );
+
+/**
  * 根据父级筛选器字段ID查找父级筛选器（仅在同一个筛选器集合内查找）
  */
 export const findParentFilter = (
@@ -251,6 +277,11 @@ const isValidParentLevel = (
     parent: DashboardFilterRule,
     child: DashboardFilterRule,
 ): boolean => {
+    // 父级必须是类目：非类目字段之间没有层级关系，一旦允许互相绑定就可能成环
+    // （A 绑 B、B 绑 A → 级联递归永不收敛）。
+    // 反过来，非类目字段可以绑任意层级的类目作为父级。
+    if (!isCategoryField(parent)) return false;
+
     const parentLevel = getCategoryLevel(parent);
     const childLevel = getCategoryLevel(child);
     if (parentLevel === null || childLevel === null) return true;
@@ -527,23 +558,32 @@ export const getCategoryFiltersSignature = (
             ? []
             : filters.dimensions.slice(0, lastCategoryIndex + 1);
 
+    // 绑定父级的普通维度（集团 / 品牌 / 商品名称…）落在最后一个类目之后，
+    // 不在上面那段前缀里。它们的值会被自动解析改写，必须进签名，否则：
+    // - `shouldApplyCategoryInitResult` 看不见这些写入（假通过 → 覆盖用户手改）
+    // - `decideCategoryInit` 会把「已处理」与真实状态解耦（假跳过）
+    const boundRuleSignature = (rule: DashboardFilterRule) => ({
+        id: rule.id,
+        fieldId: rule.target.fieldId,
+        tableName: rule.target.tableName,
+        operator: rule.operator,
+        values: rule.values ?? null,
+        disabled: rule.disabled ?? false,
+        categoryLevel: rule.categoryLevel ?? null,
+        parentFieldId: rule.parentFieldId ?? null,
+        parentScope: rule.parentScope ?? null,
+        parentTabUuid: rule.parentTabUuid ?? null,
+    });
+
     return JSON.stringify({
         projectUuid,
         dashboardSlug: dashboardContext?.dashboardSlug ?? null,
         dashboardName: dashboardContext?.dashboardName ?? null,
         dashboardUuid: dashboardContext?.dashboardUuid ?? null,
-        dimensions: relevantDimensions.map((filter) => ({
-            id: filter.id,
-            fieldId: filter.target.fieldId,
-            tableName: filter.target.tableName,
-            operator: filter.operator,
-            values: filter.values ?? null,
-            disabled: filter.disabled ?? false,
-            categoryLevel: filter.categoryLevel ?? null,
-            parentFieldId: filter.parentFieldId ?? null,
-            parentScope: filter.parentScope ?? null,
-            parentTabUuid: filter.parentTabUuid ?? null,
-        })),
+        dimensions: relevantDimensions.map(boundRuleSignature),
+        boundValues: filters.dimensions
+            .filter((filter) => isBoundValueFilter(filter))
+            .map(boundRuleSignature),
     });
 };
 
@@ -569,6 +609,27 @@ type CategoryValueResolution =
     | { status: 'resolved'; value: string }
     | { status: 'clear'; reason: 'parent-unresolved' }
     | { status: 'keep'; reason: 'no-candidates' }
+    | { status: 'error'; error: unknown }
+    | { status: 'cancelled' };
+
+/**
+ * 绑定父级的普通维度（集团 / 品牌 / 包装类型 / 商品名称…）的取值解析结果。
+ *
+ * 与类目的区别：类目只能取单值、且链路断裂时清空；
+ * 绑定字段可以是多选（values ∩ 候选 保留 + 补齐），链路断裂时**保留原值**。
+ */
+export type BoundValuesResolution =
+    | {
+          status: 'keep';
+          reason:
+              | 'not-bound'
+              | 'disabled'
+              | 'unsupported-operator'
+              | 'broken-chain'
+              | 'no-candidates'
+              | 'unchanged';
+      }
+    | { status: 'resolved'; values: string[] }
     | { status: 'error'; error: unknown }
     | { status: 'cancelled' };
 
@@ -1052,6 +1113,91 @@ const resolveCategoryFilterValueAsync = async ({
     return { status: 'resolved', value: fieldValues[0] };
 };
 
+const resolveBoundValuesAsync = async ({
+    filter,
+    chain,
+    projectUuid,
+    dashboardContext,
+    parentValueOverride,
+    session,
+}: {
+    filter: DashboardFilterRule;
+    chain: CategoryChain;
+    projectUuid: string;
+    dashboardContext?: DashboardFilterContext;
+    parentValueOverride?: string | null;
+    session?: CategoryRequestSession;
+}): Promise<BoundValuesResolution> => {
+    if (!isBoundValueFilter(filter)) {
+        return { status: 'keep', reason: 'not-bound' };
+    }
+
+    // 「任何值」= 没有确认值：不主动收窄数据
+    if (filter.disabled === true) {
+        return { status: 'keep', reason: 'disabled' };
+    }
+
+    // 只处理能逐值校验的控件：等于（可多值）/ 包含
+    if (
+        filter.operator !== FilterOperator.EQUALS &&
+        filter.operator !== FilterOperator.INCLUDE
+    ) {
+        return { status: 'keep', reason: 'unsupported-operator' };
+    }
+
+    const entry = chain.find((candidate) => candidate.rule.id === filter.id);
+    const searchFilters = collectFieldSearchFilters(
+        chain,
+        entry ?? { rule: filter, location: GLOBAL_FILTER_LOCATION },
+        parentValueOverride,
+    );
+    // 父级没有值：链路断裂。不清空用户的值（否则切 Tab 会把作者默认值也消掉）。
+    if (searchFilters === undefined) {
+        return { status: 'keep', reason: 'broken-chain' };
+    }
+
+    const result = await fetchFieldSearchValues(
+        projectUuid,
+        filter.target.fieldId,
+        filter.target.tableName,
+        searchFilters,
+        dashboardContext,
+        session,
+    );
+
+    if (result.status === 'cancelled') return { status: 'cancelled' };
+    if (result.status === 'error') {
+        return { status: 'error', error: result.error };
+    }
+
+    const candidates = result.values;
+    if (candidates.length === 0) {
+        // 空结果：无法区分「确实没数据」与「行级过滤把行都过滤了」。
+        // 保留原值：宁可空图（明显）也不要乱填（隐蔽）。
+        return { status: 'keep', reason: 'no-candidates' };
+    }
+
+    const currentValues = (filter.values ?? []).map((value) => String(value));
+    const kept = currentValues.filter((value) => candidates.includes(value));
+
+    // 数量 N = 当前选中的个数（最小 1）：多选「商品 5 个」天然还是 5 个
+    const want = Math.max(currentValues.length, 1);
+    const filled = [...kept];
+    for (const candidate of candidates) {
+        if (filled.length >= want) break;
+        if (!filled.includes(candidate)) filled.push(candidate);
+    }
+
+    if (
+        filled.length === currentValues.length &&
+        filled.every((value, index) => value === currentValues[index])
+    ) {
+        return { status: 'keep', reason: 'unchanged' };
+    }
+
+    return { status: 'resolved', values: filled };
+};
+
 /**
  * 按类目层级（1 → 4）排序类目筛选器。
  * 重置时必须先处理父级（一级类目），子级才能基于新的父级值重新解析。
@@ -1124,18 +1270,34 @@ type CascadeContext = {
     session?: CategoryRequestSession;
     /** 解析异常回调（用于提示用户） */
     onResolutionIssue?: CategoryResolutionIssueHandler;
+    /** 绑定字段的值被自动调整时回调（用于 pill 标记） */
+    onValuesAutoAdjusted?: (info: {
+        filterId: string;
+        fieldId: string;
+        previousValues: string[];
+        nextValues: string[];
+    }) => void;
 };
 
 /**
  * 找出某个规则在链上的直接子级
+ */
+/**
+ * 找出某个规则在链上的直接子级。
+ *
+ * 子级包括：
+ * - 类目筛选器（cls_1 → cls_2 …）
+ * - 绑定了父级的普通维度（集团 / 品牌 / 包装类型 / 商品名称…）
  */
 const getChildEntries = (
     chain: CategoryChain,
     parent: CategoryChainEntry,
 ): CategoryChainEntry[] =>
     chain.filter((entry) => {
-        if (!isCategoryField(entry.rule)) return false;
-        // 只有显式绑定父级筛选器的类目才是子级
+        if (!isCategoryField(entry.rule) && !isBoundValueFilter(entry.rule)) {
+            return false;
+        }
+        // 只有显式绑定父级筛选器的字段才是子级
         const resolvedParent = findParentCategoryEntry(chain, entry);
         return resolvedParent?.rule.id === parent.rule.id;
     });
@@ -1183,6 +1345,12 @@ const clearDescendantsAsync = async (
         const currentChild =
             currentChain.find((entry) => entry.rule.id === child.rule.id) ??
             child;
+
+        // 绑定父级的普通维度（集团/品牌/商品名称…）在「父级断链」时**保留原值**：
+        // 它们的取值不代表层级语义，清空只会让用户丢掉自己选过的值。
+        if (isBoundValueFilter(currentChild.rule)) {
+            continue;
+        }
 
         if (
             ctx.canUpdate(currentChild) &&
@@ -1311,7 +1479,88 @@ const cascadeChildrenAsync = async (
                 (entry) => entry.rule.id === originalChild.rule.id,
             ) ?? originalChild;
 
-        if (!isCategoryField(child.rule)) continue;
+        if (!isCategoryField(child.rule)) {
+            if (!isBoundValueFilter(child.rule)) continue;
+
+            // 绑定父级的普通维度：按候选值校验/补齐（支持多选）
+            if (!ctx.canUpdate(child)) continue;
+            if (
+                !shouldCascadeCategoryFilter(
+                    child.rule,
+                    ctx.recoverableFilterIds,
+                )
+            ) {
+                logCategoryCascade('skip bound values: no confirmed value', {
+                    child: summarizeRule(child.rule),
+                    parent: summarizeRule(parentEntry.rule),
+                });
+                continue;
+            }
+
+            const boundResolution = await resolveBoundValuesAsync({
+                filter: child.rule,
+                chain: currentChain,
+                projectUuid: ctx.projectUuid,
+                dashboardContext: ctx.dashboardContext,
+                parentValueOverride: parentValue,
+                session: ctx.session,
+            });
+
+            logCategoryCascade('bound values resolved', {
+                child: summarizeRule(child.rule),
+                parent: summarizeRule(parentEntry.rule),
+                parentValue,
+                status: boundResolution.status,
+                reason:
+                    'reason' in boundResolution
+                        ? boundResolution.reason
+                        : undefined,
+                values:
+                    boundResolution.status === 'resolved'
+                        ? boundResolution.values
+                        : undefined,
+            });
+
+            if (boundResolution.status === 'cancelled') {
+                return {
+                    chain: currentChain,
+                    hasChanges: false,
+                    cancelled: true,
+                };
+            }
+            if (boundResolution.status === 'error') {
+                logCategorySearchError(
+                    `Failed to cascade bound filter ${child.rule.target.fieldId}, keeping current value`,
+                    boundResolution.error,
+                );
+                ctx.onResolutionIssue?.({
+                    kind: 'error',
+                    filterId: child.rule.id,
+                    fieldId: child.rule.target.fieldId,
+                    phase: 'cascade',
+                    scope: getLocationScopeLabel(child.location),
+                    error: boundResolution.error,
+                });
+                continue;
+            }
+            if (boundResolution.status === 'keep') continue;
+
+            currentChain = replaceRuleInChain(currentChain, child.rule.id, {
+                ...child.rule,
+                values: boundResolution.values,
+                disabled: false,
+            });
+            hasChanges = true;
+            ctx.onValuesAutoAdjusted?.({
+                filterId: child.rule.id,
+                fieldId: child.rule.target.fieldId,
+                previousValues: (child.rule.values ?? []).map((value) =>
+                    String(value),
+                ),
+                nextValues: boundResolution.values,
+            });
+            continue;
+        }
 
         // 如果 operator 不是默认的 EQUALS，说明用户手动修改过，保留用户的设置
         if (child.rule.operator !== FilterOperator.EQUALS) {
@@ -1565,6 +1814,13 @@ export const initializeCategoryFiltersAsync = async (
         session?: CategoryRequestSession;
         /** 解析异常回调：请求失败时保留原值，需要提示用户 */
         onResolutionIssue?: CategoryResolutionIssueHandler;
+        /** 绑定字段的值被自动调整时回调（用于 pill 标记） */
+        onValuesAutoAdjusted?: (info: {
+            filterId: string;
+            fieldId: string;
+            previousValues: string[];
+            nextValues: string[];
+        }) => void;
     },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
@@ -1743,6 +1999,90 @@ export const initializeCategoryFiltersAsync = async (
         );
     }
 
+    // 绑定父级的普通维度（集团 / 品牌 / 包装类型 / 商品名称…）
+    // 必须在类目解析完成之后：它们的候选值依赖左侧类目的当前值。
+    // 按链顺序处理，只跑一轮（普通字段之间不做互相驱动）。
+    for (const entry of [...workingChain]) {
+        if (options?.session?.isCancelled()) return filters;
+
+        const boundFilter = entry.rule;
+        if (!isBoundValueFilter(boundFilter)) continue;
+        if (skipFilterIds.has(boundFilter.id)) continue;
+        if (onlyFilterIds && !onlyFilterIds.has(boundFilter.id)) continue;
+
+        const currentBoundFilter =
+            workingFilters.dimensions.find(
+                (filter) => filter.id === boundFilter.id,
+            ) ?? boundFilter;
+
+        const boundResolution = await resolveBoundValuesAsync({
+            filter: currentBoundFilter,
+            chain: workingChain,
+            projectUuid,
+            dashboardContext,
+            session: options?.session,
+        });
+
+        logCategoryCascade('bound values init', {
+            filter: summarizeRule(currentBoundFilter),
+            status: boundResolution.status,
+            reason:
+                'reason' in boundResolution
+                    ? boundResolution.reason
+                    : undefined,
+            values:
+                boundResolution.status === 'resolved'
+                    ? boundResolution.values
+                    : undefined,
+        });
+
+        if (boundResolution.status === 'cancelled') return filters;
+        if (boundResolution.status === 'error') {
+            logCategorySearchError(
+                `Failed to resolve bound filter ${currentBoundFilter.target.fieldId}, keeping current value`,
+                boundResolution.error,
+            );
+            options?.onResolutionIssue?.({
+                kind: 'error',
+                filterId: currentBoundFilter.id,
+                fieldId: currentBoundFilter.target.fieldId,
+                phase: 'init',
+                scope: getLocationScopeLabel(location),
+                error: boundResolution.error,
+            });
+            continue;
+        }
+        if (boundResolution.status === 'keep') continue;
+
+        const previousValues = (currentBoundFilter.values ?? []).map((value) =>
+            String(value),
+        );
+        const updatedBoundFilter: DashboardFilterRule = {
+            ...currentBoundFilter,
+            values: boundResolution.values,
+            disabled: false,
+        };
+
+        workingChain = replaceRuleInChain(
+            workingChain,
+            currentBoundFilter.id,
+            updatedBoundFilter,
+        );
+        workingFilters = replaceRuleInFilters(
+            workingFilters,
+            currentBoundFilter.id,
+            updatedBoundFilter,
+        );
+        hasChanges = true;
+
+        options?.onValuesAutoAdjusted?.({
+            filterId: currentBoundFilter.id,
+            fieldId: currentBoundFilter.target.fieldId,
+            previousValues,
+            nextValues: boundResolution.values,
+        });
+    }
+
     if (!hasChanges) return filters;
     return workingFilters;
 };
@@ -1768,6 +2108,13 @@ export const updateCategoryFilterCascadeAsync = async (
         session?: CategoryRequestSession;
         /** 解析异常回调：请求失败时保留原值，需要提示用户 */
         onResolutionIssue?: CategoryResolutionIssueHandler;
+        /** 绑定字段的值被自动调整时回调（用于 pill 标记） */
+        onValuesAutoAdjusted?: (info: {
+            filterId: string;
+            fieldId: string;
+            previousValues: string[];
+            nextValues: string[];
+        }) => void;
     },
 ): Promise<DashboardFilters> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1797,6 +2144,7 @@ export const updateCategoryFilterCascadeAsync = async (
             canUpdate: (entry) => scopeRuleIds.has(entry.rule.id),
             session: options?.session,
             onResolutionIssue: options?.onResolutionIssue,
+            onValuesAutoAdjusted: options?.onValuesAutoAdjusted,
         },
     );
 
@@ -1837,6 +2185,13 @@ export const updateCategoryCascadeForLocationsAsync = async (
         session?: CategoryRequestSession;
         /** 解析异常回调：请求失败时保留原值，需要提示用户 */
         onResolutionIssue?: CategoryResolutionIssueHandler;
+        /** 绑定字段的值被自动调整时回调（用于 pill 标记） */
+        onValuesAutoAdjusted?: (info: {
+            filterId: string;
+            fieldId: string;
+            previousValues: string[];
+            nextValues: string[];
+        }) => void;
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -1884,6 +2239,7 @@ export const updateCategoryCascadeForLocationsAsync = async (
                     isSameCategoryLocation(entry.location, scope),
                 session: options?.session,
                 onResolutionIssue: options?.onResolutionIssue,
+                onValuesAutoAdjusted: options?.onValuesAutoAdjusted,
             },
         );
 
@@ -2001,6 +2357,13 @@ export const updateCrossScopeCategoryCascadeAsync = async (
          * 多 Tab 看板下一次全局类目变更从「12 次请求」降到「1~2 次」。
          */
         activeTabUuid?: string | null;
+        /** 绑定字段的值被自动调整时回调（用于 pill 标记） */
+        onValuesAutoAdjusted?: (info: {
+            filterId: string;
+            fieldId: string;
+            previousValues: string[];
+            nextValues: string[];
+        }) => void;
     },
 ): Promise<CategoryFilterLayers> => {
     if (!isCategoryField(changedFilter)) {

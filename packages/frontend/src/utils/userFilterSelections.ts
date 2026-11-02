@@ -8,6 +8,7 @@ import {
 } from '@lightdash/common';
 
 import {
+    CATEGORY_COLUMN_LEVELS,
     getCategoryColumnName,
     getCategoryLevelOf,
     type CategoryLevel,
@@ -269,6 +270,27 @@ export const findInheritedRule = (
     return firstMatch ? rules[firstMatch.index] : undefined;
 };
 
+/**
+ * 父级筛选器的「层级身份」：跨 mart 的同级类目视为同一个父级。
+ *
+ * 各 Tab 的父级字段是各自的 fieldId（`group_cls4_insight_list_cls_4` vs
+ * `brand_cls3_insight_list_cls_4`），严格比较 parentFieldId 会让绑定字段的
+ * 跨 Tab 继承永久失效。这里按列名约定推导层级；推不出来时退回字段身份。
+ */
+const getParentLevelKey = (parentFieldId: string | null): string | null => {
+    if (!parentFieldId) return null;
+    const parts = parentFieldId.split('_');
+    const tail = parts.slice(-2).join('_');
+    if (CATEGORY_COLUMN_LEVELS[tail] !== undefined) {
+        return `level:${CATEGORY_COLUMN_LEVELS[tail]}`;
+    }
+    const last = parts[parts.length - 1];
+    if (CATEGORY_COLUMN_LEVELS[last] !== undefined) {
+        return `level:${CATEGORY_COLUMN_LEVELS[last]}`;
+    }
+    return `field:${parentFieldId}`;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                              日期筛选器形态                                */
 /* -------------------------------------------------------------------------- */
@@ -379,12 +401,19 @@ const getSelectionIncompatibility = (
         return 'category-level-mismatch';
     }
     // 类目：父级绑定指向各 Tab 自己的父级字段（跨 mart 必然是不同 fieldId），
-    // 同一层级即视为同一筛选器；非类目仍要求父级一致。
+    // 同一层级即视为同一筛选器。
+    //
+    // 绑定父级的普通维度同理：同一父级类目在不同 mart 上也是不同 fieldId，
+    // 严格比较会让绑定字段的跨 Tab 继承永久失效 → 按「父级类目的层级」比较。
     if (
         sourceLevel === null &&
         (source.parentFieldId ?? null) !== (target.parentFieldId ?? null)
     ) {
-        return 'parent-mismatch';
+        const sourceParentKey = getParentLevelKey(source.parentFieldId ?? null);
+        const targetParentKey = getParentLevelKey(target.parentFieldId ?? null);
+        if (sourceParentKey === null || sourceParentKey !== targetParentKey) {
+            return 'parent-mismatch';
+        }
     }
 
     if (

@@ -161,6 +161,11 @@ export type DashboardContextType = {
     getMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
     /** 顶部筛选 UI 用：存在类目级联展示态时优先展示态，图表查询仍用 getMergedFiltersForTab */
     getDisplayedMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
+    /**
+     * 被「按当前类目自动解析」改写过的筛选器（运行时，不落库）。
+     * key = 作用域（'global' / tab uuid），value = { filterId: 被替换前的取值 }
+     */
+    tabAutoAdjustedFilterIds: Record<string, Record<string, string[]>>;
     /** Tab 类目级联即时展示态；无 pending 时为空对象 */
     tabCategoryDisplayFilters: Record<
         string,

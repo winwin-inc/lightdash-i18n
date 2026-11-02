@@ -2780,6 +2780,9 @@
         "requires_default_value": "Turn on \"Provide default value\" to configure single/multiple selection"
       },
       "category_level": {
+        "follow_parent_label": "Follow parent filter",
+        "follow_parent_placeholder": "Select a category filter",
+        "follow_parent_hint": "Values are re-validated against the current category when the parent changes",
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",
@@ -2885,6 +2888,7 @@
       }
     },
     "filter": {
+      "auto_adjusted_hint": "Auto-adjusted for the current category (previous: ",
       "cascade_updating": "Updating",
       "tooltip_creating_new": {
         "label": {

@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import { isCategoryField } from '../../../utils/categoryFilters';
 import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
@@ -132,6 +133,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     filterScope = 'global',
 }) => {
     const { t } = useTranslation();
+
+    // 非类目字段也能绑定父级类目（「跟随父级筛选器」），但没有自己的层级
+    const isCategoryRule = isCategoryField(filterRule);
     const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
@@ -696,111 +700,122 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     />
                                 </Tooltip>
                             </Group>
-                            <Select
-                                size="xs"
-                                placeholder={t(
-                                    'components_dashboard_filter.configuration.category_level.placeholder',
-                                )}
-                                clearable
-                                data={[
-                                    {
-                                        value: '1',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level1',
-                                        ),
-                                    },
-                                    {
-                                        value: '2',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level2',
-                                        ),
-                                    },
-                                    {
-                                        value: '3',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level3',
-                                        ),
-                                    },
-                                    {
-                                        value: '4',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level4',
-                                        ),
-                                    },
-                                ]}
-                                value={filterRule.categoryLevel?.toString()}
-                                onChange={(value) => {
-                                    const newCategoryLevel = value
-                                        ? (Number.parseInt(value, 10) as
-                                              | 1
-                                              | 2
-                                              | 3
-                                              | 4)
-                                        : undefined;
+                            {isCategoryRule && (
+                                <Select
+                                    size="xs"
+                                    placeholder={t(
+                                        'components_dashboard_filter.configuration.category_level.placeholder',
+                                    )}
+                                    clearable
+                                    data={[
+                                        {
+                                            value: '1',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level1',
+                                            ),
+                                        },
+                                        {
+                                            value: '2',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level2',
+                                            ),
+                                        },
+                                        {
+                                            value: '3',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level3',
+                                            ),
+                                        },
+                                        {
+                                            value: '4',
+                                            label: t(
+                                                'components_dashboard_filter.configuration.category_level.level4',
+                                            ),
+                                        },
+                                    ]}
+                                    value={filterRule.categoryLevel?.toString()}
+                                    onChange={(value) => {
+                                        const newCategoryLevel = value
+                                            ? (Number.parseInt(value, 10) as
+                                                  | 1
+                                                  | 2
+                                                  | 3
+                                                  | 4)
+                                            : undefined;
 
-                                    // 自动查找并设置父级筛选器：
-                                    // 优先同作用域的上一级，其次全局的上一级
-                                    // （Tab 三级可以自动绑定全局二级）
-                                    // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
-                                    // 交由作者在「父级筛选器」里显式选择
-                                    let autoParentRef: ParentFilterRef | null =
-                                        null;
-                                    if (
-                                        newCategoryLevel &&
-                                        newCategoryLevel > 1 &&
-                                        parentFilterOptions.length > 0
-                                    ) {
-                                        const targetParentLevel =
-                                            newCategoryLevel - 1;
-                                        const candidates =
-                                            parentFilterOptions.filter(
+                                        // 自动查找并设置父级筛选器：
+                                        // 优先同作用域的上一级，其次全局的上一级
+                                        // （Tab 三级可以自动绑定全局二级）
+                                        // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
+                                        // 交由作者在「父级筛选器」里显式选择
+                                        let autoParentRef: ParentFilterRef | null =
+                                            null;
+                                        if (
+                                            newCategoryLevel &&
+                                            newCategoryLevel > 1 &&
+                                            parentFilterOptions.length > 0
+                                        ) {
+                                            const targetParentLevel =
+                                                newCategoryLevel - 1;
+                                            const candidates =
+                                                parentFilterOptions.filter(
+                                                    (option) =>
+                                                        option.categoryLevel ===
+                                                        targetParentLevel,
+                                                );
+                                            const sameScope = candidates.filter(
                                                 (option) =>
-                                                    option.categoryLevel ===
-                                                    targetParentLevel,
+                                                    option.scope ===
+                                                    filterScope,
                                             );
-                                        const sameScope = candidates.filter(
-                                            (option) =>
-                                                option.scope === filterScope,
-                                        );
-                                        const globalScope = candidates.filter(
-                                            (option) =>
-                                                option.scope === 'global',
-                                        );
-                                        const preferred =
-                                            sameScope.length === 1
-                                                ? sameScope[0]
-                                                : sameScope.length === 0 &&
-                                                  globalScope.length === 1
-                                                ? globalScope[0]
-                                                : undefined;
-                                        autoParentRef = preferred
-                                            ? decodeParentFilterRef(
-                                                  preferred.value,
-                                              )
-                                            : null;
-                                    }
+                                            const globalScope =
+                                                candidates.filter(
+                                                    (option) =>
+                                                        option.scope ===
+                                                        'global',
+                                                );
+                                            const preferred =
+                                                sameScope.length === 1
+                                                    ? sameScope[0]
+                                                    : sameScope.length === 0 &&
+                                                      globalScope.length === 1
+                                                    ? globalScope[0]
+                                                    : undefined;
+                                            autoParentRef = preferred
+                                                ? decodeParentFilterRef(
+                                                      preferred.value,
+                                                  )
+                                                : null;
+                                        }
 
-                                    onChangeFilterRule(
-                                        applyParentFilterRef(
-                                            {
-                                                ...filterRule,
-                                                categoryLevel: newCategoryLevel,
-                                            },
-                                            autoParentRef,
-                                        ),
-                                    );
-                                }}
-                            />
+                                        onChangeFilterRule(
+                                            applyParentFilterRef(
+                                                {
+                                                    ...filterRule,
+                                                    categoryLevel:
+                                                        newCategoryLevel,
+                                                },
+                                                autoParentRef,
+                                            ),
+                                        );
+                                    }}
+                                />
+                            )}
+                            {/* 父级筛选器：类目与非类目共用（非类目=「跟随父级筛选器」） */}
                             <Select
                                 mt="xs"
                                 size="xs"
                                 data={parentFilterOptions}
                                 value={parentOptionValue}
                                 label={t(
-                                    'components_dashboard_filter.configuration.category_level.parent_filter_label',
+                                    isCategoryRule
+                                        ? 'components_dashboard_filter.configuration.category_level.parent_filter_label'
+                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_label',
                                 )}
                                 placeholder={t(
-                                    'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
+                                    isCategoryRule
+                                        ? 'components_dashboard_filter.configuration.category_level.parent_filter_placeholder'
+                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_placeholder',
                                 )}
                                 disabled={parentFilterOptions.length === 0}
                                 clearable
@@ -815,7 +830,9 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             />
                             <Text size="xs" c="dimmed" mt={4}>
                                 {t(
-                                    'components_dashboard_filter.configuration.category_level.parent_scope_hint',
+                                    isCategoryRule
+                                        ? 'components_dashboard_filter.configuration.category_level.parent_scope_hint'
+                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
                                 )}
                             </Text>
 

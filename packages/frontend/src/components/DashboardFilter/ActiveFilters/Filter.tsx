@@ -21,7 +21,12 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
-import { IconGripVertical, IconLock, IconLockOpen } from '@tabler/icons-react';
+import {
+    IconGripVertical,
+    IconLock,
+    IconLockOpen,
+    IconWand,
+} from '@tabler/icons-react';
 import {
     useCallback,
     useEffect,
@@ -100,6 +105,8 @@ type Props = {
     onRemove: () => void;
     /** 类目级联解析子级中：禁用交互并提示更新中 */
     isCascadeUpdating?: boolean;
+    /** 取值被「按当前类目自动调整」过：pill 上加标记 + tooltip 原值 */
+    autoAdjustedPreviousValues?: string[];
 };
 
 const Filter: FC<Props> = ({
@@ -116,6 +123,7 @@ const Filter: FC<Props> = ({
     onUpdate,
     onRemove,
     isCascadeUpdating = false,
+    autoAdjustedPreviousValues,
 }) => {
     const { t } = useTranslation();
 
@@ -183,8 +191,8 @@ const Filter: FC<Props> = ({
             ? t('components_dashboard_filter.filter.lock_unlock_tab')
             : t('components_dashboard_filter.filter.lock_unlock')
         : hasTabs
-          ? t('components_dashboard_filter.filter.lock_on_tab')
-          : t('components_dashboard_filter.filter.lock');
+        ? t('components_dashboard_filter.filter.lock_on_tab')
+        : t('components_dashboard_filter.filter.lock');
 
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
@@ -539,14 +547,14 @@ const Filter: FC<Props> = ({
                                           '更新中',
                                       )
                                     : isReadOnlyLocked
-                                      ? hasTabs
-                                          ? t(
-                                                'components_dashboard_filter.filter.locked_on_tab',
-                                            )
-                                          : t(
-                                                'components_dashboard_filter.filter.locked',
-                                            )
-                                      : inactiveFilterInfo
+                                    ? hasTabs
+                                        ? t(
+                                              'components_dashboard_filter.filter.locked_on_tab',
+                                          )
+                                        : t(
+                                              'components_dashboard_filter.filter.locked',
+                                          )
+                                    : inactiveFilterInfo
                             }
                             disabled={
                                 !isCascadeUpdating &&
@@ -734,15 +742,50 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {
-                                                        filterRuleLabels?.operator
-                                                    }{' '}
+                                                    {filterRuleLabels?.operator}{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
                                                 </Text>
                                             </>
                                         )}
+                                        {autoAdjustedPreviousValues ? (
+                                            <Tooltip
+                                                withinPortal
+                                                position="top"
+                                                openDelay={200}
+                                                label={
+                                                    <Text fz="xs">
+                                                        {t(
+                                                            'components_dashboard_filter.filter.auto_adjusted_hint',
+                                                        )}
+                                                        {autoAdjustedPreviousValues.length >
+                                                        0 ? (
+                                                            <Text span fw={600}>
+                                                                {autoAdjustedPreviousValues.join(
+                                                                    ', ',
+                                                                )}
+                                                            </Text>
+                                                        ) : null}
+                                                    </Text>
+                                                }
+                                            >
+                                                <Box
+                                                    component="span"
+                                                    ml={4}
+                                                    sx={{
+                                                        display: 'inline-flex',
+                                                        verticalAlign: 'middle',
+                                                    }}
+                                                >
+                                                    <MantineIcon
+                                                        icon={IconWand}
+                                                        size={12}
+                                                        color="gray.6"
+                                                    />
+                                                </Box>
+                                            </Tooltip>
+                                        ) : null}
                                     </Text>
                                 </Box>
                             </Button>
