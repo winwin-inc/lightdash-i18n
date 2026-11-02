@@ -121,11 +121,11 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
 | `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
-| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | **计划中（未实现）**：强制看板模式。外部品牌 CT 拟设 `MCP_DASHBOARD_STRICT=true`；内部保持不设。详见 [设计稿](./lightdash-mcp-dashboard-strict-mode.md) |
+| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | 强制看板模式。**外部品牌 CT 两部设 `MCP_DASHBOARD_STRICT=true`，内部保持不设（默认 `false`）**；`MCP_DASHBOARD_CONTACT` 配客服文案。详见 [强制看板模式](./lightdash-mcp-dashboard-strict-mode.md) 与 [§5.7 上线顺序](#57-严格模式的上线顺序必读) |
 
 > MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
 >
-> 强制看板模式目前仅完成设计，尚未实现；设置上述变量不会改变运行时行为。
+> 强制看板模式已实现，**默认关闭**：不设 `MCP_DASHBOARD_STRICT` 时行为与改造前一致。
 
 ### 4.2 Lightdash 主站
 
@@ -268,6 +268,99 @@ done
 > 盘点必须用**管理员 PAT**（受限账号只能看到白名单内的看板，数量会偏少）。
 
 ---
+
+### 5.8 一图看懂：配置归属、请求流程、角色关系
+
+#### 5.8.1 谁配什么（环境变量放哪）
+
+```mermaid
+flowchart LR
+  subgraph CLIENT["客户端（客户自己填）"]
+    P1["PAT<br/>（x-api-key，线上不做服务端兜底）"]
+  end
+
+  subgraph MCP["MCP 服务 Deployment（ConfigMap / Secret）"]
+    E1["LIGHTDASH_SITE_URL"]
+    E2["LIGHTDASH_PUBLIC_SITE_URL"]
+    E3["LIGHTDASH_PROJECT_UUID"]
+    E4["MCP_DASHBOARD_STRICT=true"]
+    E5["MCP_DASHBOARD_CONTACT=…"]
+    E6["MCP_OAUTH_ENABLED / session 容量等"]
+  end
+
+  subgraph MAIN["Lightdash 主站（Secret / 界面 / 数据库）"]
+    B1["ADMIN_API_HOST + ADMIN_API_KEY<br/>（看板白名单 RPC）"]
+    B2["projects.is_client_use = true<br/>（界面开启客户使用模式）"]
+    B3["项目角色 = viewer / interactive_viewer<br/>（后台授权）"]
+    B4["客户后台：按手机号授权看板<br/>（RPC 白名单数据）"]
+  end
+
+  subgraph DATA["dbt 项目 + 看板数据"]
+    D1["数据集挂到看板<br/>（saved chart tile）"]
+    D2["sql_filter 引用 lightdash.user.dashboardSlug"]
+  end
+
+  P1 --> MCP
+  MCP -- "同一 PAT 调 REST" --> MAIN
+  B2 --> B1
+  B3 --> B1
+  B4 --> B1
+  D1 --> D2
+```
+
+要点：
+
+- **`MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` 只配在 MCP 服务**（ConfigMap），不进主站 `.env`；改这两项只需重启 MCP Pod。
+- 主站侧只有两类东西：**RPC 凭证**（`ADMIN_API_HOST` / `ADMIN_API_KEY`）与**业务配置**（客户使用模式开关、项目角色、看板授权数据）。
+- PAT 是客户端自己填的，MCP 不保存（线上不配 `LIGHTDASH_API_KEY` 兜底）。
+
+#### 5.8.2 一次查询走完的五道闸（严格模式）
+
+```mermaid
+flowchart TD
+  S["MCP 查询请求<br/>run_metric_query / run_semantic_metric_query / run_saved_chart / search_field_values / run_dashboard_tiles"] --> G1
+
+  G1{"① 认证<br/>PAT / OAuth 有效？"} -- 否 --> R401["401"]
+  G1 -- 是 --> G2
+
+  G2{"② 能力位 + 可查表预检<br/>view Explore / runMetricQuery<br/>（受限角色还会被看板白名单收窄）"} -- 否 --> X2["已拒绝查询…<br/>（可能没授权，也可能没挂看板）"]
+  G2 -- 是 --> G3
+
+  G3{"③ 解析 dashboardUuid<br/>MCP_DASHBOARD_STRICT"} -->|"显式 uuid 命中关联候选"| OK
+  G3 -->|"未传 + 反查唯一"| OK
+  G3 -->|"未传 + 反查多个"| X3A["dashboard_selection_required<br/>（非错误，附候选链接）"]
+  G3 -->|"未传 + 反查 0"| X3B{"associatedCount"}
+  X3B -->|"= 0"| X3B0["dashboard_configuration_required<br/>管理员去配看板"]
+  X3B -->|"> 0"| X3B1["dashboard_permission_required<br/>客服开权限"]
+  X3B -->|"缺失"| X3B2["dashboard_context_unavailable"]
+  G3 -->|"显式 uuid 未命中候选"| X3C{"associatedCount"}
+  X3C -->|"= 0"| X3B0
+  X3C -->|"> 0"| X3D["查 GET /dashboards/{uuid}<br/>403 → permission_required<br/>404/跨项目 → not_found"]
+
+  OK["④ 后端校验看板<br/>项目归属 + CASL 空间权限 + client-use 白名单<br/>→ canonical dashboardSlug"] --> G5
+  OK -- "403" --> X4["dashboard_permission_required"]
+  G5["⑤ 注入 lightdash.user.dashboardSlug<br/>→ dbt sql_filter 生效 → 执行查询"]
+  G5 --> OUT["返回数据 + resolvedDashboardContext<br/>（含 dashboardUuid / dashboardUrl）"]
+```
+
+#### 5.8.3 角色和权限到底是什么关系
+
+```mermaid
+flowchart LR
+  ROLE["项目角色<br/>viewer / interactive_viewer / editor / developer / admin"] --> G2["决定②③④能过几道闸"]
+  CU["客户使用模式 + RPC 白名单<br/>（按手机号）"] --> G4["额外收窄看板/图表/空间/数据集"]
+  ROLE --> G4
+  STRICT["MCP_DASHBOARD_STRICT<br/>（部署级开关）"] --> G3["决定是否必须带看板上下文<br/>与角色无关"]
+```
+
+| 角色 | ② 可查表 | ③ 必须带看板 | ④ 能打开的看板 | 净效果 |
+|---|---|---|---|---|
+| 客户 `viewer` | 白名单派生的 explore | **是** | 白名单内的看板 | 只能按白名单看板口径查 |
+| 客户 `interactive_viewer` | 同上 + 可跑临时指标查询 | **是** | 同上 | 同上，能力更宽 |
+| `editor` / `developer` / `admin` | 项目内可见 explore（不受白名单收窄） | **是**（严格模式） | 自己能打开的看板 | 仍必须选一张**关联该数据集**的看板 |
+| 任意角色 + `MCP_DASHBOARD_STRICT=false` | 按各自能力位 | 否 | — | 行为与改造前一致（可能落 `NA`） |
+
+一句话：**角色决定"能看多宽"，严格模式决定"必须落在哪张看板上"，两者叠加而不是互相替代**；升角色不会绕过第③道闸。
 
 ## 6. 权限模型（必读）
 
