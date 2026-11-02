@@ -11,6 +11,7 @@ import {
     getCategoryFiltersSignature,
     initializeCategoryFiltersAsync,
     isBoundValueFilter,
+    isValidParentBinding,
     updateCrossScopeCategoryCascadeAsync,
 } from './categoryFilters';
 import { isRuleSelectionCompatible } from './userFilterSelections';
@@ -508,5 +509,137 @@ describe('bound value filters (非类目字段绑定父级类目)', () => {
 
             expect(isRuleSelectionCompatible(source, target)).toBe(false);
         });
+    });
+});
+
+describe('多级绑定：普通维度可以挂在普通维度下面', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'debug').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        clearFieldSearchCacheForTests();
+    });
+
+    describe('isValidParentBinding', () => {
+        const groupRule = boundRule({
+            id: 'g',
+            fieldId: 'table_group',
+            parentFieldId: 'table_cls_1',
+            values: ['海天'],
+        });
+        const brandRule = boundRule({
+            id: 'b',
+            fieldId: 'table_brand',
+            parentFieldId: 'table_group',
+            values: ['海天酱油'],
+        });
+
+        it('allows a plain dimension as the parent of another plain dimension', () => {
+            expect(isValidParentBinding(groupRule, brandRule)).toBe(true);
+        });
+
+        it('allows a category as the parent of a plain dimension', () => {
+            expect(
+                isValidParentBinding(
+                    categoryRule({
+                        id: 'c1',
+                        fieldId: 'table_cls_1',
+                        categoryLevel: 1,
+                        values: ['调味品'],
+                    }),
+                    groupRule,
+                ),
+            ).toBe(true);
+        });
+
+        it('rejects a plain dimension as the parent of a category', () => {
+            expect(
+                isValidParentBinding(
+                    groupRule,
+                    categoryRule({
+                        id: 'c2',
+                        fieldId: 'table_cls_2',
+                        categoryLevel: 2,
+                        values: ['酱油'],
+                    }),
+                ),
+            ).toBe(false);
+        });
+
+        it('keeps the level rule for categories', () => {
+            expect(
+                isValidParentBinding(
+                    categoryRule({
+                        id: 'c2',
+                        fieldId: 'table_cls_2',
+                        categoryLevel: 2,
+                    }),
+                    categoryRule({
+                        id: 'c1',
+                        fieldId: 'table_cls_1',
+                        categoryLevel: 1,
+                    }),
+                ),
+            ).toBe(false);
+        });
+
+        it('rejects cyclic bindings', () => {
+            const chain = buildCategoryChain(
+                {
+                    globalFilters: asFilters([]),
+                    tabFilters: { [TAB_UUID]: asFilters([groupRule, brandRule]) },
+                },
+                TAB_UUID,
+            );
+
+            // 品牌 → 集团 已经存在；再把 集团 挂到 品牌 下面会成环
+            expect(isValidParentBinding(brandRule, groupRule, chain)).toBe(
+                false,
+            );
+        });
+    });
+
+    it('resolves a brand from the group (both plain dimensions) during init', async () => {
+        const group = boundRule({
+            id: 'g',
+            fieldId: 'insight_list_group',
+            parentFieldId: 'group_cls4_insight_list_cls_4',
+            values: ['旧集团'],
+        });
+        const brand = boundRule({
+            id: 'b',
+            fieldId: 'insight_list_brand',
+            parentFieldId: 'insight_list_group',
+            values: ['旧品牌'],
+            parentScope: 'tab',
+            parentTabUuid: TAB_UUID,
+        });
+
+        // 顺序：先查集团（父级是四级类目），再查品牌（父级是集团）
+        mockSearchResults(['海天']);
+        mockSearchResults(['海天酱油']);
+
+        const result = await initTab(asFilters([group, brand]));
+
+        expect(api).toHaveBeenCalledTimes(2);
+        expect(result.dimensions.find((d) => d.id === 'g')?.values).toEqual([
+            '海天',
+        ]);
+        expect(result.dimensions.find((d) => d.id === 'b')?.values).toEqual([
+            '海天酱油',
+        ]);
+
+        // 父级先解析：查品牌时带的父级条件必须是集团的**新值**（海天），
+        // 否则说明普通维度之间没有按父子顺序处理。
+        const brandCallBody = JSON.stringify(api.mock.calls[1]?.[0]);
+        expect(brandCallBody).toContain('insight_list_group');
+        expect(brandCallBody).toContain('海天');
+        expect(brandCallBody).not.toContain('旧集团');
     });
 });

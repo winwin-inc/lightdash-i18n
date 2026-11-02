@@ -96,8 +96,9 @@ export const getParentFieldId = (
  *
  * 限制：
  * - SQL 列不参与（表达式在不同 mart 不可比，且 field/search 无法校验）
- * - 父级必须是类目（由 `isValidParentLevel` 保证）→ 链上不会出现
- *   「非类目 → 非类目」，永远不会成环
+ * - 父级可以是类目，也可以是另一个绑定父级的普通维度
+ *   （类目 → 集团 → 品牌 → 商品 这种多级链），由 `isValidParentBinding`
+ *   保证「层级不倒退 + 不成环」。
  */
 export const isBoundValueFilter = (filter: DashboardFilterRule): boolean => {
     if (isCategoryField(filter)) return false;
@@ -271,21 +272,64 @@ const logCategoryCascadeWarning = (...args: unknown[]): void => {
 };
 
 /**
- * 父级层级必须低于子级，否则视为无效绑定（避免成环）
+ * 沿 `parentFieldId` 向上走，判断「把 child 挂到 parent 下」是否成环。
+ *
+ * 同字段可能有多条规则（不同 Tab / 作用域），这里只看字段关系：
+ * 任一条规则形成环就拒绝，宁严勿松（环会让级联递归不收敛）。
  */
-const isValidParentLevel = (
+const createsParentCycle = (
+    chain: CategoryChain,
+    child: DashboardFilterRule,
+    parent: DashboardFilterRule,
+): boolean => {
+    const parentByFieldId = new Map<string, string | undefined>();
+    chain.forEach((entry) => {
+        const fieldId = entry.rule.target.fieldId;
+        if (!parentByFieldId.has(fieldId)) {
+            parentByFieldId.set(fieldId, getParentFieldId(entry.rule) ?? undefined);
+        }
+    });
+
+    let currentFieldId: string | undefined = parent.target.fieldId;
+    const visited = new Set<string>();
+    while (currentFieldId !== undefined) {
+        if (currentFieldId === child.target.fieldId) return true;
+        // 已有的环：也不能再往上挂
+        if (visited.has(currentFieldId)) return true;
+        visited.add(currentFieldId);
+        currentFieldId = parentByFieldId.get(currentFieldId);
+    }
+    return false;
+};
+
+/**
+ * 父级绑定是否合法：
+ *
+ * - **子级是类目**（有 categoryLevel）：保持原语义 —— 父级必须也是类目，且层级更低。
+ * - **子级是普通维度**（集团 / 品牌 / 商品…）：父级可以是类目，也可以是另一个
+ *   绑定父级的普通维度（类目 → 集团 → 品牌 → 商品），只要求不成环。
+ *
+ * `chain` 用于环检测；不传时只做层级判断（UI 预览等场景）。
+ */
+export const isValidParentBinding = (
     parent: DashboardFilterRule,
     child: DashboardFilterRule,
+    chain?: CategoryChain,
 ): boolean => {
-    // 父级必须是类目：非类目字段之间没有层级关系，一旦允许互相绑定就可能成环
-    // （A 绑 B、B 绑 A → 级联递归永不收敛）。
-    // 反过来，非类目字段可以绑任意层级的类目作为父级。
-    if (!isCategoryField(parent)) return false;
+    if (parent.id !== undefined && parent.id === child.id) return false;
+    if (parent.target.fieldId === child.target.fieldId) return false;
 
     const parentLevel = getCategoryLevel(parent);
     const childLevel = getCategoryLevel(child);
-    if (parentLevel === null || childLevel === null) return true;
-    return parentLevel < childLevel;
+
+    if (childLevel !== null) {
+        // 类目的父级必须是更低层级的类目（防止「二级类目挂在一级类目下面又反过来」）
+        if (parentLevel === null) return false;
+        if (parentLevel >= childLevel) return false;
+    }
+
+    if (chain === undefined) return true;
+    return !createsParentCycle(chain, child, parent);
 };
 
 /**
@@ -305,7 +349,7 @@ export const findParentCategoryEntry = (
         (entry) =>
             entry.rule.target.fieldId === parentFieldId &&
             entry.rule.id !== child.rule.id &&
-            isValidParentLevel(entry.rule, child.rule),
+            isValidParentBinding(entry.rule, child.rule, chain),
     );
     if (candidates.length === 0) return null;
 
@@ -928,8 +972,8 @@ const collectFieldSearchFilters = (
 
     const parentEntry = findParentCategoryEntry(chain, child);
 
-    if (!parentEntry || !isCategoryField(parentEntry.rule)) {
-        // 父级不存在（被删除 / 绑定失效）→ 链路断裂
+    if (!parentEntry) {
+        // 父级不存在（被删除 / 绑定失效 / 成环被拒）→ 链路断裂
         return undefined;
     }
 
@@ -1210,6 +1254,43 @@ const sortCategoryFiltersByLevel = (
         .sort(
             (a, b) => (getCategoryLevel(a) ?? 0) - (getCategoryLevel(b) ?? 0),
         );
+
+/**
+ * 把「绑定父级的普通维度」按父子关系排序：父级先处理。
+ *
+ * 类目本身已经按 categoryLevel 排序，但普通维度没有层级（集团 → 品牌 → 商品），
+ * 只能按 parentFieldId 拓扑排序。同层/无父子关系的保持原顺序。
+ */
+const sortChainParentsFirst = (
+    entries: CategoryChainEntry[],
+): CategoryChainEntry[] => {
+    const pending = [...entries];
+    const result: CategoryChainEntry[] = [];
+
+    while (pending.length > 0) {
+        const nextIndex = pending.findIndex((entry) => {
+            const parentFieldId = getParentFieldId(entry.rule);
+            if (!parentFieldId) return true;
+            // 父级还留在 pending 里 → 先处理父级
+            return !pending.some(
+                (other) =>
+                    other !== entry &&
+                    other.rule.target.fieldId === parentFieldId,
+            );
+        });
+
+        // 找不到可处理的（成环）→ 保持剩余顺序，交给运行时按「链路断裂」处理
+        if (nextIndex === -1) {
+            result.push(...pending);
+            break;
+        }
+
+        const [next] = pending.splice(nextIndex, 1);
+        result.push(next);
+    }
+
+    return result;
+};
 
 const replaceRuleInChain = (
     chain: CategoryChain,
@@ -2000,9 +2081,12 @@ export const initializeCategoryFiltersAsync = async (
     }
 
     // 绑定父级的普通维度（集团 / 品牌 / 包装类型 / 商品名称…）
-    // 必须在类目解析完成之后：它们的候选值依赖左侧类目的当前值。
-    // 按链顺序处理，只跑一轮（普通字段之间不做互相驱动）。
-    for (const entry of [...workingChain]) {
+    // 必须在类目解析完成之后：它们的候选值依赖父级的当前值。
+    // 普通维度之间没有层级，按 parentFieldId 拓扑排序（父级先解析），只跑一轮。
+    const boundEntries = sortChainParentsFirst(
+        workingChain.filter((entry) => isBoundValueFilter(entry.rule)),
+    );
+    for (const entry of boundEntries) {
         if (options?.session?.isCancelled()) return filters;
 
         const boundFilter = entry.rule;
@@ -2316,7 +2400,8 @@ export const shouldCascadeCategoryFilterUpdate = ({
     canApplyCategoryFilters: boolean;
 }): boolean =>
     canApplyCategoryFilters &&
-    isCategoryField(filter) &&
+    // 类目，或绑定父级的普通维度（集团 → 品牌 → 商品 这种多级链的中间层）
+    (isCategoryField(filter) || isBoundValueFilter(filter)) &&
     !isEdit &&
     !isTemporary;
 

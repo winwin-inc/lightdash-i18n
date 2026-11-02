@@ -47,7 +47,10 @@ import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { type SqlChartTileMetadata } from '../../../providers/Dashboard/types';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
-import { isCategoryField } from '../../../utils/categoryFilters';
+import {
+    isValidParentBinding,
+    type CategoryChain,
+} from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
@@ -537,23 +540,29 @@ const FilterConfiguration: FC<Props> = ({
                 ? globalCandidates
                 : [...globalCandidates, ...tabCandidates];
 
-        const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
-        const currentFieldId = draftFilterRule.target.fieldId;
+
+        // 父级不限于类目：集团 / 品牌 / 商品 可以挂在同类普通维度下面
+        // （类目 → 集团 → 品牌 → 商品）。合法性（层级/成环）统一走
+        // `isValidParentBinding`，与运行时 `findParentCategoryEntry` 一致。
+        const candidatesChain: CategoryChain = candidates.map(
+            ({ rule: candidate, scope, tabUuid: candidateTabUuid }) => ({
+                rule: candidate,
+                location: {
+                    scope,
+                    tabUuid: scope === 'global' ? null : candidateTabUuid,
+                },
+            }),
+        );
 
         const validCandidates = candidates.filter(({ rule: candidate }) => {
-            if (!isCategoryField(candidate)) return false;
             if (candidate.id && currentId && candidate.id === currentId)
                 return false;
-            if (candidate.target.fieldId === currentFieldId) return false;
-            if (
-                childLevel &&
-                candidate.categoryLevel &&
-                candidate.categoryLevel >= childLevel
-            ) {
-                return false;
-            }
-            return true;
+            return isValidParentBinding(
+                candidate,
+                draftFilterRule,
+                candidatesChain,
+            );
         });
 
         const prepared: ParentFilterOptionDraft[] = validCandidates.map(
