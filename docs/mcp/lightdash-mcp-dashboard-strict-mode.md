@@ -9,7 +9,7 @@
 | # | v1（上一版） | v2（本版） | 原因 |
 |---|--------------|-----------|------|
 | 1 | 覆盖范围表述模糊，隐含"只在 `sql_filter` 依赖 `dashboardSlug` 时才强制" | **A 方案**：开关打开后，**所有会执行查询的工具一律必须解析出 `dashboardUuid`**，与 explore 是否依赖 `dashboardSlug` 无关 | 安全性不能押在 dbt 元数据检测完备性上：检测侧只做字符串包含且只看 base table（`src/mcp/fieldIdResolver.ts:11-31`），执行侧也只应用 base table 的 `sqlWhere`（`src/utils/QueryBuilder/MetricQueryBuilder.ts:745`） |
-| 2 | 0 候选时调 `GET /api/v1/user?projectUuid=` 读 `clientUse.scopeApplied`，按角色区分"权限 / 配置" | **删除整段**。改为由 `/dashboards/context` 返回权限过滤前的关联看板数（`associatedCount`），据此分流 | `scopeApplied` 只回答"当前用户是否被收窄"，不回答"该 explore 有没有绑看板"，是错的 oracle；两种误判都会把客户/客服带偏 |
+| 2 | 0 候选时调 `GET /api/v1/user?projectUuid=` 读 `clientUse.scopeApplied`，按角色区分"权限 / 配置" | **删除整段**。改为由 `/dashboards/context` 返回权限过滤前的关联看板数（`associatedCount`），据此分流 | `scopeApplied` 只回答"当前用户是否被收窄"，不回答"该 explore 有没有绑看板"，是错的 oracle；两种误判都会把客户/客服带偏。⚠️ 2026-11 起该字段**仅用于选择预检文案的口吻**（§9.7），不参与"权限 / 配置"判定 |
 | 3 | 显式 `dashboardUuid` 校验失败可降级 | 预检失败**一律阻断**，并要求 `projectUuid` 归属一致 | 现状 `dashboardContextResolver.ts:202` 把 `getDashboard` 的错误整段 `catch {}` 吞掉并伪造 `resolved`，严格模式下等于放行 `NA` |
 | 4 | 多候选"必须选择" | 保留，且要求 resolver 真正返回 `needs_selection` | 现状 `resolve()` 从不返回该状态（类型里有、三个调用点判断它是死分支），实际是取排序第一个 |
 | 5 | `search_field_values` 只提"禁用 SQL 回退" | 补齐：解析 → field search 带 uuid → 空结果只允许回退到**带 uuid 的 metric-query** | 现状空结果（`FIELD_VALUES_EMPTY`）会直接掉进裸 SQL DISTINCT，绕过 `sql_filter` |
@@ -146,7 +146,7 @@
 
 | 方案 | 否决理由 |
 |------|----------|
-| 用 `GET /api/v1/user?projectUuid=` 的 `clientUse.scopeApplied` 区分权限 / 配置 | 语义不匹配（该字段表示"用户是否被收窄"），且在非 client-use 项目、外部部署的 editor 上都会误判；还需要 60s 缓存与额外 RTT |
+| 用 `GET /api/v1/user?projectUuid=` 的 `clientUse.scopeApplied` 区分权限 / 配置 | 语义不匹配（该字段表示"用户是否被收窄"），且在非 client-use 项目、外部部署的 editor 上都会误判；还需要 60s 缓存与额外 RTT。**注意：本条目否决的是"用它做权限/配置判定"，不是"用它选文案口吻"——后者见 §9.7** |
 | 按项目角色放行（editor+ 免看板） | 与"部署级开关"矛盾，且外部部署的 editor 同样可能看不到看板 |
 | 只在 `sql_filter` 引用 `dashboardSlug` 时才强制 | 检测只看 base table 且只认 `dashboardSlug` 字符串（`fieldIdResolver.ts:11-31`），joined table 与未来改动都会漏；外部部署不能接受 |
 | 0 候选时自动挑一个"最像的"看板 | 行级口径由看板决定，静默挑错等于给错数据；必须让调用方显式选 |
@@ -233,17 +233,27 @@
 
 阻断类结果同时返回 `content`（格式化 JSON 文本）与 `structuredContent`，并设置 `isError: true`；多候选选择结果**不算错误**。每个阻断结果带 `action` 字段。
 
+**"看板类"阻断覆盖三种主体**（同一套 `status`，用 `source` 字段标明来源）：
+
+| 主体 | Lightdash 实体 | 入参 | 哪些工具会产生 |
+|---|---|---|---|
+| 数据集 / 表 | explore（dbt 模型里的 explore 名） | `exploreName`（flat 版即 `exploreName` / `table`） | `run_metric_query`、`run_semantic_metric_query`、`search_field_values` |
+| 图表 | saved chart | `chartUuid` | `run_saved_chart` |
+| 看板 | dashboard | `dashboardUuid`（必填） | `run_dashboard_tiles`、`get_dashboard_tiles`（后者只读） |
+
+因此 `dashboard_configuration_required` 的 message 会随主体变化：数据集走「`「orders」还没有绑定任何看板`」，图表走「`该图表还没有绑定任何看板`」；`run_dashboard_tiles` 的 `dashboardUuid` 已必填，只会出现 `dashboard_permission_required` / `dashboard_not_found`，不会出现"配置"类。
+
 ### 9.1 有看板 ID 但无权限
 
 ```json
 {
   "status": "dashboard_permission_required",
   "action": "request_dashboard_access",
-  "message": "您没有该看板的访问权限。",
+  "message": "您没有这张看板的访问权限。",
   "dashboardUuid": "...",
   "dashboardUrl": "https://x.brandct.com/projects/.../dashboards/.../view",
   "contact": "请联系客服开通看板访问权限。",
-  "hint": "请将看板链接提供给客服申请开通；开通后用同一 dashboardUuid 重试。",
+  "hint": "下一步：请联系客服开通权限（可把看板链接发给客服）；开通后用同一个 dashboardUuid 重试。",
   "detail": "You don't have access to this dashboard"
 }
 ```
@@ -254,12 +264,12 @@
 {
   "status": "dashboard_permission_required",
   "action": "request_dashboard_access",
-  "message": "该数据集关联了看板，但当前账号看不到任何一张。",
+  "message": "该数据集关联了 3 张看板，但你的账号没有其中任何一张的权限。",
   "dashboardUuid": null,
   "dashboardUrl": null,
   "contact": "请联系客服开通看板访问权限。",
   "associatedCount": 3,
-  "hint": "请联系客服检查看板授权；若客户后台白名单已开通，请让管理员确认空间权限。"
+  "hint": "下一步：请联系客服开通权限；已开通仍看不到时，请管理员检查这些看板所在空间的访问权限。"
 }
 ```
 
@@ -269,20 +279,21 @@
 {
   "status": "dashboard_configuration_required",
   "action": "configure_dashboard",
-  "message": "该数据集未配置看板，对外客户无法查询（必须配置看板后对外可用）。",
+  "message": "「orders」还没有绑定任何看板，需要先绑定看板才能查询。",
   "source": "exploreName | chartUuid",
-  "exploreName": "可选",
-  "chartUuid": "可选",
+  "exploreName": "orders",
+  "chartUuid": null,
   "associatedCount": 0,
   "contact": "请联系客服开通看板访问权限。",
-  "hint": "管理员：请把该数据集挂到看板并授权后重试，或显式传入已绑定看板的 dashboardUuid。客户：请联系客服确认该数据集是否开放。",
-  "note": "该限制仅在 MCP_DASHBOARD_STRICT=true 时生效。"
+  "hint": "下一步（管理员）：把该数据集挂到一个看板上并确认空间 / 看板授权，约 60 秒内生效，然后带 dashboardUuid 重试。\n下一步（客户）：请联系客服确认这张表的开放计划。"
 }
 ```
 
 文案要求：
 
-- 同一句话要同时对**管理员**（去配看板）和**客户**（联系客服）可操作，所以 `hint` 分两行写法（管理员 / 客户）;
+- 每条阻断文案固定两行结构：**第一行给用户**（结论 + 归属：权限 / 配置 / 临时故障），**第二行给 agent / 客服**（`下一步：` 具体动作）；
+- 配置类 `hint` 按身份分两行（管理员 / 客户），并写明"约 60 秒内生效"，避免客服以为要发版；
+- 面向调用方的文案**不提内部开关**（不出现"强制看板模式"、`MCP_DASHBOARD_STRICT`）：只说"还没有绑定任何看板，需要先绑定看板才能查询"；`note` 字段已移除；
 - 不说"你的表不存在"，也不暴露具体看板名；
 - `contact` 必须来自 `MCP_DASHBOARD_CONTACT`，不得硬编码。
 
@@ -292,7 +303,7 @@
 {
   "status": "dashboard_selection_required",
   "action": "select_dashboard",
-  "message": "未提供 dashboardUuid，且该数据集关联多个看板。请选择后重试。",
+  "message": "「orders」关联了多个看板，请选一个后重试。",
   "source": "exploreName | chartUuid",
   "candidateCount": 2,
   "candidates": [
@@ -303,31 +314,59 @@
       "dashboardUrl": "..."
     }
   ],
-  "hint": "对外查询建议每次显式传 dashboardUuid 以固定行级口径。"
+  "hint": "下一步：把选中看板的 dashboardUuid 传回来。对外查询建议每次显式传 dashboardUuid 以固定行级口径。"
 }
 ```
 
 ### 9.5 其他状态
 
-- `dashboard_not_found` → `action: "verify_dashboard_uuid"`，带 `dashboardUrl`；用于 uuid 不存在或属于其他项目。
-- `dashboard_context_unavailable` → `action: "retry_later"`；用于预检网络/5xx、反查接口失败、`associatedCount` 缺失。
+- `dashboard_not_found` → `action: "verify_dashboard_uuid"`，带 `dashboardUrl`；用于 uuid 不存在或属于其他项目。文案：`没有找到这个看板，或它不属于当前项目。`
+- `dashboard_context_unavailable` → `action: "retry_later"`；用于预检网络/5xx、反查接口失败、`associatedCount` 缺失。文案：`暂时无法确认看板信息，本次查询已停止（网络或服务临时故障）。`
 - 显式 uuid 不属于该数据集关联看板时，按 `associatedCount` 分流（见 §7）：`0` → `dashboard_configuration_required`，`> 0` → `dashboard_not_found` + `candidates`。
 
-### 9.7 预检层（可查表）的拒绝文案
+### 9.7 预检层（可查表）的拒绝文案（按 `scopeApplied` 分流）
 
-受限账号在第②闸就被拒，永远看不到 §9.3 的"必须配置看板"。因此预检文案要兼顾"没授权"与"没挂看板"两种原因（改 `formatExploreQueryDeniedMessage` 的 `unknown_explore`）：
+预检（闸②）的读者有两种，口径必须分开（2026-11 优化，覆盖原有的"不区分"写法）：
 
-```text
-已拒绕查询「{exploreName}」：该表不存在、不在当前可访问表中，或尚未挂到任何看板。
-请先 get_my_access(projectUuid, includeExplores=true)，只从 explores.queryable 选表；
-仍不可用请联系客服确认该数据集的授权与看板配置。
-```
+| 信号 | 取值 | 读者 | 口径 |
+|---|---|---|---|
+| `GET /api/v1/user?projectUuid=` → `results.clientUse.scopeApplied` | `true` | 受控角色（客户使用模式 + viewer / interactive_viewer） | 只说"没有这张数据表的权限 + 联系客服开通"，**不带"可能…"的推测**，不说"不存在"，不抛看板 / 白名单 / 用户属性等内部术语 |
+| 同上 | `false` | 非受控角色（editor / admin，或非客户使用模式） | 区分"没权限（用户属性 / 看板未授权）"与"没这张表（不在项目 / 未索引 / 编译失败）"，给可执行排查步骤 |
+| 同上 | `null` | 无法判断（后端未升级 / 未带 `projectUuid`） | 中性："当前账号看不到这张表" + "先核对表名"，**不得**断言"不是权限问题" |
+
+`reason` 枚举与最终文案（`src/mcp/access/assertExploreQueryable.ts`）：
+
+| reason | 触发 | 受控文案（首行 / 次行） | 非受控文案（首行 / 次行） |
+|---|---|---|---|
+| `not_visible` | 在 `/explores?filtered=true` 里、但不在 `dataCatalog` 里（**非受控角色**才会出现；受控角色的 `/explores` 已被白名单收窄） | `「x」当前不可查询：你的账号没有这张数据表的权限。` / `下一步：请联系客服开通权限；开通后从 get_my_access 的 explores.queryable 选表重试。` | `已拒绝查询「x」：当前账号看不到这张表（用户属性不满足，或该表未进目录 / 编译失败）。` / `下一步：检查该用户的 user attributes 后重试`（`MCP_DASHBOARD_STRICT=true` 时加"与该表所在看板的授权"） |
+| `unknown_explore` | 两张名单里都没有。**受控角色的绝大多数拒绝走这里**（未被白名单覆盖的表在 `/explores` 阶段就被过滤掉了） | **与 `not_visible` 完全相同**（客户只需知道有没有权限，不需要区分"没绑看板 / 没授权 / 表名错"） | `已拒绝查询「x」：该项目没有这张表，或目录尚未索引。` / `下一步：确认 dbt 模型名与项目「表选择」设置，等目录索引完成后重试`（strict 时追加"尚未绑定看板的数据集也会出现在这里"） |
+| `authorization_unavailable` | 白名单取不到授权数据，后端把 `/explores` 与 `dataCatalog` 一起清空：`rpc_error`、`no_email`（无邮箱分支）。**判定优先于 `not_visible` / `unknown_explore`** | `暂时无法确认「x」的权限，本次查询已停止。` / `下一步：请稍后重试；持续失败请联系客服。` | `暂时无法确认「x」的查询权限（授权服务不可用），本次查询已停止。` / `下一步：检查 ADMIN_API_HOST / ADMIN_API_KEY 与看板授权服务后重试。` |
+| `no_run_metric_query` | 令牌没有 `view Explore`（viewer 角色） | `「x」暂时不能直接查询：查看者角色不支持临时查询。` / `下一步：请改用已保存的图表 / 看板查询；需要自由查询请联系客服。` | `已拒绝查询「x」：查看者角色不支持临时指标查询。` / `下一步：改用 run_saved_chart / run_dashboard_tiles；需要自由探索请让管理员把项目角色改为交互式查看者。` |
 
 约束：
 
-- 不暴露"项目里存在这张表"与"它没配看板"的区别（两种原因共用同一句话）；
-- 不泄露看板名称 / 数量 / 链接；
-- `attribute_denied` / `no_run_metric_query` 两种 reason 的文案保持现有口径不变。
+- 受控口径**不出现**"不存在 / 用户属性 / 看板 / 白名单 / 可能"，也不泄露看板名称、数量、链接；
+- 非受控口径保留术语，因为读者是管理员 / 客服，需要据此定位 dbt 模型、用户属性或看板授权；
+- 拒绝路径会**绕过缓存重查一次**（`loadClassifiedExplores({ forceFresh: true })`），保证"刚开通 / 刚修好"能立刻放行，因此 §9.3 的"约 60 秒内生效"成立。
+
+`scopeApplied` 的来源与缓存：`getAuthenticatedUser` 带 `projectUuid`（`src/rest/endpoints.ts`），与 `/explores` / `dataCatalog` 同批拉取，一起进入 MCP 侧 5 分钟分类缓存（后端 allow-list 自缓存 30s）；后端未升级时该字段缺失 → `null` → 走中性口径。
+`/api/v1/user?projectUuid=` 是既有接口（`userController.ts`），老后端会忽略该参数、不报错，因此本改动**不依赖后端同步上线**（只是拿不到更细的口径）。
+
+> 与 §4.5 的关系：`scopeApplied` 在这里**只用于选择文案口吻**，不参与"权限 vs 配置"的判定（该判定仍由 `associatedCount` 负责），§4.5 的否决结论不变。
+
+### 9.8 文案清单（发版 QA 可直接对照）
+
+| 场景 | status | 最终 message | 最终下一步（hint / 次行） |
+|---|---|---|---|
+| 表没绑看板（非受控） | `dashboard_configuration_required` | `「x」还没有绑定任何看板，需要先绑定看板才能查询。` | 管理员：挂看板 + 授权，约 60 秒内生效，带 dashboardUuid 重试 / 客户：请联系客服开通权限 |
+| 看板无权限（显式 uuid） | `dashboard_permission_required` | `您没有这张看板的访问权限。` | 请联系客服开通权限（可把看板链接发给客服）；开通后用同一个 dashboardUuid 重试 |
+| 有关联看板但一张都看不到 | `dashboard_permission_required` | `该数据集关联了 N 张看板，但你的账号没有其中任何一张的权限。` | 请联系客服开通权限；已开通仍看不到时，请管理员检查看板所在空间的访问权限 |
+| 多个候选未指定 | `dashboard_selection_required` | `「x」关联了多个看板，请选一个后重试。` | 把选中看板的 dashboardUuid 传回来；对外查询建议每次都显式传 |
+| uuid 不存在 / 跨项目 / 不属该数据集 | `dashboard_not_found` | `没有找到这个看板，或它不属于当前项目。` | 从候选里选一个已绑定的看板，或先用 list_dashboards / find_dashboards 查找 |
+| 看板信息取不到（含后端缺 `associatedCount`） | `dashboard_context_unavailable` | `暂时无法确认看板信息，本次查询已停止（网络或服务临时故障）。` | 稍后重试；持续失败请联系客服 |
+| 受控角色查询被拒 | （预检拒绝） | `「x」当前不可查询：你的账号没有这张数据表的权限。` | 请联系客服开通权限；开通后从 explores.queryable 选表重试 |
+| 受控角色撞上授权服务故障 | （预检拒绝） | `暂时无法确认「x」的权限，本次查询已停止。` | 稍后重试；持续失败请联系客服 |
+| 查看者跑临时查询 | （预检拒绝） | `「x」暂时不能直接查询：查看者角色不支持临时查询。` | 改用已保存的图表 / 看板查询；需要自由查询请联系客服 |
 
 ### 9.6 防御性错误映射
 
@@ -367,7 +406,9 @@
 | `src/lib/dashboardContextResolver.ts:33-48,63-66,146-165` | 结果类型与缓存改造：`status:'none'` 携带 `associatedCount: number \| null`；`CacheEntry` 同步缓存 `{ contexts, associatedCount }`；严格模式下 resolver 改为**单实例共享缓存**（现在 `registerQueryTools.ts:189`、`registerExtensionTools.ts:147` 各建一份） |
 | `src/mcp/tools/registerQueryTools.ts` | `run_metric_query`（`:563-758`）/ `run_semantic_metric_query`（`:424-558`）改为"严格模式无条件解析"；`search_field_values`（`:191-405`）接入解析 + 禁 SQL 回退 + 空值不回退；工具描述按开关切换（现描述仍承诺 SQL DISTINCT 回退，`:196`） |
 | `src/mcp/registerExtensionTools.ts` | `run_saved_chart`（`:234-371`）严格模式固定走 `runDashboardChart`（并声明忽略 `versionUuid`）；`run_dashboard_tiles`（`:449-553`）403/404 整批阻断；工具描述（`:238`）按开关切换 |
-| `src/mcp/access/assertExploreQueryable.ts:79-105` | `unknown_explore` 文案改为兼容"未挂到任何看板"（§9.7）；其余两个 reason 保持；同步 `assertExploreQueryable.test.ts` 断言 |
+| `src/mcp/access/assertExploreQueryable.ts` | 预检文案按 `clientUse.scopeApplied` 分受控 / 非受控两套（§9.7）；`reason` 由 `attribute_denied` 拆为 `not_visible` / `unknown_explore` / `authorization_unavailable`；`unknown_explore` 的看板半句只在 `MCP_DASHBOARD_STRICT=true` 追加 |
+| `src/rest/endpoints.ts` `getAuthenticatedUser` | 支持 `?projectUuid=`，拿到 `results.clientUse` 诊断（`scopeApplied` / `status` / `effectiveProjectRole`） |
+| `src/mcp/tools/registerAccessTools.ts` | `get_my_access` 输出新增 `clientUse`（`scopeApplied` / `restrictedRole` / `status` / `effectiveProjectRole` / `reason`，不含看板名） |
 | `src/mcp/tools/registerAccessTools.ts:127-198` | `get_my_access` 增加 `dashboardStrict` / `dashboardContact` |
 | `src/mcp/mcpDocsContent.ts:34` | 说明严格模式、三条阻断路径、`dashboard_*` 状态枚举；修正现有"不要干等 `dashboard_selection_required`"与实际行为不符的表述 |
 | 测试夹具 | `coreToolsContext.test.ts:11-31`、`mcpHttpLifecycle.test.ts:14-30`、`mcpSessionRegistry.test.ts:19-35` 三处手工 config 必须同步新增字段（`tsconfig.json:21` 排除测试文件，typecheck 不会报错）；`package.json:18` 的 test 列表按需补新文件 |

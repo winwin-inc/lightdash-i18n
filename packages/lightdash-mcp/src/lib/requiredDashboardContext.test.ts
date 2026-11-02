@@ -474,9 +474,19 @@ describe('createRequiredDashboardGuard - reverse lookup', () => {
             assert.equal(result.status, 'dashboard_configuration_required');
             const payload = structured(result.result);
             assert.equal(payload.associatedCount, 0);
-            assert.match(String(payload.message), /必须配置看板/);
+            assert.match(
+                String(payload.message),
+                /还没有绑定任何看板，需要先绑定看板才能查询/,
+            );
+            // 面向调用方不提内部开关概念
+            assert.doesNotMatch(
+                String(payload.message),
+                /强制看板模式|MCP_DASHBOARD_STRICT/,
+            );
+            assert.match(String(payload.hint), /约 60 秒内生效/);
             assert.match(String(payload.hint), /管理员/);
             assert.match(String(payload.hint), /客户/);
+            assert.equal('note' in payload, false);
         }
     });
 

@@ -328,6 +328,7 @@ export function registerQueryTools(
                 projectUuid,
                 args.table as string,
                 'fieldValues',
+                { dashboardStrict: strictMode },
             );
             const full = (args.full as boolean | undefined) ?? false;
             const queryText =
@@ -391,7 +392,7 @@ export function registerQueryTools(
                         : {}),
                     ...(strictContext && rawValues.length === 0
                         ? {
-                              note: '强制看板模式：field search 无命中值，直接返回空列表，不做 SQL DISTINCT / metric-query 回退。',
+                              note: 'field search 无命中值，直接返回空列表，不做 SQL DISTINCT / metric-query 回退。',
                           }
                         : {}),
                 };
@@ -667,6 +668,8 @@ export function registerQueryTools(
                         apiKey,
                         projectUuid,
                         exploreName,
+                        'metric',
+                        { dashboardStrict: strictMode },
                     );
                 }
                 let resolvedDashboardContext:
@@ -843,6 +846,8 @@ export function registerQueryTools(
                 apiKey,
                 projectUuid,
                 exploreName,
+                'metric',
+                { dashboardStrict: strictMode },
             );
             const exploreMetadata = await deps.getExploreMetadata(
                 apiKey,

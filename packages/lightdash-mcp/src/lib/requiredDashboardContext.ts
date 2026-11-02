@@ -153,18 +153,26 @@ function buildConfigurationRequiredPayload(params: {
     associatedCount: number;
     contact: string;
 }): GuardPayload {
+    // 「配置问题」：读者是管理员（客户只会被告知联系客服），
+    // 必须能直接动手 → 挂到看板 + 约 60 秒生效 + 如何重试。
+    // 面向调用方只讲"没绑定看板、需要先绑定"，不提内部开关概念。
+    const subject =
+        params.exploreName !== undefined
+            ? `「${params.exploreName}」还没有绑定任何看板`
+            : '该图表还没有绑定任何看板';
     return {
         status: 'dashboard_configuration_required',
         action: 'configure_dashboard',
-        message:
-            '该数据集未配置看板，对外客户无法查询（必须配置看板后对外可用）。',
+        message: `${subject}，需要先绑定看板才能查询。`,
         source: params.source,
         exploreName: params.exploreName ?? null,
         chartUuid: params.chartUuid ?? null,
         associatedCount: params.associatedCount,
         contact: params.contact,
-        hint: '管理员：请把该数据集挂到看板并授权后重试，或显式传入已绑定看板的 dashboardUuid。客户：请联系客服确认该数据集是否开放。',
-        note: '该限制仅在 MCP_DASHBOARD_STRICT=true 时生效。',
+        hint: [
+            '下一步（管理员）：把该数据集挂到一个看板上并确认空间 / 看板授权，约 60 秒内生效，然后带 dashboardUuid 重试。',
+            '下一步（客户）：请联系客服开通权限。',
+        ].join('\n'),
     };
 }
 
@@ -178,13 +186,15 @@ function buildSelectionRequiredPayload(params: {
         status: 'dashboard_selection_required',
         action: 'select_dashboard',
         message:
-            '未提供 dashboardUuid，且该数据集关联多个看板。请选择后重试。',
+            params.exploreName !== undefined
+                ? `「${params.exploreName}」关联了多个看板，请选一个后重试。`
+                : '该图表存在于多个看板，请选一个后重试。',
         source: params.source,
         exploreName: params.exploreName ?? null,
         chartUuid: params.chartUuid ?? null,
         candidateCount: params.candidates.length,
         candidates: params.candidates,
-        hint: DASHBOARD_AUTO_RESOLVED_HINT,
+        hint: `下一步：把选中看板的 dashboardUuid 传回来。${DASHBOARD_AUTO_RESOLVED_HINT}`,
     };
 }
 
@@ -198,13 +208,14 @@ function buildNotFoundPayload(params: {
     const payload: GuardPayload = {
         status: 'dashboard_not_found',
         action: 'verify_dashboard_uuid',
-        message: '未找到该看板，或它不属于当前项目。',
+        message: '没有找到这个看板，或它不属于当前项目。',
         dashboardUuid: params.dashboardUuid,
         dashboardUrl: params.dashboardUrl,
         contact: params.contact,
-        hint: params.candidates && params.candidates.length > 0
-            ? '请确认 dashboardUuid 是否正确，或从下方候选看板中选择。'
-            : '请确认 dashboardUuid 是否正确（可先用 list_dashboards / find_dashboards 查找可用看板）。',
+        hint:
+            params.candidates && params.candidates.length > 0
+                ? '下一步：从下面候选中选一个已绑定的看板（或先用 list_dashboards / find_dashboards 查找）。'
+                : '下一步：先确认看板是否属于当前项目，可用 list_dashboards / find_dashboards 查找后重试。',
     };
     if (params.candidates) {
         payload.candidates = params.candidates;
@@ -225,10 +236,10 @@ function buildContextUnavailablePayload(params: {
         action: 'retry_later',
         message:
             params.message ??
-            '暂时无法确认看板上下文，已阻断本次查询，请稍后重试。',
+            '暂时无法确认看板信息，本次查询已停止（网络或服务临时故障）。',
         hint:
             params.hint ??
-            '这是临时故障（看板上下文不可用），重试即可；若持续失败请联系客服。',
+            '下一步：稍后重试；持续失败请联系客服。',
     };
     if (params.detail !== undefined) {
         payload.detail = params.detail;
@@ -451,7 +462,7 @@ export function createRequiredDashboardGuard(
                     'dashboard_context_unavailable',
                     buildContextUnavailablePayload({
                         message:
-                            '强制看板模式需要提供 exploreName 或 chartUuid，才能校验看板归属。',
+                            '需要提供 exploreName 或 chartUuid，才能确定本次查询对应的看板。',
                         hint: '请在工具参数里带上 exploreName 或 chartUuid 后重试。',
                     }),
                 );
@@ -550,14 +561,14 @@ export function createRequiredDashboardGuard(
                     return failure(
                         'dashboard_permission_required',
                         buildPermissionRequiredPayload({
-                            message: '您没有该看板的访问权限。',
+                            message: '您没有这张看板的访问权限。',
                             dashboardUuid,
                             dashboardUrl: dashboardUrl(
                                 projectUuid,
                                 dashboardUuid,
                             ),
                             contact,
-                            hint: '请将看板链接提供给客服申请开通；开通后用同一 dashboardUuid 重试。',
+                            hint: '下一步：请联系客服开通权限（可把看板链接发给客服）；开通后用同一个 dashboardUuid 重试。',
                             detail: preflight.detail,
                         }),
                     );
@@ -634,7 +645,7 @@ export function createRequiredDashboardGuard(
                 'dashboard_context_unavailable',
                 buildContextUnavailablePayload({
                     message:
-                        '强制看板模式需要提供 exploreName 或 chartUuid，才能解析看板上下文。',
+                        '需要提供 exploreName 或 chartUuid，才能确定本次查询对应的看板。',
                     hint: '请在工具参数里带上 exploreName 或 chartUuid 后重试。',
                 }),
             );
@@ -712,11 +723,11 @@ export function createRequiredDashboardGuard(
         return failure(
             'dashboard_permission_required',
             buildPermissionRequiredPayload({
-                message: '该数据集关联了看板，但当前账号看不到任何一张。',
+                message: `该数据集关联了 ${associatedCount} 张看板，但你的账号看不到其中任何一张。`,
                 dashboardUuid: null,
                 dashboardUrl: null,
                 contact,
-                hint: '请联系客服检查看板授权；若客户后台白名单已开通，请让管理员确认空间权限。',
+                hint: '下一步：请联系客服开通权限；已开通仍看不到时，请管理员检查这些看板所在空间的访问权限。',
                 associatedCount,
             }),
         );

@@ -39,10 +39,18 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
-    async function getAuthenticatedUser(apiKey: string): Promise<unknown> {
+    async function getAuthenticatedUser(
+        apiKey: string,
+        projectUuid?: string,
+    ): Promise<unknown> {
+        // projectUuid 可选：带上时后端额外返回 clientUse 诊断
+        // （客户使用模式白名单是否对该用户生效），用于分流受控 / 非受控文案
+        const query = projectUuid
+            ? `?projectUuid=${encodeURIComponent(projectUuid)}`
+            : '';
         const json = await requestJson<{ results?: unknown }>(
             apiKey,
-            '/api/v1/user',
+            `/api/v1/user${query}`,
         );
         return json.results ?? json;
     }

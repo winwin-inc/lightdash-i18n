@@ -31,10 +31,11 @@ const DOCS: Record<McpDocsTopic, string> = {
 3. list_projects / set_project 或工具参数传 projectUuid。
 4. 临时指标查询只从 queryable 选表。attributeDenied / metadataOnly / 未知表会被拒绝查询，不会返回空结果。list_explores / find_explores → find_fields，确认 explore 与 fieldId。
 5. 需要枚举值时用 search_field_values：queryable 和 metadataOnly 都可搜，attributeDenied 与未知表会拒绝。
-6. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-7. 已知看板传 dashboardUuid。未传时有候选会自动选用（多个则取排序后第一个），看 resolvedDashboardContext；强制看板模式下多个候选会返回 dashboard_selection_required 让调用方选择。
-8. 大结果先缩小 limit / filters；不要猜测 fieldId。
-9. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+6. 被拒文案按身份分流，转述时不要张冠李戴：受控角色（客户使用模式白名单生效，见 get_my_access 的 clientUse.scopeApplied=true）只会看到"你的账号没有这张数据表的权限"，此时**不要说"表不存在"**，让用户联系客服开通；非受控角色（管理员/客服）的文案会明确区分"没权限（用户属性 / 看板未授权）"与"没这张表 / 未索引"，可直接按提示排查。
+7. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
+8. 已知看板传 dashboardUuid。未传时有候选会自动选用（多个则取排序后第一个），看 resolvedDashboardContext；强制看板模式下多个候选会返回 dashboard_selection_required 让调用方选择。
+9. 大结果先缩小 limit / filters；不要猜测 fieldId。
+10. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
 
 ## 强制看板模式（dashboardStrict=true）
 

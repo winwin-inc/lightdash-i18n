@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { withOptionalExplores } from './registerAccessTools';
+import {
+    toClientUseDiagnostics,
+    withOptionalExplores,
+} from './registerAccessTools';
 
 const base = {
     projectUuid: 'project-1',
@@ -37,6 +40,55 @@ describe('withOptionalExplores', () => {
         assert.deepEqual(
             'explores' in result ? result.explores : undefined,
             explores,
+        );
+    });
+});
+
+describe('toClientUseDiagnostics', () => {
+    it('returns null when the backend does not send clientUse', () => {
+        assert.equal(toClientUseDiagnostics(undefined, false), null);
+    });
+
+    it('never forwards dashboard metadata from the diagnostics payload', () => {
+        const result = toClientUseDiagnostics(
+            {
+                scopeApplied: true,
+                status: 'rpc_ok',
+                effectiveProjectRole: 'viewer',
+                allowedDashboardUuids: ['d1'],
+                allowedDashboardNames: ['类目看板'],
+                allowedDashboardCount: 1,
+            },
+            true,
+        );
+        assert.deepEqual(result, {
+            scopeApplied: true,
+            restrictedRole: true,
+            status: 'rpc_ok',
+            effectiveProjectRole: 'viewer',
+            reason: null,
+        });
+        assert.doesNotMatch(JSON.stringify(result), /类目看板|d1/);
+    });
+
+    it('hides the reason when it embeds the mobile number (rpc_ok / rpc_empty)', () => {
+        assert.equal(
+            toClientUseDiagnostics(
+                { scopeApplied: true, status: 'rpc_empty', reason: '手机号 138**** 没有授权看板' },
+                true,
+            )?.reason,
+            null,
+        );
+        assert.equal(
+            toClientUseDiagnostics(
+                {
+                    scopeApplied: false,
+                    status: 'role_not_restricted',
+                    reason: '角色不受限',
+                },
+                false,
+            )?.reason,
+            '角色不受限',
         );
     });
 });
