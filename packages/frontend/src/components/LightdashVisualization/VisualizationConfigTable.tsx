@@ -19,6 +19,8 @@ const VisualizationTableConfig: FC<VisualizationTableConfigProps> = ({
     dashboardSlug,
     dashboardName,
     dashboardUuid,
+    isEditMode,
+    tileUuid,
 }) => {
     const tableConfig = useTableConfig(
         initialChartConfig,
@@ -34,6 +36,8 @@ const VisualizationTableConfig: FC<VisualizationTableConfigProps> = ({
         dashboardSlug,
         dashboardName,
         dashboardUuid,
+        isEditMode,
+        tileUuid,
     );
 
     const { validConfig } = tableConfig;

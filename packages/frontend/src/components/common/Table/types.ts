@@ -86,6 +86,8 @@ export type ProviderProps = {
     };
     columnOrder?: string[];
     onColumnOrderChange?: (value: string[]) => void;
+    /** `null` resets the column back to its automatic width */
+    onColumnWidthChange?: (fieldId: string, width: number | null) => void;
 };
 
 export type TableContext = ProviderProps & {

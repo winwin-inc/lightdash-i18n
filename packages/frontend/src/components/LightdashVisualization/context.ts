@@ -34,6 +34,8 @@ export type TablePaginationState = {
 type VisualizationContext = {
     minimal: boolean;
     isDashboard: boolean;
+    /** Explore 编辑模式；其它场景（看板/查看/embed）为 false 或 undefined */
+    isEditMode: boolean;
     chartRef: RefObject<EChartsReact | null>;
     pivotDimensions: string[] | undefined;
     resultsData:

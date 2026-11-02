@@ -2685,6 +2685,8 @@
     "drill_into": "Drill into"
   },
   "components_common_table": {
+    "resize_column": "Drag to resize column",
+    "reset_column_width": "Double-click to reset column width",
     "copied_to_clipboard": "Copied to clipboard!",
     "pagination": {
       "pages": "Pages",
@@ -5572,7 +5574,9 @@
         "part_4": "Show column"
       },
       "unfreeze": "Unfreeze column",
-      "freeze": "Freeze column"
+      "freeze": "Freeze column",
+      "width": "Column width",
+      "reset_width": "Reset column width to auto"
     },
     "formatting_item": {
       "single": "single",
@@ -5623,13 +5627,13 @@
       "pivot_metric_header_top_disabled": "Only available for pivot tables with metrics as columns",
       "pivot_auto_fill_width": "Fill leftover space",
       "pivot_auto_fill_width_hint": "Only distributes leftover space when total column width is smaller than the container; does not size by header text. Header-fitting auto width is on by default.",
-      "pivot_auto_fill_width_tooltip": "Off: columns still auto-size to content; leftover space is not filled.\nOn: when total width is smaller than the container, leftover space is distributed evenly.",
+      "pivot_auto_fill_width_tooltip": "Off: column widths stay content-based and do not fill empty space.\nOn: when the total column width is smaller than the container, share the remaining space evenly.\nNote: ignored once a column has been resized by hand (per-column width wins); the switch is disabled in that case.",
       "pivot_dimension_column_max_width": "Max row dimension column width (px)",
       "pivot_dimension_column_max_width_placeholder": "300",
-      "pivot_dimension_column_max_width_tooltip": "Caps left row-dimension columns. Leave empty for default 450; overflow is ellipsized (hover for full text).",
+      "pivot_dimension_column_max_width_tooltip": "Caps the width of row dimension columns on the left. Defaults to 450 when empty; overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_data_column_max_width": "Max data column width (px)",
       "pivot_data_column_max_width_placeholder": "240",
-      "pivot_data_column_max_width_tooltip": "Caps metric data columns. Leave empty for default 450; placeholder 240 is a tighter suggestion. Overflow is ellipsized (hover for full text).",
+      "pivot_data_column_max_width_tooltip": "Caps the width of metric data columns. Defaults to 450 when empty (240 is a tighter suggestion); overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_column_max_width_hint": "Limits both content auto-width and fill stretch; leave empty to use the default cap of 450 (placeholders are tighter suggestions)",
       "display": "Display",
       "show_table_names": "Show table names",

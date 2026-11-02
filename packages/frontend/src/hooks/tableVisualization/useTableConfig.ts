@@ -30,6 +30,7 @@ import { useCalculateSubtotals } from '../useCalculateSubtotals';
 import { useCalculateTotal } from '../useCalculateTotal';
 import { type InfiniteQueryResults } from '../useQueryResults';
 import getDataAndColumns from './getDataAndColumns';
+import { useLocalColumnWidths } from './useLocalColumnWidths';
 
 const createWorker = createWorkerFactory(
     () => import('@lightdash/common/src/pivot/pivotQueryResults'),
@@ -55,8 +56,16 @@ const useTableConfig = (
     dashboardName?: string,
     /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
     dashboardUuid?: string,
+    /** Explore 编辑模式：宽度写回 chart 配置，忽略本地覆盖 */
+    isEditMode?: boolean,
+    /** 看板 tile（本地宽度按 tile 隔离；图表页无此值） */
+    tileUuid?: string,
 ) => {
     const { embedToken } = useEmbed();
+    const { localColumnWidths, setLocalColumnWidth } = useLocalColumnWidths(
+        savedChartUuid,
+        tileUuid,
+    );
 
     const [showColumnCalculation, setShowColumnCalculation] = useState<boolean>(
         !!tableChartConfig?.showColumnCalculation,
@@ -265,6 +274,14 @@ const useTableConfig = (
         [columnProperties],
     );
 
+    /** 列宽优先级：本地覆盖（仅非编辑模式）> 图表配置 > undefined（自动） */
+    const getColumnWidth = useCallback(
+        (fieldId: string) =>
+            (isEditMode ? undefined : localColumnWidths[fieldId]) ??
+            columnProperties[fieldId]?.width,
+        [columnProperties, isEditMode, localColumnWidths],
+    );
+
     const isPivotTableEnabled =
         resultsData?.metricQuery &&
         resultsData.metricQuery.metrics.length > 0 &&
@@ -376,6 +393,7 @@ const useTableConfig = (
             columnProperties,
             cellAlignment,
             isColumnFrozen,
+            getColumnWidth,
             columnOrder,
             totals: totalCalculations,
             groupedSubtotals,
@@ -390,6 +408,7 @@ const useTableConfig = (
         showTableNames,
         cellAlignment,
         isColumnFrozen,
+        getColumnWidth,
         getFieldLabelOverride,
         totalCalculations,
         groupedSubtotals,
@@ -731,6 +750,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             onSetConditionalFormattings: handleSetConditionalFormattings,
@@ -785,6 +807,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             handleSetConditionalFormattings,

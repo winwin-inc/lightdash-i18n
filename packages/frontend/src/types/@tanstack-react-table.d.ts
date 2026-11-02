@@ -21,6 +21,8 @@ declare module '@tanstack/react-table' {
         cellStyle?: CSSProperties;
         frozen?: boolean;
         isVisible?: boolean;
+        /** 完整列名，供表头省略号 hover 显示 */
+        headerTitle?: string;
         onHeaderClick?: MouseEventHandler<HTMLTableHeaderCellElement>;
         type?: string;
         headerInfo?: Record<string, any>;

@@ -65,6 +65,10 @@ const EMPTY_COLOR_MAP: Record<string, string> = {};
 export type VisualizationProviderProps = {
     minimal?: boolean;
     isDashboard?: boolean;
+    /** Explore 编辑模式；未传视为查看模式 */
+    isEditMode?: boolean;
+    /** 看板 tile uuid：本地列宽按 tile 隔离 */
+    tileUuid?: string;
     chartConfig: ChartConfig;
     initialPivotDimensions: string[] | undefined;
     unsavedMetricQuery?: MetricQuery;
@@ -111,6 +115,8 @@ const VisualizationProvider: FC<
 > = ({
     minimal = false,
     isDashboard = false,
+    isEditMode = false,
+    tileUuid,
     initialPivotDimensions,
     resultsData,
     isLoading,
@@ -180,7 +186,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
+            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
             : lastValidResultsData?.metricQuery,
     );
 
@@ -495,6 +501,7 @@ const VisualizationProvider: FC<
     > = {
         minimal,
         isDashboard,
+        isEditMode,
         pivotDimensions: validPivotDimensions,
         chartRef,
         resultsData: effectiveResultsData,
@@ -633,6 +640,8 @@ const VisualizationProvider: FC<
                     dashboardSlug={dashboardSlug}
                     dashboardName={dashboardName}
                     dashboardUuid={dashboardUuid}
+                    isEditMode={isEditMode}
+                    tileUuid={tileUuid}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

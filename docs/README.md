@@ -64,7 +64,8 @@
 | [颜色同步：废弃色差顺延](./visualization/chart-color-sync-optimization.md) | 旧分配器为何废弃、现状实现 |
 | [条形图分组颜色重复修复](./visualization/chart-color-generation-fix.md) | 仅未开同步时的顺序调色板扩展 |
 | [自定义图表跟随看板同步颜色](./visualization/vega-lite-dashboard-color-sync.md) | Vega-Lite 接入看板色板（设计/实现中） |
-| [表格列宽可拖拽调整](./visualization/table-column-resize-plan.md) | 编辑模式可调并持久化（**待开发**，对齐上游 PR） |
+| [表格可视化体验优化批次（W1–W4）](./visualization/table-ux-optimization-plan.md) | 列宽拖拽（编辑落库 / 查看本地记住）、表头不折行、重置、冻列偏移（**已实施**） |
+| [表格列宽可拖拽调整（W1 详版）](./visualization/table-column-resize-plan.md) | 分支/实现细节、上游 PR 对照与已知坑 |
 | [表格滚动卡顿排查](./visualization/table-scroll-performance.md) | 平表虚拟化 / 透视表 v2（Canvas）现状与逐项结论 |
 
 ## features/ — 其他产品能力

@@ -361,6 +361,11 @@
                 },
                 "visible": {
                     "type": "boolean"
+                },
+                "width": {
+                    "description": "列宽（px，整数）；undefined = 按内容自动",
+                    "format": "double",
+                    "type": "number"
                 }
             },
             "type": "object"

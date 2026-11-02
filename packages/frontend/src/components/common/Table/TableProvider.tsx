@@ -90,23 +90,31 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
         () => columns.filter((col) => col.meta?.frozen),
         [columns],
     );
-    const frozenColumnWidth = 100; // TODO this should be dynamic
+    const defaultFrozenColumnWidth = 100;
     const stickyColumns = useMemo(() => {
-        return frozenColumns.map((col, i) => ({
-            ...col,
-            meta: {
-                ...col.meta,
-                className: `sticky-column ${
-                    i === frozenColumns.length - 1 ? 'last-sticky-column' : ''
-                }`,
-                style: {
-                    maxWidth: frozenColumnWidth,
-                    minWidth: frozenColumnWidth,
-                    left: rowColumnWidth + i * frozenColumnWidth,
+        let cumulativeLeft = rowColumnWidth;
+        return frozenColumns.map((col, i) => {
+            const colWidth = col.meta?.width ?? defaultFrozenColumnWidth;
+            const left = cumulativeLeft;
+            cumulativeLeft += colWidth;
+            return {
+                ...col,
+                meta: {
+                    ...col.meta,
+                    className: `sticky-column ${
+                        i === frozenColumns.length - 1
+                            ? 'last-sticky-column'
+                            : ''
+                    }`,
+                    style: {
+                        maxWidth: `${colWidth}px`,
+                        minWidth: `${colWidth}px`,
+                        left: `${left}px`,
+                    },
                 },
-            },
-        }));
-    }, [frozenColumns, frozenColumnWidth, rowColumnWidth]);
+            };
+        });
+    }, [frozenColumns, rowColumnWidth]);
 
     const otherColumns = useMemo(
         () => columns.filter((col) => !col.meta?.frozen),
@@ -181,21 +189,16 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
         if (data.length < nextPagesRowCount) {
             fetchMoreRows();
         }
-    }, [
-        data.length,
-        fetchMoreRows,
-        pageIndex,
-        pageSize,
-        isServerPagination,
-    ]);
+    }, [data.length, fetchMoreRows, pageIndex, pageSize, isServerPagination]);
 
     const pageRows = useMemo(() => {
         if (isServerPagination) {
             return data;
         }
-        const { pageIndex, pageSize } = paginationState;
-        const start = pageIndex * pageSize;
-        const end = start + pageSize;
+        const { pageIndex: statePageIndex, pageSize: statePageSize } =
+            paginationState;
+        const start = statePageIndex * statePageSize;
+        const end = start + statePageSize;
         return data.slice(start, end);
     }, [data, paginationState, isServerPagination]);
 
@@ -250,10 +253,7 @@ export const TableProvider: FC<React.PropsWithChildren<ProviderProps>> = ({
             setPagination((prev) => {
                 const next =
                     typeof updater === 'function' ? updater(prev) : updater;
-                if (
-                    isServerPagination &&
-                    next.pageIndex !== prev.pageIndex
-                ) {
+                if (isServerPagination && next.pageIndex !== prev.pageIndex) {
                     pagination?.onPageChange?.(next.pageIndex);
                 }
                 return next;
