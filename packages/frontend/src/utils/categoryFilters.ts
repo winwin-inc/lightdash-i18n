@@ -282,22 +282,32 @@ const createsParentCycle = (
     child: DashboardFilterRule,
     parent: DashboardFilterRule,
 ): boolean => {
-    const parentByFieldId = new Map<string, string | undefined>();
+    // 同一字段可能有多条规则（全局 + 各 Tab / 不同作用域），父级关系也可能不同。
+    // 这里把「该字段的所有父级」都收集起来做 DFS：任一条规则构成环就拒绝（宁严勿松），
+    // 只看第一条会漏判 —— 漏判会让级联在运行时 A→B→A 无限递归。
+    const parentsByFieldId = new Map<string, string[]>();
     chain.forEach((entry) => {
         const fieldId = entry.rule.target.fieldId;
-        if (!parentByFieldId.has(fieldId)) {
-            parentByFieldId.set(fieldId, getParentFieldId(entry.rule) ?? undefined);
+        const parentFieldId = getParentFieldId(entry.rule);
+        const parents = parentsByFieldId.get(fieldId) ?? [];
+        if (parentFieldId && !parents.includes(parentFieldId)) {
+            parents.push(parentFieldId);
         }
+        parentsByFieldId.set(fieldId, parents);
     });
 
-    let currentFieldId: string | undefined = parent.target.fieldId;
+    // DFS：从父级出发，沿 parentFieldId 向上走，遇到子级即「成环」
+    const stack: string[] = [parent.target.fieldId];
     const visited = new Set<string>();
-    while (currentFieldId !== undefined) {
+    while (stack.length > 0) {
+        const currentFieldId = stack.pop();
+        if (currentFieldId === undefined) continue;
         if (currentFieldId === child.target.fieldId) return true;
-        // 已有的环：也不能再往上挂
-        if (visited.has(currentFieldId)) return true;
+        if (visited.has(currentFieldId)) continue;
         visited.add(currentFieldId);
-        currentFieldId = parentByFieldId.get(currentFieldId);
+        (parentsByFieldId.get(currentFieldId) ?? []).forEach((nextFieldId) =>
+            stack.push(nextFieldId),
+        );
     }
     return false;
 };

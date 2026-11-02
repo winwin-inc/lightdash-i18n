@@ -605,6 +605,51 @@ describe('多级绑定：普通维度可以挂在普通维度下面', () => {
         });
     });
 
+    it('rejects cyclic bindings even when the same field exists in several scopes', () => {
+        // 全局「品牌」没有父级，Tab 里的「品牌」父级是「集团」，「集团」父级是「品牌」
+        // → Tab 这一侧成环。只看「该字段第一条规则」会漏判，这里守住这个回归。
+        const plainRule = (
+            id: string,
+            fieldId: string,
+            parentFieldId?: string,
+        ): DashboardFilterRule => ({
+            id,
+            target: { fieldId, tableName: 'insight_list' },
+            operator: FilterOperator.EQUALS,
+            values: ['x'],
+            label: undefined,
+            ...(parentFieldId
+                ? {
+                      parentFieldId,
+                      parentScope: 'tab' as const,
+                      parentTabUuid: TAB_UUID,
+                  }
+                : {}),
+        });
+
+        const globalBrand = plainRule('global-brand', 'brand');
+        const tabBrand = plainRule('tab-brand', 'brand', 'group');
+        const tabGroup = plainRule('tab-group', 'group', 'brand');
+
+        const chain = buildCategoryChain(
+            {
+                globalFilters: asFilters([globalBrand]),
+                tabFilters: {
+                    [TAB_UUID]: asFilters([tabBrand, tabGroup]),
+                },
+            },
+            TAB_UUID,
+        );
+
+        expect(isValidParentBinding(tabBrand, tabGroup, chain)).toBe(false);
+        expect(isValidParentBinding(tabGroup, tabBrand, chain)).toBe(false);
+
+        // 只要「该字段的任一条规则」会构成环就拒绝（宁严勿松）：
+        // 全局「品牌」本身没有父级，但 Tab 里的「品牌」父级是集团，
+        // group → brand → group 在 Tab 里已成环，因此这次绑定也不放行。
+        expect(isValidParentBinding(globalBrand, tabGroup, chain)).toBe(false);
+    });
+
     it('resolves a brand from the group (both plain dimensions) during init', async () => {
         const group = boundRule({
             id: 'g',
