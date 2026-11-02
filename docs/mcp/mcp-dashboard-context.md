@@ -90,6 +90,8 @@ flowchart TD
 
 ## 规则
 
+> 下表是 **`MCP_DASHBOARD_STRICT=false`（内部部署）** 的行为。开关打开后（外部部署），所有查询工具一律必须先解析出 `dashboardUuid`，多候选 / 0 候选均阻断——见文末“强制看板模式”。
+
 | 场景 | 行为 |
 | --- | --- |
 | 看板页面语义查询 | 页面注入当前 `dashboardUuid`，MCP 直接使用 |
@@ -127,13 +129,15 @@ flowchart TD
 - 不修改非看板入口、非 `dashboardSlug` 数据集的原查询行为。
 - 当前只检查 base table；如果未来 joined table 也依赖 `dashboardSlug`，需要扩展检测范围。
 
-## 强制看板模式（计划中）
+## 强制看板模式（计划中，v2 设计稿）
 
-外部客户部署拟增加 `MCP_DASHBOARD_STRICT=true` 的强制模式：
+外部客户部署拟增加 `MCP_DASHBOARD_STRICT=true` 的强制模式，**覆盖全部会执行查询的工具**（`run_metric_query` / `run_semantic_metric_query` / `run_saved_chart` / `search_field_values` / `run_dashboard_tiles`），与 explore 是否依赖 `dashboardSlug` 无关：
 
-- 查询类工具必须先解析出 `dashboardUuid`，否则不执行查询；
-- 有看板 ID 但无权限 → 返回看板链接 + 客服联系文案；
-- 无看板 ID 且反查不到可见看板 → 按 `clientUse.scopeApplied` 区分“权限问题”与“未配置看板”，分别给出对应提示；
-- 反查多个看板 → 返回候选（含链接）要求选择，不再自动取第一个。
+- 查数前必须解析出已校验的 `dashboardUuid`，否则一律不执行查询；
+- **不按角色放行**：viewer / interactive_viewer / editor / admin 同一套要求；授权仍由 backend（CASL + 空间权限 + client-use 白名单）执行；
+- 显式 `dashboardUuid` 预检失败（403 / 404 / 跨项目）直接阻断，不降级为 `NA`；
+- 反查多个看板 → 返回候选（含链接）要求选择，不再自动取第一个；
+- 反查 0 个 → 用后端新增的 `associatedCount`（权限过滤前的关联看板数）区分“没配看板”与“没权限”，不再读 `clientUse.scopeApplied` 猜身份；
+- `search_field_values` 禁用裸 SQL DISTINCT 回退，`run_saved_chart` 固定走 `/query/dashboard-chart`。
 
-设计稿与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**。
+设计稿与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**，实施分支 `feat/mcp-dashboard-strict`。

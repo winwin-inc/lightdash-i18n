@@ -48,6 +48,11 @@
 | `run_semantic_metric_query` | 交互式查看者 |
 | `get_dashboard_code` | 编辑者 |
 
+> 上表是**最低项目角色**。外部部署开启强制看板模式（`MCP_DASHBOARD_STRICT=true`）后，
+> `run_metric_query` / `run_semantic_metric_query` / `run_saved_chart` / `search_field_values` / `run_dashboard_tiles`
+> 还必须在查数前解析出 `dashboardUuid`；这是**部署级**要求，不因角色升高而放行。
+> 详见 [强制看板模式设计稿](./lightdash-mcp-dashboard-strict-mode.md)。
+
 ## 不查 Lightdash 权限的工具
 
 这些工具只要求 MCP 请求本身已通过 PAT 认证。

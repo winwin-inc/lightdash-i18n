@@ -210,7 +210,7 @@ EXISTS (
 | 条件 | 满足方式 | 不满足的后果 |
 |---|---|---|
 | ① 上下文带对 | 查询带 `dashboardUuid`（显式传入 > MCP 反查自动选） | `dashboardSlug` 取默认 `'NA'` → `sql_filter` 首个分支为真 → **不按类目过滤，返回全量** |
-| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表 |
+| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表（⚠️ **仅 `MCP_DASHBOARD_STRICT=false`**；严格模式见 §5.6） |
 | ③ 候选在白名单内 | 客户使用模式 + viewer/interactive_viewer + RPC 命中 | 候选被过滤 → 与看板 UI 行数不一致 |
 
 > ⚠️ 条件 ① 是**口径风险**而非报错：MCP 不带看板上下文查数会拿到比看板更宽的数据。建议客户侧默认显式传 `dashboardUuid`，或使用 `run_dashboard_tiles`（内部走 `/query/dashboard-chart`，天然带看板上下文）。
@@ -231,6 +231,16 @@ flowchart TD
   pick --> use
   use --> res["返回结果 + resolvedDashboardContext（含 candidates）"]
 ```
+
+### 5.6 严格模式分支（`MCP_DASHBOARD_STRICT=true`，仅外部部署）
+
+上图是**开关关闭**时（内部部署）的行为。开关打开后流程图变化：
+
+- 不再判断"explore 依赖 `dashboardSlug`"，**所有查询工具**都必须解析出 `dashboardUuid`；
+- 候选数 `1` → 自动选用；`≥2` → 阻断并要求选择（不再取排序第一个）；`0` → 按后端 `associatedCount` 区分 `dashboard_permission_required` / `dashboard_configuration_required`；
+- 显式 `dashboardUuid` 预检失败（403/404/跨项目/不属该数据集关联看板）一律阻断，**不降级为 `NA`**。
+
+完整口径见 [强制看板模式设计稿 v2](./lightdash-mcp-dashboard-strict-mode.md)。
 
 ---
 
@@ -334,7 +344,7 @@ flowchart TD
 | 3 | `list_dashboards` | 只返回**已授权**看板（白名单生效） |
 | 4 | `find_explores` / `list_explores` | 只返回白名单看板用到的表 |
 | 5 | `run_dashboard_tiles` | 数据与看板 UI 一致（自动带看板上下文） |
-| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | 有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required` |
+| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | `MCP_DASHBOARD_STRICT=false`：有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required`。**`=true`**：必须带或反查到唯一看板；多候选 / 0 候选（按 `associatedCount` 区分）均阻断 |
 | 7 | 同一查询带 `dashboardUuid` 重试 | 行数与看板 UI 一致 |
 | 8 | 未授权账号 | 看不到授权看板；`run_metric_query` 拒绝非 `queryable` 表 |
 

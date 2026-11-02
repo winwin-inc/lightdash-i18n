@@ -82,12 +82,12 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `LIGHTDASH_MCP_LRU_MIN_IDLE_MS`  | 否   | LRU 候选最小空闲时间，默认 `300000`（5 分钟） |
 | `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 无业务活动（POST/DELETE）后的回收 TTL，默认 `900000`（15 分钟） |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
-| `MCP_DASHBOARD_STRICT`           | 否   | **计划中（未实现）**：强制看板模式。仅外部品牌 CT 部署设 `true`；内部不设 |
+| `MCP_DASHBOARD_STRICT`           | 否   | **计划中（未实现）**：强制看板模式。设为 `true` 后，**所有查询类工具**查数前必须解析出 `dashboardUuid`（与角色无关）；仅外部品牌 CT 部署设 `true` |
 | `MCP_DASHBOARD_CONTACT`          | 否   | **计划中（未实现）**：看板无权限时的联系文案，默认“请联系客服开通看板访问权限。” |
 
 > 强制看板模式的完整行为、权限口径与返回契约见
-> [`docs/mcp/lightdash-mcp-dashboard-strict-mode.md`](../../docs/mcp/lightdash-mcp-dashboard-strict-mode.md)。
-> 该模式当前**尚未实现**，设置上述变量不会改变运行时行为。
+> [`docs/mcp/lightdash-mcp-dashboard-strict-mode.md`](../../docs/mcp/lightdash-mcp-dashboard-strict-mode.md)（**v2 设计稿**：覆盖全部查询工具、0 候选按后端 `associatedCount` 分流、不按角色放行）。
+> 该模式当前**尚未实现**，设置上述变量不会改变运行时行为；实施分支 `feat/mcp-dashboard-strict`。
 
 ### 多用户并发与内存防护
 
