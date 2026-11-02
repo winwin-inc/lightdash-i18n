@@ -1,9 +1,13 @@
+import { MAX_VALUE_ORDER_ITEMS } from '@lightdash/common';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import MantineProvider from '../../providers/MantineProvider';
-import { ValueOrderEditor, type ValueOrderEditorProps } from './ValueOrderEditor';
+import {
+    ValueOrderEditor,
+    type ValueOrderEditorProps,
+} from './ValueOrderEditor';
 
 const defaultProps: ValueOrderEditorProps = {
     values: ['A', 'B'],
@@ -149,11 +153,9 @@ describe('ValueOrderEditor', () => {
     });
 
     it('shows a message when there is no candidate value', () => {
-        renderEditor({ ...defaultProps, candidateValues: ['A', 'B'] });
+        renderEditor({ ...defaultProps, candidateValues: [] });
 
-        expect(
-            screen.getByText('No values found'),
-        ).toBeInTheDocument();
+        expect(screen.getByText('No values found')).toBeInTheDocument();
     });
 
     it('shows the candidates error', () => {
@@ -164,5 +166,69 @@ describe('ValueOrderEditor', () => {
         });
 
         expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    });
+
+    it('does not offer empty or whitespace only candidates', () => {
+        renderEditor({
+            ...defaultProps,
+            values: ['A'],
+            candidateValues: ['A', '', '   ', 'B'],
+        });
+
+        const candidates = screen.getAllByTestId('value-order-candidate');
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0]).toHaveAttribute('data-value', 'B');
+    });
+
+    it('keeps a selected empty value and flags it as missing', () => {
+        renderEditor({ ...defaultProps, values: ['', 'A'] });
+
+        // the empty value is not removed, it is flagged as missing
+        expect(screen.getAllByTestId('value-order-item')).toHaveLength(2);
+        expect(getRow('')).toHaveAttribute('data-missing', 'true');
+        expect(getRow('A')).toHaveAttribute('data-missing', 'false');
+    });
+
+    it('shows a message when all the candidate values are already selected', () => {
+        renderEditor({ ...defaultProps, candidateValues: ['A', 'B'] });
+
+        expect(screen.getByText('All values selected')).toBeInTheDocument();
+        expect(screen.queryByText('No values found')).not.toBeInTheDocument();
+    });
+
+    it('disables the candidates when the maximum number of values is reached', async () => {
+        const onChange = vi.fn();
+        const values = Array.from(
+            { length: MAX_VALUE_ORDER_ITEMS },
+            (_, index) => `value-${index}`,
+        );
+
+        renderEditor({
+            ...defaultProps,
+            values,
+            candidateValues: [...values, 'one more value'],
+            onChange,
+        });
+
+        const candidates = screen.getAllByTestId('value-order-candidate');
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0]).toBeDisabled();
+
+        // the user is warned that the extra values are ignored
+        expect(
+            screen.getByTestId('value-order-max-selected'),
+        ).toBeInTheDocument();
+
+        await userEvent.click(candidates[0]);
+        expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('limits the height of the selected values list', () => {
+        renderEditor(defaultProps);
+
+        expect(screen.getByTestId('value-order-selected-list')).toHaveStyle({
+            maxHeight: '200px',
+            overflowY: 'auto',
+        });
     });
 });

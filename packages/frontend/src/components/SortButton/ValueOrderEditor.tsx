@@ -4,6 +4,7 @@ import {
     Droppable,
     type DropResult,
 } from '@hello-pangea/dnd';
+import { MAX_VALUE_ORDER_ITEMS } from '@lightdash/common';
 import {
     ActionIcon,
     Box,
@@ -58,12 +59,7 @@ export type ValueOrderEditorProps = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 const CANDIDATES_MAX_HEIGHT = 160;
-
-// TODO(i18n): these labels are not translated yet, they are only used as
-// accessible names of the row actions.
-const MOVE_UP_LABEL = 'Move up';
-const MOVE_DOWN_LABEL = 'Move down';
-const REMOVE_LABEL = 'Remove value';
+const SELECTED_MAX_HEIGHT = 200;
 
 /**
  * Editor for the custom value order of a dimension.
@@ -103,11 +99,29 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
         return () => clearTimeout(timeout);
     }, [search]);
 
-    const selectedValues = useMemo(() => new Set(values), [values]);
+    // The selected values are deduplicated: the drag and drop ids are the
+    // values themselves, they have to be unique and stable across reorders.
+    const selectedValues = useMemo(() => Array.from(new Set(values)), [values]);
+    const selectedValuesSet = useMemo(
+        () => new Set(selectedValues),
+        [selectedValues],
+    );
+
+    // Empty (or whitespace only) values are not usable: they would be
+    // rendered as blank rows and they would never match a value of the
+    // database.
+    const validCandidateValues = useMemo(
+        () =>
+            candidateValues.filter((candidate) => candidate.trim().length > 0),
+        [candidateValues],
+    );
 
     const availableCandidates = useMemo(
-        () => candidateValues.filter((candidate) => !selectedValues.has(candidate)),
-        [candidateValues, selectedValues],
+        () =>
+            validCandidateValues.filter(
+                (candidate) => !selectedValuesSet.has(candidate),
+            ),
+        [selectedValuesSet, validCandidateValues],
     );
 
     // Values that are selected but cannot be found in the current candidates.
@@ -116,35 +130,50 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
         if (isCandidatesLoading || candidatesError !== undefined) {
             return new Set<string>();
         }
-        const candidates = new Set(candidateValues);
-        return new Set(values.filter((value) => !candidates.has(value)));
-    }, [candidateValues, candidatesError, isCandidatesLoading, values]);
+        const candidates = new Set(validCandidateValues);
+        return new Set(
+            selectedValues.filter((value) => !candidates.has(value)),
+        );
+    }, [
+        candidatesError,
+        isCandidatesLoading,
+        selectedValues,
+        validCandidateValues,
+    ]);
+
+    const hasCandidates = validCandidateValues.length > 0;
+    const areAllCandidatesSelected =
+        hasCandidates && availableCandidates.length === 0;
+    const isMaxItemsReached = selectedValues.length >= MAX_VALUE_ORDER_ITEMS;
 
     const handleAdd = useCallback(
         (value: string) => {
-            if (selectedValues.has(value)) return;
-            onChange([...values, value]);
+            if (selectedValuesSet.has(value)) return;
+            if (selectedValues.length >= MAX_VALUE_ORDER_ITEMS) return;
+            onChange([...selectedValues, value]);
         },
-        [onChange, selectedValues, values],
+        [onChange, selectedValues, selectedValuesSet],
     );
 
     const handleRemove = useCallback(
         (index: number) => {
-            onChange(values.filter((_, valueIndex) => valueIndex !== index));
+            onChange(
+                selectedValues.filter((_, valueIndex) => valueIndex !== index),
+            );
         },
-        [onChange, values],
+        [onChange, selectedValues],
     );
 
     const handleMove = useCallback(
         (index: number, offset: number) => {
             const targetIndex = index + offset;
-            if (targetIndex < 0 || targetIndex >= values.length) return;
-            const nextValues = [...values];
+            if (targetIndex < 0 || targetIndex >= selectedValues.length) return;
+            const nextValues = [...selectedValues];
             const [movedValue] = nextValues.splice(index, 1);
             nextValues.splice(targetIndex, 0, movedValue);
             onChange(nextValues);
         },
-        [onChange, values],
+        [onChange, selectedValues],
     );
 
     const handleDragEnd = useCallback(
@@ -152,12 +181,12 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
             const { source, destination } = result;
             if (!destination) return;
             if (destination.index === source.index) return;
-            const nextValues = [...values];
+            const nextValues = [...selectedValues];
             const [movedValue] = nextValues.splice(source.index, 1);
             nextValues.splice(destination.index, 0, movedValue);
             onChange(nextValues);
         },
-        [onChange, values],
+        [onChange, selectedValues],
     );
 
     return (
@@ -196,25 +225,25 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             spacing={2}
+                            data-testid="value-order-selected-list"
+                            sx={{
+                                maxHeight: SELECTED_MAX_HEIGHT,
+                                overflowY: 'auto',
+                            }}
                         >
-                            {values.map((value, index) => {
+                            {selectedValues.map((value, index) => {
                                 const isMissing = missingValues.has(value);
 
                                 return (
                                     <Draggable
-                                        key={`${value}-${index}`}
-                                        draggableId={`${value}-${index}`}
+                                        key={value}
+                                        draggableId={value}
                                         index={index}
                                         isDragDisabled={isDisabled}
                                     >
-                                        {(
-                                            draggableProvided,
-                                            snapshot,
-                                        ) => (
+                                        {(draggableProvided, snapshot) => (
                                             <Group
-                                                ref={
-                                                    draggableProvided.innerRef
-                                                }
+                                                ref={draggableProvided.innerRef}
                                                 {...draggableProvided.draggableProps}
                                                 noWrap
                                                 spacing="xs"
@@ -223,9 +252,7 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                                 data-testid="value-order-item"
                                                 data-value={value}
                                                 data-missing={
-                                                    isMissing
-                                                        ? 'true'
-                                                        : 'false'
+                                                    isMissing ? 'true' : 'false'
                                                 }
                                                 sx={(theme) => ({
                                                     borderRadius:
@@ -256,7 +283,9 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                                     sx={{
                                                         opacity: 0.6,
                                                         cursor: 'grab',
-                                                        '&:hover': { opacity: 1 },
+                                                        '&:hover': {
+                                                            opacity: 1,
+                                                        },
                                                     }}
                                                 >
                                                     <MantineIcon
@@ -296,7 +325,9 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                                 <ActionIcon
                                                     size="sm"
                                                     variant="subtle"
-                                                    aria-label={MOVE_UP_LABEL}
+                                                    aria-label={t(
+                                                        'components_sort_button.custom_order_move_up',
+                                                    )}
                                                     disabled={
                                                         isDisabled ||
                                                         index === 0
@@ -314,13 +345,14 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                                 <ActionIcon
                                                     size="sm"
                                                     variant="subtle"
-                                                    aria-label={
-                                                        MOVE_DOWN_LABEL
-                                                    }
+                                                    aria-label={t(
+                                                        'components_sort_button.custom_order_move_down',
+                                                    )}
                                                     disabled={
                                                         isDisabled ||
                                                         index ===
-                                                            values.length - 1
+                                                            selectedValues.length -
+                                                                1
                                                     }
                                                     onClick={() =>
                                                         handleMove(index, 1)
@@ -335,9 +367,9 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                                 <ActionIcon
                                                     size="sm"
                                                     variant="subtle"
-                                                    aria-label={
-                                                        REMOVE_LABEL
-                                                    }
+                                                    aria-label={t(
+                                                        'components_sort_button.custom_order_remove',
+                                                    )}
                                                     disabled={isDisabled}
                                                     onClick={() =>
                                                         handleRemove(index)
@@ -375,10 +407,20 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
 
                 {!isCandidatesLoading &&
                     candidatesError === undefined &&
-                    availableCandidates.length === 0 && (
+                    !hasCandidates && (
                         <Text size="xs" color="dimmed">
                             {t(
                                 'components_sort_button.custom_order_no_candidates',
+                            )}
+                        </Text>
+                    )}
+
+                {!isCandidatesLoading &&
+                    candidatesError === undefined &&
+                    areAllCandidatesSelected && (
+                        <Text size="xs" color="dimmed">
+                            {t(
+                                'components_sort_button.custom_order_all_selected',
                             )}
                         </Text>
                     )}
@@ -394,7 +436,7 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                             <UnstyledButton
                                 key={candidate}
                                 onClick={() => handleAdd(candidate)}
-                                disabled={isDisabled}
+                                disabled={isDisabled || isMaxItemsReached}
                                 data-testid="value-order-candidate"
                                 data-value={candidate}
                                 sx={(theme) => ({
@@ -403,8 +445,7 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                                     padding: theme.spacing.xs,
                                     borderRadius: theme.radius.sm,
                                     '&:hover': {
-                                        backgroundColor:
-                                            theme.colors.gray[0],
+                                        backgroundColor: theme.colors.gray[0],
                                     },
                                 })}
                             >
@@ -424,6 +465,15 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                 <Text size="xs" color="dimmed">
                     {t('components_sort_button.custom_order_limit_hint')}
                 </Text>
+                {isMaxItemsReached && (
+                    <Text
+                        size="xs"
+                        color="red"
+                        data-testid="value-order-max-selected"
+                    >
+                        {t('components_sort_button.custom_order_max_selected')}
+                    </Text>
+                )}
             </Stack>
         </Stack>
     );

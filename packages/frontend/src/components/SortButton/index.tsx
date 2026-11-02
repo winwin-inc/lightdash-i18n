@@ -2,7 +2,7 @@ import {
     getItemLabelWithoutTableName,
     type SortField,
 } from '@lightdash/common';
-import { Badge, Group, Popover, Text } from '@mantine/core';
+import { Badge, Group, Popover, Text, Tooltip } from '@mantine/core';
 import {
     IconArrowDown,
     IconArrowUp,
@@ -23,6 +23,12 @@ export type Props = {
 const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
     const columns = useColumns();
     const { t } = useTranslation();
+
+    // Values of the fields that are sorted with a custom order, they are
+    // shown in the badge so that read only users can tell that the column is
+    // not sorted alphabetically.
+    const customOrderValues = sorts.flatMap((sort) => sort.valueOrder ?? []);
+    const hasCustomOrder = customOrderValues.length > 0;
 
     const getSortText = () => {
         if (sorts.length === 0) return t('components_sort_button.no_sort');
@@ -78,6 +84,27 @@ const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
                             {t('components_sort_button.sort')}
                         </Text>
                         <Text fw={600}>{getSortText()}</Text>
+                        {hasCustomOrder && (
+                            <Tooltip
+                                label={customOrderValues
+                                    .slice(0, 5)
+                                    .join(' → ')}
+                                withArrow
+                                position="top"
+                            >
+                                <Badge
+                                    size="xs"
+                                    radius="sm"
+                                    variant="filled"
+                                    color="blue"
+                                    sx={{ textTransform: 'none' }}
+                                >
+                                    {t(
+                                        'components_sort_button.custom_order_badge',
+                                    )}
+                                </Badge>
+                            </Tooltip>
+                        )}
                     </Group>
                 </Badge>
             </Popover.Target>

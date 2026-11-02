@@ -6781,6 +6781,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "自定义顺序",
+    "custom_order_tooltip": "按固定值顺序排序（如 大卖场 → 食杂店）",
+    "custom_order_search_placeholder": "搜索数据库中的值",
+    "custom_order_candidates": "当前结果中的值",
+    "custom_order_others_hint": "未列出的值排在最后，按 A-Z / Z-A",
+    "custom_order_limit_hint": "仅展示前 500 个值，可搜索缩小范围",
+    "custom_order_max_selected": "最多 200 个值，超出的不会生效",
+    "custom_order_missing_value": "当前数据中未找到该值",
+    "custom_order_nulls_disabled": "自定义顺序下空值设置不生效",
+    "custom_order_no_candidates": "没有找到可选值",
+    "custom_order_all_selected": "候选值已全部选入",
+    "custom_order_badge": "自定义顺序",
+    "custom_order_move_up": "上移",
+    "custom_order_move_down": "下移",
+    "custom_order_remove": "移除该值",
     "no_sort": "未排序",
     "fields": "字段",
     "field": "1个字段",
@@ -6798,7 +6813,9 @@
       "old_new": "旧-新",
       "new_old": "新-旧",
       "false_true": "假-真",
-      "true_false": "真-假"
+      "true_false": "真-假",
+      "custom_asc": "正序",
+      "custom_desc": "反序"
     }
   },
   "components_export_csv": {

@@ -31,6 +31,8 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
 
     const itemFieldId = getItemId(item);
     const hasSort = !!sort;
+    const valueOrder = sort?.valueOrder;
+    const nullsFirst = sort?.nullsFirst;
     const selectedSortDirection = sort
         ? sort.descending
             ? SortDirection.DESC
@@ -49,11 +51,29 @@ const ColumnHeaderSortMenuOptions: FC<Props> = ({ item, sort }) => {
                 const newSort: SortField = {
                     fieldId: itemFieldId,
                     descending: sortDirection === SortDirection.DESC,
+                    // Keep the custom value order of this field (if any):
+                    // clicking the header changes the direction, it must not
+                    // drop the custom order configuration
+                    ...(valueOrder !== undefined && {
+                        valueOrder,
+                    }),
+                    // Keep the nulls first setting of this field (if any):
+                    // clicking the header only changes the direction
+                    ...(nullsFirst !== undefined && {
+                        nullsFirst,
+                    }),
                 };
                 dispatch(explorerActions.setSortFields([newSort]));
             }
         },
-        [dispatch, hasSort, itemFieldId, selectedSortDirection],
+        [
+            dispatch,
+            hasSort,
+            itemFieldId,
+            nullsFirst,
+            selectedSortDirection,
+            valueOrder,
+        ],
     );
 
     return (

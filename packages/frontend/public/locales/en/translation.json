@@ -6765,6 +6765,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "Custom order",
+    "custom_order_tooltip": "Sort values in a fixed order (e.g. A → B → C)",
+    "custom_order_search_placeholder": "Search values from the database",
+    "custom_order_candidates": "Values in this result",
+    "custom_order_others_hint": "Values not listed come last, sorted A-Z / Z-A",
+    "custom_order_limit_hint": "Showing first 500 values, search to narrow down",
+    "custom_order_max_selected": "Up to 200 values; extra values are ignored",
+    "custom_order_missing_value": "Not found in current data",
+    "custom_order_nulls_disabled": "Ignored when a custom order is set",
+    "custom_order_no_candidates": "No values found",
+    "custom_order_all_selected": "All values selected",
+    "custom_order_badge": "Custom order",
+    "custom_order_move_up": "Move up",
+    "custom_order_move_down": "Move down",
+    "custom_order_remove": "Remove value",
     "no_sort": "No sort",
     "fields": "fields",
     "field": "1 field",
@@ -6782,7 +6797,9 @@
       "old_new": "Old-New",
       "new_old": "New-Old",
       "false_true": "False-True",
-      "true_false": "True-False"
+      "true_false": "True-False",
+      "custom_asc": "Ascending",
+      "custom_desc": "Descending"
     }
   },
   "components_export_csv": {
