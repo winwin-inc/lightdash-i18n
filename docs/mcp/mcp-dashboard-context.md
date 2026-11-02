@@ -101,7 +101,7 @@ flowchart TD
 | `run_metric_query` / `run_semantic_metric_query` 不依赖 `dashboardSlug` | 保持原查询 |
 | `run_metric_query` / `run_semantic_metric_query` 依赖 `dashboardSlug` 且未传 `dashboardUuid` | 有候选则取排序后第一个并跑数，返回选中项 + candidates；0 个候选才返回空列表 |
 | 已显式传入 `dashboardUuid` | 始终优先，后端据此解析 `dashboardSlug` |
-| 无看板 ID 数据集（强制模式） | 外部部署返回 `dashboard_configuration_required`，不查数；内部保持原行为。见 [强制看板模式设计稿](./lightdash-mcp-dashboard-strict-mode.md) |
+| 无看板 ID 数据集（强制模式） | 外部部署返回 `dashboard_configuration_required`，不查数；内部保持原行为。见 [强制看板模式](./lightdash-mcp-dashboard-strict-mode.md) |
 
 语义查询参数：
 
@@ -129,9 +129,9 @@ flowchart TD
 - 不修改非看板入口、非 `dashboardSlug` 数据集的原查询行为。
 - 当前只检查 base table；如果未来 joined table 也依赖 `dashboardSlug`，需要扩展检测范围。
 
-## 强制看板模式（计划中，v2 设计稿）
+## 强制看板模式（v2 已实施，开关默认关闭）
 
-外部客户部署拟增加 `MCP_DASHBOARD_STRICT=true` 的强制模式，**覆盖全部会执行查询的工具**（`run_metric_query` / `run_semantic_metric_query` / `run_saved_chart` / `search_field_values` / `run_dashboard_tiles`），与 explore 是否依赖 `dashboardSlug` 无关：
+外部客户部署通过 `MCP_DASHBOARD_STRICT=true` 开启强制模式（默认关闭），**覆盖全部会执行查询的工具**（`run_metric_query` / `run_semantic_metric_query` / `run_saved_chart` / `search_field_values` / `run_dashboard_tiles`），与 explore 是否依赖 `dashboardSlug` 无关：
 
 - 查数前必须解析出已校验的 `dashboardUuid`，否则一律不执行查询；
 - **不按角色放行**：viewer / interactive_viewer / editor / admin 同一套要求；授权仍由 backend（CASL + 空间权限 + client-use 白名单）执行；
@@ -140,4 +140,4 @@ flowchart TD
 - 反查 0 个 → 用后端新增的 `associatedCount`（权限过滤前的关联看板数）区分“没配看板”与“没权限”，不再读 `clientUse.scopeApplied` 猜身份；
 - `search_field_values` 禁用裸 SQL DISTINCT 回退，`run_saved_chart` 固定走 `/query/dashboard-chart`。
 
-设计稿与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**，实施分支 `feat/mcp-dashboard-strict`。
+设计与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)（**已实施**，实现差异见该文 §15）。

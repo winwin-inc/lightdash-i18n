@@ -38,37 +38,7 @@ describe('createDashboardContextResolver', () => {
         }
     });
 
-    it('throws when explicit dashboardUuid belongs to another project', async () => {
-        const api = {
-            getDashboard: async () => ({
-                uuid: 'dash-other',
-                slug: 'other',
-                name: 'Other Dashboard',
-                projectUuid: 'proj-other',
-            }),
-            getDashboardContexts: async () => {
-                throw new Error('should not call context API');
-            },
-        };
-        const resolver = createDashboardContextResolver(api as never);
-        await assert.rejects(
-            () =>
-                resolver.resolve({
-                    apiKey: 'key',
-                    projectUuid: 'proj',
-                    dashboardUuid: 'dash-other',
-                    exploreName: 'orders',
-                }),
-            (error: unknown) => {
-                assert.ok(error instanceof LightdashApiError);
-                assert.equal(error.status, 404);
-                assert.match(error.detail, /does not belong to project/i);
-                return true;
-            },
-        );
-    });
-
-    it('does not swallow errors when explicit dashboardUuid cannot be fetched', async () => {
+    it('falls back to the uuid when the explicit dashboard cannot be fetched (legacy behaviour)', async () => {
         const api = {
             getDashboard: async () => {
                 throw new LightdashApiError(
@@ -81,20 +51,22 @@ describe('createDashboardContextResolver', () => {
             },
         };
         const resolver = createDashboardContextResolver(api as never);
-        await assert.rejects(
-            () =>
-                resolver.resolve({
-                    apiKey: 'key',
-                    projectUuid: 'proj',
-                    dashboardUuid: 'dash-forbidden',
-                    exploreName: 'orders',
-                }),
-            (error: unknown) => {
-                assert.ok(error instanceof LightdashApiError);
-                assert.equal(error.status, 403);
-                return true;
-            },
-        );
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            dashboardUuid: 'dash-forbidden',
+            exploreName: 'orders',
+        });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.deepEqual(resolved.context, {
+                dashboardUuid: 'dash-forbidden',
+                dashboardSlug: 'dash-forbidden',
+                dashboardName: 'dash-forbidden',
+                source: 'explicitDashboardUuid',
+                candidateCount: 1,
+            });
+        }
     });
 
     it('auto-resolves when explore has exactly one related dashboard', async () => {

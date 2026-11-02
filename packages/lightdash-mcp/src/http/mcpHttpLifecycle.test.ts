@@ -13,6 +13,7 @@ import {
 
 const testConfig: LightdashMcpEnvConfig = {
     baseUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
     apiKey: undefined,
     defaultProjectUuid: null,
     maxLimit: 5000,

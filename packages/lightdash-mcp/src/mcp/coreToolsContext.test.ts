@@ -13,6 +13,7 @@ function baseConfig(
 ): LightdashMcpEnvConfig {
     return {
         baseUrl: 'https://example.com',
+        publicBaseUrl: 'https://example.com',
         apiKey: undefined,
         defaultProjectUuid,
         maxLimit: 5000,

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { LightdashApiError } from '../rest/requestBase';
 import type { LightdashRestClient } from '../rest/lightdashRest';
 import { buildDashboardWebUrl } from './contentWebUrls';
 import { getHttpRequestUserAttributesHeader } from './requestContext';
@@ -261,44 +260,39 @@ export function createDashboardContextResolver(
         } = params;
 
         if (dashboardUuid) {
-            // 显式 uuid：不再吞错。403 / 404 由调用方映射成
-            // dashboard_permission_required / dashboard_not_found。
-            const dashboard = (await api.getDashboard(
-                apiKey,
-                dashboardUuid,
-            )) as {
-                uuid?: string;
-                slug?: string;
-                name?: string;
-                projectUuid?: string;
-            };
-            const dashboardProjectUuid =
-                typeof dashboard.projectUuid === 'string'
-                    ? dashboard.projectUuid
-                    : undefined;
-            if (!dashboardProjectUuid) {
-                // 无法确认归属 → fail-closed
-                throw new LightdashApiError(
-                    404,
-                    'Dashboard project could not be verified',
-                );
+            // 显式 uuid：保持旧行为——取不到看板时按 uuid 兜底（由后端做权威校验）。
+            // 强制看板模式的校验走 requiredDashboardContext（不经过本分支）。
+            try {
+                const dashboard = (await api.getDashboard(
+                    apiKey,
+                    dashboardUuid,
+                )) as {
+                    uuid?: string;
+                    slug?: string;
+                    name?: string;
+                };
+                return {
+                    status: 'resolved',
+                    context: {
+                        dashboardUuid: dashboard.uuid ?? dashboardUuid,
+                        dashboardSlug: dashboard.slug ?? dashboardUuid,
+                        dashboardName: dashboard.name ?? dashboardUuid,
+                        source: 'explicitDashboardUuid',
+                        candidateCount: 1,
+                    },
+                };
+            } catch {
+                return {
+                    status: 'resolved',
+                    context: {
+                        dashboardUuid,
+                        dashboardSlug: dashboardUuid,
+                        dashboardName: dashboardUuid,
+                        source: 'explicitDashboardUuid',
+                        candidateCount: 1,
+                    },
+                };
             }
-            if (dashboardProjectUuid !== projectUuid) {
-                throw new LightdashApiError(
-                    404,
-                    'Dashboard does not belong to project',
-                );
-            }
-            return {
-                status: 'resolved',
-                context: {
-                    dashboardUuid: dashboard.uuid ?? dashboardUuid,
-                    dashboardSlug: dashboard.slug ?? dashboardUuid,
-                    dashboardName: dashboard.name ?? dashboardUuid,
-                    source: 'explicitDashboardUuid',
-                    candidateCount: 1,
-                },
-            };
         }
 
         if (chartUuid) {

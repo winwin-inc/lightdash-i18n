@@ -125,7 +125,7 @@ describe('createRequiredDashboardGuard - explicit dashboardUuid', () => {
                 "You don't have access to this dashboard",
             ),
             contexts: [],
-            associatedCount: 0,
+            associatedCount: 1,
         });
         const guard = createGuard(api);
         const result = await guard.ensure({
@@ -155,7 +155,7 @@ describe('createRequiredDashboardGuard - explicit dashboardUuid', () => {
         const api = createMockApi({
             dashboard: new LightdashApiError(404, 'Dashboard not found'),
             contexts: [],
-            associatedCount: 0,
+            associatedCount: 1,
         });
         const guard = createGuard(api);
         const result = await guard.ensure({
@@ -183,9 +183,9 @@ describe('createRequiredDashboardGuard - explicit dashboardUuid', () => {
             },
             contexts: [
                 {
-                    dashboardUuid: 'd-other',
-                    dashboardSlug: 'other',
-                    dashboardName: 'Other Project Dashboard',
+                    dashboardUuid: 'd1',
+                    dashboardSlug: 'slug-1',
+                    dashboardName: 'Dash 1',
                     chartUuids: ['c1'],
                 },
             ],
@@ -236,6 +236,79 @@ describe('createRequiredDashboardGuard - explicit dashboardUuid', () => {
             assert.equal(payload.source, 'exploreName');
             assert.equal(payload.exploreName, 'orders');
             assert.equal(payload.contact, config.dashboardContact);
+        }
+    });
+
+    it('does not fetch the dashboard when the uuid already matches an associated dashboard', async () => {
+        let dashboardCalls = 0;
+        const api = {
+            getDashboard: async () => {
+                dashboardCalls += 1;
+                return {
+                    uuid: 'd1',
+                    slug: 'slug-1',
+                    name: 'Dash 1',
+                    projectUuid: 'proj',
+                };
+            },
+            getDashboardContexts: async () => ({
+                contexts: [
+                    {
+                        dashboardUuid: 'd1',
+                        dashboardSlug: 'slug-1',
+                        dashboardName: 'Dash 1',
+                        chartUuids: ['c1'],
+                    },
+                ],
+                associatedCount: 1,
+            }),
+        };
+        const guard = createGuard(api);
+        const result = await guard.ensure({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            dashboardUuid: 'd1',
+            exploreName: 'orders',
+        });
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            assert.equal(result.context.dashboardUuid, 'd1');
+            assert.equal(result.context.dashboardSlug, 'slug-1');
+            assert.equal(result.context.dashboardName, 'Dash 1');
+        }
+        // 命中关联候选时不调用 GET /dashboards/{uuid}（该接口会写浏览记录）
+        assert.equal(dashboardCalls, 0);
+    });
+
+    it('resolves a slug input via the canonical uuid returned by getDashboard', async () => {
+        const api = createMockApi({
+            dashboard: {
+                uuid: 'd1',
+                slug: 'slug-1',
+                name: 'Dash 1',
+                projectUuid: 'proj',
+            },
+            contexts: [
+                {
+                    dashboardUuid: 'd1',
+                    dashboardSlug: 'slug-1',
+                    dashboardName: 'Dash 1',
+                    chartUuids: ['c1'],
+                },
+            ],
+            associatedCount: 1,
+        });
+        const guard = createGuard(api);
+        const result = await guard.ensure({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            dashboardUuid: 'slug-1',
+            exploreName: 'orders',
+        });
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            assert.equal(result.context.dashboardUuid, 'd1');
+            assert.equal(result.context.dashboardSlug, 'slug-1');
         }
     });
 

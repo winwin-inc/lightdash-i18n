@@ -242,6 +242,29 @@ flowchart TD
 
 完整口径见 [强制看板模式设计稿 v2](./lightdash-mcp-dashboard-strict-mode.md)。
 
+### 5.7 严格模式的上线顺序（**必读**）
+
+| 步骤 | 动作 | 不做的后果 |
+|---|---|---|
+| 1 | **先升级后端**（含 `associatedCount` 字段） | MCP 严格模式判定「后端未升级」，**所有查询 100% 返回 `dashboard_context_unavailable`** |
+| 2 | 用**管理员 PAT** 盘点「无看板数据集」 | 外部客户会集中报「某张表突然不能查」 |
+| 3 | 给客户交付方重申：PAT 不得交给未受控终端（MCP 层是护栏，不是安全边界） | 客户可绕过 MCP 直连后端拿宽数据 |
+| 4 | 设 `MCP_DASHBOARD_STRICT=true` + `MCP_DASHBOARD_CONTACT` → 发布 | — |
+
+盘点命令（第 2 步；`associatedCount` 落地后可直接用）：
+
+```bash
+for e in $(curl -s -H "Authorization: ApiKey $LDPAT" \
+  "$SITE_URL/api/v1/projects/$PROJECT_UUID/explores" | jq -r '.results[].name'); do
+  n=$(curl -s -H "Authorization: ApiKey $LDPAT" \
+    "$SITE_URL/api/v1/projects/$PROJECT_UUID/dashboards/context?exploreName=$e" \
+    | jq '.results.associatedCount // (.results.contexts|length)')
+  [ "$n" = "0" ] && echo "NO_DASHBOARD $e"
+done
+```
+
+> 盘点必须用**管理员 PAT**（受限账号只能看到白名单内的看板，数量会偏少）。
+
 ---
 
 ## 6. 权限模型（必读）

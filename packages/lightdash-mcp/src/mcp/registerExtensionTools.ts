@@ -155,17 +155,18 @@ function resolveExtensionApiKey(
  * 尽力解析 projectUuid（仅用于生成看板链接）。
  *
  * 看板不可访问（403 / 404）时拿不到 dashboard.projectUuid，这里回退到
- * 入参 / session / 环境变量；都拿不到时返回空串（链接可能不完整）。
+ * 入参 / session / 环境变量；都拿不到时返回 null（不生成链接，
+ * 避免拼出 /projects//dashboards/... 这种坏链接）。
  */
 function resolveProjectUuidHint(
     config: LightdashMcpEnvConfig,
     apiKey: string,
     fromArgs: string | undefined,
-): string {
+): string | null {
     try {
         return resolveCoreToolsProjectUuid(config, apiKey, fromArgs);
     } catch {
-        return fromArgs ?? '';
+        return fromArgs && fromArgs.length > 0 ? fromArgs : null;
     }
 }
 
@@ -462,6 +463,8 @@ export function registerExtensionTools(
                         error,
                         projectUuid,
                         dashboardUuid: dashboardUuidForQuery ?? null,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
                     });
                     if (mapped) {
                         return mapped;
@@ -505,7 +508,7 @@ export function registerExtensionTools(
                                   }),
                               },
                           }),
-                    ...(strictMode
+                    ...(strictMode && args.versionUuid
                         ? {
                               versionUuidIgnored: true,
                               versionUuidNote:
@@ -621,6 +624,8 @@ export function registerExtensionTools(
                             args.projectUuid as string | undefined,
                         ),
                         dashboardUuid: args.dashboardUuid as string,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
                     });
                     if (mapped) {
                         return mapped;
@@ -639,6 +644,8 @@ export function registerExtensionTools(
                 : [];
             const full = (args.full as boolean | undefined) ?? false;
             const limit = (args.limitPerTile as number | undefined) ?? 200;
+            // 严格模式：磁贴执行阶段的看板类错误（403 / 404）要中止整批
+            const dashboardFailures: CallToolResult[] = [];
             const results = await Promise.all(
                 tiles.map(async (tile) => {
                     const row = tile as Record<string, unknown>;
@@ -685,6 +692,27 @@ export function registerExtensionTools(
                             rowCount: Array.isArray(flatRows) ? flatRows.length : 0,
                         };
                     } catch (error) {
+                        if (strictMode) {
+                            // 严格模式：看板类 403 / 404 提升为整批结果
+                            const mapped = formatDashboardAccessError({
+                                error,
+                                projectUuid,
+                                dashboardUuid: args.dashboardUuid as string,
+                                contact: config.dashboardContact,
+                                publicBaseUrl: config.publicBaseUrl,
+                            });
+                            if (mapped) {
+                                dashboardFailures.push(mapped);
+                                return {
+                                    tileUuid: row.uuid ?? null,
+                                    type: row.type ?? null,
+                                    chartUuid,
+                                    status: 'error',
+                                    error:
+                                        '强制看板模式：磁贴执行被阻断（看板权限或归属校验失败）',
+                                };
+                            }
+                        }
                         return {
                             tileUuid: row.uuid ?? null,
                             type: row.type ?? null,
@@ -698,6 +726,10 @@ export function registerExtensionTools(
                     }
                 }),
             );
+            if (dashboardFailures.length > 0) {
+                // 整批中止：返回看板类阻断结果（已在执行的磁贴无法取消）
+                return dashboardFailures[0]!;
+            }
             return {
                 content: [
                     {

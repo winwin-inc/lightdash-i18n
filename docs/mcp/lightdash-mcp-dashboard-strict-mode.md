@@ -1,6 +1,6 @@
-# Lightdash MCP 强制看板模式（设计稿 v2，未实现）
+# Lightdash MCP 强制看板模式（v2，已实施）
 
-> **状态：设计定稿（v2 修订），代码未实现。** 本文只描述目标行为、环境变量、权限口径与返回契约；实施另起任务，分支 `feat/mcp-dashboard-strict`（不直接改 `dev`）。
+> **状态：已实施（v2），合入分支 `feat/mcp-dashboard-strict`。** 代码位置：`packages/lightdash-mcp/src/lib/requiredDashboardContext.ts`（唯一闸门）+ `packages/backend` 的 `associatedCount`。本文描述目标行为、环境变量、权限口径与返回契约；实现与设计的细微差异集中在 §10.4。
 >
 > 关联阅读：[MCP 看板上下文](./mcp-dashboard-context.md)、[client-use 内容可见性](../features/client-use-viewer-content-scope.md)、[上线流程](./mcp-service-launch.md)、[工具与权限对照](./mcp-tools-permissions.md)、[包 README](../../packages/lightdash-mcp/README.md)。
 
@@ -90,14 +90,15 @@
 
 ### 4.2 解析顺序（严格模式）
 
-1. **显式 `dashboardUuid`**（含 `run_semantic_metric_query` 从 metricQuery JSON 内解析出的那个，独立参数优先）：预检 `GET /api/v1/dashboards/{uuid}`。
-   - 成功且 `projectUuid` 与本次查询项目一致 → 使用后端返回的 `uuid` / `slug` / `name`。
-   - 成功但项目不一致 → `dashboard_not_found`（防跨项目借用行级口径）。
-   - 403 → `dashboard_permission_required`。
-   - 404 → `dashboard_not_found`。
-   - 其他错误 → `dashboard_context_unavailable`。
-   - **显式 uuid 还必须属于该 explore / chart 的关联看板集合**，否则同样阻断（见 §4.4）。
+1. **显式 `dashboardUuid`**（含 `run_semantic_metric_query` 从 metricQuery JSON 内解析出的那个，独立参数优先）。实现顺序是"先反查再预检"，以避免无谓的看板访问副作用（见 §10.4）：
+   1. 按 `exploreName` / `chartUuid` 反查 `/dashboards/context`；
+   2. **uuid 命中候选** → 直接用候选的 `uuid` / `slug` / `name`（**不**调 `GET /dashboards/{uuid}`）；
+   3. 未命中且 `associatedCount === undefined` → `dashboard_context_unavailable`；`=== 0` → `dashboard_configuration_required`；
+   4. 未命中且 `associatedCount > 0` → 调 `GET /api/v1/dashboards/{uuid}`：403 → `dashboard_permission_required`；404 / 跨项目 / 确实未关联 → `dashboard_not_found`（未关联时附候选）；其他错误 → `dashboard_context_unavailable`；
+   5. 支持直接传 slug（`getDashboard` 返回的 canonical uuid 会再与候选比对一次）。
+   - **显式 uuid 必须属于该 explore / chart 的关联看板集合**，否则同样阻断（见 §4.4）。
    - **以上任一失败都不执行查询，也不降级为 `NA`。**
+   - 口径优先级：“没配看板”（`associatedCount === 0`）优先于“没权限”，即使调用方显式传了一个自己打不开的 uuid。
 2. **未显式传**：先做工具自身的既有校验（`assertExploreQueryable` / saved chart 元数据），再按 `exploreName` 或 `chartUuid` 反查 `/dashboards/context`。
    - **1 个** → 自动使用，`source = uniqueExploreContext | uniqueChartContext`，结果里回显 `dashboardUuid` 并提示"对外查询建议显式传参"。
    - **≥2 个** → `dashboard_selection_required`，返回候选（含 `dashboardUrl`），**不执行查询**，由调用方选择后重试。
@@ -452,3 +453,23 @@
 9. 不处理 dbt 权限模型自身的 fan-out 问题，也不校验 `sql_filter` 是否真的引用了 `dashboardSlug`。
 10. 不新增 MCP 工具，不改变 `tools/list` 的工具集合；只扩展查询类工具的返回状态与 `get_my_access` 字段。
 11. 非严格部署对引用 `dashboardName` / `dashboardUuid` 的 `sql_filter` 不设防（§12.2）；严格模式不区分引用哪个属性，统一要求上下文。
+
+## 15. 实施记录（与设计的差异）
+
+代码已落地，以下为实现相对 §4/§9/§10 的差异与补充事实（**以实现为准**）：
+
+| # | 项 | 设计 | 实现 |
+|---|----|------|------|
+| 1 | 显式 uuid 的校验顺序 | 先预检 `GET /dashboards/{uuid}`，再校验关联 | **先反查关联候选**：命中候选直接放行（不发 `GET /dashboards/{uuid}`）；只有未命中且 `associatedCount > 0` 才调该接口区 403/404/未关联。原因：`getByIdOrSlug` 会写 `addDashboardViewEvent` 与 `dashboard.view` 埋点，正常查询不该刷浏览记录 |
+| 2 | `dashboardContextResolver` 显式 uuid 分支 | 改为不吞错、校验项目归属 | **保留 dev 旧行为**（吞错后按 uuid 兜底）。严格模式不经过它，旧行为只影响非严格模式——这样开关关闭时零回归 |
+| 3 | 预检缓存 | 按 (凭证指纹, dashboardUuid) 60s | 仅保留给第 1 项的兜底调用；正常路径完全不走缓存 |
+| 4 | `search_field_values` 空结果 | 返回空列表 | 返回空列表 + `resolvedDashboardContext` 回显；另外区分「响应里没有值数组」（结构异常 → 报错，不静默当空值）与「空数组」 |
+| 5 | `run_dashboard_tiles` | 403/404 整批阻断 | 预检阶段阻断；磁贴**执行阶段**出现看板类 403/404 也提升为整批 `dashboard_*` 结果（已在跑的磁贴无法取消） |
+| 6 | 测试 | 见 §10 | `src/lib/requiredDashboardContext.test.ts`（19 例）+ `src/mcp/tools/strictDashboardGuard.test.ts`（8 例工具级：阻断不查数、非严格零回归、严格/非严格 search_field_values 分流）+ resolver/工具既有测试；`pnpm -F @lightdash/mcp test` 199 全绿 |
+
+已知限制（未修，接受）：
+
+- 工具报错映射依赖后端英文文案（`requestBase.getDashboardErrorKind`），后端改文案会退化为普通错误。
+- `MCP_DASHBOARD_STRICT` 只识别小写 `true`。
+- `run_dashboard_tiles` 未校验 `dashboard.projectUuid === projectUuid`（依赖 `dashboardUuid` 全局唯一 + 后端 `getByIdOrSlug` 的允许访问语义）。
+- 后端 `findDashboardContexts` 的新 CTE 无真实库回归测试（`knex-mock-client` 在本机与 knex 2.6 不兼容），只有 SQL 离线编译校验。

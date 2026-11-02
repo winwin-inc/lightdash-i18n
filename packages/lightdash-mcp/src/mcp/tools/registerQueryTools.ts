@@ -120,6 +120,9 @@ export function isFieldValuesEndpointMissing(message: string): boolean {
     return isHttp404 && mentionsFieldValues;
 }
 
+/** field-values 响应里可能承载取值的数组字段 */
+const FIELD_VALUES_ARRAY_KEYS = ['results', 'values', 'rows'];
+
 /**
  * Returns the first array found in the given keys of the payload.
  */
@@ -139,11 +142,7 @@ function pickFirstArray(
 export function extractV1FieldValues(
     directResult: Record<string, unknown>,
 ): string[] {
-    const candidates = pickFirstArray(directResult, [
-        'results',
-        'values',
-        'rows',
-    ]);
+    const candidates = pickFirstArray(directResult, FIELD_VALUES_ARRAY_KEYS);
     return candidates
         .map((value) => {
             if (value === null || value === undefined) return null;
@@ -165,6 +164,27 @@ export function extractV1FieldValues(
         })
         .filter((v): v is string => v !== null);
 }
+
+/**
+ * 严格模式用：区分「响应里根本没有值数组」与「值数组为空」。
+ *
+ * 返回 null 表示响应形状异常（没有任何数组字段）——调用方必须按错误处理，
+ * 不能静默当成「该字段没有取值」。
+ */
+export function extractV1FieldValuesStrict(
+    directResult: Record<string, unknown>,
+): string[] | null {
+    const hasArray = FIELD_VALUES_ARRAY_KEYS.some((key) =>
+        Array.isArray(directResult[key]),
+    );
+    if (!hasArray) {
+        return null;
+    }
+    return extractV1FieldValues(directResult);
+}
+
+/** field-values 响应形状异常的哨兵文案 */
+const FIELD_VALUES_SHAPE_INVALID = 'FIELD_VALUES_RESPONSE_SHAPE_INVALID';
 
 /** 严格模式下解析出的看板上下文（额外带 dashboardUrl 与自动解析提示） */
 type StrictResolvedDashboardContext = ResolvedDashboardContext & {
@@ -343,7 +363,13 @@ export function registerQueryTools(
                         dashboardUuid: dashboardUuidForQuery,
                     },
                 )) as Record<string, unknown>;
-                const rawValues = extractV1FieldValues(directResult);
+                const rawValues = strictContext
+                    ? extractV1FieldValuesStrict(directResult)
+                    : extractV1FieldValues(directResult);
+                if (rawValues === null) {
+                    // 严格模式：响应形状异常 ≠ 该字段没有取值 → 按错误抛出
+                    throw new Error(FIELD_VALUES_SHAPE_INVALID);
+                }
                 if (rawValues.length === 0 && !strictContext) {
                     throw new Error('FIELD_VALUES_EMPTY');
                 }
@@ -357,6 +383,12 @@ export function registerQueryTools(
                             : null,
                     refreshedAt:
                         (directResult.refreshedAt as string | undefined) ?? null,
+                    ...(strictContext
+                        ? {
+                              resolvedDashboardContext:
+                                  toStrictResolvedDashboardContext(strictContext),
+                          }
+                        : {}),
                     ...(strictContext && rawValues.length === 0
                         ? {
                               note: '强制看板模式：field search 无命中值，直接返回空列表，不做 SQL DISTINCT / metric-query 回退。',
@@ -371,10 +403,17 @@ export function registerQueryTools(
                           error: e,
                           projectUuid,
                           dashboardUuid: dashboardUuidForQuery ?? null,
+                          contact: config.dashboardContact,
+                          publicBaseUrl: config.publicBaseUrl,
                       })
                     : null;
                 if (mapped) {
                     return mapped;
+                }
+                if (message === FIELD_VALUES_SHAPE_INVALID) {
+                    throw new Error(
+                        'search_field_values 执行失败：field-values 接口返回结构异常（响应里没有 results / values / rows 数组），无法确认该字段是否真的没有取值；请稍后重试。',
+                    );
                 }
                 const endpointMissing = isFieldValuesEndpointMissing(message);
                 const shouldFallback = strictContext
@@ -509,6 +548,14 @@ export function registerQueryTools(
                         columns: [resolvedField],
                         source: 'metric-query-fallback',
                         note: fallbackNote,
+                        ...(strictContext
+                            ? {
+                                  resolvedDashboardContext:
+                                      toStrictResolvedDashboardContext(
+                                          strictContext,
+                                      ),
+                              }
+                            : {}),
                     };
                 } catch (metricError) {
                     const metricMessage =
@@ -533,6 +580,12 @@ export function registerQueryTools(
                                           (payload.rows as unknown[] | undefined) ??
                                           [],
                                       source: payload.source,
+                                      ...(payload.resolvedDashboardContext
+                                          ? {
+                                                resolvedDashboardContext:
+                                                    payload.resolvedDashboardContext,
+                                            }
+                                          : {}),
                                   },
                                   null,
                                   2,
@@ -737,6 +790,8 @@ export function registerQueryTools(
                         error,
                         projectUuid: resolvedProjectUuid,
                         dashboardUuid: dashboardUuidForQuery ?? null,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
                     });
                     if (mapped) {
                         return mapped;
@@ -975,6 +1030,8 @@ export function registerQueryTools(
                         error,
                         projectUuid,
                         dashboardUuid: dashboardUuidForQuery ?? null,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
                     });
                     if (mapped) {
                         return mapped;
