@@ -227,7 +227,7 @@ describe('ValueOrderEditor', () => {
         renderEditor(defaultProps);
 
         expect(screen.getByTestId('value-order-selected-list')).toHaveStyle({
-            maxHeight: '200px',
+            maxHeight: '96px',
             overflowY: 'auto',
         });
     });

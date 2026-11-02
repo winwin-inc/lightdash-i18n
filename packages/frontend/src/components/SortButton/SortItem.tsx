@@ -83,6 +83,8 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
 
         const valueOrder = sort.valueOrder ?? [];
         const hasValueOrder = valueOrder.length > 0;
+        // 编辑中或已配置：这一行切换成「自定义顺序」布局（方向变正序/反序，隐藏空值）
+        const isValueOrderMode = hasValueOrder || isValueOrderEditorOpen;
 
         // The custom value order only makes sense for string dimensions.
         // `canUseValueOrder` tells us whether the feature applies to this
@@ -154,6 +156,34 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                     </Group>
 
                     <Group spacing="xs">
+                        {canUseCustomOrder && (
+                            <Tooltip
+                                label={t(
+                                    'components_sort_button.custom_order_tooltip',
+                                )}
+                                withArrow
+                                position="top"
+                            >
+                                <ActionIcon
+                                    size="sm"
+                                    disabled={!isEditMode}
+                                    variant={
+                                        isValueOrderMode ? 'light' : 'subtle'
+                                    }
+                                    color={hasValueOrder ? 'blue' : 'gray'}
+                                    aria-label={t(
+                                        'components_sort_button.custom_order',
+                                    )}
+                                    onClick={handleToggleValueOrderEditor}
+                                >
+                                    <MantineIcon
+                                        icon={IconListNumbers}
+                                        size="sm"
+                                    />
+                                </ActionIcon>
+                            </Tooltip>
+                        )}
+
                         <SegmentedControl
                             disabled={!isEditMode}
                             value={selectedSortDirection}
@@ -161,7 +191,7 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                             color="blue"
                             data={getSortDirectionOrder(item).map(
                                 (direction) => ({
-                                    label: hasValueOrder
+                                    label: isValueOrderMode
                                         ? getValueOrderSortLabel(direction, t)
                                         : getSortLabel(item, direction, t),
                                     value: direction,
@@ -174,20 +204,15 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                             }}
                         />
 
-                        <Text ml="lg" fw={500}>
-                            {t('components_sort_button.nulls')}
-                        </Text>
+                        {!isValueOrderMode && (
+                            <Text ml="lg" fw={500}>
+                                {t('components_sort_button.nulls')}
+                            </Text>
+                        )}
 
-                        <Tooltip
-                            label={t(
-                                'components_sort_button.custom_order_nulls_disabled',
-                            )}
-                            withArrow
-                            position="top"
-                            disabled={!hasValueOrder}
-                        >
+                        {!isValueOrderMode && (
                             <SegmentedControl
-                                disabled={!isEditMode || hasValueOrder}
+                                disabled={!isEditMode}
                                 value={selectedSortNullsFirst}
                                 size="xs"
                                 color="blue"
@@ -207,36 +232,6 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                                     );
                                 }}
                             />
-                        </Tooltip>
-
-                        {canUseCustomOrder && (
-                            <Tooltip
-                                label={t(
-                                    'components_sort_button.custom_order_tooltip',
-                                )}
-                                withArrow
-                                position="top"
-                            >
-                                <ActionIcon
-                                    size="sm"
-                                    disabled={!isEditMode}
-                                    variant={
-                                        isValueOrderEditorOpen
-                                            ? 'filled'
-                                            : 'subtle'
-                                    }
-                                    color={hasValueOrder ? 'blue' : undefined}
-                                    aria-label={t(
-                                        'components_sort_button.custom_order',
-                                    )}
-                                    onClick={handleToggleValueOrderEditor}
-                                >
-                                    <MantineIcon
-                                        icon={IconListNumbers}
-                                        size="sm"
-                                    />
-                                </ActionIcon>
-                            </Tooltip>
                         )}
 
                         {isEditMode && (
@@ -252,7 +247,18 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                 every sort row would fire a query per row.
             */}
                 {isValueOrderEditorOpen && valueOrderField && (
-                    <Box pl="xs" pr="xxs" miw={560}>
+                    <Box
+                        pl="xs"
+                        pr="xxs"
+                        miw={560}
+                        sx={(theme) => ({
+                            '& > *': {
+                                padding: theme.spacing.xs,
+                                border: `1px solid ${theme.colors.gray[2]}`,
+                                borderRadius: theme.radius.sm,
+                            },
+                        })}
+                    >
                         <ValueOrderEditorContainer
                             field={valueOrderField}
                             values={valueOrder}

@@ -6789,7 +6789,6 @@
     "custom_order_limit_hint": "仅展示前 500 个值，可搜索缩小范围",
     "custom_order_max_selected": "最多 200 个值，超出的不会生效",
     "custom_order_missing_value": "当前数据中未找到该值",
-    "custom_order_nulls_disabled": "自定义顺序下空值设置不生效",
     "custom_order_no_candidates": "没有找到可选值",
     "custom_order_all_selected": "候选值已全部选入",
     "custom_order_badge": "自定义顺序",

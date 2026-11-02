@@ -8,7 +8,6 @@ import { MAX_VALUE_ORDER_ITEMS } from '@lightdash/common';
 import {
     ActionIcon,
     Box,
-    Divider,
     Group,
     Loader,
     Stack,
@@ -21,7 +20,6 @@ import {
     IconArrowDown,
     IconArrowUp,
     IconGripVertical,
-    IconInfoCircle,
     IconSearch,
     IconX,
 } from '@tabler/icons-react';
@@ -58,8 +56,10 @@ export type ValueOrderEditorProps = {
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
-const CANDIDATES_MAX_HEIGHT = 160;
-const SELECTED_MAX_HEIGHT = 200;
+/** 候选值列表高度：约 4 行，超出内部滚动 */
+const CANDIDATES_MAX_HEIGHT = 120;
+/** 已选值列表高度：约 3 行，超出内部滚动 */
+const SELECTED_MAX_HEIGHT = 96;
 
 /**
  * Editor for the custom value order of a dimension.
@@ -191,25 +191,13 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
 
     return (
         <Stack spacing="xs" sx={{ width: '100%' }}>
-            <Group spacing="xs" position="apart" noWrap>
-                <Text size="sm" fw={500}>
-                    {t('components_sort_button.custom_order')}
-                </Text>
-                <Tooltip
-                    label={t('components_sort_button.custom_order_tooltip')}
-                    withArrow
-                    position="top"
-                >
-                    <MantineIcon icon={IconInfoCircle} size="sm" color="gray" />
-                </Tooltip>
-            </Group>
-
             <TextInput
                 size="xs"
                 placeholder={t(
                     'components_sort_button.custom_order_search_placeholder',
                 )}
                 icon={<MantineIcon icon={IconSearch} size="sm" />}
+                title={t('components_sort_button.custom_order_tooltip')}
                 value={search}
                 disabled={isDisabled}
                 onChange={(event) => setSearch(event.currentTarget.value)}
@@ -456,25 +444,18 @@ export const ValueOrderEditor: FC<ValueOrderEditorProps> = ({
                 )}
             </Box>
 
-            <Divider my={2} />
-
-            <Stack spacing={2}>
-                <Text size="xs" color="dimmed">
-                    {t('components_sort_button.custom_order_others_hint')}
+            <Text size="xs" color="dimmed">
+                {t('components_sort_button.custom_order_others_hint')}
+            </Text>
+            {isMaxItemsReached && (
+                <Text
+                    size="xs"
+                    color="red"
+                    data-testid="value-order-max-selected"
+                >
+                    {t('components_sort_button.custom_order_max_selected')}
                 </Text>
-                <Text size="xs" color="dimmed">
-                    {t('components_sort_button.custom_order_limit_hint')}
-                </Text>
-                {isMaxItemsReached && (
-                    <Text
-                        size="xs"
-                        color="red"
-                        data-testid="value-order-max-selected"
-                    >
-                        {t('components_sort_button.custom_order_max_selected')}
-                    </Text>
-                )}
-            </Stack>
+            )}
         </Stack>
     );
 };
