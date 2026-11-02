@@ -74,3 +74,77 @@ export const getCategoryLevelOf = (
     const tail = rule.target.fieldId.split('_').slice(-2).join('_');
     return CATEGORY_COLUMN_LEVELS[tail] ?? null;
 };
+
+const CHINESE_LEVEL_NUMERALS: Record<CategoryLevel, string> = {
+    1: '一',
+    2: '二',
+    3: '三',
+    4: '四',
+};
+
+const LEVELS: CategoryLevel[] = [1, 2, 3, 4];
+
+/**
+ * 仅用于「配置界面 / 批量绑定」的层级兜底：字段 / 列名都推不出层级时，再看 label 文案。
+ *
+ * 老看板里存在「只把层级写进 label」的配置；批量绑定会把推导出的层级写回
+ * `categoryLevel`，之后运行时只认显式层级 / 列名，不再依赖文案。
+ *
+ * 这里刻意保守：中文必须出现「X级类目」，英文必须出现「level N category」，
+ * 避免把普通筛选器（例如 “Level 2 approval”）误判成类目。
+ *
+ * 注意：运行时（`isCategoryField`）**不**使用这个兜底 —— label 是展示文案，
+ * 误判会让普通筛选器被当成类目自动解析。
+ */
+export const getCategoryLevelFromLabel = (
+    rule: DashboardFilterRule,
+): CategoryLevel | null => {
+    // SQL 列不参与类目识别（与跨 Tab 继承的 SQL 排除保持一致）
+    if (rule.target.isSqlColumn) return null;
+
+    const labels = [rule.label, rule.target.fieldLabel]
+        .filter((label): label is string => typeof label === 'string')
+        .map((label) => label.trim().toLowerCase())
+        .filter((label) => label.length > 0);
+    if (labels.length === 0) return null;
+
+    const chineseMatch = LEVELS.find((level) => {
+        const keyword = `${CHINESE_LEVEL_NUMERALS[level]}级类目`;
+        return labels.some((label) => label.includes(keyword));
+    });
+    if (chineseMatch) return chineseMatch;
+
+    const englishMatch = LEVELS.find((level) => {
+        const pattern = new RegExp(`level\\s*${level}\\s*category\\b`, 'i');
+        return labels.some((label) => pattern.test(label));
+    });
+    return englishMatch ?? null;
+};
+
+/**
+ * 配置界面用：这个筛选器「像不像类目」。
+ *
+ * 用于决定是否展示「类目层级」选择器 —— 对集团 / 品牌 / 商品名称 / 时间这类
+ * 明显不是类目的字段隐藏它，避免作者误设 `categoryLevel` 造成不可逆的语义污染
+ * （一旦设置，该筛选器会被当成类目自动解析、跨 Tab 同级继承、重置为首值）。
+ *
+ * 判据（任一命中即展示）：
+ * - 已显式声明 `categoryLevel`（含历史数据）
+ * - 列名约定 `cls_1..cls_4`（`getCategoryLevelOf` 的推导）
+ * - label 写成「X级类目」/「level N category」（老看板兼容，与批量绑定一致）
+ */
+export const looksLikeCategoryFilter = (rule: DashboardFilterRule): boolean => {
+    if (rule.target.isSqlColumn) return false;
+    if (getCategoryLevelOf(rule) !== null) return true;
+    if (getCategoryLevelFromLabel(rule) !== null) return true;
+
+    // 最后一道兜底：label / 字段名里出现「类目」「category」就算。
+    // 宁可多显示一个下拉框，也不要让作者没法声明层级（误显示的代价只是多一个框，
+    // 误隐藏的代价是这个看板永远绑不了类目层级）。
+    const texts = [rule.label, rule.target.fieldLabel, rule.target.fieldId]
+        .filter((text): text is string => typeof text === 'string')
+        .map((text) => text.toLowerCase());
+    return texts.some(
+        (text) => text.includes('类目') || text.includes('category'),
+    );
+};

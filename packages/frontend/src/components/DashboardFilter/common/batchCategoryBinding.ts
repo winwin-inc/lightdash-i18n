@@ -1,11 +1,15 @@
 import { type DashboardFilterRule } from '@lightdash/common';
 
 import {
+    getCategoryLevelFromLabel,
     getCategoryLevelOf,
     getDeclaredCategoryLevel,
     type CategoryLevel,
 } from '../../../utils/categoryLevel';
 import { applyParentFilterRef, type ParentFilterRef } from './parentFilterRef';
+
+// 兼容既有引用：label 推导已上移到 utils/categoryLevel
+export { getCategoryLevelFromLabel };
 
 /**
  * 批量绑定类目筛选器（父级关系）的纯计算逻辑。
@@ -90,49 +94,6 @@ type ParentBindingRef = {
     scope: CategoryBindingScope | null;
     tabUuid: string | null;
     fieldId: string;
-};
-
-const CHINESE_LEVEL_NUMERALS: Record<CategoryLevel, string> = {
-    1: '一',
-    2: '二',
-    3: '三',
-    4: '四',
-};
-
-const LEVELS = [1, 2, 3, 4] as const;
-
-/**
- * 仅用于批量绑定：字段 / 列名都推不出层级时，再看 label 文案。
- *
- * 老看板里存在「只把层级写进 label」的配置；批量绑定会把推导出的层级写回
- * `categoryLevel`，之后运行时只认显式层级 / 列名，不再依赖文案。
- *
- * 这里刻意保守：中文必须出现「X级类目」，英文必须出现「level N category」，
- * 避免把普通筛选器（例如 “Level 2 approval”）误判成类目。
- */
-export const getCategoryLevelFromLabel = (
-    rule: DashboardFilterRule,
-): CategoryLevel | null => {
-    // SQL 列不参与类目识别（与跨 Tab 继承的 SQL 排除保持一致）
-    if (rule.target.isSqlColumn) return null;
-
-    const labels = [rule.label, rule.target.fieldLabel]
-        .filter((label): label is string => typeof label === 'string')
-        .map((label) => label.trim().toLowerCase())
-        .filter((label) => label.length > 0);
-    if (labels.length === 0) return null;
-
-    const chineseMatch = LEVELS.find((level) => {
-        const keyword = `${CHINESE_LEVEL_NUMERALS[level]}级类目`;
-        return labels.some((label) => label.includes(keyword));
-    });
-    if (chineseMatch) return chineseMatch;
-
-    const englishMatch = LEVELS.find((level) => {
-        const pattern = new RegExp(`level\\s*${level}\\s*category\\b`, 'i');
-        return labels.some((label) => pattern.test(label));
-    });
-    return englishMatch ?? null;
 };
 
 /**

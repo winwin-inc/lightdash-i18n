@@ -8,8 +8,10 @@ import { describe, expect, it } from 'vitest';
 import {
     CATEGORY_COLUMN_LEVELS,
     getCategoryColumnName,
+    getCategoryLevelFromLabel,
     getCategoryLevelOf,
     getDeclaredCategoryLevel,
+    looksLikeCategoryFilter,
     type CategoryLevel,
 } from './categoryLevel';
 
@@ -330,5 +332,110 @@ describe('categoryLevel', () => {
                 ),
             ).toBe('cls1');
         });
+    });
+});
+
+describe('looksLikeCategoryFilter（配置界面是否展示「类目层级」）', () => {
+    it('accepts filters that already declare a level', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({
+                    id: 'a',
+                    fieldId: 'some_dim',
+                    categoryLevel: 2,
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    it('accepts cls_N columns without a declared level', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({
+                    id: 'a',
+                    fieldId: 'cls_insight_list_cls_3',
+                    tableName: 'cls_insight_list',
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    it('accepts legacy filters that only wrote the level into the label', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({
+                    id: 'a',
+                    fieldId: 'mystery_dim',
+                    label: '三级类目',
+                }),
+            ),
+        ).toBe(true);
+    });
+
+    it('rejects clearly non-category filters (集团 / 品牌 / 商品名称 / 时间)', () => {
+        ['group', 'brand', 'sku_name', 'period'].forEach((fieldId) => {
+            expect(
+                looksLikeCategoryFilter(rule({ id: fieldId, fieldId })),
+            ).toBe(false);
+        });
+    });
+
+    it('rejects unrelated labels that merely contain a number', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({
+                    id: 'a',
+                    fieldId: 'approval_level',
+                    label: 'Level 2 approval',
+                }),
+            ),
+        ).toBe(false);
+    });
+
+    it('still shows the selector when the name merely says 类目/category', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({ id: 'a', fieldId: 'big_distinct_dim', label: '大类' }),
+            ),
+        ).toBe(false);
+        expect(
+            looksLikeCategoryFilter(
+                rule({ id: 'a', fieldId: 'big_category', label: '大类' }),
+            ),
+        ).toBe(true);
+    });
+
+    it('ignores SQL columns', () => {
+        expect(
+            looksLikeCategoryFilter(
+                rule({
+                    id: 'a',
+                    fieldId: 'cls_2',
+                    target: {
+                        fieldId: 'cls_2',
+                        tableName: 'x',
+                        isSqlColumn: true,
+                    },
+                }),
+            ),
+        ).toBe(false);
+    });
+
+    it('derives levels from labels conservatively', () => {
+        expect(
+            getCategoryLevelFromLabel(
+                rule({ id: 'a', fieldId: 'f', label: '四级类目' }),
+            ),
+        ).toBe(4);
+        expect(
+            getCategoryLevelFromLabel(
+                rule({ id: 'a', fieldId: 'f', label: 'Level 2 Category' }),
+            ),
+        ).toBe(2);
+        expect(
+            getCategoryLevelFromLabel(
+                rule({ id: 'a', fieldId: 'f', label: '集团' }),
+            ),
+        ).toBeNull();
     });
 });

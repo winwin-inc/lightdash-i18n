@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
-import { isCategoryField } from '../../../utils/categoryFilters';
+import { looksLikeCategoryFilter } from '../../../utils/categoryLevel';
 import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
@@ -134,8 +134,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 }) => {
     const { t } = useTranslation();
 
-    // 非类目字段也能绑定父级类目（「跟随父级筛选器」），但没有自己的层级
-    const isCategoryRule = isCategoryField(filterRule);
+    // 非类目字段（集团 / 品牌 / 商品名称 / 时间…）也能绑定父级类目（「跟随父级筛选器」），
+    // 但没有自己的层级：对它们隐藏「类目层级」选择器，避免误设 categoryLevel
+    // （一旦设置，该筛选器会被当成类目参与自动解析 / 同级继承 / 重置为首值）。
+    // 判据含 cls 列名与「X级类目」label 兜底，保证老看板仍能声明层级。
+    const isCategoryRule = looksLikeCategoryFilter(filterRule);
     const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
