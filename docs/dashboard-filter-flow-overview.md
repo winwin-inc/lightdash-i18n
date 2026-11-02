@@ -96,13 +96,17 @@
 
 ### 流程 7：「是不是同一个筛选器」（跨 Tab/跨 mart 匹配）
 
-`findMatchingRuleIndices`：
+`findMatchingRuleIndices`（三级，前一级命中就不再兜底）：
 
-1. 精确命中：`namespace + tableName + fieldId` 全等（命中后**不再**兜底）；
-2. 否则类目兜底：两侧都是 dimension、非 SQL 列、且**有效类目层级相同**；
+1. 精确命中：`namespace + tableName + fieldId` 全等；
+2. 同级类目：两侧都是 dimension、非 SQL 列、且**有效类目层级相同**；
    有效层级 = 显式 `categoryLevel` ?? 列名推导（`cls_1..cls_4` / `cls1..cls4`）；
-3. SQL 列按 rule id；日期/普通字段不做兜底。
-   同一套逻辑同时用于**继承**与**重置**。
+3. 同名列（普通字段）：两侧都是 dimension、非 SQL 列、都**不是类目**、
+   去掉表名前缀后的**列名相同**（`group_cls4_insight_list_period` vs `brand_cls3_insight_list_period`）；
+   两侧都显式写了 `label` 且不一致 → 不认（作者明确命名为两个筛选器）。
+
+SQL 列仍只按 rule id；日期字段按列名命中后还要过流程 8 的形态闸门。
+同一套逻辑同时用于**继承**与**重置**。
 
 ### 流程 8：能不能继承这些取值（兼容闸门）
 
@@ -126,7 +130,7 @@
 | F2  | 全局 ⇄ Tab 跨作用域绑定（`parentScope`/`parentTabUuid`，含兜底）                       | `findParentCategoryEntry`、`buildCategoryChain`                                                                      | `categoryFiltersCrossScope.test.ts`                                                                            |
 | F3  | 子级"有值才跟随、无值不跟随"，断链清空后代                                             | `shouldCascadeCategoryFilter`、`clearDescendantsAsync`                                                               | `categoryFilters.test.ts`（4 条语义用例）                                                                      |
 | F4  | 未绑定父级的类目不参与联动                                                             | `getChildEntries`（依赖 `findParentCategoryEntry`）                                                                  | `categoryFilters.test.ts`                                                                                      |
-| F5  | 跨 Tab 继承取值（任何值 → 启用；源清空 → 清空；跨 mart 同名列；两边都任何值 → 零写入） | `applySelectionToTabFilters` / `applySelectionValues` / `findMatchingRuleIndices`                                    | `userFilterSelections.test.ts`（61 例，含无变化不写、跨 mart、disabled 跟随）                                  |
+| F5  | 跨 Tab 继承取值（任何值 → 启用；源清空 → 清空；跨 mart 同名列 / 同级类目；两边都任何值 → 零写入） | `applySelectionToTabFilters` / `applySelectionValues` / `findMatchingRuleIndices`                                    | `userFilterSelections.test.ts`（70 例，含无变化不写、跨 mart 类目/同名列、label 不一致不认、disabled 跟随）  |
 | F6  | 时间筛选器严格同形态才继承；动态默认被剥掉                                             | `getDateShape` / `getSelectionIncompatibility` / `stripDynamicDateSettings`                                          | `userFilterSelections.test.ts`（日期形态 5+5 例）                                                              |
 | F7  | 接收方按自己的数据/权限解析（无权限不会被套上别处的类目）                              | 流程 6 `initializeCategoryFiltersAsync`（切 Tab 时校验当前值是否在候选里，不在则取该 Tab 第一个合法类目）            | 手工：客户账号在该 Tab 无权限的类目 → 切过去后回落为该 Tab 合法类目；日志 `Could not confirm …` / `Cascaded …` |
 | F8  | 重置回到作者默认值（值 + 生效状态 + 动态默认），不被在途请求写回                       | `invalidateTabCategoryState` + `restoreAuthorDefaults`                                                               | `userFilterSelections.test.ts`（restore 相关 7 例）                                                            |
@@ -174,7 +178,8 @@
 3. **跨 Tab 继承**：切到另一个 Tab → 一级类目已是同一个值（灰色"任何值"的筛选器变有值且生效），
    二/三/四级按该 Tab 数据解析；Network 只有**这一个** Tab 的请求。
 4. **跨 mart**：两个 Tab 的类目 fieldId 不同（`group_cls4_…` vs `brand_cls3_…`）→ 仍继承；日志 `matchKind: 'category-level'`。
-5. **时间**：两个 Tab 都是「近 N 个月」→ 继承；一个是「月份等于」→ 不继承（日志 `operator-mismatch` / `date-*`）。
+5. **时间（普通字段跨 mart）**：两个 Tab 的「时间」都是 `period` 列但表不同 → 继承；日志 `matchKind: 'column-name'`。
+   两个 Tab 都是「近 N 个月」的日期筛选器 → 继承；一个是「月份等于」→ 不继承（日志 `operator-mismatch` / `date-*`）。
 6. **无权限**：目标 Tab 没有该值 → 切过去后回落为该 Tab 合法类目；日志给出 `Cascaded …` 或者保留原值的原因。
 7. **重置**：改多个 Tab 后点「重置全部筛选」→ 各 Tab 回到各自作者默认值（含"任何值"、含动态默认），
    之后没有任何请求把值写回；切 Tab 不出现 10s 空转。

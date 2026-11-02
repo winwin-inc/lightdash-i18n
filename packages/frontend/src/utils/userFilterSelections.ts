@@ -33,8 +33,9 @@ export type FilterNamespace = 'dimension' | 'metric' | 'tableCalculation';
  * 跨 Tab 匹配结果的类型（仅用于诊断日志）：
  * - exact-field：同一张表的同一个字段
  * - category-level：跨 mart 的同级类目（同一 categoryLevel）
+ * - column-name：跨 mart 的同名列（如各 Tab 都有的 `period` 时间窗口）
  */
-export type FilterMatchKind = 'exact-field' | 'category-level';
+export type FilterMatchKind = 'exact-field' | 'category-level' | 'column-name';
 
 export type FilterMatch = {
     index: number;
@@ -161,10 +162,67 @@ const isCategoryRulePair = (
 };
 
 /**
+ * 作者显式写的筛选器名称（空串视为没写）
+ */
+const getDeclaredLabel = (rule: DashboardFilterRule): string | null => {
+    const { label } = rule;
+    if (typeof label !== 'string') return null;
+    const trimmed = label.trim();
+    return trimmed === '' ? null : trimmed;
+};
+
+/**
+ * 跨 mart 的同名普通字段：同一套维度列（`period` 时间窗口、`region_name` 区域…）
+ * 被冗余到多个 mart 时，同一个物理列在不同 Tab 上是两个 fieldId
+ * （`group_cls4_insight_list_period` vs `brand_cls3_insight_list_period`）。
+ *
+ * 类目能按 categoryLevel 兜底，普通字段没有层级，只能按**列名**兜底 ——
+ * 否则「时间」这类筛选器在每个 Tab 都要重选一遍（客户反复反馈的点）。
+ *
+ * 保守条件（任一不满足就不认作同一筛选器）：
+ * - 只在 dimension 命名空间；SQL 列表达式的 tableName 无意义，仍只按 rule id
+ * - 两侧都不是类目（类目走 category-level 兜底，由层级决定，不能按列名）
+ * - 两侧都显式写了 label 且不一致（作者明确把它们命名为两个筛选器）
+ */
+const isSameColumnRulePair = (
+    source: DashboardFilterRule,
+    candidate: DashboardFilterRule,
+    namespace: FilterNamespace,
+): boolean => {
+    if (namespace !== 'dimension') return false;
+    if (source.target.isSqlColumn || candidate.target.isSqlColumn) {
+        return false;
+    }
+    if (getCategoryLevelOf(source) !== null) return false;
+    if (getCategoryLevelOf(candidate) !== null) return false;
+
+    const sourceColumn = getCategoryColumnName(source);
+    if (!sourceColumn || sourceColumn !== getCategoryColumnName(candidate)) {
+        return false;
+    }
+
+    const sourceLabel = getDeclaredLabel(source);
+    const candidateLabel = getDeclaredLabel(candidate);
+    if (
+        sourceLabel !== null &&
+        candidateLabel !== null &&
+        sourceLabel !== candidateLabel
+    ) {
+        return false;
+    }
+
+    return true;
+};
+
+/**
  * 找出「同一个筛选器」在集合里的位置。
  *
- * 精确字段命中优先；没有精确命中时，类目才按 categoryLevel 兜底。
- * （精确命中存在时绝不兜底：同一作用域里已有同字段规则，就不该再动别的类目。）
+ * 三级匹配，前一级命中就不再兜底：
+ * 1. 精确字段（namespace + table + field）；
+ * 2. 同级类目（categoryLevel）—— 覆盖跨 mart 的 cls_1..cls_4；
+ * 3. 同名列（普通字段）—— 覆盖跨 mart 的 period / region_name 等。
+ *
+ * （精确命中存在时绝不兜底：同一作用域里已有同字段规则，就不该再动别的规则。）
  */
 export const findMatchingRuleIndices = (
     rules: DashboardFilterRule[],
@@ -187,7 +245,15 @@ export const findMatchingRuleIndices = (
             levelMatches.push({ index, matchKind: 'category-level' });
         }
     });
-    return levelMatches;
+    if (levelMatches.length > 0) return levelMatches;
+
+    const columnMatches: FilterMatch[] = [];
+    rules.forEach((rule, index) => {
+        if (isSameColumnRulePair(sourceRule, rule, namespace)) {
+            columnMatches.push({ index, matchKind: 'column-name' });
+        }
+    });
+    return columnMatches;
 };
 
 /**

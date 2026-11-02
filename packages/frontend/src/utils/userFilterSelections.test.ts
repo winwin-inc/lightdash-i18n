@@ -246,11 +246,148 @@ describe('userFilterSelections', () => {
             });
             const target = rule({
                 id: 'b',
-                fieldId: 'mart_b_status',
+                fieldId: 'mart_b_amount',
                 tableName: 'mart_b',
             });
             expect(
                 findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([]);
+        });
+
+        it('falls back to the same column name across marts for plain fields', () => {
+            // 客户现场：各 Tab 的「时间」筛选器是同一套 period 列，但分属不同 mart
+            // （group_cls4_insight_list_period vs brand_cls3_insight_list_period）。
+            const source = rule({
+                id: 'a',
+                fieldId: 'group_cls4_insight_list_period',
+                tableName: 'group_cls4_insight_list',
+                values: ['YTD2609'],
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'brand_cls3_insight_list_period',
+                tableName: 'brand_cls3_insight_list',
+                values: ['近3个月'],
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([{ index: 0, matchKind: 'column-name' }]);
+
+            const result = applySelectionToFilters(
+                filters([target]),
+                source,
+                'dimension',
+            );
+            expect(result.changed).toBe(true);
+            expect(result.filters.dimensions[0].values).toEqual(['YTD2609']);
+        });
+
+        it('prefers the exact field over a same-column rule of another mart', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_period',
+                tableName: 'mart_a',
+            });
+            const matches = findMatchingRuleIndices(
+                [
+                    rule({
+                        id: 'b',
+                        fieldId: 'mart_b_period',
+                        tableName: 'mart_b',
+                    }),
+                    rule({
+                        id: 'c',
+                        fieldId: 'mart_a_period',
+                        tableName: 'mart_a',
+                    }),
+                ],
+                source,
+                'dimension',
+            );
+            expect(matches).toEqual([{ index: 1, matchKind: 'exact-field' }]);
+        });
+
+        it('prefers the category level over the column name', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_cls_2',
+                tableName: 'mart_a',
+                categoryLevel: 2,
+            });
+            const matches = findMatchingRuleIndices(
+                [
+                    rule({
+                        id: 'b',
+                        fieldId: 'mart_b_cls_2',
+                        tableName: 'mart_b',
+                        categoryLevel: 2,
+                    }),
+                ],
+                source,
+                'dimension',
+            );
+            expect(matches).toEqual([
+                { index: 0, matchKind: 'category-level' },
+            ]);
+        });
+
+        it('does not match a labelled filter with a different label', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_period',
+                tableName: 'mart_a',
+                label: '时间',
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'mart_b_period',
+                tableName: 'mart_b',
+                label: '首单时间',
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([]);
+        });
+
+        it('does not match sql columns by column name', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_period',
+                tableName: 'mart_a',
+                target: {
+                    fieldId: 'mart_a_period',
+                    tableName: 'mart_a',
+                    isSqlColumn: true,
+                },
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'mart_b_period',
+                tableName: 'mart_b',
+                target: {
+                    fieldId: 'mart_b_period',
+                    tableName: 'mart_b',
+                    isSqlColumn: true,
+                },
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'dimension'),
+            ).toEqual([]);
+        });
+
+        it('does not match by column name outside the dimension namespace', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'mart_a_period',
+                tableName: 'mart_a',
+            });
+            const target = rule({
+                id: 'b',
+                fieldId: 'mart_b_period',
+                tableName: 'mart_b',
+            });
+            expect(
+                findMatchingRuleIndices([target], source, 'tableCalculation'),
             ).toEqual([]);
         });
 
@@ -893,6 +1030,46 @@ describe('userFilterSelections', () => {
             expect(next['tab-b'].dimensions[0].values).toBeUndefined();
         });
 
+        it('syncs a plain field across marts by column name', () => {
+            // 客户现场：各 Tab 的「时间」是同一个 period 列，但分属不同 mart。
+            const timeSource = rule({
+                id: 'tab-a-time',
+                fieldId: 'group_cls4_insight_list_period',
+                tableName: 'group_cls4_insight_list',
+                values: ['YTD2609'],
+            });
+            const tabFilters = {
+                'tab-a': filters([timeSource]),
+                'tab-b': filters([
+                    rule({
+                        id: 'tab-b-time',
+                        fieldId: 'brand_cls3_insight_list_period',
+                        tableName: 'brand_cls3_insight_list',
+                        values: ['近3个月'],
+                    }),
+                ]),
+                'tab-c': filters([
+                    rule({
+                        id: 'tab-c-region',
+                        fieldId: 'cls_insight_list_region_name',
+                        tableName: 'cls_insight_list',
+                        values: ['全国'],
+                    }),
+                ]),
+            };
+            const { tabFilters: next, changedTabUuids } =
+                applySelectionToTabFilters(
+                    tabFilters,
+                    timeSource,
+                    'dimension',
+                    'tab-a',
+                );
+            expect(changedTabUuids).toEqual(['tab-b']);
+            expect(next['tab-b'].dimensions[0].values).toEqual(['YTD2609']);
+            // 不同列名的筛选器不能跟着变
+            expect(next['tab-c'].dimensions[0].values).toEqual(['全国']);
+        });
+
         it('syncs into a same-level category rule of another mart', () => {
             const categorySource = rule({
                 id: 'tab-a-rule',
@@ -1133,6 +1310,40 @@ describe('userFilterSelections', () => {
                 server,
             );
             expect(restored.dimensions[0].values).toEqual(['author-default']);
+            expect(restored.dimensions[0].id).toBe('r1');
+        });
+
+        it('restores a plain field of another mart by column name', () => {
+            // 重置时「时间」也应跨 mart 回到各自作者默认值（见诊断文档 §13）
+            const runtime = filters([
+                rule({
+                    id: 'r1',
+                    fieldId: 'brand_cls3_insight_list_period',
+                    tableName: 'brand_cls3_insight_list',
+                    values: ['YTD2609'],
+                }),
+            ]);
+            const serverField = filters([
+                rule({
+                    id: 'srv-current',
+                    fieldId: 'group_cls4_insight_list_period',
+                    tableName: 'group_cls4_insight_list',
+                }),
+            ]);
+            const server = filters([
+                rule({
+                    id: 'srv-target',
+                    fieldId: 'brand_cls3_insight_list_period',
+                    tableName: 'brand_cls3_insight_list',
+                    values: ['近3个月'],
+                }),
+            ]);
+            const restored = restoreAuthorDefaults(
+                runtime,
+                serverField,
+                server,
+            );
+            expect(restored.dimensions[0].values).toEqual(['近3个月']);
             expect(restored.dimensions[0].id).toBe('r1');
         });
 

@@ -651,7 +651,10 @@ if (requestSignature !== currentSignature) return prev;                 // 结�
 1. **身份认定**（`findMatchingRuleIndices` / `findInheritedRule`）
    - 精确字段（`namespace + tableName + fieldId`）优先，命中后不再兜底；
    - 无精确命中时，**同级类目（`categoryLevel` 相同）视为同一筛选器**，覆盖跨 mart 同名列；
-   - SQL 列仍按 rule id；日期/普通筛选器不做兜底（"首单时间" ≠ "月份"）。
+   - 再兜一层**同名列（普通字段）**：非类目的普通维度按「去表空前缀的列名」匹配
+     （`group_cls4_insight_list_period` vs `brand_cls3_insight_list_period`，见 §13）；
+   - SQL 列仍按 rule id；标签不同（两侧都写了 label）不认；
+   - 日期筛选器按列名命中后还要过形态闸门（见第 3 条，"首单时间" ≠ "月份"）。
 2. **「任何值」语义**：`values: []` / `disabled: true` 表示"当前没有生效取值"，
    **不是作者禁用**。所以目标 Tab 是"任何值"时，源 Tab 有值就要
    **写入值 + `disabled: false`**（真正参与过滤）；源被清空则同步成"任何值"；
@@ -695,3 +698,49 @@ if (requestSignature !== currentSignature) return prev;                 // 结�
   新增 `utils/categoryFiltersInheritedSelection.test.ts`（校验 / 回退 / 子级联动 / 会话取消）；
 - 手工：品类洞察看板按「一级 → 二级 → 切 Tab」验证；目标 Tab 原本"任何值"的筛选器要变有值并生效；
   跨 mart 仍继承；无权限时保持原值；重置后各 Tab 回到作者默认值且不被写回。
+
+---
+
+## 十三、续报：「修改时间后其它 Tab 不继承」（已修复：普通字段按列名跨 mart 匹配）
+
+### 现象
+
+品类洞察看板：在一个 Tab 把「时间」从「近3个月」改成 `YTD2609`，
+切到其它 Tab 仍然显「近3个月」—— **类目能继承，时间不能**。
+
+### 根因
+
+「时间」是普通维度 `period`（取值形如 `2026Q2` / `YTD2609` / `MAT2609` / `近3个月`），
+不是日期筛选器；而每个 Tab 的图表用的是**各自的 mart**，所以同一个 `period` 列在
+各 Tab 上是**不同 fieldId**：
+
+| Tab | 规则 target |
+|---|---|
+| 品类机会洞察 | `group_cls4_insight_list` / `group_cls4_insight_list_period` |
+| 品牌深度分析 | `brand_cls3_insight_list` / `brand_cls3_insight_list_period` |
+
+修正前身份只有两级（精确字段 / 同级类目），普通字段跨 mart 匹配不上，
+`applySelectionToTabFilters` 直接返回 `changedTabUuids: []`，只在 DEV 控制台留下
+`[cross-tab-inherit] skip: no matching rule`。类目因为走了 `category-level` 兜底所以照常继承 ——
+这正是"类目能传、时间传不过去"的原因。
+
+### 修复
+
+`findMatchingRuleIndices` 增加第三档 `column-name`（`isSameColumnRulePair`）：
+
+- 仅 dimension 命名空间、两侧都非 SQL 列（SQL 列表达式无法比较，仍只按 rule id）；
+- 两侧都**不是类目**（类目仍由 categoryLevel 决定，优先于列名）；
+- 去表名前缀后的**列名相同**；
+- 两侧都显式写了 `label` 且不一致 → 不认（作者明确命名为两个筛选器）。
+
+继承与重置共用这一匹配，所以「重置全部筛选」也会把各 Tab 的时间一起回到各自作者默认值；
+取值写入后仍只搬 values + disabled，不动接收方作者的 operator / settings。
+
+### 验收
+
+- 单测：`userFilterSelections.test.ts` 新增/更新 8 例
+  （跨 mart 同名列继承、精确字段优先于同名列、类目层级优先于同名列、
+  label 不一致不认、SQL 列不认、非 dimension 命名空间不认、不同列名不认）；
+- 手工：Tab A 时间改 `YTD2609` → 切 Tab B，时间是 `YTD2609`；
+  DEV 日志 `[cross-tab-inherit] inherited { matchKind: 'column-name' }`；
+  点「重置全部筛选」→ 各 Tab 回各自默认值。
