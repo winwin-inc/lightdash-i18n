@@ -10,10 +10,36 @@
     z-index: 2;
 }
 
-.resizeHandle:hover {
-    background: var(--mantine-color-blue-3);
+/* 常驻不可见的细线：只在表头 hover 时露出，提示这一列可以拖宽 */
+.resizeHandle::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    right: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--mantine-color-gray-4);
+    opacity: 0;
+    transition: opacity 120ms ease;
 }
 
-.resizeHandleActive {
+/* 表头（含冻列）hover 时显示细线 */
+:global(th:hover) > .resizeHandle::after {
+    opacity: 1;
+}
+
+.resizeHandle:hover {
+    background: var(--mantine-color-blue-2);
+}
+
+.resizeHandle:hover::after {
+    opacity: 1;
     background: var(--mantine-color-blue-5);
+}
+
+.resizeHandleActive,
+.resizeHandleActive::after {
+    background: var(--mantine-color-blue-5);
+    opacity: 1;
 }
