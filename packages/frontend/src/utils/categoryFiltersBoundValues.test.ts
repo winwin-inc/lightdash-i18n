@@ -12,6 +12,8 @@ import {
     initializeCategoryFiltersAsync,
     isBoundValueFilter,
     isValidParentBinding,
+    shouldCascadeCategoryFilterUpdate,
+    updateCategoryFilterCascadeAsync,
     updateCrossScopeCategoryCascadeAsync,
 } from './categoryFilters';
 import { isRuleSelectionCompatible } from './userFilterSelections';
@@ -686,5 +688,143 @@ describe('多级绑定：普通维度可以挂在普通维度下面', () => {
         expect(brandCallBody).toContain('insight_list_group');
         expect(brandCallBody).toContain('海天');
         expect(brandCallBody).not.toContain('旧集团');
+    });
+});
+
+describe('多级绑定的联动（父级变化后的收敛 / 清空）', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'debug').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        clearFieldSearchCacheForTests();
+    });
+
+    const categoryL4 = categoryRule({
+        id: 'l4',
+        fieldId: 'insight_list_cls_4',
+        categoryLevel: 4,
+        values: ['醋'],
+    });
+    const groupRule = boundRule({
+        id: 'g',
+        fieldId: 'insight_list_group',
+        parentFieldId: 'insight_list_cls_4',
+        values: ['旧集团'],
+    });
+    const brandRule = boundRule({
+        id: 'b',
+        fieldId: 'insight_list_brand',
+        parentFieldId: 'insight_list_group',
+        values: ['旧品牌'],
+    });
+    const skuRule = boundRule({
+        id: 's',
+        fieldId: 'insight_list_sku',
+        parentFieldId: 'insight_list_brand',
+        values: ['旧商品'],
+    });
+
+    const runCascade = (newValue: string | null) => {
+        const filters = asFilters([
+            categoryL4,
+            groupRule,
+            brandRule,
+            skuRule,
+        ]);
+        return updateCategoryFilterCascadeAsync(
+            filters,
+            { ...groupRule, values: newValue === null ? [] : [newValue] },
+            newValue,
+            projectUuid,
+            dashboardContext,
+            {
+                scope: {
+                    location: { scope: 'tab', tabUuid: TAB_UUID },
+                    chain: buildCategoryChain(
+                        {
+                            globalFilters: asFilters([]),
+                            tabFilters: { [TAB_UUID]: filters },
+                        },
+                        TAB_UUID,
+                    ),
+                },
+            },
+        );
+    };
+
+    it('resolves brand and product from the new group value', async () => {
+        // 集团改成「海天」→ 品牌按「集团=海天」重算 → 商品按新品牌重算
+        mockSearchResults(['海天酱油']);
+        mockSearchResults(['海天金标生抽']);
+
+        const result = await runCascade('海天');
+
+        expect(api).toHaveBeenCalledTimes(2);
+        expect(result.dimensions.find((d) => d.id === 'b')?.values).toEqual([
+            '海天酱油',
+        ]);
+        expect(result.dimensions.find((d) => d.id === 's')?.values).toEqual([
+            '海天金标生抽',
+        ]);
+
+        // 查商品时带的是品牌的新值，而不是旧品牌
+        const skuBody = JSON.stringify(api.mock.calls[1]?.[0]);
+        expect(skuBody).toContain('insight_list_brand');
+        expect(skuBody).toContain('海天酱油');
+        expect(skuBody).not.toContain('旧品牌');
+    });
+
+    it('keeps bound values (does not clear them) when the parent becomes empty', async () => {
+        // 父级清成「任何值」：绑定字段保留作者配置（既有语义：链路断裂 = 保留原值），
+        // 只有类目子级才会被清空。品牌无法判断时保留旧值，商品再按旧品牌校验一次。
+        mockSearchResults(['旧商品']);
+
+        const result = await runCascade(null);
+
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(String(api.mock.calls[0]?.[0]?.url)).toContain(
+            'insight_list_sku',
+        );
+        expect(result.dimensions.find((d) => d.id === 'b')?.values).toEqual([
+            '旧品牌',
+        ]);
+        expect(result.dimensions.find((d) => d.id === 's')?.values).toEqual([
+            '旧商品',
+        ]);
+    });
+
+    it('treats bound filters as cascade triggers', () => {
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: groupRule,
+                isEdit: false,
+                isTemporary: false,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(true);
+
+        // 编辑模式 / 临时筛选（图表交叉筛选）仍然不触发
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: groupRule,
+                isEdit: true,
+                isTemporary: false,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(false);
+        expect(
+            shouldCascadeCategoryFilterUpdate({
+                filter: groupRule,
+                isEdit: false,
+                isTemporary: true,
+                canApplyCategoryFilters: true,
+            }),
+        ).toBe(false);
     });
 });

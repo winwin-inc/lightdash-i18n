@@ -1634,13 +1634,38 @@ const cascadeChildrenAsync = async (
                 });
                 continue;
             }
-            if (boundResolution.status === 'keep') continue;
+            if (boundResolution.status === 'keep') {
+                // 无法判断这一级：保留当前值，但下级仍要按这个值重新解析
+                // （否则「集团变了、品牌保留旧值」时，商品会一直停在更早的状态）
+                const keptValue = getFilterCurrentValue(child.rule) ?? null;
+                const childResult = await cascadeChildrenAsync(
+                    currentChain,
+                    child,
+                    keptValue,
+                    ctx,
+                );
+                currentChain = childResult.chain;
+                hasChanges = hasChanges || childResult.hasChanges;
+                if (childResult.cancelled) {
+                    return {
+                        chain: currentChain,
+                        hasChanges: false,
+                        cancelled: true,
+                    };
+                }
+                continue;
+            }
 
-            currentChain = replaceRuleInChain(currentChain, child.rule.id, {
+            const appliedBoundChild: DashboardFilterRule = {
                 ...child.rule,
                 values: boundResolution.values,
                 disabled: false,
-            });
+            };
+            currentChain = replaceRuleInChain(
+                currentChain,
+                child.rule.id,
+                appliedBoundChild,
+            );
             hasChanges = true;
             ctx.onValuesAutoAdjusted?.({
                 filterId: child.rule.id,
@@ -1650,6 +1675,26 @@ const cascadeChildrenAsync = async (
                 ),
                 nextValues: boundResolution.values,
             });
+
+            // 继续向下：普通维度之间也能成链（类目 → 集团 → 品牌 → 商品），
+            // 品牌的值变了，商品必须按新品牌重算。
+            const boundChildResult = await cascadeChildrenAsync(
+                currentChain,
+                { ...child, rule: appliedBoundChild },
+                appliedBoundChild.values && appliedBoundChild.values.length > 0
+                    ? String(appliedBoundChild.values[0])
+                    : null,
+                ctx,
+            );
+            currentChain = boundChildResult.chain;
+            hasChanges = hasChanges || boundChildResult.hasChanges;
+            if (boundChildResult.cancelled) {
+                return {
+                    chain: currentChain,
+                    hasChanges: false,
+                    cancelled: true,
+                };
+            }
             continue;
         }
 
@@ -2215,7 +2260,10 @@ export const updateCategoryFilterCascadeAsync = async (
     },
 ): Promise<DashboardFilters> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
-    if (!isCategoryField(changedFilter)) return filters;
+    // 触发联动的可以是类目，也可以是绑定父级的普通维度（类目 → 集团 → 品牌 → 商品）
+    if (!isCategoryField(changedFilter) && !isBoundValueFilter(changedFilter)) {
+        return filters;
+    }
 
     const location = options?.scope?.location ?? GLOBAL_FILTER_LOCATION;
     const chain: CategoryChain = (
@@ -2464,7 +2512,7 @@ export const updateCrossScopeCategoryCascadeAsync = async (
         }) => void;
     },
 ): Promise<CategoryFilterLayers> => {
-    if (!isCategoryField(changedFilter)) {
+    if (!isCategoryField(changedFilter) && !isBoundValueFilter(changedFilter)) {
         return {
             globalFilters: layers.globalFilters,
             tabFilters: layers.tabFilters,
