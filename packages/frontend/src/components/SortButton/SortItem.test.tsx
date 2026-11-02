@@ -73,6 +73,17 @@ describe('SortItem 布局（自定义顺序开关）', () => {
         expect(screen.queryByText('Default')).not.toBeInTheDocument();
     });
 
+    it('summarises a long value order (2 values + count) to keep the row narrow', () => {
+        renderSortItem(['大卖场', '大超市', '小超市', '便利店', '食杂店']);
+
+        const summary = screen.getByTestId('value-order-summary');
+        expect(summary).toHaveTextContent('大卖场 → 大超市 +3');
+        expect(summary).not.toHaveTextContent('食杂店');
+
+        // 固定宽度，避免把排序行撑开
+        expect(summary).toHaveStyle({ width: '190px' });
+    });
+
     it('keeps the custom order toggle before the direction control', () => {
         renderSortItem(undefined);
 

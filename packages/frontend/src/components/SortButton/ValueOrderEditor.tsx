@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const SEARCH_DEBOUNCE_MS = 300;
+/** 行内已选值的固定宽度：约 2~3 个标签，避免把排序行撑开 */
+const VALUES_WIDTH = 190;
 
 export type ValueOrderEditorProps = {
     /** Selected values, the array order is the expected order (first = first). */
@@ -105,10 +107,11 @@ export const ValueOrderEditor = ({
             nothingFound={t(
                 'components_sort_button.custom_order_no_candidates',
             )}
-            title={t('components_sort_button.custom_order_tooltip')}
+            // 固定宽度：一行只露出 2~3 个已选值，完整顺序看 title
+            title={selectedValues.join(' → ')}
             error={candidatesError}
             rightSection={isCandidatesLoading ? <Loader size="xs" /> : null}
-            sx={{ minWidth: 160, maxWidth: 280, flex: 1 }}
+            sx={{ width: VALUES_WIDTH, minWidth: VALUES_WIDTH, flex: 'none' }}
         />
     );
 };

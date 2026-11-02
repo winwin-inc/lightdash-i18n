@@ -96,6 +96,16 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                 ? item
                 : undefined;
 
+        // 收起时只露前 2 个值，剩下的用 +N 表示；完整顺序在 tooltip 里
+        const valueOrderSummary =
+            valueOrder.length === 0
+                ? t('components_sort_button.custom_order_add_values')
+                : valueOrder.length > 2
+                ? `${valueOrder.slice(0, 2).join(' → ')} +${
+                      valueOrder.length - 2
+                  }`
+                : valueOrder.join(' → ');
+
         const handleValueOrderChange = useCallback(
             (newValues: string[]) => {
                 // An empty list means that the custom order is turned off
@@ -216,25 +226,21 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                                     onClick={handleToggleValueOrderEditor}
                                     data-testid="value-order-summary"
                                     sx={(theme) => ({
-                                        maxWidth: 280,
+                                        width: 190,
                                         padding: `2px ${theme.spacing.xs}`,
                                         borderRadius: theme.radius.sm,
                                         border: `1px dashed ${theme.colors.gray[3]}`,
                                     })}
                                 >
                                     <Text size="xs" color="dimmed" truncate>
-                                        {valueOrder.length > 0
-                                            ? valueOrder.join(' → ')
-                                            : t(
-                                                  'components_sort_button.custom_order_add_values',
-                                              )}
+                                        {valueOrderSummary}
                                     </Text>
                                 </UnstyledButton>
                             </Tooltip>
                         )}
 
                         {isValueOrderMode && isValueOrderEditorOpen && valueOrderField && (
-                            <Box sx={{ flex: 1, minWidth: 160, maxWidth: 280 }}>
+                            <Box sx={{ width: 190 }}>
                                 <ValueOrderEditorContainer
                                     field={valueOrderField}
                                     values={valueOrder}
