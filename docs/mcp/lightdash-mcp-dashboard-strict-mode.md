@@ -177,6 +177,26 @@
 2. 看板必须在该客户的白名单里（或该账号是允许的受限角色之外的角色），否则 → `dashboard_permission_required`；
 3. `sql_filter` 里要真正使用 `${lightdash.user.dashboardSlug}`，否则带不带看板结果一样（本方案不校验这一点）。
 
+### 6.1 同一张表，两种身份的提示差异
+
+严格模式本身**只有一套文案**（同状态同文案，不按身份分支）。身份差异来自闸门顺序：受限账号在"可查表预检"就被拦下，走不到看板闸。
+
+```
+① 认证 → ② 能力位 / 可查表预检 → ③ 必须解析 dashboardUuid → ④ 看板权限 → 查数
+```
+
+| 同一张"没挂看板"的表 | `editor` / `admin` | 受限 `viewer` / `interactive_viewer` |
+|---|---|---|
+| 实际返回 | `dashboard_configuration_required` | `已拒绕查询「xxx」：该表不存在或不在当前项目可访问表中` |
+| 停在哪道闸 | 第②闸能过，卡在第③闸 | 第②闸直接拒（受限角色的可查表列表由白名单看板派生） |
+| 客户可操作性 | 明确：去配看板 | 模糊：只能说"联系客服" |
+
+结论：
+
+- **这是正确行为，不需要改成"按身份给不同状态"**；泄露"项目里有这张表但没配看板"对客户是不必要的元数据泄露。
+- **但文案要让两种读者都能动手**：配置类文案写成双路径（管理员去配看板 / 客户联系客服）；预检拒绝文案补一句"或尚未挂到任何看板"，避免客户报"表不存在"。
+- **内部排障统一动作**：用**管理员 PAT** 跑 `/dashboards/context?exploreName=` 看 `associatedCount`。`0` = 配置问题；`> 0` 且客户看不到 = 白名单/空间问题。客户视角不需分清这两者。
+
 ## 7. 阻断路径与状态
 
 | 情况 | 状态 | `action` | 给什么 | 是否执行查询 |
@@ -184,7 +204,7 @@
 | 传了 `dashboardUuid`，但无权限（CASL / 空间 / 白名单） | `dashboard_permission_required` | `request_dashboard_access` | 看板链接 + `MCP_DASHBOARD_CONTACT` | 否 |
 | 未传，反查 0 候选且 `associatedCount > 0` | `dashboard_permission_required` | `request_dashboard_access` | 权限提示 + `MCP_DASHBOARD_CONTACT`；无具体看板链接 | 否 |
 | 未传，反查 0 候选且 `associatedCount === 0` | `dashboard_configuration_required` | `configure_dashboard` | "必须配置看板；无看板 ID 的数据集对外客户不能正常使用" | 否 |
-| 传了 `dashboardUuid`，但该看板不是这个 explore / chart 的关联看板 | `dashboard_not_found` | `verify_dashboard_uuid` | 候选链接 + 提示“请使用该数据集真正挂的看板” | 否 |
+| 传了 `dashboardUuid`，但该看板不是这个 explore / chart 的关联看板 | `associatedCount === 0` → `dashboard_configuration_required`；`associatedCount > 0` → `dashboard_not_found` | `configure_dashboard` / `verify_dashboard_uuid` | 前者：必须配置看板 + contact；后者：候选链接 + 提示换 uuid | 否 |
 
 另有两种失败状态：`dashboard_not_found`（uuid 不存在 / 跨项目 / 未关联，`action: verify_dashboard_uuid`）与 `dashboard_context_unavailable`（预检网络/5xx、反查接口失败、`associatedCount` 缺失，`action: retry_later`）。
 
@@ -248,15 +268,22 @@
 {
   "status": "dashboard_configuration_required",
   "action": "configure_dashboard",
-  "message": "该数据集未配置看板。必须配置看板；无看板 ID 的数据集对外客户不能正常使用。",
+  "message": "该数据集未配置看板，对外客户无法查询（必须配置看板后对外可用）。",
   "source": "exploreName | chartUuid",
   "exploreName": "可选",
   "chartUuid": "可选",
   "associatedCount": 0,
-  "hint": "请联系管理员把该数据集挂到看板并授权，或在调用时显式传入已授权的 dashboardUuid。",
+  "contact": "请联系客服开通看板访问权限。",
+  "hint": "管理员：请把该数据集挂到看板并授权后重试，或显式传入已绑定看板的 dashboardUuid。客户：请联系客服确认该数据集是否开放。",
   "note": "该限制仅在 MCP_DASHBOARD_STRICT=true 时生效。"
 }
 ```
+
+文案要求：
+
+- 同一句话要同时对**管理员**（去配看板）和**客户**（联系客服）可操作，所以 `hint` 分两行写法（管理员 / 客户）;
+- 不说"你的表不存在"，也不暴露具体看板名；
+- `contact` 必须来自 `MCP_DASHBOARD_CONTACT`，不得硬编码。
 
 ### 9.4 反查到多个看板，需要选择（非错误）
 
@@ -281,8 +308,25 @@
 
 ### 9.5 其他状态
 
-- `dashboard_not_found` → `action: "verify_dashboard_uuid"`，带 `dashboardUrl`；用于 uuid 不存在、属于其他项目、或不属于该 explore/chart 的关联看板（后两者附 `candidates`）。
-- `dashboard_context_unavailable` → `action: "retry_later"`；用于预检网络/5xx、反查接口失败。
+- `dashboard_not_found` → `action: "verify_dashboard_uuid"`，带 `dashboardUrl`；用于 uuid 不存在或属于其他项目。
+- `dashboard_context_unavailable` → `action: "retry_later"`；用于预检网络/5xx、反查接口失败、`associatedCount` 缺失。
+- 显式 uuid 不属于该数据集关联看板时，按 `associatedCount` 分流（见 §7）：`0` → `dashboard_configuration_required`，`> 0` → `dashboard_not_found` + `candidates`。
+
+### 9.7 预检层（可查表）的拒绝文案
+
+受限账号在第②闸就被拒，永远看不到 §9.3 的"必须配置看板"。因此预检文案要兼顾"没授权"与"没挂看板"两种原因（改 `formatExploreQueryDeniedMessage` 的 `unknown_explore`）：
+
+```text
+已拒绕查询「{exploreName}」：该表不存在、不在当前可访问表中，或尚未挂到任何看板。
+请先 get_my_access(projectUuid, includeExplores=true)，只从 explores.queryable 选表；
+仍不可用请联系客服确认该数据集的授权与看板配置。
+```
+
+约束：
+
+- 不暴露"项目里存在这张表"与"它没配看板"的区别（两种原因共用同一句话）；
+- 不泄露看板名称 / 数量 / 链接；
+- `attribute_denied` / `no_run_metric_query` 两种 reason 的文案保持现有口径不变。
 
 ### 9.6 防御性错误映射
 
@@ -322,6 +366,7 @@
 | `src/lib/dashboardContextResolver.ts:33-48,63-66,146-165` | 结果类型与缓存改造：`status:'none'` 携带 `associatedCount: number \| null`；`CacheEntry` 同步缓存 `{ contexts, associatedCount }`；严格模式下 resolver 改为**单实例共享缓存**（现在 `registerQueryTools.ts:189`、`registerExtensionTools.ts:147` 各建一份） |
 | `src/mcp/tools/registerQueryTools.ts` | `run_metric_query`（`:563-758`）/ `run_semantic_metric_query`（`:424-558`）改为"严格模式无条件解析"；`search_field_values`（`:191-405`）接入解析 + 禁 SQL 回退 + 空值不回退；工具描述按开关切换（现描述仍承诺 SQL DISTINCT 回退，`:196`） |
 | `src/mcp/registerExtensionTools.ts` | `run_saved_chart`（`:234-371`）严格模式固定走 `runDashboardChart`（并声明忽略 `versionUuid`）；`run_dashboard_tiles`（`:449-553`）403/404 整批阻断；工具描述（`:238`）按开关切换 |
+| `src/mcp/access/assertExploreQueryable.ts:79-105` | `unknown_explore` 文案改为兼容"未挂到任何看板"（§9.7）；其余两个 reason 保持；同步 `assertExploreQueryable.test.ts` 断言 |
 | `src/mcp/tools/registerAccessTools.ts:127-198` | `get_my_access` 增加 `dashboardStrict` / `dashboardContact` |
 | `src/mcp/mcpDocsContent.ts:34` | 说明严格模式、三条阻断路径、`dashboard_*` 状态枚举；修正现有"不要干等 `dashboard_selection_required`"与实际行为不符的表述 |
 | 测试夹具 | `coreToolsContext.test.ts:11-31`、`mcpHttpLifecycle.test.ts:14-30`、`mcpSessionRegistry.test.ts:19-35` 三处手工 config 必须同步新增字段（`tsconfig.json:21` 排除测试文件，typecheck 不会报错）；`package.json:18` 的 test 列表按需补新文件 |
@@ -357,6 +402,8 @@
 | `search_field_values` 同上场景 | `true` | 同样阻断 / 放行；空结果**直接**返回空列表，不回退裸 SQL，也不因空值回退 metric-query |
 | `search_field_values` + viewer + 该字段确实无值 | `true` | 返回 `rows: []`，不报错（不会因回退 metric-query 而 403） |
 | `run_saved_chart` 图表未挂看板 | `true` | `dashboard_configuration_required`（A 方案下不再"按普通 saved chart 查询"） |
+| 同一张未挂看板的表，分别用 `editor` / 受限 `viewer` 调 | `true` | 前者 `dashboard_configuration_required`（双路径文案）；后者 `已拒绕查询…或尚未挂到任何看板` |
+| 受限 `viewer` 调未挂看板的表 | `true` | 预检层拒绝（不暴露看板配置），文案含"或尚未挂到任何看板" |
 | `run_saved_chart` chart 只存在于旧看板版本 | `true` | `dashboard_configuration_required`（计数只算最新 dashboard 版本里的 tile） |
 | `run_dashboard_tiles` 无权限看板 | `true` | `dashboard_permission_required`，不跑任何磁贴 |
 | backend 未升级（无 `associatedCount`） | `true` | `dashboard_context_unavailable`（fail-closed），**不得**落 `configuration_required` |
