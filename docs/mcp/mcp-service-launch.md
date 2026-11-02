@@ -253,6 +253,17 @@ flowchart TD
 | 3 | 给客户交付方重申：PAT 不得交给未受控终端（MCP 层是护栏，不是安全边界） | 客户可绕过 MCP 直连后端拿宽数据 |
 | 4 | 设 `MCP_DASHBOARD_STRICT=true` + `MCP_DASHBOARD_CONTACT` → 发布 | — |
 
+**后端未升级（旧版）时的精确表现**——是**报错阻断**，不是文案差异：
+
+| 查询走到的分支 | 后端已升级 | 后端未升级（旧版） |
+|---|---|---|
+| 反查到 ≥1 个可见关联看板 | 正常（唯一自动 / 多个要求选择） | **正常**（不依赖新字段） |
+| 显式 `dashboardUuid` 命中关联候选 | 正常 | **正常** |
+| 未传 uuid + 反查 **0 个可见关联看板** | `associatedCount=0` → `dashboard_configuration_required`；`>0` → `dashboard_permission_required` | `dashboard_context_unavailable`（`isError: true`、`action: retry_later`，**不查数**） |
+| 显式 uuid **不属**关联候选 | `0` → `dashboard_configuration_required`；`>0` → 403 → `permission_required` / 404 → `not_found` | `dashboard_context_unavailable`（**不查数**） |
+
+影响面：只有最后两行。它们本来就该被严格模式阻断，差别只是**原因和下一步给不出来**——`retry_later` 会让"其实该去配看板"的客户反复重试，产生客服噪音。因此建议后端先发（或同批发）。
+
 盘点命令（第 2 步；`associatedCount` 落地后可直接用）：
 
 ```bash
