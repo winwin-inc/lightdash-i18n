@@ -27,6 +27,8 @@ const testConfig: LightdashMcpEnvConfig = {
     lruMinIdleMs: 0,
     sessionTtlMs: 600_000,
     pruneIntervalMs: 300_000,
+    dashboardStrict: false,
+    dashboardContact: '请联系客服开通看板访问权限。',
 };
 
 function registryOptions(

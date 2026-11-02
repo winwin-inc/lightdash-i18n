@@ -93,9 +93,12 @@ export function formatExploreQueryDeniedMessage(
                 '请先 get_my_access 确认 effectiveCapabilities.runMetricQuery，或改用 run_saved_chart。',
             ].join('\n');
         case 'unknown_explore':
+            // 文案兼顾两种原因：没授权 / 没挂看板（文档 §9.7）
+            // 不区分“表不存在”与“未配置看板”，避免泄露项目元数据。
             return [
-                `已拒绝查询${quoted}：该表不存在或不在当前项目可访问表中。`,
-                '请先 get_my_access(projectUuid, includeExplores=true)，只从 explores.queryable 选表。',
+                `已拒绝查询${quoted}：该表不存在、不在当前可访问表中，或尚未挂到任何看板。`,
+                '请先 get_my_access(projectUuid, includeExplores=true)，只从 explores.queryable 选表；',
+                '仍不可用请联系客服确认该数据集的授权与看板配置。',
             ].join('\n');
         default: {
             const exhaustive: never = reason;

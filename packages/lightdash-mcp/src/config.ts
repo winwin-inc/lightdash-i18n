@@ -4,6 +4,9 @@ import { config as loadDotenv } from 'dotenv';
 // Node 不会自动读 .env；与 packages/lightdash-mcp/.env.example 对齐
 loadDotenv({ path: path.join(__dirname, '..', '.env') });
 
+/** 无看板访问权限时给客户的联系文案默认值（MCP_DASHBOARD_CONTACT 未设置时使用） */
+export const DEFAULT_DASHBOARD_CONTACT = '请联系客服开通看板访问权限。';
+
 export type LightdashMcpEnvConfig = {
     /** REST / 鉴权等 API 基址（LIGHTDASH_SITE_URL） */
     baseUrl: string;
@@ -32,6 +35,13 @@ export type LightdashMcpEnvConfig = {
     sessionTtlMs: number;
     /** 后台 prune 间隔（毫秒） */
     pruneIntervalMs: number;
+    /**
+     * 强制看板模式总开关（MCP_DASHBOARD_STRICT=true）。
+     * 打开后所有会执行查询的工具都必须先解析出 dashboardUuid。
+     */
+    dashboardStrict: boolean;
+    /** 无看板权限时给客户的联系文案（MCP_DASHBOARD_CONTACT） */
+    dashboardContact: string;
 };
 
 function parsePositiveIntEnv(
@@ -122,6 +132,10 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         process.env.LIGHTDASH_MCP_PRUNE_INTERVAL_MS,
         300_000,
     );
+    const dashboardStrict =
+        (process.env.MCP_DASHBOARD_STRICT ?? 'false').trim() === 'true';
+    const dashboardContact =
+        process.env.MCP_DASHBOARD_CONTACT?.trim() || DEFAULT_DASHBOARD_CONTACT;
     return {
         baseUrl,
         publicBaseUrl,
@@ -138,5 +152,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         lruMinIdleMs,
         sessionTtlMs,
         pruneIntervalMs,
+        dashboardStrict,
+        dashboardContact,
     };
 }

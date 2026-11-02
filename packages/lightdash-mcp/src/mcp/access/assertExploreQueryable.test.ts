@@ -123,6 +123,26 @@ describe('formatExploreQueryDeniedMessage', () => {
         assert.match(message, /用户属性不满足/);
         assert.match(message, /explores\.queryable/);
     });
+
+    it('mentions "not attached to any dashboard" for unknown explores', () => {
+        const message = formatExploreQueryDeniedMessage(
+            'missing_table',
+            'unknown_explore',
+        );
+        assert.match(message, /已拒绝查询「missing_table」/);
+        assert.match(message, /或尚未挂到任何看板/);
+        assert.match(message, /explores\.queryable/);
+        assert.match(message, /联系客服/);
+    });
+
+    it('keeps the no_run_metric_query wording unchanged', () => {
+        const message = formatExploreQueryDeniedMessage(
+            allowed.name,
+            'no_run_metric_query',
+        );
+        assert.match(message, /不能跑临时指标查询/);
+        assert.doesNotMatch(message, /尚未挂到任何看板/);
+    });
 });
 
 describe('assertExploreQueryable', () => {
@@ -231,7 +251,7 @@ describe('assertExploreQueryable', () => {
                 ),
             (error: unknown) => {
                 assert.ok(error instanceof Error);
-                assert.match(error.message, /不存在或不在当前项目可访问表中/);
+                assert.match(error.message, /不存在、不在当前可访问表中，或尚未挂到任何看板/);
                 return true;
             },
         );
@@ -277,7 +297,7 @@ describe('assertExploreQueryable', () => {
                 ),
             (error: unknown) => {
                 assert.ok(error instanceof Error);
-                assert.match(error.message, /不存在或不在当前项目可访问表中/);
+                assert.match(error.message, /不存在、不在当前可访问表中，或尚未挂到任何看板/);
                 return true;
             },
         );

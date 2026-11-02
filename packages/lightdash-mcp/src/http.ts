@@ -79,6 +79,9 @@ function logStartupConfig(config: ReturnType<typeof loadConfigFromEnv>): void {
     writeStderrLog(
         `[Config] SESSION_TTL_MS=${config.sessionTtlMs} | LRU_MIN_IDLE_MS=${config.lruMinIdleMs} | PRUNE_INTERVAL_MS=${config.pruneIntervalMs}`,
     );
+    writeStderrLog(
+        `[Config] MCP_DASHBOARD_STRICT=${config.dashboardStrict} | MCP_DASHBOARD_CONTACT=${config.dashboardContact}`,
+    );
 }
 
 function handleSessionNotFound(
@@ -199,6 +202,7 @@ async function main(): Promise<void> {
             compatSessions: health.compatSessions,
             activeSseConnections: health.activeSseConnections,
             inFlightRequests: health.inFlightRequests,
+            dashboardStrict: config.dashboardStrict,
         });
     });
 

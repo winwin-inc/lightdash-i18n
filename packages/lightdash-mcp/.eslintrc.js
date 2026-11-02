@@ -38,6 +38,7 @@
                 'src/mcp/tools/registerContentTools.ts',
                 'src/mcp/tools/registerExploreCatalogTools.ts',
                 'src/lib/dashboardContextResolver.ts',
+                'src/lib/requiredDashboardContext.ts',
             ],
             rules: {
                 'import/extensions': 'off',

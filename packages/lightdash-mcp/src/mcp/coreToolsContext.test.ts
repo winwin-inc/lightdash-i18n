@@ -27,6 +27,8 @@ function baseConfig(
         lruMinIdleMs: 300_000,
         sessionTtlMs: 1_800_000,
         pruneIntervalMs: 300_000,
+        dashboardStrict: false,
+        dashboardContact: '请联系客服开通看板访问权限。',
     };
 }
 
