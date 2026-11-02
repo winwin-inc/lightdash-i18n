@@ -141,6 +141,12 @@ export type CompiledMetricQuery = Omit<MetricQuery, 'customDimensions'> & {
     compiledCustomDimensions: CompiledCustomDimension[];
 };
 // Sort by
+/**
+ * Maximum number of values a custom value order can hold.
+ * Shared by the query builder (SQL generation) and the sort panel UI.
+ */
+export const MAX_VALUE_ORDER_ITEMS = 200;
+
 export type SortField = {
     fieldId: string; // Field must exist in the explore
     descending: boolean; // Direction of the sort

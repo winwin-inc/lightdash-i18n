@@ -1,7 +1,7 @@
 # 维度按自定义值顺序排序（业态排序）
 
-> 状态：**P0（后端）已实施**，P1/P2（前端编辑器与接线）进行中。
-> 分支 `feat/optimizations`。
+> 状态：**已实施**（P0 后端 / P1 组件 / P2 接线 / 评审整改）。分支 `feat/optimizations`。
+> 已知不支持：自定义 SQL 维度的值顺序（后端只解析 explore 维度）；数值型业务码（有类型风险）。
 > 需求来源：业态字段需要按「大卖场 → 大超市 → 小超市 → 便利店 → 食杂店」固定排序，
 > 现有 A-Z / Z-A 表达不了这个业务顺序。
 > 现状 UI（截图）：`排序方式 / 然后通过` + `A-Z·Z-A` + `空值 默认·最前·最后`，支持多字段与拖拽调序。
@@ -110,6 +110,10 @@ export type SortField = {
   指标 / 未知字段 / 数值维度 → 忽略 `valueOrder`，回退默认排序。
 - 建议前端限制条目数（如 ≤ 200）与单值长度（如 ≤ 200 字符）。
 - 未列出的值 → **ELSE 桶**，排在已列值之后，桶内再按 `field <dir>` 兜底（保证确定性）。
+  注意 NULL 也落在 ELSE 桶，桶内 NULL 的相对位置取决于方言默认（未跨仓库统一）。
+- 值**不做 trim**（`' A '` 与 `'A'` 是不同值），只去掉**空字符串**并按原值去重。
+- 条数上限 `MAX_VALUE_ORDER_ITEMS = 200` 定义在 `@lightdash/common`，前后端共用；
+  UI 到上限后禁止继续添加并提示，后端再做一次截断兜底。
 - 空值（NULL）→ 显式进 CASE（`WHEN field IS NULL THEN <n+1>`），并在自定义顺序模式下**隐藏/说明**「空值」选项（因为它作用于 CASE 结果而非原值）。
 
 ---
@@ -138,8 +142,14 @@ ORDER BY
 
 要点：
 
-1. **转义**：值来自用户输入，必须走 `warehouseSqlBuilder.escapeString`（`common/src/types/warehouse.ts:96`）；字段名照旧用 `getFieldQuoteChar()`。
-2. **CTE**：`requiresQueryInCTE = true`（照抄 month/day 先例），避免 BigQuery / 聚合查询在 ORDER BY 里引用分组列报错。
+1. **转义（评审后调整）**：不能用 `warehouseSqlBuilder.escapeString` —— 它是给筛选/LIKE 用的**有损**转义
+   （NFC 归一、弯引号转 `'`、删零宽字符、剥 `--`/`/* */` 注释、给 LIKE 转义反斜杠），
+   用于等值比较会让 `McDonald’s`、`A--B` 这类值**永远匹配不上**。
+   改用新增的 `escapeStringLiteral(value, adapterType)`：只做单引号双写 + 去 NUL；
+   反斜杠仅在「以反斜杠为转义符」的方言（BigQuery/Snowflake/Databricks/ClickHouse/Redshift）双写。
+2. **CTE**：命中后 `requiresQueryInCTE = true`（照抄 month/day 先例），避免 BigQuery / 聚合查询在 ORDER BY 里引用分组列报错。
+   注意：**归一化之后为空**（如 `['']`、只有一个空串）必须回退默认排序，否则会生成没有 `WHEN` 的
+   `CASE ... ELSE n END`（非法 SQL → 图表永久报错）。归一化逻辑见 `normalizeValueOrder`。
 3. **降序**：不要只加 `DESC` 到升序 CASE 上，否则「未列出」会跑到最前面；用反转 rank 的写法。
 4. **多字段**：自定义顺序只是其中一个 ORDER BY term，后面再接兜底 term 与其它排序字段，语义与现有 `然后通过` 一致。
 5. **「未列出」的语义（已定，已实现）**：永远排在最末；**同一 sort 产出两个 ORDER BY term**
@@ -207,6 +217,14 @@ resp: { search, results: string[], cached, refreshedAt }
 ### 只读场景（看板 / embed / 查看模式）
 
 排序面板本身只在编辑模式可编辑。只读时在 `SortButton` 的 Badge 上展示一个「自定义顺序」标记（tooltip 显示前 N 个值），让人知道这一列不是按字母排的。
+
+**看板内点表头排序**：看板用 `dashboardSorts` 整体替换 `metricQuery.sorts`。为了不让「点一下表头」
+把自定义顺序冲掉，后端用 `mergeDashboardSorts(chartSorts, dashboardSorts)` 只覆盖方向、
+保留该字段的 `valueOrder` / `nullsFirst`（`common/src/utils/sorts.ts`，`ProjectService` 与
+`AsyncQueryService` 两处都接入）。
+
+**空值控件**：自定义顺序下 `nullsFirst` 不参与生成 SQL（NULL 走 ELSE 桶），
+所以排序行里的「空值」SegmentedControl 在该模式下禁用 + tooltip 说明。
 
 ---
 

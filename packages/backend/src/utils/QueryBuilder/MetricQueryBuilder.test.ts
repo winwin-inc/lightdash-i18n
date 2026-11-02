@@ -1018,17 +1018,90 @@ describe('Query builder', () => {
             expect(query).not.toContain('END ) DESC');
         });
 
-        test('Should trim values, remove empty values and remove duplicates', () => {
+        test('Should keep values verbatim, remove empty strings and duplicates', () => {
             const query = buildSortQuery([
                 {
                     fieldId: STRING_DIM,
                     descending: false,
-                    valueOrder: ['  A  ', '', 'B', 'A', '   '],
+                    // 注意：`replaceWhitespace` 会折叠连续空格，这里用单侧空格断言「没被 trim」
+                    valueOrder: [' A ', '', 'B', 'A'],
                 },
             ]);
 
+            // 值必须和库里的字面量完全一致：不做 trim
             expect(query).toContain(
-                `CASE WHEN "table1_shared" = 'A' THEN 1 WHEN "table1_shared" = 'B' THEN 2 ELSE 3 END`,
+                `CASE WHEN "table1_shared" = ' A ' THEN 1 WHEN "table1_shared" = 'B' THEN 2 WHEN "table1_shared" = 'A' THEN 3 ELSE 4 END`,
+            );
+        });
+
+        test('Should fall back to the default sort when the value order normalizes to empty', () => {
+            const queryWithEmptyValues = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: [''],
+                },
+            ]);
+            const queryWithEmptyValueOrder = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: [],
+                },
+            ]);
+
+            // 空列表不能生成没有 WHEN 的 CASE（非法 SQL），也不能白加一层 CTE
+            expect(queryWithEmptyValues).not.toContain('CASE');
+            expect(queryWithEmptyValues).toStrictEqual(
+                queryWithEmptyValueOrder,
+            );
+        });
+
+        test('Should keep the literal untouched (no unicode normalization / comment stripping)', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['McDonald\u2019s', 'A--B', 'C\\D'],
+                },
+            ]);
+
+            // 弯引号、`--`、反斜杠都必须原样保留（Postgres 不做反斜杠转义）
+            expect(query).toContain(`'McDonald\u2019s'`);
+            expect(query).toContain(`'A--B'`);
+            expect(query).toContain(`'C\\D'`);
+        });
+
+        test('Should wrap the query in a CTE when a custom value order is used', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A'],
+                },
+            ]);
+
+            expect(query.startsWith('WITH metrics AS')).toBe(true);
+        });
+
+        test('Should keep both value order sorts apart (two sort fields)', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A'],
+                },
+                {
+                    fieldId: 'table1_dim1',
+                    descending: false,
+                },
+            ]);
+
+            expect(
+                (query.match(/WHEN /g) ?? []).length,
+            ).toBe(1);
+            expect(query).toContain(
+                `ORDER BY ( CASE WHEN "table1_shared" = 'A' THEN 1 ELSE 2 END ), "table1_shared", "table1_dim1"`,
             );
         });
 

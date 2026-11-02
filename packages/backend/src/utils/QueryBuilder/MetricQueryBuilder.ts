@@ -86,6 +86,7 @@ import {
     hasBlockingTotalFilters,
     isInflationProofMetric,
     replaceUserAttributesAsStrings,
+    normalizeValueOrder,
     replaceUserAttributesRaw,
     sortByValueOrder,
     sortDayOfWeekName,
@@ -1415,8 +1416,7 @@ export class MetricQueryBuilder {
                   : sorts;
         const fieldQuoteChar = warehouseSqlBuilder.getFieldQuoteChar();
         const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
-        const escapeString =
-            warehouseSqlBuilder.escapeString.bind(warehouseSqlBuilder);
+        const adapterType = warehouseSqlBuilder.getAdapterType();
         const compiledDimensions = getDimensions(explore);
         let requiresQueryInCTE = false;
         // 自定义值顺序需要按同方向再排一个「字段本身」作为兜底，
@@ -1434,25 +1434,32 @@ export class MetricQueryBuilder {
                 (d) => getItemId(d) === sort.fieldId,
             );
 
-            if (
-                sort.valueOrder !== undefined &&
-                sort.valueOrder.length > 0 &&
-                sortedDimension &&
+            const valueOrder =
+                sort.valueOrder === undefined
+                    ? []
+                    : normalizeValueOrder(sort.valueOrder);
+
+            // Custom value order for string dimensions: the values are ranked with a CASE expression.
+            // In BigQuery we cannot use an expression in the ORDER BY clause that references a column
+            // that is not aggregated or grouped, so we wrap the query in a CTE; for consistency we do
+            // it for all warehouses.
+            const valueOrderSort =
+                valueOrder.length > 0 &&
+                sortedDimension !== undefined &&
                 // 只有字符串维度才有「值顺序」语义，避免 WHEN num_col = 'abc' 这类类型错误
                 sortedDimension.type === DimensionType.STRING
-            ) {
-                // Custom value order for dimensions: the values are ranked with a CASE expression
-                // in BigQuery, we cannot use an expression in the ORDER BY clause that references a column that is not aggregated or grouped
-                // so we need to wrap the query in a CTE to allow us to reference the column in the ORDER BY clause
-                // for consistency, we do it for all warehouses
+                    ? sortByValueOrder(
+                          sortedDimension,
+                          valueOrder,
+                          fieldQuoteChar,
+                          adapterType,
+                          sort.descending,
+                      )
+                    : null;
+
+            if (valueOrderSort !== null) {
                 requiresQueryInCTE = true;
-                fieldSort = sortByValueOrder(
-                    sortedDimension,
-                    sort.valueOrder,
-                    fieldQuoteChar,
-                    escapeString,
-                    sort.descending,
-                );
+                fieldSort = valueOrderSort;
                 valueOrderTieBreak = `${fieldQuoteChar}${
                     sort.fieldId
                 }${fieldQuoteChar}${sort.descending ? ' DESC' : ''}`;
