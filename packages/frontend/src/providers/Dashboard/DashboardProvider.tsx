@@ -687,15 +687,6 @@ const DashboardProvider: React.FC<
         [],
     );
 
-    /**
-     * 当前筛选器快照（供写回时同步判断 + 计算标记）。
-     * 写回仍带签名/世代守卫，这里的 ref 只是让「合并 + 标记」能同步完成。
-     */
-    const dashboardFiltersRef = useRef(dashboardFilters);
-    useEffect(() => {
-        dashboardFiltersRef.current = dashboardFilters;
-    }, [dashboardFilters]);
-
     const clearAutoAdjusted = useCallback(
         (scope: string, filterId?: string) => {
             setAutoAdjustedFilterIds((prev) => {
@@ -773,45 +764,55 @@ const DashboardProvider: React.FC<
                 },
             )
                 .then((refined) => {
-                    const currentFilters = dashboardFiltersRef.current;
-                    if (
-                        !shouldApplyCategoryInitResult({
-                            requestGeneration: generation,
-                            currentGeneration:
-                                globalCategoryInitGenerationRef.current,
-                            requestSignature: signature,
+                    let adjustments: {
+                        filterId: string;
+                        previousValues: string[];
+                    }[] = [];
+
+                    setDashboardFilters((currentFilters) => {
+                        if (
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    globalCategoryInitGenerationRef.current,
+                                requestSignature: signature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                            })
+                        ) {
+                            return currentFilters;
+                        }
+
+                        // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                        const nextFilters = mergeAutoResolvedFilters(
                             currentFilters,
-                            projectUuid,
-                            dashboardContext: dashboardFilterContext,
-                        })
-                    ) {
-                        return;
-                    }
-
-                    // 按 filter id 合并：解析期间用户手改的字段不能被回滚
-                    const nextFilters = mergeAutoResolvedFilters(
-                        currentFilters,
-                        filters,
-                        refined,
-                    );
-
-                    // 「已处理签名」必须在无变化时也写入：否则每次改筛选器都会
-                    // 因为签名未记录而重跑整条链（慢仓库下就是成倍的 field/search）。
-                    globalCategoryProcessedSignatureRef.current =
-                        getCategoryFiltersSignature(
-                            nextFilters,
-                            projectUuid,
-                            dashboardFilterContext,
+                            filters,
+                            refined,
                         );
 
-                    if (nextFilters === currentFilters) return;
+                        // 「已处理签名」必须在无变化时也写入：否则每次改筛选器都会
+                        // 因为签名未记录而重跑整条链（慢仓库下就是成倍的 field/search）。
+                        globalCategoryProcessedSignatureRef.current =
+                            getCategoryFiltersSignature(
+                                nextFilters,
+                                projectUuid,
+                                dashboardFilterContext,
+                            );
 
-                    setDashboardFilters(nextFilters);
+                        if (nextFilters === currentFilters) {
+                            return currentFilters;
+                        }
+
+                        adjustments = collectAutoAdjusted(filters, nextFilters);
+                        return nextFilters;
+                    });
+
                     // 写回被接受后才打标记（避免「值没改却显示已自动调整」）
-                    recordAutoAdjustedMany(
-                        'global',
-                        collectAutoAdjusted(filters, nextFilters),
-                    );
+                    queueMicrotask(() => {
+                        if (adjustments.length === 0) return;
+                        recordAutoAdjustedMany('global', adjustments);
+                    });
                 })
                 .finally(() => {
                     if (
@@ -966,12 +967,6 @@ const DashboardProvider: React.FC<
         isGlobalFilterEnabled,
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
-
-    /** 当前 Tab 筛选器快照（见 dashboardFiltersRef 的说明） */
-    const tabFiltersRef = useRef(tabFilters);
-    useEffect(() => {
-        tabFiltersRef.current = tabFilters;
-    }, [tabFilters]);
 
     /* ------------------------------------------------------------------ */
     /*                     跨 Tab 取值继承与统一联动                       */
@@ -1617,51 +1612,59 @@ const DashboardProvider: React.FC<
                 },
             )
                 .then((refined) => {
-                    const currentFilters =
-                        tabFiltersRef.current[targetTabUuid] ?? emptyFilters;
-                    if (
-                        !shouldApplyCategoryInitResult({
-                            requestGeneration: generation,
-                            currentGeneration:
-                                tabCategoryInitGenerationRef.current[
-                                    targetTabUuid
-                                ] ?? 0,
-                            requestSignature: signature,
+                    let adjustments: {
+                        filterId: string;
+                        previousValues: string[];
+                    }[] = [];
+
+                    setTabFilters((prev) => {
+                        const currentFilters =
+                            prev[targetTabUuid] ?? emptyFilters;
+                        if (
+                            !shouldApplyCategoryInitResult({
+                                requestGeneration: generation,
+                                currentGeneration:
+                                    tabCategoryInitGenerationRef.current[
+                                        targetTabUuid
+                                    ] ?? 0,
+                                requestSignature: signature,
+                                currentFilters,
+                                projectUuid,
+                                dashboardContext: dashboardFilterContext,
+                                currentSignature:
+                                    getTabCategoryChainSignature(
+                                        targetTabUuid,
+                                        currentFilters,
+                                    ) ?? undefined,
+                            })
+                        ) {
+                            return prev;
+                        }
+
+                        // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                        const nextFilters = mergeAutoResolvedFilters(
                             currentFilters,
-                            projectUuid,
-                            dashboardContext: dashboardFilterContext,
-                            currentSignature:
-                                getTabCategoryChainSignature(
-                                    targetTabUuid,
-                                    currentFilters,
-                                ) ?? undefined,
-                        })
-                    ) {
-                        return;
-                    }
+                            filters,
+                            refined,
+                        );
 
-                    // 按 filter id 合并：解析期间用户手改的字段不能被回滚
-                    const nextFilters = mergeAutoResolvedFilters(
-                        currentFilters,
-                        filters,
-                        refined,
-                    );
+                        // 无变化也要记录「已处理签名」：否则每次改筛选器/切 Tab
+                        // 都会重跑整条链解析（请求放大）。
+                        markTabCategoryProcessed(targetTabUuid, nextFilters);
 
-                    // 无变化也要记录「已处理签名」：否则每次改筛选器/切 Tab
-                    // 都会重跑整条链解析（请求放大）。
-                    markTabCategoryProcessed(targetTabUuid, nextFilters);
+                        if (nextFilters === currentFilters) return prev;
 
-                    if (nextFilters === currentFilters) return;
+                        adjustments = collectAutoAdjusted(
+                            filters,
+                            nextFilters,
+                        );
+                        return { ...prev, [targetTabUuid]: nextFilters };
+                    });
 
-                    setTabFilters((prev) => ({
-                        ...prev,
-                        [targetTabUuid]: nextFilters,
-                    }));
-                    // 写回被接受后才打标记
-                    recordAutoAdjustedMany(
-                        targetTabUuid,
-                        collectAutoAdjusted(filters, nextFilters),
-                    );
+                    queueMicrotask(() => {
+                        if (adjustments.length === 0) return;
+                        recordAutoAdjustedMany(targetTabUuid, adjustments);
+                    });
                 })
                 .finally(() => {
                     if (
