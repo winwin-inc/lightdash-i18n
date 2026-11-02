@@ -718,7 +718,7 @@ export class ProjectController extends BaseController {
         @Query() includePrivate?: boolean,
     ): Promise<ApiGetDashboardContextsResponse> {
         this.setStatus(200);
-        const results = await this.services
+        const { contexts, associatedCount } = await this.services
             .getDashboardService()
             .getDashboardContexts(
                 req.user!,
@@ -728,7 +728,7 @@ export class ProjectController extends BaseController {
             );
         return {
             status: 'ok',
-            results: { contexts: results },
+            results: { contexts, associatedCount },
         };
     }
 

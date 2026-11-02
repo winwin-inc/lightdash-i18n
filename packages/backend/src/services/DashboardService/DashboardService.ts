@@ -1178,7 +1178,13 @@ export class DashboardService
             chartUuid?: string;
         },
         includePrivate: boolean = true,
-    ): Promise<DashboardQueryContext[]> {
+    ): Promise<{
+        contexts: DashboardQueryContext[];
+        /**
+         * 权限过滤前的关联看板数量，用于区分「没配看板」与「没权限」。
+         */
+        associatedCount: number;
+    }> {
         if (!filters.exploreName && !filters.chartUuid) {
             throw new ParameterError('exploreName or chartUuid is required');
         }
@@ -1187,6 +1193,8 @@ export class DashboardService
             projectUuid,
             filters,
         );
+        // 计数必须在权限过滤前取，调用方据此区分配置问题与权限问题
+        const associatedCount = rows.length;
         const spaceUuids = [...new Set(rows.map((row) => row.spaceUuid))];
         const spaces = await Promise.all(
             spaceUuids.map((spaceUuid) =>
@@ -1232,7 +1240,7 @@ export class DashboardService
             );
         });
 
-        return filtered
+        const contexts = filtered
             .map((row) => ({
                 dashboardUuid: row.dashboardUuid,
                 dashboardSlug: row.dashboardSlug,
@@ -1246,6 +1254,8 @@ export class DashboardService
                 if (bySlug !== 0) return bySlug;
                 return a.dashboardUuid.localeCompare(b.dashboardUuid);
             });
+
+        return { contexts, associatedCount };
     }
 
     async getByIdOrSlug(
