@@ -1231,6 +1231,14 @@ const DashboardProvider: React.FC<
                     globalCategoryPendingSignatureRef.current = null;
                     startGlobalCategoryCascadeSession();
                     clearAutoAdjusted('global', item.id);
+                    // 同上：用户改动优先，标记已处理，避免全局 init effect 重跑整链
+                    markGlobalCategoryProcessed(
+                        replaceDimensionFilterAtIndex(
+                            dashboardFilters,
+                            index,
+                            item,
+                        ),
+                    );
                 }
                 // 临时筛选器（图表交叉筛选）不做类目联动：
                 // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
@@ -1712,6 +1720,16 @@ const DashboardProvider: React.FC<
                 startTabCategoryCascadeSession(uuid);
                 clearTabCategoryDisplay(uuid);
                 clearAutoAdjusted(uuid, item.id);
+                // 用户的选择优先：把「当前组合」标为已处理，避免 init effect 因为
+                // 签名变化再跑一次整条链（4 类目 + 4 绑定字段 = 8 次串行查询）。
+                markTabCategoryProcessed(
+                    uuid,
+                    replaceDimensionFilterAtIndex(
+                        tabFilters[uuid] ?? emptyFilters,
+                        index,
+                        item,
+                    ),
+                );
             }
 
             // 查看模式：跨 Tab 继承：把用户的显式选择同步到其他含该字段的 Tab。

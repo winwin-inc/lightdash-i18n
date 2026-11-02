@@ -2007,6 +2007,9 @@ export const initializeCategoryFiltersAsync = async (
 
         const boundFilter = entry.rule;
         if (!isBoundValueFilter(boundFilter)) continue;
+        // 只解析本作用域的绑定字段：Tab init 的链里包含全局筛选器，
+        // 全局绑定字段由全局 init 解析（在这里再查一次纯属浪费且写回是 no-op）。
+        if (!isSameCategoryLocation(entry.location, location)) continue;
         if (skipFilterIds.has(boundFilter.id)) continue;
         if (onlyFilterIds && !onlyFilterIds.has(boundFilter.id)) continue;
 
