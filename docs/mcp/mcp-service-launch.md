@@ -244,9 +244,11 @@ flowchart TD
 
 ### 5.7 严格模式的上线顺序（**必读**）
 
+> **开关默认关闭**（`MCP_DASHBOARD_STRICT` 默认 `false`）。不设该变量时行为与现状完全一致，本节只适用于外部品牌 CT 部署开启严格模式的场景。
+
 | 步骤 | 动作 | 不做的后果 |
 |---|---|---|
-| 1 | **先升级后端**（含 `associatedCount` 字段） | MCP 严格模式判定「后端未升级」，**所有查询 100% 返回 `dashboard_context_unavailable`** |
+| 1 | **先升级后端**（含 `associatedCount` 字段） | 只有「反查 0 个可见关联看板」与「显式 uuid 不属于关联候选」两类查询会被判 `dashboard_context_unavailable`（fail-closed，不猜）；有可见关联看板的查询不受影响。字段是新增、向后兼容，不需与 MCP 同时发版 |
 | 2 | 用**管理员 PAT** 盘点「无看板数据集」 | 外部客户会集中报「某张表突然不能查」 |
 | 3 | 给客户交付方重申：PAT 不得交给未受控终端（MCP 层是护栏，不是安全边界） | 客户可绕过 MCP 直连后端拿宽数据 |
 | 4 | 设 `MCP_DASHBOARD_STRICT=true` + `MCP_DASHBOARD_CONTACT` → 发布 | — |
