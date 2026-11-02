@@ -150,10 +150,10 @@ ORDER BY
 交互步骤：
 
 1. 在 `SortItem` 行里，字段是字符串维度时显示一个「自定义顺序」按钮（图标 + 文案），点击在该行下方展开面板。
-2. 面板三件套：
+2. 面板两块：
    - **已选顺序**（chips 列表，`@hello-pangea/dnd` 拖拽调序；每项可 ↑/↓ 按钮与删除 —— 键盘可达）
-   - **候选值**（来自当前结果该列的 distinct 值，带搜索框；点一下加入已选）
-   - **手动输入**（`TagsInput` / 输入框回车添加；也支持「粘贴多行」批量导入，直接决定顺序）
+   - **候选值**（**全部来自数据库**：`POST /projects/:projectUuid/field/:fieldId/search` 返回的 distinct 值 +
+     服务端搜索；点一下加入已选，不提供手打输入）
 3. 面板底部说明未列出值的处理：「未列出的值排在最后，按 A-Z / Z-A」。
 4. 顶部 A-Z/Z-A 仍然保留，含义变成「按自定义顺序排 / 反着排」。
 
@@ -165,13 +165,35 @@ ORDER BY
 适合值特别多（几十上百）。缺点：一次只能编一个字段，切字段要开合弹窗，与「多字段排序」的节奏不搭。
 可作为后续增强（`valueOrder.length > 30` 时提示改用弹窗），**不建议 v1 就做**。
 
-### 值来源与降级
+### 值来源：全部来自数据库（不自造值）
 
-| 来源 | 说明 | 降级 |
+**不需要新增接口**——仓库已有字段值搜索（筛选器自动补全用的就是它）：
+
+```
+POST /projects/:projectUuid/field/:fieldId/search
+body: { search, limit, table, filters, forceRefresh, parameters, dashboardContext }
+resp: { search, results: string[], cached, refreshedAt }
+```
+
+- 路由：`packages/backend/src/routers/projectRouter.ts:104` → `ProjectService.searchFieldUniqueValues`
+  → `_getFieldValuesMetricQuery`（`ProjectService.ts:3642`，**只允许 dimension**，超 `query.maxLimit` 直接报错）。
+- 前端封装：`packages/frontend/src/hooks/useFieldValues.ts`（`getFieldValues` / `useFieldValues`），
+  默认上限 `MAX_SELECT_ALL_LIMIT = 500`，结果按 `compareFieldValues`（zh-CN、数字感知）排序。
+
+三个必须遵守的约束（fork 特有，源码注释写得很清楚）：
+
+| 约束 | 原因 | 做法 |
 |---|---|---|
-| 当前结果 `rows` 去重 | 零成本，所见即所得 | 结果被分页/limit 截断时值不全 |
-| 手动输入 / 粘贴 | 覆盖截断场景，业务方本来就知道全量枚举 | —— |
-| 后端 distinct 查询 | 最准，但要新增接口/查询（大基数有成本） | v1 不做 |
+| **必须走 `enqueueFieldSearch` 串行队列** | 这是「带 `sql_filter` + GROUP BY」的重查询；仓库引擎的内存限额是**全局限额**，并发会打满（`HGERR_code 53200`），连带把看板查询打挂 | 直接复用 `useFieldValues`（内部已入队 + 同字段去重） |
+| **懒加载 + debounce** | 打开面板就查 = 每次多一次重查询 | 只有点开「自定义顺序」才请求；搜索 300ms debounce；同字段复用 react-query 缓存 |
+| **先用本地结果打底** | 少打一次重查询 | `useFieldValues(search, initialData, …)` 的 `initialData` 传当前结果该列去重值（Top N），用户继续搜索时才打 DB |
+
+两个语义决定：
+
+- **不传当前筛选**（`filters: undefined`）：排序配置应与筛选解耦，否则同一张图换个筛选、可选值就变了。
+  代价是查询更重（无筛选下推），因此更依赖上面的串行队列 / 懒加载 / 缓存。
+- **只用数据库返回值**（不做手打输入）。已选值若当前数据里找不到（值被删除、或不在本次搜索结果里），
+  仍保留在 chips 中并**标灰 + 提示「当前数据中未找到该值」**，不静默丢配置。
 
 ### 只读场景（看板 / embed / 查看模式）
 
@@ -189,8 +211,8 @@ ORDER BY
 | backend | `utils/QueryBuilder/MetricQueryBuilder.ts` | `getSortSQL` 增加分支 + `requiresQueryInCTE = true` |
 | backend | `utils/QueryBuilder/MetricQueryBuilder.test.ts` | 新增 SQL 断言用例（升/降/未列出/转义/null/多字段） |
 | frontend | `components/SortButton/Sorting.tsx` | 保留 `valueOrder`；新增 `onSetSortFieldValueOrder` |
-| frontend | `components/SortButton/SortItem.tsx` | 「自定义顺序」按钮 + 展开面板（chips + 候选 + 输入） |
-| frontend | `components/SortButton/ValueOrderEditor.tsx` | 新增（chips 拖拽 + 候选列表 + 搜索 + 批量粘贴） |
+| frontend | `components/SortButton/SortItem.tsx` | 「自定义顺序」按钮 + 展开面板（chips + 候选） |
+| frontend | `components/SortButton/ValueOrderEditor.tsx` | 新增（chips 拖拽调序 + DB 候选列表 + 服务端搜索 + 失效值标灰） |
 | frontend | `components/Explorer/ResultsCard/ColumnHeaderSortMenuOptions.tsx` | 点表头排序时保留/清空 `valueOrder`（需产品决策） |
 | frontend | `utils/sortUtils.ts` | 判断字段是否支持自定义顺序、只读展示文案 |
 | frontend | `public/locales/{en,zh}/translation.json` | 新增 key（下表） |
@@ -203,7 +225,9 @@ ORDER BY
 | `custom_order_tooltip` | `Sort values in a fixed order (e.g. 大卖场 → 食杂店)` | `按固定值顺序排序（如 大卖场 → 食杂店）` |
 | `custom_order_empty` | `No values yet — pick from the list or type to add` | `还没有值：从下面选择，或直接输入添加` |
 | `custom_order_search` | `Search values` | `搜索值` |
-| `custom_order_add_placeholder` | `Type a value and press Enter` | `输入值后回车` |
+| `custom_order_search_placeholder` | `Search values from the database` | `搜索数据库中的值` |
+| `custom_order_missing_value` | `Not found in current data` | `当前数据中未找到该值` |
+| `custom_order_limit_hint` | `Showing first 500 values, search to narrow down` | `仅展示前 500 个值，可搜索缩小范围` |
 | `custom_order_candidates` | `Values in this result` | `当前结果中的值` |
 | `custom_order_others_hint` | `Values not listed come last, sorted A-Z / Z-A` | `未列出的值排在最后，按 A-Z / Z-A` |
 | `custom_order_badge` | `Custom order` | `自定义顺序` |
@@ -216,7 +240,7 @@ ORDER BY
 | 阶段 | 内容 | 预估 | 并行 |
 |---|---|---|---|
 | P0 | common 类型 + backend `sortByValueOrder` + SQL 单测（含方言/转义/降序语义） | 0.5d | ✅ 与 P1 文件不重叠 |
-| P1 | 前端 `ValueOrderEditor` 组件（独立文件 + 单测：调序/去重/trim/批量粘贴） | 1d | ✅ |
+| P1 | 前端 `ValueOrderEditor`（独立文件 + 单测：调序/去重/失效值标灰/搜索防抖/候选合流） | 1d | ✅ |
 | P2 | `SortItem`/`Sorting` 接线 + 候选值去重 + 只读标记 + i18n | 0.5d | 依赖 P0/P1 的接口 |
 | P3 | 生成物 + typecheck/lint/test + 真机（多字段、分页表、透视、CSV） | 0.5d | 串行收尾 |
 
@@ -231,9 +255,9 @@ ORDER BY
 | R3 | 降序时「未列出」跑到最前 | 中 | 反转 rank（§3），单测断言 |
 | R4 | 空值语义与现有「空值 默认/最前/最后」冲突 | 中 | NULL 显式进 CASE；自定义顺序模式下隐藏空值选项并解释 |
 | R5 | 用户点表头排序把自定义顺序冲掉 | 中 | `ColumnHeaderSortMenuOptions` 保留同字段值；产品决策见 §8 |
-| R6 | 值列表截断（分页/limit）导致「未列出」变多 | 中 | 候选值来自结果 + 手动输入/粘贴；面板明示 |
-| R7 | 值有大小写/空格差异，匹配不到 | 中 | 保存时 `trim()`；可选「忽略大小写」开关（v1 不做，先 trim） |
-| R8 | 自定义值远超实际枚举（脏配置） | 低 | 限条数/长度；未命中的项在面板里标灰 |
+| R6 | 值超过 500 条 / 搜不到 | 中 | 服务端搜索 + 上限 500；未列出的走 ELSE 桶；面板明示「只展示前 500 个，可搜索」 |
+| R7 | 字段值搜索是重查询，并发会打满引擎内存 | 高 | 复用 `useFieldValues`（`enqueueFieldSearch` 串行队列 + 同字段去重）、懒加载、`initialData` 打底 |
+| R8 | 已选值在当前数据中不存在（被删/改名） | 低 | chips 标灰 + 提示，保留配置；CASE 里该 WHEN 保留无害 |
 | R9 | 生成物过期导致 CI 红 | 高 | 重跑 generate-api + chart-as-code schema |
 | R10 | 指标字段误用 | 低 | UI 只对字符串维度开放；后端忽略非维度 |
 
@@ -242,9 +266,11 @@ ORDER BY
 ## 8. 待确认（产品决策）
 
 1. **未列出的值**：默认「排在最后，按 A-Z/Z-A」？（备选：排最前 / 保持数据库默认顺序）
+   —— 候选值只展示前 500 个，枚举很多时「未列出」是常态
 2. **A-Z/Z-A 与自定义顺序的关系**：保留方向切换（= 反序）还是自定义模式下隐藏 A-Z/Z-A？
 3. **点表头排序**：保留该字段的 `valueOrder`（推荐）还是清空？
 4. **作用范围**：只给 Explore 排序面板，还是也要在表头右键菜单里支持「按自定义顺序」（后者需要弹窗，成本 +0.5d）？
 5. **是否需要「保存为可复用顺序」**（例如保存到字段/项目级，跨图表复用）：v1 建议只存在该图表的 sorts 里。
+6. **候选值是否受当前筛选影响**：建议不受（排序配置与筛选解耦），代价是查询更重；若受，则同一配置在不同筛选下可选值不同。
 
 > 附：如果只是应急，先用「自定义 SQL 维度」建 `业态排序`（CASE 返回 1..5）再按它排序，**今天就能做**，无需开发。
