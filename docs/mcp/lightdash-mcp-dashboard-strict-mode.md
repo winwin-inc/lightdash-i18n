@@ -2,7 +2,7 @@
 
 > **状态：设计定稿，代码未实现。** 本文只描述目标行为、环境变量、权限口径与返回契约；实施另起任务。
 >
-> 关联阅读：[MCP 看板上下文](../mcp-dashboard-context.md)、[上线流程](./mcp-service-launch.md)、[工具与权限对照](./mcp-tools-permissions.md)、[包 README](../../packages/lightdash-mcp/README.md)。
+> 关联阅读：[MCP 看板上下文](./mcp-dashboard-context.md)、[上线流程](./mcp-service-launch.md)、[工具与权限对照](./mcp-tools-permissions.md)、[包 README](../../packages/lightdash-mcp/README.md)。
 
 ---
 

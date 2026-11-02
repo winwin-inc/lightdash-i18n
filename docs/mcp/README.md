@@ -5,6 +5,8 @@
 | [**外部接入指南**](./lightdash-mcp-external-guide.md) | **可单独转发给外部接入方**（含流程图） |
 | [**MCP 服务上线流程**](./mcp-service-launch.md) | **上线负责人**：打 tag → GitHub Actions → Jenkins → 集群（四套部署目标），含配置清单、关联关系、权限模型、验收与回滚 |
 | [**强制看板模式设计稿**](./lightdash-mcp-dashboard-strict-mode.md) | **设计稿（未实现）**：外部部署必须带看板上下文；无权限 / 未配置看板 / 多候选的提示与返回契约 |
+| [客户端接入（Claude Code / Cursor + Skills）](./client-setup.md) | **开发/分析师**：怎么连、怎么挂 Skills、工具分组、常见 401/422 |
+| [架构与鉴权概览](./architecture.md) | 开发维护：为何自建、独立进程取舍、只依赖公开 REST + PAT |
 | [标准客户端用法](./lightdash-mcp-client-usage.md) | 内部完整规范（Session / compat / 运维细节） |
 | [Session 生命周期与并发设计](./lightdash-mcp-session-lifecycle.md) | 开发维护（连接、内存状态、竞态与回收实现） |
 | [马上赢 X 平台 MCP 上手指南](./马上赢 X 平台 MCP 上手指南.md) | 连锁/品牌客户查品类宝与品类洞察（WorkBuddy 入驻底稿） |
@@ -13,9 +15,10 @@
 | [工具与权限对照](./mcp-tools-permissions.md) | 各工具最低项目角色 |
 | [权限查询 get_my_access](./mcp-get-my-access.md) | 当前令牌的组织/项目能力与可查表 |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查 |
+| [看板上下文（dashboardSlug 透传）](./mcp-dashboard-context.md) | 开发维护：`sql_filter` 依赖 `dashboardSlug` 时如何带上 `dashboardUuid` |
 | [包 README](../../packages/lightdash-mcp/README.md) | 环境变量、工具清单、构建 |
 | [Skills](../../packages/lightdash-skills/README.md) | 对外挂技能 |
-| [图表/看板内容即代码实施计划](../content-as-code-dev-plan.md) | CLI / MCP / Skill 三层改造计划（增改删审） |
+| [图表/看板内容即代码实施计划](../cli/content-as-code-dev-plan.md) | CLI / MCP / Skill 三层改造计划（增改删审） |
 
 **0.4.x 要点：** 新接入用标准 Session；存量无 Session 走 compat；查询显式传 `projectUuid`；只有 `/health` 与 `/mcp`。
 

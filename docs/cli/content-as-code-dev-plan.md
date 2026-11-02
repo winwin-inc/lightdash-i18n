@@ -362,7 +362,7 @@ lightdash diff -d <slug>           # 4. 与平台现状对比，确认无意外�
 - 后端 as-code 往返：`packages/backend/src/services/CoderService/CoderService.ts`
 - 删除通道：`packages/backend/src/routers/{savedChartRouter,dashboardRouter}.ts`
 - 校验 API：`packages/backend/src/controllers/validationController.ts`
-- 自定义图表渲染机制：`docs/custom-viz-guide.md`
+- 自定义图表渲染机制：`docs/visualization/custom-viz-guide.md`
 - MCP 工具注册：`packages/lightdash-mcp/src/mcp/tools/`、`registerToolTyped.ts`
 - 技能包定位与发版：`packages/lightdash-skills/{README.md,CLAUDE.md,MAINTAINERS.md}`
 - 上游官方 skill（移植蓝本）：`skills/developing-in-lightdash/`（上游仓库 main 分支）

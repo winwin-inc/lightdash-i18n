@@ -178,3 +178,11 @@ curl -H "Authorization: ApiKey $LDPAT" "$SITE_URL/api/v1/org/projects"
 # v2 content API：仅根级 space
 curl -H "Authorization: ApiKey $LDPAT" "$SITE_URL/api/v2/content?contentTypes=space&projectUuids=PROJECT_UUID&page=1&pageSize=25"
 ```
+
+## 文档
+
+设计与排查文档在 `docs/`，按主题分目录（`ops/` / `cli/` / `dashboard/` / `visualization/` / `mcp/` / `v2/` / `features/` / `dev-tooling/`）。
+
+- 总索引：`docs/README.md`；新增文档放到对应子目录，不要再堆在 `docs/` 根下
+- 文首标注状态（已实施 / 待开发 / 草案），避免把历史方案当现状
+- 交叉链接用相对路径，移动文件后跑一次 `docs/README.md` 末尾的链接自检脚本

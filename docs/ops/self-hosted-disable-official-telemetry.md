@@ -26,12 +26,12 @@
 
 ## 3. 关键代码
 
-- 后端配置：[`packages/backend/src/config/parseConfig.ts`](../packages/backend/src/config/parseConfig.ts)
-- 后端 Analytics：[`packages/backend/src/analytics/LightdashAnalytics.ts`](../packages/backend/src/analytics/LightdashAnalytics.ts)（无 `writeKey` 时 `track`/`identify` 早退）
-- App 初始化 / CSP：[`packages/backend/src/App.ts`](../packages/backend/src/App.ts)
-- 前端 Tracking：[`packages/frontend/src/providers/Tracking/TrackingProvider.tsx`](../packages/frontend/src/providers/Tracking/TrackingProvider.tsx)
-- 前端第三方：[`packages/frontend/src/providers/ThirdPartyServicesProvider.tsx`](../packages/frontend/src/providers/ThirdPartyServicesProvider.tsx)
-- CLI：[`packages/cli/src/analytics/analytics.ts`](../packages/cli/src/analytics/analytics.ts)
+- 后端配置：[`packages/backend/src/config/parseConfig.ts`](../../packages/backend/src/config/parseConfig.ts)
+- 后端 Analytics：[`packages/backend/src/analytics/LightdashAnalytics.ts`](../../packages/backend/src/analytics/LightdashAnalytics.ts)（无 `writeKey` 时 `track`/`identify` 早退）
+- App 初始化 / CSP：[`packages/backend/src/App.ts`](../../packages/backend/src/App.ts)
+- 前端 Tracking：[`packages/frontend/src/providers/Tracking/TrackingProvider.tsx`](../../packages/frontend/src/providers/Tracking/TrackingProvider.tsx)
+- 前端第三方：[`packages/frontend/src/providers/ThirdPartyServicesProvider.tsx`](../../packages/frontend/src/providers/ThirdPartyServicesProvider.tsx)
+- CLI：[`packages/cli/src/analytics/analytics.ts`](../../packages/cli/src/analytics/analytics.ts)
 
 ## 4. CLI 工具镜像（Jenkins）
 
@@ -39,11 +39,11 @@
 
 | 项 | 值 |
 |----|-----|
-| Git tag | `cli-vX.Y.Z`（`pnpm bump-cli -- X.Y.Z`，触发 [`.github/workflows/build-docker-cli.yml`](../.github/workflows/build-docker-cli.yml)） |
+| Git tag | `cli-vX.Y.Z`（`pnpm bump-cli -- X.Y.Z`，触发 [`.github/workflows/build-docker-cli.yml`](../../.github/workflows/build-docker-cli.yml)） |
 | ACR 镜像 | `registry.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-X.Y.Z` |
 | Jenkins 示例 | `IMAGE=registry-vpc.cn-hangzhou.aliyuncs.com/winwin/tool:lightdash-cli-0.2107.7` |
 
-Dockerfile 基于历史 `winwin/tool:mise` + dbt 1.9.8 + hologres/odps，CLI 使用本仓产物（已关遥测）。详见 [`packages/cli/Dockerfile`](../packages/cli/Dockerfile)。
+Dockerfile 基于历史 `winwin/tool:mise` + dbt 1.9.8 + hologres/odps，CLI 使用本仓产物（已关遥测）。详见 [`packages/cli/Dockerfile`](../../packages/cli/Dockerfile)。
 
 ## 5. 主站发版与验证
 

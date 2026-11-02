@@ -69,7 +69,7 @@
     -   看板跑数改用服务端看板上下文，并补齐 SQL 图表权限校验
     -   收紧看板筛选器取值的 explore 白名单，并区分跨项目错误文案
 -   **文档**
-    -   新增 client-use 受限角色内容可见性设计说明（`docs/client-use-viewer-content-scope.md`）
+    -   新增 client-use 受限角色内容可见性设计说明（`docs/features/client-use-viewer-content-scope.md`）
     -   补充看板筛选器取值收紧的回滚方式说明
 -   **工程**
     -   包版本历经 2.3.6 / 2.3.7 / 2.3.8 / 2.4.0 / 2.4.1 / 2.4.2
@@ -102,7 +102,7 @@
 
 -   **新功能**
     -   组织管理员用户开通 API：`POST /api/v1/org/admin/users/provision` 与批量 `.../provision/batch`；按邮箱幂等创建/更新用户并绑定 OIDC（`issuer` 由服务端配置发现，`subject` 必填）；支持姓名、激活/校验、组织角色等；仅组织 admin（CASL manage OrganizationMemberProfile），含 last-admin 保护；审计事件 `user.provisioned` / `permission.updated`
-    -   开通只处理组织成员与 OIDC 身份，不写入项目 ACL；项目权限仍走既有项目访问 API（详见 `docs/org-admin-users-provision.md`）
+    -   开通只处理组织成员与 OIDC 身份，不写入项目 ACL；项目权限仍走既有项目访问 API（详见 `docs/ops/org-admin-users-provision.md`）
 -   **Bug 修复**
     -   图表更新弹窗占位符 i18n：`update_chart.search` → `select_placeholder`
 

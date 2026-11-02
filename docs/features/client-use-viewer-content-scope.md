@@ -586,7 +586,7 @@ EXISTS (SELECT 1 FROM marts.dim_ld_employee_categories
   `getViewerContentScope`（undefined / 空集 fail-closed / 反推图表空间）/ `resolveDashboardContextForMetadata` /
   白名单与 scope 缓存（并发合并、TTL、失败重试、主动失效）；
 - `packages/frontend/src/utils/categoryFilters.test.ts` + `categoryFilterInitHelpers.test.ts`：
-  类目重置与级联（见 [`docs/category-filter-cascade.md`](./category-filter-cascade.md)）。
+  类目重置与级联（见 [`docs/dashboard/category-filter-cascade.md`](../dashboard/category-filter-cascade.md)）。
 
 **手工验证 SQL（生产库只读）**
 
@@ -705,4 +705,4 @@ WHERE u.email = '18522948433@brandtct.cn';
 
 **关联文档**
 
-- [`docs/category-filter-cascade.md`](./category-filter-cascade.md)（类目筛选器与 dbt 行级过滤）
+- [`docs/dashboard/category-filter-cascade.md`](../dashboard/category-filter-cascade.md)（类目筛选器与 dbt 行级过滤）

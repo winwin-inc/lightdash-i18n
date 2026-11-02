@@ -4,7 +4,7 @@ import { Knex } from 'knex';
  * 一次性数据修复：将同一项目内重复的 chart slug 改为唯一（保留每组最早一条，其余改为 slug-<短uuid>）。
  * 用于解决 Promote 409 "There are multiple charts with the same identifier <slug>"。
  * 执行：pnpm -F backend migrate
- * 若应用使用的数据库账号无 UPDATE 权限，需由 DBA 执行 docs/fix-duplicate-chart-slugs.sql 中的步骤 2。
+ * 若应用使用的数据库账号无 UPDATE 权限，需由 DBA 执行 docs/ops/fix-duplicate-chart-slugs.sql 中的步骤 2。
  */
 export async function up(knex: Knex): Promise<void> {
     await knex.raw(`

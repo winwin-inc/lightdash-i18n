@@ -211,7 +211,7 @@ spec = 你编辑的整份 JSON（顶层 `$schema`、`layer`、`encoding` 等）�
 
 ## Lightdash 尺寸处理逻辑
 
-渲染前由 `normalizeVegaSpecSizing`（[`packages/frontend/src/components/CustomVisualization/normalizeVegaSpecSizing.ts`](../packages/frontend/src/components/CustomVisualization/normalizeVegaSpecSizing.ts)）按 spec **结构键**分类处理，不依赖字段名或 mark 类型：
+渲染前由 `normalizeVegaSpecSizing`（[`packages/frontend/src/components/CustomVisualization/normalizeVegaSpecSizing.ts`](../../packages/frontend/src/components/CustomVisualization/normalizeVegaSpecSizing.ts)）按 spec **结构键**分类处理，不依赖字段名或 mark 类型：
 
 ```
 用户 spec → prepareSpecForVega（可选 label 改写）

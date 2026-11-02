@@ -121,7 +121,7 @@ ProjectService.searchFieldUniqueValues             → 筛选下拉 / 类目解�
 
 ### 3.6 前端渲染 / 表格计算
 
-- 表格/透视表渲染已有专项优化，见 `docs/table-scroll-performance.md`。
+- 表格/透视表渲染已有专项优化，见 `docs/visualization/table-scroll-performance.md`。
 - **表格计算（table calculation）、SQL runner、模板渲染都在后端 query compiler 里完成**
   （`packages/backend/src/queryCompiler.ts`），浏览器不参与求值 —— 所以「表格计算慢」基本等价于
   「那条 SQL 在数仓跑得慢」。
@@ -293,7 +293,7 @@ RESULTS_CACHE_ENABLED=true        # 图表结果缓存（S3），key = project +
 
 ### 5.6 表格侧
 
-已有 `docs/table-scroll-performance.md` 的优化；如仍慢，优先看
+已有 `docs/visualization/table-scroll-performance.md` 的优化；如仍慢，优先看
 「表格行数 × 列数」与条件格式列数量，必要时在 dbt 侧预聚合。
 
 ---

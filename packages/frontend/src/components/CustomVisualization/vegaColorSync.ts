@@ -4,7 +4,7 @@
  * 目标：把看板色表按系列名映射成 vega-lite 的 color scale（domain + range），
  * 注入到自定义图表 spec 里，做到跨图表同名系列同色。
  *
- * 约束（与 docs/vega-lite-dashboard-color-sync.md 一致）：
+ * 约束（与 docs/visualization/vega-lite-dashboard-color-sync.md 一致）：
  * - 只处理 `encoding.color`：必须有 `field` 且 `type` 为 nominal / ordinal
  * - `encoding.color.scale.range` 是数组时会被**覆盖**（开启同步即由看板色板接管配色），
  *   覆盖前后的颜色对应关系用于重映射 spec 里的常量色（手绘图例等）

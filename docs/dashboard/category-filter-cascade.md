@@ -122,11 +122,11 @@
 
 ## 关键代码
 
-- [`packages/frontend/src/utils/categoryFilters.ts`](../packages/frontend/src/utils/categoryFilters.ts)
+- [`packages/frontend/src/utils/categoryFilters.ts`](../../packages/frontend/src/utils/categoryFilters.ts)
   - `initializeCategoryFiltersAsync`
   - `updateCategoryFilterCascadeAsync`
   - `updateCrossScopeCategoryCascadeAsync`（跨作用域，见跨作用域文档）
-- [`packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`](../packages/frontend/src/providers/Dashboard/DashboardProvider.tsx)
+- [`packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`](../../packages/frontend/src/providers/Dashboard/DashboardProvider.tsx)
   - 非编辑模式且存在 `dashboardSlug` 时触发初始化/联动
   - 传入 `dashboardSlug` / `dashboardName`
 

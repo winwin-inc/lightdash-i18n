@@ -617,7 +617,7 @@ POST .../generate（缺 metricQuery）→ 422
 
 - [ ] 预览：注入 Explore rows 后直接渲染 spec，不做 label 改写
 - [ ] initial 不兼容 → 留第一步；regenerate 失败 → 留第二步
-- [ ] 与 [`templatesApi.ts`](../packages/frontend/src/features/templates/api/templatesApi.ts) normalize 兼容
+- [ ] 与 [`templatesApi.ts`](../../packages/frontend/src/features/templates/api/templatesApi.ts) normalize 兼容
 
 ---
 
