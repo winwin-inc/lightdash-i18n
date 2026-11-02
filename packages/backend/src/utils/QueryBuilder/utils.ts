@@ -41,7 +41,7 @@ import {
     WeekDay,
     type WarehouseSqlBuilder,
 } from '@lightdash/common';
-import { intersection, isArray } from 'lodash';
+import { intersection, isArray, uniq } from 'lodash';
 import { hasUserAttribute } from '../../services/UserAttributesService/UserAttributeUtils';
 
 export type TotalQueryKind =
@@ -465,6 +465,45 @@ export const sortDayOfWeekName = (
             ELSE 0
         END
     )${descending ? ' DESC' : ''}`;
+};
+// Maximum number of values allowed in a custom value order
+export const MAX_VALUE_ORDER_ITEMS = 200;
+
+/**
+ * Sorts a dimension by a user provided list of values (custom value order).
+ * The values are ranked by their position in the list:
+ * - ascending: rank = index + 1, values not listed (ELSE) get `n + 1` so they are always last
+ * - descending: rank = n - index, values not listed (ELSE) get 0 so they are still always last
+ * Null values fall into the ELSE bucket, so they are not sorted separately.
+ */
+export const sortByValueOrder = (
+    dimension: CompiledDimension,
+    valueOrder: string[],
+    fieldQuoteChar: string,
+    escapeString: (value: string) => string,
+    descending: boolean,
+): string => {
+    const fieldId = `${fieldQuoteChar}${getItemId(dimension)}${fieldQuoteChar}`;
+    // Normalize the values: trim them, remove empty strings and duplicates (keeping the first occurrence)
+    const values = uniq(
+        valueOrder
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+    ).slice(0, MAX_VALUE_ORDER_ITEMS);
+    const valueCount = values.length;
+    const whenClauses = values.map((value, index) => {
+        const rank = descending ? valueCount - index : index + 1;
+        return `WHEN ${fieldId} = '${escapeString(value)}' THEN ${rank}`;
+    });
+    // Values that are not listed always go last, in both sort directions
+    const elseRank = descending ? 0 : valueCount + 1;
+
+    return `(
+        CASE
+            ${whenClauses.join('\n            ')}
+            ELSE ${elseRank}
+        END
+        )${descending ? ' DESC' : ''}`;
 };
 // Remove comments and limit clauses from SQL
 export const removeComments = (sql: string): string => {

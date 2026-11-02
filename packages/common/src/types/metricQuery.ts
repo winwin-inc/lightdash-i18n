@@ -145,6 +145,13 @@ export type SortField = {
     fieldId: string; // Field must exist in the explore
     descending: boolean; // Direction of the sort
     nullsFirst?: boolean; // Whether to sort nulls first
+    /**
+     * Custom order of values for a dimension.
+     * The array order is the expected order (from first to last).
+     * Only applies to dimensions - empty array or undefined means
+     * fall back to the default A-Z / Z-A sorting.
+     */
+    valueOrder?: string[];
 };
 
 export const getAdditionalMetricLabel = (item: AdditionalMetric) =>
