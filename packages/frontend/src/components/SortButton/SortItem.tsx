@@ -17,6 +17,7 @@ import {
     Stack,
     Text,
     Tooltip,
+    UnstyledButton,
 } from '@mantine/core';
 import { IconGripVertical, IconListNumbers, IconX } from '@tabler/icons-react';
 import { forwardRef, useCallback, useState } from 'react';
@@ -204,6 +205,44 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                             }}
                         />
 
+                        {isValueOrderMode && !isValueOrderEditorOpen && (
+                            <Tooltip
+                                label={valueOrder.join(' → ')}
+                                withArrow
+                                position="top"
+                                disabled={valueOrder.length === 0}
+                            >
+                                <UnstyledButton
+                                    onClick={handleToggleValueOrderEditor}
+                                    data-testid="value-order-summary"
+                                    sx={(theme) => ({
+                                        maxWidth: 280,
+                                        padding: `2px ${theme.spacing.xs}`,
+                                        borderRadius: theme.radius.sm,
+                                        border: `1px dashed ${theme.colors.gray[3]}`,
+                                    })}
+                                >
+                                    <Text size="xs" color="dimmed" truncate>
+                                        {valueOrder.length > 0
+                                            ? valueOrder.join(' → ')
+                                            : t(
+                                                  'components_sort_button.custom_order_add_values',
+                                              )}
+                                    </Text>
+                                </UnstyledButton>
+                            </Tooltip>
+                        )}
+
+                        {isValueOrderMode && isValueOrderEditorOpen && valueOrderField && (
+                            <Box sx={{ flex: 1, minWidth: 160, maxWidth: 280 }}>
+                                <ValueOrderEditorContainer
+                                    field={valueOrderField}
+                                    values={valueOrder}
+                                    onChange={handleValueOrderChange}
+                                />
+                            </Box>
+                        )}
+
                         {!isValueOrderMode && (
                             <Text ml="lg" fw={500}>
                                 {t('components_sort_button.nulls')}
@@ -242,30 +281,6 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                     </Group>
                 </Group>
 
-                {/*
-                The editor is only mounted when it is expanded: mounting it for
-                every sort row would fire a query per row.
-            */}
-                {isValueOrderEditorOpen && valueOrderField && (
-                    <Box
-                        pl="xs"
-                        pr="xxs"
-                        miw={560}
-                        sx={(theme) => ({
-                            '& > *': {
-                                padding: theme.spacing.xs,
-                                border: `1px solid ${theme.colors.gray[2]}`,
-                                borderRadius: theme.radius.sm,
-                            },
-                        })}
-                    >
-                        <ValueOrderEditorContainer
-                            field={valueOrderField}
-                            values={valueOrder}
-                            onChange={handleValueOrderChange}
-                        />
-                    </Box>
-                )}
             </Stack>
         );
     },
