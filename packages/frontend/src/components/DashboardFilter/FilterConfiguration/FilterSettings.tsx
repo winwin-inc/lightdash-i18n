@@ -11,6 +11,7 @@ import {
     type FilterRule,
 } from '@lightdash/common';
 import {
+    Anchor,
     Box,
     Button,
     Checkbox,
@@ -138,7 +139,12 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     // 但没有自己的层级：对它们隐藏「类目层级」选择器，避免误设 categoryLevel
     // （一旦设置，该筛选器会被当成类目参与自动解析 / 同级继承 / 重置为首值）。
     // 判据含 cls 列名与「X级类目」label 兜底，保证老看板仍能声明层级。
-    const isCategoryRule = looksLikeCategoryFilter(filterRule);
+    //
+    // 兜底开关：字段名/标签都不像类目、但业务上确实是类目时（如 product_line「产品线」），
+    // 作者可以手动展开层级配置，避免「判据没命中 → 永远无法声明层级」。
+    const [forceCategoryConfig, setForceCategoryConfig] = useState(false);
+    const isCategoryRule =
+        looksLikeCategoryFilter(filterRule) || forceCategoryConfig;
     const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
@@ -843,6 +849,19 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
                                 )}
                             </Text>
+                            {!looksLikeCategoryFilter(filterRule) && (
+                                <Anchor
+                                    component="button"
+                                    type="button"
+                                    size="xs"
+                                    mt={4}
+                                    onClick={() => setForceCategoryConfig(true)}
+                                >
+                                    {t(
+                                        'components_dashboard_filter.configuration.category_level.enable_category_config',
+                                    )}
+                                </Anchor>
+                            )}
 
                             {/* 筛选器只读配置 */}
                             <Switch

@@ -2783,6 +2783,7 @@
         "follow_parent_label": "Follow parent filter",
         "follow_parent_placeholder": "Select a category filter",
         "follow_parent_hint": "Values are re-validated against the current category when the parent changes",
+        "enable_category_config": "Configure as category filter",
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",

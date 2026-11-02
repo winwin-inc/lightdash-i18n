@@ -794,15 +794,19 @@ const DashboardProvider: React.FC<
                         filters,
                         refined,
                     );
-                    if (nextFilters === currentFilters) return;
 
-                    setDashboardFilters(nextFilters);
+                    // 「已处理签名」必须在无变化时也写入：否则每次改筛选器都会
+                    // 因为签名未记录而重跑整条链（慢仓库下就是成倍的 field/search）。
                     globalCategoryProcessedSignatureRef.current =
                         getCategoryFiltersSignature(
                             nextFilters,
                             projectUuid,
                             dashboardFilterContext,
                         );
+
+                    if (nextFilters === currentFilters) return;
+
+                    setDashboardFilters(nextFilters);
                     // 写回被接受后才打标记（避免「值没改却显示已自动调整」）
                     recordAutoAdjustedMany(
                         'global',
@@ -1634,13 +1638,17 @@ const DashboardProvider: React.FC<
                         filters,
                         refined,
                     );
+
+                    // 无变化也要记录「已处理签名」：否则每次改筛选器/切 Tab
+                    // 都会重跑整条链解析（请求放大）。
+                    markTabCategoryProcessed(targetTabUuid, nextFilters);
+
                     if (nextFilters === currentFilters) return;
 
                     setTabFilters((prev) => ({
                         ...prev,
                         [targetTabUuid]: nextFilters,
                     }));
-                    markTabCategoryProcessed(targetTabUuid, nextFilters);
                     // 写回被接受后才打标记
                     recordAutoAdjustedMany(
                         targetTabUuid,
@@ -2855,6 +2863,12 @@ const DashboardProvider: React.FC<
             setHaveTabFiltersChanged({});
             // 编辑模式用服务端快照覆盖运行时筛选器：自动调整标记全部失效
             setAutoAdjustedFilterIds({});
+            // 同时作废在途的自动解析：否则晚到的解析结果会写回编辑态的运行时筛选器，
+            // 有机会被作者保存进看板定义（低概率但后果严重）。
+            ++globalCategoryInitGenerationRef.current;
+            globalCategoryPendingSignatureRef.current = null;
+            globalCategoryInitSessionRef.current?.cancel();
+            globalCategoryInitSessionRef.current = null;
         }
     }, [
         isEditMode,
