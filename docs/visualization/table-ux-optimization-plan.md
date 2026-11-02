@@ -1,6 +1,6 @@
 # 表格可视化体验优化批次（W1–W4）
 
-> 状态：**已实施**（批次 1）。承载分支 `feat/ux-optimizations` 是一个**通用 UI/UX 优化分支**，
+> 状态：**已实施**（批次 1）。承载分支 `feat/optimizations` 是一个**通用 UI/UX 优化分支**，
 > 后续优化需求继续往这个分支上加；本文件只描述**批次 1（表格）**的范围。
 > W1 的实现细节见同目录 [`table-column-resize-plan.md`](./table-column-resize-plan.md)。
 > 触发问题：列数较多时，部分列的表头（列名）会被压成两行、甚至三行，观感很差；

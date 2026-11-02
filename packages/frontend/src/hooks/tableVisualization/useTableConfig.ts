@@ -22,6 +22,7 @@ import {
     type TableChart,
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
+import isEqual from 'lodash/isEqual';
 import uniq from 'lodash/uniq';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
@@ -553,6 +554,28 @@ const useTableConfig = (
         pivotTableMaxColumnLimit,
         groupedSubtotals,
     ]);
+
+    // 外部替换配置时回灌列属性（重置 / 切换历史版本 / 换图表）。
+    // 三种情况必须区分开，否则会打架：
+    // 1. 首次挂载：已由 useState 初值处理
+    // 2. 自己改动的回流（我们 -> 父级 -> 再传回来）：与当前 state 相同，跳过
+    // 3. prune（删掉不在查询里的列）：父级配置没变化，跳过，否则「采纳 -> prune」死循环
+    const columnPropertiesRef = useRef(columnProperties);
+    columnPropertiesRef.current = columnProperties;
+    const lastIncomingColumnsRef = useRef<
+        Record<string, ColumnProperties> | undefined
+    >(undefined);
+    useEffect(() => {
+        const incoming = tableChartConfig?.columns ?? {};
+        const previousIncoming = lastIncomingColumnsRef.current;
+        lastIncomingColumnsRef.current = incoming;
+
+        if (previousIncoming === undefined) return;
+        if (isEqual(incoming, previousIncoming)) return;
+        if (isEqual(incoming, columnPropertiesRef.current)) return;
+
+        setColumnProperties(incoming);
+    }, [tableChartConfig?.columns]);
 
     // Remove columnProperties from map if the column has been removed from results
     useEffect(() => {
