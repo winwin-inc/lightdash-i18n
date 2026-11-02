@@ -684,25 +684,30 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
                         {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
                         <Box mt="xs">
-                            <Group spacing="xs" mb="xs">
-                                <Text size="xs" fw={500}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.category_level.label',
-                                    )}
-                                </Text>
-                                <Tooltip
-                                    withinPortal
-                                    variant="xs"
-                                    label={t(
-                                        'components_dashboard_filter.configuration.category_level.tooltip',
-                                    )}
-                                >
-                                    <MantineIcon
-                                        size="sm"
-                                        icon={IconHelpCircle}
-                                    />
-                                </Tooltip>
-                            </Group>
+                            {/* 「类目层级」标题 + 选择器只对类目字段展示：
+                                非类目（集团/品牌/商品名称/时间…）没有层级，
+                                标题留着只会让人以为需要配一个层级 */}
+                            {isCategoryRule && (
+                                <Group spacing="xs" mb="xs">
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.category_level.label',
+                                        )}
+                                    </Text>
+                                    <Tooltip
+                                        withinPortal
+                                        variant="xs"
+                                        label={t(
+                                            'components_dashboard_filter.configuration.category_level.tooltip',
+                                        )}
+                                    >
+                                        <MantineIcon
+                                            size="sm"
+                                            icon={IconHelpCircle}
+                                        />
+                                    </Tooltip>
+                                </Group>
+                            )}
                             {isCategoryRule && (
                                 <Select
                                     size="xs"
