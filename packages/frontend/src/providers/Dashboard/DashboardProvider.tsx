@@ -1194,7 +1194,9 @@ const DashboardProvider: React.FC<
         ) => {
             const hasSelectedValue =
                 item.values !== undefined && item.values.length > 0;
-            const isCategoryFilterUpdate = isCategoryField(item);
+            // 联动触发条件：类目，或绑定父级的普通维度（集团/品牌/商品 多级链的中间层）
+            const isCategoryFilterUpdate =
+                isCategoryField(item) || isBoundValueFilter(item);
             // 清空类目筛选器（「任何值」）同样要级联：
             // 父级没有值 → 子级（全局子级 + 各 Tab 里绑定该父级的子级）
             // 必须一起清空，否则会出现「父级是任何值、子级还留着旧类目」的矛盾状态。
@@ -1789,7 +1791,8 @@ const DashboardProvider: React.FC<
                 !isEditMode &&
                 !isTemporary &&
                 existingDisplay &&
-                !isCategoryField(item)
+                !isCategoryField(item) &&
+                !isBoundValueFilter(item)
             ) {
                 const mergedDisplay = mergeDimensionIntoDisplayState(
                     existingDisplay.filters,
@@ -1906,7 +1909,7 @@ const DashboardProvider: React.FC<
 
             if (
                 !canApplyCategoryFilters ||
-                !isCategoryField(item) ||
+                (!isCategoryField(item) && !isBoundValueFilter(item)) ||
                 isEditMode ||
                 !hasSelectedValue ||
                 isTemporary

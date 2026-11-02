@@ -396,6 +396,7 @@ export * from './utils/organization';
 export * from './utils/projectMemberRole';
 export * from './utils/promises';
 export * from './utils/resolveQueryTimezone';
+export * from './utils/sorts';
 export * from './utils/resultColumns';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';

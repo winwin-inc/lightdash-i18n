@@ -164,6 +164,8 @@ export type ColumnProperties = {
     name?: string;
     frozen?: boolean;
     displayStyle?: 'text' | 'bar';
+    /** 列宽（px，整数）；undefined = 按内容自动 */
+    width?: number;
 };
 
 /** 透视表列头中指标与维度值的上下层级，默认 dimension 在上 */

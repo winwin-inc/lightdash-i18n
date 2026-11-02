@@ -14,6 +14,14 @@ const sortFieldSchema = z.object({
             'If true sorts nulls first, if false sorts nulls last, otherwise sorts by warehouse default',
         )
         .nullable(),
+    valueOrder: z
+        .array(z.string())
+        .nullable()
+        .optional()
+        .transform((value) => value ?? undefined)
+        .describe(
+            'Custom order of values for a dimension. The array order is the expected order (from first to last). Only applies to dimensions - when empty or not set, values are sorted A-Z / Z-A',
+        ),
 });
 
 export type ToolSortField = z.infer<typeof sortFieldSchema>;

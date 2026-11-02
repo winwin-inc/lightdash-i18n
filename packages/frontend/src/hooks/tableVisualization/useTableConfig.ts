@@ -22,6 +22,7 @@ import {
     type TableChart,
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
+import isEqual from 'lodash/isEqual';
 import uniq from 'lodash/uniq';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
@@ -30,6 +31,7 @@ import { useCalculateSubtotals } from '../useCalculateSubtotals';
 import { useCalculateTotal } from '../useCalculateTotal';
 import { type InfiniteQueryResults } from '../useQueryResults';
 import getDataAndColumns from './getDataAndColumns';
+import { useLocalColumnWidths } from './useLocalColumnWidths';
 
 const createWorker = createWorkerFactory(
     () => import('@lightdash/common/src/pivot/pivotQueryResults'),
@@ -55,8 +57,16 @@ const useTableConfig = (
     dashboardName?: string,
     /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
     dashboardUuid?: string,
+    /** Explore 编辑模式：宽度写回 chart 配置，忽略本地覆盖 */
+    isEditMode?: boolean,
+    /** 看板 tile（本地宽度按 tile 隔离；图表页无此值） */
+    tileUuid?: string,
 ) => {
     const { embedToken } = useEmbed();
+    const { localColumnWidths, setLocalColumnWidth } = useLocalColumnWidths(
+        savedChartUuid,
+        tileUuid,
+    );
 
     const [showColumnCalculation, setShowColumnCalculation] = useState<boolean>(
         !!tableChartConfig?.showColumnCalculation,
@@ -265,6 +275,14 @@ const useTableConfig = (
         [columnProperties],
     );
 
+    /** 列宽优先级：本地覆盖（仅非编辑模式）> 图表配置 > undefined（自动） */
+    const getColumnWidth = useCallback(
+        (fieldId: string) =>
+            (isEditMode ? undefined : localColumnWidths[fieldId]) ??
+            columnProperties[fieldId]?.width,
+        [columnProperties, isEditMode, localColumnWidths],
+    );
+
     const isPivotTableEnabled =
         resultsData?.metricQuery &&
         resultsData.metricQuery.metrics.length > 0 &&
@@ -376,6 +394,7 @@ const useTableConfig = (
             columnProperties,
             cellAlignment,
             isColumnFrozen,
+            getColumnWidth,
             columnOrder,
             totals: totalCalculations,
             groupedSubtotals,
@@ -390,6 +409,7 @@ const useTableConfig = (
         showTableNames,
         cellAlignment,
         isColumnFrozen,
+        getColumnWidth,
         getFieldLabelOverride,
         totalCalculations,
         groupedSubtotals,
@@ -534,6 +554,28 @@ const useTableConfig = (
         pivotTableMaxColumnLimit,
         groupedSubtotals,
     ]);
+
+    // 外部替换配置时回灌列属性（重置 / 切换历史版本 / 换图表）。
+    // 三种情况必须区分开，否则会打架：
+    // 1. 首次挂载：已由 useState 初值处理
+    // 2. 自己改动的回流（我们 -> 父级 -> 再传回来）：与当前 state 相同，跳过
+    // 3. prune（删掉不在查询里的列）：父级配置没变化，跳过，否则「采纳 -> prune」死循环
+    const columnPropertiesRef = useRef(columnProperties);
+    columnPropertiesRef.current = columnProperties;
+    const lastIncomingColumnsRef = useRef<
+        Record<string, ColumnProperties> | undefined
+    >(undefined);
+    useEffect(() => {
+        const incoming = tableChartConfig?.columns ?? {};
+        const previousIncoming = lastIncomingColumnsRef.current;
+        lastIncomingColumnsRef.current = incoming;
+
+        if (previousIncoming === undefined) return;
+        if (isEqual(incoming, previousIncoming)) return;
+        if (isEqual(incoming, columnPropertiesRef.current)) return;
+
+        setColumnProperties(incoming);
+    }, [tableChartConfig?.columns]);
 
     // Remove columnProperties from map if the column has been removed from results
     useEffect(() => {
@@ -731,6 +773,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             onSetConditionalFormattings: handleSetConditionalFormattings,
@@ -785,6 +830,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             handleSetConditionalFormattings,

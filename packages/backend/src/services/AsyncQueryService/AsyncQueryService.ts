@@ -65,6 +65,7 @@ import {
     MAX_SAFE_INTEGER,
     MergeQueryErrorKind,
     type MetricOverrides,
+    mergeDashboardSorts,
     MetricQuery,
     normalizeIndexColumns,
     NotFoundError,
@@ -2545,10 +2546,10 @@ export class AsyncQueryService extends ProjectService {
                 appliedDashboardFilters,
                 explore,
             ),
-            sorts:
-                dashboardSorts && dashboardSorts.length > 0
-                    ? dashboardSorts
-                    : savedChart.metricQuery.sorts,
+            sorts: mergeDashboardSorts(
+                savedChart.metricQuery.sorts,
+                dashboardSorts ?? [],
+            ),
         };
 
         // Warehouse pagination: when offset is set, never keep chart metricQuery.limit

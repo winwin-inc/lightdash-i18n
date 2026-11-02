@@ -135,6 +135,7 @@ import {
     MergeQueryMetricSource,
     MergeTypedColumn,
     mergeWarehouseCredentials,
+    mergeDashboardSorts,
     MetricQuery,
     MetricType,
     MIN_RESULTS_CACHE_TTL_SECONDS,
@@ -2533,10 +2534,10 @@ export class ProjectService extends BaseService {
                 appliedDashboardFilters,
                 explore,
             ),
-            sorts:
-                dashboardSorts && dashboardSorts.length > 0
-                    ? dashboardSorts
-                    : savedChart.metricQuery.sorts,
+            sorts: mergeDashboardSorts(
+                savedChart.metricQuery.sorts,
+                dashboardSorts ?? [],
+            ),
         };
 
         const queryTags: RunQueryTags = {

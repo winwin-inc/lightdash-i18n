@@ -141,10 +141,23 @@ export type CompiledMetricQuery = Omit<MetricQuery, 'customDimensions'> & {
     compiledCustomDimensions: CompiledCustomDimension[];
 };
 // Sort by
+/**
+ * Maximum number of values a custom value order can hold.
+ * Shared by the query builder (SQL generation) and the sort panel UI.
+ */
+export const MAX_VALUE_ORDER_ITEMS = 200;
+
 export type SortField = {
     fieldId: string; // Field must exist in the explore
     descending: boolean; // Direction of the sort
     nullsFirst?: boolean; // Whether to sort nulls first
+    /**
+     * Custom order of values for a dimension.
+     * The array order is the expected order (from first to last).
+     * Only applies to dimensions - empty array or undefined means
+     * fall back to the default A-Z / Z-A sorting.
+     */
+    valueOrder?: string[];
 };
 
 export const getAdditionalMetricLabel = (item: AdditionalMetric) =>

@@ -36,6 +36,10 @@ const Sorting = forwardRef<HTMLDivElement, Props>(
                     ...(existingSort?.nullsFirst !== undefined && {
                         nullsFirst: existingSort.nullsFirst,
                     }),
+                    // Preserve the custom value order if it exists
+                    ...(existingSort?.valueOrder !== undefined && {
+                        valueOrder: existingSort.valueOrder,
+                    }),
                 };
 
                 if (existingSort) {
@@ -76,6 +80,25 @@ const Sorting = forwardRef<HTMLDivElement, Props>(
             (fieldId: string, nullsFirst: boolean | undefined) => {
                 const newSorts = sorts.map((s) =>
                     s.fieldId === fieldId ? { ...s, nullsFirst } : s,
+                );
+                dispatch(explorerActions.setSortFields(newSorts));
+            },
+            [dispatch, sorts],
+        );
+
+        const setSortFieldValueOrder = useCallback(
+            (fieldId: string, valueOrder: string[] | undefined) => {
+                const newSorts = sorts.map((s) =>
+                    s.fieldId === fieldId
+                        ? {
+                              ...s,
+                              // An empty list means the custom order is off
+                              valueOrder:
+                                  valueOrder && valueOrder.length > 0
+                                      ? valueOrder
+                                      : undefined,
+                          }
+                        : s,
                 );
                 dispatch(explorerActions.setSortFields(newSorts));
             },
@@ -153,6 +176,14 @@ const Sorting = forwardRef<HTMLDivElement, Props>(
                                                     payload,
                                                 ) => {
                                                     setSortFieldNullsFirst(
+                                                        sort.fieldId,
+                                                        payload,
+                                                    );
+                                                }}
+                                                onSetSortFieldValueOrder={(
+                                                    payload,
+                                                ) => {
+                                                    setSortFieldValueOrder(
                                                         sort.fieldId,
                                                         payload,
                                                     );

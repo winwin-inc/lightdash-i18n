@@ -89,7 +89,7 @@ export const mergeDimensionIntoDisplayState = (
         ),
     };
 
-    if (!isCategoryField(item)) {
+    if (!isCategoryField(item) && !isBoundValueFilter(item)) {
         // 普通筛选变更：保留原更新中标记范围（所有类目子孙仍可能受 left-filter 影响）
         // 由调用方决定是否整树重新 init；此处不新增 updating ids
         return {

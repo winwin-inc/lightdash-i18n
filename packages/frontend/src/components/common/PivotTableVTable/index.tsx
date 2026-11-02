@@ -206,6 +206,10 @@ export type PivotTableVTableProps = BoxProps &
         cellAlignment?: TableCellAlignment;
         pivotRowDimensionAlignment?: TableCellAlignment;
         cellContextMenu?: FC<React.PropsWithChildren<CellContextMenuProps>>;
+        /** 列宽解析：本地覆盖 > 图表配置 > undefined（自动） */
+        getColumnWidth?: (widthKey: string) => number | undefined;
+        /** `null` 表示恢复自动列宽 */
+        onColumnWidthChange?: (widthKey: string, width: number | null) => void;
     };
 
 const PivotTableVTable: FC<PivotTableVTableProps> = ({
@@ -226,6 +230,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     cellAlignment = 'left',
     pivotRowDimensionAlignment = 'left',
     cellContextMenu: CellContextMenuComponent,
+    getColumnWidth,
+    onColumnWidthChange,
     className,
     ...boxProps
 }) => {
@@ -268,6 +274,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
     const headerRowCountRef = useRef(1);
     const getFieldRef = useRef(getField);
     getFieldRef.current = getField;
+    const onColumnWidthChangeRef = useRef(onColumnWidthChange);
+    onColumnWidthChangeRef.current = onColumnWidthChange;
 
     const option = useMemo<VTableListOption>(() => {
         const base = pivotDataToVTable(data, {
@@ -284,6 +292,7 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             showRowGrouping,
             showSubtotals,
             columnOrder,
+            getColumnWidth,
         });
 
         const allRecords = [
@@ -316,7 +325,9 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             // 按表头/单元格内容自适应列宽（与「撑满容器」解耦，默认开启）
             widthMode: 'autoWidth',
             limitMaxAutoWidth,
-            ...(pivotAutoFillWidth ? { autoFillWidth: true } : {}),
+            ...(pivotAutoFillWidth && base.columnWidthConfig.length === 0
+                ? { autoFillWidth: true }
+                : {}),
             ...(base.frozenColCount > 0
                 ? { frozenColCount: base.frozenColCount }
                 : {}),
@@ -335,7 +346,20 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
             },
             defaultRowHeight: 32,
             defaultHeaderRowHeight: 32,
-            columnResizeMode: 'none',
+            ...(onColumnWidthChange
+                ? {
+                      resize: {
+                          columnResizeMode: 'header' as const,
+                          // 双击自适应会绕开我们的持久化模型，禁用
+                          disableDblclickAutoResizeColWidth: true,
+                      },
+                  }
+                : { resize: { columnResizeMode: 'none' as const } }),
+            // autoWidth 模式下 colDef.width 不生效，声明式宽度只能走这里；
+            // 有显式宽度时与「均分铺满」互斥。
+            ...(base.columnWidthConfig.length > 0
+                ? { columnWidthConfig: base.columnWidthConfig }
+                : {}),
             theme: {
                 bodyStyle: {
                     fontSize: 13,
@@ -393,6 +417,8 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
         showRowGrouping,
         showSubtotals,
         columnOrder,
+        getColumnWidth,
+        onColumnWidthChange,
     ]);
 
     useEffect(() => {
@@ -503,10 +529,29 @@ const PivotTableVTable: FC<PivotTableVTableProps> = ({
                 showCellMenu(a.col, a.row, a.event.clientX, a.event.clientY);
             }
         };
+        const handleResizeColumnEnd = (args: unknown) => {
+            const callback = onColumnWidthChangeRef.current;
+            if (!callback) return;
+            const { col, colWidths } = args as {
+                col?: number;
+                colWidths?: number[];
+            };
+            if (typeof col !== 'number') return;
+            // 只落库用户实际拖动的那一列，不要整份 colWidths
+            const leaf = flattenedColsRef.current[col];
+            const width = colWidths?.[col];
+            if (!leaf?.key || typeof width !== 'number') return;
+            callback(leaf.key, width);
+        };
+
         table.on(TABLE_EVENT_TYPE.CLICK_CELL, handleCellClick as () => void);
         table.on(
             TABLE_EVENT_TYPE.CONTEXTMENU_CELL,
             handleContextMenu as () => void,
+        );
+        table.on(
+            TABLE_EVENT_TYPE.RESIZE_COLUMN_END,
+            handleResizeColumnEnd as () => void,
         );
 
         return () => {

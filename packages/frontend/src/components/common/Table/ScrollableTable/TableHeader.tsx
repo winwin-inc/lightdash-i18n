@@ -4,6 +4,7 @@ import { Tooltip } from '@mantine/core';
 import { flexRender } from '@tanstack/react-table';
 import isEqual from 'lodash/isEqual';
 import React, { useEffect, type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     TABLE_HEADER_BG,
     Th,
@@ -11,6 +12,8 @@ import {
     ThContainer,
     ThLabelContainer,
 } from '../Table.styles';
+import { ROW_NUMBER_COLUMN_ID } from '../constants';
+import { useColumnResize } from '../useColumnResize';
 import { useTableContext } from '../useTableContext';
 import { HeaderDndContext, HeaderDroppable } from './HeaderDnD';
 
@@ -23,9 +26,14 @@ const TableHeader: FC<TableHeaderProps> = ({
     minimal = false,
     showSubtotals = true,
 }) => {
-    const { table, headerContextMenu, columns } = useTableContext();
+    const { t } = useTranslation();
+    const { table, headerContextMenu, columns, onColumnWidthChange } =
+        useTableContext();
     const HeaderContextMenu = headerContextMenu;
     const currentColOrder = React.useRef<Array<string>>([]);
+
+    const { handleResizeStart, handleResizeReset, resizeHandleClassName } =
+        useColumnResize({ onColumnWidthChange });
 
     useEffect(() => {
         if (showSubtotals) {
@@ -91,6 +99,12 @@ const TableHeader: FC<TableHeaderProps> = ({
                                 typeof meta?.cellStyle?.textAlign === 'string'
                                     ? meta.cellStyle.textAlign
                                     : undefined;
+                            const canResizeColumn = Boolean(
+                                onColumnWidthChange &&
+                                    shouldApplyWidth &&
+                                    !minimal &&
+                                    header.column.id !== ROW_NUMBER_COLUMN_ID,
+                            );
 
                             return (
                                 <Th
@@ -139,6 +153,7 @@ const TableHeader: FC<TableHeaderProps> = ({
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
+                                                    title={meta?.headerTitle}
                                                     style={{
                                                         ...provided
                                                             .draggableProps
@@ -192,6 +207,33 @@ const TableHeader: FC<TableHeaderProps> = ({
                                             </ThContainer>
                                         )}
                                     </Draggable>
+
+                                    {canResizeColumn && (
+                                        <div
+                                            role="separator"
+                                            aria-orientation="vertical"
+                                            aria-label={t(
+                                                'components_common_table.resize_column',
+                                            )}
+                                            title={t(
+                                                'components_common_table.reset_column_width',
+                                            )}
+                                            data-testid="column-resize-handle"
+                                            className={resizeHandleClassName}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(
+                                                    e,
+                                                    header.column.id,
+                                                )
+                                            }
+                                            onDoubleClick={(e) =>
+                                                handleResizeReset(
+                                                    e,
+                                                    header.column.id,
+                                                )
+                                            }
+                                        />
+                                    )}
                                 </Th>
                             );
                         })}

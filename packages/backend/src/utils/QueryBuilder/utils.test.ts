@@ -31,7 +31,9 @@ import {
     findMetricInflationWarnings,
     getCustomBinDimensionSql,
     getCustomSqlDimensionSql,
+    escapeStringLiteral,
     getJoinedTables,
+    normalizeValueOrder,
     replaceUserAttributesAsStrings,
     sortDayOfWeekName,
     sortMonthName,
@@ -1447,5 +1449,57 @@ describe('getJoinedTables', () => {
         const result = getJoinedTables(explore, ['orders', 'users']);
 
         expect(result).toContain('intermediary_table');
+    });
+});
+
+describe('custom value order', () => {
+    describe('normalizeValueOrder', () => {
+        it('removes empty values, keeps duplicates once and keeps spaces', () => {
+            expect(normalizeValueOrder([' A ', '', 'B', 'A', ''])).toEqual([
+                ' A ',
+                'B',
+                'A',
+            ]);
+        });
+
+        it('caps the list at MAX_VALUE_ORDER_ITEMS', () => {
+            const values = Array.from({ length: 250 }, (_, i) => `v${i}`);
+            expect(normalizeValueOrder(values)).toHaveLength(200);
+        });
+    });
+
+    describe('escapeStringLiteral', () => {
+        it('doubles single quotes', () => {
+            expect(
+                escapeStringLiteral("O'Reilly", SupportedDbtAdapter.POSTGRES),
+            ).toEqual("O''Reilly");
+        });
+
+        it('keeps backslashes untouched on postgres', () => {
+            expect(
+                escapeStringLiteral('C\\D', SupportedDbtAdapter.POSTGRES),
+            ).toEqual('C\\D');
+        });
+
+        it('doubles backslashes on adapters where backslash is an escape char', () => {
+            expect(
+                escapeStringLiteral('C\\D', SupportedDbtAdapter.BIGQUERY),
+            ).toEqual('C\\\\D');
+        });
+
+        it('does not normalize unicode or strip sql comments', () => {
+            expect(
+                escapeStringLiteral(
+                    'McDonald\u2019s -- not a comment',
+                    SupportedDbtAdapter.POSTGRES,
+                ),
+            ).toEqual('McDonald\u2019s -- not a comment');
+        });
+
+        it('removes NUL bytes', () => {
+            expect(
+                escapeStringLiteral('a\0b', SupportedDbtAdapter.POSTGRES),
+            ).toEqual('ab');
+        });
     });
 });

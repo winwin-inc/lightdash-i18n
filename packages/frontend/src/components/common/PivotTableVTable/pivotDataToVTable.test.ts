@@ -412,3 +412,70 @@ describe('pivotDataToVTable', () => {
         expect(rowSpanMerges).toBeNull();
     });
 });
+
+describe('pivotDataToVTable 列宽持久化', () => {
+    const pivotData = pivotQueryResults({
+        pivotConfig: { pivotDimensions: ['page'], metricsAsRows: false },
+        metricQuery: METRIC_QUERY_1DIM_2METRIC,
+        rows: RESULT_ROWS_1DIM_2METRIC,
+        options: { maxColumns: 60 },
+        getFieldLabel: (fieldId) => fieldId,
+        getField: () => undefined,
+    });
+    const baseOptions = {
+        getFieldLabel: (fieldId: string) => fieldId,
+        hideRowNumbers: true,
+    };
+
+    const leavesOf = (cols: (VTableColumnDef | VTableColumnGroup)[]) =>
+        getMetricValueLeafColumns(cols);
+
+    it('每个叶子列都带持久化 key（数据列按底层指标字段）', () => {
+        const { columns } = pivotDataToVTable(pivotData, baseOptions);
+        const leaves = leavesOf(columns);
+
+        expect(leaves.length).toBeGreaterThan(0);
+        // 同一指标的多个透视列共用同一个 key（宽度按字段生效）
+        expect(new Set(leaves.map((c) => c.key))).toEqual(
+            new Set(['views', 'devices']),
+        );
+    });
+
+    it('未配置宽度时不产出 columnWidthConfig', () => {
+        const { columnWidthConfig } = pivotDataToVTable(pivotData, baseOptions);
+        expect(columnWidthConfig).toEqual([]);
+    });
+
+    it('配置宽度后产出 columnWidthConfig，并同字段共享', () => {
+        const { columns, columnWidthConfig } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            getColumnWidth: (key) => (key === 'views' ? 260 : undefined),
+        });
+
+        expect(columnWidthConfig.length).toBeGreaterThan(0);
+        expect(
+            columnWidthConfig.every(
+                (c) => c.key === 'views' && c.width === 260,
+            ),
+        ).toBe(true);
+
+        const viewsLeaves = leavesOf(columns).filter((c) => c.key === 'views');
+        expect(viewsLeaves.every((c) => c.width === 260)).toBe(true);
+        // 显式宽度不能被默认上限 450 夹回，也不能被 minWidth 88 挡窄
+        expect(viewsLeaves.every((c) => (c.maxWidth ?? 0) >= 260)).toBe(true);
+        expect(viewsLeaves.every((c) => (c.minWidth ?? 0) <= 260)).toBe(true);
+    });
+
+    it('显式宽度大于全局上限时，maxWidth 放大到显式宽度', () => {
+        const { columns } = pivotDataToVTable(pivotData, {
+            ...baseOptions,
+            pivotColumnMaxWidth: 300,
+            getColumnWidth: (key) => (key === 'devices' ? 700 : undefined),
+        });
+
+        const devicesLeaves = leavesOf(columns).filter(
+            (c) => c.key === 'devices',
+        );
+        expect(devicesLeaves.every((c) => c.maxWidth === 700)).toBe(true);
+    });
+});

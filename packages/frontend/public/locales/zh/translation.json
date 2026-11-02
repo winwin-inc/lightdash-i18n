@@ -2685,6 +2685,8 @@
     "drill_into": "深入查看"
   },
   "components_common_table": {
+    "resize_column": "拖拽调整列宽",
+    "reset_column_width": "双击恢复自动列宽",
     "copied_to_clipboard": "已复制到剪贴板!",
     "pagination": {
       "pages": "分页",
@@ -5598,7 +5600,9 @@
         "part_4": "显示列"
       },
       "unfreeze": "取消冻结列",
-      "freeze": "冻结列"
+      "freeze": "冻结列",
+      "width": "列宽",
+      "reset_width": "重置为自动列宽"
     },
     "formatting_item": {
       "single": "单个",
@@ -5649,13 +5653,13 @@
       "pivot_metric_header_top_disabled": "仅在透视表且指标作为列时可用",
       "pivot_auto_fill_width": "铺满剩余空间",
       "pivot_auto_fill_width_hint": "仅在列总宽小于容器时均分剩余空间；不会按列名加宽。列名完整显示由内容自适应默认开启。",
-      "pivot_auto_fill_width_tooltip": "关：列宽仍按内容自适应，不铺满空白。\n开：列总宽小于容器时，均分剩余空间铺满。",
+      "pivot_auto_fill_width_tooltip": "关：列宽仍按内容自适应，不铺满空白。\n开：列总宽小于容器时，均分剩余空间铺满。\n注意：已手动拖拽过列宽时不生效（单列宽度优先），开关会置灰。",
       "pivot_dimension_column_max_width": "行维度列最大宽度 (px)",
       "pivot_dimension_column_max_width_placeholder": "300",
-      "pivot_dimension_column_max_width_tooltip": "限制左侧行维度列最大宽度。留空默认 450；超出省略，悬停看全文。",
+      "pivot_dimension_column_max_width_tooltip": "限制左侧行维度列最大宽度。留空默认 450；超出省略，悬停看全文。手动拖拽过的列不受该上限限制。",
       "pivot_data_column_max_width": "数据列最大宽度 (px)",
       "pivot_data_column_max_width_placeholder": "240",
-      "pivot_data_column_max_width_tooltip": "限制指标数据列最大宽度。留空默认 450，占位 240 为更紧建议值；超出省略，悬停看全文。",
+      "pivot_data_column_max_width_tooltip": "限制指标数据列最大宽度。留空默认 450，占位 240 为更紧建议值；超出省略，悬停看全文。手动拖拽过的列不受该上限限制。",
       "pivot_column_max_width_hint": "同时约束内容自适应与撑满拉伸；留空使用默认上限 450，占位值为更紧的建议值",
       "display": "显示",
       "show_table_names": "显示表名",
@@ -6777,6 +6781,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "自定义顺序",
+    "custom_order_tooltip": "按固定值排序",
+    "custom_order_candidates": "当前结果中的值",
+    "custom_order_others_hint": "未列出的值排在最后，按 A-Z / Z-A",
+    "custom_order_limit_hint": "仅展示前 500 个值，可搜索缩小范围",
+    "custom_order_missing_value": "当前数据中未找到该值",
+    "custom_order_all_selected": "候选值已全部选入",
+    "custom_order_max_selected": "最多 200 个值，超出的不会生效",
+    "custom_order_move_up": "上移",
+    "custom_order_move_down": "下移",
+    "custom_order_remove": "移除该值",
+    "custom_order_short": "自定义",
+    "custom_order_search_placeholder": "搜索数据库中的值",
+    "custom_order_no_candidates": "没有找到可选值",
+    "custom_order_badge": "自定义顺序",
     "no_sort": "未排序",
     "fields": "字段",
     "field": "1个字段",
@@ -6794,7 +6813,9 @@
       "old_new": "旧-新",
       "new_old": "新-旧",
       "false_true": "假-真",
-      "true_false": "真-假"
+      "true_false": "真-假",
+      "custom_asc": "正序",
+      "custom_desc": "反序"
     }
   },
   "components_export_csv": {

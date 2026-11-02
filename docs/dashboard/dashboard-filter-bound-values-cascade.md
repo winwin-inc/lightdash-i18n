@@ -1,4 +1,4 @@
-# 看板筛选器：非类目字段绑定父级类目并按候选值自动解析
+# 看板筛选器：非类目字段绑定父级筛选器并按候选值自动解析
 
 > 关联：[类目联动](./category-filter-cascade.md)、[跨作用域绑定](./category-filter-cross-scope-binding.md)、
 > [跨 Tab 继承](./dashboard-filter-flow-overview.md)、[排查记录 §13](./category-filter-not-cascading-diagnosis-plan.md)
@@ -9,8 +9,15 @@
 
 ## 一、目标
 
-1. 允许**普通 dimension 筛选器**（集团 / 品牌 / 包装类型 / 商品名称…）绑定一个**父级类目筛选器**
-   （一~四级任意层级，含全局作用域的类目）。
+1. 允许**普通 dimension 筛选器**（集团 / 品牌 / 包装类型 / 商品名称…）绑定一个**父级筛选器**：
+   - 父级可以是类目（一~四级任意层级，含全局作用域的类目）；
+   - 父级也可以是**另一个绑定父级的普通维度**，形成多级链：
+     `类目 → 集团 → 品牌 → 商品`。
+
+   约束（`isValidParentBinding`，UI 与运行时共用）：
+   - 子级是类目（有 `categoryLevel`）→ 父级必须也是类目，且层级更低（保持原语义）；
+   - 子级是普通维度 → 父级可以是类目或普通维度，但**不能成环**
+     （沿 `parentFieldId` 向上走，遇到子级即拒绝；已有环也拒绝）。
 2. 父级类目变化（用户手改 / 跨 Tab 继承 / 重置）后，按「父类目 + 链上左侧条件」重新解析这些字段的取值：
    - 当前值仍在候选里 → **保留**；
    - 单值无效 → 取**第一个候选**；
@@ -46,7 +53,7 @@
 | 能力           | 位置                                                                                    | 说明                                                                             |
 | -------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | 候选值查询条件 | `utils/categoryFilters.ts:843 collectFieldSearchFilters`                                | 取链上**左侧**有效筛选器作为条件，不判断是否类目 → 「醋 下的集团候选」现在就能查 |
-| 父级解析       | `:266 findParentCategoryEntry` / `:250 isValidParentLevel`                              | 按 fieldId + 作用域匹配；子级无 `categoryLevel` 时直接放行                       |
+| 父级解析       | `findParentCategoryEntry` / `isValidParentBinding`                                       | 按 fieldId + 作用域匹配；子级无 `categoryLevel` 时放行任意父级（含普通维度），并做环检测 |
 | 解析语义内核   | `:971 resolveCategoryFilterValueAsync`                                                  | 已是「值在候选 → 保留，否则 → 第一个候选」                                       |
 | 执行骨架       | `:1552 initializeCategoryFiltersAsync` + 懒执行 + 5s `fieldSearchCache` + 世代/会话守卫 | 不重建                                                                           |
 | 级联触发       | `:1269 cascadeChildrenAsync` + `:1132 getChildEntries`                                  | 目前 `getChildEntries` 只认类目子级                                              |
@@ -57,7 +64,7 @@
 | ------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
 | `:980 resolveCategoryFilterValueAsync`      | `!isCategoryField → keep`              | 新增 `resolveDependentFilterValuesAsync`（单值 + 多值），类目路径保持不变 |
 | `:1137 getChildEntries`                     | 只认类目子级                           | 绑定父级的普通维度也算子级（新增 `isDependentValueFilter`）               |
-| `:1598-1609 initializeCategoryFiltersAsync` | 跳过非类目、跳过 `operator !== EQUALS` | 类目循环之后按链顺序处理绑定字段；新增 `onValuesAutoAdjusted` 回调        |
+| `:1598-1609 initializeCategoryFiltersAsync` | 跳过非类目、跳过 `operator !== EQUALS` | 类目循环之后处理绑定字段；**普通维度之间按 `parentFieldId` 拓扑排序**（`sortChainParentsFirst`，父级先解析） |
 | `:513 getCategoryFiltersSignature`          | 只到「最后一个类目」为止               | 追加绑定字段的 `values/operator/父级绑定`，否则写回守卫看不见这些写入     |
 | `:1059 sortCategoryFiltersByLevel`          | 只排类目                               | 顺序改为「类目按 level → 再按链顺序处理绑定字段」                         |
 
@@ -87,7 +94,7 @@ UI / Provider（P2）：
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | P0-1 | 写回是**整体替换**快照（`DashboardProvider.tsx` init `.then`），绑定字段不在签名里 → 守卫「假通过」，在途 init 结果把用户手改的值回滚 | 写回改为**按 filter id 合并**（只采纳本次解析涉及字段的 `values/disabled/operator`）；签名追加所有 `isBoundValueFilter` 条目 |
 | P0-2 | 用户手改非类目字段不 bump generation / 不 cancel 会话 → 无法阻止在途写入接管                                                          | Tab 与全局两条手动修改路径：`bumpTabCategoryGeneration` + `cancelTabCategoryInitSession`（全局同理）                         |
-| P0-3 | 环路防护只靠 `isValidParentLevel`，而它对「子级无 categoryLevel」直接放行                                                             | 父级必须是类目（非类目不可作父级）→ 链上不会出现非类目 → 非类目；级联遍历加 visited + 深度上限                               |
+| P0-3 | 环路防护只靠 `isValidParentLevel`，而它对「子级无 categoryLevel」直接放行                                                             | 改为 `isValidParentBinding`：允许普通维度作父级，但沿 `parentFieldId` 向上走到子级即拒绝（visited 防死循环）；级联遍历因此有界 |
 
 ### P1（同批上）
 
@@ -119,7 +126,7 @@ UI / Provider（P2）：
 | 签名覆盖绑定字段                                                     | ✅        | `getCategoryFiltersSignature` 追加 `boundValues`                          |
 | 写回按 filter id 合并（防回滚）                                      | ✅        | `DashboardProvider.mergeAutoResolvedFilters`                              |
 | 用户手改绑定字段时作废在途解析                                       | ✅        | `wrappedUpdateTabDimensionFilter` / 全局 `updateDimensionDashboardFilter` |
-| 环路防护（父级必须是类目）                                           | ✅        | `isValidParentLevel`                                                      |
+| 环路防护（父级可以是普通维度，但不能成环）                           | ✅        | `isValidParentBinding`（沿 `parentFieldId` 向上走 + visited）             |
 | 跨 Tab 继承的 parent-mismatch 放宽（按父级层级比较）                 | ✅        | `userFilterSelections.getParentLevelKey`                                  |
 | 「待解析」门禁（`hasCategoryFilters` → `hasBoundFilters`）           | ✅        | `categoryFilterInitHelpers` + Provider 4 处                               |
 | pill 标记 + tooltip 原值                                             | ✅        | `autoAdjustedFilterIds` + `ActiveFilters` + `Filter.tsx` + i18n（zh/en）  |

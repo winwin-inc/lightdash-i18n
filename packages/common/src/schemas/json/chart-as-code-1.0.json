@@ -361,6 +361,11 @@
                 },
                 "visible": {
                     "type": "boolean"
+                },
+                "width": {
+                    "description": "列宽（px，整数）；undefined = 按内容自动",
+                    "format": "double",
+                    "type": "number"
                 }
             },
             "type": "object"
@@ -2163,6 +2168,13 @@
                 },
                 "nullsFirst": {
                     "type": "boolean"
+                },
+                "valueOrder": {
+                    "description": "Custom order of values for a dimension.\nThe array order is the expected order (from first to last).\nOnly applies to dimensions - empty array or undefined means\nfall back to the default A-Z / Z-A sorting.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
                 }
             },
             "required": ["descending", "fieldId"],
