@@ -17,7 +17,6 @@ import {
     Stack,
     Text,
     Tooltip,
-    UnstyledButton,
 } from '@mantine/core';
 import { IconGripVertical, IconListNumbers, IconX } from '@tabler/icons-react';
 import { forwardRef, useCallback, useState } from 'react';
@@ -95,16 +94,6 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
             isDimension(item) && item.type === DimensionType.STRING
                 ? item
                 : undefined;
-
-        // 收起时只露前 2 个值，剩下的用 +N 表示；完整顺序在 tooltip 里
-        const valueOrderSummary =
-            valueOrder.length === 0
-                ? t('components_sort_button.custom_order_add_values')
-                : valueOrder.length > 2
-                ? `${valueOrder.slice(0, 2).join(' → ')} +${
-                      valueOrder.length - 2
-                  }`
-                : valueOrder.join(' → ');
 
         const handleValueOrderChange = useCallback(
             (newValues: string[]) => {
@@ -215,40 +204,6 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                             }}
                         />
 
-                        {isValueOrderMode && !isValueOrderEditorOpen && (
-                            <Tooltip
-                                label={valueOrder.join(' → ')}
-                                withArrow
-                                position="top"
-                                disabled={valueOrder.length === 0}
-                            >
-                                <UnstyledButton
-                                    onClick={handleToggleValueOrderEditor}
-                                    data-testid="value-order-summary"
-                                    sx={(theme) => ({
-                                        width: 190,
-                                        padding: `2px ${theme.spacing.xs}`,
-                                        borderRadius: theme.radius.sm,
-                                        border: `1px dashed ${theme.colors.gray[3]}`,
-                                    })}
-                                >
-                                    <Text size="xs" color="dimmed" truncate>
-                                        {valueOrderSummary}
-                                    </Text>
-                                </UnstyledButton>
-                            </Tooltip>
-                        )}
-
-                        {isValueOrderMode && isValueOrderEditorOpen && valueOrderField && (
-                            <Box sx={{ width: 190 }}>
-                                <ValueOrderEditorContainer
-                                    field={valueOrderField}
-                                    values={valueOrder}
-                                    onChange={handleValueOrderChange}
-                                />
-                            </Box>
-                        )}
-
                         {!isValueOrderMode && (
                             <Text ml="lg" fw={500}>
                                 {t('components_sort_button.nulls')}
@@ -287,6 +242,30 @@ const SortItem = forwardRef<HTMLDivElement, SortItemProps>(
                     </Group>
                 </Group>
 
+                {/*
+                The editor is only mounted when it is expanded: mounting it for
+                every sort row would fire a query per row.
+            */}
+                {isValueOrderEditorOpen && valueOrderField && (
+                    <Box
+                        pl="xs"
+                        pr="xxs"
+                        miw={560}
+                        sx={(theme) => ({
+                            '& > *': {
+                                padding: theme.spacing.xs,
+                                border: `1px solid ${theme.colors.gray[2]}`,
+                                borderRadius: theme.radius.sm,
+                            },
+                        })}
+                    >
+                        <ValueOrderEditorContainer
+                            field={valueOrderField}
+                            values={valueOrder}
+                            onChange={handleValueOrderChange}
+                        />
+                    </Box>
+                )}
             </Stack>
         );
     },
