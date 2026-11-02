@@ -12,6 +12,7 @@ import {
     FilterOperator,
     ForbiddenError,
     OrganizationMemberRole,
+    ParameterError,
     PossibleAbilities,
     ProjectMemberRole,
     SessionUser,
@@ -77,6 +78,8 @@ const dashboardModel = {
     getSpaceUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
 
     getSpaceUuidsByChartUuids: jest.fn(async () => new Set<string>()),
+
+    findDashboardContexts: jest.fn(async () => []),
 };
 
 const spaceModel = {
@@ -563,6 +566,126 @@ describe('DashboardService', () => {
                     'name',
                 ),
             ).rejects.toThrow(ForbiddenError);
+        });
+    });
+
+    describe('getDashboardContexts', () => {
+        const buildRow = (
+            overrides: Partial<{
+                dashboardUuid: string;
+                dashboardSlug: string;
+                dashboardName: string;
+                spaceUuid: string;
+                chartUuids: string[];
+            }> = {},
+        ) => ({
+            dashboardUuid: 'dashboard-uuid',
+            dashboardSlug: 'dashboard-slug',
+            dashboardName: 'dashboard name',
+            spaceUuid: 'spaceUuid',
+            projectUuid: 'projectUuid',
+            organizationUuid: 'organizationUuid',
+            chartUuids: ['chart-uuid'],
+            ...overrides,
+        });
+
+        test('should throw when neither exploreName nor chartUuid is given', async () => {
+            await expect(
+                service.getDashboardContexts(user, projectUuid, {}),
+            ).rejects.toThrow(ParameterError);
+            expect(dashboardModel.findDashboardContexts).not.toHaveBeenCalled();
+        });
+
+        test('should return every visible dashboard and the associated count', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({
+                    dashboardUuid: 'dash-2',
+                    dashboardName: 'B dashboard',
+                }),
+                buildRow({
+                    dashboardUuid: 'dash-1',
+                    dashboardName: 'A dashboard',
+                }),
+            ]);
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.associatedCount).toBe(2);
+            // the contexts are sorted by name
+            expect(result.contexts.map((c) => c.dashboardUuid)).toEqual([
+                'dash-1',
+                'dash-2',
+            ]);
+            expect(result.contexts[0]).toEqual({
+                dashboardUuid: 'dash-1',
+                dashboardSlug: 'dashboard-slug',
+                dashboardName: 'A dashboard',
+                chartUuids: ['chart-uuid'],
+            });
+            expect(dashboardModel.findDashboardContexts).toHaveBeenCalledWith(
+                projectUuid,
+                { exploreName: 'orders' },
+            );
+        });
+
+        test('should count the associated dashboards the user cannot see', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({ dashboardUuid: 'dash-1' }),
+                buildRow({ dashboardUuid: 'dash-2' }),
+            ]);
+            // the client-use allow-list only exposes one of the dashboards
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                chartUuid: 'chart-uuid',
+            });
+
+            expect(result.contexts.map((c) => c.dashboardUuid)).toEqual([
+                'dash-1',
+            ]);
+            // the count is taken before the permission filter, so the caller
+            // can tell "no dashboard configured" from "no permission"
+            expect(result.associatedCount).toBe(2);
+        });
+
+        test('should return no context and a zero count when nothing is associated', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([]);
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.contexts).toEqual([]);
+            expect(result.associatedCount).toBe(0);
+        });
+
+        test('should hide every dashboard when the allow-list is empty', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({ dashboardUuid: 'dash-1' }),
+                buildRow({ dashboardUuid: 'dash-2' }),
+            ]);
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set<string>());
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.contexts).toEqual([]);
+            expect(result.associatedCount).toBe(2);
         });
     });
 

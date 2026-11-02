@@ -34,6 +34,24 @@ export function joinSiteUrl(siteBaseUrl: string, path: string): string {
     return `${base}${p}`;
 }
 
+/**
+ * 看板浏览器链接：{publicBaseUrl}/projects/{projectUuid}/dashboards/{dashboardUuid}/view
+ *
+ * 强制看板模式用它把“可点开的看板链接”回给调用方（权限申请 / 候选选择）。
+ */
+export function buildDashboardWebUrl(params: {
+    publicBaseUrl: string;
+    projectUuid: string;
+    dashboardUuid: string;
+}): string {
+    const path = interpolate(DEFAULT_WEB_PATH_TEMPLATES.dashboard, {
+        projectUuid: params.projectUuid,
+        uuid: params.dashboardUuid,
+        slug: '',
+    });
+    return joinSiteUrl(params.publicBaseUrl, path);
+}
+
 type ContentLike = {
     contentType?: string;
     uuid?: string;

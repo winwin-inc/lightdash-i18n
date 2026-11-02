@@ -178,6 +178,9 @@ export function registerAccessTools(
                                 firstName: stringOrNull(user.firstName),
                                 lastName: stringOrNull(user.lastName),
                                 userUuid: stringOrNull(user.userUuid),
+                                // 强制看板模式策略（让 agent 一次问清，避免靠失败试错）
+                                dashboardStrict: config.dashboardStrict,
+                                dashboardContact: config.dashboardContact,
                                 organization: {
                                     organizationUuid: stringOrNull(
                                         user.organizationUuid,

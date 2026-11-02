@@ -13,6 +13,7 @@ import {
 
 const testConfig: LightdashMcpEnvConfig = {
     baseUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
     apiKey: undefined,
     defaultProjectUuid: null,
     maxLimit: 5000,
@@ -27,6 +28,8 @@ const testConfig: LightdashMcpEnvConfig = {
     lruMinIdleMs: 0,
     sessionTtlMs: 600_000,
     pruneIntervalMs: 300_000,
+    dashboardStrict: false,
+    dashboardContact: '请联系客服开通看板访问权限。',
 };
 
 function registryOptions(

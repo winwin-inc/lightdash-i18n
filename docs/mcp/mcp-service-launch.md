@@ -121,11 +121,11 @@ kubectl -n pre rollout status deploy/lightdash-mcp
 | `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
 | `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
 | `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
-| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | **计划中（未实现）**：强制看板模式。外部品牌 CT 拟设 `MCP_DASHBOARD_STRICT=true`；内部保持不设。详见 [设计稿](./lightdash-mcp-dashboard-strict-mode.md) |
+| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | 强制看板模式。**外部品牌 CT 两部设 `MCP_DASHBOARD_STRICT=true`，内部保持不设（默认 `false`）**；`MCP_DASHBOARD_CONTACT` 配客服文案。详见 [强制看板模式](./lightdash-mcp-dashboard-strict-mode.md) 与 [§5.7 上线顺序](#57-严格模式的上线顺序必读) |
 
 > MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
 >
-> 强制看板模式目前仅完成设计，尚未实现；设置上述变量不会改变运行时行为。
+> 强制看板模式已实现，**默认关闭**：不设 `MCP_DASHBOARD_STRICT` 时行为与改造前一致。
 
 ### 4.2 Lightdash 主站
 
@@ -210,7 +210,7 @@ EXISTS (
 | 条件 | 满足方式 | 不满足的后果 |
 |---|---|---|
 | ① 上下文带对 | 查询带 `dashboardUuid`（显式传入 > MCP 反查自动选） | `dashboardSlug` 取默认 `'NA'` → `sql_filter` 首个分支为真 → **不按类目过滤，返回全量** |
-| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表 |
+| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表（⚠️ **仅 `MCP_DASHBOARD_STRICT=false`**；严格模式见 §5.6） |
 | ③ 候选在白名单内 | 客户使用模式 + viewer/interactive_viewer + RPC 命中 | 候选被过滤 → 与看板 UI 行数不一致 |
 
 > ⚠️ 条件 ① 是**口径风险**而非报错：MCP 不带看板上下文查数会拿到比看板更宽的数据。建议客户侧默认显式传 `dashboardUuid`，或使用 `run_dashboard_tiles`（内部走 `/query/dashboard-chart`，天然带看板上下文）。
@@ -232,7 +232,146 @@ flowchart TD
   use --> res["返回结果 + resolvedDashboardContext（含 candidates）"]
 ```
 
+### 5.6 严格模式分支（`MCP_DASHBOARD_STRICT=true`，仅外部部署）
+
+上图是**开关关闭**时（内部部署）的行为。开关打开后流程图变化：
+
+- 不再判断"explore 依赖 `dashboardSlug`"，**所有查询工具**都必须解析出 `dashboardUuid`；
+- 候选数 `1` → 自动选用；`≥2` → 阻断并要求选择（不再取排序第一个）；`0` → 按后端 `associatedCount` 区分 `dashboard_permission_required` / `dashboard_configuration_required`；
+- 显式 `dashboardUuid` 预检失败（403/404/跨项目/不属该数据集关联看板）一律阻断，**不降级为 `NA`**。
+
+完整口径见 [强制看板模式设计稿 v2](./lightdash-mcp-dashboard-strict-mode.md)。
+
+### 5.7 严格模式的上线顺序（**必读**）
+
+> **开关默认关闭**（`MCP_DASHBOARD_STRICT` 默认 `false`）。不设该变量时行为与现状完全一致，本节只适用于外部品牌 CT 部署开启严格模式的场景。
+
+| 步骤 | 动作 | 不做的后果 |
+|---|---|---|
+| 1 | **先升级后端**（含 `associatedCount` 字段） | 只有「反查 0 个可见关联看板」与「显式 uuid 不属于关联候选」两类查询会被判 `dashboard_context_unavailable`（fail-closed，不猜）；有可见关联看板的查询不受影响。字段是新增、向后兼容，不需与 MCP 同时发版 |
+| 2 | 用**管理员 PAT** 盘点「无看板数据集」 | 外部客户会集中报「某张表突然不能查」 |
+| 3 | 给客户交付方重申：PAT 不得交给未受控终端（MCP 层是护栏，不是安全边界） | 客户可绕过 MCP 直连后端拿宽数据 |
+| 4 | 设 `MCP_DASHBOARD_STRICT=true` + `MCP_DASHBOARD_CONTACT` → 发布 | — |
+
+**后端未升级（旧版）时的精确表现**——是**报错阻断**，不是文案差异：
+
+| 查询走到的分支 | 后端已升级 | 后端未升级（旧版） |
+|---|---|---|
+| 反查到 ≥1 个可见关联看板 | 正常（唯一自动 / 多个要求选择） | **正常**（不依赖新字段） |
+| 显式 `dashboardUuid` 命中关联候选 | 正常 | **正常** |
+| 未传 uuid + 反查 **0 个可见关联看板** | `associatedCount=0` → `dashboard_configuration_required`；`>0` → `dashboard_permission_required` | `dashboard_context_unavailable`（`isError: true`、`action: retry_later`，**不查数**） |
+| 显式 uuid **不属**关联候选 | `0` → `dashboard_configuration_required`；`>0` → 403 → `permission_required` / 404 → `not_found` | `dashboard_context_unavailable`（**不查数**） |
+
+影响面：只有最后两行。它们本来就该被严格模式阻断，差别只是**原因和下一步给不出来**——`retry_later` 会让"其实该去配看板"的客户反复重试，产生客服噪音。因此建议后端先发（或同批发）。
+
+盘点命令（第 2 步；`associatedCount` 落地后可直接用）：
+
+```bash
+for e in $(curl -s -H "Authorization: ApiKey $LDPAT" \
+  "$SITE_URL/api/v1/projects/$PROJECT_UUID/explores" | jq -r '.results[].name'); do
+  n=$(curl -s -H "Authorization: ApiKey $LDPAT" \
+    "$SITE_URL/api/v1/projects/$PROJECT_UUID/dashboards/context?exploreName=$e" \
+    | jq '.results.associatedCount // (.results.contexts|length)')
+  [ "$n" = "0" ] && echo "NO_DASHBOARD $e"
+done
+```
+
+> 盘点必须用**管理员 PAT**（受限账号只能看到白名单内的看板，数量会偏少）。
+
 ---
+
+### 5.8 一图看懂：配置归属、请求流程、角色关系
+
+#### 5.8.1 谁配什么（环境变量放哪）
+
+```mermaid
+flowchart LR
+  subgraph CLIENT["客户端（客户自己填）"]
+    P1["PAT<br/>（x-api-key，线上不做服务端兜底）"]
+  end
+
+  subgraph MCP["MCP 服务 Deployment（ConfigMap / Secret）"]
+    E1["LIGHTDASH_SITE_URL"]
+    E2["LIGHTDASH_PUBLIC_SITE_URL"]
+    E3["LIGHTDASH_PROJECT_UUID"]
+    E4["MCP_DASHBOARD_STRICT=true"]
+    E5["MCP_DASHBOARD_CONTACT=…"]
+    E6["MCP_OAUTH_ENABLED / session 容量等"]
+  end
+
+  subgraph MAIN["Lightdash 主站（Secret / 界面 / 数据库）"]
+    B1["ADMIN_API_HOST + ADMIN_API_KEY<br/>（看板白名单 RPC）"]
+    B2["projects.is_client_use = true<br/>（界面开启客户使用模式）"]
+    B3["项目角色 = viewer / interactive_viewer<br/>（后台授权）"]
+    B4["客户后台：按手机号授权看板<br/>（RPC 白名单数据）"]
+  end
+
+  subgraph DATA["dbt 项目 + 看板数据"]
+    D1["数据集挂到看板<br/>（saved chart tile）"]
+    D2["sql_filter 引用 lightdash.user.dashboardSlug"]
+  end
+
+  P1 --> MCP
+  MCP -- "同一 PAT 调 REST" --> MAIN
+  B2 --> B1
+  B3 --> B1
+  B4 --> B1
+  D1 --> D2
+```
+
+要点：
+
+- **`MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` 只配在 MCP 服务**（ConfigMap），不进主站 `.env`；改这两项只需重启 MCP Pod。
+- 主站侧只有两类东西：**RPC 凭证**（`ADMIN_API_HOST` / `ADMIN_API_KEY`）与**业务配置**（客户使用模式开关、项目角色、看板授权数据）。
+- PAT 是客户端自己填的，MCP 不保存（线上不配 `LIGHTDASH_API_KEY` 兜底）。
+
+#### 5.8.2 一次查询走完的五道闸（严格模式）
+
+```mermaid
+flowchart TD
+  S["MCP 查询请求<br/>run_metric_query / run_semantic_metric_query / run_saved_chart / search_field_values / run_dashboard_tiles"] --> G1
+
+  G1{"① 认证<br/>PAT / OAuth 有效？"} -- 否 --> R401["401"]
+  G1 -- 是 --> G2
+
+  G2{"② 能力位 + 可查表预检<br/>view Explore / runMetricQuery<br/>（受限角色还会被看板白名单收窄）"} -- 否 --> X2["已拒绝查询…<br/>（可能没授权，也可能没挂看板）"]
+  G2 -- 是 --> G3
+
+  G3{"③ 解析 dashboardUuid<br/>MCP_DASHBOARD_STRICT"} -->|"显式 uuid 命中关联候选"| OK
+  G3 -->|"未传 + 反查唯一"| OK
+  G3 -->|"未传 + 反查多个"| X3A["dashboard_selection_required<br/>（非错误，附候选链接）"]
+  G3 -->|"未传 + 反查 0"| X3B{"associatedCount"}
+  X3B -->|"= 0"| X3B0["dashboard_configuration_required<br/>管理员去配看板"]
+  X3B -->|"> 0"| X3B1["dashboard_permission_required<br/>客服开权限"]
+  X3B -->|"缺失"| X3B2["dashboard_context_unavailable"]
+  G3 -->|"显式 uuid 未命中候选"| X3C{"associatedCount"}
+  X3C -->|"= 0"| X3B0
+  X3C -->|"> 0"| X3D["查 GET /dashboards/{uuid}<br/>403 → permission_required<br/>404/跨项目 → not_found"]
+
+  OK["④ 后端校验看板<br/>项目归属 + CASL 空间权限 + client-use 白名单<br/>→ canonical dashboardSlug"] --> G5
+  OK -- "403" --> X4["dashboard_permission_required"]
+  G5["⑤ 注入 lightdash.user.dashboardSlug<br/>→ dbt sql_filter 生效 → 执行查询"]
+  G5 --> OUT["返回数据 + resolvedDashboardContext<br/>（含 dashboardUuid / dashboardUrl）"]
+```
+
+#### 5.8.3 角色和权限到底是什么关系
+
+```mermaid
+flowchart LR
+  ROLE["项目角色<br/>viewer / interactive_viewer / editor / developer / admin"] --> G2["决定②③④能过几道闸"]
+  CU["客户使用模式 + RPC 白名单<br/>（按手机号）"] --> G4["额外收窄看板/图表/空间/数据集"]
+  ROLE --> G4
+  STRICT["MCP_DASHBOARD_STRICT<br/>（部署级开关）"] --> G3["决定是否必须带看板上下文<br/>与角色无关"]
+```
+
+| 角色 | ② 可查表 | ③ 必须带看板 | ④ 能打开的看板 | 净效果 |
+|---|---|---|---|---|
+| 客户 `viewer` | 白名单派生的 explore | **是** | 白名单内的看板 | 只能按白名单看板口径查 |
+| 客户 `interactive_viewer` | 同上 + 可跑临时指标查询 | **是** | 同上 | 同上，能力更宽 |
+| `editor` / `developer` / `admin` | 项目内可见 explore（不受白名单收窄） | **是**（严格模式） | 自己能打开的看板 | 仍必须选一张**关联该数据集**的看板 |
+| 任意角色 + `MCP_DASHBOARD_STRICT=false` | 按各自能力位 | 否 | — | 行为与改造前一致（可能落 `NA`） |
+
+一句话：**角色决定"能看多宽"，严格模式决定"必须落在哪张看板上"，两者叠加而不是互相替代**；升角色不会绕过第③道闸。
 
 ## 6. 权限模型（必读）
 
@@ -334,7 +473,7 @@ flowchart TD
 | 3 | `list_dashboards` | 只返回**已授权**看板（白名单生效） |
 | 4 | `find_explores` / `list_explores` | 只返回白名单看板用到的表 |
 | 5 | `run_dashboard_tiles` | 数据与看板 UI 一致（自动带看板上下文） |
-| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | 有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required` |
+| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | `MCP_DASHBOARD_STRICT=false`：有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required`。**`=true`**：必须带或反查到唯一看板；多候选 / 0 候选（按 `associatedCount` 区分）均阻断 |
 | 7 | 同一查询带 `dashboardUuid` 重试 | 行数与看板 UI 一致 |
 | 8 | 未授权账号 | 看不到授权看板；`run_metric_query` 拒绝非 `queryable` 表 |
 

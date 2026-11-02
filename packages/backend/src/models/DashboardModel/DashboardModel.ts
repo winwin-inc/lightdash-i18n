@@ -643,6 +643,10 @@ export class DashboardModel {
     /**
      * Lightweight explore/chart → dashboard contexts for query RLS (dashboardSlug).
      * Uses latest dashboard version tiles only.
+     *
+     * The exploreName filter only matches the latest version of each chart, so
+     * dashboards that used the explore on an old chart version are not counted
+     * as associated (same rule as getExploreNamesByDashboardUuids).
      */
     async findDashboardContexts(
         projectUuid: string,
@@ -667,6 +671,8 @@ export class DashboardModel {
         }
 
         const cteName = 'dashboard_last_version_cte';
+        const tileChartCteName = 'dashboard_tile_chart_cte';
+        const latestChartVersionCteName = 'latest_chart_version_cte';
         const query = this.database
             .with(cteName, (qb) => {
                 void qb
@@ -752,11 +758,58 @@ export class DashboardModel {
 
         if (exploreName) {
             void query
+                .with(tileChartCteName, (qb) => {
+                    void qb
+                        .distinct({
+                            saved_query_id: `${SavedChartsTableName}.saved_query_id`,
+                        })
+                        .from(cteName)
+                        .innerJoin(
+                            DashboardTileChartTableName,
+                            `${cteName}.dashboard_version_id`,
+                            `${DashboardTileChartTableName}.dashboard_version_id`,
+                        )
+                        .innerJoin(
+                            SavedChartsTableName,
+                            `${DashboardTileChartTableName}.saved_chart_id`,
+                            `${SavedChartsTableName}.saved_query_id`,
+                        );
+                })
+                .with(latestChartVersionCteName, (qb) => {
+                    void qb
+                        .select({
+                            saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
+                            saved_queries_version_id: this.database.raw(
+                                `MAX(${SavedChartVersionsTableName}.saved_queries_version_id)`,
+                            ),
+                        })
+                        .from(SavedChartVersionsTableName)
+                        .whereIn(
+                            `${SavedChartVersionsTableName}.saved_query_id`,
+                            this.database
+                                .select('saved_query_id')
+                                .from(tileChartCteName),
+                        )
+                        .groupBy(`${SavedChartVersionsTableName}.saved_query_id`);
+                })
                 .innerJoin(
-                    SavedChartVersionsTableName,
-                    `${SavedChartVersionsTableName}.saved_query_id`,
+                    latestChartVersionCteName,
+                    `${latestChartVersionCteName}.saved_query_id`,
                     `${SavedChartsTableName}.saved_query_id`,
                 )
+                .innerJoin(SavedChartVersionsTableName, (join) => {
+                    void join
+                        .on(
+                            `${SavedChartVersionsTableName}.saved_query_id`,
+                            '=',
+                            `${latestChartVersionCteName}.saved_query_id`,
+                        )
+                        .andOn(
+                            `${SavedChartVersionsTableName}.saved_queries_version_id`,
+                            '=',
+                            `${latestChartVersionCteName}.saved_queries_version_id`,
+                        );
+                })
                 .andWhere(
                     `${SavedChartVersionsTableName}.explore_name`,
                     exploreName,
