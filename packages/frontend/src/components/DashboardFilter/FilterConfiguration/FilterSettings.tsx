@@ -312,6 +312,19 @@ const FilterSettings: FC<FilterSettingsProps> = ({
             }}
         >
             <Stack spacing={6}>
+                {/*
+                 * Mantine v6 的 Popover 默认 trapFocus，激活时会把焦点丢给面板里
+                 * 「第一个可聚焦元素」（@mantine/hooks use-focus-trap 的 focusNode）。
+                 * 当第一个可聚焦元素是 searchable 的 MultiSelect/Select 时，它一拿到焦点
+                 * 就会 openDropdown —— 表现就是「点开筛选器，里面的时间/取值下拉自己展开」。
+                 * 这里放一个零尺寸、不可见的占位作为 autofocus 目标，焦点落空，下拉不会自己开。
+                 */}
+                <Box
+                    data-autofocus
+                    tabIndex={-1}
+                    aria-hidden
+                    sx={{ width: 0, height: 0 }}
+                />
                 {/* 分组标题只在编辑态渲染，查看模式保持原有渲染不变；
                     筛选器标签归入「条件」组，避免输入框和分组标题之间多出一段空白 */}
                 {isEditMode && (

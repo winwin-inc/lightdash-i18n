@@ -435,7 +435,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                     }
                     showOptionsInPlural={false}
                     showCompletedOptions={false}
-                    autoFocus={!rule.settings?.unitOfTime}
+                    // searchable Select：focus 会自动展开下拉，故不自动聚焦
                     completed={false}
                     withinPortal={popoverProps?.withinPortal}
                     onDropdownOpen={popoverProps?.onOpen}
