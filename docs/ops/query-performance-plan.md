@@ -25,7 +25,15 @@
 
 **预期**
 
-开了分页的表格看板，数仓查询数减半。具体收益取决于看板里有多少 tile 开了分页或「显示结果总数」，可以在 `query_history` 里按 `context` 统计 `calculate-count` 相关请求量来估算。
+开了分页的表格看板，数仓查询数减半。具体收益取决于看板里有多少 tile 开了分页或「显示结果总数」。
+
+估算方法：count 查询走的是 `getResultsFromCacheOrWarehouse`（v1 路径），**不会写 `query_history`**，所以从库里查不到。只能看服务日志——`getResultsFromCacheOrWarehouse` 用 `measureTime` 打了一行：
+
+```
+runWarehouseQuery - operation completed in 812.34ms - Context: "calculateCount"
+```
+
+`kubectl logs` 里按 `Context: "calculateCount"` 统计条数与耗时，就是这个看板额外的数仓开销。顺带说明：这部分开销目前完全不出现在 `query_history` 的统计里，容易被低估。
 
 **成本与风险**
 
