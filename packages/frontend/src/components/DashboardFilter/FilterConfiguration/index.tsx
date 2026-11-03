@@ -683,7 +683,7 @@ const FilterConfiguration: FC<Props> = ({
             }}
         >
             <Box
-                sx={{
+                sx={(theme) => ({
                     flex: 1,
                     minHeight: 0,
                     // 图表图块：仅内层列表滚动；移动端查看模式保持不滚（避免弹窗瞬间变大）；
@@ -693,7 +693,24 @@ const FilterConfiguration: FC<Props> = ({
                         (isMobileDevice && !isEditMode)
                             ? 'hidden'
                             : 'auto',
-                }}
+                    overscrollBehavior: 'contain',
+                    // 细滚动条：默认宽度太粗，压小内容区视觉
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': {
+                        width: 6,
+                        height: 6,
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: theme.colors.gray[3],
+                        borderRadius: 3,
+                    },
+                    '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: theme.colors.gray[4],
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                    },
+                })}
                 data-filter-scroll-content
             >
                 <Tabs

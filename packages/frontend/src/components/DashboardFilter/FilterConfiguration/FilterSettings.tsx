@@ -765,7 +765,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         <MultiSelect
                             size="xs"
                             label={
-                                <Text size="xs" mt="two" fw={500}>
+                                <Text size="xs" fw={500}>
                                     {t(
                                         'components_dashboard_filter.configuration.allowed_operators.label',
                                     )}
@@ -822,8 +822,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         />
 
                         {filterType === FilterType.STRING && (
-                            <Box mt="xs">
-                                <Text size="xs" mt="two" fw={500} mb="xs">
+                            <Box>
+                                <Text size="xs" fw={500} mb={4}>
                                     {t(
                                         'components_dashboard_filter.configuration.exclude_values.label',
                                     )}
@@ -881,7 +881,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             「子级有层级 ⇒ 父级必须有更低层级」，所以顶端一旦无法声明层级，
                             下级就挂不上去，整条链的类目能力（跨 Tab 同级继承、重置为首值）也就用不了。
                             因此这里不做隐藏：不需要层级就留空（不绑定类目）。 */}
-                        <Group spacing="xs" mb="xs">
+                        <Group spacing="xs" mb={2}>
                             <Text size="xs" fw={500}>
                                 {t(
                                     'components_dashboard_filter.configuration.category_level.label',
@@ -992,7 +992,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         {isCategoryRule &&
                             filterRule.categoryLevel === undefined &&
                             derivedCategoryLevel !== null && (
-                                <Text size="xs" c="dimmed" mt={4}>
+                                <Text size="xs" c="dimmed" mt={2}>
                                     {t(
                                         'components_dashboard_filter.configuration.category_level.derived_hint',
                                         { level: derivedCategoryLevel },
@@ -1001,7 +1001,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             )}
                         {/* 父级筛选器：类目与非类目共用（非类目=「跟随父级筛选器」） */}
                         <Select
-                            mt="xs"
+                            mt={2}
                             size="xs"
                             data={parentFilterOptions}
                             value={parentOptionValue}
@@ -1026,7 +1026,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 )
                             }
                         />
-                        <Text size="xs" c="dimmed" mt={4}>
+                        <Text size="xs" c="dimmed" mt={2}>
                             {t(
                                 isCategoryRule
                                     ? 'components_dashboard_filter.configuration.category_level.parent_scope_hint'
