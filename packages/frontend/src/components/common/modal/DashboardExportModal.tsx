@@ -34,6 +34,7 @@ import { useLocation } from 'react-router';
 
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
 import { useCustomWidthOptions } from '../../../features/scheduler/constants';
+import useHealth from '../../../hooks/health/useHealth';
 import {
     useExportCsvDashboard,
     useExportDashboard,
@@ -548,8 +549,11 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     gridWidth,
     dashboard,
 }) => {
-    const [exportType, setExportType] = useState<string>('image');
     const { t } = useTranslation();
+    const health = useHealth();
+    // 图片 / PDF 导出依赖 headless browser；实例未启用时直接不展示该页签
+    const hasHeadlessBrowser = health.data?.hasHeadlessBrowser ?? false;
+    const [exportType, setExportType] = useState<string>('xlsx');
 
     return (
         <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset="3vh">
@@ -585,12 +589,16 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                     ml="md"
                     mt="xs"
                     data={[
-                        {
-                            label: t(
-                                'components_common_modal_dashboard_export.tabs.image',
-                            ),
-                            value: 'image',
-                        },
+                        ...(hasHeadlessBrowser
+                            ? [
+                                  {
+                                      label: t(
+                                          'components_common_modal_dashboard_export.tabs.image',
+                                      ),
+                                      value: 'image',
+                                  },
+                              ]
+                            : []),
                         {
                             label: t(
                                 'components_common_modal_dashboard_export.tabs.csv',
@@ -606,8 +614,8 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                     ]}
                     w="min-content"
                     mb="xs"
-                    defaultValue="image"
-                    onChange={setExportType}
+                    value={exportType}
+                    onChange={(value) => setExportType(value ?? 'xlsx')}
                 />
                 {exportType === 'csv' && (
                     <CsvExport dashboard={dashboard} onClose={onClose} />
@@ -615,7 +623,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                 {exportType === 'xlsx' && (
                     <XlsxExport dashboard={dashboard} onClose={onClose} />
                 )}
-                {exportType === 'image' && (
+                {exportType === 'image' && hasHeadlessBrowser && (
                     <ImageExport
                         dashboard={dashboard}
                         onClose={onClose}

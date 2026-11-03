@@ -31,6 +31,7 @@ import {
     IconPinnedOff,
     IconSend,
     IconTrash,
+    IconUpload,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -105,6 +106,7 @@ const DashboardHeader = ({
     onDelete,
     onDuplicate,
     onMoveToSpace,
+    onExport,
     setAddingTab,
     onEditClicked,
 }: DashboardHeaderProps) => {
@@ -567,8 +569,8 @@ const DashboardHeader = ({
                                     </Tooltip>
                                 )}
 
-                                {/* 需要开启 headless-browser 模式才可以使用导出功能，这里暂时隐藏 */}
-                                {/* 
+                                {/* 数据导出（CSV / XLSX）不依赖 headless browser；
+                                    图片 / PDF 页签在弹窗内按实例是否启用 headless browser 隐藏 */}
                                 {(userCanExportData ||
                                     userCanManageDashboard) && (
                                     <Menu.Item
@@ -579,7 +581,7 @@ const DashboardHeader = ({
                                             'components_common_dashboard_header.menus.export_dashboard',
                                         )}
                                     </Menu.Item>
-                                )} */}
+                                )}
 
                                 {userCanManageDashboard && (
                                     <>
