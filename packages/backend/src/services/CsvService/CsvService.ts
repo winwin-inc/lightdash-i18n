@@ -32,6 +32,7 @@ import {
     isField,
     isTableChartConfig,
     isVizCartesianChartConfig,
+    isTileInSelectedTabs,
     ItemsMap,
     MetricQuery,
     MissingConfigError,
@@ -952,10 +953,7 @@ export class CsvService extends BaseService {
         const chartTileUuidsWithChartUuids = dashboard.tiles
             .filter(isDashboardChartTileType)
             .filter((tile) => tile.properties.savedChartUuid)
-            .filter(
-                (tile) =>
-                    !selectedTabs || selectedTabs.includes(tile.tabUuid || ''),
-            )
+            .filter((tile) => isTileInSelectedTabs(tile, selectedTabs))
             .map((tile) => ({
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedChartUuid!,
@@ -964,10 +962,7 @@ export class CsvService extends BaseService {
             .filter(isDashboardSqlChartTile)
             .filter((tile) => !!tile.properties.savedSqlUuid)
             // 与 chart tile 一致：只导出选中 Tab 下的图
-            .filter(
-                (tile) =>
-                    !selectedTabs || selectedTabs.includes(tile.tabUuid || ''),
-            )
+            .filter((tile) => isTileInSelectedTabs(tile, selectedTabs))
             .map((tile) => ({
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedSqlUuid!,
@@ -1361,11 +1356,14 @@ export class CsvService extends BaseService {
             throw new ForbiddenError();
         }
 
+        // 空数组与 null 同义：导出全部 Tab
+        const normalizedSelectedTabs =
+            selectedTabs && selectedTabs.length > 0 ? selectedTabs : null;
         const payload: ExportCsvDashboardPayload = {
             dashboardUuid,
             dashboardFilters,
             dateZoomGranularity,
-            selectedTabs: selectedTabs ?? null,
+            selectedTabs: normalizedSelectedTabs,
             // TraceTaskBase
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
@@ -1458,7 +1456,8 @@ export class CsvService extends BaseService {
             options,
             overrideDashboardFilters: dashboardFilters,
             dateZoomGranularity,
-            selectedTabs: selectedTabs ?? null,
+            selectedTabs:
+                selectedTabs && selectedTabs.length > 0 ? selectedTabs : null,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
         this.logger.info(

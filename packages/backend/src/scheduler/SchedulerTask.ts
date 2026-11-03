@@ -79,6 +79,7 @@ import {
     isDashboardChartTileType,
     isDashboardScheduler,
     isDashboardSqlChartTile,
+    isTileInSelectedTabs,
     isDashboardValidationError,
     isSchedulerCsvOptions,
     isSchedulerGsheetsOptions,
@@ -529,10 +530,8 @@ export default class SchedulerTask {
                         const chartTileUuidsWithChartUuids = dashboard.tiles
                             .filter(isDashboardChartTileType)
                             .filter((tile) => tile.properties.savedChartUuid)
-                            .filter(
-                                (tile) =>
-                                    !selectedTabs ||
-                                    selectedTabs.includes(tile.tabUuid || ''),
+                            .filter((tile) =>
+                                isTileInSelectedTabs(tile, selectedTabs),
                             )
                             .map((tile) => ({
                                 tileUuid: tile.uuid,
@@ -542,10 +541,8 @@ export default class SchedulerTask {
                             .filter(isDashboardSqlChartTile)
                             .filter((tile) => !!tile.properties.savedSqlUuid)
                             // 与 chart tile 一致：只导出选中 Tab 下的图
-                            .filter(
-                                (tile) =>
-                                    !selectedTabs ||
-                                    selectedTabs.includes(tile.tabUuid || ''),
+                            .filter((tile) =>
+                                isTileInSelectedTabs(tile, selectedTabs),
                             )
                             .map((tile) => ({
                                 tileUuid: tile.uuid,
