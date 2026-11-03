@@ -527,6 +527,12 @@ export default class SchedulerTask {
                             ...schedulerParameters,
                         };
 
+                        const tabNameByUuid = new Map(
+                            (dashboard.tabs ?? []).map((tab) => [
+                                tab.uuid,
+                                tab.name,
+                            ]),
+                        );
                         const chartTileUuidsWithChartUuids = dashboard.tiles
                             .filter(isDashboardChartTileType)
                             .filter((tile) => tile.properties.savedChartUuid)
@@ -536,6 +542,10 @@ export default class SchedulerTask {
                             .map((tile) => ({
                                 tileUuid: tile.uuid,
                                 chartUuid: tile.properties.savedChartUuid!,
+                                tabUuid: tile.tabUuid ?? null,
+                                tabName: tile.tabUuid
+                                    ? tabNameByUuid.get(tile.tabUuid)
+                                    : undefined,
                             }));
                         const sqlChartTileUuids = dashboard.tiles
                             .filter(isDashboardSqlChartTile)
@@ -547,10 +557,14 @@ export default class SchedulerTask {
                             .map((tile) => ({
                                 tileUuid: tile.uuid,
                                 chartUuid: tile.properties.savedSqlUuid!,
+                                tabUuid: tile.tabUuid ?? null,
+                                tabName: tile.tabUuid
+                                    ? tabNameByUuid.get(tile.tabUuid)
+                                    : undefined,
                             }));
                         const csvForChartPromises =
                             chartTileUuidsWithChartUuids.map(
-                                async ({ chartUuid }) => {
+                                async ({ chartUuid, tabUuid, tabName }) => {
                                     const chartLimit =
                                         getSchedulerCsvLimit(csvOptions);
                                     const query =
@@ -604,11 +618,13 @@ export default class SchedulerTask {
                                         path: downloadResult.fileUrl,
                                         localPath: downloadResult.fileUrl,
                                         truncated: false,
+                                        tabUuid,
+                                        tabName,
                                     };
                                 },
                             );
                         const csvForSqlChartPromises = sqlChartTileUuids.map(
-                            async ({ chartUuid, tileUuid }) => {
+                            async ({ chartUuid, tileUuid, tabUuid, tabName }) => {
                                 const sqlLimit =
                                     getSchedulerCsvLimit(csvOptions);
                                 const query =
@@ -678,6 +694,8 @@ export default class SchedulerTask {
                                     path: downloadResult.fileUrl,
                                     localPath: downloadResult.fileUrl,
                                     truncated: false,
+                                    tabUuid,
+                                    tabName,
                                 };
                             },
                         );
@@ -1725,6 +1743,94 @@ export default class SchedulerTask {
                 },
             });
             throw e;
+        }
+    }
+
+    /**
+     * 每个 Tab 一个多 sheet 工作簿，再打成 zip。
+     *
+     * 输入是 getNotificationPageData 产出的每张图一个 xlsx（带 tabUuid/tabName）；
+     * 按 Tab 分组后逐个合并，zip 里每个条目对应一个 Tab。
+     */
+    private async buildPerTabWorkbookZipUrl({
+        files,
+        dashboardName,
+    }: {
+        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
+        dashboardName: string;
+    }): Promise<string> {
+        if (files.length === 0) {
+            throw new UnexpectedServerError('No files to include in workbook');
+        }
+
+        const groups = new Map<
+            string,
+            { tabName: string; files: typeof files }
+        >();
+        files.forEach((file) => {
+            const key = file.tabUuid ?? '__no_tab__';
+            const existing = groups.get(key);
+            const tabName = file.tabName ?? '未分组';
+            if (existing) {
+                existing.files.push(file);
+            } else {
+                groups.set(key, { tabName, files: [file] });
+            }
+        });
+
+        const workbooks: Array<{ entryNameBase: string; localPath: string }> =
+            [];
+        // 顺序写出，避免同时把多个工作簿读进内存（合并是非流式的）
+        // eslint-disable-next-line no-restricted-syntax
+        for (const { tabName, files: tabFiles } of groups.values()) {
+            const workbookPath = `/tmp/${nanoid()}.xlsx`;
+            const result =
+                // eslint-disable-next-line no-await-in-loop
+                await WorkbookExportHelper.createWorkbookFile({
+                    files: tabFiles.map((file) => ({
+                        filename: file.filename,
+                        sheetName: file.filename,
+                        localPath: file.localPath,
+                    })),
+                    outputPath: workbookPath,
+                    onFileError: (filename, error) => {
+                        Logger.warn(
+                            `Failed to add XLSX file "${filename}" to workbook: ${error}`,
+                        );
+                    },
+                });
+            if (result.worksheetCount === 0) {
+                Logger.warn(
+                    `Skipping workbook for tab "${tabName}": no sheets could be generated`,
+                );
+                // eslint-disable-next-line no-await-in-loop
+                await fs.unlink(workbookPath).catch(() => undefined);
+                continue;
+            }
+            workbooks.push({
+                entryNameBase: tabName,
+                localPath: workbookPath,
+            });
+        }
+
+        if (workbooks.length === 0) {
+            throw new UnexpectedServerError(
+                'Dashboard workbook export failed for every tab',
+            );
+        }
+
+        try {
+            return await this.createExportZipDownloadUrl({
+                files: workbooks,
+                fileExtension: 'xlsx',
+                zipNameBase: dashboardName,
+            });
+        } finally {
+            await Promise.all(
+                workbooks.map((workbook) =>
+                    fs.unlink(workbook.localPath).catch(() => undefined),
+                ),
+            );
         }
     }
 
@@ -3378,9 +3484,27 @@ export default class SchedulerTask {
                         );
                     }
 
-                    const shouldCreateWorkbook =
-                        isSchedulerCsvOptions(payload.options) &&
-                        payload.options.xlsxFileLayout === 'workbook';
+                    const xlsxFileLayout = isSchedulerCsvOptions(
+                        payload.options,
+                    )
+                        ? payload.options.xlsxFileLayout
+                        : undefined;
+                    const shouldCreatePerTabWorkbook =
+                        xlsxFileLayout === 'per-tab-workbook';
+                    const shouldCreateWorkbook = xlsxFileLayout === 'workbook';
+
+                    if (shouldCreatePerTabWorkbook) {
+                        // 每个 Tab 一个 xlsx，内部每张图一个 sheet
+                        const dashboardForTabs =
+                            await this.schedulerService.dashboardModel.getByIdOrSlug(
+                                payload.resourceUuid,
+                            );
+                        const url = await this.buildPerTabWorkbookZipUrl({
+                            files: page.csvUrls,
+                            dashboardName: dashboardForTabs.name,
+                        });
+                        return { url, fileType: 'zip' };
+                    }
 
                     if (shouldCreateWorkbook) {
                         const workbookUrl = page.csvUrls[0]?.path;

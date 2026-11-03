@@ -16,7 +16,12 @@ export type SchedulerCsvOptions = {
     limit: 'table' | 'all' | number;
     asAttachment?: boolean;
     /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
-    xlsxFileLayout?: 'zip' | 'workbook';
+    /**
+     * zip：每张图一个 xlsx，打成一个包（默认）
+     * workbook：整个看板合成一个 xlsx，每张图一个 sheet
+     * per-tab-workbook：每个 Tab 一个 xlsx，包内每个 xlsx 里每张图一个 sheet
+     */
+    xlsxFileLayout?: 'zip' | 'workbook' | 'per-tab-workbook';
     /** UI language for delivery emails; missing => zh */
     locale?: string;
 };
@@ -429,6 +434,9 @@ export type NotificationPayloadBase = {
             filename: string;
             localPath: string;
             truncated: boolean;
+            /** 看板导出：该文件所属的 Tab（按 Tab 分文件时用） */
+            tabUuid?: string | null;
+            tabName?: string;
         }[];
         pdfFile?: {
             source: string;

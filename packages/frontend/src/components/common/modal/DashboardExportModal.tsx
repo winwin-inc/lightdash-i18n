@@ -299,6 +299,12 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                         )}
                         value="workbook"
                     />
+                    <Radio
+                        label={t(
+                            'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
+                        )}
+                        value="per-tab-workbook"
+                    />
                 </Stack>
             </Radio.Group>
 
