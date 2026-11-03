@@ -26,7 +26,7 @@
 | [自托管：关闭官方遥测](./ops/self-hosted-disable-official-telemetry.md) | 硬关闭 RudderStack / PostHog 等外发 |
 | [OIDC 登录/退出三种方式](./ops/oidc-logout-modes.md) | 本地退出 vs IdP 会话，静默重登怎么避免 |
 | [组织管理员：OIDC 用户开通 API](./ops/org-admin-users-provision.md) | 预开通 + 绑定 `openid_identities`（单个 / 批量） |
-| [大数据量导出（CSV/XLSX）优化](./ops/csv-export-performance.md) | 为什么要做、实测效果、功能实现清单、待做项（需运维/数据/产品配合）、回测与注意事项 |
+| [大数据量导出性能治理方案](./ops/csv-export-performance.md) | 问题与根因、已交付措施与效果、后续可评估事项、阶段状态与风险（**面向管理者**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 
 ## cli/ — CLI 与内容即代码
