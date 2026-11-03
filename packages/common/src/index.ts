@@ -750,6 +750,11 @@ export type ApiDownloadAsyncQueryResultsAsCsv = {
 export type ApiDownloadAsyncQueryResultsAsXlsx = {
     fileUrl: string;
     truncated: boolean;
+    /**
+     * 仅进程内调用（如看板导出后合并工作簿）会拿到；HTTP 接口不会返回该字段。
+     * 由调用方负责删除。
+     */
+    localPath?: string;
 };
 
 export type ApiChartAndResults = {

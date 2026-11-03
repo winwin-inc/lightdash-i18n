@@ -51,6 +51,11 @@ export type DownloadAsyncQueryResultsArgs = Omit<
     hiddenFields?: string[];
     pivotConfig?: PivotConfig;
     attachmentDownloadName?: string;
+    /**
+     * XLSX 专用：保留生成的本地文件并返回路径，供同进程内后续合并使用（省一次 S3 往返）。
+     * 调用方负责删除。
+     */
+    keepTempFile?: boolean;
 };
 
 export type ScheduleDownloadAsyncQueryResultsArgs = Omit<

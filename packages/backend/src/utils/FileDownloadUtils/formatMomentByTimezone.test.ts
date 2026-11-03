@@ -90,6 +90,13 @@ const VALUES: unknown[] = [
 ];
 
 describe('formatMomentByTimezone byte compatibility', () => {
+    // 解析失败的输入会回落到 moment().format(pattern)，而 moment 的 locale 是模块级全局状态。
+    // 固定成 en + UTC，避免与其他测试文件共享 worker 进程时出现偶发不一致。
+    beforeAll(() => {
+        moment.locale('en');
+        moment.tz?.setDefault('UTC');
+    });
+
     it('matches the previous formatToParts implementation for every timezone/pattern', () => {
         const mismatches: string[] = [];
 

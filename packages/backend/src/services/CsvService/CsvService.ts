@@ -1430,7 +1430,8 @@ export class CsvService extends BaseService {
                 const zipName = `/tmp/${nanoid()}.zip`;
                 const output = fs.createWriteStream(zipName);
                 const archive = archiver('zip', {
-                    zlib: { level: 9 }, // Sets the compression level.
+                    // 看板批量导出主要是 CSV 文本：6 与 9 体积接近，耗时差一倍以上
+                    zlib: { level: 6 },
                 });
                 output.on('close', () => {
                     this.logger.info(

@@ -491,6 +491,13 @@ export class SchedulerService extends BaseService {
         await this.schedulerModel.logSchedulerJob(log);
     }
 
+    async updateJobDetails(
+        jobId: string,
+        details: Record<string, unknown>,
+    ): Promise<void> {
+        await this.schedulerModel.updateJobDetails(jobId, details);
+    }
+
     async getCsvUrl(user: SessionUser, jobId: string) {
         const job = await this.schedulerModel.getCsvUrl(jobId, user.userUuid);
         if (

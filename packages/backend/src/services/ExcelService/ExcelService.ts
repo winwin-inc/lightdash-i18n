@@ -624,8 +624,13 @@ export class ExcelService {
             hiddenFields?: string[];
             attachmentDownloadName?: string;
             displayTimezone?: string;
+            /**
+             * 保留本地临时文件并返回路径，供同进程内的后续处理（如合并成多 sheet 工作簿）直接读取，
+             * 省掉一次 S3 上传 + 下载。调用方负责删除该文件。
+             */
+            keepTempFile?: boolean;
         } = {},
-    ): Promise<{ fileUrl: string; truncated: boolean }> {
+    ): Promise<{ fileUrl: string; truncated: boolean; localPath?: string }> {
         // Handle column ordering and filtering
         const {
             onlyRaw = false,
@@ -635,6 +640,7 @@ export class ExcelService {
             hiddenFields = [],
             attachmentDownloadName,
             displayTimezone,
+            keepTempFile = false,
         } = options;
 
         // Process fields and generate headers using shared utility
@@ -688,6 +694,7 @@ export class ExcelService {
             return {
                 fileUrl,
                 truncated,
+                ...(keepTempFile ? { localPath: tempFilePath } : {}),
             };
         } catch (error) {
             Logger.error(
@@ -695,8 +702,10 @@ export class ExcelService {
             );
             throw error;
         } finally {
-            // Always clean up temp file, regardless of success or failure
-            ExcelService.cleanupTempFile(tempFilePath);
+            // keepTempFile 时由调用方负责清理（合并完再删）
+            if (!keepTempFile) {
+                ExcelService.cleanupTempFile(tempFilePath);
+            }
         }
     }
 }

@@ -138,6 +138,7 @@ import {
 import { UserService } from '../services/UserService';
 import { ValidationService } from '../services/ValidationService/ValidationService';
 import { EncryptionUtil } from '../utils/EncryptionUtil/EncryptionUtil';
+import { mapWithConcurrencyLimit } from '../utils/mapWithConcurrencyLimit';
 import { SchedulerClient } from './SchedulerClient';
 
 export type SchedulerTaskArguments = {
@@ -474,7 +475,10 @@ export default class SchedulerTask {
                         csvUrl = {
                             filename: ExcelService.generateFileId(chart.name),
                             path: downloadResult.fileUrl,
-                            localPath: downloadResult.fileUrl,
+                            localPath:
+                            ('localPath' in downloadResult
+                                ? downloadResult.localPath
+                                : undefined) ?? downloadResult.fileUrl,
                             truncated: false,
                         };
                         this.analytics.trackAccount(account, {
@@ -527,6 +531,11 @@ export default class SchedulerTask {
                             ...schedulerParameters,
                         };
 
+                        // 需要合并多个 xlsx 时保留本地文件，省掉每张图一次 S3 上传 + 下载
+                        const keepTempFilesForMerge =
+                            csvOptions?.xlsxFileLayout === 'workbook' ||
+                            csvOptions?.xlsxFileLayout === 'per-tab-workbook';
+
                         const tabNameByUuid = new Map(
                             (dashboard.tabs ?? []).map((tab) => [
                                 tab.uuid,
@@ -562,6 +571,28 @@ export default class SchedulerTask {
                                     ? tabNameByUuid.get(tile.tabUuid)
                                     : undefined,
                             }));
+                        const totalExportTiles =
+                            chartTileUuidsWithChartUuids.length +
+                            sqlChartTileUuids.length;
+                        let settledExportTiles = 0;
+                        const onTileSettled = () => {
+                            settledExportTiles += 1;
+                            void this.reportExportProgress(jobId, {
+                                createdByUserUuid: userUuid,
+                                projectUuid,
+                                organizationUuid,
+                                progress: {
+                                    done: settledExportTiles,
+                                    total: totalExportTiles,
+                                },
+                            });
+                        };
+                        // 控制并发：看板一次几十张图，不能同时打满数仓
+                        const exportConcurrency = Math.min(
+                            3,
+                            Math.max(1, totalExportTiles),
+                        );
+
                         const csvForChartPromises =
                             chartTileUuidsWithChartUuids.map(
                                 async ({ chartUuid, tabUuid, tabName }) => {
@@ -594,6 +625,8 @@ export default class SchedulerTask {
                                                 projectUuid,
                                                 queryUuid: query.queryUuid,
                                                 type: DownloadFileType.XLSX,
+                                                keepTempFile:
+                                                    keepTempFilesForMerge,
                                                 onlyRaw:
                                                     csvOptions?.formatted ===
                                                     false,
@@ -616,7 +649,10 @@ export default class SchedulerTask {
                                     return {
                                         filename: chart.name,
                                         path: downloadResult.fileUrl,
-                                        localPath: downloadResult.fileUrl,
+                                        localPath:
+                            ('localPath' in downloadResult
+                                ? downloadResult.localPath
+                                : undefined) ?? downloadResult.fileUrl,
                                         truncated: false,
                                         tabUuid,
                                         tabName,
@@ -661,6 +697,8 @@ export default class SchedulerTask {
                                             projectUuid,
                                             queryUuid: query.queryUuid,
                                             type: DownloadFileType.XLSX,
+                                            keepTempFile:
+                                                keepTempFilesForMerge,
                                             onlyRaw:
                                                 csvOptions?.formatted === false,
                                             customLabels:
@@ -692,7 +730,10 @@ export default class SchedulerTask {
                                 return {
                                     filename: chart.name,
                                     path: downloadResult.fileUrl,
-                                    localPath: downloadResult.fileUrl,
+                                    localPath:
+                            ('localPath' in downloadResult
+                                ? downloadResult.localPath
+                                : undefined) ?? downloadResult.fileUrl,
                                     truncated: false,
                                     tabUuid,
                                     tabName,
@@ -700,10 +741,24 @@ export default class SchedulerTask {
                             },
                         );
 
-                        csvUrls = await Promise.allSettled([
-                            ...csvForChartPromises,
-                            ...csvForSqlChartPromises,
-                        ]).then(getFulfilledValues);
+                        const chartResults = await mapWithConcurrencyLimit(
+                            csvForChartPromises,
+                            exportConcurrency,
+                            (promise) => promise,
+                            onTileSettled,
+                        );
+                        const sqlChartResults = await mapWithConcurrencyLimit(
+                            csvForSqlChartPromises,
+                            exportConcurrency,
+                            (promise) => promise,
+                            onTileSettled,
+                        );
+                        csvUrls = [
+                            ...chartResults,
+                            ...sqlChartResults,
+                        ].flatMap((result) =>
+                            result.status === 'fulfilled' ? [result.value] : [],
+                        );
 
                         if (csvOptions?.xlsxFileLayout === 'workbook') {
                             csvUrls = await this.buildWorkbookCsvUrls({
@@ -3499,24 +3554,33 @@ export default class SchedulerTask {
                             await this.schedulerService.dashboardModel.getByIdOrSlug(
                                 payload.resourceUuid,
                             );
-                        const url = await this.buildPerTabWorkbookZipUrl({
-                            files: page.csvUrls,
-                            dashboardName: dashboardForTabs.name,
-                        });
-                        return { url, fileType: 'zip' };
+                        try {
+                            const url =
+                                await this.buildPerTabWorkbookZipUrl({
+                                    files: page.csvUrls,
+                                    dashboardName: dashboardForTabs.name,
+                                });
+                            return { url, fileType: 'zip' };
+                        } finally {
+                            await this.cleanupLocalExportFiles(page.csvUrls);
+                        }
                     }
 
                     if (shouldCreateWorkbook) {
-                        const workbookUrl = page.csvUrls[0]?.path;
-                        if (!workbookUrl) {
-                            throw new UnexpectedServerError(
-                                'Dashboard workbook export failed',
-                            );
+                        try {
+                            const workbookUrl = page.csvUrls[0]?.path;
+                            if (!workbookUrl) {
+                                throw new UnexpectedServerError(
+                                    'Dashboard workbook export failed',
+                                );
+                            }
+                            return {
+                                url: workbookUrl,
+                                fileType: DownloadFileType.XLSX,
+                            };
+                        } finally {
+                            await this.cleanupLocalExportFiles(page.csvUrls);
                         }
-                        return {
-                            url: workbookUrl,
-                            fileType: DownloadFileType.XLSX,
-                        };
                     }
 
                     const url = await this.createExportZipDownloadUrl({
@@ -3538,6 +3602,42 @@ export default class SchedulerTask {
         );
     }
 
+    /** 导出过程中上报进度（节流：最多每 1.5s 写一次库，最后一并写） */
+    private lastProgressReportAt = 0;
+
+    private async reportExportProgress(
+        jobId: string | undefined,
+        details: Record<string, unknown>,
+    ): Promise<void> {
+        if (!jobId) return;
+        const now = Date.now();
+        if (now - this.lastProgressReportAt < 1500) return;
+        this.lastProgressReportAt = now;
+        try {
+            await this.schedulerService.updateJobDetails(jobId, details);
+        } catch (error) {
+            Logger.debug(
+                `Failed to report export progress for job ${jobId}: ${getErrorMessage(
+                    error,
+                )}`,
+            );
+        }
+    }
+
+    /** 清理 keepTempFile 留下的本地中间文件（只处理本地路径，S3 URL 跳过） */
+    private async cleanupLocalExportFiles(
+        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>,
+    ): Promise<void> {
+        await Promise.all(
+            files.map(async (file) => {
+                const localPath =
+                    'localPath' in file ? file.localPath : undefined;
+                if (!localPath || /^https?:\/\//.test(localPath)) return;
+                await fs.unlink(localPath).catch(() => undefined);
+            }),
+        );
+    }
+
     private async createExportZipDownloadUrl({
         files,
         fileExtension,
@@ -3554,7 +3654,11 @@ export default class SchedulerTask {
         const zipPath = `/tmp/${nanoid()}.zip`;
         try {
             const output = fsSync.createWriteStream(zipPath);
-            const archive = archiver('zip', { zlib: { level: 9 } });
+            // xlsx 本身是 zip 容器，再按 level 9 压几乎不减小体积，只烧 CPU；
+            // csv 文本用 6（9 与 6 的体积差很小，但耗时差一倍以上）
+            const archive = archiver('zip', {
+                zlib: { level: fileExtension === 'xlsx' ? 0 : 6 },
+            });
             const zipDone = new Promise<void>((resolve, reject) => {
                 output.on('close', () => resolve());
                 archive.on('error', reject);

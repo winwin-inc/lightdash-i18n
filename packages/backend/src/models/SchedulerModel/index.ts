@@ -1148,6 +1148,19 @@ export class SchedulerModel {
         return job;
     }
 
+    /**
+     * 更新某个 job 的 details（用于导出进度上报，不新建日志行）。
+     */
+    async updateJobDetails(
+        jobId: string,
+        details: Record<string, unknown>,
+    ): Promise<void> {
+        await this.database(SchedulerLogTableName)
+            // knex 会把对象写入 jsonb 列；直接给对象，切勿再 JSON.stringify
+            .update({ details })
+            .where('job_id', jobId);
+    }
+
     async setJobStatus(jobId: string, status: SchedulerJobStatus) {
         await this.database(SchedulerLogTableName)
             .update({ status })

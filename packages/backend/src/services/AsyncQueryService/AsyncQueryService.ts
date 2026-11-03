@@ -869,6 +869,7 @@ export class AsyncQueryService extends ProjectService {
         hiddenFields = [],
         pivotConfig,
         attachmentDownloadName,
+        keepTempFile = false,
     }: DownloadAsyncQueryResultsArgs): Promise<
         | ApiDownloadAsyncQueryResults
         | ApiDownloadAsyncQueryResultsAsCsv
@@ -1031,6 +1032,7 @@ export class AsyncQueryService extends ProjectService {
                         hiddenFields,
                         attachmentDownloadName,
                         displayTimezone: this.lightdashConfig.query.timezone,
+                        keepTempFile,
                     },
                 );
             case undefined:
