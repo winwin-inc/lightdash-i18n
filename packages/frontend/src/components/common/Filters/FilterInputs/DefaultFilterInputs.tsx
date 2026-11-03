@@ -68,7 +68,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                             // 不传时保持 Mantine 默认（不可清空），避免给普通筛选器新增清空入口
                             clearable={clearable === false ? false : undefined}
                             placeholder={placeholder}
-                            autoFocus={true}
+                            // 不传 autoFocus：该组件是 searchable MultiSelect，focus 会自动展开下拉
                             withinPortal={popoverProps?.withinPortal}
                             onDropdownOpen={popoverProps?.onOpen}
                             onDropdownClose={popoverProps?.onClose}
@@ -90,7 +90,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                             disabled={disabled}
                             clearable={clearable !== false}
                             field={field}
-                            autoFocus={true}
+                            // 不传 autoFocus：该组件是 searchable MultiSelect，focus 会自动展开下拉
                             placeholder={placeholder}
                             suggestions={suggestions || []}
                             withinPortal={popoverProps?.withinPortal}
