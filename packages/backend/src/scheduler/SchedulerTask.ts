@@ -541,6 +541,12 @@ export default class SchedulerTask {
                         const sqlChartTileUuids = dashboard.tiles
                             .filter(isDashboardSqlChartTile)
                             .filter((tile) => !!tile.properties.savedSqlUuid)
+                            // 与 chart tile 一致：只导出选中 Tab 下的图
+                            .filter(
+                                (tile) =>
+                                    !selectedTabs ||
+                                    selectedTabs.includes(tile.tabUuid || ''),
+                            )
                             .map((tile) => ({
                                 tileUuid: tile.uuid,
                                 chartUuid: tile.properties.savedSqlUuid!,

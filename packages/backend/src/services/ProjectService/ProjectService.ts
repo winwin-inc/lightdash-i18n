@@ -4631,7 +4631,7 @@ export class ProjectService extends BaseService {
      *
      * @see resolveDashboardContextForRowLevelSecurity
      */
-    protected async resolveDashboardContextForQuery(
+    public async resolveDashboardContextForQuery(
         account: Account,
         projectUuid: string,
         dashboardUuid: string | undefined,

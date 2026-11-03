@@ -3,6 +3,7 @@ import {
     addDashboardFiltersToMetricQuery,
     AnyType,
     ApiSqlQueryResults,
+    type DashboardQueryContextAttributes,
     applyDimensionOverrides,
     CustomSqlQueryForbiddenError,
     DashboardFilterRule,
@@ -624,6 +625,7 @@ export class CsvService extends BaseService {
         jobId,
         tileUuid,
         dashboardFilters,
+        dashboardContext,
         dateZoomGranularity,
         invalidateCache,
         schedulerParameters,
@@ -634,6 +636,8 @@ export class CsvService extends BaseService {
         jobId?: string;
         tileUuid?: string;
         dashboardFilters?: DashboardFilters;
+        /** 行级权限（sql_filter）里引用 dashboard 属性时需要，必须与页面上查询时一致 */
+        dashboardContext?: DashboardQueryContextAttributes;
         dateZoomGranularity?: DateGranularity;
         invalidateCache?: boolean;
         schedulerParameters?: ParametersValuesMap;
@@ -719,6 +723,7 @@ export class CsvService extends BaseService {
             queryTags,
             invalidateCache,
             parameters: schedulerParameters,
+            dashboardContext,
         });
         const numberRows = rows.length;
 
@@ -958,6 +963,11 @@ export class CsvService extends BaseService {
         const sqlChartTileUuids = dashboard.tiles
             .filter(isDashboardSqlChartTile)
             .filter((tile) => !!tile.properties.savedSqlUuid)
+            // 与 chart tile 一致：只导出选中 Tab 下的图
+            .filter(
+                (tile) =>
+                    !selectedTabs || selectedTabs.includes(tile.tabUuid || ''),
+            )
             .map((tile) => ({
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedSqlUuid!,
@@ -966,6 +976,14 @@ export class CsvService extends BaseService {
         this.logger.info(
             `Downloading ${chartTileUuidsWithChartUuids.length} chart CSVs for dashboard ${dashboardUuid}`,
         );
+        // 行级权限里的 dashboard 属性（slug/name/uuid）要和页面查询保持一致
+        const dashboardContext =
+            await this.projectService.resolveDashboardContextForQuery(
+                Account.fromSession(user),
+                dashboard.projectUuid,
+                dashboard.uuid,
+            );
+
         const csvForChartPromises = chartTileUuidsWithChartUuids.map(
             ({ tileUuid, chartUuid }) =>
                 this.getCsvForChart({
@@ -975,6 +993,7 @@ export class CsvService extends BaseService {
                     jobId,
                     tileUuid,
                     dashboardFilters,
+                    dashboardContext,
                     dateZoomGranularity,
                     invalidateCache,
                     schedulerParameters,
