@@ -435,10 +435,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                     }
                     showOptionsInPlural={false}
                     showCompletedOptions={false}
-                    // 不要 autoFocus：这个 Select 是 searchable 的，Mantine 在 focus 时会
-                    // 自动 openDropdown（Select.mjs: `searchable && combobox.openDropdown()`），
-                    // 导致首次打开筛选器面板时时间粒度下拉自己弹出来、面板却没预留高度。
-                    // 同类风险：任何 searchable 的 Select/MultiSelect 都不要传 autoFocus。
+                    autoFocus={!rule.settings?.unitOfTime}
                     completed={false}
                     withinPortal={popoverProps?.withinPortal}
                     onDropdownOpen={popoverProps?.onOpen}
