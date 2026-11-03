@@ -14,6 +14,7 @@ import {
     Box,
     Button,
     Checkbox,
+    Divider,
     Group,
     MultiSelect,
     Select,
@@ -22,9 +23,14 @@ import {
     Text,
     TextInput,
     Tooltip,
+    UnstyledButton,
     type PopoverProps,
 } from '@mantine/core';
-import { IconHelpCircle } from '@tabler/icons-react';
+import {
+    IconChevronDown,
+    IconChevronRight,
+    IconHelpCircle,
+} from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -143,6 +149,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const isMobileDevice = useIsMobileDevice();
     const [filterLabel, setFilterLabel] = useState<string>();
+
+    // 「更多设置」默认收起；作者已经配过内容时必须保持展开，
+    // 否则会把已配置的项藏起来（限定筛选方式 / 排除下拉选项 / 类目层级 / 父级筛选器）
+    const [isMoreOpen, setIsMoreOpen] = useState(false);
 
     const getFilterOperatorOptions = useFilterOperatorOptions();
     const getPlaceholderByFilterTypeAndOperator =
@@ -294,6 +304,15 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         );
     };
 
+    // 作者已经配置过「更多设置」里的任意一项时，这一组必须始终展开，
+    // 否则已配置的内容会被折叠藏起来。
+    const hasAdvancedConfig =
+        (filterRuleWithAllowedOperators.allowedOperators?.length ?? 0) > 0 ||
+        (filterRule.excludedValues?.length ?? 0) > 0 ||
+        filterRule.categoryLevel !== undefined ||
+        filterRule.parentFieldId !== undefined;
+    const showMore = isMoreOpen || hasAdvancedConfig;
+
     return (
         <Stack
             sx={{
@@ -337,6 +356,17 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     <Text size="xs" fw={500}>
                         {t('components_dashboard_filter.configuration.value')}
                     </Text>
+                )}
+
+                {/* 分组标题只在编辑态渲染，查看模式保持原有渲染不变 */}
+                {isEditMode && (
+                    <Divider
+                        label={t(
+                            'components_dashboard_filter.configuration.section.value',
+                        )}
+                        labelPosition="left"
+                        my="sm"
+                    />
                 )}
 
                 <Select
@@ -544,16 +574,25 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
+                {isEditMode &&
+                    filterRule.required &&
+                    (filterRule?.values || []).length > 0 && (
+                        <Text size="xs" color={'gray.7'}>
+                            {t('components_dashboard_filter.configuration.tip')}
+                        </Text>
+                    )}
+
+                {/* ── 取值策略 ── */}
                 {isEditMode && (
                     <>
-                        {filterRule.required &&
-                            (filterRule?.values || []).length > 0 && (
-                                <Text size="xs" color={'gray.7'}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.tip',
-                                    )}
-                                </Text>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.value_policy',
                             )}
+                            labelPosition="left"
+                            my="sm"
+                        />
+
                         {!filterRule.required && (
                             <>
                                 <Tooltip
@@ -573,7 +612,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     <Box w="max-content">
                                         <Switch
                                             label={
-                                                <Text size="xs" mt="two" fw={500}>
+                                                <Text
+                                                    size="xs"
+                                                    mt="two"
+                                                    fw={500}
+                                                >
                                                     {t(
                                                         'components_dashboard_filter.configuration.tooltip_eidt.content',
                                                     )}
@@ -662,333 +705,404 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.require',
                             )}
                         />
+                    </>
+                )}
 
-                        <MultiSelect
+                {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
+                {/* ── 查看者限制 ── */}
+                {isEditMode && (
+                    <>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.viewer_limits',
+                            )}
+                            labelPosition="left"
+                            my="sm"
+                        />
+
+                        {/* 筛选器只读配置 */}
+                        <Switch
                             mt="xs"
-                            size="xs"
                             label={
                                 <Text size="xs" mt="two" fw={500}>
                                     {t(
-                                        'components_dashboard_filter.configuration.allowed_operators.label',
+                                        'components_dashboard_filter.configuration.filter_read_only',
                                     )}
                                 </Text>
                             }
-                            description={t(
-                                'components_dashboard_filter.configuration.allowed_operators.description',
-                            )}
-                            placeholder={t(
-                                'components_dashboard_filter.configuration.allowed_operators.placeholder',
-                            )}
-                            clearable
-                            data={allFilterOperatorOptions}
-                            value={
-                                filterRuleWithAllowedOperators.allowedOperators ??
-                                []
-                            }
-                            withinPortal={popoverProps?.withinPortal ?? true}
-                            onDropdownOpen={popoverProps?.onOpen}
-                            onDropdownClose={popoverProps?.onClose}
-                            onChange={(values) => {
-                                const normalizedAllowedOperators = Array.from(
-                                    new Set(values as FilterOperator[]),
-                                );
-
-                                let nextFilterRule: DashboardFilterRule = {
+                            labelPosition="right"
+                            checked={!!filterRule.readOnly}
+                            onChange={(e) => {
+                                onChangeFilterRule({
                                     ...filterRule,
-                                    allowedOperators:
-                                        normalizedAllowedOperators.length > 0
-                                            ? normalizedAllowedOperators
-                                            : undefined,
-                                } as DashboardFilterRuleWithAllowedOperators;
-
-                                if (
-                                    normalizedAllowedOperators.length > 0 &&
-                                    !normalizedAllowedOperators.includes(
-                                        filterRule.operator,
-                                    )
-                                ) {
-                                    nextFilterRule =
-                                        getFilterRuleWithDefaultValue(
-                                            filterType,
-                                            field,
-                                            {
-                                                ...nextFilterRule,
-                                                operator:
-                                                    normalizedAllowedOperators[0],
-                                            },
-                                        );
-                                }
-
-                                onChangeFilterRule(nextFilterRule);
+                                    readOnly:
+                                        e.currentTarget.checked || undefined,
+                                });
                             }}
                         />
 
-                        {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
-                        <Box mt="xs">
-                            {/* 「类目层级」标题 + 选择器只对类目字段展示：
-                                非类目（集团/品牌/商品名称/时间…）没有层级，
-                                标题留着只会让人以为需要配一个层级 */}
-                            {isCategoryRule && (
-                                <Group spacing="xs" mb="xs">
-                                    <Text size="xs" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.category_level.label',
-                                        )}
-                                    </Text>
-                                    <Tooltip
-                                        withinPortal
-                                        variant="xs"
-                                        label={t(
-                                            'components_dashboard_filter.configuration.category_level.tooltip',
-                                        )}
-                                    >
+                        {/* 筛选器隐藏配置 */}
+                        <Switch
+                            mt="xs"
+                            label={
+                                <Text size="xs" mt="two" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.filter_hidden',
+                                    )}
+                                </Text>
+                            }
+                            labelPosition="right"
+                            checked={!!filterRule.hidden}
+                            onChange={(e) => {
+                                onChangeFilterRule({
+                                    ...filterRule,
+                                    hidden:
+                                        e.currentTarget.checked || undefined,
+                                });
+                            }}
+                        />
+                    </>
+                )}
+
+                {/* ── 更多设置（默认收起，已配置时始终展开） ── */}
+                {isEditMode && (
+                    <>
+                        <Divider
+                            label={
+                                <UnstyledButton
+                                    onClick={() => setIsMoreOpen(!isMoreOpen)}
+                                    aria-expanded={showMore}
+                                >
+                                    <Group spacing="xs" noWrap>
+                                        <Text size="xs" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.section.more',
+                                            )}
+                                        </Text>
                                         <MantineIcon
                                             size="sm"
-                                            icon={IconHelpCircle}
+                                            icon={
+                                                showMore
+                                                    ? IconChevronDown
+                                                    : IconChevronRight
+                                            }
                                         />
-                                    </Tooltip>
-                                </Group>
-                            )}
-                            {isCategoryRule && (
-                                <Select
+                                    </Group>
+                                </UnstyledButton>
+                            }
+                            labelPosition="left"
+                            my="sm"
+                        />
+
+                        {showMore && (
+                            <>
+                                <MultiSelect
+                                    mt="xs"
                                     size="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.allowed_operators.label',
+                                            )}
+                                        </Text>
+                                    }
+                                    description={t(
+                                        'components_dashboard_filter.configuration.allowed_operators.description',
+                                    )}
                                     placeholder={t(
-                                        'components_dashboard_filter.configuration.category_level.placeholder',
+                                        'components_dashboard_filter.configuration.allowed_operators.placeholder',
                                     )}
                                     clearable
-                                    data={[
-                                        {
-                                            value: '1',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level1',
-                                            ),
-                                        },
-                                        {
-                                            value: '2',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level2',
-                                            ),
-                                        },
-                                        {
-                                            value: '3',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level3',
-                                            ),
-                                        },
-                                        {
-                                            value: '4',
-                                            label: t(
-                                                'components_dashboard_filter.configuration.category_level.level4',
-                                            ),
-                                        },
-                                    ]}
-                                    value={filterRule.categoryLevel?.toString()}
-                                    onChange={(value) => {
-                                        const newCategoryLevel = value
-                                            ? (Number.parseInt(value, 10) as
-                                                  | 1
-                                                  | 2
-                                                  | 3
-                                                  | 4)
-                                            : undefined;
-
-                                        // 自动查找并设置父级筛选器：
-                                        // 优先同作用域的上一级，其次全局的上一级
-                                        // （Tab 三级可以自动绑定全局二级）
-                                        // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
-                                        // 交由作者在「父级筛选器」里显式选择
-                                        let autoParentRef: ParentFilterRef | null =
-                                            null;
-                                        if (
-                                            newCategoryLevel &&
-                                            newCategoryLevel > 1 &&
-                                            parentFilterOptions.length > 0
-                                        ) {
-                                            const targetParentLevel =
-                                                newCategoryLevel - 1;
-                                            const candidates =
-                                                parentFilterOptions.filter(
-                                                    (option) =>
-                                                        option.categoryLevel ===
-                                                        targetParentLevel,
-                                                );
-                                            const sameScope = candidates.filter(
-                                                (option) =>
-                                                    option.scope ===
-                                                    filterScope,
+                                    data={allFilterOperatorOptions}
+                                    value={
+                                        filterRuleWithAllowedOperators.allowedOperators ??
+                                        []
+                                    }
+                                    withinPortal={
+                                        popoverProps?.withinPortal ?? true
+                                    }
+                                    onDropdownOpen={popoverProps?.onOpen}
+                                    onDropdownClose={popoverProps?.onClose}
+                                    onChange={(values) => {
+                                        const normalizedAllowedOperators =
+                                            Array.from(
+                                                new Set(
+                                                    values as FilterOperator[],
+                                                ),
                                             );
-                                            const globalScope =
-                                                candidates.filter(
-                                                    (option) =>
-                                                        option.scope ===
-                                                        'global',
+
+                                        let nextFilterRule: DashboardFilterRule =
+                                            {
+                                                ...filterRule,
+                                                allowedOperators:
+                                                    normalizedAllowedOperators.length >
+                                                    0
+                                                        ? normalizedAllowedOperators
+                                                        : undefined,
+                                            } as DashboardFilterRuleWithAllowedOperators;
+
+                                        if (
+                                            normalizedAllowedOperators.length >
+                                                0 &&
+                                            !normalizedAllowedOperators.includes(
+                                                filterRule.operator,
+                                            )
+                                        ) {
+                                            nextFilterRule =
+                                                getFilterRuleWithDefaultValue(
+                                                    filterType,
+                                                    field,
+                                                    {
+                                                        ...nextFilterRule,
+                                                        operator:
+                                                            normalizedAllowedOperators[0],
+                                                    },
                                                 );
-                                            const preferred =
-                                                sameScope.length === 1
-                                                    ? sameScope[0]
-                                                    : sameScope.length === 0 &&
-                                                      globalScope.length === 1
-                                                    ? globalScope[0]
-                                                    : undefined;
-                                            autoParentRef = preferred
-                                                ? decodeParentFilterRef(
-                                                      preferred.value,
-                                                  )
-                                                : null;
                                         }
 
-                                        onChangeFilterRule(
-                                            applyParentFilterRef(
-                                                {
-                                                    ...filterRule,
-                                                    categoryLevel:
-                                                        newCategoryLevel,
-                                                },
-                                                autoParentRef,
-                                            ),
-                                        );
+                                        onChangeFilterRule(nextFilterRule);
                                     }}
                                 />
-                            )}
-                            {/* 父级筛选器：类目与非类目共用（非类目=「跟随父级筛选器」） */}
-                            <Select
-                                mt="xs"
-                                size="xs"
-                                data={parentFilterOptions}
-                                value={parentOptionValue}
-                                label={t(
-                                    isCategoryRule
-                                        ? 'components_dashboard_filter.configuration.category_level.parent_filter_label'
-                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_label',
-                                )}
-                                placeholder={t(
-                                    isCategoryRule
-                                        ? 'components_dashboard_filter.configuration.category_level.parent_filter_placeholder'
-                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_placeholder',
-                                )}
-                                disabled={parentFilterOptions.length === 0}
-                                clearable
-                                onChange={(value) =>
-                                    onChangeFilterRule(
-                                        applyParentFilterRef(
-                                            filterRule,
-                                            decodeParentFilterRef(value),
-                                        ),
-                                    )
-                                }
-                            />
-                            <Text size="xs" c="dimmed" mt={4}>
-                                {t(
-                                    isCategoryRule
-                                        ? 'components_dashboard_filter.configuration.category_level.parent_scope_hint'
-                                        : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
-                                )}
-                            </Text>
 
-                            {/* 筛选器只读配置 */}
-                            <Switch
-                                mt="xs"
-                                label={
-                                    <Text size="xs" mt="two" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.filter_read_only',
-                                        )}
-                                    </Text>
-                                }
-                                labelPosition="right"
-                                checked={!!filterRule.readOnly}
-                                onChange={(e) => {
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        readOnly:
-                                            e.currentTarget.checked ||
-                                            undefined,
-                                    });
-                                }}
-                            />
-
-                            {/* 筛选器隐藏配置 */}
-                            <Switch
-                                mt="xs"
-                                label={
-                                    <Text size="xs" mt="two" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.filter_hidden',
-                                        )}
-                                    </Text>
-                                }
-                                labelPosition="right"
-                                checked={!!filterRule.hidden}
-                                onChange={(e) => {
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        hidden:
-                                            e.currentTarget.checked ||
-                                            undefined,
-                                    });
-                                }}
-                            />
-
-                            {filterType === FilterType.STRING && (
-                                <Box mt="xs">
-                                    <Text size="xs" mt="two" fw={500} mb="xs">
-                                        {t(
-                                            'components_dashboard_filter.configuration.exclude_values.label',
-                                        )}
-                                    </Text>
-                                    {canUseExcludeAutocomplete ? (
-                                        <FilterStringAutoComplete
-                                            limit={FILTER_SELECT_LIMIT}
-                                            filterId={filterRule.id}
-                                            field={field}
-                                            suggestions={fieldSuggestions}
-                                            placeholder={t(
-                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
-                                            )}
-                                            withinPortal={
-                                                popoverProps?.withinPortal ??
-                                                true
-                                            }
-                                            onDropdownOpen={
-                                                popoverProps?.onOpen
-                                            }
-                                            onDropdownClose={
-                                                popoverProps?.onClose
-                                            }
-                                            values={
-                                                filterRule.excludedValues ?? []
-                                            }
-                                            onExternalSearchChange={
-                                                onPendingExcludedValueChange
-                                            }
-                                            onChange={
-                                                handleExcludedValuesChange
-                                            }
-                                            closeDropdownOnMouseLeave={
-                                                isEditMode
-                                            }
-                                        />
-                                    ) : (
-                                        <TagInput
+                                {filterType === FilterType.STRING && (
+                                    <Box mt="xs">
+                                        <Text
                                             size="xs"
-                                            placeholder={t(
-                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                            mt="two"
+                                            fw={500}
+                                            mb="xs"
+                                        >
+                                            {t(
+                                                'components_dashboard_filter.configuration.exclude_values.label',
                                             )}
-                                            clearable
-                                            value={
-                                                filterRule.excludedValues ?? []
-                                            }
-                                            onSearchChange={
-                                                onPendingExcludedValueChange
-                                            }
-                                            onChange={
-                                                handleExcludedValuesChange
-                                            }
-                                        />
+                                        </Text>
+                                        {canUseExcludeAutocomplete ? (
+                                            <FilterStringAutoComplete
+                                                limit={FILTER_SELECT_LIMIT}
+                                                filterId={filterRule.id}
+                                                field={field}
+                                                suggestions={fieldSuggestions}
+                                                placeholder={t(
+                                                    'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                                )}
+                                                withinPortal={
+                                                    popoverProps?.withinPortal ??
+                                                    true
+                                                }
+                                                onDropdownOpen={
+                                                    popoverProps?.onOpen
+                                                }
+                                                onDropdownClose={
+                                                    popoverProps?.onClose
+                                                }
+                                                values={
+                                                    filterRule.excludedValues ??
+                                                    []
+                                                }
+                                                onExternalSearchChange={
+                                                    onPendingExcludedValueChange
+                                                }
+                                                onChange={
+                                                    handleExcludedValuesChange
+                                                }
+                                                closeDropdownOnMouseLeave={
+                                                    isEditMode
+                                                }
+                                            />
+                                        ) : (
+                                            <TagInput
+                                                size="xs"
+                                                placeholder={t(
+                                                    'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                                )}
+                                                clearable
+                                                value={
+                                                    filterRule.excludedValues ??
+                                                    []
+                                                }
+                                                onSearchChange={
+                                                    onPendingExcludedValueChange
+                                                }
+                                                onChange={
+                                                    handleExcludedValuesChange
+                                                }
+                                            />
+                                        )}
+                                    </Box>
+                                )}
+
+                                {/* ── 维度联动 ── */}
+                                <Divider
+                                    label={t(
+                                        'components_dashboard_filter.configuration.section.linkage',
                                     )}
-                                </Box>
-                            )}
-                        </Box>
+                                    labelPosition="left"
+                                    my="sm"
+                                />
+
+                                {/* 「类目层级」标题 + 选择器只对类目字段展示：
+                                非类目（集团/品牌/商品名称/时间…）没有层级，
+                                标题留着只会让人以为需要配一个层级 */}
+                                {isCategoryRule && (
+                                    <Group spacing="xs" mb="xs">
+                                        <Text size="xs" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.category_level.label',
+                                            )}
+                                        </Text>
+                                        <Tooltip
+                                            withinPortal
+                                            variant="xs"
+                                            label={t(
+                                                'components_dashboard_filter.configuration.category_level.tooltip',
+                                            )}
+                                        >
+                                            <MantineIcon
+                                                size="sm"
+                                                icon={IconHelpCircle}
+                                            />
+                                        </Tooltip>
+                                    </Group>
+                                )}
+                                {isCategoryRule && (
+                                    <Select
+                                        size="xs"
+                                        placeholder={t(
+                                            'components_dashboard_filter.configuration.category_level.placeholder',
+                                        )}
+                                        clearable
+                                        data={[
+                                            {
+                                                value: '1',
+                                                label: t(
+                                                    'components_dashboard_filter.configuration.category_level.level1',
+                                                ),
+                                            },
+                                            {
+                                                value: '2',
+                                                label: t(
+                                                    'components_dashboard_filter.configuration.category_level.level2',
+                                                ),
+                                            },
+                                            {
+                                                value: '3',
+                                                label: t(
+                                                    'components_dashboard_filter.configuration.category_level.level3',
+                                                ),
+                                            },
+                                            {
+                                                value: '4',
+                                                label: t(
+                                                    'components_dashboard_filter.configuration.category_level.level4',
+                                                ),
+                                            },
+                                        ]}
+                                        value={filterRule.categoryLevel?.toString()}
+                                        onChange={(value) => {
+                                            const newCategoryLevel = value
+                                                ? (Number.parseInt(
+                                                      value,
+                                                      10,
+                                                  ) as 1 | 2 | 3 | 4)
+                                                : undefined;
+
+                                            // 自动查找并设置父级筛选器：
+                                            // 优先同作用域的上一级，其次全局的上一级
+                                            // （Tab 三级可以自动绑定全局二级）
+                                            // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
+                                            // 交由作者在「父级筛选器」里显式选择
+                                            let autoParentRef: ParentFilterRef | null =
+                                                null;
+                                            if (
+                                                newCategoryLevel &&
+                                                newCategoryLevel > 1 &&
+                                                parentFilterOptions.length > 0
+                                            ) {
+                                                const targetParentLevel =
+                                                    newCategoryLevel - 1;
+                                                const candidates =
+                                                    parentFilterOptions.filter(
+                                                        (option) =>
+                                                            option.categoryLevel ===
+                                                            targetParentLevel,
+                                                    );
+                                                const sameScope =
+                                                    candidates.filter(
+                                                        (option) =>
+                                                            option.scope ===
+                                                            filterScope,
+                                                    );
+                                                const globalScope =
+                                                    candidates.filter(
+                                                        (option) =>
+                                                            option.scope ===
+                                                            'global',
+                                                    );
+                                                const preferred =
+                                                    sameScope.length === 1
+                                                        ? sameScope[0]
+                                                        : sameScope.length ===
+                                                              0 &&
+                                                          globalScope.length ===
+                                                              1
+                                                        ? globalScope[0]
+                                                        : undefined;
+                                                autoParentRef = preferred
+                                                    ? decodeParentFilterRef(
+                                                          preferred.value,
+                                                      )
+                                                    : null;
+                                            }
+
+                                            onChangeFilterRule(
+                                                applyParentFilterRef(
+                                                    {
+                                                        ...filterRule,
+                                                        categoryLevel:
+                                                            newCategoryLevel,
+                                                    },
+                                                    autoParentRef,
+                                                ),
+                                            );
+                                        }}
+                                    />
+                                )}
+                                {/* 父级筛选器：类目与非类目共用（非类目=「跟随父级筛选器」） */}
+                                <Select
+                                    mt="xs"
+                                    size="xs"
+                                    data={parentFilterOptions}
+                                    value={parentOptionValue}
+                                    label={t(
+                                        isCategoryRule
+                                            ? 'components_dashboard_filter.configuration.category_level.parent_filter_label'
+                                            : 'components_dashboard_filter.configuration.category_level.follow_parent_label',
+                                    )}
+                                    placeholder={t(
+                                        isCategoryRule
+                                            ? 'components_dashboard_filter.configuration.category_level.parent_filter_placeholder'
+                                            : 'components_dashboard_filter.configuration.category_level.follow_parent_placeholder',
+                                    )}
+                                    disabled={parentFilterOptions.length === 0}
+                                    clearable
+                                    onChange={(value) =>
+                                        onChangeFilterRule(
+                                            applyParentFilterRef(
+                                                filterRule,
+                                                decodeParentFilterRef(value),
+                                            ),
+                                        )
+                                    }
+                                />
+                                <Text size="xs" c="dimmed" mt={4}>
+                                    {t(
+                                        isCategoryRule
+                                            ? 'components_dashboard_filter.configuration.category_level.parent_scope_hint'
+                                            : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
+                                    )}
+                                </Text>
+                            </>
+                        )}
                     </>
                 )}
             </Stack>

@@ -2829,6 +2829,13 @@
         "label": "Limit filter methods",
         "description": "Leave empty for no limit; viewers can use all filter methods",
         "placeholder": "Select filter methods available to viewers"
+      },
+      "section": {
+        "value": "Condition",
+        "value_policy": "Value policy",
+        "viewer_limits": "Viewer limits",
+        "more": "More settings",
+        "linkage": "Field linkage"
       }
     },
     "batch_bind": {

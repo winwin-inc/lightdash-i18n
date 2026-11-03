@@ -2829,6 +2829,13 @@
         "label": "限定筛选方式",
         "description": "留空则不限制，客户可使用全部筛选方式",
         "placeholder": "选择允许客户使用的筛选方式"
+      },
+      "section": {
+        "value": "条件",
+        "value_policy": "取值策略",
+        "viewer_limits": "查看者限制",
+        "more": "更多设置",
+        "linkage": "维度联动"
       }
     },
     "batch_bind": {

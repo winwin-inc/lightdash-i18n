@@ -18,6 +18,8 @@
 | 作者默认值                                        | 上面两个服务端快照                         | 「重置」的还原目标                                                            |
 | `disabled`                                        | 规则字段                                   | **含义 = 当前没有生效取值**（编译器渲染 `1=1`）。**不是**「作者禁用该筛选器」 |
 | `categoryLevel`                                   | 规则字段 1..4                              | 作者声明的类目层级；缺失时按列名 `cls_1..cls_4` 推导（跨 mart 兜底）          |
+| `readOnly` / `hidden`                             | 规则字段                                   | 查看模式下完全冻结 / 不出现在筛选器行（但条件仍生效）                          |
+| `clearable`                                       | 规则字段（缺省 `true`）                    | 查看者能不能把取值清空；`false` = 可切换、可重置为默认值，但不能变空            |
 | `parentFieldId` / `parentScope` / `parentTabUuid` | 规则字段                                   | 类目父子绑定；`parentScope='global'` 表示父级是全局筛选器                     |
 
 ---
