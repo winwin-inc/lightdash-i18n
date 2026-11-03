@@ -26,7 +26,6 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
     popoverProps,
     closeDropdownOnMouseLeave,
     clearable,
-    autoFocus = true,
 }: FilterInputsProps<T>) => {
     const { getField } = useFiltersContext();
     const suggestions = isFilterRule(rule)
@@ -125,7 +124,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                         return (
                             <FilterNumberInput
                                 disabled={disabled}
-                                autoFocus={autoFocus}
+                                autoFocus={true}
                                 placeholder={placeholder}
                                 value={rule.values?.[0]}
                                 onChange={(newValue) => {
@@ -142,7 +141,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                             <TagInput
                                 w="100%"
                                 clearable={clearable !== false}
-                                autoFocus={autoFocus}
+                                autoFocus={true}
                                 size="xs"
                                 disabled={disabled}
                                 placeholder={placeholder}
@@ -161,7 +160,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                         <TagInput
                             w="100%"
                             clearable={clearable !== false}
-                            autoFocus={autoFocus}
+                            autoFocus={true}
                             size="xs"
                             disabled={disabled}
                             placeholder={placeholder}
@@ -189,7 +188,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
             return (
                 <FilterNumberInput
                     disabled={disabled}
-                    autoFocus={autoFocus}
+                    autoFocus={true}
                     placeholder={placeholder}
                     value={rule.values?.[0]}
                     onChange={(newValue) => {
@@ -205,7 +204,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
             return (
                 <FilterNumberRangeInput
                     disabled={disabled}
-                    autoFocus={autoFocus}
+                    autoFocus={true}
                     placeholder={placeholder}
                     value={rule.values}
                     onChange={(value) => {

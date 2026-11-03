@@ -16,7 +16,6 @@ const BooleanFilterInputs = <T extends BaseFilterRule>(
 ) => {
     const { t } = useTranslation();
     const { rule, onChange, disabled, filterType, popoverProps } = props;
-    const autoFocus = props.autoFocus ?? true;
 
     const isFilterRuleDisabled = isFilterRule(rule) && rule.disabled;
 
@@ -44,10 +43,8 @@ const BooleanFilterInputs = <T extends BaseFilterRule>(
                     onDropdownOpen={popoverProps?.onOpen}
                     onDropdownClose={popoverProps?.onClose}
                     disabled={disabled}
-                    autoFocus={autoFocus}
-                    initiallyOpened={
-                        autoFocus && currentValue === null && !disabled
-                    }
+                    autoFocus={true}
+                    initiallyOpened={currentValue === null && !disabled}
                     placeholder={placeholder}
                     data={[
                         {
