@@ -11,7 +11,6 @@ import {
     type FilterRule,
 } from '@lightdash/common';
 import {
-    Anchor,
     Box,
     Button,
     Checkbox,
@@ -139,12 +138,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     // 但没有自己的层级：对它们隐藏「类目层级」选择器，避免误设 categoryLevel
     // （一旦设置，该筛选器会被当成类目参与自动解析 / 同级继承 / 重置为首值）。
     // 判据含 cls 列名与「X级类目」label 兜底，保证老看板仍能声明层级。
-    //
-    // 兜底开关：字段名/标签都不像类目、但业务上确实是类目时（如 product_line「产品线」），
-    // 作者可以手动展开层级配置，避免「判据没命中 → 永远无法声明层级」。
-    const [forceCategoryConfig, setForceCategoryConfig] = useState(false);
-    const isCategoryRule =
-        looksLikeCategoryFilter(filterRule) || forceCategoryConfig;
+    const isCategoryRule = looksLikeCategoryFilter(filterRule);
     const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
@@ -223,6 +217,15 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const isFilterDisabled = !!filterRule.disabled;
     const isFilterReadOnly = filterRule.readOnly ?? false;
+
+    /**
+     * 查看者是否可以把取值清空：
+     * - 编辑模式：作者始终可以清空自己的默认值
+     * - 查看模式：clearable === false 的筛选器不允许把取值清成空
+     * （输入控件层面的 clearable 只隐藏清空按钮，所有清空路径最终由
+     *   FilterConfiguration 的 handleChangeFilterRule 兜底）
+     */
+    const canClearValue = isEditMode || filterRule.clearable !== false;
 
     const showValueInput = useMemo(() => {
         // Always show the input in view mode
@@ -344,6 +347,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     onDropdownClose={popoverProps?.onClose}
                     onChange={handleChangeFilterOperator}
                     value={filterRule.operator}
+                    disabled={
+                        isFilterReadOnly ||
+                        (!isEditMode && filterRule.clearable === false)
+                    }
                     rightSectionWidth={140}
                     rightSectionProps={{
                         style: {
@@ -458,6 +465,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         }
                         closeDropdownOnMouseLeave={isEditMode}
                         isEditMode={isEditMode}
+                        clearable={canClearValue}
                     />
                 )}
 
@@ -547,60 +555,87 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 </Text>
                             )}
                         {!filterRule.required && (
-                            <Tooltip
-                                withinPortal
-                                position="right"
-                                label={
-                                    isFilterDisabled
-                                        ? t(
-                                              'components_dashboard_filter.configuration.tooltip_eidt.label.on',
-                                          )
-                                        : t(
-                                              'components_dashboard_filter.configuration.tooltip_eidt.label.off',
-                                          )
-                                }
-                                openDelay={500}
-                            >
-                                <Box w="max-content">
-                                    <Switch
-                                        label={
-                                            <Text size="xs" mt="two" fw={500}>
-                                                {t(
-                                                    'components_dashboard_filter.configuration.tooltip_eidt.content',
-                                                )}
-                                            </Text>
-                                        }
-                                        labelPosition="right"
-                                        checked={!isFilterDisabled}
-                                        onChange={(e) => {
-                                            const newFilter: DashboardFilterRule =
-                                                {
-                                                    ...filterRule,
-                                                    disabled:
-                                                        !e.currentTarget
-                                                            .checked,
-                                                    required:
-                                                        filterRule.required &&
-                                                        !e.currentTarget.checked
-                                                            ? // If the filter is required and the user is disabling it, we should also disable the required flag
-                                                              false
-                                                            : filterRule.required,
-                                                };
+                            <>
+                                <Tooltip
+                                    withinPortal
+                                    position="right"
+                                    label={
+                                        isFilterDisabled
+                                            ? t(
+                                                  'components_dashboard_filter.configuration.tooltip_eidt.label.on',
+                                              )
+                                            : t(
+                                                  'components_dashboard_filter.configuration.tooltip_eidt.label.off',
+                                              )
+                                    }
+                                    openDelay={500}
+                                >
+                                    <Box w="max-content">
+                                        <Switch
+                                            label={
+                                                <Text size="xs" mt="two" fw={500}>
+                                                    {t(
+                                                        'components_dashboard_filter.configuration.tooltip_eidt.content',
+                                                    )}
+                                                </Text>
+                                            }
+                                            labelPosition="right"
+                                            checked={!isFilterDisabled}
+                                            onChange={(e) => {
+                                                const newFilter: DashboardFilterRule =
+                                                    {
+                                                        ...filterRule,
+                                                        disabled:
+                                                            !e.currentTarget
+                                                                .checked,
+                                                        required:
+                                                            filterRule.required &&
+                                                            !e.currentTarget
+                                                                .checked
+                                                                ? // If the filter is required and the user is disabling it, we should also disable the required flag
+                                                                  false
+                                                                : filterRule.required,
+                                                    };
 
-                                            onChangeFilterRule(
-                                                e.currentTarget.checked
-                                                    ? newFilter
-                                                    : getFilterRuleWithDefaultValue(
-                                                          filterType,
-                                                          field,
-                                                          newFilter,
-                                                          null,
-                                                      ),
-                                            );
-                                        }}
-                                    />
-                                </Box>
-                            </Tooltip>
+                                                onChangeFilterRule(
+                                                    e.currentTarget.checked
+                                                        ? newFilter
+                                                        : getFilterRuleWithDefaultValue(
+                                                              filterType,
+                                                              field,
+                                                              newFilter,
+                                                              null,
+                                                          ),
+                                                );
+                                            }}
+                                        />
+                                    </Box>
+                                </Tooltip>
+
+                                {/* 「不可清空」：查看者不能把取值清成空（仍可切换取值 / 重置为默认值）。
+                                    label 是禁止语义，字段 clearable 是允许语义，故 checked 取反。 */}
+                                <Switch
+                                    mt="xs"
+                                    label={
+                                        <Text size="xs" mt="two" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.filter_no_clear',
+                                            )}
+                                        </Text>
+                                    }
+                                    labelPosition="right"
+                                    checked={filterRule.clearable === false}
+                                    disabled={isFilterReadOnly}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            clearable: e.currentTarget.checked
+                                                ? false
+                                                : undefined,
+                                        });
+                                    }}
+                                />
+                            </>
                         )}
 
                         <Checkbox
@@ -849,19 +884,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
                                 )}
                             </Text>
-                            {!looksLikeCategoryFilter(filterRule) && (
-                                <Anchor
-                                    component="button"
-                                    type="button"
-                                    size="xs"
-                                    mt={4}
-                                    onClick={() => setForceCategoryConfig(true)}
-                                >
-                                    {t(
-                                        'components_dashboard_filter.configuration.category_level.enable_category_config',
-                                    )}
-                                </Anchor>
-                            )}
 
                             {/* 筛选器只读配置 */}
                             <Switch

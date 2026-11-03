@@ -39,6 +39,7 @@ export const PROJECT_OPERATION_LOG_ACTIONS = {
         'dashboard.filters.add_button_visibility_changed',
     DASHBOARD_FILTERS_READ_ONLY_CHANGED: 'dashboard.filters.read_only_changed',
     DASHBOARD_FILTERS_HIDDEN_CHANGED: 'dashboard.filters.hidden_changed',
+    DASHBOARD_FILTERS_CLEARABLE_CHANGED: 'dashboard.filters.clearable_changed',
     DASHBOARD_FILTERS_ALLOWED_OPERATORS_CHANGED:
         'dashboard.filters.allowed_operators_changed',
     DASHBOARD_FILTERS_INPUT_MODE_CHANGED:

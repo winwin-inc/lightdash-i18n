@@ -65,6 +65,8 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
         .excludedValues,
     readOnly: (rule as DashboardFilterRule & { readOnly?: unknown }).readOnly,
     hidden: (rule as DashboardFilterRule & { hidden?: unknown }).hidden,
+    clearable: (rule as DashboardFilterRule & { clearable?: unknown })
+        .clearable,
     allowedOperators: (
         rule as DashboardFilterRule & { allowedOperators?: unknown }
     ).allowedOperators,
@@ -279,6 +281,15 @@ export const enqueueFilterUpdatedFromDiff = (
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_HIDDEN_CHANGED,
             previous: { hidden: prevExt.hidden },
             next: { hidden: nextExt.hidden },
+        });
+    }
+
+    if (stableJson(prevExt.clearable) !== stableJson(nextExt.clearable)) {
+        changes.push({
+            changeKind: 'clearable',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_CLEARABLE_CHANGED,
+            previous: { clearable: prevExt.clearable },
+            next: { clearable: nextExt.clearable },
         });
     }
 

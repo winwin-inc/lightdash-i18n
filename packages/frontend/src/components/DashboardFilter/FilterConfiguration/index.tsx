@@ -231,20 +231,43 @@ const FilterConfiguration: FC<Props> = ({
 
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
-            const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
+            /**
+             * 「不可清空」兜底（真正的强制点）：
+             * 输入控件层面的 clearable 只是隐藏清空按钮，
+             * 所有清空路径（删标签、清空输入框、下拉「全部清除」…）都在这里拦截。
+             * 查看模式下 clearable === false 的筛选器不允许被清成空值：
+             * 新规则没有取值、而当前草稿还有取值 → 丢弃这次清空，保留原取值
+             * （只回填 values，不改 operator / settings）。
+             */
+            const isClearBlocked =
+                !isEditMode &&
+                newFilterRule.clearable === false &&
+                (newFilterRule.values ?? []).length === 0 &&
+                (draftFilterRule?.values ?? []).length > 0;
+
+            const ruleToApply = isClearBlocked
+                ? { ...newFilterRule, values: draftFilterRule?.values }
+                : newFilterRule;
+
+            const isNewFilterDisabled = hasFilterValueSet(ruleToApply)
                 ? false
                 : isEditMode
-                ? newFilterRule.disabled
+                ? ruleToApply.disabled
                 : true;
             const updatedRule = {
-                ...newFilterRule,
+                ...ruleToApply,
                 disabled: isNewFilterDisabled,
             };
 
             setDraftFilterRule(updatedRule);
             onDraftChange?.(getRuleWithPendingExcludedValue(updatedRule));
         },
-        [isEditMode, onDraftChange, getRuleWithPendingExcludedValue],
+        [
+            isEditMode,
+            onDraftChange,
+            getRuleWithPendingExcludedValue,
+            draftFilterRule,
+        ],
     );
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,

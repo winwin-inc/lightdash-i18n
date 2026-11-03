@@ -21,6 +21,13 @@ export type FilterInputsProps<T extends BaseFilterRule> = {
     closeDropdownOnMouseLeave?: boolean;
     /** true = 编辑模式（配置默认值），false / undefined = 查看模式 */
     isEditMode?: boolean;
+    /**
+     * false = 查看者不能清空取值（隐藏输入控件上的清空按钮）。
+     * 不传 / true = 可以清空（默认行为）。
+     * 注意：这只是输入控件层面的限制，所有清空路径最终由
+     * FilterConfiguration 的 handleChangeFilterRule 兜底。
+     */
+    clearable?: boolean;
 };
 
 const FilterInputComponent = <T extends BaseFilterRule>(

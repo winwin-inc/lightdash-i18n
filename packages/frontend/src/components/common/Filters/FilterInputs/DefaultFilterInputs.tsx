@@ -25,6 +25,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
     onChange,
     popoverProps,
     closeDropdownOnMouseLeave,
+    clearable,
 }: FilterInputsProps<T>) => {
     const { getField } = useFiltersContext();
     const suggestions = isFilterRule(rule)
@@ -63,6 +64,9 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                         <FilterMultiStringInput
                             limit={FILTER_SELECT_LIMIT}
                             disabled={disabled}
+                            // 仅在「不可清空」时显式关掉多选自带的 X 按钮；
+                            // 不传时保持 Mantine 默认（不可清空），避免给普通筛选器新增清空入口
+                            clearable={clearable === false ? false : undefined}
                             placeholder={placeholder}
                             autoFocus={true}
                             withinPortal={popoverProps?.withinPortal}
@@ -84,6 +88,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                             limit={FILTER_SELECT_LIMIT}
                             filterId={rule.id}
                             disabled={disabled}
+                            clearable={clearable !== false}
                             field={field}
                             autoFocus={true}
                             placeholder={placeholder}
@@ -135,7 +140,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                         return (
                             <TagInput
                                 w="100%"
-                                clearable
+                                clearable={clearable !== false}
                                 autoFocus={true}
                                 size="xs"
                                 disabled={disabled}
@@ -154,7 +159,7 @@ const DefaultFilterInputs = <T extends BaseFilterRule>({
                     return (
                         <TagInput
                             w="100%"
-                            clearable
+                            clearable={clearable !== false}
                             autoFocus={true}
                             size="xs"
                             disabled={disabled}
