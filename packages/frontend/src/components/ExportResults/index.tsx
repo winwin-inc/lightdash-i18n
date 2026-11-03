@@ -21,13 +21,17 @@ import {
     memo,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type FC,
     type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
+import {
+    JobPollTimeoutError,
+    pollJobStatus,
+} from '../../features/scheduler/hooks/useScheduler';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
 import { useProject } from '../../hooks/useProject';
@@ -88,6 +92,17 @@ const ExportResults: FC<ExportResultsProps> = memo(
         const user = useUser(true);
         const health = useHealth();
         const { data: project } = useProject(projectUuid);
+
+        const exportProgressTimer = useRef<number | null>(null);
+
+        useEffect(
+            () => () => {
+                if (exportProgressTimer.current) {
+                    window.clearInterval(exportProgressTimer.current);
+                }
+            },
+            [],
+        );
 
         // Check if user has permission to change CSV results limit
         const canChangeCsvResults =
@@ -158,6 +173,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
                 },
                 {
                     onMutate: () => {
+                        const startedAt = Date.now();
                         showToastInfo({
                             title: t(
                                 'components_export_results.exporting.title',
@@ -169,13 +185,48 @@ const ExportResults: FC<ExportResultsProps> = memo(
                             key: TOAST_KEY,
                             autoClose: false,
                         });
+
+                        // A long export looks like a frozen UI otherwise: refresh the
+                        // toast with the elapsed time so users can tell the work is alive.
+                        exportProgressTimer.current = window.setInterval(() => {
+                            const elapsedSeconds = Math.round(
+                                (Date.now() - startedAt) / 1000,
+                            );
+                            if (elapsedSeconds < 10) return;
+                            showToastInfo({
+                                title: t(
+                                    'components_export_results.exporting.title',
+                                ),
+                                subtitle: t(
+                                    'components_export_results.exporting.subtitle_elapsed',
+                                    { seconds: elapsedSeconds },
+                                ),
+                                loading: true,
+                                key: TOAST_KEY,
+                                autoClose: false,
+                            });
+                        }, 5000);
+                    },
+                    onSettled: () => {
+                        if (exportProgressTimer.current) {
+                            window.clearInterval(exportProgressTimer.current);
+                            exportProgressTimer.current = null;
+                        }
                     },
                     onSuccess: (response) => {
                         // Download file
                         pollJobStatus(response.jobId)
                             .then(async (details) => {
+                                const fileUrl = details?.fileUrl;
+                                if (!fileUrl) {
+                                    throw new Error(
+                                        t(
+                                            'components_export_results.error.no_file',
+                                        ),
+                                    );
+                                }
                                 const link = document.createElement('a');
-                                link.href = details?.fileUrl;
+                                link.href = fileUrl;
                                 link.setAttribute(
                                     'download',
                                     `${chartName || 'results'}_${formatDate(
@@ -204,7 +255,12 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                     title: t(
                                         'components_export_results.error.title',
                                     ),
-                                    subtitle: error.message,
+                                    subtitle:
+                                        error instanceof JobPollTimeoutError
+                                            ? t(
+                                                  'components_export_results.error.timeout',
+                                              )
+                                            : error.message,
                                 });
                             });
                     },

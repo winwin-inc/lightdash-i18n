@@ -12,10 +12,29 @@ import { lightdashApi } from '../../api';
 import { getResultsFromStream } from '../../utils/request';
 import type { ResultsAndColumns } from '../sqlRunner/hooks/useSqlQueryRun';
 
+/**
+ * Upper bound for how long we keep polling a query before giving up.
+ * Big exports/warehouse queries are slow, but "polling forever" used to mean an infinite
+ * spinner with no way out. 20 minutes matches the scheduler job budget with headroom.
+ */
+export const QUERY_POLL_TIMEOUT_MS = 20 * 60 * 1000;
+
+export class QueryPollTimeoutError extends Error {
+    constructor(queryUuid: string, timeoutMs: number) {
+        super(
+            `Query ${queryUuid} did not finish within ${Math.round(
+                timeoutMs / 60000,
+            )} minutes`,
+        );
+        this.name = 'QueryPollTimeoutError';
+    }
+}
+
 export const pollForResults = async (
     projectUuid: string,
     queryUuid: string,
     backoffMs: number = 250,
+    deadlineMs: number = Date.now() + QUERY_POLL_TIMEOUT_MS,
 ): Promise<ApiGetAsyncQueryResults> => {
     const results = await lightdashApi<ApiGetAsyncQueryResults>({
         url: `/projects/${projectUuid}/query/${queryUuid}`,
@@ -25,10 +44,16 @@ export const pollForResults = async (
     });
 
     if (results.status === QueryHistoryStatus.PENDING) {
+        if (Date.now() > deadlineMs) {
+            throw new QueryPollTimeoutError(
+                queryUuid,
+                QUERY_POLL_TIMEOUT_MS,
+            );
+        }
         // Implement backoff: 250ms -> 500ms -> 1000ms (then stay at 1000ms)
         const nextBackoff = Math.min(backoffMs * 2, 1000);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        return pollForResults(projectUuid, queryUuid, nextBackoff);
+        return pollForResults(projectUuid, queryUuid, nextBackoff, deadlineMs);
     }
 
     return results;
