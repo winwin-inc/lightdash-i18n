@@ -1344,6 +1344,7 @@ export class CsvService extends BaseService {
         dashboardUuid: string,
         dashboardFilters: DashboardFilters,
         dateZoomGranularity?: DateGranularity,
+        selectedTabs?: string[] | null,
     ) {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
@@ -1364,6 +1365,7 @@ export class CsvService extends BaseService {
             dashboardUuid,
             dashboardFilters,
             dateZoomGranularity,
+            selectedTabs: selectedTabs ?? null,
             // TraceTaskBase
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
@@ -1386,6 +1388,7 @@ export class CsvService extends BaseService {
         dashboardUuid,
         dashboardFilters,
         dateZoomGranularity,
+        selectedTabs,
         userUuid,
         organizationUuid,
     }: ExportCsvDashboardPayload) {
@@ -1455,7 +1458,7 @@ export class CsvService extends BaseService {
             options,
             overrideDashboardFilters: dashboardFilters,
             dateZoomGranularity,
-            selectedTabs: null,
+            selectedTabs: selectedTabs ?? null,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
         this.logger.info(

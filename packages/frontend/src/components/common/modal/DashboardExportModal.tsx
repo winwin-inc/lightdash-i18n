@@ -48,16 +48,131 @@ type Props = {
     dashboard: Dashboard;
 };
 
+type ExportTabsSelection = {
+    allTabsSelected: boolean;
+    setAllTabsSelected: (value: boolean) => void;
+    selectedTabs: string[];
+    setSelectedTabs: (value: string[]) => void;
+};
+
 type CsvExportProps = {
     dashboard: Dashboard;
+    /** null 表示导出全部 Tab */
+    selectedTabs: string[] | null;
+    hasTilesInSelectedTabs: boolean;
 };
 
 type XlsxExportProps = {
     dashboard: Dashboard;
+    selectedTabs: string[] | null;
+    hasTilesInSelectedTabs: boolean;
+};
+
+const hasTilesInTabs = (
+    dashboard: Dashboard,
+    allTabsSelected: boolean,
+    selectedTabs: string[],
+) => {
+    if (allTabsSelected) {
+        return dashboard.tiles.length > 0;
+    }
+    return dashboard.tiles.some((tile) =>
+        selectedTabs.includes(tile.tabUuid || ''),
+    );
+};
+
+/** 看板导出的 Tab 选择；CSV / XLSX 共用，默认全选 */
+const ExportTabsPicker: FC<{
+    dashboard: Dashboard;
+    selection: ExportTabsSelection;
+}> = ({ dashboard, selection }) => {
+    const { t } = useTranslation();
+    const {
+        allTabsSelected,
+        setAllTabsSelected,
+        selectedTabs,
+        setSelectedTabs,
+    } = selection;
+
+    const isDashboardTabsAvailable =
+        dashboard?.tabs !== undefined && dashboard.tabs.length > 0;
+    if (!isDashboardTabsAvailable) {
+        return null;
+    }
+
+    return (
+        <Stack spacing="xs">
+            <Input.Label>
+                <Group spacing="xs">
+                    {t('components_common_modal_dashboard_export.tabs_label')}
+                    <Tooltip
+                        withinPortal={true}
+                        maw={400}
+                        variant="xs"
+                        multiline
+                        label={t(
+                            'components_common_modal_dashboard_export.select_all_tabs_tooltip',
+                        )}
+                    >
+                        <MantineIcon
+                            icon={IconHelpCircle}
+                            size="md"
+                            display="inline"
+                            color="gray"
+                        />
+                    </Tooltip>
+                </Group>
+            </Input.Label>
+            <Checkbox
+                size="sm"
+                label={t(
+                    'components_common_modal_dashboard_export.include_all_tabs',
+                )}
+                labelPosition="right"
+                checked={allTabsSelected}
+                onChange={(e) => {
+                    setAllTabsSelected(e.target.checked);
+                    if (e.target.checked) {
+                        setSelectedTabs(
+                            dashboard?.tabs?.map((tab) => tab.uuid) || [],
+                        );
+                    } else {
+                        const firstTabUuid = dashboard?.tabs?.[0]?.uuid;
+                        setSelectedTabs(firstTabUuid ? [firstTabUuid] : []);
+                    }
+                }}
+            />
+            {!allTabsSelected && (
+                <MultiSelect
+                    placeholder={t(
+                        'components_common_modal_dashboard_export.select_tabs',
+                    )}
+                    value={selectedTabs}
+                    data={(dashboard?.tabs || []).map((tab) => ({
+                        value: tab.uuid,
+                        label: tab.name,
+                    }))}
+                    clearable={selectedTabs.length > 1}
+                    searchable
+                    onChange={setSelectedTabs}
+                    required
+                    error={
+                        !hasTilesInTabs(dashboard, allTabsSelected, selectedTabs)
+                            ? t(
+                                  'components_common_modal_dashboard_export.no_tiles_in_selected_tabs',
+                              )
+                            : undefined
+                    }
+                />
+            )}
+        </Stack>
+    );
 };
 
 const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
+    selectedTabs,
+    hasTilesInSelectedTabs,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -94,11 +209,13 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
                         )}
                     >
                         <Button
+                            disabled={!hasTilesInSelectedTabs}
                             onClick={() => {
                                 exportCsvDashboardMutation.mutate({
                                     dashboard,
                                     filters: dashboardFilters,
                                     dateZoomGranularity: dateZoomGranularity,
+                                    selectedTabs,
                                 });
                                 onClose();
                             }}
@@ -117,6 +234,8 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
 
 const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
+    selectedTabs,
+    hasTilesInSelectedTabs,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -127,23 +246,8 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     );
     const parameterValues = useDashboardContext((c) => c.parameterValues);
 
-    const isDashboardTabsAvailable =
-        dashboard?.tabs !== undefined && dashboard.tabs.length > 0;
-    const [allTabsSelected, setAllTabsSelected] = useState(true);
-    const [selectedTabs, setSelectedTabs] = useState<string[]>(
-        dashboard?.tabs?.map((tab) => tab.uuid) || [],
-    );
     const [xlsxFileLayout, setXlsxFileLayout] =
         useState<NonNullable<SchedulerCsvOptions['xlsxFileLayout']>>('zip');
-
-    const hasTilesInSelectedTabs = useCallback(() => {
-        if (allTabsSelected) {
-            return dashboard.tiles.length > 0;
-        }
-        return dashboard.tiles.some((tile) =>
-            selectedTabs.includes(tile.tabUuid || ''),
-        );
-    }, [allTabsSelected, dashboard.tiles, selectedTabs]);
 
     const handleExport = () => {
         exportContentMutation.mutate({
@@ -157,12 +261,7 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                 },
                 dashboardFilters,
                 dateZoomGranularity,
-                selectedTabs:
-                    isDashboardTabsAvailable &&
-                    !allTabsSelected &&
-                    selectedTabs.length > 0
-                        ? selectedTabs
-                        : null,
+                selectedTabs,
                 parameters: parameterValues,
             },
         });
@@ -171,79 +270,6 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
 
     return (
         <Stack p="md" spacing="md">
-            {isDashboardTabsAvailable && (
-                <Stack spacing="xs">
-                    <Input.Label>
-                        <Group spacing="xs">
-                            {t(
-                                'components_common_modal_dashboard_export.tabs_label',
-                            )}
-                            <Tooltip
-                                withinPortal={true}
-                                maw={400}
-                                variant="xs"
-                                multiline
-                                label={t(
-                                    'components_common_modal_dashboard_export.select_all_tabs_tooltip',
-                                )}
-                            >
-                                <MantineIcon
-                                    icon={IconHelpCircle}
-                                    size="md"
-                                    display="inline"
-                                    color="gray"
-                                />
-                            </Tooltip>
-                        </Group>
-                    </Input.Label>
-                    <Checkbox
-                        size="sm"
-                        label={t(
-                            'components_common_modal_dashboard_export.include_all_tabs',
-                        )}
-                        labelPosition="right"
-                        checked={allTabsSelected}
-                        onChange={(e) => {
-                            setAllTabsSelected(e.target.checked);
-                            if (e.target.checked) {
-                                setSelectedTabs(
-                                    dashboard?.tabs?.map((tab) => tab.uuid) ||
-                                        [],
-                                );
-                            } else {
-                                const firstTabUuid = dashboard?.tabs?.[0]?.uuid;
-                                setSelectedTabs(
-                                    firstTabUuid ? [firstTabUuid] : [],
-                                );
-                            }
-                        }}
-                    />
-                    {!allTabsSelected && (
-                        <MultiSelect
-                            placeholder={t(
-                                'components_common_modal_dashboard_export.select_tabs',
-                            )}
-                            value={selectedTabs}
-                            data={(dashboard?.tabs || []).map((tab) => ({
-                                value: tab.uuid,
-                                label: tab.name,
-                            }))}
-                            clearable={selectedTabs.length > 1}
-                            searchable
-                            onChange={setSelectedTabs}
-                            required
-                            error={
-                                !hasTilesInSelectedTabs()
-                                    ? t(
-                                          'components_common_modal_dashboard_export.no_tiles_in_selected_tabs',
-                                      )
-                                    : undefined
-                            }
-                        />
-                    )}
-                </Stack>
-            )}
-
             <Radio.Group
                 label={t(
                     'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
@@ -282,7 +308,7 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                 </Button>
                 <Button
                     onClick={handleExport}
-                    disabled={!hasTilesInSelectedTabs()}
+                    disabled={!hasTilesInSelectedTabs}
                     leftIcon={<MantineIcon icon={IconFileTypeXls} />}
                 >
                     {t(
@@ -555,6 +581,24 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     const hasHeadlessBrowser = health.data?.hasHeadlessBrowser ?? false;
     const [exportType, setExportType] = useState<string>('xlsx');
 
+    // Tab 选择在弹窗层维护，CSV / XLSX 共用，默认全选
+    const [allTabsSelected, setAllTabsSelected] = useState(true);
+    const [selectedTabs, setSelectedTabs] = useState<string[]>(
+        dashboard?.tabs?.map((tab) => tab.uuid) || [],
+    );
+    const isDashboardTabsAvailable =
+        dashboard?.tabs !== undefined && dashboard.tabs.length > 0;
+    // 后端约定：null = 全部 Tab
+    const resolvedSelectedTabs =
+        !isDashboardTabsAvailable || allTabsSelected || selectedTabs.length === 0
+            ? null
+            : selectedTabs;
+    const hasTilesInSelectedTabs = hasTilesInTabs(
+        dashboard,
+        allTabsSelected,
+        selectedTabs,
+    );
+
     return (
         <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset="3vh">
             <Modal.Overlay />
@@ -617,11 +661,34 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                     value={exportType}
                     onChange={(value) => setExportType(value ?? 'xlsx')}
                 />
+                {exportType !== 'image' && isDashboardTabsAvailable && (
+                    <Box px="md">
+                        <ExportTabsPicker
+                            dashboard={dashboard}
+                            selection={{
+                                allTabsSelected,
+                                setAllTabsSelected,
+                                selectedTabs,
+                                setSelectedTabs,
+                            }}
+                        />
+                    </Box>
+                )}
                 {exportType === 'csv' && (
-                    <CsvExport dashboard={dashboard} onClose={onClose} />
+                    <CsvExport
+                        dashboard={dashboard}
+                        selectedTabs={resolvedSelectedTabs}
+                        hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                        onClose={onClose}
+                    />
                 )}
                 {exportType === 'xlsx' && (
-                    <XlsxExport dashboard={dashboard} onClose={onClose} />
+                    <XlsxExport
+                        dashboard={dashboard}
+                        selectedTabs={resolvedSelectedTabs}
+                        hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                        onClose={onClose}
+                    />
                 )}
                 {exportType === 'image' && hasHeadlessBrowser && (
                     <ImageExport

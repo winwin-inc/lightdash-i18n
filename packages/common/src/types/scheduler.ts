@@ -533,6 +533,8 @@ export type ExportCsvDashboardPayload = TraceTaskBase & {
     dashboardUuid: string;
     dashboardFilters: DashboardFilters;
     dateZoomGranularity?: DateGranularity;
+    /** null / undefined 表示导出全部 Tab */
+    selectedTabs?: string[] | null;
 };
 
 /** Dashboard one-click export (CSV/XLSX). Image stays on the legacy /export route. */
