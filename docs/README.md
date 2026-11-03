@@ -27,6 +27,7 @@
 | [OIDC 登录/退出三种方式](./ops/oidc-logout-modes.md) | 本地退出 vs IdP 会话，静默重登怎么避免 |
 | [组织管理员：OIDC 用户开通 API](./ops/org-admin-users-provision.md) | 预开通 + 绑定 `openid_identities`（单个 / 批量） |
 | [大数据量导出慢与转圈卡死评估](./ops/csv-export-performance.md) | CSV/XLSX 导出耗时归因、透视表“卡死”根因与分档优化方案（**已调研/未实施**） |
+| [导出优化打标清单](./ops/csv-export-optimization-status.md) | 每项优化的状态/收益/风险/归属：已做、待做、需运维配合（**进行中**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 
 ## cli/ — CLI 与内容即代码
