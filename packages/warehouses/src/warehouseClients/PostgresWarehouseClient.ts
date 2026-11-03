@@ -198,6 +198,24 @@ export class PostgresClient<
         this.config = config;
     }
 
+    /**
+     * Deadline for a single statement, shared by the client side read timeout and
+     * the warehouse side `statement_timeout`.
+     *
+     * `query_timeout` is a pg (client) setting: when it fires, pg rejects the promise
+     * and we drop the socket, but the warehouse keeps executing the statement. On
+     * Hologres that means the query keeps holding its connection and its share of the
+     * instance query memory after Lightdash has already reported a failure, which is
+     * how a burst of timed out queries ends up starving every other query on the
+     * instance. Sending the same deadline as `statement_timeout` makes the warehouse
+     * cancel the statement itself, so nothing is left running behind us.
+     */
+    private getQueryTimeoutMillis(): number {
+        return this.credentials.timeoutSeconds
+            ? this.credentials.timeoutSeconds * 1000
+            : 1000 * 60 * 5; // sets the default query timeout to 5 minutes
+    }
+
     private getSQLWithMetadata(sql: string, tags?: Record<string, string>) {
         let alteredQuery = sql;
         if (tags) {
@@ -231,14 +249,13 @@ export class PostgresClient<
     ): Promise<void> {
         let pool: pg.Pool | undefined;
         let closeClient: (() => void) | undefined;
+        const queryTimeoutMillis = this.getQueryTimeoutMillis();
 
         return new Promise<void>((resolve, reject) => {
             pool = new pg.Pool({
                 ...this.config,
                 connectionTimeoutMillis: 5000,
-                query_timeout: this.credentials.timeoutSeconds
-                    ? this.credentials.timeoutSeconds * 1000
-                    : 1000 * 60 * 5, // sets the default query timeout to 5 minutes
+                query_timeout: queryTimeoutMillis,
             });
 
             pool.on('error', (err) => {
@@ -324,19 +341,38 @@ export class PostgresClient<
                     });
                 };
 
-                if (options?.timezone) {
-                    console.debug(
-                        `Setting postgres session timezone ${options?.timezone}`,
-                    );
-                    client
-                        .query(`SET timezone TO '${options?.timezone}';`)
-                        .then(() => {
-                            runQuery();
-                        })
-                        .catch((sessionError) => {
-                            reject(sessionError);
-                        });
-                } else runQuery();
+                // Session setup runs before the query so the warehouse owns the same
+                // deadline as the client (see `getQueryTimeoutMillis`).
+                const applySessionSettings = async () => {
+                    try {
+                        await client.query(
+                            `SET statement_timeout TO ${queryTimeoutMillis};`,
+                        );
+                    } catch (statementTimeoutError) {
+                        // Best effort: some PG-compatible engines/proxies reject
+                        // `statement_timeout`, and that must never fail the query.
+                        console.warn(
+                            `Failed to set statement_timeout on warehouse session: ${getErrorMessage(
+                                statementTimeoutError,
+                            )}`,
+                        );
+                    }
+
+                    if (options?.timezone) {
+                        console.debug(
+                            `Setting postgres session timezone ${options?.timezone}`,
+                        );
+                        await client.query(
+                            `SET timezone TO '${options?.timezone}';`,
+                        );
+                    }
+
+                    runQuery();
+                };
+
+                applySessionSettings().catch((sessionError) => {
+                    reject(sessionError);
+                });
             });
         })
             .catch((e) => {
