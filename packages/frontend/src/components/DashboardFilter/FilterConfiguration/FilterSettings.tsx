@@ -311,13 +311,24 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 maxWidth: '100%',
             }}
         >
-            <Stack spacing="xs">
+            <Stack spacing={6}>
+                {/* 分组标题只在编辑态渲染，查看模式保持原有渲染不变；
+                    筛选器标签归入「条件」组，避免输入框和分组标题之间多出一段空白 */}
+                {isEditMode && (
+                    <Divider
+                        label={t(
+                            'components_dashboard_filter.configuration.section.value',
+                        )}
+                        labelPosition="left"
+                        my={2}
+                    />
+                )}
+
                 {isEditMode && (
                     <TextInput
                         label={t(
                             'components_dashboard_filter.configuration.filter.label',
                         )}
-                        mb="sm"
                         size="xs"
                         onChange={(e) => {
                             setFilterLabel(e.target.value);
@@ -347,17 +358,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     <Text size="xs" fw={500}>
                         {t('components_dashboard_filter.configuration.value')}
                     </Text>
-                )}
-
-                {/* 分组标题只在编辑态渲染，查看模式保持原有渲染不变 */}
-                {isEditMode && (
-                    <Divider
-                        label={t(
-                            'components_dashboard_filter.configuration.section.value',
-                        )}
-                        labelPosition="left"
-                        my={4}
-                    />
                 )}
 
                 <Select
@@ -581,11 +581,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.value_policy',
                             )}
                             labelPosition="left"
-                            my={4}
+                            my={2}
                         />
 
                         {!filterRule.required && (
-                            <>
+                            <Group spacing="lg" mt={2}>
                                 <Tooltip
                                     withinPortal
                                     position="right"
@@ -603,11 +603,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                     <Box w="max-content">
                                         <Switch
                                             label={
-                                                <Text
-                                                    size="xs"
-                                                    mt="two"
-                                                    fw={500}
-                                                >
+                                                <Text size="xs" fw={500}>
                                                     {t(
                                                         'components_dashboard_filter.configuration.tooltip_eidt.content',
                                                     )}
@@ -649,9 +645,8 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 {/* 「不可清空」：查看者不能把取值清成空（仍可切换取值 / 重置为默认值）。
                                     label 是禁止语义，字段 clearable 是允许语义，故 checked 取反。 */}
                                 <Switch
-                                    mt="xs"
                                     label={
-                                        <Text size="xs" mt="two" fw={500}>
+                                        <Text size="xs" fw={500}>
                                             {t(
                                                 'components_dashboard_filter.configuration.filter_no_clear',
                                             )}
@@ -669,7 +664,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                         });
                                     }}
                                 />
-                            </>
+                            </Group>
                         )}
 
                         <Checkbox
@@ -708,49 +703,51 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.viewer_limits',
                             )}
                             labelPosition="left"
-                            my={4}
+                            my={2}
                         />
 
-                        {/* 筛选器只读配置 */}
-                        <Switch
-                            label={
-                                <Text size="xs" mt="two" fw={500}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.filter_read_only',
-                                    )}
-                                </Text>
-                            }
-                            labelPosition="right"
-                            checked={!!filterRule.readOnly}
-                            onChange={(e) => {
-                                onChangeFilterRule({
-                                    ...filterRule,
-                                    readOnly:
-                                        e.currentTarget.checked || undefined,
-                                });
-                            }}
-                        />
+                        {/* 筛选器只读 / 隐藏：开关并排一行，省垂直空间 */}
+                        <Group spacing="lg" mt={2}>
+                            <Switch
+                                label={
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.filter_read_only',
+                                        )}
+                                    </Text>
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.readOnly}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        readOnly:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
 
-                        {/* 筛选器隐藏配置 */}
-                        <Switch
-                            mt="xs"
-                            label={
-                                <Text size="xs" mt="two" fw={500}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.filter_hidden',
-                                    )}
-                                </Text>
-                            }
-                            labelPosition="right"
-                            checked={!!filterRule.hidden}
-                            onChange={(e) => {
-                                onChangeFilterRule({
-                                    ...filterRule,
-                                    hidden:
-                                        e.currentTarget.checked || undefined,
-                                });
-                            }}
-                        />
+                            <Switch
+                                label={
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.filter_hidden',
+                                        )}
+                                    </Text>
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.hidden}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        hidden:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
+                        </Group>
                     </>
                 )}
 
@@ -762,7 +759,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.option_limits',
                             )}
                             labelPosition="left"
-                            my={4}
+                            my={2}
                         />
 
                         <MultiSelect
@@ -875,7 +872,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.linkage',
                             )}
                             labelPosition="left"
-                            my={4}
+                            my={2}
                         />
 
                         {/* 「类目层级」对所有筛选器可见：
