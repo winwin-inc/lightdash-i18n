@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | **#23 JSONL gzip** | ✅ **能，且最划算** | 写侧 gzip、读侧按 `GetObject` 返回的 `ContentEncoding` 自动解压；存量明文零影响 | 34.2 MB/10 万行 → **4 MB（12%）**；gzip 仅 0.07 s、gunzip 0.06 s ⇒ 70 万行省 **~210 MB** 读写，CPU 代价 ~0.5 s | **0.5–1 人日** | 低 |
 | **#24 CSV 行数兜底** | ✅ 能 | 新增 `EXPORT_MAX_ROWS`（默认 1,000,000，与其 XLSX 上限一致），命中即 `truncated=true` + 文件名带 `incomplete_results-` | 不省时间，**防一次导出打爆 pod**；对当前配置（`QUERY_MAX_LIMIT=1000000`）**无可感知变化** | **0.5 人日** | 低（默认值与现网行为对齐） |
-| **#12 非透视 XLSX** | ✅ 能，但天花板在 exceljs | 去掉每行对象/key 拼接、正则预编译、试 `useSharedStrings:false` | 实测 exceljs 地板价 **33.5 µs/行**（700k≈23 s）；本项预计再省 **5–15%** | **1 人日** | 低–中（列错位/样式） |
+| **#12 非透视 XLSX** | ✅ 能（实测 **−36%**） | 关掉 `useSharedStrings`（输出等价）；`addRow(array)` 单独无收益；`useStyles:false` 还能再快 2× 但会丢数字格式 | 实测 17 列 10 万行：现状 **59.3 µs/行** → 关 sharedStrings **37.8 µs/行**（700k 41s → **26s**） | **0.5–1 人日** | 低（文件体积可能变大，需真实数据验证） |
 | **#19 跳过 JSONL 往返** | ⚠️ **有条件能** | 只推荐 **tee 变体**（查询时同时写 JSONL + CSV，导出 job 只取 URL）；**不推荐**"job 内自编译 SQL"和"复用 compiled_sql 重跑" | 省一次全量 OSS 读 + 一次 `JSON.parse`（70 万行约 **10–40 s**） | **3–5 人日**（含前端） | 中–高（契约/失败语义） |
 
 **建议上线顺序**：#23 → #24 → #12 →（用真实数据证明 #19 值得再做）#19。
@@ -94,29 +94,29 @@ return results.ContentEncoding === 'gzip' ? body.pipe(createGunzip()) : body;
 
 ---
 
-## 3. #12：非透视 XLSX 行写入优化
+## 3. #12：非透视 XLSX 行写入优化（已实测）
 
-### 3.1 现状与地板价
-- 代码：`ExcelService.streamJsonlToExcelFile`（`:526-620`）→ `convertRowToExcel`（`:214-320`）→ `worksheet.addRow({col_0: v, ...})` → `row.commit()`。
-- **本机实测（17 列 × 10 万行，纯 `addRow`+`commit`，不做任何格式转换）= 33.5 µs/行、≈3 万行/秒、文件 10.3 MB**；700k 行**光 exceljs 写文件就要 ≈23 s**。
-  → 也就是说：**XLSX 的时间天花板在 exceljs 本身**，我们的代码最多影响 20–30%。
+### 3.1 实测（本机，17 列 × 6 万行 × 3 次取最优；10 列带 `numFmt:'#,##0.00'`，6 列字符串，1 列 Date）
 
-### 3.2 可做的零语义改动
-| 改动 | 位置 | 预期 |
-|---|---|---|
-| `addRow(array)` 替代每行构造 `{col_i: v}` 对象 | `:582-596` | 每行省一次对象 + 17 次字符串键拼接 |
-| 正则提到模块级（`convertToExcelDate` / `isCalendarDateDisplayValue` / `toExcelMonthPeriod`） | `:172-210` | 每格省一次正则编译 |
-| 每格的 `getFormatExpression(item)` 已经在 Phase 1 加了缓存，无需再改 | — | — |
-| 试 `useSharedStrings: false`（需基准确认，可能更快但文件更大） | `:536` | 待测 |
-| 日期格的 `new Date(String(v))` 复用（同一格只解析一次） | `convertRowToExcel` | 小 |
+| 变体 | µs/行 | 700k 推算 | 文件 | 输出是否等价 |
+|---|---|---|---|---|
+| A 现状：`addRow(object)` + `useSharedStrings:true` + `useStyles:true` | **59.3** | 41 s | 5.6 MB | — |
+| B `addRow(array)` + shared + styles | 59.4 | 42 s | 5.6 MB | 等价，**但没收益** |
+| C `addRow(array)` + **`useSharedStrings:false`** + styles | **37.8** | **26 s** | 4.4 MB | **等价**（共享字符串表只是内部表示，不影响单元格值） |
+| D `addRow(array)` + noShared + **`useStyles:false`** | **16.4** | **12 s** | 4.4 MB | ❌ **不等价**：`numFmt` 丢失，Excel 里 `1234.5` 不再显示成 `1,234.50` |
+| （参考）不调 `row.commit()` | 更慢 | — | — | 流式模式必须 commit |
 
-### 3.3 不要动
-`worksheet.columns[].style.numFmt`、表头样式、列宽策略 —— 这些是**产品可见行为**（用户打开 Excel 看到的格式），不属于性能优化范围。
+### 3.2 结论
+- **推荐只做 C**：`useSharedStrings:false`（+ 顺手 `addRow(array)`，虽然本身没收益但代码更简单），**实测 −36%**，单元格值与数字格式完全不变；
+- **D 不做默认**：能再快 2×，但会改变用户打开 Excel 看到的数字格式（产品可见变化）。如确有需要，只能做成"大数据量极速模式"的显式选项（需产品决策）；
+- **正则预编译**（`convertToExcelDate` / `isCalendarDateDisplayValue` / `toExcelMonthPeriod`）等我们代码侧的改动，在 A→C 这个量级下影响很小（<5%），可选做；
+- `worksheet.columns[].style.numFmt`、表头样式、列宽策略 **不要动** —— 属于产品可见行为。
+
+### 3.3 风险
+- `useSharedStrings:false` 的**文件体积**取决于字符串列基数：本次合成数据（每行唯一字符串）文件反而更小；如果真实数据里"品类/品牌/系列"重复度高，共享字符串表有去重收益，关掉后文件可能变大 10–30%。**上线前必须用真实图表导一次对比体积**（换来的是 −36% 时间）。
 
 ### 3.4 验收
-同一份数据导出 XLSX，用 `openpyxl` 逐单元格比对新旧文件的**值**（样式不比对），并记录耗时/体积。
-
----
+同一份数据导出 XLSX：①用 `openpyxl` 逐格比对**值与 numFmt**（新旧必须一致）；②记录耗时/体积；③确认列顺序、表头样式不变。
 
 ## 4. #19：跳过 JSONL 往返（最重，建议最后做）
 
