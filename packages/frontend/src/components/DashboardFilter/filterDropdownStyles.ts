@@ -23,12 +23,21 @@ export const useFilterDropdownStyles = createStyles(() => ({
         display: 'flex',
         flexDirection: 'column',
     },
-    /** 编辑模式：内容本身较高，让弹窗按内容自然撑开（不要固定 minHeight，否则跟 Stack height:100% + flex 形成循环依赖，把弹窗压在 520px 裁掉底部控件） */
-    dropdownWithSubOpenEdit: {
-        minHeight: 0,
-        maxHeight: 'none',
+    /** 编辑模式（无副下拉）：限高 + 内容区内滚。控件随迭代变多，不限高会直接冲出屏幕 */
+    dropdownEdit: {
+        maxHeight: 'min(640px, 72vh)',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
+    },
+    /** 编辑模式：内容本身较高，让弹窗按内容自然撑开（不要固定 minHeight，否则跟 Stack height:100% + flex 形成循环依赖，把弹窗压在 520px 裁掉底部控件）
+     *  保留与 dropdownEdit 相同的 maxHeight，避免副下拉打开时弹窗高度跳变 */
+    dropdownWithSubOpenEdit: {
+        minHeight: 0,
+        maxHeight: 'min(640px, 72vh)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
     },
     /** 添加全局/tab 筛选器：弹窗打开即占位默认高度，从第二个切回第一个时高度不丢失 */
     dropdownAddFilterWithSubOpen: {

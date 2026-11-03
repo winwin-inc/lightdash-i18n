@@ -686,11 +686,9 @@ const FilterConfiguration: FC<Props> = ({
                 sx={{
                     flex: 1,
                     minHeight: 0,
-                    // 图表图块：仅内层列表滚动；查看模式：超出 60vh 可滚；编辑模式：不压高度，无需外层滚动
+                    // 图表图块：仅内层列表滚动；其余（含编辑模式）超出弹窗最大高度即内滚
                     overflow:
-                        selectedTabId === FilterTabs.TILES ||
-                        isEditMode ||
-                        isMobileDevice
+                        selectedTabId === FilterTabs.TILES || isMobileDevice
                             ? 'hidden'
                             : 'auto',
                 }}

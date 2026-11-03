@@ -356,7 +356,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             'components_dashboard_filter.configuration.section.value',
                         )}
                         labelPosition="left"
-                        my="sm"
+                        my={4}
                     />
                 )}
 
@@ -581,7 +581,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.value_policy',
                             )}
                             labelPosition="left"
-                            my="sm"
+                            my={4}
                         />
 
                         {!filterRule.required && (
@@ -708,12 +708,11 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.viewer_limits',
                             )}
                             labelPosition="left"
-                            my="sm"
+                            my={4}
                         />
 
                         {/* 筛选器只读配置 */}
                         <Switch
-                            mt="xs"
                             label={
                                 <Text size="xs" mt="two" fw={500}>
                                     {t(
@@ -763,11 +762,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.option_limits',
                             )}
                             labelPosition="left"
-                            my="sm"
+                            my={4}
                         />
 
                         <MultiSelect
-                            mt="xs"
                             size="xs"
                             label={
                                 <Text size="xs" mt="two" fw={500}>
@@ -877,7 +875,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.section.linkage',
                             )}
                             labelPosition="left"
-                            my="sm"
+                            my={4}
                         />
 
                         {/* 「类目层级」对所有筛选器可见：
