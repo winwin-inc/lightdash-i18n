@@ -91,10 +91,10 @@ const VALUES: unknown[] = [
 
 describe('formatMomentByTimezone byte compatibility', () => {
     // 解析失败的输入会回落到 moment().format(pattern)，而 moment 的 locale 是模块级全局状态。
-    // 固定成 en + UTC，避免与其他测试文件共享 worker 进程时出现偶发不一致。
+    // 固定成 en，避免与其他测试文件共享 worker 进程时出现偶发不一致。
+    // 时区由 jest 的 TZ=UTC 控制（本仓库没有 moment-timezone 依赖，不能调 moment.tz）。
     beforeAll(() => {
         moment.locale('en');
-        moment.tz?.setDefault('UTC');
     });
 
     it('matches the previous formatToParts implementation for every timezone/pattern', () => {
