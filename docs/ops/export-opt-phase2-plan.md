@@ -1,6 +1,6 @@
 # 导出优化 Phase 2 方案（#19 / #23 / #24 / #12）
 
-**状态**：草案（待评审）
+**状态**：**#23 / #24 / #12 已实施**（`feat/export-perf`，待发版验证）；#19 决定**不做**
 **前置**：Phase 1（格式化缓存 + 透视流式落盘 + 前端轮询兜底）已合入 `feat/export-perf`（镜像 `2.5.5`）
 **关联**：[归因评估](./csv-export-performance.md) · [打标清单](./csv-export-optimization-status.md)
 
@@ -11,7 +11,7 @@
 | **#23 JSONL gzip** | ✅ **能，且最划算** | 写侧 gzip、读侧按 `GetObject` 返回的 `ContentEncoding` 自动解压；存量明文零影响 | 34.2 MB/10 万行 → **4 MB（12%）**；gzip 仅 0.07 s、gunzip 0.06 s ⇒ 70 万行省 **~210 MB** 读写，CPU 代价 ~0.5 s | **0.5–1 人日** | 低 |
 | **#24 CSV 行数兜底** | ✅ 能 | 新增 `EXPORT_MAX_ROWS`（默认 1,000,000，与其 XLSX 上限一致），命中即 `truncated=true` + 文件名带 `incomplete_results-` | 不省时间，**防一次导出打爆 pod**；对当前配置（`QUERY_MAX_LIMIT=1000000`）**无可感知变化** | **0.5 人日** | 低（默认值与现网行为对齐） |
 | **#12 非透视 XLSX** | ✅ 能（实测 **−36%**） | 关掉 `useSharedStrings`（输出等价）；`addRow(array)` 单独无收益；`useStyles:false` 还能再快 2× 但会丢数字格式 | 实测 17 列 10 万行：现状 **59.3 µs/行** → 关 sharedStrings **37.8 µs/行**（700k 41s → **26s**） | **0.5–1 人日** | 低（文件体积可能变大，需真实数据验证） |
-| **#19 跳过 JSONL 往返** | ⚠️ **有条件能** | 只推荐 **tee 变体**（查询时同时写 JSONL + CSV，导出 job 只取 URL）；**不推荐**"job 内自编译 SQL"和"复用 compiled_sql 重跑" | 省一次全量 OSS 读 + 一次 `JSON.parse`（70 万行约 **10–40 s**） | **3–5 人日**（含前端） | 中–高（契约/失败语义） |
+| **#19 跳过 JSONL 往返** | ❌ **决定不做** | 只推荐 **tee 变体**（查询时同时写 JSONL + CSV，导出 job 只取 URL）；**不推荐**"job 内自编译 SQL"和"复用 compiled_sql 重跑" | 省一次全量 OSS 读 + 一次 `JSON.parse`（70 万行约 **10–40 s**） | **3–5 人日**（含前端） | 中–高（契约/失败语义） |
 
 **建议上线顺序**：#23 → #24 → #12 →（用真实数据证明 #19 值得再做）#19。
 
@@ -170,3 +170,16 @@ return results.ContentEncoding === 'gzip' ? body.pipe(createGunzip()) : body;
 1. **#24 默认上限**：`EXPORT_MAX_ROWS=1,000,000`（与现网 `QUERY_MAX_LIMIT` 一致，无感知）是否可接受？还是给一个更低值（如 50 万）换取更稳的内存？
 2. **#19 是否值得做**：等 #23 上线后测一次——如果 CSV 导出的"非查询耗时"已经降到 10 s 内，那 #19 的收益（10–30 s）就不值得那 3–5 人日的风险。
 3. **XLSX 是否引导用 CSV**：大数据量时是否在弹窗提示"建议使用 CSV"（0 代码风险、立刻见效，省掉 exceljs 那 23 s/70 万行）。
+
+
+---
+
+## 7. 实施结果（Phase 2 已落地部分）
+
+| 项 | 实现 | 回测 |
+|---|---|---|
+| #23 | `createUploadStream` 在 `RESULTS_JSONL_GZIP=true` 时通过 `createGzip({level:3})` 上传并设置 `ContentEncoding: gzip`；`getDowloadStream` 依据该字段自动 `createGunzip()`，存量明文对象直读 | `S3ResultsFileStorageClient.test.ts`（gzip/明文各一例）；`CsvService.stream.test.ts` 断言「gzip 源与明文源导出的 CSV **逐字节相等**」 |
+| #24 | `EXPORT_MAX_ROWS`（默认 1,000,000）→ `streamJsonlRowsToFile(maxLines)` → `streamJsonlData` 截断并回传 `truncated` | 同文件断言「截断产物是完整导出的**逐字节前缀**」且 `truncated=true`；未超限时不标记 |
+| #12 | 非透视 XLSX 改 `useSharedStrings:false` + `addRow(array)` | `ExcelService.stream.test.ts` 用 exceljs 读回产物，断言单元格值与 `numFmt`（`[$$]#,##0.00`）不变 |
+
+> **#19 不做**：`#23` 上线后 JSONL 只剩约 26 MB（70 万行），再省一次读的收益降到 1–5 s，不值得 3–5 人日的链路改造风险。

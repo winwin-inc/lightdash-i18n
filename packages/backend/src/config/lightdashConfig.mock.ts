@@ -124,6 +124,7 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     results: {
         cacheStateTimeSeconds: 0,
+        jsonlGzip: false,
         cacheEnabled: false,
         autocompleteEnabled: false,
         s3: {
@@ -191,6 +192,7 @@ export const lightdashConfigMock: LightdashConfig = {
         csvCellsLimit: 100000,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
     },
     ai: {
         copilot: {

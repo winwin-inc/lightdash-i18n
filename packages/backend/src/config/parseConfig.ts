@@ -820,6 +820,12 @@ export type LightdashConfig = {
         timezone: string | undefined;
         maxPageSize: number;
         useSqlPivotResults: boolean;
+        /**
+         * Hard cap on rows written to a non-pivot CSV export, guards against a runaway
+         * "all results" export exhausting memory/disk on the API pod. When hit the export
+         * is marked as truncated so the UI can warn the user.
+         */
+        exportMaxRows: number;
     };
     pivotTable: {
         maxColumnLimit: number;
@@ -845,6 +851,8 @@ export type LightdashConfig = {
         cacheEnabled: boolean;
         autocompleteEnabled: boolean;
         cacheStateTimeSeconds: number;
+        /** gzip-compress result JSONL files in S3 (readers auto-detect) */
+        jsonlGzip: boolean;
         s3?: Omit<S3Config, 'expirationTime'>;
     };
     slack?: SlackConfig;
@@ -2033,6 +2041,8 @@ export const parseConfig = (): LightdashConfig => {
                     'LIGHTDASH_QUERY_MAX_PAGE_SIZE',
                 ) || 2500, // Defaults to default limit * 5
             useSqlPivotResults: process.env.USE_SQL_PIVOT_RESULTS === 'true',
+            exportMaxRows:
+                getIntegerFromEnvironmentVariable('EXPORT_MAX_ROWS') || 1000000,
         },
         chart: {
             versionHistory: {
@@ -2058,6 +2068,9 @@ export const parseConfig = (): LightdashConfig => {
         s3: parseBaseS3Config(),
         results: {
             cacheEnabled: process.env.RESULTS_CACHE_ENABLED === 'true',
+            // Opt-in: gzip result files. New builds read both plain and gzipped objects,
+            // older builds can only read plain ones, so keep it off until deployed.
+            jsonlGzip: process.env.RESULTS_JSONL_GZIP === 'true',
             autocompleteEnabled:
                 process.env.AUTOCOMPLETE_CACHE_ENABLED === 'true',
             cacheStateTimeSeconds: parseInt(

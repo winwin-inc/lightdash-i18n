@@ -386,6 +386,7 @@ export class CsvService extends BaseService {
             writeStream,
         }: { readStream: Readable; writeStream: Writable },
         displayTimezone?: string,
+        maxLines?: number,
     ): Promise<{ truncated: boolean }> {
         return new Promise((resolve, reject) => {
             const stringifier = stringify({
@@ -440,6 +441,9 @@ export class CsvService extends BaseService {
 
             streamJsonlData({
                 readStream,
+                // `undefined` = no cap. When capped, `streamJsonlData` reports
+                // `truncated` so the job can warn the user and name the file.
+                maxLines,
                 onRow: (parsedRow) => {
                     const csvRow = CsvService.convertRowToCsv(
                         parsedRow,

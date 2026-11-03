@@ -1062,6 +1062,7 @@ export class AsyncQueryService extends ProjectService {
                 headers: string[],
                 streams: { readStream: Readable; writeStream: Writable },
                 displayTimezone?: string,
+                maxLines?: number,
             ) => Promise<{ truncated: boolean }>;
         },
         options?: {
@@ -1111,6 +1112,8 @@ export class AsyncQueryService extends ProjectService {
                         writeStream,
                     },
                     this.lightdashConfig.query.timezone,
+                    // Hard cap so a runaway "all results" export can't exhaust the pod.
+                    this.lightdashConfig.query.exportMaxRows,
                 );
 
                 return {
@@ -1121,6 +1124,13 @@ export class AsyncQueryService extends ProjectService {
         );
     }
 
+    /**
+     * Returns a URL to the raw result file.
+     *
+     * Note: when `RESULTS_JSONL_GZIP=true` the stored object is gzip encoded and S3 serves it
+     * with `Content-Encoding: gzip`. Browsers/axios decompress transparently, but raw clients
+     * (e.g. `curl` without `--compressed`) receive compressed bytes.
+     */
     private async downloadAsyncQueryResultsAsJson(
         resultsFileName: string,
     ): Promise<ApiDownloadAsyncQueryResults> {

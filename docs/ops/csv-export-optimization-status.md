@@ -35,13 +35,20 @@
 
 **整行实测（20 列：12 字符串 + 2 时间戳 + 1 日期 + 5 指标）**：288.4 µs/行 → **21.9 µs/行（13.2×）**；外推 13.5 万行 39 s → 3 s，70 万行 202 s → 15 s。
 
+### Phase 2 追加（已完成）
+
+| # | 项 | 状态 | 说明 | 证据 |
+|---|---|---|---|---|
+| 35 | 结果 JSONL 落 OSS 加 gzip（`RESULTS_JSONL_GZIP=true` 开启） | ✅ | 只在**中间结果文件**上压缩；读侧在 `getDowloadStream` 一处自动解压，导出的 CSV/XLSX 仍是**明文、逐字节不变**。实测 17 列 10 万行 JSONL：34.2 MB → 4 MB（12%），gzip 0.07 s / gunzip 0.06 s | `S3ResultsFileStorageClient.ts`、`S3ResultsFileStorageClient.test.ts`、`CsvService.stream.test.ts` |
+| 36 | 非透视 CSV 行数上限 `EXPORT_MAX_ROWS`（默认 1,000,000） | ✅ | 命中即 `truncated=true`（前端提示 + 文件名 `incomplete_results-`）；默认值与现网 `LIGHTDASH_QUERY_MAX_LIMIT=1000000` 一致，**现网无可感知变化** | `parseConfig.ts`、`CsvService.streamJsonlRowsToFile`、`AsyncQueryService.downloadAsyncQueryResultsAsFormattedFile`、`CsvService.stream.test.ts` |
+
 ## 二、代码：待开发·低风险（输出字节不变）
 
 | # | 项 | 状态 | 收益 | 备注 |
 |---|---|---|---|---|
 | 10 | S3 上传流补背压（等 `drain`） | ⬜ | 不改耗时，**降峰值内存**、防 OOM | `S3ResultsFileStorageClient.createUploadStream` 的 `write()` 目前丢弃 `push()` 返回值 |
 | 11 | `streamJsonlRowsToFile` 手写 pump → `pipeline` | ⬜ | 内存有界 + 修掉"慢 sink 可能丢行" | `CsvService.ts`，照抄 `streamObjectRowsToFile` |
-| 12 | 非透视 XLSX 行写入优化：`addRow(array)` 替代每行构造 `{col_i: v}` 对象、正则预编译、试验 `useSharedStrings:false` | ⬜ | 实测 exceljs 本体 33.5 µs/行（700k≈23 s）；本项预计省 5–10% | `ExcelService.convertRowToExcel` / `streamJsonlToExcelFile` |
+| 12 | 非透视 XLSX：`useSharedStrings:false` + `addRow(array)` | ✅ | 17 列实测 **59.3 → 37.8 µs/行（−36%）**，700k 41 s → **26 s**；值与 `numFmt` 不变（有测试） | `ExcelService.streamJsonlToExcelFile` |
 | 13 | `formatNumberValue` 的 `JSON.stringify(options)` 每格一次 → 按 format 对象身份缓存 | ⬜ | 700k×5 列约 1 秒 | 用 `WeakMap<CustomFormat, Intl.NumberFormat[]>` |
 | 14 | `formatRow` 每行 `Object.keys(row)` → 按查询预计算字段表 | ⬜ | ~0.5–1 µs/行 | `common/src/index.ts` |
 | 15 | 删除死代码 `escapeCsvValue` / `processJsonLineToCsv` | ⬜ | 0（防误用） | `CsvService.ts` |
@@ -94,7 +101,7 @@
 
 | # | 项 | 状态 | 说明 |
 |---|---|---|---|
-| 26 | pre 的 lightdash 配置（资源上限/堆/超时/日志/内网 endpoint） | 🟡 | 已推 `k8s-config` `pre` 分支（`e10a4fd1`），**尚未 `kubectl apply`**；需按 `image=2.5.5` 一起滚动 |
+| 26 | pre 的 lightdash 配置（资源上限/堆/超时/日志/内网 endpoint/`RESULTS_JSONL_GZIP`） | 🟡 | 已推 `k8s-config` `pre` 分支（`e10a4fd1`），**尚未 `kubectl apply`**；需按 `image=2.5.5` 一起滚动 |
 | 27 | 镜像升级到 `2.5.5` | 🟡 | tag 已推，待构建完成；构建完再 apply，否则 ImagePullBackOff |
 | 28 | 结果文件独立前缀或独立桶（`S3_PATH_PREFIX` / `RESULTS_S3_BUCKET`） | 🔧 | 现在结果 JSONL 落在业务桶根目录，与 `S3_PUBLIC_ENDPOINT`（公共读域名）同域；开缓存/扩容前应先分离 |
 | 29 | OSS 生命周期规则 | 🔧 | `cleanQueryHistory` 只删 DB 行，**不删对象**，存储会一直涨 |

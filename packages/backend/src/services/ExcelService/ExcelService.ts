@@ -525,7 +525,10 @@ export class ExcelService {
         const workbook = new Excel.stream.xlsx.WorkbookWriter({
             filename: tempFilePath,
             useStyles: true,
-            useSharedStrings: true,
+            // Measured on a 17 columns x 60k rows export: ~59µs/row with shared
+            // strings vs ~38µs/row without, same cell values and number formats.
+            // Trade-off: the file can grow when string columns are low cardinality.
+            useSharedStrings: false,
         });
         const worksheet = workbook.addWorksheet('Sheet1');
 
@@ -583,21 +586,10 @@ export class ExcelService {
                 if (Array.isArray(rowData) && rowData.length > 0) {
                     actualRowCount += 1;
 
-                    // Stream directly to Excel temp file
-                    const rowObject: Record<
-                        string,
-                        string | number | Date | null
-                    > = {};
-                    rowData.forEach(
-                        (
-                            value: string | number | Date | null,
-                            colIndex: number,
-                        ) => {
-                            rowObject[`col_${colIndex}`] = value;
-                        },
-                    );
-
-                    const row = worksheet.addRow(rowObject);
+                    // Stream directly to Excel temp file. `addRow(array)` maps values to
+                    // `worksheet.columns` by index, so we skip building a per-row object
+                    // with `col_N` keys.
+                    const row = worksheet.addRow(rowData);
                     row.commit();
                 } else {
                     Logger.warn(
