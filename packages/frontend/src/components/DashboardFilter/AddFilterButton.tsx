@@ -114,10 +114,12 @@ const AddFilterButton: FC<Props> = ({
         if (isMobileDevice) {
             names.push(dropdownClasses.classes.dropdownMobile);
         }
-        // 新建筛选器面板：控件较多，限高 + 内容区内滚
-        if (!isMobileDevice) {
-            names.push(dropdownClasses.classes.dropdownEdit);
-        }
+        // 新建筛选器面板：控件较多，限高 + 内容区内滚（PC 72vh / 移动端 85vh）
+        names.push(
+            isMobileDevice
+                ? dropdownClasses.classes.dropdownEditMobile
+                : dropdownClasses.classes.dropdownEdit,
+        );
         if (isPopoverOpen && shouldReserveAddFilterHeight) {
             names.push(dropdownClasses.classes.dropdownAddFilterWithSubOpen);
         }
@@ -126,6 +128,7 @@ const AddFilterButton: FC<Props> = ({
         dropdownClasses.classes.dropdown,
         dropdownClasses.classes.dropdownMobile,
         dropdownClasses.classes.dropdownEdit,
+        dropdownClasses.classes.dropdownEditMobile,
         dropdownClasses.classes.dropdownAddFilterWithSubOpen,
         isMobileDevice,
         isPopoverOpen,

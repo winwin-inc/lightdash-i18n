@@ -23,7 +23,14 @@ export const useFilterDropdownStyles = createStyles(() => ({
         display: 'flex',
         flexDirection: 'column',
     },
-    /** 编辑模式（无副下拉）：限高 + 内容区内滚。控件随迭代变多，不限高会直接冲出屏幕 */
+    /** 编辑模式（移动端）：下拉走 Portal、宽度 80vw，限高用 85vh，超出内容区内滚 */
+    dropdownEditMobile: {
+        maxHeight: '85vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+    },
+    /** 编辑模式（PC）：限高 + 内容区内滚。控件随迭代变多，不限高会直接冲出屏幕 */
     dropdownEdit: {
         maxHeight: 'min(640px, 72vh)',
         display: 'flex',
