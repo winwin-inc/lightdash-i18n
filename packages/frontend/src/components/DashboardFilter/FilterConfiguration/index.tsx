@@ -515,6 +515,14 @@ const FilterConfiguration: FC<Props> = ({
         isCreatingNew,
     ]);
 
+    /**
+     * 草稿与已应用状态完全一致：点「应用」只关闭面板，不写数据。
+     * 完全禁用按钮会让用户只能点上面的筛选器 pill 才能关掉 popover，
+     * 而直接放行又会触发无意义的 onSave（审计事件 / 看板脏标记 / 查询重跑）。
+     * 新建筛选器且还没选值时仍然禁用（不能凭空创建一个空筛选器）。
+     */
+    const isApplyNoOp = isApplyDisabled && !isCreatingNew;
+
     const parentFilterOptions = useMemo(() => {
         if (!draftFilterRule?.target) return [];
 
@@ -947,13 +955,21 @@ const FilterConfiguration: FC<Props> = ({
                             <Button
                                 size="xs"
                                 variant="filled"
-                                disabled={isApplyDisabled}
+                                disabled={isApplyDisabled && isCreatingNew}
                                 onMouseDown={(
                                     e: MouseEvent<HTMLButtonElement>,
                                 ) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
+
+                                    // 与已应用状态一致：只关面板，不触发 onSave
+                                    if (isApplyNoOp) {
+                                        popoverProps?.onClose?.();
+                                        setPendingExcludedValue('');
+                                        return;
+                                    }
+
                                     if (draftFilterRule) {
                                         const ruleToSave =
                                             removeValuesExcludedFromFilterRule(
