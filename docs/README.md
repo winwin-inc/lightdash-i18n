@@ -27,7 +27,7 @@
 | [OIDC 登录/退出三种方式](./ops/oidc-logout-modes.md) | 本地退出 vs IdP 会话，静默重登怎么避免 |
 | [组织管理员：OIDC 用户开通 API](./ops/org-admin-users-provision.md) | 预开通 + 绑定 `openid_identities`（单个 / 批量） |
 | [大数据量导出（CSV/XLSX）优化](./ops/csv-export-performance.md) | 反馈原文、耗时构成与根因、已实施改动与实测值、产物一致性回测、后续可评估事项（**部分已实施**） |
-| [查询性能优化方案](./ops/query-performance-plan.md) | 应用层 / 建模 / Hologres 与 dbt 三层做法、先量后做的判定标准（**草案**） |
+| [查询性能优化方案](./ops/query-performance-plan.md) | 四件代码层能做的事（count 查询、连接复用、分页索引、导出复用）+ 数据层边界（**草案**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 
 ## cli/ — CLI 与内容即代码
