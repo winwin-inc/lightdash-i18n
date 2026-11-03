@@ -86,6 +86,7 @@ const FILTER_SUMMARY_KEYS = [
     'enableDynamicMaxAllowedDate',
     'readOnly',
     'hidden',
+    'clearable',
     'requiredGroupId',
     'lockedTabUuids',
     'dateRangeGranularity',

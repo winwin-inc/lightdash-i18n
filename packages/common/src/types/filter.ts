@@ -196,6 +196,13 @@ export type DashboardFilterRule<
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
     /**
+     * 查看者是否可以把取值清空（变回空值）。
+     * 缺省 / true：可清空（现状）。
+     * false：可在选项内切换、可重置为作者默认值，但不能清空。
+     * 仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。
+     */
+    clearable?: boolean;
+    /**
      * Dashboard filters sharing a requiredGroupId form an "any-one required"
      * group: the dashboard is locked until at least one member has a value.
      */
@@ -217,7 +224,11 @@ export type FilterDashboardToRule = DashboardFilterRule & {
 
 export type DashboardFilterRuleOverride = Omit<
     DashboardFilterRule,
-    'tileTargets' | 'lockedTabUuids' | 'required' | 'requiredGroupId'
+    | 'tileTargets'
+    | 'lockedTabUuids'
+    | 'required'
+    | 'requiredGroupId'
+    | 'clearable'
 >;
 
 export type DateFilterSettings = {
@@ -741,6 +752,8 @@ export const applyDimensionOverrides = (
                 allowedOperators: dimension.allowedOperators,
                 minAllowedDate: dimension.minAllowedDate,
                 maxAllowedDate: dimension.maxAllowedDate,
+                // The saved dashboard owns how viewers may interact with values.
+                clearable: dimension.clearable,
             };
         },
     );
@@ -753,6 +766,7 @@ export const applyDimensionOverrides = (
             ...o,
             required: undefined,
             requiredGroupId: undefined,
+            clearable: undefined,
         }));
     overriddenDimensions.push(...newDimensions);
 
@@ -778,6 +792,7 @@ export const applyMetricOverrides = (
                 lockedTabUuids: metric.lockedTabUuids,
                 required: metric.required,
                 requiredGroupId: metric.requiredGroupId,
+                clearable: metric.clearable,
             };
         }
         return metric;

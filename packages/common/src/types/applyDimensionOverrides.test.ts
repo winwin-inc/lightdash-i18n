@@ -531,4 +531,66 @@ describe('applyDimensionOverrides', () => {
             );
         });
     });
+
+    describe('viewer interaction policy (clearable)', () => {
+        it('keeps the saved clearable policy when an override tries to change it', () => {
+            const saved: DashboardFilters = {
+                dimensions: [
+                    {
+                        ...createBaseDashboardFilter(
+                            'filter-1',
+                            'customers_customer_id',
+                            'customers',
+                            ['123'],
+                        ),
+                        clearable: false,
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            };
+            const overrides: DashboardFilterRule[] = [
+                {
+                    ...createOverrideFilter(
+                        'filter-1',
+                        'customers_customer_id',
+                        'customers',
+                        ['789'],
+                    ),
+                    clearable: true,
+                },
+            ];
+
+            const result = applyDimensionOverrides(saved, overrides);
+
+            // The saved dashboard owns the interaction policy; the override
+            // only carries value/operator.
+            expect(result[0].clearable).toBe(false);
+            expect(result[0].values).toEqual(['789']);
+        });
+
+        it('strips clearable from overrides that match no saved filter', () => {
+            const overrides: DashboardFilterRule[] = [
+                {
+                    ...createOverrideFilter(
+                        'new-filter',
+                        'orders_country',
+                        'orders',
+                    ),
+                    clearable: false,
+                },
+            ];
+
+            const result = applyDimensionOverrides(
+                baseDashboardFilters,
+                overrides,
+            );
+
+            const appended = result[result.length - 1];
+            expect(appended.target.fieldId).toBe('orders_country');
+            expect(appended.clearable).toBeUndefined();
+            expect(appended.required).toBeUndefined();
+            expect(appended.requiredGroupId).toBeUndefined();
+        });
+    });
 });

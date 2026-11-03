@@ -273,6 +273,7 @@ export const getFilterRuleRevertableObject = (
         dateRangeGranularity: filterRule.dateRangeGranularity,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
+        clearable: filterRule.clearable,
     };
 };
 

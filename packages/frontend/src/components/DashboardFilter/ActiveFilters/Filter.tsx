@@ -235,6 +235,14 @@ const Filter: FC<Props> = ({
         if (isMobileDevice) {
             names.push(dropdownClasses.classes.dropdownMobile);
         }
+        // 编辑模式（含副下拉未打开时）：限高 + 内容区内滚（PC 72vh / 移动端 85vh）
+        if (isEditMode) {
+            names.push(
+                isMobileDevice
+                    ? dropdownClasses.classes.dropdownEditMobile
+                    : dropdownClasses.classes.dropdownEdit,
+            );
+        }
         if (shouldReserveSubOpenHeight) {
             names.push(
                 isEditMode
@@ -246,6 +254,8 @@ const Filter: FC<Props> = ({
     }, [
         dropdownClasses.classes.dropdown,
         dropdownClasses.classes.dropdownMobile,
+        dropdownClasses.classes.dropdownEdit,
+        dropdownClasses.classes.dropdownEditMobile,
         dropdownClasses.classes.dropdownWithSubOpen,
         dropdownClasses.classes.dropdownWithSubOpenEdit,
         isMobileDevice,
@@ -826,6 +836,7 @@ const Filter: FC<Props> = ({
                                 defaultFilterRule={defaultFilterRule}
                                 isPopoverOpen={isPopoverOpen}
                                 onSave={handleSaveChanges}
+                                onRequestClose={handleClose}
                                 onDraftChange={handleDraftChange}
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,

@@ -90,6 +90,8 @@ interface Props {
     isCreatingNew?: boolean;
     isTemporary?: boolean;
     onSave: (value: DashboardFilterRule) => void;
+    /** 关闭整个筛选器 popover（不写数据）；草稿无变化时点「应用」走这里 */
+    onRequestClose?: () => void;
     onDraftChange?: (value: DashboardFilterRule | undefined) => void;
     isPopoverOpen?: boolean;
     filterScope: 'global' | 'tab';
@@ -120,6 +122,7 @@ const FilterConfiguration: FC<Props> = ({
     defaultFilterRule,
     popoverProps,
     onSave,
+    onRequestClose,
     onDraftChange,
     isPopoverOpen = false,
     filterScope,
@@ -231,20 +234,43 @@ const FilterConfiguration: FC<Props> = ({
 
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
-            const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
+            /**
+             * 「不可清空」兜底（真正的强制点）：
+             * 输入控件层面的 clearable 只是隐藏清空按钮，
+             * 所有清空路径（删标签、清空输入框、下拉「全部清除」…）都在这里拦截。
+             * 查看模式下 clearable === false 的筛选器不允许被清成空值：
+             * 新规则没有取值、而当前草稿还有取值 → 丢弃这次清空，保留原取值
+             * （只回填 values，不改 operator / settings）。
+             */
+            const isClearBlocked =
+                !isEditMode &&
+                newFilterRule.clearable === false &&
+                (newFilterRule.values ?? []).length === 0 &&
+                (draftFilterRule?.values ?? []).length > 0;
+
+            const ruleToApply = isClearBlocked
+                ? { ...newFilterRule, values: draftFilterRule?.values }
+                : newFilterRule;
+
+            const isNewFilterDisabled = hasFilterValueSet(ruleToApply)
                 ? false
                 : isEditMode
-                ? newFilterRule.disabled
+                ? ruleToApply.disabled
                 : true;
             const updatedRule = {
-                ...newFilterRule,
+                ...ruleToApply,
                 disabled: isNewFilterDisabled,
             };
 
             setDraftFilterRule(updatedRule);
             onDraftChange?.(getRuleWithPendingExcludedValue(updatedRule));
         },
-        [isEditMode, onDraftChange, getRuleWithPendingExcludedValue],
+        [
+            isEditMode,
+            onDraftChange,
+            getRuleWithPendingExcludedValue,
+            draftFilterRule,
+        ],
     );
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
@@ -492,6 +518,14 @@ const FilterConfiguration: FC<Props> = ({
         isCreatingNew,
     ]);
 
+    /**
+     * 草稿与已应用状态完全一致：点「应用」只关闭面板，不写数据。
+     * 完全禁用按钮会让用户只能点上面的筛选器 pill 才能关掉 popover，
+     * 而直接放行又会触发无意义的 onSave（审计事件 / 看板脏标记 / 查询重跑）。
+     * 新建筛选器且还没选值时仍然禁用（不能凭空创建一个空筛选器）。
+     */
+    const isApplyNoOp = isApplyDisabled && !isCreatingNew;
+
     const parentFilterOptions = useMemo(() => {
         if (!draftFilterRule?.target) return [];
 
@@ -660,17 +694,34 @@ const FilterConfiguration: FC<Props> = ({
             }}
         >
             <Box
-                sx={{
+                sx={(theme) => ({
                     flex: 1,
                     minHeight: 0,
-                    // 图表图块：仅内层列表滚动；查看模式：超出 60vh 可滚；编辑模式：不压高度，无需外层滚动
+                    // 图表图块：仅内层列表滚动；移动端查看模式保持不滚（避免弹窗瞬间变大）；
+                    // 其余（含 PC / 移动端的编辑模式）超出弹窗最大高度即内滚
                     overflow:
                         selectedTabId === FilterTabs.TILES ||
-                        isEditMode ||
-                        isMobileDevice
+                        (isMobileDevice && !isEditMode)
                             ? 'hidden'
                             : 'auto',
-                }}
+                    overscrollBehavior: 'contain',
+                    // 细滚动条：默认宽度太粗，压小内容区视觉
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': {
+                        width: 6,
+                        height: 6,
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: theme.colors.gray[3],
+                        borderRadius: 3,
+                    },
+                    '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: theme.colors.gray[4],
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                    },
+                })}
                 data-filter-scroll-content
             >
                 <Tabs
@@ -907,13 +958,25 @@ const FilterConfiguration: FC<Props> = ({
                             <Button
                                 size="xs"
                                 variant="filled"
-                                disabled={isApplyDisabled}
+                                disabled={isApplyDisabled && isCreatingNew}
                                 onMouseDown={(
                                     e: MouseEvent<HTMLButtonElement>,
                                 ) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
+
+                                    // 与已应用状态一致：只关面板，不触发 onSave
+                                    if (isApplyNoOp) {
+                                        if (onRequestClose) {
+                                            onRequestClose();
+                                        } else {
+                                            popoverProps?.onClose?.();
+                                        }
+                                        setPendingExcludedValue('');
+                                        return;
+                                    }
+
                                     if (draftFilterRule) {
                                         const ruleToSave =
                                             removeValuesExcludedFromFilterRule(

@@ -2786,9 +2786,9 @@
         "follow_parent_label": "跟随父级筛选器",
         "follow_parent_placeholder": "选择一个类目筛选器",
         "follow_parent_hint": "父级类目变化时，会按实际数据自动校正该筛选器的取值",
-        "enable_category_config": "按类目筛选器配置",
         "tooltip": "将此筛选器绑定到类目字段，用于类目筛选器联动",
         "placeholder": "不绑定类目",
+        "derived_hint": "已按列名/名称推导为 {{level}} 级类目（未显式声明，留空即按推导生效）",
         "level1": "一级类目",
         "level2": "二级类目",
         "level3": "三级类目",
@@ -2804,6 +2804,7 @@
       },
       "filter_read_only": "筛选器只读",
       "filter_hidden": "筛选器隐藏",
+      "filter_no_clear": "不可清空",
       "date_range": {
         "min_label": "可选最早日期",
         "max_label": "可选最晚日期",
@@ -2829,6 +2830,13 @@
         "label": "限定筛选方式",
         "description": "留空则不限制，客户可使用全部筛选方式",
         "placeholder": "选择允许客户使用的筛选方式"
+      },
+      "section": {
+        "value": "条件",
+        "value_policy": "取值策略",
+        "viewer_limits": "查看者限制",
+        "option_limits": "选项约束",
+        "linkage": "维度联动"
       }
     },
     "batch_bind": {
@@ -9713,6 +9721,7 @@
       "dashboard_filters_add_button_visibility_changed": "显示/隐藏添加筛选器",
       "dashboard_filters_read_only_changed": "设置筛选器只读",
       "dashboard_filters_hidden_changed": "设置筛选器隐藏",
+      "dashboard_filters_clearable_changed": "设置筛选器不可清空",
       "dashboard_filters_allowed_operators_changed": "修改允许的筛选方式",
       "dashboard_filters_input_mode_changed": "修改单选/多选",
       "project_member_added": "添加项目成员",
@@ -9804,6 +9813,7 @@
       "visible": "可见",
       "readOnly": "只读",
       "hidden": "隐藏",
+      "clearable": "不可清空",
       "allowedOperators": "允许的筛选方式",
       "singleValue": "仅单选",
       "required": "运行需要值",

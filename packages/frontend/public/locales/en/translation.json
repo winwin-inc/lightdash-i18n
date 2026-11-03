@@ -2785,10 +2785,10 @@
         "follow_parent_label": "Follow parent filter",
         "follow_parent_placeholder": "Select a category filter",
         "follow_parent_hint": "Values are re-validated against the current category when the parent changes",
-        "enable_category_config": "Configure as category filter",
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",
+        "derived_hint": "Derived as a level {{level}} category from its column or label (not declared; leave empty to keep the derived level)",
         "level1": "Level 1 Category",
         "level2": "Level 2 Category",
         "level3": "Level 3 Category",
@@ -2804,6 +2804,7 @@
       },
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",
+      "filter_no_clear": "Cannot be cleared",
       "date_range": {
         "min_label": "Earliest selectable date",
         "max_label": "Latest selectable date",
@@ -2829,6 +2830,13 @@
         "label": "Limit filter methods",
         "description": "Leave empty for no limit; viewers can use all filter methods",
         "placeholder": "Select filter methods available to viewers"
+      },
+      "section": {
+        "value": "Condition",
+        "value_policy": "Value policy",
+        "viewer_limits": "Viewer limits",
+        "option_limits": "Option limits",
+        "linkage": "Field linkage"
       }
     },
     "batch_bind": {
@@ -9696,6 +9704,7 @@
       "dashboard_filters_add_button_visibility_changed": "Show/hide add filter",
       "dashboard_filters_read_only_changed": "Set filter read-only",
       "dashboard_filters_hidden_changed": "Set filter hidden",
+      "dashboard_filters_clearable_changed": "Set filter value locked",
       "dashboard_filters_allowed_operators_changed": "Change allowed operators",
       "dashboard_filters_input_mode_changed": "Change single/multi select",
       "project_member_added": "Added project member",
@@ -9787,6 +9796,7 @@
       "visible": "Visible",
       "readOnly": "Read-only",
       "hidden": "Hidden",
+      "clearable": "Cannot be cleared",
       "allowedOperators": "Allowed operators",
       "singleValue": "Single value",
       "required": "Required to run",
