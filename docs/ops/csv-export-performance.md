@@ -1,293 +1,165 @@
-# 大数据量导出（CSV / XLSX）慢与"转圈卡死"评估
+# 大数据量导出（CSV / XLSX）性能排查与优化
 
-**状态**：已调研（代码走查 + 本机微基准），**未实施**
-**日期**：2026-11-03
-**触发**：客户反馈「一个月数据 13.5 万行导出 8 分钟 / 转圈不动」「70 万行 1–2 分钟」「SPU 市占表（透视表）直接卡死」
+状态：已上线部分优化（dev / 2.5.6），另有若干项需要运维配合，尚未执行。
 
-> 每项优化的**当前状态、收益、风险和归属**见：[导出优化打标清单](./csv-export-optimization-status.md)
+## 背景
 
----
+客户反馈三件事：
 
-## 0. 结论（先说能不能优化）
+- 只选一个月，导出 13.5 万行、文件 8 MB，等了 8 分钟还没下来，一直转圈
+- 导出 70 万行要 1–2 分钟
+- 「SPU市占表」点导出直接卡死（该表是平表，不是透视表，17 列里约 10 个数值指标、1 个形如 `20260901` 的数字型时间列）
 
-**能优化，且空间很大。** 现网导出慢**不是**数仓查询慢一个原因造成的，而是三段串行链路叠加了 4 个可修的工程问题：
+## 时间花在哪里
 
-| # | 问题 | 性质 | 量级（实测/推算） |
-|---|---|---|---|
-| R1 | 逐单元格构造 `Intl` 格式化器（数值 + 时区日期） | **纯 CPU 浪费，最常见的最大头** | 单格 14–57 µs，缓存后 0.4–1.6 µs → **20–36×** |
-| R2 | 透视导出把全部行读进数组 → 全字段格式化 → 建 3 份矩阵 → 拼整串 → 再 `Buffer` 复制 | **内存 + 同步阻塞**（"卡死"主因） | 峰值 ≈ 5–6× 数据量；`formatRows` 占透视总耗时 **70–87%** |
-| R3 | 导出默认"重跑一遍全量查询"（`Limit.ALL` + `limit=MAX_SAFE_INTEGER`） | 结构性浪费 | 首屏已查一次，导出再查一次 |
-| R4 | 导出任务与 API **同进程**，CPU 段阻塞事件循环 | 体验灾难 | 导出期间**全站**排队，连状态轮询都答不上 |
-| R5 | 前端轮询**无超时/无进度**，且 job 崩溃后状态永远停在 `started` | "永远转圈"的机制 | 只能刷新页面 |
+一次导出是串行三段，任何一段慢都表现为"转圈"：
 
-按下面 P0 三件事（约 3–5 人日）预计可把「20 列 / 70 万行 / 格式化导出」从 **3–4 分钟降到 15 秒量级**，并把透视导出的"卡死"变成"数秒 + 不阻塞其他用户"。**这些数字需要按第 6 节的度量方式在生产验证。**
+1. 前端取 queryUuid。选「表格结果」时复用页面上已经查过的 query（不重查）；选「所有结果」时会用 `LIMIT 2147483647` 重新执行一次查询，SQL 变了所以缓存必然不命中。
+2. 后台任务把结果转成 CSV/XLSX，再上传 OSS。这一段的代码在 scheduler worker 里，而 worker 与 API 跑在同一个进程。
+3. 浏览器下载生成好的文件。
 
-> 注意一个前提性事实：客户说的"限制显示可以下载 100 万条"是**前端写死的中文文案**，只对 XLSX 生效（`packages/frontend/public/locales/zh/translation.json:6900` → `"最多导出 1,000,000 行"`，对应后端硬编码 `ExcelService.EXCEL_ROW_LIMIT = 1_000_000`，`packages/backend/src/services/ExcelService/ExcelService.ts:37`）。**CSV 路径没有任何行数上限**（`CsvService.streamJsonlRowsToFile` 不传 `maxLines`），所以 13.5 万行 / 70 万行 CSV 能一路跑到底 —— 提示和实际限制口径不一致，也是"以为很快"的原因之一。
+排查后确认的四个主要原因：
 
----
+- 每个单元格都新建一个 `Intl` 格式化器。数值格 18–33 µs，时间戳格 52–58 µs，几十万行乘十几列就是分钟级。
+- 透视导出是先把整个文件读成数组、全字段格式化一遍、再建三份「行 × 列」矩阵、拼成一个完整字符串、再复制成 Buffer 上传，峰值内存是数据量的 5–6 倍。
+- 导出任务和 API 同进程。上面那段同步 CPU 一跑，这台 pod 的 HTTP 请求全部排队，连轮询任务状态的接口都答不上，用户看到的就是卡死。
+- 前端轮询没有超时。任务如果因为进程被杀停在 started，界面会一直转圈到用户刷新页面。
 
-## 1. 现状链路（先看清时间花在哪）
+顺带发现两个小问题：JSONL 中间结果不压缩；非透视 CSV 完全没有行数上限。
 
-点击「下载」后是**三段串行**，全程只有 1 个 loading toast，没有阶段、没有百分比、没有取消：
+## 已经做完的（dev 分支，镜像 2.5.6）
 
-```
-① 取 queryUuid（可能重跑一次全量查询）
-   ExportResults/index.tsx:135-176 → useDashboardChartDownload.ts:70-110
-   limit=ALL 时 → POST /projects/:p/query/dashboard-chart, limit=MAX_SAFE_INTEGER
-   → AsyncQueryService.executeAsyncQuery (AsyncQueryService.ts:1769)
-   → void this.runAsyncWarehouseQuery(...)   ← 在 API 进程主循环里跑 (AsyncQueryService.ts:2008)
-      仓库流式取数 → 每行 JSON.stringify → S3 JSONL (S3ResultsFileStorageClient.ts:102-112)
-   前端 pollForResults 轮询到 READY（250/500/1000ms 退避，永不放弃: executeQuery.ts:15-40）
+代码层面的改动：
 
-② 投递导出任务 + 轮询 job 状态
-   POST /projects/:p/query/:q/schedule-download → graphile job（Postgres 队列）
-   前端每 2s 轮询 GET /api/v1/schedulers/job/:jobId/status
-   （无超时/无次数上限: useScheduler.ts:263-294）
-
-   job 内（SchedulerWorker 与 API 同进程: App.ts:272-273 / 1060-1072）：
-   - 非透视：S3 JSONL → 逐行格式化 → CSV → 直接 multipart 写 S3（名义流式）
-   - 透视：JSONL 全量收成数组 → 全量格式化 → pivot → 3 份矩阵 → 整串 → Buffer → S3
-   - XLSX：exceljs 流式（非透视）/ 内存 workbook（透视）
-
-③ 浏览器下载
-   S3 模式：presigned URL 直连（不经 Lightdash）；本地模式：res.sendFile 流式
-```
-
-关键代码位置：
-
-| 阶段 | 文件:行 |
-|---|---|
-| 导出入口（看板） | `packages/frontend/src/hooks/dashboard/useDashboardChartDownload.ts:70-110`、`components/ExportResults/index.tsx:127-209` |
-| job 投递 | `packages/backend/src/controllers/v2/QueryController.ts:548-580`、`scheduler/SchedulerClient.ts:957-982` |
-| 非透视 CSV | `services/AsyncQueryService/AsyncQueryService.ts:1053-1121` → `services/CsvService/CsvService.ts:412-490` |
-| 透视 CSV | `services/PivotTableService/PivotTableService.ts:90-171`（收全量）、`177-241`（格式化+pivot+整串） |
-| 逐格格式化 | `packages/common/src/utils/formatting.ts:223-248`（数值）、`services/CsvService/CsvService.ts:161-192`（时区日期） |
-| 透视数据结构 | `packages/common/src/pivot/pivotQueryResults.ts:518-875`（索引/表头）、`224-372`（矩阵）、`1474-1564`（展平） |
-
----
-
-## 2. 根因与证据
-
-### R1 逐单元格构造 `Intl`（影响最大、最容易修）
-
-`formatNumberValue` 每格调用 `value.toLocaleString(locale, options)`（`packages/common/src/utils/formatting.ts:223-248`）；`formatMomentByTimezone` 每格 `new Intl.DateTimeFormat(...)` + `formatToParts` + `Object.fromEntries`（`CsvService.ts:161-192`，`ExcelService.ts:145-166` 是同一份实现的副本）。导出时 `displayTimezone = lightdashConfig.query.timezone`（默认 `Asia/Shanghai`，`parseConfig.ts:2030`），所以**日期/时间戳列必然走最慢分支**。
-
-本机微基准（Node 26，单线程）：
-
-| 每格操作 | 现状 | 缓存后 | 倍数 |
-|---|---|---|---|
-| 数值 + 自定义格式（如 `usd`） | **20 µs** | 0.4 µs | ~30× |
-| 日期/时间戳（时区，`formatToParts`） | **57 µs** | 1.6 µs | ~36× |
-| 字符串维度 | 0.3 µs | — | — |
-
-按 20 列（12 字符串 + 2 时间戳 + 1 日期 + 5 数值）推算：**约 400 µs/行 → 18 µs/行**；70 万行即 **3–4 分钟 → 12–15 秒**。这也解释客户"70 万行 1–2 分钟"：列少或部分列是字符串，成本低一些。
-
-### R2 透视导出（"SPU 市占表卡死"）
-
-`downloadAsyncPivotTableCsv` 先把整个 JSONL **收成数组**（`PivotTableService.ts:129-136`），随后：
-
-1. `formatRows(rows, itemMap)` **对全部行、全部字段**格式化，且每格同时算 `raw` + `formatted`（`packages/common/src/index.ts:1636-1666`）→ 只用一份，白算一半；
-2. `pivotResultsAsCsv` → `pivotQueryResults` 建 3 份 `行 × 列` 的全量结构（`dataValues`、`retrofitData.allCombinedData`、字符串矩阵）；
-3. `stringify(整个数组)` 拼成**一个完整 CSV 字符串**（`PivotTableService.ts:220-233`）；
-4. `Buffer.concat([BOM, Buffer.from(csv)])` **再复制一份**（`:259-263`）；
-5. `uploadCsv(buffer)` 整块上传。
-
-实测形状采样（本机，合成数据）：
-
-| 输入 | 透视输出 | `formatRows` | pivot 三件套 | stringify |
-|---|---|---|---|---|
-| 4 000 行 × 7 列 | 1 503 × 74 | **208 ms** | 40 ms | 19 ms |
-| 20 000 行 × 7 列 | 1 503 × 122 | **1 015 ms** | 139 ms | 37 ms |
-| 60 000 行 × 7 列 | 15 003 × 32 | **3 552 ms** | 535 ms | 136 ms |
-
-→ 全程**同步、无 yield、无 worker**，`rowTotals`（市占表常态）还会引入 O(行 × 指标 × 列) 的额外遍历（`pivotQueryResults.ts:773-830`）。
-
-⚠️ 关键细节：透视导出实际被截断到 `floor(csvCellsLimit / 字段数)` 行（`PivotTableService.ts:124-135`，`csvCellsLimit` 默认 **100000**）。所以"透视表卡死"**不一定是行数极大**，更可能是**列很宽（`pivotDimension` 基数大 → 列数暴涨）+ 全量物化 + 同步阻塞**。要区分「前端 VTable 渲染卡」还是「导出卡」，见第 6 节。
-
-### R3 导出默认"再查一遍全量"
-
-`useDashboardChartDownload` 在 `Limit.TABLE` 时复用首屏的 `queryUuid`（**不重查**），但 `Limit.ALL` / `Limit.CUSTOM` 会重新发起异步查询（`useDashboardChartDownload.ts:88-107`），且 `limit = MAX_SAFE_INTEGER` → SQL 变了 → 缓存 key 变了 → **必然 miss**。受限角色（`isClientUse` 且无 `ChangeCsvResults` 权限）默认就是 `Limit.ALL`（`ExportResults/index.tsx:104-113`），即**这类客户每次导出都在重跑全表**。
-
-### R4 导出任务与 API 同进程
-
-`App.ts:272-273` 在 API 进程里启动 `SchedulerWorker`（`SCHEDULER_ENABLED` 默认 true，`SCHEDULER_CONCURRENCY` 默认 3，`parseConfig.ts:2084-2085`）。R2 的同步 CPU 段一跑，**API 事件循环整段停摆**：页面、状态轮询、其他人的查询一起排队 → 用户体感就是"卡死"。同时 `tryJobOrTimeout` 的 10 分钟兜底（`parseConfig.ts:1416`）也因事件循环被堵而**无法准时触发**。
-
-### R5 "永远转圈"的机制
-
-- 前端 `pollForResults`（`executeQuery.ts:15-40`）与 `getJobStatus`（`useScheduler.ts:263-294`）**都没有超时/最大次数**。
-- job 的终态只能由任务内 `logWrapper` 写（`scheduler/SchedulerTask.ts:1845-1884`）；进程被 OOM/重启打断时 catch 执行不到 → `scheduler_log` **永远停在 `started`**。
-- 兜底事件 `job:failed` 只打日志、不写库（`scheduler/SchedulerWorkerEventEmitter.ts:113-116`）；`SCHEDULED_JOB_MAX_ATTEMPTS = 1`（`scheduler/SchedulerClient.ts:55`）→ 不重试、也没人补写终态。
-- 另外：`details.fileUrl` 为空时 `link.href = undefined`，`link.click()` **静默失败**（`components/ExportResults/index.tsx:178-190`）→ "转圈结束但什么都没发生"。
-
-可直接验证是否已经发生过（只读 SQL）：
-
-```sql
--- 长时间停留在 started 的孤儿 job（= 进程中途死掉的证据）
-SELECT job_id, task, status, created_at
-FROM scheduler_log
-WHERE status = 'started' AND created_at < now() - interval '30 minutes'
-ORDER BY created_at DESC;
-```
-
-### R6 结果分页线性重扫（顺带的"看板也慢"）
-
-`getResultsPageFromS3`（`AsyncQueryService.ts:296-378`）每次翻页都**从文件第 0 行读起**、`JSON.parse` 到目标页为止。70 万行 / 每页 500 → 翻到第 100 页要扫 5 万行，是 O(n²) 累计开销。
-
-### R7 背压缺失（内存风险）
-
-- `S3ResultsFileStorageClient.createUploadStream` 的 `write()` 用 `passThrough.push(...)` 且**丢弃返回值**（`S3ResultsFileStorageClient.ts:102-112`）→ S3 上传慢时缓冲无上界增长；
-- `CsvService.streamJsonlRowsToFile` 是手写 pump，`stringifier.write()` 的返回值无人看（`CsvService.ts:437-490`），收尾用 `'finish'` 而非 `'end'`；隔离复现中「慢速 sink」场景会丢行或挂住 —— **按正确性风险处理**，修法就是照抄 `streamObjectRowsToFile` 的 `pipeline` 写法（`CsvService.ts:340-405`）。
-
-### R8 无压缩 + 老路径整份读回
-
-- 全链路无 gzip（`App.ts` 只对静态资源用 `expressStaticGzip`），JSONL/CSV 明文落 S3、明文回读。
-- 遗留 v1 同步路径（`CsvService.downloadCsv` / `getCsvForChart`）在 S3 上传前把整份 CSV `readFile(..., 'utf-8')` 成字符串再 `Buffer.from + Buffer.concat`（`CsvService.ts:824-830`、`1303-1306`）→ 峰值约 **3× 文件大小**，全部同步。v1 端点仍存活（`exploreController.ts:180-227`、`savedChartController.ts:400-446`），脚本/旧前端仍可能命中。
-
----
-
-## 3. 优化方案（按性价比排序）
-
-### P0 —— 先做这三件（1 周内可上线，收益最大）
-
-| # | 改动 | 落点 | 预期收益 | 风险 |
-|---|---|---|---|---|
-| **P0-1** | **给 `Intl` 加记忆化**：`formatNumberValue` 按 `locale + options` 缓存 `Intl.NumberFormat`；`formatMomentByTimezone` 按 `timeZone + pattern` 缓存 `Intl.DateTimeFormat` 并改用 `format()` 直接出串（去掉 `formatToParts` + `Object.fromEntries`）；顺带把 `CsvService` / `ExcelService` 两份重复实现合并 | `packages/common/src/utils/formatting.ts:223-248`、`CsvService.ts:161-192`、`ExcelService.ts:145-166` | 单格 20 µs→0.4 µs、57 µs→1.6 µs；整体导出 **-55%~-80%**（70 万行 3–4 分钟 → **15 秒量级**） | 低。需补格式化快照测试（货币/千分位/时区/毫秒） |
-| **P0-2** | **按列预编译 formatter**：`convertRowToCsv` 里对 `sortedFieldIds` 预生成 `fn(value)`，行内只做 `fn(row[id])`，不再每格做类型判断与 `formatItemValue` 分发 | `CsvService.ts:279-330`、`ExcelService.ts:214-320`、`common/src/index.ts:1636-1666` | 叠加 P0-1 后把常数再压一次（实测合成 420 µs/行 → 18 µs/行） | 中。保留 `formatItemValue` 作兜底，做新旧逐格 diff 回归 |
-| **P0-3** | **前端轮询加超时 + 阶段提示 + 失败可见**：两处轮询加 deadline（如 15 min）与最大次数；toast 分「查询中 / 生成文件中 / 下载中」；`fileUrl` 为空时明确报错 | `features/queryRunner/executeQuery.ts:15-40`、`features/scheduler/hooks/useScheduler.ts:263-294`、`components/ExportResults/index.tsx:160-209` | 消灭"永远转圈"，且让卡点自曝 | 低（纯前端） |
-
-### P1 —— 透视导出与大文件（1–2 周）
-
-| # | 改动 | 落点 | 预期收益 |
-|---|---|---|---|
-| **P1-1** | **透视导出流式化**：不要"全量数组 → 3 份矩阵 → 整串 → Buffer"。两遍法：第一遍只扫列集合/表头；第二遍逐行 pivot 并 `stringifier.write` 进 `pipeline` 直接写上传流；BOM 用 `writeStream.write` 而不是 `Buffer.concat` | `PivotTableService.ts:177-266` | 峰值内存 -50%~-70%，去掉 0.5–3 s 同步整串序列化 |
-| **P1-2** | **`formatRows` 只算需要的字段**（`raw` / `formatted` 二选一，pivot 只用一种） | `common/src/index.ts:1636-1666`、`PivotTableService.ts:205`、`ExcelService.ts:354` | 透视路径再 -45%~-50%（`formatRows` 占 70–87%） |
-| **P1-3** | **导出任务与 API 进程隔离**：导出任务单独队列/独立 worker，并发上限 1–2；把透视生成放进 `worker_thread`（沿用 `ProjectService` 里 `runWorkerThread` 的模式） | `SchedulerWorker.ts:376-410`、`App.ts:1060-1072`、`PivotTableService.ts` | 导出再慢也不堵 API；消除"一个人导出、全站卡死" |
-| **P1-4** | **job 终态兜底**：`job:failed` 监听器补写 `scheduler_log` ERROR；`maxAttempts` 1→2；超时后真正取消底层流（`AbortController`） | `scheduler/SchedulerWorkerEventEmitter.ts:113-116`、`SchedulerClient.ts:55`、`SchedulerJobTimeout.ts:22-53` | 崩溃不再产生永久 `started` |
-| **P1-5** | **背压修复**：`CsvService.streamJsonlRowsToFile` 改 `pipeline`；`S3ResultsFileStorageClient.write` 支持等 `drain` | `CsvService.ts:412-490`、`S3ResultsFileStorageClient.ts:102-112` | 内存有界，顺带修掉潜在丢行 |
-| **P1-6** | **导出不再重跑查询**：`Limit.TABLE` 作为默认（受限角色也复用首屏 queryUuid）；确实要"全部"时在 UI 明示"将重新执行查询" | `ExportResults/index.tsx:104-113`、`useDashboardChartDownload.ts:70-110` | 省掉一次全表扫描 + 一次 JSONL 落盘 |
-| **P1-7** | **XLSX 透视改流式**：`Excel.stream.xlsx.WorkbookWriter` + 去掉 O(行×列) 的自动列宽扫描（可用固定宽度）+ 直接流式上传 | `ExcelService.ts:332-411` | 内存从"整本 workbook + buffer"降到常数级 |
-
-### P2 —— 结构性改善（按需排期）
-
-| # | 改动 | 预期收益 |
+| 改动 | 效果 | 位置 |
 |---|---|---|
-| P2-1 | **一次流到底**：CSV 导出直接 `warehouse stream → format → CSV → 上传/下发`，JSONL 只作为缓存旁路（tee），去掉"落 S3 → 回读 → 再落 S3" | 省一次写 + 一次读，70 万行约数十–数百 MB 往返 |
-| P2-2 | **分页索引**：落盘时写 sidecar（每 N 行记 byte offset），翻页用 S3 Range 定位 | 翻页从 O(n²) 降到 O(页) |
-| P2-3 | **gzip**：JSONL/CSV 落 S3 加 `ContentEncoding: gzip`，读侧兼容旧明文 | 存储/传输字节 -70%~-85%（跨区/OSS 收益更明显） |
-| P2-4 | **去掉 `/tmp` 中转**（v1 路径）：`writeRowsToFile` 直接 `uploadCsv(createReadStream)` 或统一走 `transformResultsIntoNewFile` | 峰值内存 -3× 文件大小 |
-| P2-5 | **warehouse 原生卸载导出**：BigQuery `EXPORT DATA` / Snowflake `COPY INTO @stage` | 服务端 CPU 近 0，但格式化/标签一致性需另行解决 |
-| P2-6 | **UI 文案纠正**：CSV 与 XLSX 的限制口径分开写；把"最多导出 1,000,000 行"限定为 XLSX | 减少误判 |
+| 复用 `Intl.NumberFormat` 实例（按 locale + options 缓存） | 数值格 18–33 µs → 0.7–1.7 µs | `packages/common/src/utils/formatting.ts` |
+| 时区日期格式化抽成一份实现并缓存 `Intl.DateTimeFormat`，`format()` 替代 `formatToParts()` | 52–58 µs → 2.5 µs | `packages/backend/src/utils/FileDownloadUtils/formatMomentByTimezone.ts` |
+| `formatItemValue` 里 `getCustomFormat` 改为惰性求值 | 字符串/布尔/日期列不再白建对象 | `formatting.ts` |
+| 格式表达式（XLSX 每格都会算）按内容缓存 | 货币格 ~70 µs → ~2 µs | `formatting.ts` |
+| 透视 CSV 改为流式写盘 + 文件流上传，去掉整串字符串和两次 Buffer 拷贝 | 峰值内存降 50–70% | `PivotTableService.ts` |
+| 透视 XLSX 改 `WorkbookWriter` 落盘；列宽由扫全表改为采样 200 行 | 内存从"整本工作簿"降到常数级 | `ExcelService.ts` |
+| 非透视 XLSX 关掉 `useSharedStrings`、行用数组写入 | 17 列实测 59.3 → 37.8 µs/行，70 万行 41 s → 26 s | `ExcelService.ts` |
+| 结果 JSONL 可 gzip（`RESULTS_JSONL_GZIP=true`） | 10 万行 34 MB → 4 MB，压缩/解压各约 0.1 s | `S3ResultsFileStorageClient.ts` |
+| 非透视 CSV 增加行数上限 `EXPORT_MAX_ROWS`（默认 100 万） | 命中时置 `truncated`，前端提示且文件名带 `incomplete_results-` | `parseConfig.ts`、`CsvService.ts` |
+| 前端：查询/任务轮询加 20 分钟截止；导出提示显示已处理秒数；拿不到文件地址时明确报错 | 不再无限转圈、不再静默失败 | `executeQuery.ts`、`useScheduler.ts`、`ExportResults/index.tsx` |
 
-**不建议**的方向：
-- 只调大 `SCHEDULER_JOB_TIMEOUT` / 并发 —— 不解决根因，只会让更多大任务同时压垮进程；
-- 单纯加机器核数 —— CPU 是单线程同步段，加核无效（除非同时做 P1-3 隔离 + worker 化）。
+整行耗时（20 列：12 字符串 + 2 时间戳 + 1 日期 + 5 指标）从 288.4 µs 降到 21.9 µs，13 倍左右。按此推算 13.5 万行的纯格式化耗时从 39 秒降到 3 秒，70 万行从 202 秒降到 15 秒。
 
----
+需要注意这只是"格式化和写文件"这一段，数仓查询时间没有变化。
 
-## 4. 落地批次建议
+## 导出给用户的东西有没有变
 
-| 批次 | 内容 | 交付物 | 预估 |
-|---|---|---|---|
-| 批次 1 | P0-1、P0-2、P0-3 | 格式化微基准 + 同数据集导出前后对比（耗时/峰值 RSS） | 3–5 人日 |
-| 批次 2 | P1-1、P1-2、P1-5 | 透视导出流式化 + 背压修复 | 1 周 |
-| 批次 3 | P1-3、P1-4、P1-6 | 进程隔离/worker + job 兜底 + 默认复用查询 | 1 周 |
-| 批次 4 | P2-* | 按客户反馈再排 | — |
+没有。
 
----
+- 客户拿到的仍然是明文 CSV / XLSX。gzip 只作用在 OSS 上的中间 JSONL 文件，读的时候在 `getDowloadStream` 一处自动解压，导出产物不压缩。
+- 数值、百分比、货币、日期时区的格式化逻辑没有改，只是不复用旧实现里每次都新建的格式化器。
+- `EXPORT_MAX_ROWS` 默认 100 万，与现网 `LIGHTDASH_QUERY_MAX_LIMIT=1000000` 一致，正常导出不会触发截断。
 
-## 5. 配置层面的止血项（不改代码就能做）
+回测方式（都在仓库里，`BENCH=1` 可跑基准）：
 
-| 项 | 现状默认 | 建议 | 说明 |
-|---|---|---|---|
-| `SCHEDULER_JOB_TIMEOUT` | 10 min | 保持或 15 min，但**必须同时做 P1-4**（否则超时后底层仍在跑） | 超时只保护 UI，不省 CPU |
-| `SCHEDULER_CONCURRENCY` | 3 | 大导出高峰期可临时降到 1–2 | 减少内存峰值叠加 |
-| `LIGHTDASH_CSV_CELLS_LIMIT` | 100000 | 明确其对**透视**才生效；非透视 CSV 目前无兜底 | 别指望它限制非透视 CSV |
-| `RESULTS_CACHE_ENABLED` / 项目级 cache TTL | false | 打开可让"重复导出"零查询 | 依赖同 SQL，`Limit.ALL` 换 limit 会 miss |
-| `USE_SQL_PIVOT_RESULTS` | false | 可评估开启（SQL 侧展开 vs JS pivot） | 透视路径差异较大，需要单独压测 |
-| `S3_REQUEST_TIMEOUT` | 30 min（本 fork 已调） | 保持 | 已为"大文件下载超时"调过 |
+- `packages/common/src/utils/formatting.bytecompat.test.ts`：124 种格式 × 23 种值 = 2852 组，新旧实现逐字节比对
+- `packages/backend/src/utils/FileDownloadUtils/formatMomentByTimezone.test.ts`：7 个时区 × 21 个时间点 × 2 种模式，含午夜、夏令时前后、闰日、毫秒补零
+- `packages/backend/src/services/CsvService/CsvService.stream.test.ts`：gzip 源与明文源导出的 CSV 逐字节相等；截断产物是完整导出的逐字节前缀
+- `packages/backend/src/services/ExcelService/ExcelService.stream.test.ts`：用 exceljs 读回产物，单元格值和 `numFmt` 不变
+- `packages/backend/src/clients/ResultsFileStorageClients/S3ResultsFileStorageClient.test.ts`：gzip 对象自动解压，存量明文对象照常读
+- `packages/backend/src/services/PivotTableService/PivotTableService.csv.test.ts`：透视 CSV 与一次性 stringify 的结果逐字节一致
 
----
+## 还能做，但收益有限
 
-## 6. 怎么确认主因（成本从低到高）
+这些评估过，暂时不做：
 
-1. **零代码 A/B**：同一个图表，导出时把「值」从 `格式化` 切成 `原始值`（`onlyRaw`）。若秒级完成 → **R1 确认**，按 P0 批次走。
-2. **看 job 耗时 vs 查询耗时**：
-   ```sql
-   -- 查询阶段耗时（毫秒）
-   SELECT query_uuid, context, total_row_count, warehouse_execution_time_ms,
-          results_created_at, results_updated_at
-   FROM query_history
-   WHERE chart_uuid = '<chart-uuid>'
-   ORDER BY created_at DESC LIMIT 20;
-   ```
-   ```sql
-   -- 导出 job 阶段（scheduled → started → completed 的时间差）
-   SELECT job_id, task, status, created_at
-   FROM scheduler_log WHERE job_id = '<job-id>' ORDER BY created_at;
-   ```
-   `completed - started` 远大于 `warehouse_execution_time_ms` → 时间花在**转换**（R1/R2），否则在数仓。
-3. **孤儿 job**：跑第 2 节 R5 的 SQL，确认是否已出现永久 `started`。
-4. **事件循环**：导出期间在容器内观察 API 是否整体无响应（`curl` 健康检查超时）→ R4 确认。
-5. **度量埋点**（改造前后对比用）：给 `csvGenerationMs` / `pivotTransformMs` / `s3WriteMs` 加 span；job 内每 5 s 采样 `process.memoryUsage().heapUsed/rss` 与 `perf_hooks.monitorEventLoopDelay`。
+- 导出跳过 JSONL 往返（查询时同时写 JSONL 和 CSV，导出任务只取 URL）。gzip 上线后中间文件只剩二十几 MB，省下的读时间大概 1–5 秒，不值得为此改造链路、复刻权限和字段映射，风险大于收益。
+- 透视表选「所有结果」时按导出口径限制查询行数，避免拉回全表再截断。收益随表大小线性增长，但边界差一行就会少数据，需要产品确认口径。
+- 透视转换下放 worker_thread。解决的是"导出拖慢同机 HTTP"，属于体验问题；拆进程能覆盖大部分场景。
+- `getResultsPageFromS3` 每次翻页从文件头扫。这是看板翻页慢的问题，和导出无关，需要给结果文件加行索引。
+- exceljs 本身的写入速度（17 列约 33 µs/行）。如果客户能接受 CSV，同数据量下 CSV 比 XLSX 快一倍以上。
 
----
+## 需要运维配合的事项
 
-## 7. 需要补齐的部署事实
+### 1. 预发
 
-| # | 事实 | 为什么重要 |
-|---|---|---|
-| U1 | 客户指的是 XLSX 还是 CSV 的「100 万」提示 | 决定优化对象（XLSX 有硬上限 100 万行；CSV 无上限） |
-| U2 | 生产 `LIGHTDASH_CSV_CELLS_LIMIT` / `SCHEDULER_CONCURRENCY` / `SCHEDULER_JOB_TIMEOUT` | 决定透视是否在 `csvCellsLimit/列数` 行就被截断、是否撞 10 min 超时 |
-| U3 | 生产是否启用 S3/OSS（`RESULTS_S3_*` / `S3_PUBLIC_ENDPOINT`） | 未启用 S3 时异步结果文件不落盘，导出会直接报错；启用时下载不占后端带宽 |
-| U4 | 反代（nginx/ingress）`proxy_read_timeout` | 仓库内无反代配置，无法验证；1–2 分钟的轮询响应可能被 60s 超时掐断 |
-| U5 | 客户命中 v2（当前前端）还是 v1（脚本/旧前端） | v1 走全量内存 + 整份 `readFile`，比 v2 更慢 |
-| U6 | "SPU 市占表卡死"是**打开/滚动就卡**还是**点导出才卡** | 前者是前端 VTable 渲染（见 `./visualization/table-scroll-performance.md`），后者才是本文的导出链路 |
+配置已在 `k8s-config` 的 `pre` 分支，镜像已指到 2.5.6：
 
----
+```bash
+git pull
+kubectl -n pre apply -f lightdash/lightdash-config.yaml
+kubectl -n pre apply -f lightdash/lightdash.yml
+kubectl -n pre rollout status deploy/lightdash
+```
 
-## 8. 风险与验收门槛（做之前先看）
+注意 pre 原来跑的是 0.1861.5，跳到 2.5.6 会执行大量迁移，执行前先备份 RDS 的 `lightdash_pre` 库。
 
-风险按**严重度**排：致命 = 客户数据静默变错；高 = 客户可见行为变化或新的运维事故面；中 = 需要额外成本/回归。
+`utils/k8s-apply` 校验的命名空间是 `tars-pre`，和这些文件的 `pre` 不一致，会直接退出，所以只能手动 apply。
 
-### 8.1 逐项风险
+### 2. 生产
 
-| 项 | 严重度 | 具体风险 | 缓解 / 验收门槛 |
-|---|---|---|---|
-| **P0-1 / P0-2 格式化改动** | **致命（静默数据变更）** | ① 导出值与现状不再逐字节一致（客户脚本解析 CSV，金额/千分位/时间戳差一个字符就算事故）；② `formatting.ts` 是**前后端共用**文件，改动同时影响前端表格显示、复制值、tooltip；③ `toLocaleString(undefined, opts)` 走"服务器默认 locale"，缓存键漏 locale 会串味；④ `new Intl.NumberFormat` 对非法 currency 抛 `RangeError`，缓存实现必须保留"抛错"语义；⑤ `hourCycle`：`hour12:false` 在部分 ICU 版本下午夜输出 `24:00` 而非 `00:00` | 必须做**旧/新逐格 byte-diff**：固定语料（null/undefined/NaN/±0/`<2^53` 与 bigint/午夜/DST 边界/各 symbol 货币/`useGrouping:false`/自定义 format expression）+ 真实 2–3 张图表全量导出 `diff`。显式加 `hourCycle:'h23'`。缓存**有界**（LRU ~500）且键含 `locale` + `separator`。挂开关灰度一个版本。本地已验证 `format()` 与 `formatToParts()` 在 sv-SE 午夜、NY DST 边界输出一致（仍需 CI 固定） |
-| **P1-1 透视流式化** | **致命** | 两遍读之间结果对象可能已过期（`results_expires_at` TTL）→ 第二遍 404；表头 colSpan / `rowTotals` / `columnTotals` / `undefinedCharacter` 语义稍有偏差 → **整列错位**（比慢严重得多） | 同批透视图表"旧/新实现"**整文件 diff**；两遍读期间固定结果对象生命周期；`truncated` 改为按预先算好的行数判定 |
-| **P1-2 `formatRows` 只算一种值** | **高** | **不能一刀切**：`pivotQueryResults` 的分组/表头键用的是 `value.raw`（`pivotQueryResults.ts:609-625`），指标列用的是 `formatted`。砍掉 raw 会导致行折叠/表头错 | 按字段角色拆分：索引/表头维度保 `raw`，指标只保 `formatted`；用透视快照回归 |
-| **P1-6 默认改 `Limit.TABLE`** | **高（静默截断）** | 受限角色现在默认 `ALL`（13.5 万行），改 TABLE 后导出只有首屏 limit 行数，用户以为导了全部 → 轻则投诉，重则决策用错数据。反过来"把首屏查询 limit 拉到导出上限"也不行：浏览成本前移，高频看板每次都跑全量 | 不靠改默认值优化。保留 ALL 但显式标注"将重新执行查询（预计 N 分钟）"，并显示**预计行数**；只在**同一 SQL 缓存命中**时复用 |
-| **P0-3 前端超时** | **高（副作用放大）** | 只在客户端超时会留下**仍在跑的服务端任务**：用户重试 → 两个重任务并行 → 更慢更易 OOM；透视还会互相抢内存 | 超时必须是"提示 + 引导重试 + 可取消"，**与 P1-4（服务端真取消 + 终态兜底）同批上线**；重试前先查是否已有同图在跑的 job |
-| **P1-3 进程隔离 / worker 化** | **中–高（运维面）** | ① 单容器部署（`docker-compose.yml` 只有一个服务）要额外进程/队列配置；② 每个 worker 独立堆 → **RSS 翻倍**，机器内存要重算；③ 用 `workerData` 结构化克隆大数组（可能 1 GB）成本可能超过收益 | worker 内**直接读 JSONL**，不要 clone 大数组；先只隔离导出队列（并发 1–2），再考虑拆进程；上线前压测宿主机 RSS |
-| **P1-4 `maxAttempts` 1→2** | **中–高** | 重试会重放**非幂等副作用**：发邮件、写 Google Sheet、上传附件 → 客户收到两封/两版文件 | 只对下载类任务提 `maxAttempts`；邮件/gsheet 保持 1 或重试前查"已发送"标记。`job:failed` 补写 ERROR 是纯收益，可先单独上 |
-| **P1-5 背压改 `pipeline`** | **中** | 现在靠 `'finish'` 收尾并在回调回传 `truncated`，改 `pipeline` 要保留 `truncated` 语义与 BOM 写入顺序；`streamJsonlData` 的 `results` 累计数组被 Excel 路径使用（`maxLines`），不能顺手删 | 两种 sink 形状都要测：本地文件 + `PassThrough→lib-storage Upload`；对比输出字节数与行数 |
-| **P2-3 gzip** | **中** | 存量明文对象与新 gzip 对象混存 → 读侧必须按 `ContentEncoding` 分支；gsheet / 邮件附件 / zip 打包会拿到压缩流；OSS/CDN 可能二次压缩 | 缓存键带格式版本；先只压 JSONL（内部读写），CSV 最后压；逐消费方验证 |
-| **P2-1 去掉 JSONL 中转** | **中（架构契约）** | JSONL 同时是**结果缓存**与**分页数据源**（`getResultsPageFromS3`），直接流到 CSV 会丢掉这两项 | 用 tee（同 chunk 写缓存 + 写目标），不做"二选一" |
-| **P2-2 sidecar 行索引** | **中** | 存量文件没有索引（需 fallback）；job 中途崩溃会留下**索引与数据不一致**的文件 | 索引带 magic/行数校验，校验失败回退全量扫；写入端与 sidecar 同收尾 |
-| **P2-5 warehouse 原生导出** | **中** | 产物是"原始文件"，与客户预期的**格式化值 / 中文表头 / 时区**不一致；每个适配器要单独配权限（Snowflake stage、BigQuery 目标桶） | 定位为"明细导出/性能通道"，格式化导出仍走 Lightdash；先单适配器试点 |
-| **跨项：上游同步冲突** | **中（长期成本）** | 本仓与上游同步，`formatting.ts` / `CsvService` / `ExcelService` 都是上游高频改动文件，大改会**每次 sync 都冲突** | 尽量"新增模块 + 薄调用点"，不重排原文件；改动登记 `docs/v2/CHANGELOG`；给上游行为加测试锁 |
-| **跨项：可观测性缺口** | **中** | 现在没有导出阶段的耗时/内存指标，改完说不清快了多少，也判断不出下一个瓶颈 | 先加 `csvGenerationMs` / `pivotTransformMs` / `s3WriteMs` 与峰值 RSS，再改代码（否则无法验收） |
+配置已在 `k8s-config` 的 `master` 分支，镜像仍是 0.2091.11，没有动：
 
-> 补充实测（反驳一个常见担心）：**朴素 memo（每格 `JSON.stringify(options)` 拼 key）也够用**——本机 0.55 µs/格 vs 现状 17.25 µs/格；按列预编译 0.29 µs/格。所以 P0-1 不必等 P0-2 做完才有效，但两者叠加更省。
+```bash
+git pull
+kubectl -n default apply -f lightdash/lightdash-config.yaml
+kubectl -n default apply -f lightdash/lightdash-internal/lightdash-internal-config.yml
+kubectl -n default apply -f lightdash/lightdash.yml   # 仅当同时发版改 image
+kubectl -n default rollout restart deploy/lightdash deploy/lightdash-internal
+```
 
-### 8.2 验收门槛（硬性）
+本次 master 的改动：加了 `resources`（requests 500m/2Gi，limits 4 CPU/8Gi）、`NODE_OPTIONS=--max-old-space-size=6144`、`SCHEDULER_JOB_TIMEOUT=1200000`、日志级别从 debug 降到 info、删掉重复的 `SCHEDULER_ENABLED`、S3 endpoint 切到内网。
 
-1. **数据一致性**：同一批图表（至少 1 张透视、1 张含时间戳、1 张含货币）改动前后导出文件**逐字节一致**（除刻意修正项）。不通过不上线。
-2. **性能**：同一数据集导出耗时 + 峰值 RSS 的前后对比表（量化到阶段）。目标：70 万行 / 20 列 ≤ 30 s。
-3. **不回归**：`pnpm -F common test`、`pnpm -F backend test:dev:nowatch`、`pnpm -F common lint`、`pnpm -F backend lint` 全绿。
-4. **灰度**：新实现挂在 env / feature flag 后，跑满一个发版周期再删旧路径。
+`resources` 的 limits 是按"导出是 CPU 重活"估的，apply 前用 `kubectl describe node` 确认节点余量。requests 只有 500m/2Gi，不会影响调度。
 
-### 8.3 方向判断
+### 3. S3 走内网
 
-- **正确方向**：把导出从"同步、全量、与 API 同进程"改成"**分阶段、流式、可观测、可取消**"。这是唯一能同时改善"8 分钟"和"卡死"的路线，也与上游 v2 异步查询的方向一致。
-- **不划算的方向**：只调 `SCHEDULER_JOB_TIMEOUT` / 并发、加 CPU 核数、把限制调小 —— 都不改根因，只是把问题往后拖。
-- **要警惕的方向**：为了"快"牺牲**导出口径一致性**（默认截断、跳过格式化、透视走未验证的近似实现）。数据产品里，**慢可以解释，错不能**。
+已经改了生产配置：`S3_ENDPOINT` 从 `https://oss-cn-hangzhou.aliyuncs.com` 换成 `https://oss-cn-hangzhou-internal.aliyuncs.com`，`lightdash` 和 `lightdash-internal` 都改了。浏览器下载仍走 `S3_PUBLIC_ENDPOINT`，不受影响。
 
----
+依据是同集群 prod 命名空间有 26 个应用在用内网 endpoint，桶都在 cn-hangzhou 同账号。桶 `qmgy-report` 若不在杭州，现在用的公网杭州 endpoint 早就报跨区错误了。
 
-## 9. 相关文档
+重启后确认一下没有 S3 相关报错：
 
+```bash
+kubectl -n default logs -f deploy/lightdash | grep -i s3
+```
 
-- [表格滚动卡顿排查](../visualization/table-scroll-performance.md)（透视表 v2 / VTable 渲染侧）
-- [CDN + OSS 改造方案](./cdn-oss-integration-plan.md)（预签名直传、`S3_REQUEST_TIMEOUT`）
-- [看板筛选 / 首屏性能排查](../dashboard/dashboard-filter-performance-investigation.md)（区分数仓往返与前端渲染的方法论）
+回滚就是把这一行改回公网地址再 apply + restart。存量对象的位置没有变，不需要迁移数据。
+
+### 4. 结果文件单独放，并加生命周期规则
+
+现在结果 JSONL 落在业务桶 `qmgy-report` 的根目录，而 `S3_PUBLIC_ENDPOINT`（`report-assets.brandct.com`）是公共读域名。建议给结果文件单独一个桶，或者至少加前缀：
+
+```
+S3_PATH_PREFIX: results
+```
+
+注意这个前缀对所有 S3 写入都生效（截图、导出文件等），改了以后新对象都在新路径下，存量对象位置不变、预期下载链接仍然可用。
+
+另外，`cleanQueryHistory` 只删数据库行，不删 OSS 对象，存储会一直涨，需要给桶配生命周期规则。
+
+### 5. 把 scheduler 从 API 进程拆出去
+
+现在 `SCHEDULER_ENABLED=true` 让 API 进程内也跑 worker，导出的 CPU 会和 HTTP 抢同一台 pod。做法是新增一个 Deployment 跑 `node dist/scheduler.js`，主 pod 设 `SCHEDULER_ENABLED=false`。
+
+邮件、订阅、gsheet 这些任务要留在会消费它们的节点上。如果要按任务类型分节点，用 `SCHEDULER_INCLUDE_TASKS` 白名单，`SCHEDULER_INCLUDE_TASKS` 和 `SCHEDULER_EXCLUDE_TASKS` 不能同时设，同时设会启动失败。`generateDailyJobs` 和 `cleanQueryHistory` 是 cron 任务，至少要有一个节点 include，否则 `query_history` 没人清理。
+
+### 6. 数据库
+
+`query_history` 实测 23.5 万行、2.4 GB（每行约 10 KB，因为存了 `compiled_sql`、`metric_query`、`fields`）。排查时不要对大文本列用 `LIKE`，会卡住，按 `created_at` 缩窗口再过滤。
+
+### 7. 监控
+
+现在导出阶段没有分阶段耗时指标，改完说不清快了多少。建议加三个：导出任务总时长、各阶段耗时（读 JSONL / 格式化 / 上传）、峰值 RSS。Prometheus 已经在跑，队列长度指标是现成的。
+
+## 关于 `RESULTS_JSONL_GZIP`
+
+- 默认关闭。不设或设 `false` 都是明文 JSONL，和以前一样。
+- 设 `true` 后 OSS 上的中间结果压缩，导出产物不受影响。
+- 开启前要接受一个约束：开之后如果回滚到不支持 gzip 的老镜像，那段时间写入的对象老代码读不了（会把压缩字节当文本解析，逐行报错跳过，导出只剩表头）。默认 TTL 是一天，等一天让对象过期再回滚，或者干脆不回滚。
+- pre 已经设成 `true`，生产显式写的是 `false`，验证完再改。
+
+## 怎么验证有没有效果
+
+导出时看两个数就够：
+
+1. 浏览器开发者工具里 `GET /api/v2/projects/<p>/query/<uuid>` 的响应里有 `initialQueryExecutionMs`，这是数仓耗时。
+2. 从 `POST .../schedule-download` 到任务状态变 `COMPLETED` 的间隔，是导出总时长。两者相减就是格式化和写文件的时间。
+
+如果数仓耗时占了大部分，说明慢在仓库查询，拿 `query_history.compiled_sql` 去 Hologres 跑 `EXPLAIN ANALYZE`，靠改 dbt 或加分区解决，代码这边再怎么优化也没用。
