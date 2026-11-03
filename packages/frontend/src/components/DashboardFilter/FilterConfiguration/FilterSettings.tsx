@@ -487,6 +487,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         closeDropdownOnMouseLeave={isEditMode}
                         isEditMode={isEditMode}
                         clearable={canClearValue}
+                        // 看板筛选器 popover 内不自动聚焦：
+                        // Mantine 的 searchable Select/MultiSelect 在 focus 时会 openDropdown，
+                        // 自动聚焦 = 一打开面板下拉就自己弹出来（且抢在占位高度逻辑之前）
+                        autoFocus={false}
                     />
                 )}
 

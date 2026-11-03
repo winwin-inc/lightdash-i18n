@@ -22,6 +22,12 @@ export type FilterInputsProps<T extends BaseFilterRule> = {
     /** true = 编辑模式（配置默认值），false / undefined = 查看模式 */
     isEditMode?: boolean;
     /**
+     * 挂载后是否自动聚焦取值控件，缺省 true。
+     * 看板筛选器 popover 里传 false：Mantine 的 searchable Select/MultiSelect
+     * 在 focus 时会自动展开下拉，导致"一打开筛选器面板，下拉就自己弹出来"。
+     */
+    autoFocus?: boolean;
+    /**
      * false = 查看者不能清空取值（隐藏输入控件上的清空按钮）。
      * 不传 / true = 可以清空（默认行为）。
      * 注意：这只是输入控件层面的限制，所有清空路径最终由
