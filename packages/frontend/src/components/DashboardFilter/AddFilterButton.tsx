@@ -334,6 +334,7 @@ const AddFilterButton: FC<Props> = ({
                                     appliedFilterableFieldsByTileUuid ?? {}
                                 }
                                 onSave={handleSaveChanges}
+                                onRequestClose={handleClose}
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,
                                     onClose: closeSubPopoverWrapped,

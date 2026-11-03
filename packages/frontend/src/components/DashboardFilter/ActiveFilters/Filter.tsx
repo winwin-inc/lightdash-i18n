@@ -836,6 +836,7 @@ const Filter: FC<Props> = ({
                                 defaultFilterRule={defaultFilterRule}
                                 isPopoverOpen={isPopoverOpen}
                                 onSave={handleSaveChanges}
+                                onRequestClose={handleClose}
                                 onDraftChange={handleDraftChange}
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,

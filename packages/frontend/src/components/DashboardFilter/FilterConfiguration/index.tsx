@@ -90,6 +90,8 @@ interface Props {
     isCreatingNew?: boolean;
     isTemporary?: boolean;
     onSave: (value: DashboardFilterRule) => void;
+    /** 关闭整个筛选器 popover（不写数据）；草稿无变化时点「应用」走这里 */
+    onRequestClose?: () => void;
     onDraftChange?: (value: DashboardFilterRule | undefined) => void;
     isPopoverOpen?: boolean;
     filterScope: 'global' | 'tab';
@@ -120,6 +122,7 @@ const FilterConfiguration: FC<Props> = ({
     defaultFilterRule,
     popoverProps,
     onSave,
+    onRequestClose,
     onDraftChange,
     isPopoverOpen = false,
     filterScope,
@@ -965,7 +968,11 @@ const FilterConfiguration: FC<Props> = ({
 
                                     // 与已应用状态一致：只关面板，不触发 onSave
                                     if (isApplyNoOp) {
-                                        popoverProps?.onClose?.();
+                                        if (onRequestClose) {
+                                            onRequestClose();
+                                        } else {
+                                            popoverProps?.onClose?.();
+                                        }
                                         setPendingExcludedValue('');
                                         return;
                                     }
