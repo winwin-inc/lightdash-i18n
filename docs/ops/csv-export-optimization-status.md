@@ -41,7 +41,7 @@
 |---|---|---|---|---|
 | 10 | S3 上传流补背压（等 `drain`） | ⬜ | 不改耗时，**降峰值内存**、防 OOM | `S3ResultsFileStorageClient.createUploadStream` 的 `write()` 目前丢弃 `push()` 返回值 |
 | 11 | `streamJsonlRowsToFile` 手写 pump → `pipeline` | ⬜ | 内存有界 + 修掉"慢 sink 可能丢行" | `CsvService.ts`，照抄 `streamObjectRowsToFile` |
-| 12 | Excel 正则预编译 + `addRow(array)` | ⬜ | Excel 导出 1–3% | `ExcelService.convertRowToExcel` / `streamJsonlToExcelFile` |
+| 12 | 非透视 XLSX 行写入优化：`addRow(array)` 替代每行构造 `{col_i: v}` 对象、正则预编译、试验 `useSharedStrings:false` | ⬜ | 实测 exceljs 本体 33.5 µs/行（700k≈23 s）；本项预计省 5–10% | `ExcelService.convertRowToExcel` / `streamJsonlToExcelFile` |
 | 13 | `formatNumberValue` 的 `JSON.stringify(options)` 每格一次 → 按 format 对象身份缓存 | ⬜ | 700k×5 列约 1 秒 | 用 `WeakMap<CustomFormat, Intl.NumberFormat[]>` |
 | 14 | `formatRow` 每行 `Object.keys(row)` → 按查询预计算字段表 | ⬜ | ~0.5–1 µs/行 | `common/src/index.ts` |
 | 15 | 删除死代码 `escapeCsvValue` / `processJsonLineToCsv` | ⬜ | 0（防误用） | `CsvService.ts` |
@@ -52,6 +52,22 @@
 |---|---|---|---|---|---|
 | 16 | `formatDate` / `formatTimestamp` / `formatRawValue` 的 `moment` → 缓存 `Intl` | 🧪 | **含 DATE/TIMESTAMP 维度的表**（按月/按日/下单时间；你们"month_2"这类分析表正中） | 每格 23–26 µs → ~2 µs；日期列多的表整行 **-25%~30%**；纯字符串/整数表收益接近 0 | 输出必须逐字节一致：午夜（`24:00` vs `00:00`）、DST 边界、闰日、毫秒补零、各 `timeInterval` 格式 |
 | 17 | 按列预编译 formatter | 🧪 | **列多（>10 列）且行数大的宽表** | 21.9 → 约 15 µs/行（1.4×） | 表计算/自定义 SQL 维度/`null`/`NaT`/`∅`/`-` 等分支要逐一覆盖；保留 `formatItemValue` 作兜底 |
+
+### 按表类型选优化项（别一刀切排期）
+
+| 表类型 | 例子 | 已受益于 | 还该做 | 不该做 |
+|---|---|---|---|---|
+| **数值型宽表（非透视）** | 三全「SPU市占-全量模型」：17 列里约 10 个数值指标（% / ¥ / 整数），只有 1 个形如 `20260901` 的数字型"时间"列 | #1（数值格式化 13–35×）、#5/#6（透视内存） | #19 跳过 JSONL 回读、#23 JSONL gzip、#24 CSV 行数兜底、XLSX 行写入优化 | #16 日期列（无真正日期列，收益接近 0）、#18/#21 透视相关（非透视） |
+| **带日期/时间戳维度的表** | 按日/按周趋势、下单时间明细 | #2（时区日期 23×） | #16（`moment` → `Intl`，剩 23–26 µs/格） | — |
+| **透视表** | SPU 市占透视版、品类×品牌交叉表 | #5/#6（流式落盘，内存 -50~70%）、#1/#2 | #18 查询上限对齐、#21 合并 3 份矩阵 / `rowTotals`、#20 下放 worker | #16（除非有日期维度） |
+| **SQL 图表 / SQL Runner** | 手写 SQL 结果导出 | #1/#2 | #25（`Object.values(row)[i]`，100×） | — |
+
+**实测补充：非透视 XLSX 的固有成本（exceljs 本体）**
+
+用 17 列 × 10 万行跑本机基准：**33.5 µs/行（≈3 万行/秒）**，700k 行光 exceljs 写文件就要 **≈23 秒**（不含我们的转换与 JSONL 读取）。所以：
+
+- 如果客户导出的是 **XLSX**，即使格式化已经优化完，700k 行也至少要 30–40 秒量级 —— 这部分只能靠"少行数"或换写入器，不能靠调格式化；
+- 如果导出的是 **CSV**，同规模剩余成本主要是 JSONL 回读解析 + 上传，约 10–40 秒（#19/#23 的目标）。
 
 **怎么判断你自己的表值不值得做**：拿单行耗时估算
 ```
