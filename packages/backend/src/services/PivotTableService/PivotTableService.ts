@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as fsPromise from 'fs/promises';
 import moment from 'moment';
 import { nanoid } from 'nanoid';
-import { Readable } from 'stream';
+import { pipeline, Readable } from 'stream';
 import { S3Client } from '../../clients/Aws/S3Client';
 import { AttachmentUrl } from '../../clients/EmailClient/EmailClient';
 import { S3ResultsFileStorageClient } from '../../clients/ResultsFileStorageClients/S3ResultsFileStorageClient';
@@ -35,6 +35,37 @@ type PivotTableServiceArguments = {
 };
 
 export class PivotTableService extends BaseService {
+    /**
+     * Writes rows to `filePath` as CSV with a UTF-8 BOM, honouring stream backpressure.
+     */
+    static async writeRowsToCsvFile(
+        csvRows: string[][],
+        filePath: string,
+    ): Promise<void> {
+        const writeStream = fs.createWriteStream(filePath);
+        writeStream.write('\uFEFF');
+
+        await new Promise<void>((resolve, reject) => {
+            pipeline(
+                Readable.from(csvRows, { objectMode: true }),
+                stringify({ delimiter: ',' }),
+                writeStream,
+                (error) => {
+                    if (error) {
+                        Logger.error(
+                            `Failed to write pivot CSV to ${filePath}: ${getErrorMessage(
+                                error,
+                            )}`,
+                        );
+                        reject(error);
+                        return;
+                    }
+                    resolve();
+                },
+            );
+        });
+    }
+
     lightdashConfig: LightdashConfig;
 
     s3Client: S3Client;
@@ -217,23 +248,11 @@ export class PivotTableService extends BaseService {
             pivotDetails,
         });
 
-        const csvContent = await new Promise<string>((resolve, reject) => {
-            stringify(
-                csvResults,
-                {
-                    delimiter: ',',
-                },
-                (err, output) => {
-                    if (err) {
-                        reject(new Error(getErrorMessage(err)));
-                    }
-                    resolve(output);
-                },
-            );
-        });
-
-        return this.downloadCsvFile({
-            csvContent,
+        // Stream the CSV straight to disk/S3 instead of joining it into one giant
+        // string and copying it into a Buffer. For wide pivots that used to mean
+        // 3-4 copies of the whole file (string matrix -> joined string -> Buffer).
+        return this.writeCsvRowsToFile({
+            csvRows: csvResults,
             fileName: name || exploreId,
             projectUuid,
             truncated,
@@ -241,29 +260,31 @@ export class PivotTableService extends BaseService {
     }
 
     /**
-     * Downloads a CSV file to S3 or local storage
+     * Streams already pivoted CSV rows to a temp file, then uploads it to S3 (or registers
+     * it for local download). Rows are written through `csv-stringify` so the whole CSV
+     * never has to exist in memory as a single string or Buffer.
      */
-    private async downloadCsvFile({
-        csvContent,
+    private async writeCsvRowsToFile({
+        csvRows,
         fileName,
         projectUuid,
         truncated = false,
     }: {
-        csvContent: string;
+        csvRows: string[][];
         fileName: string;
         projectUuid: string;
         truncated?: boolean;
     }): Promise<AttachmentUrl> {
         const fileId = PivotTableService.generateFileId(fileName, truncated);
         const filePath = `/tmp/${fileId}`;
-        const csvWithBOM = Buffer.concat([
-            Buffer.from('\uFEFF', 'utf8'),
-            Buffer.from(csvContent, 'utf8'),
-        ]);
-        await fsPromise.writeFile(filePath, csvWithBOM);
+
+        await PivotTableService.writeRowsToCsvFile(csvRows, filePath);
 
         if (this.s3Client.isEnabled()) {
-            const s3Url = await this.s3Client.uploadCsv(csvWithBOM, fileId);
+            const s3Url = await this.s3Client.uploadCsv(
+                fs.createReadStream(filePath),
+                fileId,
+            );
 
             // Delete local file in 10 minutes, we could still read from the local file to upload to google sheets
             setTimeout(async () => {

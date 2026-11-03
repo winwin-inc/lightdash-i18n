@@ -220,6 +220,55 @@ export function isNumber(value: unknown): value is number {
     return !valueIsNaN(value);
 }
 
+/**
+ * `Number#toLocaleString(locale, options)` builds a fresh ICU formatter on every call,
+ * which costs ~15-20µs per cell. Exporting a 700k row x 20 column result means hundreds of
+ * millions of microseconds spent just creating formatters, so we memoize them.
+ *
+ * Bounded to keep memory flat when many distinct custom formats are in play.
+ */
+const NUMBER_FORMAT_CACHE_MAX_ENTRIES = 512;
+const numberFormatCache = new Map<string, Intl.NumberFormat>();
+
+function getCachedNumberFormat(
+    locale: string | undefined,
+    options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
+    const key = `${locale ?? ''}|${JSON.stringify(options)}`;
+    const cached = numberFormatCache.get(key);
+    if (cached) return cached;
+
+    // `Intl.NumberFormat` throws on invalid currency/options, keep that behaviour
+    // by constructing outside of the cache write.
+    const formatter = new Intl.NumberFormat(locale, options);
+    if (numberFormatCache.size >= NUMBER_FORMAT_CACHE_MAX_ENTRIES) {
+        numberFormatCache.clear();
+    }
+    numberFormatCache.set(key, formatter);
+    return formatter;
+}
+
+/**
+ * The legacy implementation called `value.toLocaleString(locale, options)` directly, which
+ * dispatches on the runtime type: for numbers it used the `Intl.NumberFormat` machinery,
+ * for anything else (e.g. the empty string, which `isNumber` accepts) it fell back to
+ * `String#toLocaleString` and ignored the options. Keep that behaviour for non numeric
+ * values so exports stay byte-identical.
+ */
+const formatNumberLike = (
+    value: number,
+    locale: string | undefined,
+    options: Intl.NumberFormatOptions,
+): string => {
+    if (typeof value === 'number' || typeof value === 'bigint') {
+        return getCachedNumberFormat(locale, options).format(value);
+    }
+    return (value as unknown as { toLocaleString: (l?: string, o?: Intl.NumberFormatOptions) => string }).toLocaleString(
+        locale,
+        options,
+    );
+};
+
 export function formatNumberValue(
     value: number,
     format?: CustomFormat,
@@ -228,20 +277,20 @@ export function formatNumberValue(
     const separator = format?.separator || NumberSeparator.DEFAULT;
     switch (separator) {
         case NumberSeparator.COMMA_PERIOD:
-            return value.toLocaleString('en-US', options);
+            return formatNumberLike(value, 'en-US', options);
         case NumberSeparator.SPACE_PERIOD:
-            return value.toLocaleString('en-US', options).replace(/,/g, ' ');
+            return formatNumberLike(value, 'en-US', options).replace(/,/g, ' ');
         case NumberSeparator.PERIOD_COMMA:
             // If currency is provided, having a PERIOD_COMMA separator will also change the position of the currency symbol
-            return value.toLocaleString('de-DE', options);
+            return formatNumberLike(value, 'de-DE', options);
         case NumberSeparator.NO_SEPARATOR_PERIOD:
-            return value.toLocaleString('en-US', {
+            return formatNumberLike(value, 'en-US', {
                 ...options,
                 useGrouping: false,
             });
         case NumberSeparator.DEFAULT:
             // This will apply the default style for each currency
-            return value.toLocaleString(undefined, options);
+            return formatNumberLike(value, undefined, options);
         default:
             return assertUnreachable(separator, 'Unknown separator');
     }
@@ -680,7 +729,7 @@ const customFormatConversionFnMap: Record<
     },
 };
 
-export function convertCustomFormatToFormatExpression(
+function convertCustomFormatToFormatExpressionUncached(
     format: CustomFormat,
 ): string | null {
     // ECMA-376 format expression
@@ -746,6 +795,31 @@ export function convertCustomFormatToFormatExpression(
     );
 }
 
+/**
+ * Building a format expression for a currency creates up to 2 `Intl.NumberFormat`
+ * instances (~35µs each). The XLSX export calls this once per cell, so memoize it.
+ * The format object fully determines the output, so a content key is safe.
+ */
+const formatExpressionCache = new Map<string, string | null>();
+const FORMAT_EXPRESSION_CACHE_MAX_ENTRIES = 512;
+
+export function convertCustomFormatToFormatExpression(
+    format: CustomFormat,
+): string | null {
+    const cacheKey = JSON.stringify(format);
+    const cached = formatExpressionCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const expression = convertCustomFormatToFormatExpressionUncached(format);
+
+    if (formatExpressionCache.size >= FORMAT_EXPRESSION_CACHE_MAX_ENTRIES) {
+        formatExpressionCache.clear();
+    }
+    formatExpressionCache.set(cacheKey, expression);
+    return expression;
+}
+
+
 export function formatExpressionHasParameters(format: string): boolean {
     return (
         format.includes(`\${${LightdashParameters.PREFIX_SHORT}`) ||
@@ -788,7 +862,15 @@ export function formatItemValue(
             return formatValueWithExpression(item.format, value);
         }
 
-        const customFormat = getCustomFormat(item);
+        // `getCustomFormat` allocates 2-3 objects per call. Most columns (strings,
+        // booleans, dates) never read it, so resolve it lazily on first use.
+        let resolvedCustomFormat: CustomFormat | undefined | null = null;
+        const getLazilyResolvedCustomFormat = (): CustomFormat | undefined => {
+            if (resolvedCustomFormat === null) {
+                resolvedCustomFormat = getCustomFormat(item) ?? undefined;
+            }
+            return resolvedCustomFormat;
+        };
 
         if (isCustomSqlDimension(item) || 'type' in item) {
             const type = getItemType(item);
@@ -823,7 +905,10 @@ export function formatItemValue(
                         : 'NaT';
                 case MetricType.MAX:
                 case MetricType.MIN:
-                    if (value instanceof Date && customFormat === undefined) {
+                    if (
+                        value instanceof Date &&
+                        getLazilyResolvedCustomFormat() === undefined
+                    ) {
                         return formatTimestamp(
                             value,
                             isDimension(item) ? item.timeInterval : undefined,
@@ -844,7 +929,7 @@ export function formatItemValue(
             }
         }
 
-        return applyCustomFormat(value, customFormat);
+        return applyCustomFormat(value, getLazilyResolvedCustomFormat());
     }
 
     return applyDefaultFormat(value);

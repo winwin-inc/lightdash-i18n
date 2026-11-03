@@ -6852,14 +6852,17 @@
   "components_export_results": {
     "exporting": {
       "title": "Exporting results",
-      "subtitle": "This may take a few minutes..."
+      "subtitle": "This may take a few minutes...",
+      "subtitle_elapsed": "Elapsed {{seconds}}s - large exports can take several minutes, the download starts automatically..."
     },
     "warning": {
       "title": "The results in this export have been limited.",
       "subtitle": "The export was truncated due to size constraints."
     },
     "error": {
-      "title": "Unable to download CSV"
+      "title": "Unable to download CSV",
+      "no_file": "The export finished but no file URL was returned. Please retry or contact your admin.",
+      "timeout": "The export did not finish within 20 minutes and we stopped waiting. Try a smaller range (fewer months or columns) or ask your admin to check the background job."
     },
     "no_data_to_export": "No data to export",
     "file_format": "File format",

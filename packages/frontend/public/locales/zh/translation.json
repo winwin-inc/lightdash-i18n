@@ -6870,14 +6870,17 @@
   "components_export_results": {
     "exporting": {
       "title": "导出结果",
-      "subtitle": "这可能需要几分钟的时间..."
+      "subtitle": "这可能需要几分钟的时间...",
+      "subtitle_elapsed": "已处理 {{seconds}} 秒，大表导出通常需要几分钟，完成后会自动下载..."
     },
     "warning": {
       "title": "导出结果被限制",
       "subtitle": "导出结果被截断,因为大小限制。"
     },
     "error": {
-      "title": "无法下载 CSV"
+      "title": "无法下载 CSV",
+      "no_file": "导出已完成，但没有拿到文件地址，请重试或联系管理员。",
+      "timeout": "导出超过 20 分钟仍未完成，已停止等待。请缩小范围（如减少月份或列）后重试，或联系管理员查看后台任务。"
     },
     "no_data_to_export": "没有可导出的数据",
     "file_format": "文件格式",
