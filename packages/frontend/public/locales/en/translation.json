@@ -2788,6 +2788,7 @@
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",
+        "derived_hint": "Derived as a level {{level}} category from its column or label (not declared; leave empty to keep the derived level)",
         "level1": "Level 1 Category",
         "level2": "Level 2 Category",
         "level3": "Level 3 Category",
@@ -2834,7 +2835,7 @@
         "value": "Condition",
         "value_policy": "Value policy",
         "viewer_limits": "Viewer limits",
-        "more": "More settings",
+        "option_limits": "Option limits",
         "linkage": "Field linkage"
       }
     },

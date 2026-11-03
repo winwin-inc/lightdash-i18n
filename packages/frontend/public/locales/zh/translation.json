@@ -2788,6 +2788,7 @@
         "follow_parent_hint": "父级类目变化时，会按实际数据自动校正该筛选器的取值",
         "tooltip": "将此筛选器绑定到类目字段，用于类目筛选器联动",
         "placeholder": "不绑定类目",
+        "derived_hint": "已按列名/名称推导为 {{level}} 级类目（未显式声明，留空即按推导生效）",
         "level1": "一级类目",
         "level2": "二级类目",
         "level3": "三级类目",
@@ -2834,7 +2835,7 @@
         "value": "条件",
         "value_policy": "取值策略",
         "viewer_limits": "查看者限制",
-        "more": "更多设置",
+        "option_limits": "选项约束",
         "linkage": "维度联动"
       }
     },
