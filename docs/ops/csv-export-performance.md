@@ -1,6 +1,7 @@
 # 大数据量导出（CSV / XLSX）优化
 
 状态：本期改动已合入 dev（镜像 2.5.6）；后续事项待评估。
+查询侧（不改导出链）的方案另见 [`query-performance-plan.md`](./query-performance-plan.md)。
 
 ## 一、反馈原文
 
