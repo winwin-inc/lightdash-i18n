@@ -32,7 +32,10 @@ import {
     processFieldsForExport,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
-import { getPivotExportLimits } from '../../utils/FileDownloadUtils/exportLimits';
+import {
+    getPivotExportLimits,
+    getPivotExportWidth,
+} from '../../utils/FileDownloadUtils/exportLimits';
 import { formatMomentByTimezone } from '../../utils/FileDownloadUtils/formatMomentByTimezone';
 
 export class ExcelService {
@@ -425,14 +428,20 @@ export class ExcelService {
 
         // Pivot exports build the whole matrix in memory, so tighten csvCellsLimit with the
         // memory budget: a 1M-row pivot export used to OOMKill the pod instead of truncating.
-        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+        // The matrix is as wide as the pivot output, not the input row width.
+        const width = getPivotExportWidth({
             fieldCount,
+            pivotTotalColumnCount: pivotDetails?.totalColumnCount,
+            maxColumnLimit: lightdashConfig.pivotTable.maxColumnLimit,
+        });
+        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+            width,
             cellsLimit,
             lightdashConfig.query?.exportMaxPivotCells,
         );
         if (clamped) {
             Logger.warn(
-                `Pivot Excel export clamped to ${maxRows} rows (${effectiveCells} cells) for ${fieldCount} fields; csvCellsLimit=${cellsLimit}`,
+                `Pivot Excel export clamped to ${maxRows} rows (${effectiveCells} cells, width ${width}, fields ${fieldCount}); csvCellsLimit=${cellsLimit}`,
             );
         }
 

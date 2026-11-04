@@ -107,11 +107,33 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         let uploadError: Error | undefined;
         const recordUploadError = (error: Error) => {
             uploadError ??= error;
+            Logger.warn(
+                `Upload body failed for ${
+                    this.configuration?.bucket
+                }/${fileName}: ${getErrorMessage(error)}`,
+            );
         };
         passThrough.on('error', recordUploadError);
         if (uploadBody !== passThrough) {
             uploadBody.on('error', recordUploadError);
         }
+
+        // `@aws-sdk/lib-storage` does not read `params.Body` until `done()` is called, and
+        // callers write the whole export before calling `close()`. Without this the body just
+        // fills the PassThrough (64 KB) and backpressure never reaches the producer: the
+        // export hangs and buffers the entire result in memory (the 1M-row OOM). Starting the
+        // upload here makes lib-storage consume the body while it is being written, so
+        // `write()` backpressure works end to end.
+        const uploadDone: Promise<unknown> = upload
+            .done()
+            .catch((error: unknown) => {
+                uploadError ??=
+                    error instanceof Error ? error : new Error(String(error));
+                throw uploadError;
+            });
+        // `close()` is the only place that awaits this; keep Node from reporting an
+        // unhandled rejection when nothing else consumed it yet.
+        void uploadDone.catch(() => undefined);
 
         const abortAndRelease = async () => {
             await upload.abort().catch((abortError) => {
@@ -144,7 +166,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
             try {
                 passThrough.end(); // signal EOF
-                await upload.done(); // wait for upload to finish
+                await uploadDone; // resolves when the eager upload finishes
                 Logger.debug(
                     `Successfully closed upload stream to ${this.configuration.bucket}/${fileName}`,
                 );
@@ -303,9 +325,10 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             formatConfig.get(fileExtension) || formatConfig.get('jsonl')!;
 
         // Create upload stream
-        // The sink is a formatted export (CSV/XLSX) that users download directly, so it is
-        // never compressed: `Content-Encoding: gzip` on a `.csv` object breaks scripts,
-        // Excel/curl and anything that does not decode the body for us.
+        // The sink is usually a formatted export (CSV/XLSX) that users download directly, so
+        // it is not compressed: `Content-Encoding: gzip` on a `.csv` object breaks scripts,
+        // Excel/curl and anything that does not decode the body for us. A `.jsonl` sink keeps
+        // following `RESULTS_JSONL_GZIP`.
         const { writeStream, close } = this.createUploadStream(
             sinkFileName,
             {
@@ -314,7 +337,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             attachmentDownloadName
                 ? `${attachmentDownloadName}.${config.extension}`
                 : undefined,
-            { compress: false },
+            { compress: fileExtension === 'jsonl' ? undefined : false },
         );
 
         // Get the results stream

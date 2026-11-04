@@ -14,6 +14,32 @@
  */
 export const DEFAULT_MAX_PIVOT_CELLS = 2_000_000;
 
+/**
+ * Width used to size the pivot budget.
+ *
+ * `fieldCount` is the *input* row width; a pivoted export is as wide as its output
+ * matrix (`pivotTotalColumnCount`, capped by `pivotTable.maxColumnLimit`). Using the
+ * input width for a wide pivot underestimates the materialised matrix by that factor.
+ */
+export const getPivotExportWidth = ({
+    fieldCount,
+    pivotTotalColumnCount,
+    maxColumnLimit,
+}: {
+    fieldCount: number;
+    pivotTotalColumnCount: number | null | undefined;
+    maxColumnLimit: number;
+}): number => {
+    const inputWidth = Math.max(fieldCount, 1);
+    if (!pivotTotalColumnCount || pivotTotalColumnCount <= 0) {
+        return inputWidth;
+    }
+    return Math.max(
+        inputWidth,
+        Math.min(pivotTotalColumnCount, Math.max(maxColumnLimit, inputWidth)),
+    );
+};
+
 export type PivotExportLimits = {
     /** cells actually allowed to be materialised */
     effectiveCells: number;

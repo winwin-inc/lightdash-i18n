@@ -26,7 +26,10 @@ import {
     generateGenericFileId,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
-import { getPivotExportLimits } from '../../utils/FileDownloadUtils/exportLimits';
+import {
+    getPivotExportLimits,
+    getPivotExportWidth,
+} from '../../utils/FileDownloadUtils/exportLimits';
 import { BaseService } from '../BaseService';
 
 type PivotTableServiceArguments = {
@@ -158,14 +161,20 @@ export class PivotTableService extends BaseService {
 
         const fieldCount = Object.keys(fields).length;
         const cellsLimit = this.lightdashConfig.query?.csvCellsLimit || 100000;
-        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+        // A pivoted export is as wide as its output matrix, not the input row width.
+        const width = getPivotExportWidth({
             fieldCount,
+            pivotTotalColumnCount: pivotDetails?.totalColumnCount,
+            maxColumnLimit: this.lightdashConfig.pivotTable.maxColumnLimit,
+        });
+        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+            width,
             cellsLimit,
             this.lightdashConfig.query?.exportMaxPivotCells,
         );
         if (clamped) {
             Logger.warn(
-                `Pivot CSV export clamped to ${maxRows} rows (${effectiveCells} cells) for ${fieldCount} fields; csvCellsLimit=${cellsLimit}`,
+                `Pivot CSV export clamped to ${maxRows} rows (${effectiveCells} cells, width ${width}, fields ${fieldCount}); csvCellsLimit=${cellsLimit}`,
             );
         }
 

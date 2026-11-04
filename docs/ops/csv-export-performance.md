@@ -91,6 +91,7 @@ JSONL 压缩（17 列 10 万行）：34.2 MB → 4 MB，gzip 69 ms、gunzip 60 m
 - 客户拿到的仍是明文 CSV / XLSX。压缩只作用于服务端中间 JSONL，读取时在 `getDowloadStream` 一处自动解压。
 - 数值、百分比、金额、日期时区的显示规则未改动，只是不再每次重建格式化器。
 - `EXPORT_MAX_ROWS` 默认 100 万，与现网 `LIGHTDASH_QUERY_MAX_LIMIT=1000000` 一致，正常导出不触发；触发时置 `truncated`、前端提示、文件名带 `incomplete_results-`。
+- 透视导出是全量物化（实测约 257 B/单元格，同时存在原始行、格式化行、透视矩阵与 `string[][]`），因此另有一道内存预算 `EXPORT_MAX_PIVOT_CELLS`（默认 200 万格）：`maxRows = min(csvCellsLimit, 预算) / 透视输出列数`，超出仍按既有 `truncated` 语义截断，避免 100 万行透视导出把 pod OOMKill。非透视 CSV/XLSX 是流式的，不受这条影响。
 
 回测用例：
 
@@ -133,6 +134,7 @@ JSONL 压缩（17 列 10 万行）：34.2 MB → 4 MB，gzip 69 ms、gunzip 60 m
 - `SCHEDULER_JOB_TIMEOUT` 与前端 20 分钟截止只改状态，超时后底层任务仍在跑，不释放 CPU 与内存。
 - `query_history` 每行约 10 KB，排查时不要对大文本列用 `LIKE`，按 `created_at` 缩窗口再过滤。
 - 非透视 CSV 以前没有行数上限，现在默认 100 万；需要更多调 `EXPORT_MAX_ROWS`，不要去掉限制。
+- 透视导出的上限是「格数」而不是「行数」，宽透视（输出列多）可导出的行数会更少；需要更多就调 `EXPORT_MAX_PIVOT_CELLS`，但每格约 257 B，调大前先算内存（预算 200 万格 ≈ 0.5 GB 活堆）。
 
 ## 附录：环境配置
 

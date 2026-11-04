@@ -176,4 +176,22 @@ describe('S3ResultsFileStorageClient.createUploadStream', () => {
         await expect(close()).rejects.toThrow('socket hang up');
         expect(mockUploads[0].abort).toHaveBeenCalled();
     });
+
+    it('starts the upload before close() so the body is drained while writing', async () => {
+        // Regression pin: lib-storage only reads `params.Body` once done() is called.
+        // If it is deferred to close(), the body fills up (64 KB) and the export both
+        // hangs and buffers everything in memory (the 1M-row OOM).
+        const client = buildS3Client(false);
+
+        const { close } = client.createUploadStream(
+            'export.csv',
+            { contentType: 'text/csv' },
+            undefined,
+            { compress: false },
+        );
+
+        expect(mockUploads[0].done).toHaveBeenCalledTimes(1);
+
+        await close();
+    });
 });

@@ -1,4 +1,20 @@
-import { DEFAULT_MAX_PIVOT_CELLS, getPivotExportLimits } from './exportLimits';
+import {
+    DEFAULT_MAX_PIVOT_CELLS,
+    getPivotExportLimits,
+    getPivotExportWidth,
+} from './exportLimits';
+
+describe('getPivotExportWidth', () => {
+    it('keeps the input width when there is no pivot', () => {
+        expect(
+            getPivotExportWidth({
+                fieldCount: 17,
+                pivotTotalColumnCount: null,
+                maxColumnLimit: 150,
+            }),
+        ).toBe(17);
+    });
+});
 
 describe('getPivotExportLimits', () => {
     it('keeps the configured cell limit when it fits the memory budget', () => {
@@ -26,5 +42,33 @@ describe('getPivotExportLimits', () => {
         const limits = getPivotExportLimits(0, 1_000_000, 2_000_000);
 
         expect(limits.maxRows).toBe(1_000_000);
+    });
+
+    it('sizes the budget by the pivot output width, not the input row width', () => {
+        expect(
+            getPivotExportWidth({
+                fieldCount: 17,
+                pivotTotalColumnCount: 120,
+                maxColumnLimit: 150,
+            }),
+        ).toBe(120);
+
+        // No pivot information (or a narrow pivot) falls back to the input width.
+        expect(
+            getPivotExportWidth({
+                fieldCount: 17,
+                pivotTotalColumnCount: null,
+                maxColumnLimit: 150,
+            }),
+        ).toBe(17);
+
+        // The output matrix never exceeds the configured column limit.
+        expect(
+            getPivotExportWidth({
+                fieldCount: 17,
+                pivotTotalColumnCount: 900,
+                maxColumnLimit: 150,
+            }),
+        ).toBe(150);
     });
 });

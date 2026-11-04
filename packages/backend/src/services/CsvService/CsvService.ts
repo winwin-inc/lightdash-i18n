@@ -414,6 +414,16 @@ export class CsvService extends BaseService {
         let truncated = false;
         let loopError: unknown;
 
+        // Single rejection channel for the sink and the stringifier: registered once (not
+        // per backpressure cycle) so a 1M row export cannot pile up listeners.
+        let failExport: (error: unknown) => void = () => undefined;
+        const failure = new Promise<never>((_resolve, reject) => {
+            failExport = reject;
+        });
+        void failure.catch(() => undefined);
+        stringifier.on('error', (error: Error) => failExport(error));
+        void sink.catch((error: unknown) => failExport(error));
+
         try {
             // `for await` pauses the read stream while the body is awaiting, so a slow
             // sink never accumulates more than one row of work here.
@@ -446,25 +456,24 @@ export class CsvService extends BaseService {
 
                     if (csvRow) {
                         if (!stringifier.write(csvRow)) {
-                            // Pause the reader as well as awaiting drain: readline keeps an
-                            // internal line queue, so stopping at the stringifier alone would
-                            // still let the S3 response be pulled into memory faster than the
-                            // sink can take it.
-                            lineReader.pause();
+                            // Stop pulling lines while the sink is full. `readline` keeps its
+                            // own queue, so pausing the underlying read stream is what actually
+                            // applies backpressure to the S3 response (pausing the interface
+                            // itself throws ERR_USE_AFTER_CLOSE once the input hit EOF).
                             readStream.pause();
                             // eslint-disable-next-line no-await-in-loop
-                            await new Promise<void>((resolve, reject) => {
-                                stringifier.once('drain', resolve);
+                            await Promise.race([
+                                new Promise<void>((resolve) => {
+                                    stringifier.once('drain', resolve);
+                                }),
                                 // A failing sink destroys the stringifier without ever
-                                // emitting `drain`; without these two the export would hang
-                                // instead of reporting the upload error.
-                                stringifier.once('error', reject);
-                                void sink.catch(reject);
-                            });
+                                // emitting `drain`; racing against the shared failure promise
+                                // reports the upload error instead of hanging.
+                                failure,
+                            ]);
                             if (!readStream.destroyed) {
                                 readStream.resume();
                             }
-                            lineReader.resume();
                         }
                     }
                 }
@@ -493,11 +502,14 @@ export class CsvService extends BaseService {
             sinkError = error;
         }
 
+        const asError = (error: unknown): Error =>
+            error instanceof Error ? error : new Error(String(error));
+
         if (loopError) {
-            throw loopError;
+            throw asError(loopError);
         }
         if (sinkError) {
-            throw sinkError;
+            throw asError(sinkError);
         }
 
         return { truncated };
