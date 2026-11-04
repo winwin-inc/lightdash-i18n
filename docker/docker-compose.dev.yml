@@ -123,6 +123,7 @@ services:
             # 导出相关（显式 allowlist，不写这里容器里就读不到）
             RESULTS_JSONL_GZIP: ${RESULTS_JSONL_GZIP:-false}
             EXPORT_MAX_ROWS: ${EXPORT_MAX_ROWS:-1000000}
+            EXPORT_MAX_PIVOT_CELLS: ${EXPORT_MAX_PIVOT_CELLS:-2000000}
             ENABLE_TIMEZONE_SUPPORT: ${ENABLE_TIMEZONE_SUPPORT:-true}
         ports:
             - '8080:8080'

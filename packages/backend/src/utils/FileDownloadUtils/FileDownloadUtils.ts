@@ -176,6 +176,18 @@ export async function streamJsonlData<T>({
         let truncated = false;
         const results: T[] = [];
 
+        /**
+         * Release the source (an S3 response, possibly wrapped in a gunzip stream) as
+         * soon as we stop reading. `lineReader.close()` only stops reading; without
+         * this the download stays half-open until the S3 request timeout and every
+         * truncated export leaks one connection.
+         */
+        const releaseReadStream = () => {
+            if (!readStream.destroyed) {
+                readStream.destroy();
+            }
+        };
+
         lineReader.on('line', (line: string) => {
             if (!line.trim()) return;
 
@@ -185,6 +197,7 @@ export async function streamJsonlData<T>({
             if (maxLines !== undefined && lineCount > maxLines) {
                 truncated = true;
                 lineReader.close();
+                releaseReadStream();
                 return;
             }
 
@@ -209,6 +222,7 @@ export async function streamJsonlData<T>({
             if (onComplete) {
                 await onComplete(results, truncated);
             }
+            releaseReadStream();
             resolve({ results, truncated });
         });
 

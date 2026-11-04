@@ -18,6 +18,7 @@ import {
 } from '../../lib/requiredDashboardContext';
 import { rowsToScalarFlat } from '../../lib/toolOutput';
 import type { LightdashRestClient } from '../../rest/lightdashRest';
+import { isQueryStillRunningError } from '../../rest/queryStillRunning';
 import { assertExploreQueryable } from '../access/assertExploreQueryable';
 import {
     resolveCoreToolsApiKey,
@@ -84,6 +85,9 @@ function isExploreQueryDeniedMessage(message: string): boolean {
 }
 
 function formatFlatMetricQueryError(error: unknown): string {
+    // The query is still running on the warehouse. Rewriting this into "check your field
+    // names" would make the caller resubmit the same query and double the warehouse load.
+    if (isQueryStillRunningError(error)) return error.message;
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('filters.dimensions.and')) return message;
     if (isExploreQueryDeniedMessage(message)) return message;
@@ -91,6 +95,7 @@ function formatFlatMetricQueryError(error: unknown): string {
 }
 
 function formatSemanticMetricQueryError(error: unknown): string {
+    if (isQueryStillRunningError(error)) return error.message;
     const message = error instanceof Error ? error.message : String(error);
     if (isExploreQueryDeniedMessage(message)) return message;
     return `run_semantic_metric_query 执行失败：${message}\n校验由 Lightdash API 完成；422 时请修改 metricQuery 后重试。`;

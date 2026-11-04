@@ -63,9 +63,9 @@ import {
     isVizTableConfig,
     ItemsMap,
     MAX_SAFE_INTEGER,
+    mergeDashboardSorts,
     MergeQueryErrorKind,
     type MetricOverrides,
-    mergeDashboardSorts,
     MetricQuery,
     normalizeIndexColumns,
     NotFoundError,
@@ -1566,8 +1566,24 @@ export class AsyncQueryService extends ProjectService {
                 queryTags.query_context,
             );
         } finally {
-            void sshTunnel?.disconnect();
-            void stream?.close();
+            // Neither call is awaited on the happy path, but both can reject (tunnel teardown
+            // and `upload.done()` failures). Without a handler that becomes an
+            // `unhandledRejection`, which terminates the process on Node 20 — i.e. a pod
+            // restart that looks like "the service fixed itself".
+            sshTunnel?.disconnect().catch((error) => {
+                this.logger.warn(
+                    `Failed to close warehouse SSH tunnel: ${getErrorMessage(
+                        error,
+                    )}`,
+                );
+            });
+            stream?.close().catch((error) => {
+                this.logger.warn(
+                    `Failed to close results upload stream: ${getErrorMessage(
+                        error,
+                    )}`,
+                );
+            });
         }
     }
 

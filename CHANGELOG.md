@@ -7,6 +7,36 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.6.3 (2026-11-04)
+
+> 累积同批发布的 v2.5.9 / v2.6.0 / v2.6.1 / v2.6.2 / v2.6.3，生产以 v2.6.3 为落点，中间版本未单独上线。
+
+-   **稳定性：导出不再把服务搞挂**
+    -   结果分页读的连接泄漏：`body.pipe(createGunzip())` 被 `destroy()` 时只断开解压流，S3 源响应继续挂着（默认 30 分钟），每翻一页泄漏一个 OSS 连接；攒满 Node 默认的 50 个 socket 后所有 S3 请求排队，表现为"查询转圈、重启就好、几小时后复发"。现在解压流销毁时一并销毁源流，并把源流错误转发给读侧
+    -   截断导出（`streamJsonlData` 只 `close()` 不销毁源流）与 SQL runner 流式结果接口（`pipe(res)` 在客户端断开后不清理）的同类泄漏
+    -   上传失败不再杀死进程：上传流补 `error` 监听（此前会成为未捕获异常直接退出）；失败时中止分片上传、销毁 gzip 流，不再留半截对象
+    -   `finally` 里的 `close()` / `sshTunnel.disconnect()` 加 catch，避免 `unhandledRejection` 终止进程
+-   **导出内存：100 万行不再 OOMKilled**
+    -   CSV 导出改为 `pipeline` 真背压：写端（S3 上传）满时暂停读取结果文件，内存不再随行数线性增长
+    -   关键修正：`@aws-sdk/lib-storage` 只在 `done()` 时才读 `params.Body`，而导出是"先写完整份再 close"，因此上传改为**开始写入时就启动**；否则背压会在 64 KB 处永久等待（实测：只写不消费的 PassThrough 在 114,688 字节处 `write()` 返回 false，`done()` 之后 200 ms 内被读空）
+    -   透视导出按内存预算 `EXPORT_MAX_PIVOT_CELLS`（默认 200 万格，实测约 257 B/格）钳制，并按透视**输出列数**（受 `maxColumnLimit` 限制）计算，超出仍按既有 `truncated` 语义截断并提示
+-   **兼容性**
+    -   导出产物（CSV / XLSX）不再被 gzip：`RESULTS_JSONL_GZIP` 只作用于结果 JSONL，避免 `.csv` 对象带 `Content-Encoding: gzip` 时脚本 / Excel 拿到二进制；`.jsonl` 产物仍跟随该开关
+-   **清理与健壮性**
+    -   看板多文件导出的 `/tmp/<id>.zip`、透视 CSV 的临时文件补齐删除路径；`unlink` 失败只告警，不再产生未捕获拒绝
+    -   背压等待不再每轮挂一个监听器（1M 行曾堆出上千个 error 监听）；去掉 Node 26 在输入 EOF 后调用会抛 `ERR_USE_AFTER_CLOSE` 的 `lineReader.pause()`
+-   **工程**
+    -   修掉 backend 自己的 eslint 规则报错（`no-throw-literal`）；`EXPORT_MAX_PIVOT_CELLS` 补进 docker-compose 白名单与导出文档
+    -   新增回归用例：上传必须在 `close()` 之前启动、透视预算按输出列宽计算、sink 失败不挂死、gzip 与明文导出逐字节对拍
+
+## v2.5.8 (2026-11-03)
+
+-   **Bug 修复**
+    -   查询超时改为**让数仓自己取消**：`statement_timeout` 与客户端 `query_timeout` 共用同一个 deadline。此前客户端超时只断开 socket，数仓上的 SQL 仍在跑，继续占用连接槽与实例查询内存（Hologres `HGERR_code 53200` 的成因）；`SET statement_timeout` 失败只告警，不影响查询
+    -   MCP 轮询预算用尽时报「查询仍在运行、请不要重复提交」，而不是报失败（避免 agent 换写法重试，把同一条聚合叠成两三条查询）
+-   **工程**
+    -   新增 [`docs/ops/warehouse-query-cancel.md`](./docs/ops/warehouse-query-cancel.md)：机制、修复与配套运维动作
+
 ## v2.5.6 (2026-11-03)
 
 -   **调优**
