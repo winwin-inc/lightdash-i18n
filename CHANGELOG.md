@@ -7,6 +7,54 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.6.3 (2026-11-04)
+
+-   **Bug 修复**
+    -   导出真正建立了端到端背压：S3 上传改为**开始写入时就启动**。`@aws-sdk/lib-storage` 只在 `done()` 时才读 `params.Body`，而导出是"先写完整份再 close"，所以 v2.6.2 的 pipeline 背压会在 64 KB 处永久等待（实测：只写不消费的 PassThrough 在 114,688 字节处 `write()` 返回 false，`done()` 之后 200 ms 内被读空）
+    -   透视导出的内存预算改按**透视输出列数**（`pivotDetails.totalColumnCount`，受 `pivotTable.maxColumnLimit` 限制）计算，宽透视不再被低估内存
+    -   背压等待不再每轮挂一个监听器（1M 行导出曾堆出上千个 error 监听），改为一个共享的失败通道；去掉 `lineReader.pause()`（Node 26 在输入 EOF 后调用会抛 `ERR_USE_AFTER_CLOSE`）
+    -   导出产物按扩展名决定是否压缩：`.jsonl` 跟随 `RESULTS_JSONL_GZIP`，CSV / XLSX 一律明文
+-   **工程**
+    -   修掉 backend 自己的 eslint 规则报错（`no-throw-literal`）；`EXPORT_MAX_PIVOT_CELLS` 补进 docker-compose 白名单与导出文档
+    -   新增回归用例：上传必须在 `close()` 之前启动、透视预算按输出列宽计算
+
+## v2.6.2 (2026-11-04)
+
+-   **稳定性**
+    -   大导出不再 OOMKilled：CSV 导出改为 `pipeline` 真背压（写端满时暂停读取结果文件）；透视导出按内存预算 `EXPORT_MAX_PIVOT_CELLS`（默认 200 万格，实测约 257 B/格）钳制，超出仍按既有 `truncated` 语义截断并提示
+    -   上传流补 `error` 监听：S3 上传失败不再变成未捕获异常杀死进程（此前表现为"下载报错 + pod 重启"）
+    -   导出产物（CSV / XLSX）不再被 gzip：`RESULTS_JSONL_GZIP` 只作用于结果 JSONL，避免 `.csv` 对象带 `Content-Encoding: gzip` 时脚本 / Excel 拿到二进制
+-   **已知**
+    -   本版对真实 S3 sink 的背压不完整（SDK 不提前读 body），由 v2.6.3 修正
+
+## v2.6.1 (2026-11-04)
+
+-   **Bug 修复**
+    -   上传失败时中止分片上传并销毁 gzip 流，不再在存储桶里留半截对象、也不再让缓冲常驻内存
+    -   `finally` 里的 `close()` / `sshTunnel.disconnect()` 加上 catch：这两处都可能 reject，`void` 接不住会变成 `unhandledRejection` 直接终止进程
+    -   看板多文件导出的 `/tmp/<id>.zip` 上传后删除（此前是全仓唯一没有清理路径的临时文件）
+    -   透视 CSV 延迟删除临时文件的 `unlink` 失败只告警（此前会产生未捕获拒绝），并给定时器加 `unref()`
+
+## v2.6.0 (2026-11-04)
+
+-   **稳定性**
+    -   截断导出（`streamJsonlData` 只 `close()` 不销毁源流）与 SQL runner 流式结果接口（`pipe(res)` 在客户端断开后不清理）不再泄漏对象存储连接
+-   **说明**
+    -   本线与 `v2.5.7`（看板 XLSX 导出 / 按 Tab 分工作簿）是两条并行线，`v2.6.x` 不含该功能
+
+## v2.5.9 (2026-11-04)
+
+-   **Bug 修复**
+    -   `RESULTS_JSONL_GZIP=true` 时，结果分页读的 S3 响应不会被释放：`body.pipe(createGunzip())` 被 `destroy()` 时只断开解压流，源响应继续挂着（默认 30 分钟），每翻一页泄漏一个 OSS 连接；攒满 Node 默认的 50 个 socket 后所有 S3 请求排队，表现为"查询转圈、重启就好、几小时后复发"。现在解压流销毁时一并销毁源流，并把源流错误转发给读侧
+
+## v2.5.8 (2026-11-03)
+
+-   **Bug 修复**
+    -   查询超时改为**让数仓自己取消**：`statement_timeout` 与客户端 `query_timeout` 共用同一个 deadline。此前客户端超时只断开 socket，数仓上的 SQL 仍在跑，继续占用连接槽与实例查询内存（Hologres `HGERR_code 53200` 的成因）；`SET statement_timeout` 失败只告警，不影响查询
+    -   MCP 轮询预算用尽时报「查询仍在运行、请不要重复提交」，而不是报失败（避免 agent 换写法重试，把同一条聚合叠成两三条查询）
+-   **工程**
+    -   新增 [`docs/ops/warehouse-query-cancel.md`](./docs/ops/warehouse-query-cancel.md)：机制、修复与配套运维动作
+
 ## v2.5.6 (2026-11-03)
 
 -   **调优**
