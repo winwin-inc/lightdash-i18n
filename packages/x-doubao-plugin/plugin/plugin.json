@@ -1,0 +1,15 @@
+{
+  "name": "x-platform-assistant",
+  "version": "0.1.0",
+  "description": "马上赢 X 平台（Lightdash）数据洞察：批量取数、字段检索与对比报告。",
+  "extensions": {
+    "com.doubao": {
+      "mcpServers": {
+        "x": {
+          "displayName": { "zh": "马上赢 X 平台" },
+          "displayDescription": { "zh": "查询生产 BI 数据：explore、字段与指标查询。" }
+        }
+      }
+    }
+  }
+}
