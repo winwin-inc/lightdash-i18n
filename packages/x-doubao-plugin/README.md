@@ -32,8 +32,8 @@ packages/x-doubao-plugin/
 │   ├── com.doubao/
 │   │   ├── assets/plugin-icon.png
 │   │   └── auth/x.json                       ← 凭据表单声明（不含真实值）
-│   └── skills/brandct-x-insight/
-│       ├── SKILL.md                          触发条件 / 调用顺序 / 失败处理
+│   └── skills/brandct-x-insight/              ← 这个目录本身就是「技能包」根
+│       ├── SKILL.md                          技能入口上传时必须在根
 │       ├── assets/icon.png                   512×512
 │       └── references/fields.md              字段与取数速查
 ├── proxy/                                    ← 批量代理（可选，解决 N 次往返）
@@ -43,9 +43,21 @@ packages/x-doubao-plugin/
 │   ├── mock-upstream.ts                      假上游，本地联调用
 │   └── smoke.mjs                             串行 vs 批量对比实验
 └── scripts/
-    ├── verify.mjs                            发布前自检（12 条规则）
-    └── build-plugin.mjs                      打 ZIP（零依赖）
+    ├── verify.mjs                            插件包自检（12 条发布红线）
+    ├── verify-skill.mjs                      技能包自检（根目录 / frontmatter / 图标）
+    ├── build-plugin.mjs                      打插件包 ZIP（根含 plugin.json）
+    ├── build-skill.mjs                       打技能包 ZIP（根含 SKILL.md）
+    └── zip.mjs                               零依赖 ZIP 写入
 ```
+
+> **两个上传入口，根目录要求不一样**，这是最高频的报错来源：
+>
+> | 控制台入口 | 拖入什么 | ZIP 根目录必须有 |
+> |---|---|---|
+> | 插件 → 创建插件 | `dist/x-platform-assistant.zip` | `plugin.json` |
+> | 技能 → 上传技能 | `dist/brandct-x-insight.zip`，或直接拖入 `plugin/skills/brandct-x-insight/` 文件夹 | `SKILL.md` |
+>
+> 把 `plugin/` 整个目录传给「上传技能」会报「文件夹需在下一级包含 SKILL.md 文件」——因为 SKILL.md 在 `skills/<技能名>/` 里，不在下一级。
 
 ---
 
@@ -100,9 +112,21 @@ node proxy/smoke.mjs                                   # 对比实验
 
 ## 5. 发布到豆包
 
+### 5.1 只发技能（先验证话术效果，最快）
+
+```bash
+node scripts/verify-skill.mjs     # 7 条规则
+node scripts/build-skill.mjs      # dist/brandct-x-insight.zip，根含 SKILL.md
+```
+
+控制台 → **技能 → 创建技能** → 上传。
+注意：**独立技能不带连接器**，用户还得自己在客户端加 MCP、填 PAT。适合先测 skill 的措辞和触发。
+
+### 5.2 发插件（推荐，MCP + 技能一次装好）
+
 1. `node scripts/verify.mjs` —— 必须全绿（12 条规则，见第 6 节）
-2. `node scripts/build-plugin.mjs` —— 产出 `dist/x-platform-assistant.zip`（`plugin.json` 在 ZIP 根）
-3. 控制台 → 创建插件 → 上传 ZIP → 等待自动校验
+2. `node scripts/build-plugin.mjs` —— 产出 `dist/x-platform-assistant.zip`
+3. 控制台 → **插件 → 创建插件** → 上传 ZIP → 等自动校验
 4. `子能力信息`：连接器传输方式选 `Streamable HTTP`，鉴权选 `API Key / 自定义鉴权`，填**测试 PAT** 供审核实测
 5. `技能信息`：填评测报告（飞书文档链接，对审核开放）+ 5–10 条示例提示词
 6. 提交审核（约 3 个工作日）→ 平台运营验收 → 统一发版
