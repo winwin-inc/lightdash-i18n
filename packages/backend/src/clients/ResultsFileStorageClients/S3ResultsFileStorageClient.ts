@@ -7,8 +7,8 @@ import {
     WarehouseResults,
 } from '@lightdash/common';
 import fs from 'fs';
-import { createGunzip, createGzip } from 'zlib';
 import { PassThrough, Readable, Writable } from 'stream';
+import { createGunzip, createGzip } from 'zlib';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { buildPublicDownloadUrl } from '../Aws/buildPublicDownloadUrl';
@@ -144,9 +144,34 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             const body = results.Body as Readable;
             // Result files may be gzip compressed (see `createUploadStream`). Older
             // objects have no `ContentEncoding`, so they keep streaming as-is.
-            return results.ContentEncoding === 'gzip'
-                ? body.pipe(createGunzip())
-                : body;
+            if (results.ContentEncoding !== 'gzip') {
+                return body;
+            }
+
+            const decompressed = createGunzip();
+
+            // `pipe()` only moves data: destroying the destination does not destroy the
+            // source. Callers stop reading as soon as they have a full page
+            // (`AsyncQueryService.getResultsPageFromS3` calls `destroy()` in `finally`),
+            // so without this the S3 response stays half-read with its socket open until
+            // `S3_REQUEST_TIMEOUT` (30 min by default) — one leaked connection per page
+            // read, until S3 requests queue forever and every query hangs.
+            const releaseSource = () => {
+                if (!body.destroyed) {
+                    body.destroy();
+                }
+            };
+            decompressed.once('close', releaseSource);
+
+            // `pipe()` does not forward errors either; propagate them so the reader fails
+            // instead of waiting for the request timeout.
+            body.once('error', (bodyError: Error) => {
+                decompressed.destroy(bodyError);
+            });
+
+            body.pipe(decompressed);
+
+            return decompressed;
         } catch (error) {
             if (error instanceof NotFound) {
                 throw new Error(`Cache key ${cacheKey} not found`);
