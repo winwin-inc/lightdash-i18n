@@ -108,6 +108,24 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                     }/${fileName}: ${getErrorMessage(error)}`,
                 );
                 Logger.debug(`Full error: ${JSON.stringify(error)}`);
+
+                // Nothing else will drain these streams: abort the multipart upload and
+                // release the gzip sink, otherwise a failed upload keeps its buffers alive
+                // and leaves an incomplete object in the bucket.
+                await upload.abort().catch((abortError) => {
+                    Logger.warn(
+                        `Failed to abort upload to ${
+                            this.configuration?.bucket
+                        }/${fileName}: ${getErrorMessage(abortError)}`,
+                    );
+                });
+                if (!uploadBody.destroyed) {
+                    uploadBody.destroy();
+                }
+                if (!passThrough.destroyed) {
+                    passThrough.destroy();
+                }
+
                 throw error;
             }
         };
