@@ -287,9 +287,17 @@ export class PivotTableService extends BaseService {
             );
 
             // Delete local file in 10 minutes, we could still read from the local file to upload to google sheets
-            setTimeout(async () => {
-                await fsPromise.unlink(filePath);
-            }, 60 * 10 * 1000);
+            setTimeout(() => {
+                fsPromise.unlink(filePath).catch((error) => {
+                    // Already gone (e.g. local download consumed it) or /tmp was cleaned:
+                    // a rejected unlink here used to be an unhandled rejection.
+                    Logger.warn(
+                        `Could not delete pivot CSV temp file ${filePath}: ${getErrorMessage(
+                            error,
+                        )}`,
+                    );
+                });
+            }, 60 * 10 * 1000).unref();
 
             return {
                 filename: fileName,
