@@ -1,7 +1,9 @@
+import { Readable } from 'stream';
 import {
     createContentDispositionHeader,
     processFieldsForExport,
     sanitizeGenericFileName,
+    streamJsonlData,
     stripCompactUnitHintsFromHeader,
 } from './FileDownloadUtils';
 
@@ -289,6 +291,50 @@ describe('FileDownloadUtils', () => {
             expect(header).toBe(
                 'attachment; filename="_"; filename*=UTF-8\'\'_',
             );
+        });
+    });
+
+    describe('streamJsonlData', () => {
+        const buildJsonl = (rows: number) =>
+            `${Array.from({ length: rows }, (_, i) =>
+                JSON.stringify({ i }),
+            ).join('\n')}\n`;
+
+        /**
+         * `lineReader.close()` only stops reading. Without releasing the source the
+         * S3 download stays half-open until the request timeout, so every truncated
+         * export leaks one connection.
+         */
+        it('releases the source stream when maxLines truncates the read', async () => {
+            const readStream = Readable.from([Buffer.from(buildJsonl(100))]);
+
+            const { results, truncated } = await streamJsonlData<
+                Record<string, unknown>
+            >({
+                readStream,
+                maxLines: 2,
+                onRow: (row) => row,
+            });
+
+            expect(truncated).toBe(true);
+            expect(results).toHaveLength(2);
+            expect(readStream.destroyed).toBe(true);
+        });
+
+        it('releases the source stream after a complete read', async () => {
+            const readStream = Readable.from([Buffer.from(buildJsonl(3))]);
+
+            const { results, truncated } = await streamJsonlData<
+                Record<string, unknown>
+            >({
+                readStream,
+                maxLines: 10,
+                onRow: (row) => row,
+            });
+
+            expect(truncated).toBe(false);
+            expect(results).toHaveLength(3);
+            expect(readStream.destroyed).toBe(true);
         });
     });
 });
