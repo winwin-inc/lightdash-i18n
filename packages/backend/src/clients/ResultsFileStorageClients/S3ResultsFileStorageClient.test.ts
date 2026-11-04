@@ -56,4 +56,39 @@ describe('S3ResultsFileStorageClient.getDowloadStream', () => {
         const stream = await client.getDowloadStream('results-key');
         await expect(readAll(stream)).resolves.toBe(jsonl);
     });
+
+    /**
+     * Callers stop reading as soon as they have a full page and then destroy the
+     * stream. Destroying the gunzip must also release the S3 response, otherwise the
+     * socket stays open until the request timeout and every page read leaks one.
+     */
+    it('destroys the underlying S3 response when the reader stops early', async () => {
+        const body = Readable.from([
+            gzipSync(Buffer.from(jsonl.repeat(1000), 'utf8')),
+        ]);
+        mockGetResults(body, 'gzip');
+
+        const stream = await client.getDowloadStream('results-key');
+        const closed = new Promise<void>((resolve) => {
+            stream.once('close', () => resolve());
+        });
+
+        // Simulate `getResultsPageFromS3` finishing a page and cleaning up.
+        stream.destroy();
+        await closed;
+
+        expect(body.destroyed).toBe(true);
+    });
+
+    it('forwards S3 response errors to the reader', async () => {
+        const body = new Readable({
+            read() {
+                this.destroy(new Error('socket hang up'));
+            },
+        });
+        mockGetResults(body, 'gzip');
+
+        const stream = await client.getDowloadStream('results-key');
+        await expect(readAll(stream)).rejects.toThrow('socket hang up');
+    });
 });

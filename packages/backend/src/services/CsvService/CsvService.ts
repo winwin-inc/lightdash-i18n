@@ -1458,9 +1458,21 @@ export class CsvService extends BaseService {
         this.logger.info(
             `Uploading zip file to S3 for dashboard ${dashboardUuid}: ${zipFileName}`,
         );
-        return this.s3Client.uploadZip(
-            fs.createReadStream(zipFile),
-            zipFileName,
-        );
+        try {
+            return await this.s3Client.uploadZip(
+                fs.createReadStream(zipFile),
+                zipFileName,
+            );
+        } finally {
+            // The zip is only an upload staging file; leaving it in /tmp is what slowly
+            // fills the pod's writable layer (there is no other cleanup path for it).
+            await fsPromise.unlink(zipFile).catch((error) => {
+                this.logger.warn(
+                    `Could not delete temporary zip ${zipFile}: ${getErrorMessage(
+                        error,
+                    )}`,
+                );
+            });
+        }
     }
 }
