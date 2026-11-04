@@ -51,6 +51,15 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             contentType: string;
         },
         attachmentDownloadName?: string,
+        uploadOptions?: {
+            /**
+             * Override `RESULTS_JSONL_GZIP` for this object. Result JSONL files keep the
+             * configured behaviour, but formatted exports (CSV/XLSX) must stay plain: the
+             * browser would decode a gzip body, while scripts/Excel/`curl` get binary
+             * bytes with a `.csv` extension.
+             */
+            compress?: boolean;
+        },
     ) {
         if (!this.configuration || !this.s3) {
             throw new MissingConfigError('S3 configuration is not set');
@@ -68,10 +77,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
         const prefixedKey = this.getPrefixedFileId(fileName);
 
+        const shouldCompress = uploadOptions?.compress ?? this.jsonlGzip;
+
         // When gzip is on we pipe the raw sink through a gzip stream and upload the
         // compressed output. `write()` and `close()` stay untouched, so callers keep
         // pushing JSONL text exactly as before.
-        const uploadBody: Readable = this.jsonlGzip
+        const uploadBody: Readable = shouldCompress
             ? passThrough.pipe(createGzip({ level: 3 }))
             : passThrough;
 
@@ -82,12 +93,42 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                 Key: prefixedKey,
                 Body: uploadBody,
                 ContentType: opts.contentType,
-                ...(this.jsonlGzip ? { ContentEncoding: 'gzip' } : {}),
+                ...(shouldCompress ? { ContentEncoding: 'gzip' } : {}),
                 ContentDisposition: contentDisposition,
             },
         });
 
         let isClosed = false;
+
+        // An upload failure destroys the body stream with its error. Without a listener that
+        // emits an unhandled `error` event, and Node terminates the whole process (a 100M-row
+        // export used to take the pod down this way). Keep the first error and surface it from
+        // `close()` instead.
+        let uploadError: Error | undefined;
+        const recordUploadError = (error: Error) => {
+            uploadError ??= error;
+        };
+        passThrough.on('error', recordUploadError);
+        if (uploadBody !== passThrough) {
+            uploadBody.on('error', recordUploadError);
+        }
+
+        const abortAndRelease = async () => {
+            await upload.abort().catch((abortError) => {
+                Logger.warn(
+                    `Failed to abort upload to ${
+                        this.configuration?.bucket
+                    }/${fileName}: ${getErrorMessage(abortError)}`,
+                );
+            });
+            if (!uploadBody.destroyed) {
+                uploadBody.destroy();
+            }
+            if (!passThrough.destroyed) {
+                passThrough.destroy();
+            }
+        };
+
         const close = async () => {
             if (!this.configuration) {
                 throw new MissingConfigError('S3 configuration is not set');
@@ -95,6 +136,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
             if (isClosed) return;
             isClosed = true;
+
+            if (uploadError) {
+                await abortAndRelease();
+                throw uploadError;
+            }
+
             try {
                 passThrough.end(); // signal EOF
                 await upload.done(); // wait for upload to finish
@@ -112,19 +159,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                 // Nothing else will drain these streams: abort the multipart upload and
                 // release the gzip sink, otherwise a failed upload keeps its buffers alive
                 // and leaves an incomplete object in the bucket.
-                await upload.abort().catch((abortError) => {
-                    Logger.warn(
-                        `Failed to abort upload to ${
-                            this.configuration?.bucket
-                        }/${fileName}: ${getErrorMessage(abortError)}`,
-                    );
-                });
-                if (!uploadBody.destroyed) {
-                    uploadBody.destroy();
-                }
-                if (!passThrough.destroyed) {
-                    passThrough.destroy();
-                }
+                await abortAndRelease();
 
                 throw error;
             }
@@ -268,6 +303,9 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             formatConfig.get(fileExtension) || formatConfig.get('jsonl')!;
 
         // Create upload stream
+        // The sink is a formatted export (CSV/XLSX) that users download directly, so it is
+        // never compressed: `Content-Encoding: gzip` on a `.csv` object breaks scripts,
+        // Excel/curl and anything that does not decode the body for us.
         const { writeStream, close } = this.createUploadStream(
             sinkFileName,
             {
@@ -276,6 +314,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             attachmentDownloadName
                 ? `${attachmentDownloadName}.${config.extension}`
                 : undefined,
+            { compress: false },
         );
 
         // Get the results stream

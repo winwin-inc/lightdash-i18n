@@ -26,6 +26,7 @@ import {
     generateGenericFileId,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { getPivotExportLimits } from '../../utils/FileDownloadUtils/exportLimits';
 import { BaseService } from '../BaseService';
 
 type PivotTableServiceArguments = {
@@ -102,14 +103,18 @@ export class PivotTableService extends BaseService {
     /**
      * Checks if the rows could be truncated based on cell limit
      */
-    private couldBeTruncated(rows: Record<string, AnyType>[]) {
+    private couldBeTruncated(
+        rows: Record<string, AnyType>[],
+        configuredCellsLimit: number = this.lightdashConfig.query
+            ?.csvCellsLimit || 100000,
+    ) {
         if (rows.length === 0) return false;
 
         const numberRows = rows.length;
         const numberColumns = Object.keys(rows[0]).length;
 
         // we use floor when limiting the rows, so the need to make sure we got the last row valid
-        const cellsLimit = this.lightdashConfig.query?.csvCellsLimit || 100000;
+        const cellsLimit = configuredCellsLimit;
 
         return numberRows * numberColumns >= cellsLimit - numberColumns;
     }
@@ -153,9 +158,16 @@ export class PivotTableService extends BaseService {
 
         const fieldCount = Object.keys(fields).length;
         const cellsLimit = this.lightdashConfig.query?.csvCellsLimit || 100000;
-
-        // Use standard csvCellsLimit calculation - same as original downloadPivotTableCsv
-        const maxRows = Math.floor(cellsLimit / fieldCount);
+        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+            fieldCount,
+            cellsLimit,
+            this.lightdashConfig.query?.exportMaxPivotCells,
+        );
+        if (clamped) {
+            Logger.warn(
+                `Pivot CSV export clamped to ${maxRows} rows (${effectiveCells} cells) for ${fieldCount} fields; csvCellsLimit=${cellsLimit}`,
+            );
+        }
 
         const { results: rows, truncated } = await streamJsonlData<
             Record<string, unknown>
@@ -170,7 +182,8 @@ export class PivotTableService extends BaseService {
         }
 
         // Use same truncation logic as original downloadPivotTableCsv
-        const finalTruncated = truncated || this.couldBeTruncated(rows);
+        const finalTruncated =
+            truncated || this.couldBeTruncated(rows, effectiveCells);
 
         if (finalTruncated) {
             Logger.warn(

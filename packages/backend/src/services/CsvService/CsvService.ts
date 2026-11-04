@@ -52,6 +52,7 @@ import { warehouseSqlBuilderFromType } from '@lightdash/warehouses';
 import isNil from 'lodash/isNil';
 import moment from 'moment';
 import { nanoid } from 'nanoid';
+import { createInterface } from 'readline';
 import {
     pipeline,
     Readable,
@@ -59,6 +60,7 @@ import {
     TransformCallback,
     Writable,
 } from 'stream';
+import { pipeline as pipelineAsync } from 'stream/promises';
 import { Worker } from 'worker_threads';
 import {
     DownloadCsv,
@@ -83,7 +85,6 @@ import {
     isRowValueDate,
     isRowValueTimestamp,
     sanitizeGenericFileName,
-    streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { formatMomentByTimezone } from '../../utils/FileDownloadUtils/formatMomentByTimezone';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
@@ -388,78 +389,118 @@ export class CsvService extends BaseService {
         displayTimezone?: string,
         maxLines?: number,
     ): Promise<{ truncated: boolean }> {
-        return new Promise((resolve, reject) => {
-            const stringifier = stringify({
-                delimiter: ',',
-                header: true,
-                columns: csvHeader,
-                bom: true,
-            });
+        const stringifier = stringify({
+            delimiter: ',',
+            header: true,
+            columns: csvHeader,
+            bom: true,
+        });
 
-            let truncated = false;
-            let waitingForDrain = false;
+        /*
+         * Backpressure (this is what used to OOM the pod on ~1M row exports):
+         * `pipeline` propagates a slow sink (the S3 upload) back into the stringifier, and
+         * we `await drain` before pulling the next line, which in turn pauses the read
+         * stream. The previous hand-rolled readable/pause loop ignored the return value of
+         * `stringifier.write()`, so a slow upload let the buffered output grow with the
+         * row count instead of staying flat.
+         */
+        const sink = pipelineAsync(stringifier, writeStream);
+        const lineReader = createInterface({
+            input: readStream,
+            crlfDelay: Infinity,
+        });
 
-            // Define the drain handler outside the loop to avoid ESLint no-loop-func warning
-            const handleDrain = () => {
-                waitingForDrain = false;
-                stringifier.resume();
-            };
+        let lineCount = 0;
+        let truncated = false;
+        let loopError: unknown;
 
-            stringifier.on('readable', () => {
-                let chunk;
-                // eslint-disable-next-line no-cond-assign
-                while ((chunk = stringifier.read()) !== null) {
-                    /*
-                     * CRITICAL BACKPRESSURE HANDLING:
-                     * writeStream.write() returns false when the internal buffer is full.
-                     * This means the destination (file/S3) can't keep up with data production.
-                     *
-                     * This implements proper stream backpressure - essential for
-                     * handling large CSV files without memory issues.
-                     */
-                    if (!writeStream.write(chunk)) {
-                        stringifier.pause();
-                        // Only add drain listener if we're not already waiting for one
-                        if (!waitingForDrain) {
-                            waitingForDrain = true;
-                            writeStream.once('drain', handleDrain);
-                        }
+        try {
+            // `for await` pauses the read stream while the body is awaiting, so a slow
+            // sink never accumulates more than one row of work here.
+            for await (const line of lineReader) {
+                if (line.trim()) {
+                    lineCount += 1;
+                    if (maxLines !== undefined && lineCount > maxLines) {
+                        truncated = true;
                         break;
                     }
+
+                    // A single malformed line must not fail the whole export (unchanged
+                    // behaviour compared to the previous streamJsonlData based loop).
+                    let csvRow: AnyType[] | undefined;
+                    try {
+                        csvRow = CsvService.convertRowToCsv(
+                            JSON.parse(line),
+                            itemMap,
+                            onlyRaw,
+                            sortedFieldIds,
+                            displayTimezone,
+                        );
+                    } catch (error) {
+                        Logger.error(
+                            `Error parsing line ${lineCount}: ${getErrorMessage(
+                                error,
+                            )}`,
+                        );
+                    }
+
+                    if (csvRow) {
+                        if (!stringifier.write(csvRow)) {
+                            // Pause the reader as well as awaiting drain: readline keeps an
+                            // internal line queue, so stopping at the stringifier alone would
+                            // still let the S3 response be pulled into memory faster than the
+                            // sink can take it.
+                            lineReader.pause();
+                            readStream.pause();
+                            // eslint-disable-next-line no-await-in-loop
+                            await new Promise<void>((resolve, reject) => {
+                                stringifier.once('drain', resolve);
+                                // A failing sink destroys the stringifier without ever
+                                // emitting `drain`; without these two the export would hang
+                                // instead of reporting the upload error.
+                                stringifier.once('error', reject);
+                                void sink.catch(reject);
+                            });
+                            if (!readStream.destroyed) {
+                                readStream.resume();
+                            }
+                            lineReader.resume();
+                        }
+                    }
                 }
-            });
+            }
+        } catch (error) {
+            loopError = error;
+        } finally {
+            lineReader.close();
+            // Release the results file (an S3 body, possibly gzip wrapped) as soon as we
+            // stop reading: truncation or a parse/stream error must not keep the download
+            // open until the S3 request timeout.
+            if (!readStream.destroyed) {
+                readStream.destroy();
+            }
+            if (!stringifier.destroyed) {
+                stringifier.end();
+            }
+        }
 
-            stringifier.on('error', (err) => {
-                Logger.error(`Stringifier failed ${err}`);
-                reject(err);
-            });
+        // Surfaces sink failures (S3 upload aborted, disk full, …) without masking a
+        // reader-side error that happened first.
+        let sinkError: unknown;
+        try {
+            await sink;
+        } catch (error) {
+            sinkError = error;
+        }
 
-            stringifier.on('finish', () => {
-                writeStream.end();
-                resolve({ truncated });
-            });
+        if (loopError) {
+            throw loopError;
+        }
+        if (sinkError) {
+            throw sinkError;
+        }
 
-            streamJsonlData({
-                readStream,
-                // `undefined` = no cap. When capped, `streamJsonlData` reports
-                // `truncated` so the job can warn the user and name the file.
-                maxLines,
-                onRow: (parsedRow) => {
-                    const csvRow = CsvService.convertRowToCsv(
-                        parsedRow,
-                        itemMap,
-                        onlyRaw,
-                        sortedFieldIds,
-                        displayTimezone,
-                    );
-                    stringifier.write(csvRow);
-                },
-                onComplete: (_, isTruncated) => {
-                    truncated = isTruncated;
-                    stringifier.end();
-                },
-            }).catch(reject);
-        });
+        return { truncated };
     }
 
     static async writeRowsToFile(

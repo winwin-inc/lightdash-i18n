@@ -193,6 +193,7 @@ export const lightdashConfigMock: LightdashConfig = {
         timezone: undefined,
         useSqlPivotResults: false,
         exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
     ai: {
         copilot: {
