@@ -1214,6 +1214,15 @@ const SchedulerForm: FC<Props> = ({
                                                                 )}
                                                                 value="workbook"
                                                             />
+                                                            {/* 单 Tab 看板下与「分文件」结果一致，不展示 */}
+                                                            {isDashboardTabsAvailable && (
+                                                                <Radio
+                                                                    label={t(
+                                                                        'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
+                                                                    )}
+                                                                    value="per-tab-workbook"
+                                                                />
+                                                            )}
                                                         </Stack>
                                                     </Radio.Group>
                                                 )}
