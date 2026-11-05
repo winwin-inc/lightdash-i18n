@@ -3632,29 +3632,21 @@ export default class SchedulerTask {
                     )
                         ? payload.options.xlsxFileLayout
                         : undefined;
-                    const schedulerLocale = isSchedulerCsvOptions(
-                        payload.options,
-                    )
-                        ? payload.options.locale
-                        : undefined;
                     const shouldCreatePerTabWorkbook =
                         xlsxFileLayout === 'per-tab-workbook';
                     const shouldCreateWorkbook = xlsxFileLayout === 'workbook';
 
                     if (shouldCreatePerTabWorkbook) {
-                        // 每个 Tab 一个 xlsx，内部每张图一个 sheet
-                        const dashboardForTabs =
-                            await this.schedulerService.dashboardModel.getByIdOrSlug(
-                                payload.resourceUuid,
-                            );
+                        // getNotificationPageData 已按 per-tab-workbook 收口成
+                        // 单条 zip URL（每图 /tmp 中间文件也已清理），直接透传
                         try {
-                            const url =
-                                await this.buildPerTabWorkbookZipUrl({
-                                    files: page.csvUrls,
-                                    dashboardName: dashboardForTabs.name,
-                                    locale: schedulerLocale,
-                                });
-                            return { url, fileType: 'zip' };
+                            const zipUrl = page.csvUrls[0]?.path;
+                            if (!zipUrl) {
+                                throw new UnexpectedServerError(
+                                    'Dashboard per-tab workbook export failed',
+                                );
+                            }
+                            return { url: zipUrl, fileType: 'zip' };
                         } finally {
                             await this.cleanupLocalExportFiles(page.csvUrls);
                         }
