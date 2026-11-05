@@ -183,6 +183,13 @@ export class UnexpectedServerError extends LightdashError {
         });
     }
 }
+/**
+ * 看板导出：所选 Tab 下没有可导出的图表。
+ * 前端用它把这条错误换成本地化文案，改文案时必须两边一起改（所以抽成共享常量）。
+ */
+export const NO_CHARTS_TO_EXPORT_MESSAGE =
+    'No charts to export in the selected tabs';
+
 export class UnexpectedIndexError extends LightdashError {
     constructor(
         message = 'Invalid index in array.',

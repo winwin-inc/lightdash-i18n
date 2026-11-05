@@ -1,5 +1,6 @@
 import {
     formatDate,
+    NO_CHARTS_TO_EXPORT_MESSAGE,
     type ApiError,
     type ApiJobScheduledResponse,
     type CreateDashboard,
@@ -441,8 +442,8 @@ export const useExportDashboardContent = () => {
                     .catch((error: Error) => {
                         // 后端「所选 Tab 下没有可导出图表」是英文硬编码错误，
                         // 这里换成可读文案（与 showToastApiError 的既有做法一致）
-                        const isNoChartsToExport = /no charts to export/i.test(
-                            error.message,
+                        const isNoChartsToExport = error.message.includes(
+                            NO_CHARTS_TO_EXPORT_MESSAGE,
                         );
                         showToastError({
                             key: 'dashboard_export_toast',

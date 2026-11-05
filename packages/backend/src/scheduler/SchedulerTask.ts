@@ -2,6 +2,7 @@ import {
     type Account as AccountType,
     AnyType,
     CompileProjectPayload,
+    NO_CHARTS_TO_EXPORT_MESSAGE,
     CreateProject,
     CreateSchedulerAndTargets,
     CreateSchedulerLog,
@@ -588,7 +589,7 @@ export default class SchedulerTask {
                             sqlChartTileUuids.length;
                         if (totalExportTiles === 0) {
                             throw new UnexpectedServerError(
-                                'No charts to export in the selected tabs',
+                                NO_CHARTS_TO_EXPORT_MESSAGE,
                             );
                         }
                         let settledExportTiles = 0;
