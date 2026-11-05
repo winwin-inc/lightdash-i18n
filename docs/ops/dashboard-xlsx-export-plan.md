@@ -172,3 +172,5 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
 5. **透视 xlsx 不参与 `keepTempFile`**，合并时要回 S3 再拉；`copyWorksheet` 不复制合并单元格与冻结窗格。
 6. **测试缺口**：per-tab 分组、tab 过滤、部分失败、同名去重、`EXPORT_CONTENT` 端到端都没有用例。
 7. **0 图 / 空看板**报错文案不可读；workbook 合并后 analytics 的 `numCharts` 恒为 1。
+8. **文案细节**：导出弹窗改为动态扩展名后，`components_common_modal_dashboard_export.tabs.xlsx` 已不被引用（可清理）；
+   `xlsx_output_help` 的「三种方式内容相同」在按 Tab 分文件时严格说是「每个文件的内容分组不同」，措辞可再收紧。
