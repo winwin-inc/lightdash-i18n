@@ -1,5 +1,6 @@
 import { getErrorMessage } from '@lightdash/common';
 import * as Excel from 'exceljs';
+import fs from 'fs/promises';
 
 type WorkbookExportFile = {
     filename: string;
@@ -22,16 +23,23 @@ export class WorkbookExportHelper {
         onFileError: (filename: string, error: string) => void;
     }) {
         try {
-            const response = await fetch(file.localPath);
-            if (!response.ok) {
-                onFileError(
-                    file.filename,
-                    `HTTP ${response.status} ${response.statusText}`,
-                );
-                return undefined;
+            let buffer: Buffer;
+            if (/^https?:\/\//.test(file.localPath)) {
+                const response = await fetch(file.localPath);
+                if (!response.ok) {
+                    onFileError(
+                        file.filename,
+                        `HTTP ${response.status} ${response.statusText}`,
+                    );
+                    return undefined;
+                }
+                buffer = Buffer.from(await response.arrayBuffer());
+            } else {
+                // 本地路径（如 keepTempFile 生成的 /tmp 中间文件）：
+                // Node fetch 不接受裸路径，必须用 fs 读取
+                buffer = await fs.readFile(file.localPath);
             }
 
-            const buffer = Buffer.from(await response.arrayBuffer());
             const sourceWorkbook = new Excel.Workbook();
             await sourceWorkbook.xlsx.load(
                 buffer as unknown as Parameters<

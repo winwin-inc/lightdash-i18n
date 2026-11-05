@@ -1835,46 +1835,54 @@ export default class SchedulerTask {
 
         const workbooks: Array<{ entryNameBase: string; localPath: string }> =
             [];
-        // 顺序写出，避免同时把多个工作簿读进内存（合并是非流式的）
-        // eslint-disable-next-line no-restricted-syntax
-        for (const { tabName, files: tabFiles } of groups.values()) {
-            const workbookPath = `/tmp/${nanoid()}.xlsx`;
-            const result =
-                // eslint-disable-next-line no-await-in-loop
-                await WorkbookExportHelper.createWorkbookFile({
-                    files: tabFiles.map((file) => ({
-                        filename: file.filename,
-                        sheetName: file.filename,
-                        localPath: file.localPath,
-                    })),
-                    outputPath: workbookPath,
-                    onFileError: (filename, error) => {
-                        Logger.warn(
-                            `Failed to add XLSX file "${filename}" to workbook: ${error}`,
-                        );
-                    },
-                });
-            if (result.worksheetCount === 0) {
-                Logger.warn(
-                    `Skipping workbook for tab "${tabName}": no sheets could be generated`,
-                );
-                // eslint-disable-next-line no-await-in-loop
-                await fs.unlink(workbookPath).catch(() => undefined);
-                continue;
-            }
-            workbooks.push({
-                entryNameBase: tabName,
-                localPath: workbookPath,
-            });
-        }
-
-        if (workbooks.length === 0) {
-            throw new UnexpectedServerError(
-                'Dashboard workbook export failed for every tab',
-            );
-        }
-
         try {
+            // 顺序写出，避免同时把多个工作簿读进内存（合并是非流式的）
+            // 生成阶段也纳入清理保护：中途抛错时已产出的 /tmp 文件不会泄漏
+            // eslint-disable-next-line no-restricted-syntax
+            for (const { tabName, files: tabFiles } of groups.values()) {
+                const workbookPath = `/tmp/${nanoid()}.xlsx`;
+                let result;
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    result = await WorkbookExportHelper.createWorkbookFile({
+                        files: tabFiles.map((file) => ({
+                            filename: file.filename,
+                            sheetName: file.filename,
+                            localPath: file.localPath,
+                        })),
+                        outputPath: workbookPath,
+                        onFileError: (filename, error) => {
+                            Logger.warn(
+                                `Failed to add XLSX file "${filename}" to workbook: ${error}`,
+                            );
+                        },
+                    });
+                } catch (e) {
+                    // 当前 Tab 的半成品也可能已落盘，一并清理后向上抛出
+                    // eslint-disable-next-line no-await-in-loop
+                    await fs.unlink(workbookPath).catch(() => undefined);
+                    throw e;
+                }
+                if (result.worksheetCount === 0) {
+                    Logger.warn(
+                        `Skipping workbook for tab "${tabName}": no sheets could be generated`,
+                    );
+                    // eslint-disable-next-line no-await-in-loop
+                    await fs.unlink(workbookPath).catch(() => undefined);
+                    continue;
+                }
+                workbooks.push({
+                    entryNameBase: tabName,
+                    localPath: workbookPath,
+                });
+            }
+
+            if (workbooks.length === 0) {
+                throw new UnexpectedServerError(
+                    'Dashboard workbook export failed for every tab',
+                );
+            }
+
             return await this.createExportZipDownloadUrl({
                 files: workbooks,
                 fileExtension: 'xlsx',
@@ -1908,6 +1916,12 @@ export default class SchedulerTask {
         }
 
         const workbookPath = `/tmp/${nanoid()}.xlsx`;
+        // 成功后返回值会被替换成单条 S3 URL，调用方的
+        // cleanupLocalExportFiles 会因 http 前缀跳过，
+        // 因此传入 files 里的本地中间文件（keepTempFile 生成）由这里统一清理
+        const localInputPaths = files
+            .map((file) => file.localPath)
+            .filter((localPath) => !/^https?:\/\//.test(localPath));
         try {
             const workbookResult = await WorkbookExportHelper.createWorkbookFile(
                 {
@@ -1950,6 +1964,11 @@ export default class SchedulerTask {
             ];
         } finally {
             await fs.unlink(workbookPath).catch(() => undefined);
+            await Promise.all(
+                localInputPaths.map((localPath) =>
+                    fs.unlink(localPath).catch(() => undefined),
+                ),
+            );
         }
     }
 
