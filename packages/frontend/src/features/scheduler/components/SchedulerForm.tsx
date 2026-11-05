@@ -156,7 +156,8 @@ const getSelectedTabsForDashboardScheduler = (
 const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
     const options = schedulerData.options;
 
-    const formOptions = DEFAULT_VALUES.options;
+    // 浅拷贝 options，避免就地改写模块级常量 DEFAULT_VALUES.options
+    const formOptions = { ...DEFAULT_VALUES.options };
 
     if (isSchedulerCsvOptions(options)) {
         formOptions.formatted = options.formatted
@@ -400,6 +401,8 @@ const SchedulerForm: FC<Props> = ({
                 ? DEFAULT_VALUES_ALERT
                 : {
                       ...DEFAULT_VALUES,
+                      // options 单独浅拷贝，避免新建表单仍引用模块级常量对象
+                      options: { ...DEFAULT_VALUES.options },
                       selectedTabs: isDashboardTabsAvailable
                           ? dashboard?.tabs.map((tab) => tab.uuid)
                           : null,
@@ -656,6 +659,11 @@ const SchedulerForm: FC<Props> = ({
     const isImageDisabled = !health.data?.hasHeadlessBrowser;
 
     const limit = form.values?.options?.limit;
+
+    // 与导出弹窗同一判据：看板 Tab 数 > 1 或当前值已是历史布局 per-tab-workbook 时展示
+    const showPerTabWorkbookOption =
+        (dashboard?.tabs.length ?? 0) > 1 ||
+        form.values.options.xlsxFileLayout === 'per-tab-workbook';
 
     const isThresholdAlertWithNoFields =
         isThresholdAlert && Object.keys(numericMetrics).length === 0;
@@ -1214,13 +1222,16 @@ const SchedulerForm: FC<Props> = ({
                                                                 )}
                                                                 value="workbook"
                                                             />
-                                                            {/* 已有交付可能存的是该布局，故始终展示，避免单选组出现未选中状态 */}
-                                                            <Radio
-                                                                label={t(
-                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
-                                                                )}
-                                                                value="per-tab-workbook"
-                                                            />
+                                                            {/* 已有交付可能存的是该布局（历史值），保留可见以避免单选组出现未选中状态；
+                                                                多 Tab 看板按 Tab 数展示，判据与导出弹窗保持一致 */}
+                                                            {showPerTabWorkbookOption && (
+                                                                <Radio
+                                                                    label={t(
+                                                                        'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
+                                                                    )}
+                                                                    value="per-tab-workbook"
+                                                                />
+                                                            )}
                                                         </Stack>
                                                     </Radio.Group>
                                                 )}

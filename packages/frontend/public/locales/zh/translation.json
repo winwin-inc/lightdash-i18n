@@ -1355,6 +1355,7 @@
         "xlsx_zip": "每张图一个文件（ZIP）",
         "xlsx_workbook": "单个文件（每张图一个工作表）",
         "xlsx_per_tab_workbook": "每个 Tab 一个文件（ZIP）",
+        "xlsx_per_tab_single_tab_hint": "当前只选了 1 个 Tab，导出结果与「每张图一个文件」相同。",
         "tabs": {
           "title": "选项卡",
           "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",

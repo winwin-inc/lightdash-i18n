@@ -62,10 +62,15 @@ type CsvExportProps = {
     hasTilesInSelectedTabs: boolean;
 };
 
+type XlsxFileLayout = NonNullable<SchedulerCsvOptions['xlsxFileLayout']>;
+
 type XlsxExportProps = {
     dashboard: Dashboard;
+    /** null 表示导出全部 Tab */
     selectedTabs: string[] | null;
     hasTilesInSelectedTabs: boolean;
+    xlsxFileLayout: XlsxFileLayout;
+    setXlsxFileLayout: (value: XlsxFileLayout) => void;
 };
 
 const hasTilesInTabs = (
@@ -236,6 +241,8 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     selectedTabs,
     hasTilesInSelectedTabs,
+    xlsxFileLayout,
+    setXlsxFileLayout,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -246,8 +253,14 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     );
     const parameterValues = useDashboardContext((c) => c.parameterValues);
 
-    const [xlsxFileLayout, setXlsxFileLayout] =
-        useState<NonNullable<SchedulerCsvOptions['xlsxFileLayout']>>('zip');
+    // 与 SchedulerForm 同一判据：看板 Tab 数 > 1 或当前值已是历史布局 per-tab-workbook 时展示
+    const dashboardTabCount = dashboard.tabs?.length ?? 0;
+    const showPerTabWorkbookOption =
+        dashboardTabCount > 1 || xlsxFileLayout === 'per-tab-workbook';
+    // 本次选中的 Tab 数（null 表示全部 Tab）；只选 1 个 Tab 时该布局产物与「每张图一个文件」相同
+    const selectedTabCount = (selectedTabs ?? dashboard.tabs)?.length ?? 0;
+    const isPerTabWorkbookDisabled =
+        dashboardTabCount > 1 && selectedTabCount <= 1;
 
     const handleExport = () => {
         exportContentMutation.mutate({
@@ -299,14 +312,25 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                         )}
                         value="workbook"
                     />
-                    {/* 单 Tab 看板下与「分文件」结果一致，不展示 */}
-                    {(dashboard.tabs?.length ?? 0) > 1 && (
+                    {/* 看板多 Tab 或当前值已是该布局（历史值）时展示，判据与 SchedulerForm 一致 */}
+                    {showPerTabWorkbookOption && (
                         <Radio
                             label={t(
                                 'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
                             )}
                             value="per-tab-workbook"
+                            disabled={isPerTabWorkbookDisabled}
                         />
+                    )}
+                    {isPerTabWorkbookDisabled && (
+                        // i18n（key 由父任务补 locales JSON）:
+                        // zh: 当前只选了 1 个 Tab，导出结果与「每张图一个文件」相同
+                        // en: Only 1 tab selected — same result as one file per chart.
+                        <Text size="xs" color="gray.6">
+                            {t(
+                                'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_single_tab_hint',
+                            )}
+                        </Text>
                     )}
                 </Stack>
             </Radio.Group>
@@ -589,6 +613,8 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     // 图片 / PDF 导出依赖 headless browser；实例未启用时直接不展示该页签
     const hasHeadlessBrowser = health.data?.hasHeadlessBrowser ?? false;
     const [exportType, setExportType] = useState<string>('xlsx');
+    // XLSX 布局上提到弹窗层：页签扩展名随布局变化（zip / per-tab-workbook 产物是 .zip）
+    const [xlsxFileLayout, setXlsxFileLayout] = useState<XlsxFileLayout>('zip');
 
     // Tab 选择在弹窗层维护，CSV / XLSX 共用，默认全选
     const [allTabsSelected, setAllTabsSelected] = useState(true);
@@ -659,9 +685,11 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                             value: 'csv',
                         },
                         {
-                            label: t(
-                                'components_common_modal_dashboard_export.tabs.xlsx',
-                            ),
+                            // 按当前布局显示实际产物扩展名；CSV 页签与 i18n key 不变
+                            label:
+                                xlsxFileLayout === 'workbook'
+                                    ? '.xlsx'
+                                    : '.zip',
                             value: 'xlsx',
                         },
                     ]}
@@ -696,6 +724,8 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         dashboard={dashboard}
                         selectedTabs={resolvedSelectedTabs}
                         hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                        xlsxFileLayout={xlsxFileLayout}
+                        setXlsxFileLayout={setXlsxFileLayout}
                         onClose={onClose}
                     />
                 )}
