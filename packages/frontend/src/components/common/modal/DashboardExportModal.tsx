@@ -69,8 +69,6 @@ type XlsxExportProps = {
     /** null 表示导出全部 Tab */
     selectedTabs: string[] | null;
     hasTilesInSelectedTabs: boolean;
-    xlsxFileLayout: XlsxFileLayout;
-    setXlsxFileLayout: (value: XlsxFileLayout) => void;
 };
 
 const hasTilesInTabs = (
@@ -241,8 +239,6 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     selectedTabs,
     hasTilesInSelectedTabs,
-    xlsxFileLayout,
-    setXlsxFileLayout,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -252,6 +248,8 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
         (c) => c.dateZoomGranularity,
     );
     const parameterValues = useDashboardContext((c) => c.parameterValues);
+
+    const [xlsxFileLayout, setXlsxFileLayout] = useState<XlsxFileLayout>('zip');
 
     // 与 SchedulerForm 同一判据：看板 Tab 数 > 1 或当前值已是历史布局 per-tab-workbook 时展示
     const dashboardTabCount = dashboard.tabs?.length ?? 0;
@@ -613,8 +611,6 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     // 图片 / PDF 导出依赖 headless browser；实例未启用时直接不展示该页签
     const hasHeadlessBrowser = health.data?.hasHeadlessBrowser ?? false;
     const [exportType, setExportType] = useState<string>('xlsx');
-    // XLSX 布局上提到弹窗层：页签扩展名随布局变化（zip / per-tab-workbook 产物是 .zip）
-    const [xlsxFileLayout, setXlsxFileLayout] = useState<XlsxFileLayout>('zip');
 
     // Tab 选择在弹窗层维护，CSV / XLSX 共用，默认全选
     const [allTabsSelected, setAllTabsSelected] = useState(true);
@@ -685,11 +681,9 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                             value: 'csv',
                         },
                         {
-                            // 按当前布局显示实际产物扩展名；CSV 页签与 i18n key 不变
-                            label:
-                                xlsxFileLayout === 'workbook'
-                                    ? '.xlsx'
-                                    : '.zip',
+                            label: t(
+                                'components_common_modal_dashboard_export.tabs.xlsx',
+                            ),
                             value: 'xlsx',
                         },
                     ]}
@@ -724,8 +718,6 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         dashboard={dashboard}
                         selectedTabs={resolvedSelectedTabs}
                         hasTilesInSelectedTabs={hasTilesInSelectedTabs}
-                        xlsxFileLayout={xlsxFileLayout}
-                        setXlsxFileLayout={setXlsxFileLayout}
                         onClose={onClose}
                     />
                 )}

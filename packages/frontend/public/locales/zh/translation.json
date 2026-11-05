@@ -4261,7 +4261,8 @@
     "export_dashboard": "导出看板",
     "tabs": {
       "image": "图片",
-      "csv": ".csv"
+      "csv": ".csv",
+      "xlsx": ".xlsx"
     }
   },
   "components_common_modal_dashboard_update": {

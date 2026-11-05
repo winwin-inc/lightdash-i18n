@@ -4064,7 +4064,10 @@ export default class SchedulerTask {
             const zipFileName = `${sanitizeGenericFileName(
                 zipNameBase,
             )}-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
-            return this.s3Client.uploadZip(
+            // 必须 await：否则 uploadZip 的读取流还没被消费，finally 里的
+            // unlink 就先跑，出现在 createReadStream 打开前文件已被删除的
+            // ENOENT（open '/tmp/<id>.zip'）
+            return await this.s3Client.uploadZip(
                 fsSync.createReadStream(zipPath),
                 zipFileName,
             );

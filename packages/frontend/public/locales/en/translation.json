@@ -4238,7 +4238,8 @@
     "export_dashboard": "Export dashboard",
     "tabs": {
       "image": "Image",
-      "csv": ".csv"
+      "csv": ".csv",
+      "xlsx": ".xlsx"
     }
   },
   "components_common_modal_dashboard_update": {
