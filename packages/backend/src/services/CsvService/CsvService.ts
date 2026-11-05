@@ -1486,31 +1486,45 @@ export class CsvService extends BaseService {
             },
         });
 
-        const writeZipFile = async (files: AttachmentUrl[]) =>
-            new Promise<string>((resolve, reject) => {
-                const zipName = `/tmp/${nanoid()}.zip`;
-                const output = fs.createWriteStream(zipName);
-                const archive = archiver('zip', {
-                    // 看板批量导出主要是 CSV 文本：6 与 9 体积接近，耗时差一倍以上
-                    zlib: { level: 6 },
-                });
+        const writeZipFile = async (files: AttachmentUrl[]) => {
+            const zipName = `/tmp/${nanoid()}.zip`;
+            const output = fs.createWriteStream(zipName);
+            const archive = archiver('zip', {
+                // 看板批量导出主要是 CSV 文本：6 与 9 体积接近，耗时差一倍以上
+                zlib: { level: 6 },
+            });
+            const zipDone = new Promise<string>((resolve, reject) => {
                 output.on('close', () => {
                     this.logger.info(
                         `Generated .zip file of ${archive.pointer()} bytes`,
                     );
                     resolve(zipName);
                 });
-                archive.on('error', (err) => {
-                    reject(err);
-                });
-                files.forEach((file) => {
-                    archive.file(file.localPath, {
-                        name: `${file.filename}.csv`,
-                    });
-                });
-                archive.pipe(output);
-                void archive.finalize(); // This finalize doesn't wait for the files to be written
+                // 输出流错误也要 reject：只监听 archive 的 error 时，
+                // 写盘失败会让这个 Promise 永远不 settle（任务挂到超时）
+                output.on('error', reject);
+                archive.on('error', reject);
             });
+            // 先挂空 catch，避免迟到 rejection 变成 unhandled（Node 默认结束进程）
+            void zipDone.catch(() => undefined);
+
+            files.forEach((file) => {
+                archive.file(file.localPath, {
+                    name: `${file.filename}.csv`,
+                });
+            });
+            archive.pipe(output);
+            void archive.finalize(); // This finalize doesn't wait for the files to be written
+
+            try {
+                return await zipDone;
+            } catch (error) {
+                // 收口写流，避免继续往 /tmp 写半截文件
+                archive.abort();
+                output.destroy();
+                throw error;
+            }
+        };
 
         const csvFiles = await this.getCsvsForDashboard({
             user,
