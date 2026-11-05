@@ -799,16 +799,25 @@ export default class SchedulerTask {
                             result.status === 'fulfilled' ? [result.value] : [],
                         );
                         // 环节 ①：rejected 的 tile 不再静默丢弃，逐个记录失败原因。
-                        // 失败路径拿不到 chart.name（名字在成功路径才解析），
-                        // 用 chartUuid 前 8 位作 filename 兜底
+                        // 失败路径没有 chart.name（名字在成功路径才解析），补一次查询；
+                        // 查不到（图表被删/无权限）时退化为 chartUuid 前缀
+                        // eslint-disable-next-line no-restricted-syntax
                         for (const result of exportResults) {
                             if (result.status === 'fulfilled') continue;
                             const reason = getErrorMessage(result.reason);
+                            const { kind, tile } = result.item;
+                            const failureName =
+                                // eslint-disable-next-line no-await-in-loop
+                                await this.getFailedTileName(
+                                    kind,
+                                    tile.chartUuid,
+                                    projectUuid,
+                                );
                             Logger.warn(
-                                `Failed to export dashboard chart tile ${result.item.tile.chartUuid} on scheduled delivery: ${reason}`,
+                                `Failed to export dashboard ${kind} tile "${failureName}" (${tile.chartUuid}) on scheduled delivery: ${reason}`,
                             );
                             failedExportList.push({
-                                filename: result.item.tile.chartUuid.slice(0, 8),
+                                filename: failureName,
                                 reason,
                             });
                         }
@@ -3851,6 +3860,35 @@ export default class SchedulerTask {
                     error,
                 )}`,
             );
+        }
+    }
+
+    /**
+     * 失败 tile 的展示名：尽量取图表/ SQL 图名称，查不到则退化为 uuid 前缀，
+     * 避免交付提示里只出现一串 id。失败路径才会调用（数量有限）。
+     */
+    private async getFailedTileName(
+        kind: 'chart' | 'sqlChart',
+        chartUuid: string,
+        projectUuid: string,
+    ): Promise<string> {
+        try {
+            const name =
+                kind === 'chart'
+                    ? (
+                          await this.schedulerService.savedChartModel.get(
+                              chartUuid,
+                          )
+                      ).name
+                    : (
+                          await this.asyncQueryService.savedSqlModel.getByUuid(
+                              chartUuid,
+                              { projectUuid },
+                          )
+                      ).name;
+            return name || chartUuid.slice(0, 8);
+        } catch {
+            return chartUuid.slice(0, 8);
         }
     }
 

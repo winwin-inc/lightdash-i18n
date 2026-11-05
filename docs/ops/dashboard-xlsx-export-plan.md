@@ -166,8 +166,8 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
 
 1. **透视 xlsx 不参与 `keepTempFile`**：透视分支直接写临时文件再上传，不返回 `localPath`，
    合并类布局要回 S3 再拉一遍。
-2. **测试缺口**：per-tab 分组、tab 过滤、部分失败、`EXPORT_CONTENT` 端到端仍无用例
-   （`SchedulerTask.test.ts` 本机因 `lz4` native 二进制平台不匹配跑不起来，需 CI 或 `pnpm rebuild lz4`）。
+2. **测试**：per-tab 分组、tab 过滤、部分失败、`EXPORT_CONTENT` 端到端暂无单测；
+   结论上暂不补（以代码走查为准），`SchedulerTask.test.ts` 本机也因 `lz4` native 二进制平台不匹配跑不起来。
 3. **zip 内条目顺序不确定**：流式 append 后顺序取决于下载响应到达顺序（命名是确定的），
    要顺序确定就得全量缓冲，与流式目标冲突，已作为取舍接受。
 4. **文案细节**：`components_common_modal_dashboard_export.tabs.xlsx` 已不被引用（可清理）；
