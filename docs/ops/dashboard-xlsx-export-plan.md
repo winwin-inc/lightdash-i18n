@@ -164,13 +164,24 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
 
 仍待处理（不阻塞「暂不上线」，上线前再评估）：
 
-1. **并发上限不生效**：`mapWithConcurrencyLimit` 收到的是已起跑的 promise + 恒等 mapper，实际并发 ≈ 图数。
-2. **部分失败静默丢图**：`failedFileCount` 无人读取，交付里看不出「20 张成功 12 张」。
-3. **zip 阶段全量 Buffer**：`createExportZipDownloadUrl` 对 http 输入 `fetch + arrayBuffer` 且全量并发，
-   与本地路径的 `archive.file` 流式分支不一致；建议 `Readable.fromWeb` + 限并发。
-4. **/tmp 峰值 ≈ 2× 产物**：合并布局的输入 + 合并结果 + level 0 的 zip 同时存在。
-5. **透视 xlsx 不参与 `keepTempFile`**，合并时要回 S3 再拉；`copyWorksheet` 不复制合并单元格与冻结窗格。
-6. **测试缺口**：per-tab 分组、tab 过滤、部分失败、同名去重、`EXPORT_CONTENT` 端到端都没有用例。
-7. **0 图 / 空看板**报错文案不可读；workbook 合并后 analytics 的 `numCharts` 恒为 1。
-8. **文案细节**：导出弹窗改为动态扩展名后，`components_common_modal_dashboard_export.tabs.xlsx` 已不被引用（可清理）；
-   `xlsx_output_help` 的「三种方式内容相同」在按 Tab 分文件时严格说是「每个文件的内容分组不同」，措辞可再收紧。
+1. **透视 xlsx 不参与 `keepTempFile`**：透视分支直接写临时文件再上传，不返回 `localPath`，
+   合并类布局要回 S3 再拉一遍。
+2. **测试缺口**：per-tab 分组、tab 过滤、部分失败、`EXPORT_CONTENT` 端到端仍无用例
+   （`SchedulerTask.test.ts` 本机因 `lz4` native 二进制平台不匹配跑不起来，需 CI 或 `pnpm rebuild lz4`）。
+3. **zip 内条目顺序不确定**：流式 append 后顺序取决于下载响应到达顺序（命名是确定的），
+   要顺序确定就得全量缓冲，与流式目标冲突，已作为取舍接受。
+4. **文案细节**：`components_common_modal_dashboard_export.tabs.xlsx` 已不被引用（可清理）；
+   `xlsx_output_help` 在按 Tab 分文件时严格说是「每个文件的内容分组不同」，措辞可再收紧。
+5. **0 图报错的 i18n**：`No charts to export in the selected tabs` 与文件内其他错误一样是英文硬编码，
+   若要中文化需另立文案表。
+
+## 10. 第二轮修复（性能与可观测性）
+
+| 项 | 内容 |
+|---|---|
+| 并发限流 | tile 导出改为「描述数组 + 惰性 mapper」交给 `mapWithConcurrencyLimit`，chart 与 SQL 图共用上限（此前 `map(async)` 先起跑，实际并发 ≈ 图数） |
+| zip 打包 | http 条目改 `Readable.fromWeb` 流式 append，在途下载流 ≤ 3；条目命名仍在输入顺序上同步去重；出错 `abort()` + `destroy()`，并挂空 catch 防 `zipDone` 迟到 rejection 崩进程 |
+| 合并保真 | `copyWorksheet` 补 merges / views / autoFilter / pageSetup，透视表二级表头不再被拆开 |
+| /tmp 峰值 | per-tab 每合并完一个 Tab 立即删该 Tab 的本地输入 |
+| 失败可观测 | `page.failedExports`（可选）+ job details 记录失败图表；Slack/Teams/邮件渲染一行失败提示；tile 失败补 `Logger.warn` |
+| 错误文案 | 无可导出图表时抛 `No charts to export in the selected tabs`；analytics 的 `numCharts` 改用合并前 tile 数 |
