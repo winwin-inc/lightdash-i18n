@@ -1,6 +1,7 @@
 import { getErrorMessage } from '@lightdash/common';
 import * as Excel from 'exceljs';
 import fs from 'fs/promises';
+import Logger from '../../logging/logger';
 
 type WorkbookExportFile = {
     filename: string;
@@ -134,6 +135,31 @@ export class WorkbookExportHelper {
 
             targetRow.commit();
         });
+
+        // 合并单元格、冻结窗格、筛选/打印设置也要跟着走，
+        // 否则透视表在合并后的工作簿里版式会变（多单元格表头被拆开）
+        const sourceMerges = sourceWorksheet.model?.merges ?? [];
+        sourceMerges.forEach((range) => {
+            try {
+                targetWorksheet.mergeCells(range);
+            } catch (e) {
+                // 单个合并区域非法不影响整个 sheet
+                Logger.warn(
+                    `Failed to copy merged range "${range}": ${getErrorMessage(
+                        e,
+                    )}`,
+                );
+            }
+        });
+
+        // eslint 的 no-param-reassign 只认属性赋值，局部别名规避
+        const target = targetWorksheet;
+        if (sourceWorksheet.views && sourceWorksheet.views.length > 0) {
+            target.views = sourceWorksheet.views.map((view) => ({ ...view }));
+        }
+
+        target.autoFilter = sourceWorksheet.autoFilter;
+        target.pageSetup = { ...sourceWorksheet.pageSetup };
     }
 
     static async createWorkbookFile({
