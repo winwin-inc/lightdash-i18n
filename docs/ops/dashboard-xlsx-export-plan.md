@@ -164,8 +164,8 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
 
 仍待处理（不阻塞「暂不上线」，上线前再评估）：
 
-1. **透视 xlsx 不参与 `keepTempFile`**：透视分支直接写临时文件再上传，不返回 `localPath`，
-   合并类布局要回 S3 再拉一遍。
+1. ~~透视 xlsx 不参与 `keepTempFile`~~：已修（透视分支支持 `keepTempFile` 并返回 `localPath`），
+   合并类布局不再为透视图回 S3 拉一次。
 2. **测试**：per-tab 分组、tab 过滤、部分失败、`EXPORT_CONTENT` 端到端暂无单测；
    结论上暂不补（以代码走查为准），`SchedulerTask.test.ts` 本机也因 `lz4` native 二进制平台不匹配跑不起来。
 3. **zip 内条目顺序不确定**：流式 append 后顺序取决于下载响应到达顺序（命名是确定的），

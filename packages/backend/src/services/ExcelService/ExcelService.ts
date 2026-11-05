@@ -413,8 +413,10 @@ export class ExcelService {
             hiddenFields: string[];
             pivotConfig: PivotConfig;
             attachmentDownloadName?: string;
+            /** 合并多工作表时保留本地临时文件（由调用方负责清理） */
+            keepTempFile?: boolean;
         };
-    }): Promise<{ fileUrl: string; truncated: boolean }> {
+    }): Promise<{ fileUrl: string; truncated: boolean; localPath?: string }> {
         const { onlyRaw, customLabels, pivotConfig } = options;
 
         // Load rows from the results file using shared streaming utility
@@ -484,7 +486,7 @@ export class ExcelService {
 
         try {
             // Stream the workbook from disk instead of holding the whole file in memory
-            return await storageClient.transformResultsIntoNewFile(
+            const result = await storageClient.transformResultsIntoNewFile(
                 resultsFileName,
                 formattedFileName,
                 async (_, writeStream: Writable) => {
@@ -504,8 +506,19 @@ export class ExcelService {
                     return { truncated };
                 },
             );
-        } finally {
+            return {
+                ...result,
+                ...(options.keepTempFile ? { localPath: filePath } : {}),
+            };
+        } catch (error) {
+            // 上传/转换失败时本地文件不会被调用方用到，直接清掉
             ExcelService.cleanupTempFile(filePath);
+            throw error;
+        } finally {
+            // keepTempFile 时由调用方在合并完成后清理，避免合并布局还要回 S3 拉一次
+            if (!options.keepTempFile) {
+                ExcelService.cleanupTempFile(filePath);
+            }
         }
     }
 

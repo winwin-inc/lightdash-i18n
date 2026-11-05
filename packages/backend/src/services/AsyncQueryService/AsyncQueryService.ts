@@ -1016,6 +1016,7 @@ export class AsyncQueryService extends ProjectService {
                             hiddenFields,
                             pivotConfig,
                             attachmentDownloadName,
+                            keepTempFile,
                         },
                     });
                 }
