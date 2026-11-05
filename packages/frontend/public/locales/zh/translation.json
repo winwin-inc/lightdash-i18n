@@ -1351,10 +1351,10 @@
         "custom": "自定义...",
         "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
         "xlsx_output": "XLSX 输出",
-        "xlsx_output_help": "「分文件 ZIP」每张图一个 XLSX；「单个工作簿」整个看板一个 XLSX、每张图一个工作表；「按 Tab 分工作簿」每个 Tab 一个 XLSX（打包成 ZIP），Tab 内每张图一个工作表。",
+        "xlsx_output_help": "每张图占一个工作表；带 ZIP 的选项会打包多个文件。",
         "xlsx_zip": "分文件（ZIP）",
         "xlsx_workbook": "单个工作簿",
-        "xlsx_per_tab_workbook": "每个 Tab 一个工作簿（ZIP），Tab 内每个图一个 sheet",
+        "xlsx_per_tab_workbook": "按 Tab 分工作簿（ZIP）",
         "tabs": {
           "title": "选项卡",
           "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",

@@ -1343,10 +1343,10 @@
         "custom": "Custom...",
         "results_are_limited": "Results are limited to {{limit}} cells for each file",
         "xlsx_output": "XLSX output",
-        "xlsx_output_help": "Separate files puts each tile in its own XLSX inside a ZIP. Single workbook puts every tile on its own sheet in one XLSX. One workbook per tab produces one XLSX per tab inside a ZIP, with one sheet per chart.",
+        "xlsx_output_help": "One sheet per chart; options marked ZIP bundle multiple files.",
         "xlsx_zip": "Separate files (ZIP)",
         "xlsx_workbook": "Single workbook",
-        "xlsx_per_tab_workbook": "One workbook per tab (ZIP), one sheet per chart",
+        "xlsx_per_tab_workbook": "One workbook per tab (ZIP)",
         "tabs": {
           "title": "Tabs",
           "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",

@@ -299,12 +299,15 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                         )}
                         value="workbook"
                     />
-                    <Radio
-                        label={t(
-                            'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
-                        )}
-                        value="per-tab-workbook"
-                    />
+                    {/* 单 Tab 看板下与「分文件」结果一致，不展示 */}
+                    {(dashboard.tabs?.length ?? 0) > 1 && (
+                        <Radio
+                            label={t(
+                                'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
+                            )}
+                            value="per-tab-workbook"
+                        />
+                    )}
                 </Stack>
             </Radio.Group>
 
@@ -606,7 +609,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     );
 
     return (
-        <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset="3vh">
+        <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset={65}>
             <Modal.Overlay />
             <Modal.Content
                 sx={{
