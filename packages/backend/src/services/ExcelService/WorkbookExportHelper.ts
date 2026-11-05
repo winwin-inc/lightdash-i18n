@@ -62,24 +62,47 @@ export class WorkbookExportHelper {
 
     private static getWorksheetName(name: string, usedNames: Set<string>) {
         const fallbackName = 'Sheet';
+        // 首尾的空白与单引号都非法（Excel sheet 名不能以 ' 开头/结尾），
+        // 且它们会交错出现（"  'Revenue'  "），反复剥到稳定为止
+        const stripIllegalEdges = (value: string) => {
+            let stripped = value;
+            let previous: string | undefined;
+            while (stripped !== previous) {
+                previous = stripped;
+                stripped = stripped
+                    .replace(/^[\s']+/, '')
+                    .replace(/[\s']+$/, '');
+            }
+            return stripped;
+        };
         const sanitizedName =
-            name.replace(/[:\\/?*[\]]/g, '_').trim() || fallbackName;
+            stripIllegalEdges(name.replace(/[:\\/?*[\]]/g, '_')) ||
+            fallbackName;
         const maxLength = 31;
-        let sheetName = sanitizedName.slice(0, maxLength);
+        let sheetName =
+            stripIllegalEdges(sanitizedName.slice(0, maxLength)) ||
+            fallbackName;
 
-        if (usedNames.has(sheetName)) {
+        // Excel 要求 sheet 名大小写不敏感唯一（"Revenue" 与 "revenue" 冲突），
+        // 统一用小写作去重键，但保留原始大小写输出
+        const hasConflict = (candidate: string) =>
+            usedNames.has(candidate.toLowerCase());
+        if (hasConflict(sheetName)) {
             let suffix = 2;
             do {
                 const suffixText = `_${suffix}`;
-                sheetName = `${sanitizedName.slice(
-                    0,
-                    maxLength - suffixText.length,
-                )}${suffixText}`;
+                sheetName =
+                    stripIllegalEdges(
+                        `${sanitizedName.slice(
+                            0,
+                            maxLength - suffixText.length,
+                        )}${suffixText}`,
+                    ) || fallbackName;
                 suffix += 1;
-            } while (usedNames.has(sheetName));
+            } while (hasConflict(sheetName));
         }
 
-        usedNames.add(sheetName);
+        usedNames.add(sheetName.toLowerCase());
         return sheetName;
     }
 

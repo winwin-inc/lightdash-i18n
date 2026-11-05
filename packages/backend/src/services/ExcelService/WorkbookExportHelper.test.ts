@@ -194,4 +194,85 @@ describe('WorkbookExportHelper', () => {
             );
         }
     });
+
+    it('dedupes case-insensitive sheet names and strips edge quotes', async () => {
+        const outputPath = path.join(
+            os.tmpdir(),
+            `lightdash-dashboard-workbook-case-${Date.now()}.xlsx`,
+        );
+        const buffers = await Promise.all(
+            [101, 102, 103, 104].map((value) => createWorkbookBuffer(value)),
+        );
+        const fileErrors: Array<{ filename: string; error: string }> = [];
+
+        global.fetch = jest.fn(
+            async (url: RequestInfo | URL) => {
+                const match = /case-(\d)\.xlsx$/.exec(String(url));
+                const buffer = match ? buffers[Number(match[1]) - 1] : undefined;
+                if (!buffer) {
+                    return {
+                        ok: false,
+                        status: 404,
+                        statusText: 'Not Found',
+                    };
+                }
+                return {
+                    ok: true,
+                    arrayBuffer: async () => toArrayBuffer(buffer),
+                };
+            },
+        ) as unknown as typeof fetch;
+
+        try {
+            const result = await WorkbookExportHelper.createWorkbookFile({
+                files: [
+                    {
+                        filename: 'first',
+                        sheetName: 'Revenue',
+                        localPath: 'https://example.com/case-1.xlsx',
+                    },
+                    // Excel sheet 名大小写不敏感唯一：小写重名必须加后缀，
+                    // 否则打开工作簿时 Excel 会提示修复
+                    {
+                        filename: 'second',
+                        sheetName: 'revenue',
+                        localPath: 'https://example.com/case-2.xlsx',
+                    },
+                    // 首尾单引号非法，应剥掉
+                    {
+                        filename: 'third',
+                        sheetName: "'Q3 actuals'",
+                        localPath: 'https://example.com/case-3.xlsx',
+                    },
+                    // 剥掉空白与引号后与第一个重名：应继续避开（含后缀链）
+                    {
+                        filename: 'fourth',
+                        sheetName: "  'Revenue'  ",
+                        localPath: 'https://example.com/case-4.xlsx',
+                    },
+                ],
+                outputPath,
+                onFileError: (filename, error) =>
+                    fileErrors.push({ filename, error }),
+            });
+
+            expect(result).toEqual({
+                worksheetCount: 4,
+                failedFileCount: 0,
+            });
+            expect(fileErrors).toEqual([]);
+
+            const workbook = new Excel.Workbook();
+            await workbook.xlsx.readFile(outputPath);
+            expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+                'Revenue',
+                'revenue_2',
+                'Q3 actuals',
+                // revenue / revenue_2 都已被占用（大小写不敏感），顺延到 _3
+                'Revenue_3',
+            ]);
+        } finally {
+            await fs.unlink(outputPath).catch(() => undefined);
+        }
+    });
 });

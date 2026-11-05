@@ -479,7 +479,10 @@ export default class SchedulerTask {
                             ('localPath' in downloadResult
                                 ? downloadResult.localPath
                                 : undefined) ?? downloadResult.fileUrl,
-                            truncated: false,
+                            truncated:
+                                'truncated' in downloadResult
+                                    ? downloadResult.truncated
+                                    : false,
                         };
                         this.analytics.trackAccount(account, {
                             event: 'download_results.completed',
@@ -653,7 +656,10 @@ export default class SchedulerTask {
                             ('localPath' in downloadResult
                                 ? downloadResult.localPath
                                 : undefined) ?? downloadResult.fileUrl,
-                                        truncated: false,
+                                        truncated:
+                                            'truncated' in downloadResult
+                                                ? downloadResult.truncated
+                                                : false,
                                         tabUuid,
                                         tabName,
                                     };
@@ -734,7 +740,10 @@ export default class SchedulerTask {
                             ('localPath' in downloadResult
                                 ? downloadResult.localPath
                                 : undefined) ?? downloadResult.fileUrl,
-                                    truncated: false,
+                                    truncated:
+                                        'truncated' in downloadResult
+                                            ? downloadResult.truncated
+                                            : false,
                                     tabUuid,
                                     tabName,
                                 };
@@ -764,6 +773,14 @@ export default class SchedulerTask {
                             csvUrls = await this.buildWorkbookCsvUrls({
                                 files: csvUrls,
                                 workbookNameBase: dashboard.name,
+                            });
+                        } else if (
+                            csvOptions?.xlsxFileLayout === 'per-tab-workbook'
+                        ) {
+                            csvUrls = await this.buildPerTabWorkbookCsvUrls({
+                                files: csvUrls,
+                                dashboardName: dashboard.name,
+                                locale: csvOptions?.locale,
                             });
                         }
 
@@ -1810,14 +1827,22 @@ export default class SchedulerTask {
     private async buildPerTabWorkbookZipUrl({
         files,
         dashboardName,
+        locale,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         dashboardName: string;
+        /** UI 语言（csvOptions.locale）；缺省按中文处理，与邮件模板一致 */
+        locale?: string;
     }): Promise<string> {
         if (files.length === 0) {
             throw new UnexpectedServerError('No files to include in workbook');
         }
 
+        // 文件名不能后端硬编码中文：英文界面应得到 "Ungrouped"
+        // （locale 缺省视为 zh，与邮件模板的默认语言一致）
+        const ungroupedTabName = (locale ?? 'zh').startsWith('zh')
+            ? '未分组'
+            : 'Ungrouped';
         const groups = new Map<
             string,
             { tabName: string; files: typeof files }
@@ -1825,7 +1850,7 @@ export default class SchedulerTask {
         files.forEach((file) => {
             const key = file.tabUuid ?? '__no_tab__';
             const existing = groups.get(key);
-            const tabName = file.tabName ?? '未分组';
+            const tabName = file.tabName ?? ungroupedTabName;
             if (existing) {
                 existing.files.push(file);
             } else {
@@ -1898,6 +1923,48 @@ export default class SchedulerTask {
     }
 
     /**
+     * Collapses per-tile XLSX files into one "zip of per-tab workbooks" csvUrl
+     * for scheduled delivery, matching buildWorkbookCsvUrls' single-entry shape.
+     */
+    private async buildPerTabWorkbookCsvUrls({
+        files,
+        dashboardName,
+        locale,
+    }: {
+        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
+        dashboardName: string;
+        locale?: string;
+    }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
+        // 成功后返回值会被替换成单条 S3 URL，调用方的
+        // cleanupLocalExportFiles 会因 http 前缀跳过，
+        // 因此传入 files 里的本地中间文件（keepTempFile 生成）由这里统一清理
+        const localInputPaths = files
+            .map((file) => file.localPath)
+            .filter((localPath) => !/^https?:\/\//.test(localPath));
+        try {
+            const zipUrl = await this.buildPerTabWorkbookZipUrl({
+                files,
+                dashboardName,
+                locale,
+            });
+            return [
+                {
+                    filename: dashboardName,
+                    path: zipUrl,
+                    localPath: zipUrl,
+                    truncated: files.some((file) => file.truncated),
+                },
+            ];
+        } finally {
+            await Promise.all(
+                localInputPaths.map((localPath) =>
+                    fs.unlink(localPath).catch(() => undefined),
+                ),
+            );
+        }
+    }
+
+    /**
      * Collapses per-tile XLSX files into one multi-sheet workbook for delivery.
      * Default layout remains a zip of separate files when xlsxFileLayout !== 'workbook'.
      */
@@ -1954,12 +2021,14 @@ export default class SchedulerTask {
                 workbookFileName,
             );
 
+            // 任一输入被截断，收口后的单文件也要带上截断标记，
+            // 否则邮件模板的 truncated 提示永远不会出现
             return [
                 {
                     filename: workbookNameBase,
                     path: url,
                     localPath: url,
-                    truncated: false,
+                    truncated: files.some((file) => file.truncated),
                 },
             ];
         } finally {
@@ -3563,6 +3632,11 @@ export default class SchedulerTask {
                     )
                         ? payload.options.xlsxFileLayout
                         : undefined;
+                    const schedulerLocale = isSchedulerCsvOptions(
+                        payload.options,
+                    )
+                        ? payload.options.locale
+                        : undefined;
                     const shouldCreatePerTabWorkbook =
                         xlsxFileLayout === 'per-tab-workbook';
                     const shouldCreateWorkbook = xlsxFileLayout === 'workbook';
@@ -3578,6 +3652,7 @@ export default class SchedulerTask {
                                 await this.buildPerTabWorkbookZipUrl({
                                     files: page.csvUrls,
                                     dashboardName: dashboardForTabs.name,
+                                    locale: schedulerLocale,
                                 });
                             return { url, fileType: 'zip' };
                         } finally {
