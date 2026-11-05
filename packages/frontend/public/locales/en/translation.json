@@ -219,6 +219,7 @@
     "failed_export": "Failed to export {{name}}",
     "failed_preview": "Failed to generate preview for {{name}}",
     "missing_file_url": "Missing file url for {{name}}",
+    "no_charts_to_export": "No charts to export in the selected tabs — try another tab.",
     "something_went_wrong": "Something went wrong",
     "failed_to_export": "Failed to export {{name}}",
     "dashboard_not_found": "Dashboard not found",
@@ -4237,8 +4238,7 @@
     "export_dashboard": "Export dashboard",
     "tabs": {
       "image": "Image",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "csv": ".csv"
     }
   },
   "components_common_modal_dashboard_update": {

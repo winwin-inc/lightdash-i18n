@@ -213,6 +213,7 @@
     "failed_export": "导出 {{name}} 失败",
     "failed_preview": "生成 {{name}} 预览失败",
     "missing_file_url": "{{name}} 缺少文件 URL",
+    "no_charts_to_export": "所选 Tab 下没有可导出的图表，换个 Tab 再试。",
     "something_went_wrong": "Something went wrong",
     "failed_to_export": "导出 {{name}} 失败",
     "dashboard_not_found": "看板未找到",
@@ -4260,8 +4261,7 @@
     "export_dashboard": "导出看板",
     "tabs": {
       "image": "图片",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "csv": ".csv"
     }
   },
   "components_common_modal_dashboard_update": {

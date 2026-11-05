@@ -170,10 +170,9 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
    结论上暂不补（以代码走查为准），`SchedulerTask.test.ts` 本机也因 `lz4` native 二进制平台不匹配跑不起来。
 3. **zip 内条目顺序不确定**：流式 append 后顺序取决于下载响应到达顺序（命名是确定的），
    要顺序确定就得全量缓冲，与流式目标冲突，已作为取舍接受。
-4. **文案细节**：`components_common_modal_dashboard_export.tabs.xlsx` 已不被引用（可清理）；
-   `xlsx_output_help` 在按 Tab 分文件时严格说是「每个文件的内容分组不同」，措辞可再收紧。
-5. **0 图报错的 i18n**：`No charts to export in the selected tabs` 与文件内其他错误一样是英文硬编码，
-   若要中文化需另立文案表。
+4. ~~`tabs.xlsx` 废弃 key~~：已删（页签改成按布局显示 `.xlsx/.zip`）；`xlsx_output_help` 措辞仍可再收紧。
+5. ~~0 图报错的 i18n~~：已处理——后端保持英文错误串，前端 `useDashboard` 匹配到该错误时
+   换成 `hooks_dashboard.no_charts_to_export`（与 `showToastApiError` 处理仓资源限额错误同一套做法）。
 
 ## 10. 第二轮修复（性能与可观测性）
 
