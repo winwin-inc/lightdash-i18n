@@ -354,9 +354,42 @@ const VisualizationProvider: FC<
 
     const effectiveResultsData = resultsData ?? lastValidResultsData;
 
+    // 只有「结果里的字段集就是当前正在编辑的查询」时才推透视维度。
+    // 首帧的 resultsData.metricQuery 可能是上一份查询/上一页的残留（explorerStore 是模块级单例、
+    // useQueryResults 开了 keepPreviousData），用它校验会把已保存的 pivotConfig 清空并落库。
+    const resultsMatchEditingQuery = useMemo(() => {
+        if (!resultsData?.metricQuery) return false;
+        // 部分场景（如无编辑态查询来源）没有 unsavedMetricQuery，退回只看结果是否就绪
+        if (!unsavedMetricQuery) return true;
+
+        return (
+            isEqual(
+                resultsData.metricQuery.dimensions,
+                unsavedMetricQuery.dimensions,
+            ) &&
+            isEqual(
+                resultsData.metricQuery.metrics,
+                unsavedMetricQuery.metrics,
+            ) &&
+            isEqual(
+                (resultsData.metricQuery.tableCalculations ?? []).map(
+                    (tableCalculation) => tableCalculation.name,
+                ),
+                (unsavedMetricQuery.tableCalculations ?? []).map(
+                    (tableCalculation) => tableCalculation.name,
+                ),
+            )
+        );
+    }, [resultsData?.metricQuery, unsavedMetricQuery]);
+
     useEffect(() => {
+        if (!resultsMatchEditingQuery) return;
         onPivotDimensionsChange?.(validPivotDimensions);
-    }, [validPivotDimensions, onPivotDimensionsChange]);
+    }, [
+        resultsMatchEditingQuery,
+        validPivotDimensions,
+        onPivotDimensionsChange,
+    ]);
 
     /**
      * Gets a shared color for a given group name.
