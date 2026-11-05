@@ -639,9 +639,17 @@ export class CsvService extends BaseService {
             const s3Url = await this.s3Client.uploadCsv(csvWithBOM, fileId);
 
             // Delete local file in 10 minutes, we could still read from the local file to upload to google sheets
-            setTimeout(async () => {
-                await fsPromise.unlink(filePath);
-            }, 60 * 10 * 1000);
+            // 必须 catch：文件可能已被其它清理路径删掉（看板导出收尾会主动清理），
+            // 未被处理的话就是 unhandled rejection，Node 默认直接结束进程
+            setTimeout(() => {
+                fsPromise.unlink(filePath).catch((error) => {
+                    this.logger.warn(
+                        `Could not delete CSV temp file ${filePath}: ${getErrorMessage(
+                            error,
+                        )}`,
+                    );
+                });
+            }, 60 * 10 * 1000).unref();
 
             return {
                 filename: fileName,
