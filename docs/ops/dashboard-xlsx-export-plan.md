@@ -140,3 +140,35 @@
 **与 gzip 结果存储的关系**：无。`RESULTS_JSONL_GZIP` 只压缩结果 JSONL 的 S3 对象，
 读时透明解压，xlsx 明文上传、presigned URL 直连下载，后端没有 `compression` 中间件，
 ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
+
+## 9. 复核结论与待办（2026-11 上线前审计）
+
+三张审计报告（链路同步性 / gzip 影响 / 上线前清单）的结论：
+
+- **异步性**：HTTP 只写 job 返回 `jobId`，前端 2s 轮询（上限 20min）；真正的导出在 graphile worker 里，
+  默认与 API 同进程（拆进程方案暂不实现），所以大导出会拖慢同 pod 的其它请求。任务超时只是 `Promise.race`，不中断执行。
+- **与 gzip 无关**：`RESULTS_JSONL_GZIP` 只压结果 JSONL 的 S3 对象，xlsx 明文上传、presigned 直链下载，
+  后端无 `compression` 中间件，ZIP 内 xlsx 条目 `level: 0`，不存在二次压缩。
+
+已修（本分支）：
+
+| 项 | 内容 |
+|---|---|
+| P0 | 合并布局 `fetch('/tmp/...')` 必失败 → 按 scheme 分流走 `fs` |
+| P1 | `workbook` 布局 /tmp 中间文件泄漏、per-tab 生成循环在 `try/finally` 外 |
+| P0 | 定时交付里 `per-tab-workbook` 被静默忽略（只有内容导出走该分支） |
+| P1 | `truncated` 恒为 false，截断信息不落交付；无 `tabUuid` 磁贴固定中文「未分组」 |
+| P1 | 邮件附件把 zip 产物命名成 `.xlsx`（`asAttachment` 场景） |
+| P1 | 交付表单就地改写 `DEFAULT_VALUES.options`，新建交付默认值被污染 |
+| P2 | sheet 名去重区分大小写，与 Excel 的大小写不敏感唯一性规则冲突 |
+
+仍待处理（不阻塞「暂不上线」，上线前再评估）：
+
+1. **并发上限不生效**：`mapWithConcurrencyLimit` 收到的是已起跑的 promise + 恒等 mapper，实际并发 ≈ 图数。
+2. **部分失败静默丢图**：`failedFileCount` 无人读取，交付里看不出「20 张成功 12 张」。
+3. **zip 阶段全量 Buffer**：`createExportZipDownloadUrl` 对 http 输入 `fetch + arrayBuffer` 且全量并发，
+   与本地路径的 `archive.file` 流式分支不一致；建议 `Readable.fromWeb` + 限并发。
+4. **/tmp 峰值 ≈ 2× 产物**：合并布局的输入 + 合并结果 + level 0 的 zip 同时存在。
+5. **透视 xlsx 不参与 `keepTempFile`**，合并时要回 S3 再拉；`copyWorksheet` 不复制合并单元格与冻结窗格。
+6. **测试缺口**：per-tab 分组、tab 过滤、部分失败、同名去重、`EXPORT_CONTENT` 端到端都没有用例。
+7. **0 图 / 空看板**报错文案不可读；workbook 合并后 analytics 的 `numCharts` 恒为 1。

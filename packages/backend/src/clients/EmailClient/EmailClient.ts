@@ -67,6 +67,23 @@ export default class EmailClient {
         attachment: AttachmentUrl,
         format?: SchedulerFormat,
     ): Mail.Attachment {
+        const sourcePath = attachment.localPath || attachment.path;
+
+        // 看板多文件布局（CSV/XLSX 选 zip 或按 Tab 分文件）的产物是 zip，
+        // 不能按单文件扩展名处理，否则得到「zip 内容 + .xlsx 后缀」的坏附件
+        if (
+            attachment.filename.endsWith('.zip') ||
+            /\.zip(\?|$)/i.test(sourcePath)
+        ) {
+            return {
+                filename: attachment.filename.endsWith('.zip')
+                    ? attachment.filename
+                    : `${attachment.filename}.zip`,
+                path: sourcePath,
+                contentType: 'application/zip',
+            };
+        }
+
         const contentType =
             format === SchedulerFormat.XLSX
                 ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -83,7 +100,7 @@ export default class EmailClient {
 
         return {
             filename: fileName,
-            path: attachment.localPath || attachment.path,
+            path: sourcePath,
             contentType,
         };
     }
@@ -441,14 +458,10 @@ export default class EmailClient {
         locale?: string | null,
     ) {
         const copy = getEmailCopy(locale);
-        const resolvedDeliveryType =
-            deliveryType ?? copy.scheduledDelivery;
+        const resolvedDeliveryType = deliveryType ?? copy.scheduledDelivery;
         const deliveredExpireText = copy.deliveredExpire
             .replace('{{date}}', date)
-            .replace(
-                '{{expirationDays}}',
-                String(expirationDays ?? ''),
-            );
+            .replace('{{expirationDays}}', String(expirationDays ?? ''));
 
         return this.sendEmail({
             to: recipient,
