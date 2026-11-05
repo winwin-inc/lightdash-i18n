@@ -577,6 +577,11 @@ export default class SchedulerTask {
                         const totalExportTiles =
                             chartTileUuidsWithChartUuids.length +
                             sqlChartTileUuids.length;
+                        if (totalExportTiles === 0) {
+                            throw new UnexpectedServerError(
+                                'No charts to export in the selected tabs',
+                            );
+                        }
                         let settledExportTiles = 0;
                         const onTileSettled = () => {
                             settledExportTiles += 1;
@@ -596,178 +601,198 @@ export default class SchedulerTask {
                             Math.max(1, totalExportTiles),
                         );
 
-                        const csvForChartPromises =
-                            chartTileUuidsWithChartUuids.map(
-                                async ({ chartUuid, tabUuid, tabName }) => {
-                                    const chartLimit =
-                                        getSchedulerCsvLimit(csvOptions);
-                                    const query =
-                                        await this.asyncQueryService.executeAsyncDashboardChartQuery(
-                                            {
-                                                account,
-                                                projectUuid,
-                                                chartUuid,
-                                                invalidateCache: true,
-                                                context:
-                                                    QueryExecutionContext.SCHEDULED_DELIVERY,
-                                                dashboardUuid,
-                                                dashboardFilters,
-                                                dashboardSorts: [],
-                                                parameters: finalParameters,
-                                                limit: chartLimit,
-                                            },
-                                        );
-                                    const chart =
-                                        await this.schedulerService.savedChartModel.get(
-                                            chartUuid,
-                                        );
-                                    const downloadResult =
-                                        await this.asyncQueryService.downloadSyncQueryResults(
-                                            {
-                                                account,
-                                                projectUuid,
-                                                queryUuid: query.queryUuid,
-                                                type: DownloadFileType.XLSX,
-                                                keepTempFile:
-                                                    keepTempFilesForMerge,
-                                                onlyRaw:
-                                                    csvOptions?.formatted ===
-                                                    false,
-                                                customLabels:
-                                                    getCustomLabelsFromTableConfig(
-                                                        chart.chartConfig
-                                                            .config,
-                                                    ),
-                                                hiddenFields:
-                                                    getHiddenTableFields(
-                                                        chart.chartConfig,
-                                                    ),
-                                                pivotConfig:
-                                                    getPivotConfig(chart),
-                                                columnOrder:
-                                                    chart.tableConfig
-                                                        .columnOrder,
-                                            },
-                                        );
-                                    return {
-                                        filename: chart.name,
-                                        path: downloadResult.fileUrl,
-                                        localPath:
-                            ('localPath' in downloadResult
-                                ? downloadResult.localPath
-                                : undefined) ?? downloadResult.fileUrl,
-                                        truncated:
-                                            'truncated' in downloadResult
-                                                ? downloadResult.truncated
-                                                : false,
-                                        tabUuid,
-                                        tabName,
-                                    };
-                                },
-                            );
-                        const csvForSqlChartPromises = sqlChartTileUuids.map(
-                            async ({ chartUuid, tileUuid, tabUuid, tabName }) => {
-                                const sqlLimit =
-                                    getSchedulerCsvLimit(csvOptions);
-                                const query =
-                                    await this.asyncQueryService.executeAsyncDashboardSqlChartQuery(
-                                        {
-                                            account,
-                                            projectUuid,
-                                            savedSqlUuid: chartUuid,
-                                            invalidateCache: true,
-                                            context:
-                                                QueryExecutionContext.SCHEDULED_DELIVERY,
-                                            dashboardUuid,
-                                            tileUuid,
-                                            dashboardFilters,
-                                            dashboardSorts: [],
-                                            parameters: finalParameters,
-                                            limit:
-                                                sqlLimit === null
-                                                    ? MAX_SAFE_INTEGER
-                                                    : sqlLimit,
-                                        },
-                                    );
-                                const chart =
-                                    await this.asyncQueryService.savedSqlModel.getByUuid(
-                                        chartUuid,
-                                        {
-                                            projectUuid,
-                                        },
-                                    );
-                                const downloadResult =
-                                    await this.asyncQueryService.downloadSyncQueryResults(
-                                        {
-                                            account,
-                                            projectUuid,
-                                            queryUuid: query.queryUuid,
-                                            type: DownloadFileType.XLSX,
-                                            keepTempFile:
-                                                keepTempFilesForMerge,
-                                            onlyRaw:
-                                                csvOptions?.formatted === false,
-                                            customLabels:
-                                                getCustomLabelsFromVizTableConfig(
-                                                    isVizTableConfig(
-                                                        chart.config,
-                                                    )
-                                                        ? chart.config
-                                                        : undefined,
-                                                ),
-                                            hiddenFields:
-                                                getHiddenFieldsFromVizTableConfig(
-                                                    isVizTableConfig(
-                                                        chart.config,
-                                                    )
-                                                        ? chart.config
-                                                        : undefined,
-                                                ),
-                                            columnOrder:
-                                                getColumnOrderFromVizTableConfig(
-                                                    isVizTableConfig(
-                                                        chart.config,
-                                                    )
-                                                        ? chart.config
-                                                        : undefined,
-                                                ),
-                                        },
-                                    );
-                                return {
-                                    filename: chart.name,
-                                    path: downloadResult.fileUrl,
-                                    localPath:
-                            ('localPath' in downloadResult
-                                ? downloadResult.localPath
-                                : undefined) ?? downloadResult.fileUrl,
-                                    truncated:
-                                        'truncated' in downloadResult
-                                            ? downloadResult.truncated
-                                            : false,
-                                    tabUuid,
-                                    tabName,
-                                };
-                            },
-                        );
+                        // 限流器要的是「tile 描述 + mapper 函数」：先 map(async …) 会立刻
+                        // 起跑全部查询，再交给限流器只是排队 await 已在跑的 promise
+                        type DashboardExportTile = {
+                            tileUuid: string;
+                            chartUuid: string;
+                            tabUuid: string | null;
+                            tabName: string | undefined;
+                        };
+                        type DashboardExportTileWork =
+                            | { kind: 'chart'; tile: DashboardExportTile }
+                            | { kind: 'sqlChart'; tile: DashboardExportTile };
 
-                        const chartResults = await mapWithConcurrencyLimit(
-                            csvForChartPromises,
+                        const exportChartTile = async ({
+                            chartUuid,
+                            tabUuid,
+                            tabName,
+                        }: DashboardExportTile) => {
+                            const chartLimit =
+                                getSchedulerCsvLimit(csvOptions);
+                            const query =
+                                await this.asyncQueryService.executeAsyncDashboardChartQuery(
+                                    {
+                                        account,
+                                        projectUuid,
+                                        chartUuid,
+                                        invalidateCache: true,
+                                        context:
+                                            QueryExecutionContext.SCHEDULED_DELIVERY,
+                                        dashboardUuid,
+                                        dashboardFilters,
+                                        dashboardSorts: [],
+                                        parameters: finalParameters,
+                                        limit: chartLimit,
+                                    },
+                                );
+                            const chart =
+                                await this.schedulerService.savedChartModel.get(
+                                    chartUuid,
+                                );
+                            const downloadResult =
+                                await this.asyncQueryService.downloadSyncQueryResults(
+                                    {
+                                        account,
+                                        projectUuid,
+                                        queryUuid: query.queryUuid,
+                                        type: DownloadFileType.XLSX,
+                                        keepTempFile: keepTempFilesForMerge,
+                                        onlyRaw:
+                                            csvOptions?.formatted === false,
+                                        customLabels:
+                                            getCustomLabelsFromTableConfig(
+                                                chart.chartConfig.config,
+                                            ),
+                                        hiddenFields: getHiddenTableFields(
+                                            chart.chartConfig,
+                                        ),
+                                        pivotConfig: getPivotConfig(chart),
+                                        columnOrder:
+                                            chart.tableConfig.columnOrder,
+                                    },
+                                );
+                            return {
+                                filename: chart.name,
+                                path: downloadResult.fileUrl,
+                                localPath:
+                                    ('localPath' in downloadResult
+                                        ? downloadResult.localPath
+                                        : undefined) ??
+                                    downloadResult.fileUrl,
+                                truncated:
+                                    'truncated' in downloadResult
+                                        ? downloadResult.truncated
+                                        : false,
+                                tabUuid,
+                                tabName,
+                            };
+                        };
+
+                        const exportSqlChartTile = async ({
+                            chartUuid,
+                            tileUuid,
+                            tabUuid,
+                            tabName,
+                        }: DashboardExportTile) => {
+                            const sqlLimit = getSchedulerCsvLimit(csvOptions);
+                            const query =
+                                await this.asyncQueryService.executeAsyncDashboardSqlChartQuery(
+                                    {
+                                        account,
+                                        projectUuid,
+                                        savedSqlUuid: chartUuid,
+                                        invalidateCache: true,
+                                        context:
+                                            QueryExecutionContext.SCHEDULED_DELIVERY,
+                                        dashboardUuid,
+                                        tileUuid,
+                                        dashboardFilters,
+                                        dashboardSorts: [],
+                                        parameters: finalParameters,
+                                        limit:
+                                            sqlLimit === null
+                                                ? MAX_SAFE_INTEGER
+                                                : sqlLimit,
+                                    },
+                                );
+                            const chart =
+                                await this.asyncQueryService.savedSqlModel.getByUuid(
+                                    chartUuid,
+                                    {
+                                        projectUuid,
+                                    },
+                                );
+                            const downloadResult =
+                                await this.asyncQueryService.downloadSyncQueryResults(
+                                    {
+                                        account,
+                                        projectUuid,
+                                        queryUuid: query.queryUuid,
+                                        type: DownloadFileType.XLSX,
+                                        keepTempFile: keepTempFilesForMerge,
+                                        onlyRaw:
+                                            csvOptions?.formatted === false,
+                                        customLabels:
+                                            getCustomLabelsFromVizTableConfig(
+                                                isVizTableConfig(chart.config)
+                                                    ? chart.config
+                                                    : undefined,
+                                            ),
+                                        hiddenFields:
+                                            getHiddenFieldsFromVizTableConfig(
+                                                isVizTableConfig(chart.config)
+                                                    ? chart.config
+                                                    : undefined,
+                                            ),
+                                        columnOrder:
+                                            getColumnOrderFromVizTableConfig(
+                                                isVizTableConfig(chart.config)
+                                                    ? chart.config
+                                                    : undefined,
+                                            ),
+                                    },
+                                );
+                            return {
+                                filename: chart.name,
+                                path: downloadResult.fileUrl,
+                                localPath:
+                                    ('localPath' in downloadResult
+                                        ? downloadResult.localPath
+                                        : undefined) ??
+                                    downloadResult.fileUrl,
+                                truncated:
+                                    'truncated' in downloadResult
+                                        ? downloadResult.truncated
+                                        : false,
+                                tabUuid,
+                                tabName,
+                            };
+                        };
+
+                        // chart 与 sql 图合成一个 work 列表、用同一个限流器跑，
+                        // 避免两批各自起跑后叠加打满数仓。
+                        // 结果顺序 = work 列表顺序（先 chart 后 sql，各自保持输入顺序）。
+                        const exportTileWork: DashboardExportTileWork[] = [
+                            ...chartTileUuidsWithChartUuids.map(
+                                (tile): DashboardExportTileWork => ({
+                                    kind: 'chart',
+                                    tile,
+                                }),
+                            ),
+                            ...sqlChartTileUuids.map(
+                                (tile): DashboardExportTileWork => ({
+                                    kind: 'sqlChart',
+                                    tile,
+                                }),
+                            ),
+                        ];
+                        const exportResults = await mapWithConcurrencyLimit(
+                            exportTileWork,
                             exportConcurrency,
-                            (promise) => promise,
+                            (work) =>
+                                work.kind === 'chart'
+                                    ? exportChartTile(work.tile)
+                                    : exportSqlChartTile(work.tile),
                             onTileSettled,
                         );
-                        const sqlChartResults = await mapWithConcurrencyLimit(
-                            csvForSqlChartPromises,
-                            exportConcurrency,
-                            (promise) => promise,
-                            onTileSettled,
-                        );
-                        csvUrls = [
-                            ...chartResults,
-                            ...sqlChartResults,
-                        ].flatMap((result) =>
+                        csvUrls = exportResults.flatMap((result) =>
                             result.status === 'fulfilled' ? [result.value] : [],
                         );
+
+                        // 记录合并前的 tile 数：workbook / per-tab 合并后 csvUrls 只剩
+                        // 1 条（或每 Tab 1 条），不能再用 csvUrls.length 当图数
+                        const numExportedCharts = csvUrls.length;
 
                         if (csvOptions?.xlsxFileLayout === 'workbook') {
                             csvUrls = await this.buildWorkbookCsvUrls({
@@ -789,7 +814,7 @@ export default class SchedulerTask {
                             userId: account.user.id,
                             properties: {
                                 ...baseAnalyticsProperties,
-                                numCharts: csvUrls.length,
+                                numCharts: numExportedCharts,
                             },
                         });
                     } else {
@@ -3738,19 +3763,57 @@ export default class SchedulerTask {
         }
 
         const zipPath = `/tmp/${nanoid()}.zip`;
-        try {
-            const output = fsSync.createWriteStream(zipPath);
-            // xlsx 本身是 zip 容器，再按 level 9 压几乎不减小体积，只烧 CPU；
-            // csv 文本用 6（9 与 6 的体积差很小，但耗时差一倍以上）
-            const archive = archiver('zip', {
-                zlib: { level: fileExtension === 'xlsx' ? 0 : 6 },
-            });
-            const zipDone = new Promise<void>((resolve, reject) => {
-                output.on('close', () => resolve());
-                archive.on('error', reject);
-            });
-            archive.pipe(output);
+        const output = fsSync.createWriteStream(zipPath);
+        // xlsx 本身是 zip 容器，再按 level 9 压几乎不减小体积，只烧 CPU；
+        // csv 文本用 6（9 与 6 的体积差很小，但耗时差一倍以上）
+        const archive = archiver('zip', {
+            zlib: { level: fileExtension === 'xlsx' ? 0 : 6 },
+        });
+        const zipDone = new Promise<void>((resolve, reject) => {
+            output.on('close', () => resolve());
+            output.on('error', reject);
+            archive.on('error', reject);
+        });
+        // 先挂一个空 catch：zipDone 可能在 await 之前就因输出流错误而 reject，
+        // 那样会变成 unhandled rejection（Node 默认直接崩进程）；
+        // 真正需要感知错误的 await 处仍会正常抛出
+        void zipDone.catch(() => undefined);
+        archive.pipe(output);
 
+        // 等待 archiver 把某个条目完整写入 zip（按 name 匹配；entry 名已去重、必唯一）。
+        // http 条目 append 之后必须等本条目消费完才能放行，限流器才能约束
+        // 「已打开但尚未被泵走」的下载流数量。
+        const entryWaiters: Array<{
+            name: string;
+            resolve: () => void;
+            reject: (error: Error) => void;
+        }> = [];
+        const entryDone = (name: string): Promise<void> =>
+            new Promise<void>((resolve, reject) => {
+                entryWaiters.push({ name, resolve, reject });
+            });
+        archive.on('entry', (entry) => {
+            const index = entryWaiters.findIndex(
+                (waiter) => waiter.name === entry.name,
+            );
+            if (index >= 0) {
+                entryWaiters.splice(index, 1)[0].resolve();
+            }
+        });
+        archive.on('error', (error) => {
+            // 归档出错时唤醒所有等待中的条目，避免限流 worker 卡死
+            for (const waiter of entryWaiters.splice(0)) {
+                waiter.reject(error);
+            }
+        });
+
+        // 同时打开的 http 下载流上限：archiver 串行消费已 append 的流，
+        // 同时打开太多只会把所有响应一起拉进内存
+        const maxOpenDownloadStreams = 3;
+
+        try {
+            // entryName 分配必须同步、按输入顺序完成：并发下载的响应到达
+            // 顺序不确定，若在 mapper 里分配，同名文件的 _2 后缀会随竞态漂移
             const usedNames = new Set<string>();
             const dedupeName = (baseName: string) => {
                 const extension = `.${fileExtension}`;
@@ -3766,10 +3829,20 @@ export default class SchedulerTask {
                 usedNames.add(name);
                 return name;
             };
+            const entryNames = files.map((file) =>
+                dedupeName(file.entryNameBase),
+            );
 
-            await Promise.all(
-                files.map(async (file) => {
-                    const entryName = dedupeName(file.entryNameBase);
+            // http 分支流式 append（Readable.fromWeb），不再 arrayBuffer() 全量
+            // 进内存，内存峰值从「所有产物之和」降到「少数在途分块」。
+            // 取舍：条目在 zip 内的顺序 = append 顺序 = 各下载响应的到达顺序，
+            // 不保证与输入顺序一致（条目命名是确定的）；要顺序完全确定只能
+            // 全量缓冲后再按序 append，与流式目标冲突，故放弃顺序保证。
+            const appendResults = await mapWithConcurrencyLimit(
+                files,
+                maxOpenDownloadStreams,
+                async (file, index) => {
+                    const entryName = entryNames[index];
                     if (
                         file.localPath.startsWith('http://') ||
                         file.localPath.startsWith('https://')
@@ -3780,17 +3853,29 @@ export default class SchedulerTask {
                                 `Failed to download export file "${file.entryNameBase}"`,
                             );
                         }
-                        const buffer = Buffer.from(
-                            await response.arrayBuffer(),
+                        // undici 的 Response.body 与 node:stream/web 的
+                        // ReadableStream 类型声明不同源，结构等价，这里断言桥接
+                        archive.append(
+                            Readable.fromWeb(
+                                response.body as import('stream/web').ReadableStream,
+                            ),
+                            {
+                                name: entryName,
+                            },
                         );
-                        archive.append(Readable.from(buffer), {
-                            name: entryName,
-                        });
+                        await entryDone(entryName);
                     } else {
                         archive.file(file.localPath, { name: entryName });
                     }
-                }),
+                },
             );
+
+            const failure = appendResults.find(
+                (result) => result.status === 'rejected',
+            );
+            if (failure?.status === 'rejected') {
+                throw failure.reason;
+            }
 
             await archive.finalize();
             await zipDone;
@@ -3802,6 +3887,14 @@ export default class SchedulerTask {
                 fsSync.createReadStream(zipPath),
                 zipFileName,
             );
+        } catch (e) {
+            // 收口：中止归档并销毁输出流，否则 finally 的 unlink 会删一个
+            // 仍被写流占用的路径；zipDone 可能以 error 收场，吞掉避免
+            // unhandled rejection
+            archive.abort();
+            output.destroy();
+            void zipDone.catch(() => undefined);
+            throw e;
         } finally {
             await fs.unlink(zipPath).catch(() => undefined);
         }
