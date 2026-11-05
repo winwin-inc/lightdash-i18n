@@ -13,7 +13,7 @@
 | 结论 | 说明 |
 | --- | --- |
 | 只有 3 个面真正渲染「图表错误 UI」 | Explore 图表卡、看板 tile、Explore 结果表；另有移动端最小页**根本没有错误 UI** |
-| 错误信息只有一句英文原文 | 后端 `FieldReferenceError` 只带 `fieldId` 文本，无图表名、无字段清单、无修复入口 |
+| 错误信息只有一句英文原文 | 后端 `FieldReferenceError` 只带 `fieldId` 文本，无图表名、无字段清单、无修复入口；中文用户完全看不出是哪一列 |
 | 数据其实大多已在手上 | Explore 面：`chartConfig` + `unsavedMetricQuery` + `itemsMap` + `useExplore` 都在同一组件链；只差接线 |
 | 看板 tile 是「数据被丢掉」的典型 | 错误分支在 `VisualizationProvider` **之外**；`readyQuery.error` 时连 `data` 都没有，只剩 `tile.properties.lastVersionChartKind` |
 | 移动端最误导 | `/minimal/.../saved/:uuid` 未接 `apiErrorDetail`，落进 `SimpleChart` 的 `resultsData.error → <EmptyChart/>`，显示「No data available」 |
@@ -57,54 +57,66 @@
 
 ## 3. 目标与非目标
 
-**目标**
+**目标（PC 优先）**
 
-1. 图表打不开时，能直接看到：**图表类型 + 这张图用到的字段 + 哪些字段已失效**。
-2. 能直接跳到「编辑图表」去修（不再需要自己回忆/猜）。
-3. 移动端最小页不再把错误伪装成「无数据」。
+1. 图表打不开时，**用中文说清楚是哪一列有问题**：顶部一句中文摘要（例：「本图有 1 个字段已失效：订单金额（orders_total_amount）」）+ 高亮失效字段。
+2. 同时能看到：**图表类型 + 这张图用到的全部字段**（有 label 显示中文名，否则退回 fieldId）。
+3. 能直接跳到「编辑图表」去修（不再需要自己回忆/猜）。
+4. 后端英文原文不再霸占整个错误区：收进可折叠的「技术详情」。
+
+**目标（附带，最后做）**
+
+5. 移动端最小页不再把错误伪装成「No data available」。
 
 **非目标（本轮不做）**
 
 - 不做自动修复（如自动猜测改名后的新字段并替换）——风险高，单独评估。
-- 不改后端错误文案的本地化（仍会中英混排）。
+- 不改后端错误文案的本地化（仍会中英混排，但只出现在折叠的技术详情里）。
 - 不改 RenameService 的迁移范围（`merge` / `saved_sql` / `DATA_APP_VIZ` 未覆盖是既有事实，另立项）。
 - 不覆盖 SQL chart / DataApp tile（数据模型不同）。
 - 不给 ErrorBoundary 注入图表上下文（crash 场景数据链已断）。
+- 移动端不做完整诊断面板，只把真实错误显示出来。
 
 ## 4. 分阶段方案
 
-### P0（约 0.5 天）：Explore 图表卡 + 移动端最小页
+### P0（约 1 天）：PC 错误面板——Explore 图表卡 + 看板 tile
 
-零新取数，只做接线与展示。
+新增纯展示组件 `components/LightdashVisualization/ChartErrorDetails/index.tsx`（零新取数部分）：
 
-1. 新增纯展示组件 `components/LightdashVisualization/ChartErrorDetails/index.tsx`
-   - props：`{ chartType, metricQuery, itemsMap?, pivotConfig?, children? }`
-   - 渲染：
-     - 图表类型徽标（复用 `chart_types.*` 文案）
-     - 字段清单（维度 / 指标 / 表计算分组；有 `itemsMap` 显示 label，否则退回 fieldId）
-     - 失效字段高亮（`itemsInMetricQuery(metricQuery)` 中不在 `itemsMap` 的 id），复用
-       `hooks_columns.not_found_in_dbt_project` 文案
-     - 折叠：默认只显示「共 N 个字段，其中 M 个已失效」，点击展开完整清单
-   - **只读**，不写任何配置、不发请求。
-2. `VisualizationProvider` 把已有的 `unsavedMetricQuery` 放进 context（`context.ts` 加一个字段），
-   `LightdashVisualization` 的 `apiErrorDetail` 分支在 `description` 下方挂 `<ChartErrorDetails />`。
-   注意 `EmptyState.description` 是 `<Text span>`，需用 `children`（`common/EmptyState/index.tsx:52`）。
-3. `pages/MinimalSavedExplorer.tsx` 照抄 `VisualizationCard` 的 `apiErrorDetail` memo 并传给
-   `VisualizationProvider`，让移动端显示真实错误而不是「No data available」。`minimal` 下做降级：
-   只显示图表类型 + 失效字段数，不展开完整字段列表。
+- props：`{ chartType, metricQuery, itemsMap?, invalidFieldIds?, onEdit?, compact? }`
+- 渲染层次（从上到下）：
+  1. **中文摘要**：`本图有 N 个字段已失效：A、B` / 无失效字段时 `本图共 N 个字段，未发现失效引用`
+  2. **图表类型徽标**（复用 `chart_types.*` 中文文案）
+  3. **字段清单**（维度 / 指标 / 表计算分组）：有 `itemsMap` 显示中文 label + 括号内 fieldId，否则只显示 fieldId；失效项标红并加 tooltip（复用 `hooks_columns.not_found_in_dbt_project`）
+  4. 折叠区「技术详情」：后端英文原文（`apiErrorDetail.message`）
+  5. 可选操作按钮：`编辑图表`（复用 `EditChartMenuItem` 的 `storeDashboard` 逻辑）
+- **只读**，不写配置、不发请求。
 
-**验收**：把某个已保存图表的字段在 explore 里删掉 → 打开图表 → 能看到「图表类型 + 失效字段 id/label + 编辑入口」；移动端不再显示 No data available。
+失效字段的判定（两层，先结构后文本）：
 
-### P1（约 1 天）：看板 tile
+1. 优先读 `apiErrorDetail.data.fieldId`（P2 后端补；现在为空则跳过）
+2. 回退：从 message 正则提取 fieldId —— 已知三种形态：
+   - `Tried to reference (dimension|metric) with unknown field id: <id>`
+   - `Filter has a reference to an unknown (dimension|metric): <id>`
+   - `Table calculation contains a reference "<id>" to a field ...`
+3. 再回退：`itemsInMetricQuery(metricQuery)` 中不在 `itemsMap` 的 id（字段被删但后端错误信息不含 id 时）
+4. 都拿不到时：只显示字段清单 + 「错误可能来自其中之一」，不假装精准
 
-1. `hooks/useDashboardChartReadyQuery.ts` 增加返回值 `chart: chartQuery.data ?? data?.chart`、
-   `explore`（`chartQuery` / `useExplore` 已在 hook 内执行，只是没返回）。
-2. `DashboardChartTile` 错误分支在 `SuboptimalState` 下复用 `<ChartErrorDetails />`；
-   `chart` 为空（图表被删/无权限）时降级为不列字段。
-3. `minimal` / embed 分级：embed 只显示「图表名 + 错误类别」，不暴露表名/字段名
-   （截图与外部租户场景需要收敛 —— 风险 §6-4）。
+接线：
 
-**验收**：看板上字段被删的图表能列出失效字段并可直接「编辑图表」。
+- `VisualizationProvider` 把已有的 `unsavedMetricQuery` 放进 context（`context.ts` 加一个字段）。
+- `LightdashVisualization` 的 `apiErrorDetail` 分支在 `description` 下方挂 `<ChartErrorDetails />`；注意 `EmptyState.description` 是 `<Text span>`，需改用 `children`（`common/EmptyState/index.tsx:52`）。
+- **看板 tile**：`hooks/useDashboardChartReadyQuery.ts` 增加返回值 `chart: chartQuery.data ?? data?.chart`、`explore`（两者已在 hook 内取到，只是没返回）；`DashboardChartTile.tsx:1997-2036` 错误分支复用同一组件；`chart` 为空（图表被删/无权限）时降级为只有错误类别 + 名字。
+
+**验收（PC）**
+
+- Explore：删掉某图某字段后打开 → 看到中文摘要点名该字段、字段清单高亮、可跳编辑。
+- 看板：同一张坏图在 tile 上能看到同样的摘要（含 `readyQuery.error` 这条最常见路径）。
+- 错误原文仍可查，但不占主视觉。
+
+### P1（约 0.5 天，附带）：移动端最小页
+
+`pages/MinimalSavedExplorer.tsx` 照抄 `VisualizationCard` 的 `apiErrorDetail` memo 并传给 `VisualizationProvider`，让 `/minimal/.../saved/:uuid` 显示真实错误而不是「No data available」。`minimal` 下只显示「图表名 + 失效字段数」，不展开字段清单（避免在窄屏/截图里堆信息）。
 
 ### P2（可选，需后端配合）：把字段失效变成结构化信息
 
@@ -137,16 +149,17 @@
 8. 跳「编辑图表」需复用 `EditChartMenuItem` 的 `storeDashboard` 逻辑（`belongsToDashboard` 时），
    否则看板未保存改动会丢。
 
-## 6. 明天开工 checklist
+## 6. 明天开工 checklist（PC 优先）
 
-- [ ] 确认范围：只做 P0（Explore + 移动端），还是 P0+P1（含看板）
-- [ ] 取一个真实坏图（字段被删/改名）作为验收样本，记录 uuid
-- [ ] 落 `ChartErrorDetails` 组件 + `context` 增加 `unsavedMetricQuery`
-- [ ] `LightdashVisualization` 错误分支接线（用 `EmptyState` 的 `children`）
-- [ ] `MinimalSavedExplorer` 接入 `apiErrorDetail`（含 minimal 降级）
-- [ ] zh/en 文案补齐
-- [ ] 加单测：失效字段检测、有/无 itemsMap 两种渲染、minimal 降级
-- [ ] 手工回归：EditChartMenu 跳转、embed 不泄露字段、tile 小尺寸布局
+- [ ] **P0-a Explore 图表卡**（PC）：`ChartErrorDetails` 组件 + context 增加 `unsavedMetricQuery` + 错误分支接线
+- [ ] **P0-b 看板 tile**（PC）：`useDashboardChartReadyQuery` 多返回 `chart`/`explore`，复用同一组件；`chart` 为空时降级
+- [ ] 中文摘要文案（点名失效字段）+ 字段清单（label + fieldId）+ 「技术详情」折叠
+- [ ] message 正则解析（三种已知形态），解析不到就退化为「列清单 + 错误可能在其中」
+- [ ] zh/en 文案补齐（`public/locales/{zh,en}/translation.json`）
+- [ ] 加单测：失效字段检测（有/无 itemsMap、正则命中/未命中）、minimal 降级
+- [ ] 手工回归：EditChartMenu 跳转、tile 小尺寸布局、embed 不泄露字段
+- [ ] （附带，时间允许再做）P1 移动端 minimal 接线
+- [ ] （需排期）P2 后端 `data.fieldId`
 
 ## 7. 相关链接
 
