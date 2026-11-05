@@ -579,8 +579,28 @@ export default class EmailClient {
         asAttachment?: boolean,
         format?: SchedulerFormat,
         locale?: string | null,
+        /** 看板导出中失败的图表（page.failedExports），旧 payload 可能没有 */
+        failedExports?: Array<{ filename: string; reason: string }>,
     ) {
         const copy = getEmailCopy(locale);
+        // 失败清单只列前 10 个图表名，避免邮件里出现一长串
+        const maxFailedExportNames = 10;
+        const failedExportNames = (failedExports ?? [])
+            .slice(0, maxFailedExportNames)
+            .map((failedExport) => failedExport.filename);
+        const remainingFailedExports =
+            (failedExports?.length ?? 0) - failedExportNames.length;
+        const failedExportsMessage =
+            failedExports && failedExports.length > 0
+                ? `${copy.failedExportsTitle} ${copy.failedExportsBody.replace(
+                      '{{names}}',
+                      remainingFailedExports > 0
+                          ? `${failedExportNames.join(', ')} (+${
+                                remainingFailedExports
+                            } more)`
+                          : failedExportNames.join(', '),
+                  )}`
+                : undefined;
         const maxCells = this.lightdashConfig.query.csvCellsLimit;
         const csvUrls = attachments.filter(
             (attachment) => !attachment.truncated,
@@ -630,6 +650,7 @@ export default class EmailClient {
                     String(maxCells),
                 ),
                 truncatedHint: copy.truncatedHint,
+                failedExportsMessage,
                 viewDashboard: copy.viewDashboard,
                 scheduledDeliveryLabel: copy.scheduledDelivery,
             }),

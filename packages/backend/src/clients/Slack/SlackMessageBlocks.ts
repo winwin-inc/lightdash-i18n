@@ -315,6 +315,8 @@ type GetDashboardCsvResultsBlocksArgs = {
     ctaUrl: string;
     csvUrls: AttachmentUrl[];
     footerMarkdown?: string;
+    /** 导出失败汇总文案（已格式化并截断），为空时不渲染 */
+    failedExportsText?: string;
 };
 export const getDashboardCsvResultsBlocks = ({
     title,
@@ -323,6 +325,7 @@ export const getDashboardCsvResultsBlocks = ({
     message,
     csvUrls,
     footerMarkdown,
+    failedExportsText,
     ctaUrl,
 }: GetDashboardCsvResultsBlocksArgs): KnownBlock[] =>
     getBlocks([
@@ -359,6 +362,17 @@ export const getDashboardCsvResultsBlocks = ({
                 action_id: 'button-action',
             },
         },
+        ...(failedExportsText
+            ? [
+                  {
+                      type: 'section',
+                      text: {
+                          type: 'mrkdwn',
+                          text: `:warning: ${failedExportsText}`,
+                      },
+                  } as KnownBlock,
+              ]
+            : []),
         ...csvUrls.map<KnownBlock>((csvUrl, index) =>
             csvUrl.path !== '#no-results'
                 ? {

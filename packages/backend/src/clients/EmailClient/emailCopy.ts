@@ -74,6 +74,8 @@ type EmailCopy = {
     truncatedDashboardBody: string;
     truncatedChartBody: string;
     truncatedHint: string;
+    failedExportsTitle: string;
+    failedExportsBody: string;
     noResultsTitle: string;
     noResultsBody: string;
     viewDashboard: string;
@@ -155,6 +157,8 @@ const COPY: Record<EmailLocale, EmailCopy> = {
         truncatedChartBody:
             '导出上限为 {{maxCells}} 个单元格，你的文件超出了限制。',
         truncatedHint: '建议调整定时推送，减少导出结果数量。',
+        failedExportsTitle: '⚠️ 部分图表导出失败。',
+        failedExportsBody: '以下图表未能导出：{{names}}。',
         noResultsTitle: '⚠️ 没有可导出的结果。',
         noResultsBody: '本次定时推送返回了空数据集。',
         viewDashboard: '在马上赢X中查看看板',
@@ -243,6 +247,9 @@ const COPY: Record<EmailLocale, EmailCopy> = {
             'The export limit is {{maxCells}} cells, but your file exceeded that limit.',
         truncatedHint:
             'You should update your scheduled delivery to include fewer results.',
+        failedExportsTitle: '⚠️ Some charts failed to export.',
+        failedExportsBody:
+            'The following charts could not be exported: {{names}}.',
         noResultsTitle: '⚠️ There were no results to export.',
         noResultsBody: 'This scheduled delivery returned an empty dataset.',
         viewDashboard: 'View dashboard in MSYX',
@@ -289,6 +296,8 @@ export const emailTemplateStrings = (
         truncatedDashboardBody: c.truncatedDashboardBody,
         truncatedChartBody: c.truncatedChartBody,
         truncatedHint: c.truncatedHint,
+        failedExportsTitle: c.failedExportsTitle,
+        failedExportsBody: c.failedExportsBody,
         noResultsTitle: c.noResultsTitle,
         noResultsBody: c.noResultsBody,
         viewDashboard: c.viewDashboard,

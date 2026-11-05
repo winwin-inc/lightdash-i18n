@@ -277,6 +277,7 @@ export class MicrosoftTeamsClient {
         ctaUrl,
         csvUrls,
         footer,
+        failedExportsText,
     }: {
         webhookUrl: string;
         title: string;
@@ -285,6 +286,8 @@ export class MicrosoftTeamsClient {
         ctaUrl: string;
         csvUrls: AttachmentUrl[];
         footer: string;
+        /** 导出失败汇总文案（已格式化并截断），为空时不渲染 */
+        failedExportsText?: string;
     }): Promise<void> {
         if (!this.lightdashConfig.microsoftTeams.enabled) {
             throw new MissingConfigError('Microsoft Teams is not enabled');
@@ -336,6 +339,17 @@ export class MicrosoftTeamsClient {
                                 isSubtle: true,
                                 spacing: 'none',
                             })),
+                            ...(failedExportsText
+                                ? [
+                                      {
+                                          type: 'TextBlock',
+                                          text: `⚠️ ${failedExportsText}`,
+                                          isSubtle: true,
+                                          spacing: 'none',
+                                          wrap: true,
+                                      },
+                                  ]
+                                : []),
                             {
                                 type: 'TextBlock',
                                 text: footer,

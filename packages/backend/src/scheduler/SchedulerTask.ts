@@ -1129,6 +1129,7 @@ export default class SchedulerTask {
                 csvUrl,
                 csvUrls,
                 pdfFile,
+                failedExports,
             } = notificationPageData;
 
             const defaultSchedulerTimezone =
@@ -1280,6 +1281,8 @@ export default class SchedulerTask {
                     blocks = getDashboardCsvResultsBlocks({
                         ...getBlocksArgs,
                         csvUrls,
+                        failedExportsText:
+                            SchedulerTask.formatFailedExports(failedExports),
                     });
                 } else {
                     throw new Error('Not implemented');
@@ -1447,6 +1450,7 @@ export default class SchedulerTask {
                 csvUrl,
                 csvUrls,
                 pdfFile,
+                failedExports,
             } = notificationPageData;
 
             const schedulerType =
@@ -1514,6 +1518,8 @@ export default class SchedulerTask {
                         webhookUrl: webhook,
                         ...getBlocksArgs,
                         csvUrls,
+                        failedExportsText:
+                            SchedulerTask.formatFailedExports(failedExports),
                     });
                 } else {
                     throw new UnexpectedServerError('Not implemented');
@@ -2540,6 +2546,7 @@ export default class SchedulerTask {
                 csvUrl,
                 csvUrls,
                 pdfFile,
+                failedExports,
             } = notificationPageData;
 
             const schedulerUrl = `${url}?${setUuidParam(
@@ -2680,6 +2687,7 @@ export default class SchedulerTask {
                     csvOptions?.asAttachment,
                     format,
                     emailLocale,
+                    failedExports,
                 );
             } else {
                 throw new Error('Not implemented');
@@ -3844,6 +3852,30 @@ export default class SchedulerTask {
                 )}`,
             );
         }
+    }
+
+    /**
+     * 把 page.failedExports 压成一行提示（Slack / Teams 用，与这两个渠道既有英文文案一致）。
+     * 最多列 10 个文件，其余用「+N more」汇总；无失败时返回 undefined，调用方据此不渲染。
+     */
+    private static formatFailedExports(
+        failedExports: NotificationPayloadBase['page']['failedExports'],
+    ): string | undefined {
+        if (!failedExports || failedExports.length === 0) {
+            return undefined;
+        }
+
+        const maxNames = 10;
+        const names = failedExports
+            .slice(0, maxNames)
+            .map((failedExport) => failedExport.filename);
+        const remaining = failedExports.length - names.length;
+        const nameList =
+            remaining > 0
+                ? `${names.join(', ')} (+${remaining} more)`
+                : names.join(', ');
+
+        return `${failedExports.length} chart(s) failed to export: ${nameList}`;
     }
 
     /** 清理 keepTempFile 留下的本地中间文件（只处理本地路径，S3 URL 跳过） */

@@ -1302,6 +1302,15 @@
                                                                                                         </td>
                                                                                                     </tr>
                                                                                                     {{/if}}
+                                                                                                    {{#failedExportsMessage}}
+                                                                                                    <tr>
+                                                                                                        <td align="center" style="padding: 8px 16px;">
+                                                                                                            <div style="font-family: BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; line-height: 18px; color: #b45309; text-align: center;">
+                                                                                                                {{failedExportsMessage}}
+                                                                                                            </div>
+                                                                                                        </td>
+                                                                                                    </tr>
+                                                                                                    {{/failedExportsMessage}}
                                                                                                     {{#truncatedCsvUrls}}
                                                                                                     <tr>
                                                                                                         <td>
