@@ -1,6 +1,6 @@
 # 一键导出整个看板数据（按 Tab 分 Excel、按图分 Sheet）方案
 
-状态：草案，未实施。分支 `feat/dashboard-xlsx-export`。
+状态：三种布局（每图一文件 / 单文件多工作表 / 按 Tab 分文件）已实现，**暂不上线**；上线前需先修 §8 的 P0/P1。分支 `feat/dashboard-xlsx-export`。
 
 ## 1. 需求
 
@@ -110,3 +110,33 @@
 - 单个 sheet 的列与单图导出一致（列顺序、表头、数值格式），可用同一张图做逐单元格对比
 - 失败 tile 有明确提示，不静默丢数据
 - 20 图 / 300 MB 规模下不 OOM、不超时（或超时前给出可读的失败原因）
+
+## 8. 三种布局对照与已知问题（2026-11 核对）
+
+前端弹窗与定期交付表单共用同一组 `xlsxFileLayout` 取值，文案按「文件怎么分」表述，避免「工作簿/工作表」术语门槛：
+
+| 选项（zh） | 取值 | 产物 | 结构 |
+|---|---|---|---|
+| 每张图一个文件（ZIP） | `zip`（默认） | 1 个 zip | 每图一个 xlsx，每个文件 1 张表 |
+| 单个文件（每张图一个工作表） | `workbook` | 1 个 xlsx | 每图一张 sheet |
+| 每个 Tab 一个文件（ZIP） | `per-tab-workbook` | 1 个 zip | 每 Tab 一个 xlsx，文件内每图一张 sheet |
+
+三者查询阶段完全相同（每图一次 `invalidateCache: true` 重查），差异只在查询之后：
+`zip` 不合并最省内存 → `per-tab` 串行逐 Tab 合并（峰值 = 最大 Tab）→ `workbook` 全部 sheet 一次进堆（峰值最高）。
+所以默认保持 `zip`。
+
+**已知问题（上线前必修）**
+
+1. **P0 合并布局必失败**：`WorkbookExportHelper.loadSourceWorksheet` 用 `fetch(localPath)`，
+   而 `keepTempFilesForMerge` 让 `localPath` 变成 `/tmp/*.xlsx`；Node fetch 不接受裸路径 →
+   workbook / per-tab 两种布局在全部查询跑完后抛「All XLSX downloads failed」。
+   `origin/dev` 上 `localPath` 是 https URL 所以未暴露。
+2. **P1 临时文件泄漏**：`workbook` 布局把 `csvUrls` 换成单条 S3 URL 后，
+   `cleanupLocalExportFiles` 只认本地路径，合并前的 N 个 `/tmp` xlsx 不会删；
+   `buildPerTabWorkbookZipUrl` 的逐 Tab 写入循环也在 `try/finally` 之外。
+3. **P2 并发上限不生效**：`mapWithConcurrencyLimit` 收到的是已经起跑的 promise + 恒等 mapper，
+   实际并发 ≈ 图数，几十张图会同时打数仓。
+
+**与 gzip 结果存储的关系**：无。`RESULTS_JSONL_GZIP` 只压缩结果 JSONL 的 S3 对象，
+读时透明解压，xlsx 明文上传、presigned URL 直连下载，后端没有 `compression` 中间件，
+ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
