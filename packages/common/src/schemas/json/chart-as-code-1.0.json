@@ -2477,6 +2477,10 @@
                 "showColumnCalculation": {
                     "type": "boolean"
                 },
+                "showFieldDescriptionTooltip": {
+                    "description": "表头悬停是否显示字段描述（dbt 字段 description）。默认 true，未定义时显示。",
+                    "type": "boolean"
+                },
                 "showResultsTotal": {
                     "type": "boolean"
                 },

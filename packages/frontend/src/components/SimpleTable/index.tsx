@@ -224,6 +224,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         pivotColumnMaxWidth,
         cellAlignment,
         pivotRowDimensionAlignment,
+        showFieldDescriptionTooltip,
     } = visualizationConfig.chartConfig;
 
     if (pivotTableData.error) {
@@ -363,6 +364,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 columnOrder={columnOrder}
                 hideRowNumbers={hideRowNumbers}
                 showColumnCalculation={showColumnCalculation}
+                showFieldDescriptionTooltip={showFieldDescriptionTooltip}
                 showSubtotals={showSubtotals}
                 conditionalFormattings={conditionalFormattings}
                 minMaxMap={minMaxMap}

@@ -27,8 +27,13 @@ const TableHeader: FC<TableHeaderProps> = ({
     showSubtotals = true,
 }) => {
     const { t } = useTranslation();
-    const { table, headerContextMenu, columns, onColumnWidthChange } =
-        useTableContext();
+    const {
+        table,
+        headerContextMenu,
+        columns,
+        onColumnWidthChange,
+        showFieldDescriptionTooltip,
+    } = useTableContext();
     const HeaderContextMenu = headerContextMenu;
     const currentColOrder = React.useRef<Array<string>>([]);
 
@@ -178,7 +183,9 @@ const TableHeader: FC<TableHeaderProps> = ({
                                                             !tooltipLabel ||
                                                             minimal ||
                                                             snapshot.isDropAnimating ||
-                                                            snapshot.isDragging
+                                                            snapshot.isDragging ||
+                                                            showFieldDescriptionTooltip ===
+                                                                false
                                                         }
                                                     >
                                                         <span>

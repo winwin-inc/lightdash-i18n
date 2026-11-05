@@ -5645,6 +5645,8 @@
       "pivot_column_max_width_hint": "Limits both content auto-width and fill stretch; leave empty to use the default cap of 450 (placeholders are tighter suggestions)",
       "display": "Display",
       "show_table_names": "Show table names",
+      "show_field_description_tooltip": "Show field descriptions",
+      "show_field_description_tooltip_hint": "Show the field's description (from dbt) when hovering a column header",
       "show_row_numbers": "Show row numbers",
       "value_alignment": "Value alignment",
       "alignment": "Alignment",

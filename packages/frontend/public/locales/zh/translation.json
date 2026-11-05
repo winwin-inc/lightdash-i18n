@@ -5671,6 +5671,8 @@
       "pivot_column_max_width_hint": "同时约束内容自适应与撑满拉伸；留空使用默认上限 450，占位值为更紧的建议值",
       "display": "显示",
       "show_table_names": "显示表名",
+      "show_field_description_tooltip": "显示字段描述",
+      "show_field_description_tooltip_hint": "悬停表头时显示字段描述（来自 dbt）",
       "show_row_numbers": "显示行号",
       "value_alignment": "数值对齐",
       "alignment": "对齐方式",

@@ -134,6 +134,10 @@ const useTableConfig = (
     const [pivotAutoFillWidth, setPivotAutoFillWidth] = useState<boolean>(
         tableChartConfig?.pivotAutoFillWidth ?? false,
     );
+    const [showFieldDescriptionTooltip, setShowFieldDescriptionTooltip] =
+        useState<boolean>(
+            tableChartConfig?.showFieldDescriptionTooltip ?? true,
+        );
     const [pivotColumnMaxWidth, setPivotColumnMaxWidth] = useState<
         number | undefined
     >(tableChartConfig?.pivotColumnMaxWidth);
@@ -702,6 +706,7 @@ const useTableConfig = (
             showColumnCalculation,
             showRowCalculation,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -723,6 +728,7 @@ const useTableConfig = (
             showRowCalculation,
             hideRowNumbers,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -786,6 +792,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,
@@ -843,6 +851,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,

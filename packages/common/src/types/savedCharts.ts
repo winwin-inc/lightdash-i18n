@@ -177,6 +177,8 @@ export type TableChart = {
     showColumnCalculation?: boolean;
     showRowCalculation?: boolean;
     showTableNames?: boolean;
+    /** 表头悬停是否显示字段描述（dbt 字段 description）。默认 true，未定义时显示。 */
+    showFieldDescriptionTooltip?: boolean;
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
