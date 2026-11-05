@@ -856,32 +856,6 @@ export default class SchedulerTask {
                         }
 
                         failedExports = failedExportList;
-                        // 部分失败同时落一份到 job details，便于在 job 页面直接看到。
-                        // 注意：jsonb 是整列覆盖，必须带上既有键；且不能复用带
-                        // 1.5s 节流的 reportExportProgress（末次写入可能被吞）
-                        if (failedExportList.length > 0) {
-                            try {
-                                await this.schedulerService.updateJobDetails(
-                                    jobId,
-                                    {
-                                        createdByUserUuid: userUuid,
-                                        projectUuid,
-                                        organizationUuid,
-                                        progress: {
-                                            done: totalExportTiles,
-                                            total: totalExportTiles,
-                                        },
-                                        failedExports: failedExportList,
-                                    },
-                                );
-                            } catch (error) {
-                                Logger.warn(
-                                    `Failed to record failed exports for job ${jobId}: ${getErrorMessage(
-                                        error,
-                                    )}`,
-                                );
-                            }
-                        }
 
                         this.analytics.trackAccount(account, {
                             event: 'download_results.completed',
@@ -3680,7 +3654,9 @@ export default class SchedulerTask {
         scheduledTime: Date,
         payload: ExportContentPayload,
     ) {
-        await this.logWrapper(
+        await this.logWrapper<
+            string | NonNullable<NotificationPayloadBase['page']['failedExports']>
+        >(
             {
                 task: SCHEDULER_TASKS.EXPORT_CONTENT,
                 jobId,
@@ -3799,7 +3775,10 @@ export default class SchedulerTask {
                                     'Dashboard per-tab workbook export failed',
                                 );
                             }
-                            return { url: zipUrl, fileType: 'zip' };
+                            return SchedulerTask.withFailedExports(
+                                { url: zipUrl, fileType: 'zip' },
+                                page.failedExports,
+                            );
                         } finally {
                             await this.cleanupLocalExportFiles(page.csvUrls);
                         }
@@ -3813,10 +3792,13 @@ export default class SchedulerTask {
                                     'Dashboard workbook export failed',
                                 );
                             }
-                            return {
-                                url: workbookUrl,
-                                fileType: DownloadFileType.XLSX,
-                            };
+                            return SchedulerTask.withFailedExports(
+                                {
+                                    url: workbookUrl,
+                                    fileType: DownloadFileType.XLSX,
+                                },
+                                page.failedExports,
+                            );
                         } finally {
                             await this.cleanupLocalExportFiles(page.csvUrls);
                         }
@@ -3830,7 +3812,10 @@ export default class SchedulerTask {
                         fileExtension: 'xlsx',
                         zipNameBase: page.details.name,
                     });
-                    return { url, fileType: 'zip' };
+                    return SchedulerTask.withFailedExports(
+                        { url, fileType: 'zip' },
+                        page.failedExports,
+                    );
                 }
 
                 return assertUnreachable(
@@ -3890,6 +3875,23 @@ export default class SchedulerTask {
         } catch {
             return chartUuid.slice(0, 8);
         }
+    }
+
+    /**
+     * 把失败清单并进 job 的完成行 details：logSchedulerJob 是 insert，
+     * 中途 updateJobDetails 只改旧行，完成行会看不到，所以随返回值写进去。
+     */
+    private static withFailedExports<T extends Record<string, unknown>>(
+        details: T,
+        failedExports: NotificationPayloadBase['page']['failedExports'],
+    ): T & {
+        failedExports?: NonNullable<
+            NotificationPayloadBase['page']['failedExports']
+        >;
+    } {
+        return failedExports && failedExports.length > 0
+            ? { ...details, failedExports }
+            : details;
     }
 
     /**
