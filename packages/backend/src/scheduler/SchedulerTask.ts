@@ -307,6 +307,9 @@ export default class SchedulerTask {
         let csvUrl;
         let csvUrls;
         let pdfFile;
+        // 看板导出部分失败清单（tile 查询失败 / 合并失败 / 整 Tab 被跳过）：
+        // 仅 XLSX dashboard 分支会填充；空时不写入返回值，保持旧 payload 形态
+        let failedExports: NotificationPayloadBase['page']['failedExports'];
 
         const schedulerUuid =
             'schedulerUuid' in scheduler &&
@@ -428,6 +431,12 @@ export default class SchedulerTask {
                     storage: this.s3Client.isEnabled() ? 's3' : 'local',
                     context,
                 };
+
+                // 部分失败收集：tile 查询失败（环节 ①）、合并期单文件失败（
+                // 环节 ②）、整 Tab 被跳过（环节 ③）都记到这里，随 page 带出
+                const failedExportList: NonNullable<
+                    NotificationPayloadBase['page']['failedExports']
+                > = [];
 
                 try {
                     if (savedChartUuid) {
@@ -789,6 +798,20 @@ export default class SchedulerTask {
                         csvUrls = exportResults.flatMap((result) =>
                             result.status === 'fulfilled' ? [result.value] : [],
                         );
+                        // 环节 ①：rejected 的 tile 不再静默丢弃，逐个记录失败原因。
+                        // 失败路径拿不到 chart.name（名字在成功路径才解析），
+                        // 用 chartUuid 前 8 位作 filename 兜底
+                        for (const result of exportResults) {
+                            if (result.status === 'fulfilled') continue;
+                            const reason = getErrorMessage(result.reason);
+                            Logger.warn(
+                                `Failed to export dashboard chart tile ${result.item.tile.chartUuid} on scheduled delivery: ${reason}`,
+                            );
+                            failedExportList.push({
+                                filename: result.item.tile.chartUuid.slice(0, 8),
+                                reason,
+                            });
+                        }
 
                         // 记录合并前的 tile 数：workbook / per-tab 合并后 csvUrls 只剩
                         // 1 条（或每 Tab 1 条），不能再用 csvUrls.length 当图数
@@ -798,6 +821,9 @@ export default class SchedulerTask {
                             csvUrls = await this.buildWorkbookCsvUrls({
                                 files: csvUrls,
                                 workbookNameBase: dashboard.name,
+                                onFileError: (filename, reason) => {
+                                    failedExportList.push({ filename, reason });
+                                },
                             });
                         } else if (
                             csvOptions?.xlsxFileLayout === 'per-tab-workbook'
@@ -806,7 +832,46 @@ export default class SchedulerTask {
                                 files: csvUrls,
                                 dashboardName: dashboard.name,
                                 locale: csvOptions?.locale,
+                                onFileError: (filename, reason) => {
+                                    failedExportList.push({ filename, reason });
+                                },
+                                onTabSkipped: (tabName, filenames) => {
+                                    filenames.forEach((filename) =>
+                                        failedExportList.push({
+                                            filename,
+                                            reason: `No sheets could be generated for tab "${tabName}"`,
+                                        }),
+                                    );
+                                },
                             });
+                        }
+
+                        failedExports = failedExportList;
+                        // 部分失败同时落一份到 job details，便于在 job 页面直接看到。
+                        // 注意：jsonb 是整列覆盖，必须带上既有键；且不能复用带
+                        // 1.5s 节流的 reportExportProgress（末次写入可能被吞）
+                        if (failedExportList.length > 0) {
+                            try {
+                                await this.schedulerService.updateJobDetails(
+                                    jobId,
+                                    {
+                                        createdByUserUuid: userUuid,
+                                        projectUuid,
+                                        organizationUuid,
+                                        progress: {
+                                            done: totalExportTiles,
+                                            total: totalExportTiles,
+                                        },
+                                        failedExports: failedExportList,
+                                    },
+                                );
+                            } catch (error) {
+                                Logger.warn(
+                                    `Failed to record failed exports for job ${jobId}: ${getErrorMessage(
+                                        error,
+                                    )}`,
+                                );
+                            }
                         }
 
                         this.analytics.trackAccount(account, {
@@ -990,6 +1055,7 @@ export default class SchedulerTask {
             csvUrl,
             csvUrls,
             pdfFile,
+            failedExports,
         };
     }
 
@@ -1853,11 +1919,17 @@ export default class SchedulerTask {
         files,
         dashboardName,
         locale,
+        onFileError,
+        onTabSkipped,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         dashboardName: string;
         /** UI 语言（csvOptions.locale）；缺省按中文处理，与邮件模板一致 */
         locale?: string;
+        /** 合并期单文件失败回调：内部已 Logger.warn，这里向上透传收集 */
+        onFileError?: (filename: string, reason: string) => void;
+        /** 整 Tab 合并后无有效 sheet 被跳过时回调（带该 Tab 的全部文件名） */
+        onTabSkipped?: (tabName: string, filenames: string[]) => void;
     }): Promise<string> {
         if (files.length === 0) {
             throw new UnexpectedServerError('No files to include in workbook');
@@ -1891,6 +1963,17 @@ export default class SchedulerTask {
             // eslint-disable-next-line no-restricted-syntax
             for (const { tabName, files: tabFiles } of groups.values()) {
                 const workbookPath = `/tmp/${nanoid()}.xlsx`;
+                // 分组按 tabUuid 桶装，文件互不共享：某个 Tab 处理完后，
+                // 它的本地输入不会再被后面的 Tab 用到，可立即删除（http 不动）
+                const tabLocalInputPaths = tabFiles
+                    .map((file) => file.localPath)
+                    .filter((localPath) => !/^https?:\/\//.test(localPath));
+                const deleteTabLocalInputs = () =>
+                    Promise.all(
+                        tabLocalInputPaths.map((localPath) =>
+                            fs.unlink(localPath).catch(() => undefined),
+                        ),
+                    );
                 let result;
                 try {
                     // eslint-disable-next-line no-await-in-loop
@@ -1905,6 +1988,7 @@ export default class SchedulerTask {
                             Logger.warn(
                                 `Failed to add XLSX file "${filename}" to workbook: ${error}`,
                             );
+                            onFileError?.(filename, error);
                         },
                     });
                 } catch (e) {
@@ -1917,6 +2001,14 @@ export default class SchedulerTask {
                     Logger.warn(
                         `Skipping workbook for tab "${tabName}": no sheets could be generated`,
                     );
+                    // 环节 ③：整 Tab 被跳过不再静默，把该 Tab 的文件名上报
+                    onTabSkipped?.(
+                        tabName,
+                        tabFiles.map((file) => file.filename),
+                    );
+                    // 该 Tab 的输入已确认全部无效，也立即清理，降低 /tmp 峰值
+                    // eslint-disable-next-line no-await-in-loop
+                    await deleteTabLocalInputs();
                     // eslint-disable-next-line no-await-in-loop
                     await fs.unlink(workbookPath).catch(() => undefined);
                     continue;
@@ -1925,6 +2017,11 @@ export default class SchedulerTask {
                     entryNameBase: tabName,
                     localPath: workbookPath,
                 });
+                // 该 Tab 的工作簿已落盘：立即删掉它的本地输入，避免后面 Tab
+                // 陆续合并时中间文件叠加推高 /tmp 峰值（原来要等全部合并完才删）；
+                // 调用方 finally 的统一清理保留兜底，重复 unlink 为 no-op
+                // eslint-disable-next-line no-await-in-loop
+                await deleteTabLocalInputs();
             }
 
             if (workbooks.length === 0) {
@@ -1955,14 +2052,22 @@ export default class SchedulerTask {
         files,
         dashboardName,
         locale,
+        onFileError,
+        onTabSkipped,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         dashboardName: string;
         locale?: string;
+        /** 合并期单文件失败回调：透传给 WorkbookExportHelper 后向上收集 */
+        onFileError?: (filename: string, reason: string) => void;
+        /** 整 Tab 被跳过时回调：透传给 buildPerTabWorkbookZipUrl */
+        onTabSkipped?: (tabName: string, filenames: string[]) => void;
     }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
         // 成功后返回值会被替换成单条 S3 URL，调用方的
         // cleanupLocalExportFiles 会因 http 前缀跳过，
-        // 因此传入 files 里的本地中间文件（keepTempFile 生成）由这里统一清理
+        // 因此传入 files 里的本地中间文件（keepTempFile 生成）由这里统一清理。
+        // 注：buildPerTabWorkbookZipUrl 已在每个 Tab 处理完后即时删除该 Tab 的
+        // 本地输入（降低 /tmp 峰值），这里的统一清理仅作中途抛错时的兑底
         const localInputPaths = files
             .map((file) => file.localPath)
             .filter((localPath) => !/^https?:\/\//.test(localPath));
@@ -1971,6 +2076,8 @@ export default class SchedulerTask {
                 files,
                 dashboardName,
                 locale,
+                onFileError,
+                onTabSkipped,
             });
             return [
                 {
@@ -1996,9 +2103,12 @@ export default class SchedulerTask {
     private async buildWorkbookCsvUrls({
         files,
         workbookNameBase,
+        onFileError,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         workbookNameBase: string;
+        /** 合并期单文件失败回调：内部已 Logger.warn，这里向上透传收集 */
+        onFileError?: (filename: string, reason: string) => void;
     }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
         if (!this.s3Client.isEnabled()) {
             throw new MissingConfigError('Cloud storage is not enabled');
@@ -2027,6 +2137,7 @@ export default class SchedulerTask {
                         Logger.warn(
                             `Failed to add XLSX file "${filename}" to workbook: ${error}`,
                         );
+                        onFileError?.(filename, error);
                     },
                 },
             );

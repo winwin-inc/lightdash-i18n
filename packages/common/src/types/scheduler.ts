@@ -438,6 +438,12 @@ export type NotificationPayloadBase = {
             tabUuid?: string | null;
             tabName?: string;
         }[];
+        /** 看板导出部分失败的图表清单：tile 查询失败 / 合并失败 / 整 Tab 被跳过时记录。
+         *  全部成功时缺省；旧队列 payload 可能没有该字段，读取点需按 undefined 处理 */
+        failedExports?: Array<{
+            filename: string;
+            reason: string;
+        }>;
         pdfFile?: {
             source: string;
             fileName: string;
