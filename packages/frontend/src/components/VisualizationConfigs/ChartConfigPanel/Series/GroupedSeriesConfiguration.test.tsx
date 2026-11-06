@@ -12,6 +12,20 @@ vi.mock('./SingleSeriesConfiguration', () => ({
     default: () => <div data-testid="single-series-configuration" />,
 }));
 
+// 组件新增了 useVisualizationContext 依赖（读取基准线布局写入方法）；
+// 本测试只关心分组配置渲染，mock 掉 context 避免依赖 VisualizationProvider。
+vi.mock(
+    '../../../LightdashVisualization/useVisualizationContext',
+    () => ({
+        useVisualizationContext: () => ({
+            visualizationConfig: {
+                chartType: 'cartesian',
+                chartConfig: {},
+            },
+        }),
+    }),
+);
+
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         i18n: { language: 'zh' },

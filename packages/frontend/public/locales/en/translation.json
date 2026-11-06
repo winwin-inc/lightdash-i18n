@@ -5491,7 +5491,13 @@
       },
       "stack_series_sort_by_value": "Sort stacked series",
       "series_sort": "Sort series",
-      "tried": "Tried to reference field with unknown id:"
+      "tried": "Tried to reference field with unknown id:",
+      "baseline": "Show as baseline",
+      "baseline_style_width": "Line width",
+      "baseline_style_line_type": "Line style",
+      "baseline_line_type_solid": "Solid",
+      "baseline_line_type_dashed": "Dashed",
+      "hide_metric_name": "Hide metric name"
     }
   },
   "components_visualization_configs_chart_funnel": {
@@ -5645,6 +5651,8 @@
       "pivot_column_max_width_hint": "Limits both content auto-width and fill stretch; leave empty to use the default cap of 450 (placeholders are tighter suggestions)",
       "display": "Display",
       "show_table_names": "Show table names",
+      "show_field_description_tooltip": "Show field descriptions",
+      "show_field_description_tooltip_hint": "Show the field's description (from dbt) when hovering a column header",
       "show_row_numbers": "Show row numbers",
       "value_alignment": "Value alignment",
       "alignment": "Alignment",
@@ -8355,6 +8363,32 @@
   },
   "components_lightdash_visualization": {
     "unable_to_load_visualization": "Unable to load visualization"
+  },
+  "components_chart_error_details": {
+    "summary_invalid_one": "This chart has 1 unavailable field",
+    "summary_invalid_other": "This chart has {{count}} unavailable fields",
+    "summary_none": "No unavailable fields found; the error may come from elsewhere",
+    "summary_uncertain": "This query uses {{count}} fields; the error may come from one of them",
+    "error_short": "Chart failed to load",
+    "view_details": "View details",
+    "technical_details": "Technical details",
+    "group_dimension": "Dimensions",
+    "group_metric": "Metrics",
+    "group_table_calculation": "Table calculations",
+    "more_in_group": "{{count}} more",
+    "invalid_badge": "Unavailable",
+    "origin_query": "Chart field",
+    "origin_filter": "Chart filter",
+    "origin_sort": "Chart sort",
+    "origin_dashboard_filter": "Dashboard filter",
+    "origin_dashboard_sort": "Dashboard sort",
+    "origin_date_zoom": "Date zoom",
+    "origin_unknown": "Unknown origin",
+    "permission": "No permission to access this chart's data",
+    "not_found": "The model is unavailable",
+    "parameter": "Missing required parameters",
+    "chart_type_label": "Type: {{type}}",
+    "note_query_fields_only": "Only query fields are listed"
   },
   "components_run_query_settings": {
     "auto_fetch_results": "Auto-fetch results",

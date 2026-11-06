@@ -3906,6 +3906,27 @@
                     "barMaxWidthMobile": {
                         "type": "number",
                         "format": "double"
+                    },
+                    "baselineFieldIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "description": "Field ids of metrics that should be rendered as baseline (benchmark) series.\nBaseline series are drawn bolder, excluded from the legend, and keep\ntheir values in the tooltip."
+                    },
+                    "baselineStyle": {
+                        "properties": {
+                            "lineType": {
+                                "type": "string",
+                                "enum": ["solid", "dashed"]
+                            },
+                            "width": {
+                                "type": "number",
+                                "format": "double"
+                            }
+                        },
+                        "type": "object",
+                        "description": "Common style applied to baseline series. Defaults: width 3, solid."
                     }
                 },
                 "type": "object",
@@ -4142,6 +4163,10 @@
                     },
                     "areaStyle": {
                         "$ref": "#/components/schemas/Record_string.unknown_"
+                    },
+                    "hideMetricName": {
+                        "type": "boolean",
+                        "description": "Hide the metric label in the pivoted series display name (legend and\ntooltip show only the pivot value, e.g. `产品A` instead of\n`[产品A] 销售额市占率`)."
                     },
                     "hidden": {
                         "type": "boolean"
@@ -4865,6 +4890,10 @@
                     },
                     "hideRowNumbers": {
                         "type": "boolean"
+                    },
+                    "showFieldDescriptionTooltip": {
+                        "type": "boolean",
+                        "description": "表头悬停是否显示字段描述（dbt 字段 description）。默认 true，未定义时显示。"
                     },
                     "showTableNames": {
                         "type": "boolean"
@@ -9550,6 +9579,19 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "error",
+                                                            "success"
+                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -27482,7 +27524,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "2.5.4",
+        "version": "2.6.3",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
