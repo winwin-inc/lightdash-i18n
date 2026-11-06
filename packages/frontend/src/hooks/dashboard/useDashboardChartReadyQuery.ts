@@ -242,6 +242,33 @@ export const useDashboardChartReadyQuery = (
         [timezoneFixFilters],
     );
 
+    /**
+     * 错误诊断归因用：看板筛选/排序实际作用在本 tile 查询上的字段 id。
+     * 与发送给后端的入参同源（timezoneFixFilters 派生自全局/Tab 筛选、
+     * dashboardSorts），去重 + 可选链防御历史数据缺字段。
+     */
+    const dashboardFilterFieldIds = useMemo(() => {
+        const rules = [
+            ...(timezoneFixFilters?.dimensions ?? []),
+            ...(timezoneFixFilters?.metrics ?? []),
+            ...(timezoneFixFilters?.tableCalculations ?? []),
+        ];
+        const fieldIds = rules
+            .map((rule) => rule?.target?.fieldId)
+            .filter(
+                (fieldId): fieldId is string => typeof fieldId === 'string',
+            );
+        return [...new Set(fieldIds)];
+    }, [timezoneFixFilters]);
+    const dashboardSortFieldIds = useMemo(() => {
+        const fieldIds = (dashboardSorts ?? [])
+            .map((sort) => sort?.fieldId)
+            .filter(
+                (fieldId): fieldId is string => typeof fieldId === 'string',
+            );
+        return [...new Set(fieldIds)];
+    }, [dashboardSorts]);
+
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
             ...(chartQuery.data?.metricQuery?.dimensions ?? []),
@@ -494,8 +521,15 @@ export const useDashboardChartReadyQuery = (
         chart: chartQuery.data ?? queryResult.data?.chart,
         explore: explore ?? queryResult.data?.explore,
         // explore 加载失败（如 NotExistsError）也要合并进 error，
-        // 否则 queryEnabled=false 且 error=null → tile 永久骨架
-        error: error || queryResult.error || (exploreError ?? null),
+        // 否则 queryEnabled=false 且 error=null → tile 永久骨架；
+        // 但查询已有结果（成功出图）时忽略 explore 重拉失败，避免一次
+        // remount/invalidate 触发的重拉失败把成功 tile 翻成错误态
+        error:
+            error ||
+            queryResult.error ||
+            (queryResult.data ? null : exploreError ?? null),
         tablePagination,
+        dashboardFilterFieldIds,
+        dashboardSortFieldIds,
     };
 };

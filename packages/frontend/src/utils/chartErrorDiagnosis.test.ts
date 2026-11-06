@@ -91,7 +91,7 @@ const QUERY_METRIC_MESSAGE =
 const FILTER_MESSAGE =
     'Filter has a reference to an unknown dimension: orders_priority';
 const TABLE_CALC_MESSAGE =
-    'Table calculation contains a reference "orders_revenue" to a field or table calculation that isn\'t included in the query.';
+    'Table calculation contains a reference "orders.revenue" to a field or table calculation that isn\'t included in the query.';
 const EXPLORE_COMPILER_MESSAGE =
     'Filter for metric "revenue" has a reference to an unknown dimension: orders_typo';
 
@@ -198,7 +198,8 @@ describe('getChartErrorDiagnosis', () => {
                 fieldId: 'orders_region',
                 label: null,
                 group: 'dimension',
-                origin: 'dateZoom',
+                // 无法可靠识别来源时如实标 unknown，不再硬猜 dateZoom
+                origin: 'unknown',
             },
         ]);
     });
@@ -384,7 +385,7 @@ describe('getChartErrorDiagnosis', () => {
                 fieldId: 'orders_real_field',
                 label: null,
                 group: 'unknown',
-                origin: 'dateZoom',
+                origin: 'unknown',
             },
         ]);
     });
@@ -422,7 +423,134 @@ describe('getChartErrorDiagnosis', () => {
                 fieldId: 'orders_region',
                 label: null,
                 group: 'dimension',
-                origin: 'dateZoom',
+                origin: 'unknown',
+            },
+        ]);
+    });
+
+    it('normalizes raw table.field references in table calculation errors', () => {
+        // 后端文案里的引用是 "table.field" 原文，须归一化成 fieldId 才能归因/查 label
+        const diagnosis = getChartErrorDiagnosis({
+            error: makeError({
+                name: 'CompileError',
+                message:
+                    'Table calculation contains a reference "orders.revenue" to a field or table calculation that isn\'t included in the query.',
+            }),
+            metricQuery: makeMetricQuery({
+                metrics: ['orders_revenue', 'orders_extra'],
+                additionalMetrics: [
+                    {
+                        name: 'extra',
+                        table: 'orders',
+                        type: MetricType.COUNT,
+                        sql: 'count(*)',
+                    },
+                ],
+            }),
+            explore: makeExplore({ metricIds: ['orders_revenue'] }),
+        });
+
+        expect(diagnosis.confident).toBe(true);
+        expect(diagnosis.invalid).toEqual([
+            {
+                fieldId: 'orders_revenue',
+                label: 'revenue',
+                group: 'tableCalculation',
+                origin: 'query',
+            },
+        ]);
+
+        // 引用不带表名（非 table.field 形态）时降级为原值，不抛
+        const malformed = getChartErrorDiagnosis({
+            error: makeError({
+                name: 'CompileError',
+                message:
+                    'Table calculation contains a reference "orders_revenue" to a field or table calculation that isn\'t included in the query.',
+            }),
+            metricQuery: makeMetricQuery(),
+            explore: null,
+        });
+        expect(malformed.invalid.map((field) => field.fieldId)).toEqual([
+            'orders_revenue',
+        ]);
+    });
+
+    it('attributes unrecognized field ids to unknown origin', () => {
+        const diagnosis = getChartErrorDiagnosis({
+            error: makeError({
+                name: 'FieldReferenceError',
+                message: QUERY_DIMENSION_MESSAGE,
+                data: { fieldId: 'mystery_field' },
+            }),
+            metricQuery: makeMetricQuery(),
+            explore: null,
+        });
+
+        expect(diagnosis.invalid).toEqual([
+            {
+                fieldId: 'mystery_field',
+                label: null,
+                group: 'unknown',
+                origin: 'unknown',
+            },
+        ]);
+    });
+
+    it('declares additional metrics with their real id (table_name) and reports no phantom invalid fields', () => {
+        // 真实形态：metrics 里是 getItemId(am) = `${table}_${name}`，
+        // additionalMetrics 里存 {name, table}。若误用 am.name 做声明 id，
+        // 结构差集会凭空多出一个 invalid 字段
+        const diagnosis = getChartErrorDiagnosis({
+            error: makeError({
+                name: 'FieldReferenceError',
+                message: 'unrecognized compile failure',
+            }),
+            metricQuery: makeMetricQuery({
+                metrics: ['orders_revenue', 'orders_extra'],
+                additionalMetrics: [
+                    {
+                        name: 'extra',
+                        table: 'orders',
+                        type: MetricType.COUNT,
+                        sql: 'count(*)',
+                    },
+                ],
+            }),
+            explore: makeExplore({ metricIds: ['orders_revenue'] }),
+        });
+
+        expect(diagnosis.declaredFieldIds).toContain('orders_extra');
+        expect(diagnosis.invalid).toEqual([]);
+    });
+
+    it('structural diff only reports fields actually missing from explore', () => {
+        const diagnosis = getChartErrorDiagnosis({
+            error: makeError({
+                name: 'FieldReferenceError',
+                message: QUERY_DIMENSION_MESSAGE,
+            }),
+            metricQuery: makeMetricQuery({
+                metrics: ['orders_revenue', 'orders_extra'],
+                additionalMetrics: [
+                    {
+                        name: 'extra',
+                        table: 'orders',
+                        type: MetricType.COUNT,
+                        sql: 'count(*)',
+                    },
+                ],
+            }),
+            explore: makeExplore({ metricIds: ['orders_revenue'] }),
+        });
+
+        // 只报真正缺失的 orders_region；additionalMetrics 用真实 id 声明且
+        // 经 getItemMap 转换存在，不应被差集误报
+        expect(diagnosis.invalid).toEqual([
+            {
+                fieldId: 'orders_region',
+                label: null,
+                group: 'dimension',
+                origin: 'unknown',
             },
         ]);
     });
@@ -458,7 +586,8 @@ describe('getChartErrorDiagnosis', () => {
                 message: 'unrecognized compile failure',
             }),
             metricQuery: makeMetricQuery({
-                metrics: ['orders_revenue', 'am_extra'],
+                // 真实 id 形态：getItemId({name:'am_extra', table:'table_that_is_gone'})
+                metrics: ['orders_revenue', 'table_that_is_gone_am_extra'],
                 additionalMetrics: [
                     {
                         name: 'am_extra',
@@ -474,7 +603,7 @@ describe('getChartErrorDiagnosis', () => {
         expect(diagnosis.confident).toBe(false);
         expect(diagnosis.invalid).toEqual([
             {
-                fieldId: 'am_extra',
+                fieldId: 'table_that_is_gone_am_extra',
                 label: null,
                 group: 'metric',
                 origin: 'query',

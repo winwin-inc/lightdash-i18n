@@ -1986,6 +1986,10 @@ export const GenericDashboardChartTile: FC<
         errorFallbackChart?: SavedChart;
         /** 查询失败时（data 为 undefined）用于错误诊断的 explore 兜底（与 data 同源） */
         errorFallbackExplore?: Explore | null;
+        /** 看板筛选引用的字段 id（错误诊断归因用，来自 readyQuery hook） */
+        dashboardFilterFieldIds?: string[];
+        /** 看板排序引用的字段 id（错误诊断归因用，来自 readyQuery hook） */
+        dashboardSortFieldIds?: string[];
         tablePagination?: Omit<
             TablePaginationState,
             'totalRowCount' | 'isCountLoading' | 'isCountError'
@@ -2002,6 +2006,8 @@ export const GenericDashboardChartTile: FC<
     error,
     errorFallbackChart,
     errorFallbackExplore,
+    dashboardFilterFieldIds,
+    dashboardSortFieldIds,
     canExportCsv = false,
     canExportImages = false,
     onExplore,
@@ -2044,6 +2050,14 @@ export const GenericDashboardChartTile: FC<
                   `components_explorer_visualization_card_options.chart_types.${CHART_KIND_LABEL_KEYS[chartKind]}`,
               )
             : undefined;
+        // 标题一律用短文案（「图表加载失败」）：
+        // - 后端英文原文可能含 fieldId，门控场景（embed/minimal/截图）放进标题会
+        //   泄露 schema；
+        // - 3x3 tile 可视高度有限，长标题会把摘要/按钮挤出裁切区。
+        // 原文只保留在非门控的「技术详情」里；message 缺失时保留旧的无数据兜底。
+        const errorShortMessage = error?.error?.message
+            ? t('components_chart_error_details.error_short')
+            : t('components_dashboard_tiles_chart_title.no_data_available');
 
         return (
             <>
@@ -2070,29 +2084,35 @@ export const GenericDashboardChartTile: FC<
                     }
                     {...rest}
                 >
+                    {/* SuboptimalState 不渲染 children（rest 展开后被显式 children
+                        覆盖），compact 面板必须经 description prop 传入 */}
                     <SuboptimalState
                         icon={IconAlertCircle}
                         title={formatChartErrorMessage(
                             dashboardChartReadyQuery?.chart?.name ||
                                 tile.properties.chartName ||
                                 undefined,
-                            error?.error?.message ||
-                                t(
-                                    'components_dashboard_tiles_chart_title.no_data_available',
-                                ),
+                            errorShortMessage,
                         )}
-                    >
-                        {canShowErrorDetails ? (
-                            <ChartErrorDetails
-                                chartTypeLabel={chartTypeLabel}
-                                compact
-                                error={error.error}
-                                explore={errorExplore}
-                                metricQuery={errorMetricQuery}
-                                onViewDetails={open}
-                            />
-                        ) : null}
-                    </SuboptimalState>
+                        description={
+                            canShowErrorDetails ? (
+                                <ChartErrorDetails
+                                    chartTypeLabel={chartTypeLabel}
+                                    compact
+                                    dashboardFilterFieldIds={
+                                        dashboardFilterFieldIds
+                                    }
+                                    dashboardSortFieldIds={
+                                        dashboardSortFieldIds
+                                    }
+                                    error={error.error}
+                                    explore={errorExplore}
+                                    metricQuery={errorMetricQuery}
+                                    onViewDetails={open}
+                                />
+                            ) : undefined
+                        }
+                    />
                 </TileBase>
                 <Modal
                     onClose={close}
@@ -2108,6 +2128,8 @@ export const GenericDashboardChartTile: FC<
                     >
                         <ChartErrorDetails
                             chartTypeLabel={chartTypeLabel}
+                            dashboardFilterFieldIds={dashboardFilterFieldIds}
+                            dashboardSortFieldIds={dashboardSortFieldIds}
                             error={error.error}
                             explore={errorExplore}
                             metricQuery={errorMetricQuery}
@@ -2227,6 +2249,8 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
             error={readyQuery.error ?? resultsData.error}
             errorFallbackChart={readyQuery.chart}
             errorFallbackExplore={readyQuery.explore}
+            dashboardFilterFieldIds={readyQuery.dashboardFilterFieldIds}
+            dashboardSortFieldIds={readyQuery.dashboardSortFieldIds}
             tablePagination={readyQuery.tablePagination}
         />
     );

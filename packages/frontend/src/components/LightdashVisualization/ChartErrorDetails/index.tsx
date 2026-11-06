@@ -38,6 +38,10 @@ type ChartErrorDetailsProps = {
     compact?: boolean;
     /** compact 模式下由外部打开 Modal */
     onViewDetails?: () => void;
+    /** 看板筛选引用的字段 id（透传给诊断做归因，仅看板场景传） */
+    dashboardFilterFieldIds?: string[];
+    /** 看板排序引用的字段 id（透传给诊断做归因，仅看板场景传） */
+    dashboardSortFieldIds?: string[];
 };
 
 const GROUP_LABEL_KEYS: Record<Exclude<FieldGroup, 'unknown'>, string> = {
@@ -56,6 +60,7 @@ const ORIGIN_LABEL_KEYS: Record<
     dashboardFilter: 'components_chart_error_details.origin_dashboard_filter',
     dashboardSort: 'components_chart_error_details.origin_dashboard_sort',
     dateZoom: 'components_chart_error_details.origin_date_zoom',
+    unknown: 'components_chart_error_details.origin_unknown',
 };
 
 const KIND_SENTENCE_KEYS: Record<
@@ -102,6 +107,8 @@ const ChartErrorDetails: FC<ChartErrorDetailsProps> = ({
     chartTypeLabel,
     compact = false,
     onViewDetails,
+    dashboardFilterFieldIds,
+    dashboardSortFieldIds,
 }) => {
     const { t, i18n } = useTranslation();
     const [isTechDetailsOpen, setIsTechDetailsOpen] = useState(false);
@@ -112,8 +119,20 @@ const ChartErrorDetails: FC<ChartErrorDetailsProps> = ({
 
     const diagnosis = useMemo<ChartErrorDiagnosis | null>(() => {
         if (!metricQuery) return null;
-        return getChartErrorDiagnosis({ error, metricQuery, explore });
-    }, [error, metricQuery, explore]);
+        return getChartErrorDiagnosis({
+            error,
+            metricQuery,
+            explore,
+            dashboardFilterFieldIds,
+            dashboardSortFieldIds,
+        });
+    }, [
+        error,
+        metricQuery,
+        explore,
+        dashboardFilterFieldIds,
+        dashboardSortFieldIds,
+    ]);
 
     /** 仅用于 label / 分组展示（来自 explore，非查询结果字段） */
     const itemsMap = useMemo<ItemsMap | undefined>(() => {

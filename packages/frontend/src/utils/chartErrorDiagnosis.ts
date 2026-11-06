@@ -12,6 +12,8 @@
  */
 
 import {
+    convertFieldRefToFieldId,
+    getItemId,
     getItemMap,
     isAndFilterGroup,
     isOrFilterGroup,
@@ -31,7 +33,8 @@ export type ChartErrorFieldOrigin =
     | 'sort'
     | 'dashboardFilter'
     | 'dashboardSort'
-    | 'dateZoom';
+    | 'dateZoom'
+    | 'unknown';
 
 export type ChartErrorDiagnosisKind =
     | 'field'
@@ -107,9 +110,10 @@ const collectFilterGroupFieldIds = (
 };
 
 const getFilterFieldIds = (metricQuery: MetricQuery): string[] => [
-    ...collectFilterGroupFieldIds(metricQuery.filters.dimensions),
-    ...collectFilterGroupFieldIds(metricQuery.filters.metrics),
-    ...collectFilterGroupFieldIds(metricQuery.filters.tableCalculations),
+    // 历史 saved 数据的 filters 可能整体缺失（#14-②），可选链防御
+    ...collectFilterGroupFieldIds(metricQuery.filters?.dimensions),
+    ...collectFilterGroupFieldIds(metricQuery.filters?.metrics),
+    ...collectFilterGroupFieldIds(metricQuery.filters?.tableCalculations),
 ];
 
 const getDeclaredFieldIds = (metricQuery: MetricQuery): string[] => {
@@ -123,7 +127,9 @@ const getDeclaredFieldIds = (metricQuery: MetricQuery): string[] => {
             ...getFilterFieldIds(metricQuery),
             ...metricQuery.sorts.map((sort) => sort.fieldId),
             ...(metricQuery.customDimensions ?? []).map((cd) => cd.id),
-            ...additionalMetrics.map((am) => am.name),
+            // additionalMetrics 的真实 fieldId 是 getItemId(am) = `${table}_${name}`，
+            // 不是 am.name（否则含自定义指标的图表会凭空多出一个 invalid 字段）
+            ...additionalMetrics.map((am) => getItemId(am)),
         ]),
     ];
 };
@@ -150,7 +156,8 @@ const getQueryContext = (
     tableCalculationIds:
         metricQuery?.tableCalculations.map((tc) => tc.name) ?? [],
     additionalMetricIds:
-        metricQuery?.additionalMetrics?.map((am) => am.name) ?? [],
+        // 与 getDeclaredFieldIds 一致：additionalMetrics 用真实 id（getItemId）
+        metricQuery?.additionalMetrics?.map((am) => getItemId(am)) ?? [],
     customDimensionIds: metricQuery?.customDimensions?.map((cd) => cd.id) ?? [],
     filterFieldIds: metricQuery ? getFilterFieldIds(metricQuery) : [],
     sortFieldIds: metricQuery?.sorts.map((sort) => sort.fieldId) ?? [],
@@ -181,8 +188,9 @@ const getOrigin = (
     if (ctx.dashboardSortFieldIds.includes(fieldId)) {
         return 'dashboardSort';
     }
-    // 都不在声明集合中：多半是日期缩放派生的时间粒度 id，或来源不详
-    return 'dateZoom';
+    // 都不在任何声明集合中：来源无法可靠识别时如实标 unknown（dateZoom
+    // 的时间粒度 id 无法与前述集合区分开，不硬猜）
+    return 'unknown';
 };
 
 const getGroup = (
@@ -304,8 +312,18 @@ export const getChartErrorDiagnosis = (args: {
             } else {
                 const tableCalcMatch = message.match(TABLE_CALC_REFERENCE_RE);
                 if (tableCalcMatch) {
+                    // 后端文案捕获到的是 "table.field" 引用，须归一化成
+                    // fieldId（table_field）才能查 itemsMap / 参与归因；
+                    // 引用不带表名（非 table.field 形态）时降级为原值，不抛
+                    const rawRef = tableCalcMatch[1];
+                    let tcFieldId = rawRef;
+                    try {
+                        tcFieldId = convertFieldRefToFieldId(rawRef);
+                    } catch {
+                        tcFieldId = rawRef;
+                    }
                     fieldHits.push({
-                        fieldId: tableCalcMatch[1],
+                        fieldId: tcFieldId,
                         group: 'tableCalculation',
                     });
                 } else if (EXPLORE_UNKNOWN_FIELD_RE.test(message)) {

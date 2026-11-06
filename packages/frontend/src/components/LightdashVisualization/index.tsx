@@ -9,7 +9,6 @@ import { IconChartBarOff } from '@tabler/icons-react';
 import { memo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getChartErrorDiagnosis } from '../../utils/chartErrorDiagnosis';
 import { EmptyState } from '../common/EmptyState';
 import MantineIcon from '../common/MantineIcon';
 import CustomVisualization from '../CustomVisualization';
@@ -79,16 +78,6 @@ const getChartTypeI18nKey = (
     }
 };
 
-/** 错误诊断 kind → 一句话说明的 i18n key（仅 permission / notFound / parameter） */
-const KIND_SENTENCE_KEYS: Record<
-    'permission' | 'notFound' | 'parameter',
-    string
-> = {
-    permission: 'components_chart_error_details.permission',
-    notFound: 'components_chart_error_details.not_found',
-    parameter: 'components_chart_error_details.parameter',
-};
-
 interface LightdashVisualizationProps {
     isDashboard?: boolean;
     tileUuid?: string;
@@ -121,23 +110,8 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
 
         if (apiErrorDetail) {
             const metricQuery = unsavedMetricQuery ?? resultsData?.metricQuery;
-            const diagnosis = metricQuery
-                ? getChartErrorDiagnosis({
-                      error: apiErrorDetail,
-                      metricQuery,
-                      explore: explore ?? null,
-                  })
-                : null;
-            // description 是 <Text span>，不能放块级：只有 permission/notFound/parameter
-            // 这种一句话说明时才填；字段级摘要由 children 里的 ChartErrorDetails 渲染
-            const kindSentence =
-                diagnosis &&
-                (diagnosis.kind === 'permission' ||
-                    diagnosis.kind === 'notFound' ||
-                    diagnosis.kind === 'parameter')
-                    ? t(KIND_SENTENCE_KEYS[diagnosis.kind])
-                    : undefined;
-
+            // 门控/权限类一句话说明只由 ChartErrorDetails 内部渲染（summary），
+            // EmptyState 不再重复同句文案
             return (
                 <EmptyState
                     icon={
@@ -156,7 +130,6 @@ const LightdashVisualization: FC<LightdashVisualizationProps> = memo(
                     title={t(
                         'components_lightdash_visualization.unable_to_load_visualization',
                     )}
-                    description={kindSentence}
                 >
                     <Box mah="100%" style={{ overflow: 'auto' }} w="100%">
                         <ChartErrorDetails
