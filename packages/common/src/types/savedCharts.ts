@@ -276,6 +276,12 @@ export type Series = {
         position?: 'left' | 'top' | 'right' | 'bottom' | 'inside';
     };
     hidden?: boolean;
+    /**
+     * Hide the metric label in the pivoted series display name (legend and
+     * tooltip show only the pivot value, e.g. `产品A` instead of
+     * `[产品A] 销售额市占率`).
+     */
+    hideMetricName?: boolean;
     areaStyle?: Record<string, unknown>;
     showSymbol?: boolean;
     filledSymbol?: boolean;

@@ -379,6 +379,7 @@ export type EChartSeries = {
         show?: boolean;
     };
     name?: string;
+    hideMetricName?: boolean;
     color?: string;
     yAxisIndex?: number;
     xAxisIndex?: number;
@@ -508,6 +509,59 @@ export const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
 
 export const isBaselineSeries = (serie: EChartSeries): boolean =>
     serie.isBaseline === true;
+
+/**
+ * ECharts legend/tooltip group series by display name. When several `pivotOnly`
+ * series resolve to the same short name (e.g. two metrics pivoted by the same
+ * dimension), fall back to the default `[pivot] metric` format for the
+ * colliding ones so legend toggling stays per-series.
+ */
+export const dedupePivotOnlyDisplayNames = (
+    series: EChartSeries[],
+    itemsMap: ItemsMap,
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null,
+): EChartSeries[] => {
+    const seen = new Set<string>();
+    return series.map((serie) => {
+        const name = serie.dimensions?.[1]?.displayName;
+        if (name === undefined) return serie;
+        if (!seen.has(name)) {
+            seen.add(name);
+            return serie;
+        }
+        if (serie.hideMetricName !== true || !serie.pivotReference) {
+            // Pre-existing duplicates keep their current behaviour
+            return serie;
+        }
+        const pivotLabel = (serie.pivotReference.pivotValues ?? []).reduce(
+            (acc, { field, value }) => {
+                const formattedValue = getFormattedValue(
+                    value,
+                    field,
+                    itemsMap,
+                    undefined,
+                    pivotValuesColumnsMap,
+                );
+                return acc ? `${acc} - ${formattedValue}` : formattedValue;
+            },
+            '',
+        );
+        const metricLabel = getLabelFromField(
+            itemsMap,
+            serie.pivotReference.field,
+        );
+        const fallback = pivotLabel
+            ? `[${pivotLabel}] ${metricLabel}`
+            : metricLabel;
+        seen.add(fallback);
+        return {
+            ...serie,
+            dimensions: serie.dimensions?.map((dim, idx) =>
+                idx === 1 ? { ...dim, displayName: fallback } : dim,
+            ),
+        };
+    });
+};
 
 /**
  * Whether a field id is declared as a baseline metric in the chart layout.
@@ -915,13 +969,15 @@ export const getPivotSeries = ({
                 name: yFieldHash,
                 displayName: isMergedBaseline
                     ? getLabelFromField(itemsMap, series.encode.yRef.field)
-                    : cartesianChart.layout.yField &&
-                          cartesianChart.layout.yField.length > 1
-                      ? `[${pivotLabel}] ${getLabelFromField(
-                            itemsMap,
-                            series.encode.yRef.field,
-                        )}`
-                      : pivotLabel,
+                    : series.hideMetricName === true
+                      ? pivotLabel
+                      : cartesianChart.layout.yField &&
+                              cartesianChart.layout.yField.length > 1
+                          ? `[${pivotLabel}] ${getLabelFromField(
+                                itemsMap,
+                                series.encode.yRef.field,
+                            )}`
+                          : pivotLabel,
             },
         ],
         tooltip: {
@@ -1166,7 +1222,11 @@ const getEchartsSeriesFromPivotedData = (
             });
         });
 
-    return resultSeries;
+    return dedupePivotOnlyDisplayNames(
+        resultSeries,
+        itemsMap,
+        pivotValuesColumnsMap,
+    );
 };
 
 const getEchartsSeries = (
@@ -1174,7 +1234,7 @@ const getEchartsSeries = (
     cartesianChart: CartesianChart,
     pivotKeys: string[] | undefined,
 ): EChartSeries[] => {
-    return (cartesianChart.eChartsConfig.series || [])
+    const resultSeries = (cartesianChart.eChartsConfig.series || [])
         .filter((s) => !s.hidden)
         .map<EChartSeries>((series) => {
             const { flipAxes } = cartesianChart.layout;
@@ -1201,6 +1261,8 @@ const getEchartsSeries = (
                 xFieldHash,
             });
         });
+
+    return dedupePivotOnlyDisplayNames(resultSeries, itemsMap);
 };
 
 const calculateWidthText = (text: string | undefined): number => {

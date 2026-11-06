@@ -15,6 +15,7 @@ import {
     getAxisDefaultMinValue,
     getLineLegendOrder,
     getMinAndMaxValues,
+    dedupePivotOnlyDisplayNames,
     getPivotSeries,
     getSeriesValueFromRow,
     getSimpleSeries,
@@ -2464,6 +2465,56 @@ describe('指标基准线 baseline series', () => {
 
         expect(serie.dimensions?.[1]?.displayName).toBe('基准线市占率');
         expect(serie.isBaseline).toBe(true);
+    });
+
+    test('hideMetricName：系列名仅分组值（无括号无指标名）', () => {
+        const serie = getPivotSeries({
+            series: {
+                ...makeSourceSeries('metric_actual'),
+                hideMetricName: true,
+            },
+            itemsMap: {},
+            cartesianChart: makeChart({
+                yField: ['metric_actual', 'metric_target'],
+            }),
+            pivotReference: {
+                field: 'metric_actual',
+                pivotValues: [{ field: 'pro_name', value: '产品A' }],
+            },
+            flipAxes: false,
+            yFieldHash: 'metric_actual',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.dimensions?.[1]?.displayName).toBe('产品A');
+    });
+
+    test('hideMetricName 撞名回退：同名系列回退为 [分组值] 指标名', () => {
+        const shortNamed = {
+            ...makeLegendLineSerie('产品A'),
+            hideMetricName: true,
+            pivotReference: {
+                field: 'metric_actual',
+                pivotValues: [{ field: 'pro_name', value: '产品A' }],
+            },
+            dimensions: [
+                { name: 'month', displayName: '月份' },
+                { name: 'y1', displayName: '产品A' },
+            ],
+        };
+        const other = {
+            ...makeLegendLineSerie('产品A'),
+            dimensions: [
+                { name: 'month', displayName: '月份' },
+                { name: 'y2', displayName: '产品A' },
+            ],
+        };
+        const deduped = dedupePivotOnlyDisplayNames([other, shortNamed], {});
+        expect(deduped[0].dimensions?.[1]?.displayName).toBe('产品A');
+        // 撞名后回退为 [分组值] 指标名（itemsMap 空 → 指标名为空串）
+        expect(deduped[1].dimensions?.[1]?.displayName).toBe(
+            '[产品A] Metric actual',
+        );
     });
 
     test('flipAxes 时判定仍以 yRef.field 为准（轴互换不影响）', () => {

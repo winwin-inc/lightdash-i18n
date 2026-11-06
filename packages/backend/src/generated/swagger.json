@@ -4164,6 +4164,10 @@
                     "areaStyle": {
                         "$ref": "#/components/schemas/Record_string.unknown_"
                     },
+                    "hideMetricName": {
+                        "type": "boolean",
+                        "description": "Hide the metric label in the pivoted series display name (legend and\ntooltip show only the pivot value, e.g. `产品A` instead of\n`[产品A] 销售额市占率`)."
+                    },
                     "hidden": {
                         "type": "boolean"
                     },
@@ -9575,6 +9579,19 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
+                                                    }
+                                                },
+                                                "required": ["status"],
+                                                "type": "object"
+                                            },
+                                            {
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "error",
+                                                            "success"
+                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],

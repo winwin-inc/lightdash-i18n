@@ -5522,7 +5522,8 @@
       "baseline_style_width": "线宽",
       "baseline_style_line_type": "线型",
       "baseline_line_type_solid": "实线",
-      "baseline_line_type_dashed": "虚线"
+      "baseline_line_type_dashed": "虚线",
+      "hide_metric_name": "隐藏指标名"
     }
   },
   "components_visualization_configs_chart_funnel": {

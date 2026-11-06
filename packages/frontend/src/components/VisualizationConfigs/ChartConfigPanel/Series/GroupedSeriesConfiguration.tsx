@@ -224,6 +224,26 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
 
     const chartValue = isChartTypeTheSameForAllSeries ? chartType : 'mixed';
     const fieldKey = getItemId(item);
+
+    // 分组标题后缀：展示分组维度名（如“（按 产品名称）”），多维度用顿号连接；
+    // 维度名不可得时不展示后缀，避免“(分组)”这种歧义文案。
+    const pivotDimLabels = (
+        seriesGroup[0]?.encode?.yRef?.pivotValues ?? []
+    ).map((pv) => {
+        const dimItem = items.find((i) => getItemId(i) === pv.field);
+        return dimItem
+            ? getItemLabelWithoutTableName(dimItem)
+            : String(pv.field);
+    });
+    const metricLabel = getItemLabelWithoutTableName(item);
+    const groupHeadingLabel =
+        pivotDimLabels.length > 0
+            ? `${metricLabel}（按 ${pivotDimLabels.join('、')}）`
+            : metricLabel;
+    const groupHeadingTitle =
+        pivotDimLabels.length > 0
+            ? `${metricLabel}（按 ${pivotDimLabels.join('、')} 分组）`
+            : undefined;
     const isBaselineField = (layout?.baselineFieldIds ?? []).includes(fieldKey);
     const canSortStackSeriesByValue =
         Boolean(seriesGroup[0].stack) &&
@@ -284,11 +304,11 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                 <Group noWrap spacing="two">
                     <GrabIcon dragHandleProps={dragHandleProps} />
 
-                    <Config.Heading>
-                        {getItemLabelWithoutTableName(item)}{' '}
-                        {t(
-                            'components_visualization_configs_chart.series.grouped_suffix',
-                        )}
+                    <Config.Heading
+                        title={groupHeadingTitle}
+                        truncate
+                    >
+                        {groupHeadingLabel}
                     </Config.Heading>
                 </Group>
                 <Stack spacing="xs" ml="md">
@@ -513,6 +533,24 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             </Stack>
                         </>
                     )}
+                    <Stack spacing="xs" mt="xs">
+                        <Checkbox
+                            checked={
+                                seriesGroup[0].hideMetricName === true
+                            }
+                            label={t(
+                                'components_visualization_configs_chart.series.hide_metric_name',
+                            )}
+                            onChange={() => {
+                                updateAllGroupedSeries(fieldKey, {
+                                    hideMetricName:
+                                        seriesGroup[0].hideMetricName === true
+                                            ? undefined
+                                            : true,
+                                });
+                            }}
+                        />
+                    </Stack>
                     {canSortSeriesByValue && (
                         <Stack spacing="xs" mt="xs">
                             <Group spacing="xs">
