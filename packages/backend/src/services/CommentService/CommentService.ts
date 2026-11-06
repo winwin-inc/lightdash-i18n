@@ -4,6 +4,7 @@ import {
     DashboardDAO,
     FeatureFlags,
     ForbiddenError,
+    isUserWithOrg,
     LightdashUser,
     SessionUser,
     SpaceShare,
@@ -20,9 +21,18 @@ import { isFeatureFlagEnabled } from '../../postHog';
 import { BaseService } from '../BaseService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
 
+// Method interface only: importing DashboardService would create a cycle.
+type DashboardAllowListService = {
+    getAllowedDashboardUuidsForViewer: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<Set<string> | undefined>;
+};
+
 type CommentServiceArguments = {
     analytics: LightdashAnalytics;
     dashboardModel: DashboardModel;
+    dashboardService: DashboardAllowListService;
     spaceModel: SpaceModel;
     commentModel: CommentModel;
     notificationsModel: NotificationsModel;
@@ -33,6 +43,8 @@ export class CommentService extends BaseService {
     analytics: LightdashAnalytics;
 
     dashboardModel: DashboardModel;
+
+    dashboardService: DashboardAllowListService;
 
     spaceModel: SpaceModel;
 
@@ -45,6 +57,7 @@ export class CommentService extends BaseService {
     constructor({
         analytics,
         dashboardModel,
+        dashboardService,
         spaceModel,
         commentModel,
         notificationsModel,
@@ -53,6 +66,7 @@ export class CommentService extends BaseService {
         super();
         this.analytics = analytics;
         this.dashboardModel = dashboardModel;
+        this.dashboardService = dashboardService;
         this.spaceModel = spaceModel;
         this.commentModel = commentModel;
         this.notificationsModel = notificationsModel;
@@ -146,6 +160,27 @@ export class CommentService extends BaseService {
         });
     }
 
+    /**
+     * Client-use: a restricted user must not read or write the comments of a
+     * dashboard that is not in their allow-list.
+     */
+    private async assertDashboardIsVisibleToUser(
+        user: SessionUser,
+        dashboard: { uuid: string; projectUuid: string },
+    ): Promise<void> {
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                dashboard.projectUuid,
+            );
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return;
+        }
+        if (!allowedDashboardUuids.has(dashboard.uuid)) {
+            throw new ForbiddenError("You don't have access to this dashboard");
+        }
+    }
+
     async createComment(
         user: SessionUser,
         dashboardUuid: string,
@@ -178,6 +213,8 @@ export class CommentService extends BaseService {
                 "You don't have access to the space this dashboard belongs to",
             );
         }
+
+        await this.assertDashboardIsVisibleToUser(user, dashboard);
 
         this.analytics.track({
             event: 'comment.created',
@@ -242,6 +279,8 @@ export class CommentService extends BaseService {
             );
         }
 
+        await this.assertDashboardIsVisibleToUser(user, dashboard);
+
         const canUserRemoveAnyComment = user.ability.can(
             'manage',
             subject('DashboardComments', {
@@ -285,6 +324,8 @@ export class CommentService extends BaseService {
             );
         }
 
+        await this.assertDashboardIsVisibleToUser(user, dashboard);
+
         const comment = await this.commentModel.getComment(commentId);
 
         this.analytics.track({
@@ -318,6 +359,8 @@ export class CommentService extends BaseService {
                 "You don't have access to the space this dashboard belongs to",
             );
         }
+
+        await this.assertDashboardIsVisibleToUser(user, dashboard);
 
         const canRemoveAnyComment = user.ability.can(
             'manage',

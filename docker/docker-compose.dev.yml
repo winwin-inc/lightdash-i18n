@@ -120,6 +120,9 @@ services:
             DASHBOARD_TABS_IN_MEMORY: ${DASHBOARD_TABS_IN_MEMORY:-true}
             LOCK_DASHBOARD_FILTERS_ENABLED: ${LOCK_DASHBOARD_FILTERS_ENABLED:-true}
             RESULTS_CACHE_ENABLED: ${RESULTS_CACHE_ENABLED:-true}
+            # 导出相关（显式 allowlist，不写这里容器里就读不到）
+            RESULTS_JSONL_GZIP: ${RESULTS_JSONL_GZIP:-false}
+            EXPORT_MAX_ROWS: ${EXPORT_MAX_ROWS:-1000000}
             ENABLE_TIMEZONE_SUPPORT: ${ENABLE_TIMEZONE_SUPPORT:-true}
         ports:
             - '8080:8080'

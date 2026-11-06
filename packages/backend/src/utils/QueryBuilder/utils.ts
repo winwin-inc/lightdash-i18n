@@ -27,6 +27,7 @@ import {
     IntrinsicUserAttributes,
     isCompiledCustomSqlDimension,
     JoinRelationship,
+    MAX_VALUE_ORDER_ITEMS,
     MetricQuery,
     MetricType,
     parseAllReferences,
@@ -41,7 +42,7 @@ import {
     WeekDay,
     type WarehouseSqlBuilder,
 } from '@lightdash/common';
-import { intersection, isArray } from 'lodash';
+import { intersection, isArray, uniq } from 'lodash';
 import { hasUserAttribute } from '../../services/UserAttributesService/UserAttributeUtils';
 
 export type TotalQueryKind =
@@ -465,6 +466,96 @@ export const sortDayOfWeekName = (
             ELSE 0
         END
     )${descending ? ' DESC' : ''}`;
+};
+/**
+ * Adapters whose string literals treat `\` as an escape character
+ * (a literal backslash must be doubled). Postgres/Trino/Athena do not.
+ */
+const BACKSLASH_ESCAPING_ADAPTERS: ReadonlySet<SupportedDbtAdapter> = new Set([
+    SupportedDbtAdapter.BIGQUERY,
+    SupportedDbtAdapter.SNOWFLAKE,
+    SupportedDbtAdapter.DATABRICKS,
+    SupportedDbtAdapter.CLICKHOUSE,
+    SupportedDbtAdapter.REDSHIFT,
+]);
+
+/**
+ * Escapes a value so it can be used as a **string literal for equality**
+ * (`column = '<value>'`).
+ *
+ * This is intentionally not `WarehouseSqlBuilder.escapeString`: that one is
+ * built for filters/LIKE and is lossy (normalizes unicode, escapes backslashes
+ * for LIKE and strips `--` / block comments), which silently changes the
+ * literal and makes the comparison never match.
+ *
+ * Here the value is kept byte for byte, only:
+ * - single quotes are doubled (valid in every supported warehouse),
+ * - NUL bytes are removed (they break literals in Postgres),
+ * - backslashes are doubled only for adapters where `\` is an escape char.
+ */
+export const escapeStringLiteral = (
+    value: string,
+    adapterType: SupportedDbtAdapter,
+): string => {
+    const withoutNullBytes = value.replaceAll('\0', '');
+    const escapedQuotes = withoutNullBytes.replaceAll("'", "''");
+    return BACKSLASH_ESCAPING_ADAPTERS.has(adapterType)
+        ? escapedQuotes.replaceAll('\\', '\\\\')
+        : escapedQuotes;
+};
+
+/**
+ * Normalizes a custom value order: removes empty values, de-duplicates
+ * (keeping the first occurrence) and caps the list at MAX_VALUE_ORDER_ITEMS.
+ * Values are **not** trimmed: leading/trailing spaces are meaningful for the
+ * equality comparison.
+ */
+export const normalizeValueOrder = (valueOrder: string[]): string[] =>
+    uniq(valueOrder.filter((value) => value.length > 0)).slice(
+        0,
+        MAX_VALUE_ORDER_ITEMS,
+    );
+
+/**
+ * Sorts a dimension by a user provided list of values (custom value order).
+ * The values are ranked by their position in the list:
+ * - ascending: rank = index + 1, values not listed (ELSE) get `n + 1` so they are always last
+ * - descending: rank = n - index, values not listed (ELSE) get 0 so they are still always last
+ * Null values fall into the ELSE bucket, so they are not sorted separately.
+ *
+ * Returns `null` when the normalized list is empty: the caller must fall back
+ * to the regular sorting (a `CASE` without `WHEN` is invalid SQL).
+ */
+export const sortByValueOrder = (
+    dimension: CompiledDimension,
+    valueOrder: string[],
+    fieldQuoteChar: string,
+    adapterType: SupportedDbtAdapter,
+    descending: boolean,
+): string | null => {
+    const values = normalizeValueOrder(valueOrder);
+    if (values.length === 0) {
+        return null;
+    }
+
+    const fieldId = `${fieldQuoteChar}${getItemId(dimension)}${fieldQuoteChar}`;
+    const valueCount = values.length;
+    const whenClauses = values.map((value, index) => {
+        const rank = descending ? valueCount - index : index + 1;
+        return `WHEN ${fieldId} = '${escapeStringLiteral(
+            value,
+            adapterType,
+        )}' THEN ${rank}`;
+    });
+    // Values that are not listed always go last, in both sort directions
+    const elseRank = descending ? 0 : valueCount + 1;
+
+    return `(
+        CASE
+            ${whenClauses.join('\n            ')}
+            ELSE ${elseRank}
+        END
+        )${descending ? ' DESC' : ''}`;
 };
 // Remove comments and limit clauses from SQL
 export const removeComments = (sql: string): string => {

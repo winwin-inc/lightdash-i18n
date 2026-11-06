@@ -110,6 +110,13 @@ export class InviteLinkModel {
         return this.getByCode(inviteCode);
     }
 
+    async deleteByUserUuid(userUuid: string): Promise<number> {
+        const deleted = await this.database(InviteLinkTableName)
+            .where('user_uuid', userUuid)
+            .delete();
+        return deleted;
+    }
+
     async deleteByOrganization(organizationUuid: string) {
         const orgs = await this.database('organizations')
             .where('organization_uuid', organizationUuid)

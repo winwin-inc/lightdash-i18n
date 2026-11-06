@@ -34,7 +34,8 @@
         "./src",
         "./sdk/index.tsx",
         "./vite-env.d.ts",
-        "./vega-lite-schema.d.ts"
+        "./vega-lite-schema.d.ts",
+        "./vega-lite.d.ts"
     ],
     "exclude": [
         "src/features/apps/**/*.test.ts",

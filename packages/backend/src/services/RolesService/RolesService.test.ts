@@ -39,6 +39,7 @@ describe('RolesService', () => {
         groupsModel: mockGroupsModel as unknown as GroupsModel,
         projectModel: mockProjectModel as unknown as ProjectModel,
         emailClient: {} as unknown as EmailClient,
+        organizationMemberProfileModel: {} as never,
     });
     beforeEach(() => {
         jest.clearAllMocks();

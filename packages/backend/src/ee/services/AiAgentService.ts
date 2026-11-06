@@ -2145,11 +2145,27 @@ export class AiAgentService {
                         searchResults,
                     );
 
-                const totalResults = filteredResults.length;
+                // Client-use projects: only the allow-listed dashboards are
+                // visible to viewer / interactive_viewer
+                const dashboardScope =
+                    await this.projectService.dashboardService.getViewerContentScope(
+                        user,
+                        projectUuid,
+                    );
+                const visibleResults =
+                    dashboardScope === undefined
+                        ? filteredResults
+                        : filteredResults.filter((dashboard) =>
+                              dashboardScope.dashboardUuids.includes(
+                                  dashboard.uuid,
+                              ),
+                          );
+
+                const totalResults = visibleResults.length;
                 const totalPageCount = Math.ceil(totalResults / args.pageSize);
 
                 return {
-                    dashboards: filteredResults,
+                    dashboards: visibleResults,
                     pagination: {
                         page: args.page,
                         pageSize: args.pageSize,
@@ -2173,11 +2189,26 @@ export class AiAgentService {
                         allCharts,
                     );
 
-                const totalResults = filteredResults.length;
+                // Client-use projects: only the charts mounted on an
+                // allow-listed dashboard are visible to
+                // viewer / interactive_viewer
+                const chartScope =
+                    await this.projectService.dashboardService.getViewerContentScope(
+                        user,
+                        projectUuid,
+                    );
+                const visibleResults =
+                    chartScope === undefined
+                        ? filteredResults
+                        : filteredResults.filter((chart) =>
+                              chartScope.chartUuids.includes(chart.uuid),
+                          );
+
+                const totalResults = visibleResults.length;
                 const totalPageCount = Math.ceil(totalResults / args.pageSize);
 
                 return {
-                    charts: filteredResults,
+                    charts: visibleResults,
                     pagination: {
                         page: args.page,
                         pageSize: args.pageSize,

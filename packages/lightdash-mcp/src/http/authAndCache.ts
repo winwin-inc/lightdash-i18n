@@ -2,6 +2,7 @@ import type express from 'express';
 import {
     MAX_USER_ATTRIBUTES_HEADER_CHARS,
 } from '../lib/requestContext';
+import { writeStderrLog } from '../lib/stderrLog';
 
 export type AuthCacheEntry = {
     email: string;
@@ -186,8 +187,8 @@ export async function validateApiKeyAndGetEmail(
     const cached = authCache.get(apiKey);
     if (cached && cached.expiresAtMs > now) {
         const remainSec = Math.max(0, Math.floor((cached.expiresAtMs - now) / 1000));
-        process.stderr.write(
-            `[ApiAuth] ${maskedKey} 缓存命中 -> 有效（剩余 ${remainSec}s） | ${cached.email}\n`,
+        writeStderrLog(
+            `[ApiAuth] ${maskedKey} 缓存命中 -> 有效（剩余 ${remainSec}s） | ${cached.email}`,
         );
         return cached.email;
     }
@@ -200,8 +201,8 @@ export async function validateApiKeyAndGetEmail(
         },
     });
     if (!response.ok) {
-        process.stderr.write(
-            `[ApiAuth] ${maskedKey} 校验失败 -> ${response.status}\n`,
+        writeStderrLog(
+            `[ApiAuth] ${maskedKey} 校验失败 -> ${response.status}`,
         );
         throw new Error(`Lightdash API ${response.status}: Failed to authorize user`);
     }
@@ -211,6 +212,6 @@ export async function validateApiKeyAndGetEmail(
         email,
         expiresAtMs: now + AUTH_CACHE_TTL_MS,
     });
-    process.stderr.write(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}\n`);
+    writeStderrLog(`[ApiAuth] ${maskedKey} 校验通过 -> ${email}`);
     return email;
 }

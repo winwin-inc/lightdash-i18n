@@ -1,8 +1,14 @@
-import { type DashboardFilterRule, type DashboardFilters } from '@lightdash/common';
 import {
+    type DashboardFilterRule,
+    type DashboardFilters,
+} from '@lightdash/common';
+import {
+    buildCategoryChain,
+    getCategoryChainFilters,
     getCategoryFiltersSignature,
     getParentFieldId,
-    hasCategoryFilters,
+    hasBoundFilters,
+    isBoundValueFilter,
     isCategoryField,
     type DashboardFilterContext,
 } from './categoryFilters';
@@ -30,7 +36,10 @@ export const getDescendantCategoryFilterIds = (
 
     const collect = (fieldId: string) => {
         filters.dimensions.forEach((filter) => {
-            if (!isCategoryField(filter)) return;
+            // 类目子级 + 绑定了父级的普通维度（集团/品牌/商品名称…）
+            if (!isCategoryField(filter) && !isBoundValueFilter(filter)) {
+                return;
+            }
             if (getParentFieldId(filter) !== fieldId) return;
             ids.push(filter.id);
             collect(filter.target.fieldId);
@@ -80,7 +89,7 @@ export const mergeDimensionIntoDisplayState = (
         ),
     };
 
-    if (!isCategoryField(item)) {
+    if (!isCategoryField(item) && !isBoundValueFilter(item)) {
         // 普通筛选变更：保留原更新中标记范围（所有类目子孙仍可能受 left-filter 影响）
         // 由调用方决定是否整树重新 init；此处不新增 updating ids
         return {
@@ -134,7 +143,7 @@ export const decideCategoryInit = ({
         return { action: 'skip-ready' };
     }
 
-    if (!hasCategoryFilters(filters)) {
+    if (!hasBoundFilters(filters)) {
         return { action: 'skip-ready' };
     }
 
@@ -162,6 +171,7 @@ export const shouldApplyCategoryInitResult = ({
     currentFilters,
     projectUuid,
     dashboardContext,
+    currentSignature: currentSignatureOverride,
 }: {
     requestGeneration: number;
     currentGeneration: number;
@@ -169,16 +179,23 @@ export const shouldApplyCategoryInitResult = ({
     currentFilters: DashboardFilters;
     projectUuid: string;
     dashboardContext?: DashboardFilterContext;
+    /**
+     * 当前状态的签名（调用方预先算好时传入）。
+     * Tab 类目需要跨作用域签名（全局 + Tab），无法用 currentFilters 直接算出。
+     */
+    currentSignature?: string;
 }): boolean => {
     if (requestGeneration !== currentGeneration) {
         return false;
     }
 
-    const currentSignature = getCategoryFiltersSignature(
-        currentFilters,
-        projectUuid,
-        dashboardContext,
-    );
+    const currentSignature =
+        currentSignatureOverride ??
+        getCategoryFiltersSignature(
+            currentFilters,
+            projectUuid,
+            dashboardContext,
+        );
 
     return currentSignature === requestSignature;
 };
@@ -193,6 +210,7 @@ export const resolveActiveTabCategoryInit = ({
     projectUuid,
     dashboardContext,
     processedSignatures,
+    globalFilters,
 }: {
     tabFilters: Record<string, DashboardFilters>;
     activeTabUuid: string | undefined;
@@ -200,14 +218,22 @@ export const resolveActiveTabCategoryInit = ({
     projectUuid: string | undefined;
     dashboardContext?: DashboardFilterContext;
     processedSignatures: Record<string, string | undefined>;
+    /** 全局筛选器：Tab 类目可能绑定全局父级，签名必须覆盖全局祖先 */
+    globalFilters?: DashboardFilters;
 }): CategoryInitDecision => {
     if (!activeTabUuid || !tabFilters[activeTabUuid]) {
         return { action: 'none' };
     }
 
+    const chainFilters = globalFilters
+        ? getCategoryChainFilters(
+              buildCategoryChain({ globalFilters, tabFilters }, activeTabUuid),
+          )
+        : tabFilters[activeTabUuid];
+
     return decideCategoryInit({
         canApplyCategoryFilters,
-        filters: tabFilters[activeTabUuid],
+        filters: chainFilters,
         projectUuid,
         dashboardContext,
         processedSignature: processedSignatures[activeTabUuid],

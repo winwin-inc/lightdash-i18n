@@ -45,12 +45,17 @@ import { useTranslation } from 'react-i18next';
 
 import useToaster from '../../../hooks/toaster/useToaster';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import { type SqlChartTileMetadata } from '../../../providers/Dashboard/types';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
-import { isCategoryField } from '../../../utils/categoryFilters';
+import {
+    isValidParentBinding,
+    type CategoryChain,
+} from '../../../utils/categoryFilters';
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
 import MantineIcon from '../../common/MantineIcon';
+import { encodeParentFilterRef } from '../common/parentFilterRef';
 import FilterSettings from './FilterSettings';
 import TileFilterConfiguration from './TileFilterConfiguration';
 import { DEFAULT_TAB, FilterActions, FilterTabs } from './constants';
@@ -64,6 +69,12 @@ import {
     removeValuesExcludedFromFilterRule,
     validateDashboardFilterDynamicDateRange,
 } from './utils';
+import {
+    buildParentOptionLabels,
+    buildStoredParentOption,
+    type ParentCandidate,
+    type ParentOptionDraft,
+} from './utils/parentOptions';
 
 interface Props {
     tiles: DashboardTile[];
@@ -79,6 +90,8 @@ interface Props {
     isCreatingNew?: boolean;
     isTemporary?: boolean;
     onSave: (value: DashboardFilterRule) => void;
+    /** 关闭整个筛选器 popover（不写数据）；草稿无变化时点「应用」走这里 */
+    onRequestClose?: () => void;
     onDraftChange?: (value: DashboardFilterRule | undefined) => void;
     isPopoverOpen?: boolean;
     filterScope: 'global' | 'tab';
@@ -91,6 +104,10 @@ const getDefaultField = (
     selectedField: DashboardFilterableField,
 ) => findDefaultTileFilterField(fields, selectedField);
 
+/**
+ * 父级选项的中间结构（展示文案 + 归属信息）
+ */
+type ParentFilterOptionDraft = ParentOptionDraft;
 const FilterConfiguration: FC<Props> = ({
     isEditMode,
     isCreatingNew = false,
@@ -105,6 +122,7 @@ const FilterConfiguration: FC<Props> = ({
     defaultFilterRule,
     popoverProps,
     onSave,
+    onRequestClose,
     onDraftChange,
     isPopoverOpen = false,
     filterScope,
@@ -216,20 +234,43 @@ const FilterConfiguration: FC<Props> = ({
 
     const handleChangeFilterRule = useCallback(
         (newFilterRule: DashboardFilterRule) => {
-            const isNewFilterDisabled = hasFilterValueSet(newFilterRule)
+            /**
+             * 「不可清空」兜底（真正的强制点）：
+             * 输入控件层面的 clearable 只是隐藏清空按钮，
+             * 所有清空路径（删标签、清空输入框、下拉「全部清除」…）都在这里拦截。
+             * 查看模式下 clearable === false 的筛选器不允许被清成空值：
+             * 新规则没有取值、而当前草稿还有取值 → 丢弃这次清空，保留原取值
+             * （只回填 values，不改 operator / settings）。
+             */
+            const isClearBlocked =
+                !isEditMode &&
+                newFilterRule.clearable === false &&
+                (newFilterRule.values ?? []).length === 0 &&
+                (draftFilterRule?.values ?? []).length > 0;
+
+            const ruleToApply = isClearBlocked
+                ? { ...newFilterRule, values: draftFilterRule?.values }
+                : newFilterRule;
+
+            const isNewFilterDisabled = hasFilterValueSet(ruleToApply)
                 ? false
                 : isEditMode
-                ? newFilterRule.disabled
+                ? ruleToApply.disabled
                 : true;
             const updatedRule = {
-                ...newFilterRule,
+                ...ruleToApply,
                 disabled: isNewFilterDisabled,
             };
 
             setDraftFilterRule(updatedRule);
             onDraftChange?.(getRuleWithPendingExcludedValue(updatedRule));
         },
-        [isEditMode, onDraftChange, getRuleWithPendingExcludedValue],
+        [
+            isEditMode,
+            onDraftChange,
+            getRuleWithPendingExcludedValue,
+            draftFilterRule,
+        ],
     );
     const sqlChartTilesMetadata = useDashboardContext(
         (c) => c.sqlChartTilesMetadata,
@@ -239,15 +280,31 @@ const FilterConfiguration: FC<Props> = ({
     );
     const allFiltersFromContext = useDashboardContext((c) => c.allFilters);
     const tabFiltersFromContext = useDashboardContext((c) => c.tabFilters);
+    /**
+     * 当前作用域（全局 / 单个 tab）内的 SQL Runner 图表元数据，
+     * 避免 tab 筛选器里出现其它 tab 的 SQL 列
+     */
+    const scopedSqlChartTilesMetadata = useMemo(() => {
+        return (tiles ?? []).reduce<Record<string, SqlChartTileMetadata>>(
+            (acc, tile) => {
+                const tileMetadata = sqlChartTilesMetadata[tile.uuid];
+                if (tileMetadata) {
+                    acc[tile.uuid] = tileMetadata;
+                }
+                return acc;
+            },
+            {},
+        );
+    }, [tiles, sqlChartTilesMetadata]);
     const columnsOptions = useMemo(() => {
-        const allColumns = Object.values(sqlChartTilesMetadata).flatMap(
+        const allColumns = Object.values(scopedSqlChartTilesMetadata).flatMap(
             (tileMetadata) => tileMetadata.columns,
         );
         const uniqueColumnsMap = new Map(
             allColumns.map((column) => [column.reference, column]),
         );
         return Array.from(uniqueColumnsMap.values());
-    }, [sqlChartTilesMetadata]);
+    }, [scopedSqlChartTilesMetadata]);
 
     const handleChangeColumn = useCallback(
         (newColumn: ResultColumn) => {
@@ -256,7 +313,7 @@ const FilterConfiguration: FC<Props> = ({
                 createDashboardFilterRuleFromSqlColumn({
                     column: newColumn,
                     availableTileColumns: Object.fromEntries(
-                        Object.entries(sqlChartTilesMetadata).map(
+                        Object.entries(scopedSqlChartTilesMetadata).map(
                             ([tileUuid, tileMetadata]) => [
                                 tileUuid,
                                 tileMetadata.columns,
@@ -267,7 +324,7 @@ const FilterConfiguration: FC<Props> = ({
                 }),
             );
         },
-        [isCreatingNew, isEditMode, sqlChartTilesMetadata],
+        [isCreatingNew, isEditMode, scopedSqlChartTilesMetadata],
     );
 
     const filterType: FilterType = useMemo(() => {
@@ -313,7 +370,8 @@ const FilterConfiguration: FC<Props> = ({
                         // Find fallback target
                         if (!target) {
                             const defaultColumn: ResultColumn | undefined =
-                                sqlChartTilesMetadata[tileUuid]?.columns[0];
+                                scopedSqlChartTilesMetadata[tileUuid]
+                                    ?.columns[0];
                             const defaultField = selectedField
                                 ? getDefaultField(
                                       availableTileFilters[tileUuid] ?? [],
@@ -362,7 +420,7 @@ const FilterConfiguration: FC<Props> = ({
             availableTileFilters,
             setDraftFilterRule,
             draftFilterRule,
-            sqlChartTilesMetadata,
+            scopedSqlChartTilesMetadata,
         ],
     );
 
@@ -460,6 +518,14 @@ const FilterConfiguration: FC<Props> = ({
         isCreatingNew,
     ]);
 
+    /**
+     * 草稿与已应用状态完全一致：点「应用」只关闭面板，不写数据。
+     * 完全禁用按钮会让用户只能点上面的筛选器 pill 才能关掉 popover，
+     * 而直接放行又会触发无意义的 onSave（审计事件 / 看板脏标记 / 查询重跑）。
+     * 新建筛选器且还没选值时仍然禁用（不能凭空创建一个空筛选器）。
+     */
+    const isApplyNoOp = isApplyDisabled && !isCreatingNew;
+
     const parentFilterOptions = useMemo(() => {
         if (!draftFilterRule?.target) return [];
 
@@ -469,52 +535,145 @@ const FilterConfiguration: FC<Props> = ({
                 ? dashboardFiltersFromContext.dimensions
                 : allFiltersFromContext?.dimensions ?? [];
 
-        const sourceFilters =
+        const tabDimensions = tabUuid
+            ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
+            : [];
+        // 已存储父级的查找范围要覆盖所有 Tab：筛选器的 tileTargets 可能指向别的
+        // Tab（appliesToTabs 与筛选器定义所在 Tab 不一定一致），只在当前 Tab 找
+        // 会把「已绑定的父级」误判成「已失效」
+        const allTabCandidates: ParentCandidate[] = Object.entries(
+            tabFiltersFromContext ?? {},
+        ).flatMap(([candidateTabUuid, filters]) =>
+            filters.dimensions.map((rule) => ({
+                rule,
+                scope: 'tab' as const,
+                tabUuid: candidateTabUuid,
+            })),
+        );
+
+        // 候选来源（父级必须能对当前作用域生效）：
+        // - 全局作用域：只允许全局筛选器作为父级
+        //   （全局筛选器不能依赖 Tab 筛选器：全局值在所有 Tab 生效）
+        // - Tab 作用域：可以绑定全局筛选器，或同一 Tab 的筛选器
+        //   （全局二级 → Tab 三级 → Tab 四级的跨作用域联动）
+        const globalCandidates: ParentCandidate[] = globalFilters.map(
+            (rule) => ({
+                rule,
+                scope: 'global',
+                tabUuid: null,
+            }),
+        );
+        const tabCandidates: ParentCandidate[] = tabDimensions.map((rule) => ({
+            rule,
+            scope: 'tab',
+            tabUuid: tabUuid ?? null,
+        }));
+
+        const candidates: ParentCandidate[] =
             filterScope === 'global'
-                ? globalFilters
-                : tabUuid
-                ? tabFiltersFromContext?.[tabUuid]?.dimensions ?? []
-                : [];
+                ? globalCandidates
+                : [...globalCandidates, ...tabCandidates];
 
-        const childLevel = draftFilterRule.categoryLevel;
         const currentId = draftFilterRule.id;
-        const currentFieldId = draftFilterRule.target.fieldId;
 
-        return sourceFilters
-            .filter((candidate) => {
-                if (!isCategoryField(candidate)) return false;
-                if (candidate.id && currentId && candidate.id === currentId)
-                    return false;
-                if (candidate.target.fieldId === currentFieldId) return false;
-                if (
-                    childLevel &&
-                    candidate.categoryLevel &&
-                    candidate.categoryLevel >= childLevel
-                ) {
-                    return false;
-                }
-                return true;
-            })
-            .map((candidate) => {
+        // 父级不限于类目：集团 / 品牌 / 商品 可以挂在同类普通维度下面
+        // （类目 → 集团 → 品牌 → 商品）。合法性（层级/成环）统一走
+        // `isValidParentBinding`，与运行时 `findParentCategoryEntry` 一致。
+        const candidatesChain: CategoryChain = candidates.map(
+            ({ rule: candidate, scope, tabUuid: candidateTabUuid }) => ({
+                rule: candidate,
+                location: {
+                    scope,
+                    tabUuid: scope === 'global' ? null : candidateTabUuid,
+                },
+            }),
+        );
+
+        const validCandidates = candidates.filter(({ rule: candidate }) => {
+            if (candidate.id && currentId && candidate.id === currentId)
+                return false;
+            return isValidParentBinding(
+                candidate,
+                draftFilterRule,
+                candidatesChain,
+            );
+        });
+
+        const prepared: ParentFilterOptionDraft[] = validCandidates.map(
+            ({ rule: candidate, scope, tabUuid: candidateTabUuid }) => {
                 const baseLabel =
                     candidate.label ||
                     candidate.target.fieldLabel ||
                     candidate.target.fieldId;
 
-                const levelLabel = candidate.categoryLevel
-                    ? t(
-                          `components_dashboard_filter.configuration.category_level.level${candidate.categoryLevel}`,
-                      )
-                    : undefined;
+                const { fullLabel, shortLabel, isRedundantBase } =
+                    buildParentOptionLabels(t, {
+                        baseLabel,
+                        categoryLevel: candidate.categoryLevel,
+                        scope,
+                    });
 
                 return {
-                    value: candidate.target.fieldId,
-                    label: levelLabel
-                        ? `${baseLabel} • ${levelLabel}`
-                        : baseLabel,
+                    value: encodeParentFilterRef({
+                        scope,
+                        tabUuid: candidateTabUuid,
+                        fieldId: candidate.target.fieldId,
+                    }),
+                    fullLabel,
+                    shortLabel,
+                    isRedundantBase,
                     categoryLevel: candidate.categoryLevel,
+                    scope,
+                    tabUuid: candidateTabUuid,
+                    fieldId: candidate.target.fieldId,
                 };
-            });
+            },
+        );
+
+        // 已存储的父级绑定：父级不在候选里时（没有显式层级 / 已被删除）
+        // 也要在下拉框里出现，否则「绑定已写入但显示空白」
+        const storedParentOption = buildStoredParentOption({
+            // 查找范围比候选更宽：所有 Tab（含父级实际所在 Tab）+ 全局，
+            // 且不限层级（父级可能只有 cls_2 列名，没有显式 categoryLevel）
+            candidates: [...globalCandidates, ...allTabCandidates].filter(
+                ({ rule }) => rule.id !== currentId,
+            ),
+            parentFieldId: draftFilterRule.parentFieldId,
+            parentScope: draftFilterRule.parentScope ?? null,
+            parentTabUuid: draftFilterRule.parentTabUuid ?? null,
+            currentTabUuid: tabUuid ?? null,
+            t,
+        });
+
+        const optionsWithStoredParent =
+            storedParentOption &&
+            !prepared.some(
+                (option) => option.value === storedParentOption.value,
+            )
+                ? [...prepared, storedParentOption]
+                : prepared;
+
+        // 省略后如果出现重名（例如两个同层级同名字段），回退到完整标签
+        const shortLabelCounts = optionsWithStoredParent.reduce<
+            Map<string, number>
+        >((acc, option) => {
+            if (!option.isRedundantBase) return acc;
+            acc.set(option.shortLabel, (acc.get(option.shortLabel) ?? 0) + 1);
+            return acc;
+        }, new Map());
+
+        return optionsWithStoredParent.map((option) => ({
+            value: option.value,
+            label:
+                option.isRedundantBase &&
+                (shortLabelCounts.get(option.shortLabel) ?? 0) < 2
+                    ? option.shortLabel
+                    : option.fullLabel,
+            categoryLevel: option.categoryLevel,
+            scope: option.scope,
+            tabUuid: option.tabUuid,
+            fieldId: option.fieldId,
+        }));
     }, [
         draftFilterRule,
         filterScope,
@@ -535,17 +694,34 @@ const FilterConfiguration: FC<Props> = ({
             }}
         >
             <Box
-                sx={{
+                sx={(theme) => ({
                     flex: 1,
                     minHeight: 0,
-                    // 图表图块：仅内层列表滚动；查看模式：超出 60vh 可滚；编辑模式：不压高度，无需外层滚动
+                    // 图表图块：仅内层列表滚动；移动端查看模式保持不滚（避免弹窗瞬间变大）；
+                    // 其余（含 PC / 移动端的编辑模式）超出弹窗最大高度即内滚
                     overflow:
                         selectedTabId === FilterTabs.TILES ||
-                        isEditMode ||
-                        isMobileDevice
+                        (isMobileDevice && !isEditMode)
                             ? 'hidden'
                             : 'auto',
-                }}
+                    overscrollBehavior: 'contain',
+                    // 细滚动条：默认宽度太粗，压小内容区视觉
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': {
+                        width: 6,
+                        height: 6,
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: theme.colors.gray[3],
+                        borderRadius: 3,
+                    },
+                    '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: theme.colors.gray[4],
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                    },
+                })}
                 data-filter-scroll-content
             >
                 <Tabs
@@ -617,6 +793,7 @@ const FilterConfiguration: FC<Props> = ({
                                         onDropdownOpen={popoverProps?.onOpen}
                                         onDropdownClose={popoverProps?.onClose}
                                         hasGrouping
+                                        searchByTableLabel
                                         item={selectedField}
                                         items={fields}
                                         onChange={(newField) => {
@@ -707,6 +884,7 @@ const FilterConfiguration: FC<Props> = ({
                                     }
                                     popoverProps={popoverProps}
                                     parentFilterOptions={parentFilterOptions}
+                                    filterScope={filterScope}
                                 />
                             )}
                         </Stack>
@@ -780,13 +958,25 @@ const FilterConfiguration: FC<Props> = ({
                             <Button
                                 size="xs"
                                 variant="filled"
-                                disabled={isApplyDisabled}
+                                disabled={isApplyDisabled && isCreatingNew}
                                 onMouseDown={(
                                     e: MouseEvent<HTMLButtonElement>,
                                 ) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setSelectedTabId(FilterTabs.SETTINGS);
+
+                                    // 与已应用状态一致：只关面板，不触发 onSave
+                                    if (isApplyNoOp) {
+                                        if (onRequestClose) {
+                                            onRequestClose();
+                                        } else {
+                                            popoverProps?.onClose?.();
+                                        }
+                                        setPendingExcludedValue('');
+                                        return;
+                                    }
+
                                     if (draftFilterRule) {
                                         const ruleToSave =
                                             removeValuesExcludedFromFilterRule(

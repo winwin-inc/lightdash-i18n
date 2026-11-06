@@ -164,7 +164,7 @@ flowchart TB
         subgraph PA_2 ["2. 业务鉴权与类目权限"]
             B1["CategoryRpcClient (RPC VIEWER 看板白名单)"]
             B2["field/search 类目联动 + dbt sql_filter 行级权限"]
-            B3["is_customer_use 项目隔离 & 体验账号 (is_trial_account)"]
+            B3["is_client_use 项目隔离 & 体验账号 (is_trial_account)"]
         end
 
         subgraph PA_3 ["3. 自研独立子包"]
@@ -428,7 +428,7 @@ flowchart TD
 2. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
 3. `pnpm generate-api` — **已通过**。
 4. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
-5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
+5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
 6. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）

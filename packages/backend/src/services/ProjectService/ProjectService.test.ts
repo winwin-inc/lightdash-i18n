@@ -1,10 +1,16 @@
+import { Ability } from '@casl/ability';
 import {
     defineUserAbility,
     FilterOperator,
+    ForbiddenError,
     NotFoundError,
     OrganizationMemberRole,
     ParameterError,
+    PROJECT_OPERATION_LOG_ACTIONS,
+    ProjectMemberRole,
     SessionUser,
+    type PossibleAbilities,
+    type SessionAccount,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
 import { S3CacheClient } from '../../clients/Aws/S3CacheClient';
@@ -77,6 +83,32 @@ jest.mock('@lightdash/warehouses', () => ({
     })),
 }));
 
+const spaceSummary = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    uuid: 'spaceUuid',
+    name: 'space',
+    isPrivate: false,
+    pinnedListUuid: null,
+    pinnedListOrder: null,
+    slug: 'space',
+    parentSpaceUuid: null,
+    path: 'space',
+    userAccess: undefined,
+    access: [],
+    chartCount: 0,
+    dashboardCount: 0,
+};
+
+const savedChart = {
+    organizationUuid: 'organizationUuid',
+    projectUuid: defaultProject.projectUuid,
+    tableName: 'valid_explore',
+    spaceUuid: 'spaceUuid',
+    metricQuery: METRIC_QUERY,
+    parameters: undefined,
+};
+
 const projectModel = {
     getWithSensitiveFields: jest.fn(async () => projectWithSensitiveFields),
     get: jest.fn(async () => projectWithSensitiveFields),
@@ -97,6 +129,9 @@ const projectModel = {
         runQuery: jest.fn(async () => resultsWith1Row),
     })),
     findExploreByTableName: jest.fn(async () => validExplore),
+    findJoinAliasExplore: jest.fn(async () => undefined),
+    getProjectAccess: jest.fn(async () => []),
+    updateProjectAccess: jest.fn(async () => undefined),
 };
 const onboardingModel = {
     getByOrganizationUuid: jest.fn(async () => ({
@@ -106,12 +141,15 @@ const onboardingModel = {
 };
 const savedChartModel = {
     getAllSpaces: jest.fn(async () => spacesWithSavedCharts),
+    get: jest.fn(async () => savedChart),
 };
 const jobModel = {
     get: jest.fn(async () => job),
 };
 const spaceModel = {
     getAllSpaces: jest.fn(async () => spacesWithSavedCharts),
+    getSpaceSummary: jest.fn(async () => spaceSummary),
+    getUserSpaceAccess: jest.fn(async () => []),
 };
 
 const userAttributesModel = {
@@ -152,18 +190,31 @@ const getMockedProjectService = (lightdashConfig: LightdashConfig) =>
         contentModel: {} as ContentModel,
         encryptionUtil: {} as EncryptionUtil,
         userModel: {} as UserModel,
-        featureFlagModel: {} as FeatureFlagModel,
+        featureFlagModel: {
+            get: jest.fn(async () => ({ enabled: false })),
+        } as unknown as FeatureFlagModel,
         projectParametersModel: {
             find: jest.fn(async () => []),
         } as unknown as ProjectParametersModel,
         organizationWarehouseCredentialsModel:
             {} as unknown as OrganizationWarehouseCredentialsModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as never,
+        dashboardService: {
+            getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
+            getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
+            getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
+            resolveDashboardContextForMetadata: jest.fn(async () => undefined),
+        } as never,
     });
 
+// Narrow to a session account so that spreading it keeps a concrete,
+// discriminated account type (helpers + session authentication).
 const account = buildAccount({
     accountType: 'session',
     userType: 'registered',
-});
+}) as SessionAccount;
 
 describe('ProjectService', () => {
     const { projectUuid } = defaultProject;
@@ -171,6 +222,10 @@ describe('ProjectService', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+        (
+            service.dashboardService
+                .getAllowedExploreNamesForViewer as jest.Mock
+        ).mockResolvedValue(undefined);
     });
     test('should run sql query', async () => {
         jest.spyOn(analyticsMock, 'track');
@@ -240,6 +295,52 @@ describe('ProjectService', () => {
                 null,
             );
             expect(result).toEqual(expectedApiQueryResultsWith501Rows);
+        });
+
+        test('should reject ad-hoc query when explore is not on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['other_explore']));
+
+            await expect(
+                (
+                    service as unknown as {
+                        assertExploreAllowedForAdhocQuery: (
+                            sessionUser: typeof user,
+                            uuid: string,
+                            exploreName: string,
+                        ) => Promise<void>;
+                    }
+                ).assertExploreAllowedForAdhocQuery(
+                    user,
+                    projectUuid,
+                    'valid_explore',
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should allow ad-hoc query when explore is on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+
+            await expect(
+                (
+                    service as unknown as {
+                        assertExploreAllowedForAdhocQuery: (
+                            sessionUser: typeof user,
+                            uuid: string,
+                            exploreName: string,
+                        ) => Promise<void>;
+                    }
+                ).assertExploreAllowedForAdhocQuery(
+                    user,
+                    projectUuid,
+                    'valid_explore',
+                ),
+            ).resolves.toBeUndefined();
         });
     });
     describe('getAllExploresSummary', () => {
@@ -412,6 +513,52 @@ describe('ProjectService', () => {
                 'explore_with_required_attributes',
             );
         });
+
+        test('should keep explores when viewer allow-list is undefined', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(undefined);
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toEqual(expectedAllExploreSummary);
+        });
+
+        test('should keep only explores on the viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toEqual('valid_explore');
+        });
+
+        test('should return no explores when viewer allow-list is empty', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getAllExploresSummary(
+                account,
+                projectUuid,
+                false,
+            );
+
+            expect(result).toEqual([]);
+        });
     });
     describe('getJobStatus', () => {
         test('should get job with projectUuid if user belongs to org ', async () => {
@@ -504,6 +651,13 @@ describe('ProjectService', () => {
 
         afterEach(() => {
             jest.clearAllMocks();
+            // `clearAllMocks` does not reset implementations
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+            (projectModel.findJoinAliasExplore as jest.Mock).mockImplementation(
+                async () => undefined,
+            );
         });
         test('should query unique values', async () => {
             const runQueryMock = jest.fn(
@@ -592,5 +746,362 @@ describe('ProjectService', () => {
                                         LIMIT 10`),
             );
         });
+
+        test('should reject field values when table is not on viewer allow-list', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            // The table is resolved to its base explore before the allow-list is
+            // checked, so the mock has to resolve it to an explore that is not
+            // on the allow-list.
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => ({
+                ...validExplore,
+                name: 'unauthorized_explore',
+            }));
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should reject field values of a table the dashboard does not filter on', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            // A trusted dashboard context must not be a way to read any table:
+            // only the tables the dashboard filters on are allowed.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'allowed-dashboard',
+                dashboardName: 'Allowed dashboard',
+                filterTableNames: ['b'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(
+                async (_projectUuid: string, tableName: string) =>
+                    tableName === 'b'
+                        ? validExplore
+                        : {
+                              ...validExplore,
+                              name: 'unauthorized_explore',
+                          },
+            );
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'allowed-dashboard',
+                        dashboardName: 'Allowed dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should reject field values when the client dashboard context cannot be verified', async () => {
+            // A client that claims a dashboard context must have it verified
+            // against the database. Otherwise the dbt `sql_filter` would be
+            // silently skipped and the user would see rows they cannot access.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce(undefined);
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'a',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'duplicated-slug',
+                        dashboardName: 'Duplicated slug dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should resolve the dashboard context from the dashboard uuid when provided', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'trusted-slug',
+                dashboardName: 'Trusted dashboard',
+                filterTableNames: ['a'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => validExplore);
+            (
+                projectModel.getWarehouseClientFromCredentials as jest.Mock
+            ).mockImplementation(() => ({
+                ...warehouseClientMock,
+                runQuery: jest.fn(async () => resultsWith1Row),
+            }));
+
+            await service.searchFieldUniqueValues(
+                user,
+                projectUuid,
+                'a',
+                'a_dim1',
+                '',
+                10,
+                undefined,
+                false,
+                undefined,
+                {
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardName: 'Trusted dashboard',
+                },
+            );
+
+            expect(
+                (
+                    service.dashboardService
+                        .resolveDashboardContextForMetadata as jest.Mock
+                ).mock.calls[0],
+            ).toEqual([
+                user,
+                projectUuid,
+                'dashboard-uuid',
+                'Trusted dashboard',
+            ]);
+        });
+
+        test('should allow field values of a table the dashboard filters on', async () => {
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['valid_explore']));
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValueOnce({
+                dashboardSlug: 'allowed-dashboard',
+                dashboardName: 'Allowed dashboard',
+                filterTableNames: ['unauthorized_table'],
+            });
+            (
+                projectModel.findExploreByTableName as jest.Mock
+            ).mockImplementation(async () => ({
+                ...validExplore,
+                name: 'unauthorized_explore',
+            }));
+            (
+                projectModel.getWarehouseClientFromCredentials as jest.Mock
+            ).mockImplementation(() => ({
+                ...warehouseClientMock,
+                runQuery: jest.fn(async () => resultsWith1Row),
+            }));
+
+            await expect(
+                service.searchFieldUniqueValues(
+                    user,
+                    projectUuid,
+                    'unauthorized_table',
+                    'a_dim1',
+                    '',
+                    10,
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'allowed-dashboard',
+                        dashboardName: 'Allowed dashboard',
+                    },
+                ),
+            ).resolves.toBeDefined();
+        });
+    });
+
+    describe('calculateTotalFromSavedChart', () => {
+        // An account with full access, so that the request only fails on the
+        // dashboard context resolution
+        const accountWithFullAccess = {
+            ...account,
+            user: {
+                ...account.user,
+                ability: new Ability<PossibleAbilities>([
+                    { action: 'manage', subject: 'all' },
+                ]),
+            },
+        };
+
+        afterEach(() => {
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue(undefined);
+        });
+
+        test('should reject the request when the client dashboard context cannot be verified', async () => {
+            // A client that claims a dashboard context must have it verified
+            // against the database, otherwise the row level security filter
+            // would be silently skipped.
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue(undefined);
+
+            await expect(
+                service.calculateTotalFromSavedChart(
+                    accountWithFullAccess,
+                    'chart-uuid',
+                    undefined,
+                    false,
+                    undefined,
+                    {
+                        dashboardSlug: 'duplicated-slug',
+                        dashboardName: 'Duplicated slug dashboard',
+                    },
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+
+        test('should use the canonical dashboard slug of the verified dashboard', async () => {
+            (
+                service.dashboardService
+                    .resolveDashboardContextForMetadata as jest.Mock
+            ).mockResolvedValue({
+                dashboardSlug: 'canonical-slug',
+                dashboardName: 'Canonical dashboard',
+                filterTableNames: [],
+            });
+            const calculateSpy = jest
+                .spyOn(service, '_calculateTotalFromCacheOrWarehouse')
+                .mockResolvedValue({} as never);
+
+            await service.calculateTotalFromSavedChart(
+                accountWithFullAccess,
+                'chart-uuid',
+                undefined,
+                false,
+                undefined,
+                {
+                    dashboardSlug: 'duplicated-slug',
+                    dashboardName: 'Duplicated slug dashboard',
+                },
+            );
+
+            expect(calculateSpy).toHaveBeenCalledWith(
+                expect.anything(),
+                projectUuid,
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                expect.anything(),
+                {
+                    dashboardSlug: 'canonical-slug',
+                    dashboardName: 'Canonical dashboard',
+                },
+            );
+            calculateSpy.mockRestore();
+        });
+
+        test('should not resolve a dashboard context when the client sends none', async () => {
+            const calculateSpy = jest
+                .spyOn(service, '_calculateTotalFromCacheOrWarehouse')
+                .mockResolvedValue({} as never);
+
+            await service.calculateTotalFromSavedChart(
+                accountWithFullAccess,
+                'chart-uuid',
+            );
+            expect(
+                (
+                    service.dashboardService
+                        .resolveDashboardContextForMetadata as jest.Mock
+                ).mock.calls,
+            ).toHaveLength(0);
+            calculateSpy.mockRestore();
+        });
+    });
+
+    test('should record project_member.role_updated when changing project role', async () => {
+        const adminUser: SessionUser = {
+            ...user,
+            ability: defineUserAbility(
+                {
+                    ...user,
+                    organizationUuid: projectSummary.organizationUuid,
+                },
+                [
+                    {
+                        projectUuid,
+                        role: ProjectMemberRole.ADMIN,
+                        userUuid: user.userUuid,
+                        roleUuid: undefined,
+                    },
+                ],
+            ),
+        };
+        (projectModel.getProjectAccess as jest.Mock).mockResolvedValueOnce([
+            {
+                userUuid: 'target-user',
+                email: 'target@example.com',
+                role: ProjectMemberRole.VIEWER,
+                firstName: 'Target',
+                lastName: 'User',
+                projectUuid,
+            },
+        ]);
+
+        await service.updateProjectAccess(
+            adminUser,
+            projectUuid,
+            'target-user',
+            { role: ProjectMemberRole.INTERACTIVE_VIEWER },
+        );
+
+        expect(service.projectOperationLogService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ROLE_UPDATED,
+                resourceType: 'project_member',
+                resourceUuid: 'target-user',
+                summary: expect.objectContaining({
+                    targetUserUuid: 'target-user',
+                    targetEmail: 'target@example.com',
+                    fromRole: ProjectMemberRole.VIEWER,
+                    toRole: ProjectMemberRole.INTERACTIVE_VIEWER,
+                }),
+            }),
+        );
     });
 });

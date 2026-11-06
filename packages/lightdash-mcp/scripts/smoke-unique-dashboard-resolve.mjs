@@ -25,21 +25,17 @@ const pkgRoot = path.resolve(__dirname, '..');
 
 function resolveLikeMcp(contexts) {
   if (!contexts.length) return { status: 'none' };
-  if (contexts.length === 1) {
-    const only = contexts[0];
-    return {
-      status: 'resolved',
-      context: {
-        dashboardUuid: only.dashboardUuid,
-        source: 'uniqueExploreContext',
-        candidateCount: 1,
-      },
-    };
-  }
+  const picked = contexts[0];
+  const source =
+    contexts.length === 1 ? 'uniqueExploreContext' : 'firstExploreContext';
   return {
-    status: 'needs_selection',
-    candidateCount: contexts.length,
-    candidates: contexts,
+    status: 'resolved',
+    context: {
+      dashboardUuid: picked.dashboardUuid,
+      source,
+      candidateCount: contexts.length,
+      ...(contexts.length > 1 ? { candidates: contexts } : {}),
+    },
   };
 }
 
@@ -58,12 +54,15 @@ function inlineUnit() {
     { dashboardUuid: 'a', dashboardName: 'A' },
     { dashboardUuid: 'b', dashboardName: 'B' },
   ]);
-  assert.equal(multi.status, 'needs_selection');
-  assert.equal(multi.candidateCount, 2);
+  assert.equal(multi.status, 'resolved');
+  assert.equal(multi.context.source, 'firstExploreContext');
+  assert.equal(multi.context.candidateCount, 2);
+  assert.equal(multi.context.dashboardUuid, 'a');
+  assert.equal(multi.context.candidates.length, 2);
 
   const none = resolveLikeMcp([]);
   assert.equal(none.status, 'none');
-  console.log('OK inline policy: unique→resolved, multi→needs_selection, none→none');
+  console.log('OK inline policy: unique→resolved, multi→first, none→none');
 }
 
 function runOfficialUnit() {

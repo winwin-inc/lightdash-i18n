@@ -75,3 +75,84 @@ jobs:
                       org.opencontainers.image.title=lightdash-cli
                       org.opencontainers.image.version=${{ steps.vars.outputs.version }}
                       org.opencontainers.image.revision=${{ github.sha }}
+
+    # tag 推送时并行：打独立 tgz，挂 GitHub Release，并传到 OSS/CDN
+    release-tgz:
+        if: github.ref_type == 'tag'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup PNPM
+              uses: pnpm/action-setup@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'pnpm'
+                  cache-dependency-path: 'pnpm-lock.yaml'
+
+            - name: Install packages
+              run: pnpm install --frozen-lockfile --prefer-offline
+
+            - name: Assert tag version matches package.json
+              shell: bash
+              run: |
+                  TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
+                  PKG_VERSION="$(node -p "require('./packages/cli/package.json').version")"
+                  if [[ -z "${TAG_VERSION}" ]]; then
+                    echo "Invalid tag: expected cli-vX.Y.Z, got ${GITHUB_REF_NAME}"
+                    exit 1
+                  fi
+                  if [[ "${TAG_VERSION}" != "${PKG_VERSION}" ]]; then
+                    echo "tag ${GITHUB_REF_NAME} != packages/cli/package.json version ${PKG_VERSION}"
+                    echo "先 pnpm bump-cli -- ${TAG_VERSION} 再打 cli tag。"
+                    exit 1
+                  fi
+                  echo "version=${PKG_VERSION}"
+
+            - name: Build CLI
+              run: |
+                  pnpm common-build
+                  pnpm warehouses-build
+                  pnpm cli-build
+
+            - name: Pack standalone tgz
+              run: pnpm -F cli pack:standalone
+
+            - name: Smoke test bundled CLI
+              run: |
+                  node packages/cli/bundle/index.js --version
+                  node packages/cli/bundle/index.js lint --help
+
+            - name: Upload tgz to GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  make_latest: false
+                  fail_on_unmatched_files: true
+                  files: packages/cli/release/lightdash-cli-*.tgz
+
+            - name: Upload tgz to OSS/CDN
+              env:
+                  CDN_PROVIDER: ${{ vars.CDN_PROVIDER || secrets.CDN_PROVIDER || 'aliyun' }}
+                  S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
+                  S3_ENDPOINT: ${{ vars.S3_ENDPOINT || secrets.S3_ENDPOINT }}
+                  CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
+                  CDN_BASE_URL: ${{ vars.CDN_BASE_URL || secrets.CDN_BASE_URL }}
+                  S3_REGION: ${{ vars.S3_REGION || secrets.S3_REGION }}
+                  S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY || vars.S3_ACCESS_KEY }}
+                  S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY || vars.S3_SECRET_KEY }}
+              run: |
+                  VERSION="${GITHUB_REF_NAME#cli-v}"
+                  export VERSION
+                  if [ -z "$S3_BUCKET" ] || [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+                    echo "OSS 密钥缺失（S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY）。文档以 CDN 安装为主，不能只挂 GitHub。"
+                    exit 1
+                  fi
+                  bash scripts/upload-cli-tgz-to-cdn.sh

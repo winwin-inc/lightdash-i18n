@@ -256,6 +256,7 @@ export const useDashboardFilters = ({
         allFilters,
         haveFiltersChanged,
         setHaveFiltersChanged,
+        originalDashboardFilters,
         setOriginalDashboardFilters,
         setDashboardTemporaryFilters,
         setDashboardFilters,

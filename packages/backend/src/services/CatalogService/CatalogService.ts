@@ -34,6 +34,7 @@ import {
     getDefaultTimeDimension,
     hasIntersection,
     isExploreError,
+    isUserWithOrg,
     type ApiMetricsTreeEdgePayload,
     type ApiSort,
     type CatalogFieldMap,
@@ -70,6 +71,13 @@ import {
     hasUserAttributes,
 } from '../UserAttributesService/UserAttributeUtils';
 
+type DashboardExploreAllowListService = {
+    getAllowedExploreNamesForViewer: (
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+    ) => Promise<Set<string> | undefined>;
+};
+
 export type CatalogArguments<T extends CatalogModel = CatalogModel> = {
     lightdashConfig: LightdashConfig;
     analytics: LightdashAnalytics;
@@ -80,6 +88,7 @@ export type CatalogArguments<T extends CatalogModel = CatalogModel> = {
     spaceModel: SpaceModel;
     tagsModel: TagsModel;
     changesetModel: ChangesetModel;
+    dashboardService: DashboardExploreAllowListService;
 };
 
 export class CatalogService<
@@ -103,6 +112,8 @@ export class CatalogService<
 
     changesetModel: ChangesetModel;
 
+    dashboardService: DashboardExploreAllowListService;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -113,6 +124,7 @@ export class CatalogService<
         spaceModel,
         tagsModel,
         changesetModel,
+        dashboardService,
     }: CatalogArguments<T>) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -124,6 +136,20 @@ export class CatalogService<
         this.spaceModel = spaceModel;
         this.tagsModel = tagsModel;
         this.changesetModel = changesetModel;
+        this.dashboardService = dashboardService;
+    }
+
+    private async getAllowedExploreNamesForViewer(
+        user: SessionUser,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        if (!isUserWithOrg(user)) {
+            return undefined;
+        }
+        return this.dashboardService.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
     }
 
     private static async getCatalogFields(
@@ -349,7 +375,16 @@ export class CatalogService<
             [],
         );
 
-        return filteredExplores;
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (allowedExploreNames === undefined) {
+            return filteredExplores;
+        }
+        return filteredExplores.filter((explore) =>
+            allowedExploreNames.has(explore.name),
+        );
     }
 
     async indexCatalog(projectUuid: string, userUuid: string | undefined) {
@@ -635,12 +670,27 @@ export class CatalogService<
 
         if (catalogSearch.searchQuery) {
             // On search we don't show explore errors, because they are not indexed
-            return this.searchCatalog({
+            const result = await this.searchCatalog({
                 projectUuid,
                 userAttributes,
                 catalogSearch,
                 context,
             });
+            const allowedExploreNames =
+                await this.getAllowedExploreNamesForViewer(user, projectUuid);
+            if (allowedExploreNames === undefined) {
+                return result;
+            }
+            return {
+                ...result,
+                data: result.data.filter((item) => {
+                    const exploreName =
+                        item.type === CatalogType.Table
+                            ? item.name
+                            : item.tableName;
+                    return allowedExploreNames.has(exploreName);
+                }),
+            };
         }
 
         if (catalogSearch.type === CatalogType.Field) {
@@ -676,6 +726,18 @@ export class CatalogService<
             )
         ) {
             throw new ForbiddenError();
+        }
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(table)
+        ) {
+            throw new ForbiddenError(
+                `You don't have access to the explore ${table}`,
+            );
         }
         const explore = await this.catalogModel.getMetadata(projectUuid, table);
 

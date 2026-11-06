@@ -7,6 +7,7 @@ import {
     WarehouseResults,
 } from '@lightdash/common';
 import fs from 'fs';
+import { createGunzip, createGzip } from 'zlib';
 import { PassThrough, Readable, Writable } from 'stream';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
@@ -19,11 +20,15 @@ import {
 export class S3ResultsFileStorageClient extends S3CacheClient {
     private readonly s3ExpiresIn: number | undefined;
 
+    /** Compress result files with gzip. Readers detect it via `ContentEncoding`. */
+    private readonly jsonlGzip: boolean;
+
     constructor(args: S3CacheClientArguments) {
         super(args);
 
         const { lightdashConfig } = args;
         this.s3ExpiresIn = lightdashConfig.s3?.expirationTime;
+        this.jsonlGzip = lightdashConfig.results?.jsonlGzip ?? false;
     }
 
     static sanitizeFileExtension(
@@ -62,13 +67,22 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         );
 
         const prefixedKey = this.getPrefixedFileId(fileName);
+
+        // When gzip is on we pipe the raw sink through a gzip stream and upload the
+        // compressed output. `write()` and `close()` stay untouched, so callers keep
+        // pushing JSONL text exactly as before.
+        const uploadBody: Readable = this.jsonlGzip
+            ? passThrough.pipe(createGzip({ level: 3 }))
+            : passThrough;
+
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.configuration.bucket,
                 Key: prefixedKey,
-                Body: passThrough,
+                Body: uploadBody,
                 ContentType: opts.contentType,
+                ...(this.jsonlGzip ? { ContentEncoding: 'gzip' } : {}),
                 ContentDisposition: contentDisposition,
             },
         });
@@ -127,7 +141,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                 throw new Error('No results found');
             }
 
-            return results.Body as Readable;
+            const body = results.Body as Readable;
+            // Result files may be gzip compressed (see `createUploadStream`). Older
+            // objects have no `ContentEncoding`, so they keep streaming as-is.
+            return results.ContentEncoding === 'gzip'
+                ? body.pipe(createGunzip())
+                : body;
         } catch (error) {
             if (error instanceof NotFound) {
                 throw new Error(`Cache key ${cacheKey} not found`);

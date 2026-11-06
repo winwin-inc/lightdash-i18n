@@ -16,11 +16,13 @@ import {
     IconPin,
     IconPinnedOff,
     IconTrash,
+    IconUpload,
 } from '@tabler/icons-react';
 import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
 
+import { canAdminUploadDataApp } from '../../../features/apps/utils/canAdminUploadDataApp';
 import { PromotionConfirmDialog } from '../../../features/promotion/components/PromotionConfirmDialog';
 import {
     usePromoteChartDiffMutation,
@@ -256,6 +258,26 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                         )}
                     </Menu.Item>
 
+                    {item.type === ResourceViewItemType.DATA_APP &&
+                    projectUuid &&
+                    canAdminUploadDataApp(user.data, projectUuid) ? (
+                        <Menu.Item
+                            component="button"
+                            role="menuitem"
+                            icon={<IconUpload size={18} />}
+                            onClick={() => {
+                                onAction({
+                                    type: ResourceViewItemAction.UPLOAD_PACKAGE,
+                                    item,
+                                });
+                            }}
+                        >
+                            {t(
+                                'components_common_resource_view_action_menu.menus.upload_package.title',
+                            )}
+                        </Menu.Item>
+                    ) : null}
+
                     {item.type === ResourceViewItemType.CHART ||
                     item.type === ResourceViewItemType.DASHBOARD ? (
                         <Menu.Item
@@ -452,10 +474,17 @@ const ResourceViewActionMenu: FC<ResourceViewActionMenuProps> = ({
                     onClose={() => {
                         resetPromoteDashboardDiff();
                     }}
-                    onConfirm={() => {
-                        promoteDashboard(item.data.uuid, {
-                            onSuccess: () => resetPromoteDashboardDiff(),
-                        });
+                    onConfirm={({ confirmConflicts, syncDashboardName }) => {
+                        promoteDashboard(
+                            {
+                                dashboardUuid: item.data.uuid,
+                                confirmConflicts,
+                                syncDashboardName,
+                            },
+                            {
+                                onSuccess: () => resetPromoteDashboardDiff(),
+                            },
+                        );
                     }}
                     isPromoting={isPromoteDashboardPending}
                 />

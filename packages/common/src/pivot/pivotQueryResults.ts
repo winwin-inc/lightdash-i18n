@@ -555,12 +555,16 @@ export const pivotQueryResults = ({
         pivotDimensionNames: headerDimensions,
     });
 
-    // Indices (row index)
+    // Indices (row index) - keep all for grouping/sort; hide some from display
+    const hiddenDimensionFieldIds = pivotConfig.hiddenDimensionFieldIds || [];
     const indexDimensions = dimensions
         .filter((d) => !pivotConfig.pivotDimensions.includes(d))
         .slice()
         .sort((a, b) => columnOrder.indexOf(a) - columnOrder.indexOf(b));
-    const indexDimensionValueTypes = indexDimensions.map<{
+    const visibleIndexDimensions = indexDimensions.filter(
+        (d) => !hiddenDimensionFieldIds.includes(d),
+    );
+    const indexDimensionValueTypes = visibleIndexDimensions.map<{
         type: FieldType.DIMENSION;
         fieldId: string;
     }>((d) => ({
@@ -601,7 +605,18 @@ export const pivotQueryResults = ({
         const row = rows[nRow];
 
         for (let nMetric = 0; nMetric < metrics.length; nMetric += 1) {
-            const indexRowValues = indexDimensions
+            // Full key keeps hidden sort dims in grouping so rows do not collapse
+            const indexGroupingKey = [
+                ...indexDimensions.map((fieldId) =>
+                    String(getObjectValue(row, fieldId).value?.raw),
+                ),
+                ...(pivotConfig.metricsAsRows
+                    ? [getArrayValue(metrics, nMetric).fieldId]
+                    : []),
+            ];
+
+            // Display row headers omit hidden index dimensions
+            const indexRowValues = visibleIndexDimensions
                 .map<PivotData['indexValues'][number][number]>((fieldId) => ({
                     type: 'value',
                     fieldId,
@@ -640,15 +655,7 @@ export const pivotQueryResults = ({
                 );
 
             // Write the index values
-            if (
-                setIndexByKey(
-                    rowIndices,
-                    indexRowValues.map((l) =>
-                        l.type === 'value' ? String(l.value?.raw) : l.fieldId,
-                    ),
-                    rowCount,
-                )
-            ) {
+            if (setIndexByKey(rowIndices, indexGroupingKey, rowCount)) {
                 rowCount += 1;
                 indexValues.push(indexRowValues);
             }
@@ -889,6 +896,7 @@ export const convertSqlPivotedRowsToPivotData = ({
         | 'columnTotals'
         | 'metricsAsRows'
         | 'hiddenMetricFieldIds'
+        | 'hiddenDimensionFieldIds'
         | 'columnOrder'
     >; // only use properties that are not part of pivot details metadata
     getField: FieldFunction;
@@ -900,6 +908,7 @@ export const convertSqlPivotedRowsToPivotData = ({
     }
 
     const hiddenMetricFieldIds = pivotConfig.hiddenMetricFieldIds || [];
+    const hiddenDimensionFieldIds = pivotConfig.hiddenDimensionFieldIds || [];
     const columnOrder = pivotConfig.columnOrder || [];
 
     // Extract information from pivot details metadata
@@ -917,6 +926,11 @@ export const convertSqlPivotedRowsToPivotData = ({
     } else {
         indexColumns = [];
     }
+
+    // Hide from display only; full indexColumns stay in grouping keys
+    const visibleIndexColumns = indexColumns.filter(
+        (col) => !hiddenDimensionFieldIds.includes(col),
+    );
 
     const filteredValuesColumns = pivotDetails.valuesColumns.filter(
         ({ referenceField }) => !hiddenMetricFieldIds.includes(referenceField),
@@ -937,13 +951,13 @@ export const convertSqlPivotedRowsToPivotData = ({
     const indexValueTypes: PivotData['indexValueTypes'] =
         pivotConfig.metricsAsRows
             ? [
-                  ...indexColumns.map((col) => ({
+                  ...visibleIndexColumns.map((col) => ({
                       type: FieldType.DIMENSION as const,
                       fieldId: col,
                   })),
                   { type: FieldType.METRIC as const },
               ]
-            : indexColumns.map((col) => ({
+            : visibleIndexColumns.map((col) => ({
                   type: FieldType.DIMENSION as const,
                   fieldId: col,
               }));
@@ -1049,7 +1063,7 @@ export const convertSqlPivotedRowsToPivotData = ({
             // multiply rows per metric
             baseMetricsArray.forEach((metric) => {
                 acc.push([
-                    ...indexColumns.map((col) => ({
+                    ...visibleIndexColumns.map((col) => ({
                         type: 'value' as const,
                         fieldId: col,
                         value: row[col].value,
@@ -1065,7 +1079,7 @@ export const convertSqlPivotedRowsToPivotData = ({
         }, []);
     } else {
         indexValues = rows.map((row) =>
-            indexColumns.map((col) => ({
+            visibleIndexColumns.map((col) => ({
                 type: 'value' as const,
                 fieldId: col,
                 value: row[col].value,
@@ -1157,6 +1171,9 @@ export const convertSqlPivotedRowsToPivotData = ({
         metricsAsRows: pivotConfig.metricsAsRows || false,
         columnOrder: pivotConfig.columnOrder,
         hiddenMetricFieldIds: pivotConfig.hiddenMetricFieldIds || [],
+        ...(hiddenDimensionFieldIds.length > 0
+            ? { hiddenDimensionFieldIds }
+            : {}),
         columnTotals: pivotConfig.columnTotals,
         rowTotals: pivotConfig.rowTotals,
     };
@@ -1366,7 +1383,7 @@ export const convertSqlPivotedRowsToPivotData = ({
         });
 
     const pivotColumnInfo: PivotColumn[] = [
-        ...indexColumns.map((col) => ({
+        ...visibleIndexColumns.map((col) => ({
             fieldId: col,
             baseId: undefined,
             underlyingId: undefined,
@@ -1375,7 +1392,7 @@ export const convertSqlPivotedRowsToPivotData = ({
         ...(pivotConfig.metricsAsRows
             ? [
                   {
-                      fieldId: `label-${indexColumns.length}`,
+                      fieldId: `label-${visibleIndexColumns.length}`,
                       baseId: undefined,
                       underlyingId: undefined,
                       columnType: 'label' as const,

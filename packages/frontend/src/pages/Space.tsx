@@ -65,7 +65,7 @@ const Space: FC = () => {
     const { track } = useTracking();
 
     const project = useProject(projectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const userCanManageSpace = user.data?.ability?.can(
         'create',
@@ -350,7 +350,7 @@ const Space: FC = () => {
                     </Group>
                 </Group>
                 <InfiniteResourceTable
-                    isCustomerUse={isCustomerUse}
+                    isClientUse={isClientUse}
                     filters={{
                         projectUuid,
                         spaceUuids: [spaceUuid],

@@ -35,7 +35,13 @@ export type ResourceViewChartItem = {
         | 'updatedByUser'
         | 'validationErrors'
         | 'slug'
-    > & { source?: ChartSourceType };
+    > & {
+        source?: ChartSourceType;
+        // Name of the space that holds the chart. The space itself can be
+        // hidden (client-use scope), the name is still needed to render the
+        // content list. Only set by the content API.
+        space?: { uuid: string; name: string };
+    };
     category?: ResourceItemCategory;
 };
 
@@ -54,7 +60,12 @@ export type ResourceViewDashboardItem = {
         | 'updatedAt'
         | 'updatedByUser'
         | 'validationErrors'
-    >;
+    > & {
+        // Name of the space that holds the dashboard. The space itself can be
+        // hidden (client-use scope), the name is still needed to render the
+        // content list. Only set by the content API.
+        space?: { uuid: string; name: string };
+    };
     category?: ResourceItemCategory;
 };
 

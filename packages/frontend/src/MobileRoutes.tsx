@@ -3,7 +3,6 @@ import {
     Burger,
     Divider,
     Drawer,
-    getDefaultZIndex,
     Group,
     Header,
     MantineProvider,
@@ -31,6 +30,7 @@ import {
 
 import AppRoute from './components/AppRoute';
 import MantineIcon from './components/common/MantineIcon';
+import { NAVBAR_Z_INDEX } from './components/common/Page/constants';
 import RouterNavLink from './components/common/RouterNavLink';
 import ForbiddenPanel from './components/ForbiddenPanel';
 import MobileView from './components/Mobile';
@@ -122,7 +122,7 @@ export const MobileNavBar: FC = () => {
     };
 
     const project = useProject(activeProjectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const isAiAgentButtonVisible = useAiAgentButtonVisibility();
 
@@ -133,7 +133,7 @@ export const MobileNavBar: FC = () => {
                     height={50}
                     display="flex"
                     px="md"
-                    zIndex={getDefaultZIndex('app')}
+                    zIndex={NAVBAR_Z_INDEX}
                     sx={{
                         alignItems: 'center',
                         boxShadow: 'lg',
@@ -167,7 +167,7 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconHome} />}
                     onClick={toggleMenu}
                 />
-                {!isCustomerUse && (
+                {!isClientUse && (
                     <RouterNavLink
                         exact
                         label={t('mobile_navbar.spaces')}
@@ -183,7 +183,7 @@ export const MobileNavBar: FC = () => {
                     icon={<MantineIcon icon={IconLayoutDashboard} />}
                     onClick={toggleMenu}
                 />
-                {!isCustomerUse && (
+                {!isClientUse && (
                     <RouterNavLink
                         exact
                         label={t('mobile_navbar.charts')}

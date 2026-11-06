@@ -23,6 +23,8 @@ import {
 type DashboardContextInput = {
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 const calculateTotalFromQuery = async (
@@ -53,6 +55,7 @@ const calculateTotalFromQuery = async (
             ...timezoneFixPayload,
             dashboardSlug: dashboardContext?.dashboardSlug,
             dashboardName: dashboardContext?.dashboardName,
+            dashboardUuid: dashboardContext?.dashboardUuid,
         }),
     });
 };
@@ -76,6 +79,7 @@ const calculateTotalFromSavedChart = async (
             parameters,
             dashboardSlug: dashboardContext?.dashboardSlug,
             dashboardName: dashboardContext?.dashboardName,
+            dashboardUuid: dashboardContext?.dashboardUuid,
         }),
     });
 };

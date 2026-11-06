@@ -14,6 +14,8 @@ export type PivotConfig = {
     metricsAsRows: boolean;
     columnOrder?: string[];
     hiddenMetricFieldIds?: string[];
+    /** Index (row) dimensions hidden from display but kept in sort/grouping keys */
+    hiddenDimensionFieldIds?: string[];
     columnTotals?: boolean;
     rowTotals?: boolean;
 };
@@ -95,6 +97,10 @@ const getTablePivotConfig = (
               pivotDimensions: pivotConfig.columns,
               metricsAsRows: tableChartConfig.config?.metricsAsRows ?? false,
               hiddenMetricFieldIds: getHiddenTableFields(tableChartConfig),
+              // Non-pivot hidden fields: metrics are ignored when filtering index dims
+              hiddenDimensionFieldIds: getHiddenTableFields(
+                  tableChartConfig,
+              ).filter((id) => !pivotConfig.columns.includes(id)),
               columnOrder: tableConfig.columnOrder,
               rowTotals: tableChartConfig.config?.showRowCalculation ?? false,
               columnTotals:

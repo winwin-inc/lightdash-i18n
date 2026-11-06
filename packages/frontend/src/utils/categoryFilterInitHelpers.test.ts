@@ -290,7 +290,10 @@ describe('shouldStartCategoryInitTask', () => {
 describe('optimistic category display helpers', () => {
     const l1: DashboardFilterRule = {
         id: 'l1',
-        target: { fieldId: 'dim_categories_cls_1', tableName: 'dim_categories' },
+        target: {
+            fieldId: 'dim_categories_cls_1',
+            tableName: 'dim_categories',
+        },
         operator: FilterOperator.EQUALS,
         values: ['食品'],
         label: undefined,
@@ -298,7 +301,10 @@ describe('optimistic category display helpers', () => {
     };
     const l2: DashboardFilterRule = {
         id: 'l2',
-        target: { fieldId: 'dim_categories_cls_2', tableName: 'dim_categories' },
+        target: {
+            fieldId: 'dim_categories_cls_2',
+            tableName: 'dim_categories',
+        },
         operator: FilterOperator.EQUALS,
         values: ['乳制品'],
         label: undefined,
@@ -307,7 +313,10 @@ describe('optimistic category display helpers', () => {
     };
     const l3: DashboardFilterRule = {
         id: 'l3',
-        target: { fieldId: 'dim_categories_cls_3', tableName: 'dim_categories' },
+        target: {
+            fieldId: 'dim_categories_cls_3',
+            tableName: 'dim_categories',
+        },
         operator: FilterOperator.EQUALS,
         values: ['冷饮冻食'],
         label: undefined,

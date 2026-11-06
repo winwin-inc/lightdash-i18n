@@ -4,6 +4,7 @@ import {
     BulkActionable,
     CreateSpace,
     ForbiddenError,
+    isUserWithOrg,
     NotFoundError,
     ParameterError,
     SessionUser,
@@ -12,6 +13,7 @@ import {
     SpaceShare,
     SpaceSummary,
     UpdateSpace,
+    ViewerContentScope,
 } from '@lightdash/common';
 import { Knex } from 'knex';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
@@ -20,11 +22,29 @@ import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
 
+// Method interface only: importing DashboardService would cycle with
+// hasDirectAccessToSpace used by DashboardService.
+type DashboardAllowListService = {
+    getAllowedDashboardUuidsForViewer: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<Set<string> | undefined>;
+    getVisibleDashboardCountBySpaceUuid: (
+        spaceUuids: string[],
+        allowedDashboardUuids: Set<string>,
+    ) => Promise<Map<string, number>>;
+    getViewerContentScope: (
+        user: SessionUser,
+        projectUuid: string,
+    ) => Promise<ViewerContentScope | undefined>;
+};
+
 type SpaceServiceArguments = {
     analytics: LightdashAnalytics;
     projectModel: ProjectModel;
     spaceModel: SpaceModel;
     pinnedListModel: PinnedListModel;
+    dashboardService: DashboardAllowListService;
 };
 
 export const hasDirectAccessToSpace = (
@@ -76,12 +96,15 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
 
     private readonly pinnedListModel: PinnedListModel;
 
+    private readonly dashboardService: DashboardAllowListService;
+
     constructor(args: SpaceServiceArguments) {
         super();
         this.analytics = args.analytics;
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.pinnedListModel = args.pinnedListModel;
+        this.dashboardService = args.dashboardService;
     }
 
     /** @internal For unit testing only */
@@ -140,7 +163,58 @@ export class SpaceService extends BaseService implements BulkActionable<Knex> {
             throw new ForbiddenError();
         }
 
-        return space;
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+        // undefined: keep SQL childSpaces[].dashboardCount. Set: filter
+        // dashboards and recount children (space stays listed at count 0).
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return space;
+        }
+
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+
+        const visibleDashboards = space.dashboards.filter((dashboard) =>
+            allowedDashboardUuids.has(dashboard.uuid),
+        );
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible, the other charts of the space must not leak
+        // their name, structure or fields.
+        const visibleQueries =
+            viewerScope === undefined
+                ? space.queries
+                : space.queries.filter((query) =>
+                      viewerScope.chartUuids.includes(query.uuid),
+                  );
+        const childSpaceUuids = space.childSpaces.map((child) => child.uuid);
+        const childSpaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                childSpaceUuids,
+                allowedDashboardUuids,
+            );
+
+        return {
+            ...space,
+            dashboards: visibleDashboards,
+            queries: visibleQueries,
+            childSpaces: space.childSpaces
+                // Client-use: a child space is visible when it holds visible
+                // content, or when it is an ancestor of such a space
+                .filter(
+                    (child) =>
+                        viewerScope === undefined ||
+                        viewerScope.spaceUuids.includes(child.uuid),
+                )
+                .map((child) => ({
+                    ...child,
+                    dashboardCount: childSpaceCounts.get(child.uuid) ?? 0,
+                })),
+        };
     }
 
     async createSpace(

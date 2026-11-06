@@ -20,6 +20,7 @@ import {
     Switch,
     Text,
 } from '@mantine-8/core';
+import { useMantineTheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { captureException, useProfiler } from '@sentry/react';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -41,13 +42,14 @@ import PinnedParameters from '../components/PinnedParameters';
 import DashboardHeader from '../components/common/Dashboard/DashboardHeader';
 import MantineIcon from '../components/common/MantineIcon';
 import Page from '../components/common/Page/Page';
+import StickyStackProvider from '../components/common/StickyStack/StickyStackProvider';
+import { useStickyLayer } from '../components/common/StickyStack/useStickyLayer';
 import SuboptimalState from '../components/common/SuboptimalState/SuboptimalState';
 import DashboardDeleteModal from '../components/common/modal/DashboardDeleteModal';
 import DashboardDuplicateModal from '../components/common/modal/DashboardDuplicateModal';
 import { DashboardExportModal } from '../components/common/modal/DashboardExportModal';
 // import useApp from '../providers/App/useApp';
 // import { useDashboardCommentsCheck } from '../features/comments';
-import { DateZoom } from '../features/dateZoom';
 import { Parameters } from '../features/parameters';
 import { drainDashboardOperationEvents } from '../hooks/dashboard/dashboardOperationEventQueue';
 import {
@@ -56,14 +58,16 @@ import {
 } from '../hooks/dashboard/useDashboard';
 import { emptyFilters } from '../hooks/dashboard/useDashboardFilters';
 import useDashboardStorage from '../hooks/dashboard/useDashboardStorage';
+import { useVisibleDashboardFilters } from '../hooks/dashboard/useVisibleDashboardFilters';
 import { useOrganization } from '../hooks/organization/useOrganization';
 import useToaster from '../hooks/toaster/useToaster';
+import { getChartTypeLabel } from '../hooks/useChartColorConfig/chartTypeLabel';
+import { useDashboardChartTypeMap } from '../hooks/useChartColorConfig/useDashboardChartTypeMap';
 import { useContentAction } from '../hooks/useContent';
 import { useSpaceSummaries } from '../hooks/useSpaces';
 import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import DashboardChartColorSyncProvider from '../providers/DashboardChartColorSync/DashboardChartColorSyncProvider';
-import useFullscreen from '../providers/Fullscreen/useFullscreen';
 import '../styles/react-grid.css';
 
 /** 查看模式无 sync 列表时复用，避免每次 render 新建 [] 触发颜色同步 effect */
@@ -229,6 +233,7 @@ const COLOR_PALETTE_PRESETS = [
 
 const Dashboard: FC = () => {
     const { t } = useTranslation();
+    const theme = useMantineTheme();
 
     const navigate = useNavigate();
     const { projectUuid, dashboardUuid, mode } = useParams<{
@@ -344,6 +349,27 @@ const Dashboard: FC = () => {
 
     const isEditMode = useMemo(() => mode === 'edit', [mode]);
 
+    /**
+     * Sticky filters: in view mode the global filters stay visible while
+     * scrolling, so it is always clear which filters are applied.
+     * In edit mode sticky is disabled because it would block dragging tiles
+     * to the top of the dashboard.
+     */
+    const isStickyEnabled = !isEditMode;
+    const { ref: globalFiltersRef, style: globalFiltersStickyStyle } =
+        useStickyLayer({
+            id: 'dashboard-global-filters',
+            order: 0,
+            enabled: isStickyEnabled,
+        });
+    const { ref: parametersRef, style: parametersStickyStyle } = useStickyLayer(
+        {
+            id: 'dashboard-parameters',
+            order: 1,
+            enabled: isStickyEnabled,
+        },
+    );
+
     // 看板颜色同步状态
     const [syncChartColors, setSyncChartColors] = useState<boolean>(
         dashboard?.config?.syncChartColors ?? false,
@@ -354,6 +380,10 @@ const Dashboard: FC = () => {
     const [syncChartTileUuids, setSyncChartTileUuids] = useState<string[]>(
         dashboard?.config?.syncChartTileUuids ?? [],
     );
+    // 「选择图表」弹层是否展开（展开时才去拉图表类型用于标注）
+    // 注意：Mantine v6 的 Popover 一旦传入 opened 就变成受控组件，
+    // 目标元素不会再自动绑定 onClick，必须自己写 onClick 切换。
+    const [chartListOpened, setChartListOpened] = useState(false);
 
     // 查看模式读已保存配置，避免首次 dashboard 未就绪时 local state 锁死为 false
     const resolvedSyncChartColors = isEditMode
@@ -431,11 +461,6 @@ const Dashboard: FC = () => {
         );
     }, [parameterDefinitions, parameterReferences]);
 
-    const {
-        enabled: isFullScreenFeatureEnabled,
-        isFullscreen,
-        toggleFullscreen,
-    } = useFullscreen();
     const { showToastError } = useToaster();
 
     const { data: organization } = useOrganization();
@@ -491,6 +516,22 @@ const Dashboard: FC = () => {
             },
         );
     }, [dashboardTiles]);
+
+    // 图表类型（仅用于「同步颜色的图表」列表里的类型标注，不参与配色）
+    const chartTypeMap = useDashboardChartTypeMap({
+        tiles: chartTiles,
+        enabled: isEditMode && syncChartColors && chartListOpened,
+    });
+
+    /** 图表类型 → 灰色标注文案 */
+    const getTileTypeLabel = useCallback(
+        (tile: (typeof chartTiles)[number]): string | null => {
+            const label = getChartTypeLabel(tile.type, chartTypeMap[tile.uuid]);
+            if (!label) return null;
+            return t(label.key, label.fallback);
+        },
+        [chartTypeMap, t],
+    );
 
     const tabNameMap = useMemo(() => {
         if (!dashboardTabs) return new Map<string, string>();
@@ -717,44 +758,6 @@ const Dashboard: FC = () => {
         dashboardTabs,
         activeTab,
     ]);
-
-    const handleToggleFullscreen = useCallback(async () => {
-        if (!isFullScreenFeatureEnabled) return;
-
-        const willBeFullscreen = !isFullscreen;
-
-        if (document.fullscreenElement && !willBeFullscreen) {
-            await document.exitFullscreen();
-        } else if (
-            document.fullscreenEnabled &&
-            !document.fullscreenElement &&
-            willBeFullscreen
-        ) {
-            await document.documentElement.requestFullscreen();
-        }
-
-        toggleFullscreen();
-    }, [isFullScreenFeatureEnabled, isFullscreen, toggleFullscreen]);
-
-    useEffect(() => {
-        if (!isFullScreenFeatureEnabled) return;
-
-        const onFullscreenChange = () => {
-            if (isFullscreen && !document.fullscreenElement) {
-                toggleFullscreen(false);
-            } else if (!isFullscreen && document.fullscreenElement) {
-                toggleFullscreen(true);
-            }
-        };
-
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-
-        return () =>
-            document.removeEventListener(
-                'fullscreenchange',
-                onFullscreenChange,
-            );
-    });
 
     const handleParameterChange = useDashboardContext((c) => c.setParameter);
 
@@ -1019,6 +1022,19 @@ const Dashboard: FC = () => {
     const hasTilesThatSupportFilters = useDashboardContext(
         (c) => c.hasTilesThatSupportFilters,
     );
+    /**
+     * The global filters bar is the topmost sticky layer. It only takes up
+     * space (and its spacing above) when the filter row actually renders
+     * something, otherwise it would leave an empty band in the sticky stack.
+     */
+    const { hasVisibleContent: hasVisibleGlobalFilters } =
+        useVisibleDashboardFilters({
+            filterScope: 'global',
+            activeTabUuid: activeTab?.uuid,
+            isEditMode,
+        });
+    const hasGlobalFiltersContent =
+        isEditMode || (hasTilesThatSupportFilters && hasVisibleGlobalFilters);
 
     if (dashboardError) {
         return t('pages_dashboard.loading');
@@ -1202,13 +1218,8 @@ const Dashboard: FC = () => {
                             isEditMode={isEditMode}
                             isSaving={isSaving}
                             oldestCacheTime={oldestCacheTime}
-                            isFullscreen={isFullscreen}
                             activeTabUuid={activeTab?.uuid}
                             dashboardTabs={dashboardTabs}
-                            isFullScreenFeatureEnabled={
-                                isFullScreenFeatureEnabled
-                            }
-                            onToggleFullscreen={handleToggleFullscreen}
                             hasDashboardChanged={
                                 haveTilesChanged ||
                                 haveFiltersChanged ||
@@ -1237,14 +1248,28 @@ const Dashboard: FC = () => {
                         />
                     }
                     withFullHeight={true}
+                    noContentTopPadding={true}
                 >
                     <Group
+                        ref={globalFiltersRef}
                         justify="space-between"
                         align="flex-start"
                         wrap="nowrap"
                         px={'lg'}
+                        style={{
+                            ...globalFiltersStickyStyle,
+                            // the spacing to the content above (the
+                            // header). It is a padding (and not a margin)
+                            // so it is part of the sticky layer: a margin
+                            // scrolls away and the bar would stick right
+                            // below the header
+                            paddingTop: hasGlobalFiltersContent ? 24 : 0,
+                            // the page background, it has to be opaque so
+                            // the content can't scroll through the bar
+                            backgroundColor: theme.colors.gray[0],
+                        }}
                     >
-                        {/* This Group will take up remaining space (and not push DateZoom) */}
+                        {/* This Group will take up remaining space */}
                         <Group
                             justify="space-between"
                             align="flex-start"
@@ -1262,7 +1287,7 @@ const Dashboard: FC = () => {
                                 />
                             )}
                         </Group>
-                        {/* DateZoom: visible in view mode; sync-colors controls stay edit-only */}
+                        {/* sync-colors controls stay edit-only */}
                         {hasDashboardTiles && (
                             <Group gap="xs" style={{ marginLeft: 'auto' }}>
                                 {isEditMode && (
@@ -1378,11 +1403,23 @@ const Dashboard: FC = () => {
                                 {syncChartColors &&
                                     isEditMode &&
                                     chartTiles.length > 0 && (
-                                        <Popover width={400} position="bottom">
+                                        <Popover
+                                            width={400}
+                                            position="bottom"
+                                            opened={chartListOpened}
+                                            onClose={() =>
+                                                setChartListOpened(false)
+                                            }
+                                        >
                                             <Popover.Target>
                                                 <Button
                                                     size="xs"
                                                     variant="outline"
+                                                    onClick={() =>
+                                                        setChartListOpened(
+                                                            (o) => !o,
+                                                        )
+                                                    }
                                                 >
                                                     {t(
                                                         'dashboard.select_charts',
@@ -1451,13 +1488,41 @@ const Dashboard: FC = () => {
                                                                                     syncChartTileUuids.includes(
                                                                                         tile.uuid,
                                                                                     );
+                                                                                const chartTypeLabel =
+                                                                                    getTileTypeLabel(
+                                                                                        tile,
+                                                                                    );
                                                                                 return (
                                                                                     <Switch
                                                                                         key={
                                                                                             tile.uuid
                                                                                         }
                                                                                         label={
-                                                                                            chartName
+                                                                                            <Group
+                                                                                                gap={
+                                                                                                    6
+                                                                                                }
+                                                                                                wrap="nowrap"
+                                                                                            >
+                                                                                                <Text
+                                                                                                    span
+                                                                                                    size="sm"
+                                                                                                    truncate
+                                                                                                >
+                                                                                                    {
+                                                                                                        chartName
+                                                                                                    }
+                                                                                                </Text>
+                                                                                                {chartTypeLabel && (
+                                                                                                    <Text
+                                                                                                        span
+                                                                                                        size="xs"
+                                                                                                        c="dimmed"
+                                                                                                    >
+                                                                                                        {chartTypeLabel}
+                                                                                                    </Text>
+                                                                                                )}
+                                                                                            </Group>
                                                                                         }
                                                                                         checked={
                                                                                             isSelected
@@ -1521,18 +1586,25 @@ const Dashboard: FC = () => {
                                             </Popover.Dropdown>
                                         </Popover>
                                     )}
-                                <Group ml="md">
-                                    <DateZoom isEditMode={isEditMode} />
-                                </Group>
+                                {/* 日期缩放（DateZoom）功能暂时下线：
+                                    入口已隐藏，且不占用任何布局空间。
+                                    组件代码保留在 features/dateZoom，暂不再使用。 */}
                             </Group>
                         )}
                     </Group>
                     {hasDashboardTiles && (
                         <Group
+                            ref={parametersRef}
                             gap="xs"
                             align="flex-start"
                             wrap="nowrap"
                             px={'lg'}
+                            style={{
+                                ...parametersStickyStyle,
+                                // the page background, it has to be opaque so
+                                // the content can't scroll through the bar
+                                backgroundColor: theme.colors.gray[0],
+                            }}
                         >
                             <Parameters
                                 isEditMode={isEditMode}
@@ -1625,7 +1697,9 @@ const DashboardPage: FC = () => {
                 canCreateDashboardComments: false,
             }}
         >
-            <Dashboard />
+            <StickyStackProvider>
+                <Dashboard />
+            </StickyStackProvider>
         </DashboardProvider>
     );
 };

@@ -243,7 +243,10 @@
     "validation_error": "Validation error",
     "validation_error_subtitle": "Invalid field {{keys}} with value {{values}}. The team has been already notified, we'll fix it soon",
     "unknown_validation_error": "Unknown validation error",
-    "chart_error": "Chart '{{chartName}}': Error"
+    "chart_error": "Chart '{{chartName}}': Error",
+    "warehouse_resource_limit": "The warehouse query ran out of resources (engine memory limit reached). Please try again later or narrow down the filters.",
+    "category_resolution_failed": "Failed to resolve the category filter. The previous value was kept, so cascading may not have applied.",
+    "category_no_candidates": "There are no category options under the parent. The child filter kept its previous value."
   },
   "hooks_explorer_route": {
     "parse_url_error": "Error parsing url",
@@ -1113,6 +1116,17 @@
     "select_color_palette": "Select color palette",
     "select_charts": "Select charts",
     "sync_chart_colors_for": "Sync chart colors for:",
+    "sync_chart_colors_types": {
+      "cartesian": "(Standard chart)",
+      "pie": "(Pie chart)",
+      "custom": "(Custom chart)",
+      "table": "(Table)",
+      "big_number": "(Big number)",
+      "funnel": "(Funnel)",
+      "treemap": "(Treemap)",
+      "data_app_viz": "(Data app)",
+      "sql_chart": "(SQL chart)"
+    },
     "clear_all": "Clear all",
     "default": "Default",
     "palettes": {
@@ -1196,10 +1210,24 @@
       "groups": {
         "spaces": "Spaces",
         "dashboards": "Dashboards",
-        "charts": "Charts"
+        "charts": "Charts",
+        "sql_charts": "SQL charts",
+        "apps": "Data apps"
       },
       "no_changes": "No changes to promote",
       "without_changes": "We only promote content that is more recent in this project.",
+      "conflicts": {
+        "upstream_changed": {
+          "title": "The dashboard was changed in the upstream project",
+          "description": "The dashboard in the upstream project was updated after it was promoted for the last time. Promoting again will overwrite those changes.",
+          "confirm": "I confirm that the changes in the upstream project can be overwritten"
+        },
+        "name_mismatch": {
+          "title": "The dashboard has a different name in the upstream project",
+          "description": "The dashboard in the upstream project is named \"{{upstreamName}}\" and the one in this project is named \"{{sourceName}}\". The name in the upstream project is kept unless you sync it.",
+          "sync": "Sync the name to the upstream project"
+        }
+      },
       "cancel": "Cancel",
       "promote": "Promote"
     },
@@ -2383,10 +2411,6 @@
       "save_changes": "Save changes"
     },
     "cancel": "Cancel",
-    "tooltip_fullscreen": {
-      "exit_fullscreen_mode": "Exit Fullscreen Mode",
-      "enter_fullscreen_mode": "Enter Fullscreen Mode"
-    },
     "tooltip_eidt_dashboard": {
       "edit_dashboard": "Edit dashboard"
     },
@@ -2661,6 +2685,8 @@
     "drill_into": "Drill into"
   },
   "components_common_table": {
+    "resize_column": "Drag to resize column",
+    "reset_column_width": "Double-click to reset column width",
     "copied_to_clipboard": "Copied to clipboard!",
     "pagination": {
       "pages": "Pages",
@@ -2756,18 +2782,29 @@
         "requires_default_value": "Turn on \"Provide default value\" to configure single/multiple selection"
       },
       "category_level": {
+        "follow_parent_label": "Follow parent filter",
+        "follow_parent_placeholder": "Select a category filter",
+        "follow_parent_hint": "Values are re-validated against the current category when the parent changes",
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",
+        "derived_hint": "Derived as a level {{level}} category from its column or label (not declared; leave empty to keep the derived level)",
         "level1": "Level 1 Category",
         "level2": "Level 2 Category",
         "level3": "Level 3 Category",
         "level4": "Level 4 Category",
         "parent_filter_label": "Parent filter",
-        "parent_filter_placeholder": "No parent filter"
+        "parent_filter_placeholder": "No parent filter",
+        "parent_scope_global": "Global",
+        "parent_scope_tab": "Current tab",
+        "parent_scope_hint": "Tab filters can bind a global filter as parent. If a parent has no value, the levels below it are cleared.",
+        "parent_invalid": "Missing parent",
+        "parent_option_label": "{{label}} • {{level}} ({{scope}})",
+        "parent_option_label_short": "{{level}} ({{scope}})"
       },
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",
+      "filter_no_clear": "Cannot be cleared",
       "date_range": {
         "min_label": "Earliest selectable date",
         "max_label": "Latest selectable date",
@@ -2793,7 +2830,37 @@
         "label": "Limit filter methods",
         "description": "Leave empty for no limit; viewers can use all filter methods",
         "placeholder": "Select filter methods available to viewers"
+      },
+      "section": {
+        "value": "Condition",
+        "value_policy": "Value policy",
+        "viewer_limits": "Viewer limits",
+        "option_limits": "Option limits",
+        "linkage": "Field linkage"
       }
+    },
+    "batch_bind": {
+      "button": "Batch bind",
+      "title": "Batch bind category filters",
+      "bind_hint": "Parent relationships are generated from category names and levels; the parent does not need a value yet. Selected rows are written to the current scope.",
+      "bind_hint_global": "Parent relationships are generated from category names and levels for global filters. Global relationships apply to all tabs.",
+      "no_changes": "All category filters are already bound as expected; nothing to update.",
+      "no_category_filters": "This tab has no category filters. Set a category level on a filter first.",
+      "select_filters": "Filters to update",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "category_level_change": "Category level: {{from}} → {{to}}",
+      "parent_filter_change": "Parent filter: {{from}} → {{to}}",
+      "none": "None",
+      "unset": "Not set",
+      "parent_bound": "Parent filter: {{parent}} (bound)",
+      "unbound_no_parent": "A lower-level filter exists but has no category level set, so it cannot be used as a parent. Set its category level first.",
+      "orphan_parent": "The existing parent is no longer resolvable and no parent candidate is available; the binding is kept.",
+      "root_no_parent": "This is the top category level; no parent is needed.",
+      "ambiguous_parent": "Multiple filters share this level; the existing binding or a same-table candidate is preferred. Please check the binding.",
+      "implicit_level": "A selected filter below uses this as its parent, so its category level is applied too.",
+      "cancel": "Cancel",
+      "apply": "Apply"
     },
     "tabs": {
       "tooltip_filter": {
@@ -2832,6 +2899,8 @@
       }
     },
     "filter": {
+      "auto_adjusted_hint": "Auto-adjusted for the current category (previous: ",
+      "cascade_updating": "Updating",
       "tooltip_creating_new": {
         "label": {
           "part_1": "Only filters added in",
@@ -3209,11 +3278,11 @@
     "edit_tile_content": "Edit tile content",
     "title": "Title",
     "select_chart": "Select chart",
-    "search": "Searching...",
     "no_charts_found": "No charts found",
     "load_more": "Load more",
     "cancel": "Cancel",
-    "update": "Update"
+    "update": "Update",
+    "select_placeholder": "Select a chart"
   },
   "components_dashboard_tiles_forms_loom_tile": {
     "title": {
@@ -3305,6 +3374,10 @@
     "no_data_available": "No data available",
     "cannot_edit_chart": "Cannot edit chart belonging to space:",
     "not_have_permission": "You do not have permission to edit this chart"
+  },
+  "components_dashboard_tiles_chart_fullscreen": {
+    "enter_fullscreen": "Enter fullscreen",
+    "exit_fullscreen": "Exit fullscreen"
   },
   "components_dashboard_tiles_dashboard_export_image": {
     "export_image": "Export image",
@@ -3788,7 +3861,7 @@
       },
       "data_app": {
         "title": "Data App",
-        "description": "Build an interactive app powered by your data."
+        "description": "Upload a locally built React app and add it to dashboards."
       },
       "space": {
         "title": "Space",
@@ -4058,6 +4131,15 @@
         "create": "Create new space"
       }
     }
+  },
+  "components_common_modal_app_delete": {
+    "title": "Delete app",
+    "tip": "Delete ",
+    "tip_suffix": "? This app and all of its versions will be permanently deleted, including any built artifacts in storage.",
+    "content": "This app is used on {{length}} dashboard(s):",
+    "warning": "Those tiles will stay on the dashboard but become unavailable. Edit each tile to pick another app, or remove the tile.",
+    "cancel": "Cancel",
+    "delete": "Delete"
   },
   "components_common_modal_chart_delete": {
     "title": "Delete Chart",
@@ -4691,13 +4773,13 @@
     "project_management_settings": "Project management settings",
     "create_new": "Create new",
     "delete": "Delete {{length}} selected",
-    "customer_use_updated": "Customer use status updated",
-    "customer_use_update_error": "Failed to update customer use status",
+    "client_use_updated": "Client use status updated",
+    "client_use_update_error": "Failed to update client use status",
     "table": {
       "select_all": "Select all",
       "name": "Name",
       "status": "Status",
-      "customer_use": "Customer Use",
+      "client_use": "Client Use",
       "actions": "Actions"
     },
     "tabs": {
@@ -5248,6 +5330,8 @@
     "add": "Add",
     "copy_config": "Copy",
     "copied": "Copied",
+    "delete": "Delete",
+    "remove_item": "Remove {{label}}",
     "errors": {
       "custom_hex": "Type in a custom HEX color",
       "invalid_hex": "Invalid HEX color"
@@ -5492,13 +5576,15 @@
   "components_visualization_configs_table": {
     "column_configuration": {
       "tooltip_columns": {
-        "part_1": "Cannot hide dimensions when pivoting",
-        "part_2": "Cannot hide dimensions when pivoting",
+        "part_1": "Cannot hide a dimension used as a pivot column",
+        "part_2": "Cannot hide a dimension used as a pivot column",
         "part_3": "Hide column",
         "part_4": "Show column"
       },
       "unfreeze": "Unfreeze column",
-      "freeze": "Freeze column"
+      "freeze": "Freeze column",
+      "width": "Column width",
+      "reset_width": "Reset column width to auto"
     },
     "formatting_item": {
       "single": "single",
@@ -5513,7 +5599,8 @@
       "color": "Color",
       "apply_color_to": "Apply color to",
       "apply_to_background": "Background",
-      "apply_to_font": "Font"
+      "apply_to_font": "Font",
+      "rule": "Rule {{index}}"
     },
     "compare": {
       "compare": "Compare",
@@ -5548,13 +5635,13 @@
       "pivot_metric_header_top_disabled": "Only available for pivot tables with metrics as columns",
       "pivot_auto_fill_width": "Fill leftover space",
       "pivot_auto_fill_width_hint": "Only distributes leftover space when total column width is smaller than the container; does not size by header text. Header-fitting auto width is on by default.",
-      "pivot_auto_fill_width_tooltip": "Off: columns still auto-size to content; leftover space is not filled.\nOn: when total width is smaller than the container, leftover space is distributed evenly.",
+      "pivot_auto_fill_width_tooltip": "Off: column widths stay content-based and do not fill empty space.\nOn: when the total column width is smaller than the container, share the remaining space evenly.\nNote: ignored once a column has been resized by hand (per-column width wins); the switch is disabled in that case.",
       "pivot_dimension_column_max_width": "Max row dimension column width (px)",
       "pivot_dimension_column_max_width_placeholder": "300",
-      "pivot_dimension_column_max_width_tooltip": "Caps left row-dimension columns. Leave empty for default 450; overflow is ellipsized (hover for full text).",
+      "pivot_dimension_column_max_width_tooltip": "Caps the width of row dimension columns on the left. Defaults to 450 when empty; overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_data_column_max_width": "Max data column width (px)",
       "pivot_data_column_max_width_placeholder": "240",
-      "pivot_data_column_max_width_tooltip": "Caps metric data columns. Leave empty for default 450; placeholder 240 is a tighter suggestion. Overflow is ellipsized (hover for full text).",
+      "pivot_data_column_max_width_tooltip": "Caps the width of metric data columns. Defaults to 450 when empty (240 is a tighter suggestion); overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_column_max_width_hint": "Limits both content auto-width and fill stretch; leave empty to use the default cap of 450 (placeholders are tighter suggestions)",
       "display": "Display",
       "show_table_names": "Show table names",
@@ -6414,6 +6501,9 @@
         "space": {
           "label": "Space"
         },
+        "status": {
+          "label": "Status"
+        },
         "updated": {
           "label": "Last Edited"
         }
@@ -6476,6 +6566,9 @@
       },
       "delete": {
         "title": "Delete {{type}}"
+      },
+      "upload_package": {
+        "title": "Update package"
       }
     }
   },
@@ -6680,6 +6773,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "Custom order",
+    "custom_order_tooltip": "Sort by a fixed value order",
+    "custom_order_candidates": "Values in this result",
+    "custom_order_others_hint": "Values not listed come last, sorted A-Z / Z-A",
+    "custom_order_limit_hint": "Showing first 500 values, search to narrow down",
+    "custom_order_missing_value": "Not found in current data",
+    "custom_order_all_selected": "All values selected",
+    "custom_order_max_selected": "Up to 200 values; extra values are ignored",
+    "custom_order_move_up": "Move up",
+    "custom_order_move_down": "Move down",
+    "custom_order_remove": "Remove value",
+    "custom_order_short": "Custom",
+    "custom_order_search_placeholder": "Search values from the database",
+    "custom_order_no_candidates": "No values found",
+    "custom_order_badge": "Custom order",
     "no_sort": "No sort",
     "fields": "fields",
     "field": "1 field",
@@ -6697,7 +6805,9 @@
       "old_new": "Old-New",
       "new_old": "New-Old",
       "false_true": "False-True",
-      "true_false": "True-False"
+      "true_false": "True-False",
+      "custom_asc": "Ascending",
+      "custom_desc": "Descending"
     }
   },
   "components_export_csv": {
@@ -6742,14 +6852,17 @@
   "components_export_results": {
     "exporting": {
       "title": "Exporting results",
-      "subtitle": "This may take a few minutes..."
+      "subtitle": "This may take a few minutes...",
+      "subtitle_elapsed": "Elapsed {{seconds}}s - large exports can take several minutes, the download starts automatically..."
     },
     "warning": {
       "title": "The results in this export have been limited.",
       "subtitle": "The export was truncated due to size constraints."
     },
     "error": {
-      "title": "Unable to download CSV"
+      "title": "Unable to download CSV",
+      "no_file": "The export finished but no file URL was returned. Please retry or contact your admin.",
+      "timeout": "The export did not finish within 20 minutes and we stopped waiting. Try a smaller range (fewer months or columns) or ask your admin to check the background job."
     },
     "no_data_to_export": "No data to export",
     "file_format": "File format",
@@ -6998,7 +7111,37 @@
       "create": "Create"
     },
     "create_new_space": "Create new space",
-    "create": "Create"
+    "create": "Create",
+    "client_use_scope": {
+      "title": "Content visibility scope diagnostics",
+      "show": "Expand",
+      "hide": "Collapse",
+      "applied": "Scope status",
+      "applied_yes": "Applied (restricted role)",
+      "applied_no": "Not applied",
+      "status": "Status code",
+      "reason": "Reason",
+      "effective_role": "Effective project role",
+      "effective_role_value": "{{role}} ({{source}})",
+      "mobile": "Mobile",
+      "rpc_configured": "RPC configured",
+      "yes": "Yes",
+      "no": "No",
+      "allowed_dashboard_count": "Allow-listed dashboards",
+      "allowed_dashboards": "Allow-listed dashboards",
+      "none": "None",
+      "scope_counts": "Scope counts",
+      "dashboards": "Dashboards",
+      "charts": "Charts",
+      "spaces": "Spaces",
+      "explores": "Datasets",
+      "role_source": {
+        "project_membership": "Project member",
+        "group_membership": "Group",
+        "organization": "Organization",
+        "none": "None"
+      }
+    }
   },
   "components_project_connection": {
     "generate_settings": {
@@ -8432,7 +8575,28 @@
     "title": "Data apps",
     "breadcrumb_home": "Home",
     "breadcrumb_all": "All data apps",
-    "create": "Create data app"
+    "create": "Create data app",
+    "upload": "Upload app"
+  },
+  "features_apps_upload": {
+    "title": "Upload data app",
+    "update_title": "Update package",
+    "hint": "Select the local template folder after pnpm build. It must include src/, dist/index.html, and lightdash-app.yml. Cloud sandbox is not used for manual uploads.",
+    "folder_label": "App folder",
+    "folder_placeholder": "Choose the built app folder",
+    "folder_description": "Use the folder picker so src/ and dist/ keep their relative paths.",
+    "pick_folder": "Choose folder",
+    "file_count": "{{count}} files selected",
+    "need_folder": "Choose a folder that contains src/, dist/, and lightdash-app.yml",
+    "parse_failed": "Could not read the selected folder",
+    "error": "Upload failed",
+    "submit": "Upload",
+    "status_ready": "Ready",
+    "status_unavailable": "No ready version",
+    "toast_created": "App uploaded",
+    "toast_append": "New version uploaded",
+    "toast_unchanged": "App unchanged; current version kept",
+    "toast_failed": "Failed to upload data app"
   },
   "pages_app_generate": {
     "title": "Build a Data App",
@@ -9543,14 +9707,23 @@
       "dashboard_filters_add_button_visibility_changed": "Show/hide add filter",
       "dashboard_filters_read_only_changed": "Set filter read-only",
       "dashboard_filters_hidden_changed": "Set filter hidden",
+      "dashboard_filters_clearable_changed": "Set filter value locked",
       "dashboard_filters_allowed_operators_changed": "Change allowed operators",
-      "dashboard_filters_input_mode_changed": "Change single/multi select"
+      "dashboard_filters_input_mode_changed": "Change single/multi select",
+      "project_member_added": "Added project member",
+      "project_member_role_updated": "Updated project member role",
+      "project_member_removed": "Removed project member",
+      "project_group_access_added": "Added group project role",
+      "project_group_access_role_updated": "Updated group project role",
+      "project_group_access_removed": "Removed group project role"
     },
     "resource_types": {
       "dashboard": "Dashboard",
       "dashboard_filter": "Dashboard filter",
       "chart": "Chart",
       "project": "Project",
+      "project_member": "Project member",
+      "project_group_access": "Group project role",
       "operation_log": "Operation log"
     },
     "statuses": {
@@ -9626,9 +9799,16 @@
       "visible": "Visible",
       "readOnly": "Read-only",
       "hidden": "Hidden",
+      "clearable": "Cannot be cleared",
       "allowedOperators": "Allowed operators",
       "singleValue": "Single value",
-      "required": "Required to run"
+      "required": "Required to run",
+      "targetUserUuid": "Target user",
+      "targetEmail": "Target email",
+      "fromRole": "Previous role",
+      "toRole": "New role",
+      "groupUuid": "Group ID",
+      "groupName": "Group name"
     },
     "summary_values": {
       "global": "Global",

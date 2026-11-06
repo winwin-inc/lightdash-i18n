@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * 设置 monorepo 根与 workspace 的 package.json version，跳过 packages/lightdash-*（单独维护）。
+ * 设置 monorepo 根与 workspace 的 package.json version，
+ * 跳过 packages/lightdash-*（pnpm bump-mcp）和 packages/cli（pnpm bump-cli）。
  *
  * 用法：
  *   pnpm bump-version -- 0.2105.4
@@ -12,7 +13,7 @@
  *
  * 行为对齐（写版本部分）：
  *   npm version <ver> --workspaces --include-workspace-root --allow-same-version --no-git-tag-version
- * 但不改动 packages/lightdash-*（mcp / charts-viewer / skills 等）。
+ * 但不改动 packages/lightdash-*（mcp / charts-viewer / skills 等）和 packages/cli。
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -34,8 +35,7 @@ function usage() {
   pnpm bump-version -- 0.2105.4 --no-commit
   pnpm bump-version -- 0.2105.4 --no-tag
 
-跳过目录: packages/lightdash-*（单独发版，请用 pnpm bump-mcp）
-CLI 工具镜像不走本脚本的 v* tag，请用: pnpm bump-cli -- <version>
+跳过目录: packages/lightdash-*（pnpm bump-mcp）、packages/cli（pnpm bump-cli）
 默认行为：写文件 -> 仅 add version 文件 -> git commit -> 打 v<ver> annotated tag。
 开关：--no-commit 仅写文件；--no-tag commit 后不打 tag。
 本地不 push；确认无误后：git push && git push origin v<版本号> 触发主站 Docker CI。
@@ -64,7 +64,9 @@ function normalizeRepoPath(p) {
 function isSkippedPackageDir(absDir) {
     const rel = toPosix(path.relative(repoRoot, absDir));
     // packages/lightdash-mcp, packages/lightdash-charts-viewer, ...
-    return /^packages\/lightdash-[^/]+$/.test(rel);
+    return (
+        /^packages\/lightdash-[^/]+$/.test(rel) || rel === 'packages/cli'
+    );
 }
 
 function writePackageVersion(pkgPath, version) {
@@ -103,7 +105,7 @@ function collectPackageJsonPaths() {
 }
 
 /**
- * 返回将要改写的 package.json 相对路径（跳过 packages/lightdash-*）。
+ * 返回将要改写的 package.json 相对路径（跳过 packages/lightdash-* 和 packages/cli）。
  */
 function collectTargetRelPaths() {
     const relPaths = [];
@@ -238,7 +240,7 @@ function writeAllVersions(version) {
         }
     }
     if (skipped.length > 0) {
-        process.stdout.write('\n已跳过 (packages/lightdash-*):\n');
+        process.stdout.write('\n已跳过 (packages/lightdash-*、packages/cli):\n');
         for (const line of skipped) {
             process.stdout.write(`  ${line}\n`);
         }

@@ -164,6 +164,8 @@ export type ColumnProperties = {
     name?: string;
     frozen?: boolean;
     displayStyle?: 'text' | 'bar';
+    /** 列宽（px，整数）；undefined = 按内容自动 */
+    width?: number;
 };
 
 /** 透视表列头中指标与维度值的上下层级，默认 dimension 在上 */
@@ -859,6 +861,8 @@ export type CalculateTotalFromQuery = {
     parameters?: ParametersValuesMap;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 export type ApiCalculateTotalResponse = {
@@ -872,6 +876,8 @@ export type CalculateCountFromQuery = {
     parameters?: ParametersValuesMap;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
 };
 
 export type ApiCalculateCountResponse = {

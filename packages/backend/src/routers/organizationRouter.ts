@@ -91,3 +91,43 @@ organizationRouter.post(
         }
     },
 );
+
+organizationRouter.post(
+    '/admin/users/provision',
+    allowApiKeyAuthentication,
+    isAuthenticated,
+    unauthorisedInDemo,
+    async (req, res, next) => {
+        try {
+            const results = await req.services
+                .getUserService()
+                .provisionOrganizationUser(req.user!, req.body);
+            res.status(200).json({
+                status: 'ok',
+                results,
+            });
+        } catch (e) {
+            next(e);
+        }
+    },
+);
+
+organizationRouter.post(
+    '/admin/users/provision/batch',
+    allowApiKeyAuthentication,
+    isAuthenticated,
+    unauthorisedInDemo,
+    async (req, res, next) => {
+        try {
+            const results = await req.services
+                .getUserService()
+                .provisionOrganizationUsers(req.user!, req.body);
+            res.status(200).json({
+                status: 'ok',
+                results,
+            });
+        } catch (e) {
+            next(e);
+        }
+    },
+);

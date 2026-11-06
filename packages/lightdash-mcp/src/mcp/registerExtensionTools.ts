@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ApiExecuteAsyncMetricQueryResults } from '@lightdash/common';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z, type ZodRawShape } from 'zod';
 import type { LightdashMcpEnvConfig } from '../config';
 import {
@@ -9,7 +10,16 @@ import {
 import {
     buildDashboardSelectionRequiredResult,
     createDashboardContextResolver,
+    getSharedDashboardContextResolver,
+    type ResolvedDashboardContext,
 } from '../lib/dashboardContextResolver';
+import { buildUnresolvedDashboardNote } from '../lib/dashboardContextNote';
+import {
+    createRequiredDashboardGuard,
+    DASHBOARD_AUTO_RESOLVED_HINT,
+    formatDashboardAccessError,
+    type DashboardGuardContext,
+} from '../lib/requiredDashboardContext';
 import {
     maybeSlimList,
     rowsToScalarFlat,
@@ -102,6 +112,33 @@ type ExtensionToolsDeps = {
     }>;
 };
 
+/** 严格模式下解析出的看板上下文（额外带 dashboardUrl 与自动解析提示） */
+type StrictResolvedDashboardContext = ResolvedDashboardContext & {
+    /** 浏览器可打开的看板链接 */
+    dashboardUrl?: string;
+    /** 自动解析到唯一看板时的提示 */
+    note?: string;
+};
+
+function toStrictResolvedDashboardContext(
+    context: DashboardGuardContext,
+): StrictResolvedDashboardContext {
+    const resolved: StrictResolvedDashboardContext = {
+        dashboardUuid: context.dashboardUuid,
+        dashboardSlug: context.dashboardSlug,
+        dashboardName: context.dashboardName,
+        source: context.source,
+        candidateCount: context.candidateCount,
+    };
+    if (context.dashboardUrl) {
+        resolved.dashboardUrl = context.dashboardUrl;
+    }
+    if (context.source !== 'explicitDashboardUuid') {
+        resolved.note = DASHBOARD_AUTO_RESOLVED_HINT;
+    }
+    return resolved;
+}
+
 function resolveExtensionApiKey(
     config: LightdashMcpEnvConfig,
 ): string {
@@ -112,6 +149,25 @@ function resolveExtensionApiKey(
         );
     }
     return key;
+}
+
+/**
+ * 尽力解析 projectUuid（仅用于生成看板链接）。
+ *
+ * 看板不可访问（403 / 404）时拿不到 dashboard.projectUuid，这里回退到
+ * 入参 / session / 环境变量；都拿不到时返回 null（不生成链接，
+ * 避免拼出 /projects//dashboards/... 这种坏链接）。
+ */
+function resolveProjectUuidHint(
+    config: LightdashMcpEnvConfig,
+    apiKey: string,
+    fromArgs: string | undefined,
+): string | null {
+    try {
+        return resolveCoreToolsProjectUuid(config, apiKey, fromArgs);
+    } catch {
+        return fromArgs && fromArgs.length > 0 ? fromArgs : null;
+    }
 }
 
 function findExploreNameInSavedChart(value: unknown): string | undefined {
@@ -144,16 +200,56 @@ export function registerExtensionTools(
     deps: ExtensionToolsDeps,
 ): void {
     const dashboardContextResolver = createDashboardContextResolver(api);
+    const strictMode = config.dashboardStrict;
+    // 严格模式：与查询工具共用同一个 guard（共享 60s 反查缓存）
+    const strictGuard = strictMode
+        ? createRequiredDashboardGuard(
+              api,
+              config,
+              getSharedDashboardContextResolver(api, {
+                  blockOnMultiple: true,
+                  publicBaseUrl: config.publicBaseUrl,
+              }),
+          )
+        : null;
+
+    type StrictGuardOutcome =
+        | { blocked: true; result: CallToolResult }
+        | { blocked: false; context: DashboardGuardContext };
+
+    /**
+     * 严格模式下解析看板上下文。
+     *
+     * 非严格模式返回 null（走原有 resolver 分支，行为不变）；
+     * 严格模式下失败一律阻断并返回 guard 构造的结果。
+     */
+    async function resolveStrictDashboard(params: {
+        apiKey: string;
+        projectUuid: string;
+        dashboardUuid?: string;
+        chartUuid?: string;
+        exploreName?: string;
+    }): Promise<StrictGuardOutcome | null> {
+        if (!strictGuard) {
+            return null;
+        }
+        const guard = await strictGuard.ensure(params);
+        if (!guard.ok) {
+            return { blocked: true, result: guard.result };
+        }
+        return { blocked: false, context: guard.context };
+    }
     registerToolTyped(
         server,
         'tool-call',
         'get_site_info',
-        '返回当前 MCP 所连 Lightdash 的站点根地址 siteBaseUrl（与 LIGHTDASH_SITE_URL 一致）；不含密钥。可与各工具返回的 webUrl 对照使用。',
+        '返回站点根地址：siteBaseUrl（拼 webUrl / 浏览器打开用）、apiBaseUrl（服务 API 用）。不含密钥。打开图表或看板请用各工具返回的 webUrl，不要用 apiBaseUrl 拼链接。',
         getSiteInfoParams,
         async () => {
             const payload = {
-                siteBaseUrl: config.baseUrl,
-                note: '图表/看板打开链接见 find_charts / find_dashboards / find_content、get_saved_chart 等工具返回的 webUrl。',
+                siteBaseUrl: config.publicBaseUrl,
+                apiBaseUrl: config.baseUrl,
+                note: 'webUrl = siteBaseUrl + 路径；apiBaseUrl 仅供对照，不用于打开页面。',
             };
             return {
                 content: [
@@ -209,7 +305,7 @@ export function registerExtensionTools(
                 args.chartUuid as string,
             );
             const enriched = enrichSavedChartResult(
-                config.baseUrl,
+                config.publicBaseUrl,
                 DEFAULT_WEB_PATH_TEMPLATES.chart,
                 data,
             );
@@ -233,7 +329,9 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'run_saved_chart',
-        '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。可选 dashboardUuid；未传且需要看板上下文时：反查仅 1 个关联看板则自动选用；多个时返回 status=dashboard_selection_required 和 candidates，选一个后再重试。',
+        strictMode
+            ? '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。强制看板模式：固定走看板图表接口（/query/dashboard-chart），该接口不支持 versionUuid，传入的 versionUuid 会被忽略；查数前必须解析出 dashboardUuid（未传时按 chartUuid 反查关联看板：唯一则自动使用，多个返回 status=dashboard_selection_required 让调用方选择，0 个按“是否已配置看板”阻断），不会执行查询。'
+            : '按已保存图表跑数；可用 parameters 传筛选（如年份、区域）。limit 会按环境上限自动封顶。可选 projectUuid；省略时与核心工具一致。可选 dashboardUuid；未传且需要看板上下文时：反查有候选则自动选用并查数（多个时取排序后第一个，返回 resolvedDashboardContext 含 candidates）；0 个候选才返回 status=dashboard_selection_required 空列表。',
         runSavedChartParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);
@@ -250,79 +348,130 @@ export function registerExtensionTools(
             const limit = (args.limit as number | undefined) ?? 500;
             const chartUuid = args.chartUuid as string;
             const chart = await api.getSavedChart(apiKey, chartUuid);
-            const exploreName = findExploreNameInSavedChart(chart);
-            const requiresDashboardContext = exploreName
-                ? (
-                      await deps.getExploreMetadata(
+            let resolvedDashboardContext:
+                | StrictResolvedDashboardContext
+                | ResolvedDashboardContext
+                | null = null;
+            let dashboardUuidForQuery: string | undefined;
+            let resolveStatus: string | undefined;
+            let unresolvedHint: string | undefined;
+            let requiresDashboardContext = false;
+            if (strictMode) {
+                // 严格模式：无条件解析看板上下文（不再依赖 requiresDashboardContext）
+                const strictOutcome = await resolveStrictDashboard({
+                    apiKey,
+                    projectUuid,
+                    dashboardUuid: args.dashboardUuid as string | undefined,
+                    chartUuid,
+                });
+                if (strictOutcome?.blocked) {
+                    return strictOutcome.result;
+                }
+                if (strictOutcome) {
+                    resolvedDashboardContext = toStrictResolvedDashboardContext(
+                        strictOutcome.context,
+                    );
+                    dashboardUuidForQuery = strictOutcome.context.dashboardUuid;
+                }
+            } else {
+                const exploreName = findExploreNameInSavedChart(chart);
+                requiresDashboardContext = exploreName
+                    ? (
+                          await deps.getExploreMetadata(
+                              apiKey,
+                              projectUuid,
+                              exploreName,
+                          )
+                      ).requiresDashboardContext
+                    : false;
+                const resolveResult =
+                    requiresDashboardContext || args.dashboardUuid
+                    ? await dashboardContextResolver.resolve({
                           apiKey,
                           projectUuid,
-                          exploreName,
-                      )
-                  ).requiresDashboardContext
-                : false;
-            const resolveResult =
-                requiresDashboardContext || args.dashboardUuid
-                ? await dashboardContextResolver.resolve({
-                      apiKey,
-                      projectUuid,
-                      dashboardUuid: args.dashboardUuid as string | undefined,
-                      chartUuid,
-                  })
-                : null;
-            if (resolveResult?.status === 'needs_selection') {
-                return buildDashboardSelectionRequiredResult({
-                    source: resolveResult.source,
-                    candidates: resolveResult.candidates,
-                    chartUuid,
-                });
-            }
-            if (
-                requiresDashboardContext &&
-                resolveResult?.status === 'none'
-            ) {
-                return buildDashboardSelectionRequiredResult({
-                    source: 'chartUuid',
-                    candidates: [],
-                    chartUuid,
-                });
-            }
-            const resolvedDashboardContext =
-                resolveResult?.status === 'resolved'
-                    ? resolveResult.context
+                          dashboardUuid: args.dashboardUuid as string | undefined,
+                          chartUuid,
+                      })
                     : null;
+                if (resolveResult?.status === 'needs_selection') {
+                    return buildDashboardSelectionRequiredResult({
+                        source: resolveResult.source,
+                        candidates: resolveResult.candidates,
+                        chartUuid,
+                    });
+                }
+                if (
+                    requiresDashboardContext &&
+                    resolveResult?.status === 'none'
+                ) {
+                    return buildDashboardSelectionRequiredResult({
+                        source: 'chartUuid',
+                        candidates: [],
+                        chartUuid,
+                    });
+                }
+                resolvedDashboardContext =
+                    resolveResult?.status === 'resolved'
+                        ? resolveResult.context
+                        : null;
+                resolveStatus = resolveResult?.status;
+                unresolvedHint =
+                    resolveResult?.status === 'none'
+                        ? resolveResult.hint
+                        : undefined;
+                dashboardUuidForQuery = resolvedDashboardContext?.dashboardUuid;
+            }
             const pollOptions = {
                 pageSize,
                 maxPollAttempts,
                 pollIntervalMs,
             };
-            const result = resolvedDashboardContext
-                ? await api.runDashboardChart(
-                      apiKey,
-                      projectUuid,
-                      {
-                          chartUuid,
-                          dashboardUuid:
-                              resolvedDashboardContext.dashboardUuid,
-                          parameters: args.parameters as
-                              | Record<string, unknown>
-                              | undefined,
-                          limit,
-                      },
-                      pollOptions,
-                  )
-                : await api.runSavedChart(
-                      apiKey,
-                      projectUuid,
-                      {
-                          chartUuid,
-                          versionUuid: args.versionUuid as string | undefined,
-                          parameters: args.parameters as
-                              | Record<string, unknown>
-                              | undefined,
-                          limit,
-                      },
-                      pollOptions,
-                  );
+            // 严格模式：固定走看板图表接口（该接口不接受 versionUuid）
+            let result: Awaited<ReturnType<typeof api.runSavedChart>>;
+            try {
+                result = resolvedDashboardContext
+                    ? await api.runDashboardChart(
+                          apiKey,
+                          projectUuid,
+                          {
+                              chartUuid,
+                              dashboardUuid: dashboardUuidForQuery as string,
+                              parameters: args.parameters as
+                                  | Record<string, unknown>
+                                  | undefined,
+                              limit,
+                          },
+                          pollOptions,
+                      )
+                    : await api.runSavedChart(
+                          apiKey,
+                          projectUuid,
+                          {
+                              chartUuid,
+                              versionUuid: args.versionUuid as string | undefined,
+                              parameters: args.parameters as
+                                  | Record<string, unknown>
+                                  | undefined,
+                              limit,
+                          },
+                          pollOptions,
+                      );
+            } catch (error) {
+                if (strictMode) {
+                    // 严格模式：看板类 403 / 404 映射成 dashboard_* 状态
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid: dashboardUuidForQuery ?? null,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
+            }
             const full = (args.full as boolean | undefined) ?? false;
             const valueFormat =
                 (args.valueFormat as 'raw' | 'formatted' | undefined) ?? 'raw';
@@ -348,14 +497,24 @@ export function registerExtensionTools(
                               resolvedDashboardContext: {
                                   source: 'unresolved',
                                   candidateCount: 0,
-                                  note:
-                                      resolveResult?.status === 'none'
-                                          ? resolveResult.hint
-                                          : requiresDashboardContext
-                                            ? '未找到 chart 关联 dashboard，已回退普通 saved chart 查询'
-                                            : '该 chart 所属 explore 的 sql_filter 不依赖 dashboardSlug，已按原 saved chart 查询执行',
+                                  note: buildUnresolvedDashboardNote({
+                                      resolveStatus,
+                                      hint: unresolvedHint,
+                                      requiresDashboardContext,
+                                      contextMissingMessage:
+                                          '未找到 chart 关联 dashboard，已回退普通 saved chart 查询',
+                                      contextNotRequiredMessage:
+                                          '该 chart 所属 explore 的 sql_filter 不依赖 dashboardSlug，已按原 saved chart 查询执行',
+                                  }),
                               },
                           }),
+                    ...(strictMode && args.versionUuid
+                        ? {
+                              versionUuidIgnored: true,
+                              versionUuidNote:
+                                  '强制看板模式固定走看板图表接口（/query/dashboard-chart），该接口不支持 versionUuid，传入的 versionUuid 已被忽略。',
+                          }
+                        : {}),
                 },
             });
         },
@@ -442,14 +601,38 @@ export function registerExtensionTools(
         server,
         'tool-call',
         'run_dashboard_tiles',
-        '批量执行看板内可运行磁贴（saved_chart）。sql_chart 与非查询磁贴会跳过并返回说明。',
+        strictMode
+            ? '批量执行看板内可运行磁贴（saved_chart）。sql_chart 与非查询磁贴会跳过并返回说明。强制看板模式：看板不可访问（403 / 404）时整批阻断，不会执行任何磁贴，而是返回 status=dashboard_permission_required / dashboard_not_found 与对应 action。'
+            : '批量执行看板内可运行磁贴（saved_chart）。sql_chart 与非查询磁贴会跳过并返回说明。',
         runDashboardTilesParams,
         async (args) => {
             const apiKey = resolveExtensionApiKey(config);
-            const dashboard = (await api.getDashboard(
-                apiKey,
-                args.dashboardUuid as string,
-            )) as Record<string, unknown>;
+            let dashboard: Record<string, unknown>;
+            try {
+                dashboard = (await api.getDashboard(
+                    apiKey,
+                    args.dashboardUuid as string,
+                )) as Record<string, unknown>;
+            } catch (error) {
+                if (strictMode) {
+                    // 严格模式：看板 403 / 404 在跑任何磁贴前整批阻断
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid: resolveProjectUuidHint(
+                            config,
+                            apiKey,
+                            args.projectUuid as string | undefined,
+                        ),
+                        dashboardUuid: args.dashboardUuid as string,
+                        contact: config.dashboardContact,
+                        publicBaseUrl: config.publicBaseUrl,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
+            }
             const projectUuid = resolveCoreToolsProjectUuid(
                 config,
                 apiKey,
@@ -461,6 +644,8 @@ export function registerExtensionTools(
                 : [];
             const full = (args.full as boolean | undefined) ?? false;
             const limit = (args.limitPerTile as number | undefined) ?? 200;
+            // 严格模式：磁贴执行阶段的看板类错误（403 / 404）要中止整批
+            const dashboardFailures: CallToolResult[] = [];
             const results = await Promise.all(
                 tiles.map(async (tile) => {
                     const row = tile as Record<string, unknown>;
@@ -507,6 +692,27 @@ export function registerExtensionTools(
                             rowCount: Array.isArray(flatRows) ? flatRows.length : 0,
                         };
                     } catch (error) {
+                        if (strictMode) {
+                            // 严格模式：看板类 403 / 404 提升为整批结果
+                            const mapped = formatDashboardAccessError({
+                                error,
+                                projectUuid,
+                                dashboardUuid: args.dashboardUuid as string,
+                                contact: config.dashboardContact,
+                                publicBaseUrl: config.publicBaseUrl,
+                            });
+                            if (mapped) {
+                                dashboardFailures.push(mapped);
+                                return {
+                                    tileUuid: row.uuid ?? null,
+                                    type: row.type ?? null,
+                                    chartUuid,
+                                    status: 'error',
+                                    error:
+                                        '强制看板模式：磁贴执行被阻断（看板权限或归属校验失败）',
+                                };
+                            }
+                        }
                         return {
                             tileUuid: row.uuid ?? null,
                             type: row.type ?? null,
@@ -520,6 +726,10 @@ export function registerExtensionTools(
                     }
                 }),
             );
+            if (dashboardFailures.length > 0) {
+                // 整批中止：返回看板类阻断结果（已在执行的磁贴无法取消）
+                return dashboardFailures[0]!;
+            }
             return {
                 content: [
                     {

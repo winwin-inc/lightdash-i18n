@@ -132,6 +132,72 @@ describe('useTableConfig', () => {
         ).toBe('Custom Column B');
     });
 
+    it('adopts externally replaced column properties (reset / history version)', () => {
+        const { result, rerender } = renderHook(
+            ({ config }: { config: TableChart | undefined }) =>
+                useTableConfig(
+                    config,
+                    resultsData,
+                    itemsMap,
+                    columnOrder,
+                    ['orders_col_a'],
+                    1000,
+                ),
+            { initialProps: { config: undefined as TableChart | undefined } },
+        );
+
+        act(() => {
+            result.current.updateColumnProperty('orders_col_a', { width: 300 });
+        });
+        expect(result.current.columnProperties).toEqual({
+            orders_col_a: { width: 300 },
+        });
+
+        // 自己改动的回流（父级把同一份配置传回来）不应覆盖 state
+        rerender({ config: { columns: { orders_col_a: { width: 300 } } } });
+        expect(result.current.columnProperties).toEqual({
+            orders_col_a: { width: 300 },
+        });
+
+        // 外部把配置换掉（Cancel / 切换历史版本）→ 采纳
+        rerender({ config: { columns: {} } });
+        expect(result.current.columnProperties).toEqual({});
+
+        rerender({
+            config: { columns: { orders_col_b: { width: 180 } } },
+        });
+        expect(result.current.columnProperties).toEqual({
+            orders_col_b: { width: 180 },
+        });
+    });
+
+    it('does not re-adopt pruned columns from an unchanged parent config', () => {
+        const { result, rerender } = renderHook(
+            ({ config }: { config: TableChart | undefined }) =>
+                useTableConfig(
+                    config,
+                    resultsData,
+                    itemsMap,
+                    columnOrder,
+                    ['orders_col_a'],
+                    1000,
+                ),
+            { initialProps: { config: undefined as TableChart | undefined } },
+        );
+
+        act(() => {
+            // 不在查询结果里的列会被 prune 掉
+            result.current.updateColumnProperty('not_in_query', {
+                width: 200,
+            });
+        });
+        expect(result.current.columnProperties).toEqual({});
+
+        // 父级配置没变化 → 不能把被 prune 的列带回来（否则会无限循环）
+        rerender({ config: {} });
+        expect(result.current.columnProperties).toEqual({});
+    });
+
     it('should keep showTableNames false after user toggles it off', () => {
         const multiTableItemsMap = {
             ...itemsMap,

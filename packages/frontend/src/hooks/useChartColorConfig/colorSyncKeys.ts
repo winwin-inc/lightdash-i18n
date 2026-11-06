@@ -203,8 +203,17 @@ export const extractColorSyncKeysFromChartConfig = (
         );
 
         series.forEach((serie) => {
-            const value = serie.encode?.yRef?.pivotValues?.[0]?.value;
-            if (value != null) addColorSyncKey(keys, String(value));
+            const pivotValues = serie.encode?.yRef?.pivotValues ?? [];
+            if (pivotValues.length > 0) {
+                const value = pivotValues[0]?.value;
+                if (value != null) addColorSyncKey(keys, String(value));
+                return;
+            }
+            /**
+             * 非透视系列的渲染期 identifier 就是指标字段名（见 calculateSeriesLikeIdentifier）。
+             * 之前这类系列不进颜色表，只剩纯哈希取色 → 同图两个指标可能撞成同一个颜色。
+             */
+            addColorSyncKey(keys, serie.encode?.yRef?.field);
         });
 
         Object.keys(chartConfig.config?.metadata ?? {}).forEach((serieId) => {
@@ -248,15 +257,14 @@ export const getSyncedSavedChartRefs = (
     syncChartTileUuids: string[],
 ): Array<{ tileUuid: string; savedChartUuid: string }> => {
     if (!tiles) return [];
+    // 严格白名单：列表为空表示没有选中任何图表
+    if (syncChartTileUuids.length === 0) return [];
 
     return tiles.flatMap((tile) => {
         if (!isDashboardChartTileType(tile)) return [];
         const savedChartUuid = tile.properties.savedChartUuid;
         if (!savedChartUuid) return [];
-        if (
-            syncChartTileUuids.length > 0 &&
-            !syncChartTileUuids.includes(tile.uuid)
-        ) {
+        if (!syncChartTileUuids.includes(tile.uuid)) {
             return [];
         }
         return [{ tileUuid: tile.uuid, savedChartUuid }];

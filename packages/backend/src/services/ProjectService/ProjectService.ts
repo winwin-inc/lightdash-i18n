@@ -10,6 +10,7 @@ import {
     ApiCompiledMergeQueryResults,
     ApiCreatePreviewResults,
     type ApiCreateProjectResults,
+    type ApiDataTimezonePreviewResults,
     ApiFormulaValidationResults,
     ApiQueryResults,
     ApiSqlQueryResults,
@@ -17,20 +18,22 @@ import {
     assertIsAccountWithOrg,
     assertUnreachable,
     BigqueryAuthenticationType,
+    buildDataTimezonePreviewResponse,
+    buildDataTimezonePreviewSql,
+    buildMergeItems,
     CacheMetadata,
-    type CalculateSubtotalsFromQuery,
     CalculateCountFromQuery,
+    type CalculateSubtotalsFromQuery,
     CalculateTotalFromQuery,
     ChartSourceType,
     ChartSummary,
     CompiledDimension,
     ContentType,
     convertCustomMetricToDbt,
-    convertItemTypeToDimensionType,
     convertExplores,
+    convertItemTypeToDimensionType,
     countCustomDimensionsInMetricQuery,
     countTotalFilterRules,
-    buildMergeItems,
     type CreateDatabricksCredentials,
     createDimensionWithGranularity,
     CreateJob,
@@ -41,12 +44,15 @@ import {
     CreateSnowflakeCredentials,
     CreateVirtualViewPayload,
     CreateWarehouseCredentials,
+    currentUtcWallClock,
     CustomFormatType,
     CustomSqlQueryForbiddenError,
     DashboardAvailableFilters,
     DashboardBasicDetails,
     type DashboardFilterableField,
     DashboardFilters,
+    DashboardQueryContextAttributes,
+    type DataTimezonePreviewRequest,
     DateZoom,
     DbtExposure,
     DbtExposureType,
@@ -61,8 +67,8 @@ import {
     Explore,
     ExploreError,
     ExploreType,
-    FieldType,
     FeatureFlags,
+    FieldType,
     FilterableDimension,
     FilterGroupItem,
     FilterOperator,
@@ -72,7 +78,9 @@ import {
     ForbiddenError,
     formatRawRows,
     formatRows,
+    getAccountUserTimezone,
     getAvailableParametersFromTables,
+    getColumnTimezone,
     getDashboardFilterRulesForTables,
     getDateDimension,
     getDimensions,
@@ -81,26 +89,17 @@ import {
     getIntrinsicUserAttributes,
     getItemId,
     getItemMap,
-    getMetrics,
     getMergeSourceTableLabel,
+    getMetrics,
     getTimezoneLabel,
-    getAccountUserTimezone,
-    resolveQueryTimezone,
-    isValidTimezone,
-    getColumnTimezone,
-    type ApiDataTimezonePreviewResults,
-    type DataTimezonePreviewRequest,
-    buildDataTimezonePreviewResponse,
-    buildDataTimezonePreviewSql,
-    currentUtcWallClock,
     GroupType,
     hasIntersection,
     hasWarehouseCredentials,
     IntrinsicUserAttributes,
     isAndFilterGroup,
     isCartesianChartConfig,
-    isCustomSqlDimension,
     isCustomDimension,
+    isCustomSqlDimension,
     isDateItem,
     isDimension,
     isExploreError,
@@ -112,6 +111,7 @@ import {
     isNotNull,
     isSqlTableCalculation,
     isUserWithOrg,
+    isValidTimezone,
     ItemsMap,
     Job,
     JobStatusType,
@@ -119,8 +119,13 @@ import {
     JobType,
     LightdashError,
     LightdashProjectConfig,
+    MAX_RESULTS_CACHE_TTL_SECONDS,
+    maybeOverrideDbtConnection,
+    maybeOverrideWarehouseConnection,
+    maybeReplaceFieldsInChartVersion,
     MERGE_TABLE_NAME,
     mergeCalculationReferencePattern,
+    mergeDashboardAvailableFiltersFromChartFilterSets,
     MergeFieldTypes,
     MergeItemEntry,
     MergeQuery,
@@ -129,14 +134,10 @@ import {
     MergeQueryField,
     MergeQueryMetricSource,
     MergeTypedColumn,
-    maybeOverrideDbtConnection,
-    maybeOverrideWarehouseConnection,
-    maybeReplaceFieldsInChartVersion,
-    mergeDashboardAvailableFiltersFromChartFilterSets,
     mergeWarehouseCredentials,
+    mergeDashboardSorts,
     MetricQuery,
     MetricType,
-    MAX_RESULTS_CACHE_TTL_SECONDS,
     MIN_RESULTS_CACHE_TTL_SECONDS,
     MissingWarehouseCredentialsError,
     MostPopularAndRecentlyUpdated,
@@ -152,6 +153,7 @@ import {
     PivotConfiguration,
     PivotValuesColumn,
     Project,
+    PROJECT_OPERATION_LOG_ACTIONS,
     ProjectCatalog,
     ProjectGroupAccess,
     ProjectMemberProfile,
@@ -163,6 +165,7 @@ import {
     ReplaceCustomFieldsPayload,
     replaceDimensionInExplore,
     RequestMethod,
+    resolveQueryTimezone,
     ResultRow,
     ResultsCacheProjectSettings,
     type RunQueryTags,
@@ -191,8 +194,8 @@ import {
     UserAccessControls,
     UserAttributeValueMap,
     UserWarehouseCredentials,
-    ValuesColumn,
     validateMergeQuery,
+    ValuesColumn,
     VizColumn,
     VizIndexType,
     WarehouseClient,
@@ -266,14 +269,14 @@ import {
 import { compileFilterableCustomSqlDimensionsForExplore } from '../../utils/compileCustomSqlDimensionsForDashboard';
 import { EncryptionUtil } from '../../utils/EncryptionUtil/EncryptionUtil';
 import {
-    CompiledQuery,
-    MetricQueryBuilder,
-} from '../../utils/QueryBuilder/MetricQueryBuilder';
-import {
     applyMergeTerminalWrapper,
     getMergeJoinKeySqlOptions,
     MergeQueryBuilder,
 } from '../../utils/QueryBuilder/MergeQueryBuilder';
+import {
+    CompiledQuery,
+    MetricQueryBuilder,
+} from '../../utils/QueryBuilder/MetricQueryBuilder';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import {
     applyLimitToSqlQuery,
@@ -282,6 +285,11 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
+import {
+    type DashboardContextUser,
+    DashboardService,
+} from '../DashboardService/DashboardService';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
     hasDirectAccessToSpace,
     hasViewAccessToSpace,
@@ -323,6 +331,8 @@ export type ProjectServiceArguments = {
     featureFlagModel: FeatureFlagModel;
     projectParametersModel: ProjectParametersModel;
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
+    projectOperationLogService: ProjectOperationLogService;
+    dashboardService: DashboardService;
 };
 
 export class ProjectService extends BaseService {
@@ -384,6 +394,10 @@ export class ProjectService extends BaseService {
 
     organizationWarehouseCredentialsModel: OrganizationWarehouseCredentialsModel;
 
+    projectOperationLogService: ProjectOperationLogService;
+
+    dashboardService: DashboardService;
+
     constructor({
         lightdashConfig,
         analytics,
@@ -413,6 +427,8 @@ export class ProjectService extends BaseService {
         featureFlagModel,
         projectParametersModel,
         organizationWarehouseCredentialsModel,
+        projectOperationLogService,
+        dashboardService,
     }: ProjectServiceArguments) {
         super();
         this.lightdashConfig = lightdashConfig;
@@ -445,6 +461,8 @@ export class ProjectService extends BaseService {
         this.projectParametersModel = projectParametersModel;
         this.organizationWarehouseCredentialsModel =
             organizationWarehouseCredentialsModel;
+        this.projectOperationLogService = projectOperationLogService;
+        this.dashboardService = dashboardService;
     }
 
     static getMetricQueryExecutionProperties({
@@ -659,18 +677,12 @@ export class ProjectService extends BaseService {
         | {
               account: Account;
               user?: never;
-              context?: {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              };
+              context?: DashboardQueryContextAttributes;
           }
         | {
               user: SessionUser;
               account?: never;
-              context?: {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              };
+              context?: DashboardQueryContextAttributes;
           }): Promise<UserAccessControls> {
         // Embedded JWT users may come with an email, but they aren't customers
         // within Lightdash that have verified their email.
@@ -718,6 +730,7 @@ export class ProjectService extends BaseService {
                     {
                         dashboardSlug: context.dashboardSlug,
                         dashboardName: context.dashboardName,
+                        dashboardUuid: context.dashboardUuid,
                         emailStatus: emailStatus.isVerified,
                         email,
                         intrinsicUserAttributes,
@@ -2165,27 +2178,16 @@ export class ProjectService extends BaseService {
         }
 
         // Align with AsyncQuery: resolve dashboard context for sql_filter / user attrs
-        let dashboardContext:
-            | {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              }
-            | undefined;
-        if (dashboardUuid) {
-            try {
-                const dashboard = await this.dashboardModel.getByIdOrSlug(
-                    dashboardUuid,
-                );
-                dashboardContext = {
-                    dashboardSlug: dashboard.slug,
-                    dashboardName: dashboard.name,
-                };
-            } catch (error) {
-                this.logger.warn(
-                    `Dashboard ${dashboardUuid} not found while compiling query, continuing without dashboard context`,
-                );
-            }
-        }
+        // The dashboard is resolved (and verified) on the server: the dbt
+        // `sql_filter` (row level security) relies on the canonical slug of a
+        // dashboard of this project the user is allowed to open. When the
+        // context cannot be verified the request is rejected, so the row
+        // filter cannot be silently skipped (the `NA` branch).
+        const dashboardContext = await this.resolveDashboardContextForQuery(
+            account,
+            projectUuid,
+            dashboardUuid,
+        );
 
         const explore =
             'explore' in args
@@ -2197,6 +2199,7 @@ export class ProjectService extends BaseService {
                       organizationUuid,
                       true,
                       dashboardUuid,
+                      dashboardContext,
                   );
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
@@ -2531,10 +2534,10 @@ export class ProjectService extends BaseService {
                 appliedDashboardFilters,
                 explore,
             ),
-            sorts:
-                dashboardSorts && dashboardSorts.length > 0
-                    ? dashboardSorts
-                    : savedChart.metricQuery.sorts,
+            sorts: mergeDashboardSorts(
+                savedChart.metricQuery.sorts,
+                dashboardSorts ?? [],
+            ),
         };
 
         const queryTags: RunQueryTags = {
@@ -2659,6 +2662,16 @@ export class ProjectService extends BaseService {
             explore_name: exploreName,
             query_context: context,
         };
+
+        const adhocUser =
+            ProjectService.exploreAllowListUserFromAccount(account);
+        if (adhocUser) {
+            await this.assertExploreAllowedForAdhocQuery(
+                adhocUser,
+                projectUuid,
+                exploreName,
+            );
+        }
 
         const explore = await this.getExplore(
             account,
@@ -3051,7 +3064,7 @@ export class ProjectService extends BaseService {
         dateZoom?: DateZoom;
         chartUuid: string | undefined; // for analytics
         parameters?: ParametersValuesMap;
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string };
+        dashboardContext?: DashboardQueryContextAttributes;
     }): Promise<{
         rows: Record<string, AnyType>[];
         cacheMetadata: CacheMetadata;
@@ -3708,6 +3721,36 @@ export class ProjectService extends BaseService {
                         filter.target.fieldId,
                     ),
             );
+            // 被丢弃的条件必须留下痕迹。
+            //
+            // 类目父子联动会把「父级类目 = 某值」作为一个过滤条件传进来，
+            // 如果父级字段不在这个 explore 里（业务库里 cls_1 与 cls_2 分属
+            // 两张表且没有 join），条件会被静默丢掉：返回的是未过滤的全集，
+            // 前端按「当前值仍在候选里 → 保留」处理，表现成「配了绑定但联动无效」，
+            // 极难排查。这里明确记录，避免再静默。
+            const droppedFilterFieldIds = filters.and
+                .filter(
+                    (filter) =>
+                        isFilterRule(filter) &&
+                        !findFieldByIdInExplore(
+                            explore as Explore,
+                            filter.target.fieldId,
+                        ),
+                )
+                .map((filter) =>
+                    isFilterRule(filter) ? filter.target.fieldId : '',
+                )
+                .filter((droppedFieldId) => droppedFieldId !== '');
+            if (droppedFilterFieldIds.length > 0) {
+                this.logger.warn(
+                    `[field-search] Dropped filter field(s) not present in explore "${
+                        explore.name
+                    }" (base table "${
+                        explore.baseTable
+                    }"): ${droppedFilterFieldIds.join(', ')}. ` +
+                        `Candidate values are returned unfiltered; category cascade relying on these fields will not work until they are joined into the same explore.`,
+                );
+            }
             autocompleteDimensionFilters.push(...filtersCompatibleWithExplore);
         }
         const metricQuery: MetricQuery = {
@@ -3732,6 +3775,35 @@ export class ProjectService extends BaseService {
         return { metricQuery, explore, field };
     }
 
+    /**
+     * Resolve a list of table names (base tables or join aliases) to the base
+     * explore names they belong to. Used to check that a table the user reads
+     * the values of is actually used by the dashboard they are opening.
+     */
+    private async getExploreNamesForTables(
+        projectUuid: string,
+        tableNames: string[],
+    ): Promise<Set<string>> {
+        const exploreNames = new Set<string>();
+        await Promise.all(
+            tableNames.map(async (tableName) => {
+                const explore =
+                    (await this.projectModel.findExploreByTableName(
+                        projectUuid,
+                        tableName,
+                    )) ??
+                    (await this.projectModel.findJoinAliasExplore(
+                        projectUuid,
+                        tableName,
+                    ));
+                if (explore && !isExploreError(explore)) {
+                    exploreNames.add(explore.name);
+                }
+            }),
+        );
+        return exploreNames;
+    }
+
     async searchFieldUniqueValues(
         user: SessionUser,
         projectUuid: string,
@@ -3742,7 +3814,7 @@ export class ProjectService extends BaseService {
         filters: AndFilterGroup | undefined,
         forceRefresh: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -3757,6 +3829,39 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        // Resolve the dashboard context against the database before using it:
+        // the dbt `sql_filter` (row level security) relies on the canonical slug,
+        // and a client must not be able to spoof it to bypass the row filter.
+        // The client may send the dashboard uuid (preferred, globally unique) or
+        // its slug (only unique within a project, so it is resolved scoped to
+        // the requested project).
+        const hasClientDashboardSlug = !!dashboardContext?.dashboardSlug;
+        const hasClientDashboardUuid = !!dashboardContext?.dashboardUuid;
+        const hasClientDashboardName = !!dashboardContext?.dashboardName;
+        const hasClientDashboardContext =
+            hasClientDashboardSlug ||
+            hasClientDashboardUuid ||
+            hasClientDashboardName;
+        const trustedDashboardContext = hasClientDashboardContext
+            ? await this.dashboardService.resolveDashboardContextForMetadata(
+                  user,
+                  projectUuid,
+                  dashboardContext.dashboardUuid ??
+                      dashboardContext.dashboardSlug,
+                  dashboardContext.dashboardName,
+              )
+            : undefined;
+
+        // Fail closed: a client that claims a dashboard context must have it
+        // verified against the database. Otherwise the dbt `sql_filter` would
+        // silently be skipped (the `NA` branch) and the user would see rows
+        // they are not allowed to see.
+        if (hasClientDashboardContext && !trustedDashboardContext) {
+            throw new ForbiddenError(
+                'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+            );
+        }
+
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
                 projectUuid,
@@ -3767,6 +3872,32 @@ export class ProjectService extends BaseService {
                 filters,
             });
 
+        // The allow-list is checked with the resolved explore: `table` can be a
+        // join alias, while the allow-list only contains base explore names.
+        //
+        // An explore that is not on the allow-list is only allowed when the
+        // user is opening a dashboard that filters on it: the dashboard's own
+        // filters may target a table that none of its tiles uses (and the row
+        // level filter still applies). Any other explore stays forbidden, so a
+        // dashboard context cannot be used to read arbitrary tables.
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(explore.name)
+        ) {
+            const dashboardExploreNames = await this.getExploreNamesForTables(
+                projectUuid,
+                trustedDashboardContext?.filterTableNames ?? [],
+            );
+            if (!dashboardExploreNames.has(explore.name)) {
+                throw new ForbiddenError(
+                    `You don't have access to the explore ${explore.name}`,
+                );
+            }
+        }
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
             await this.getWarehouseCredentials({
@@ -3779,11 +3910,15 @@ export class ProjectService extends BaseService {
                 databricksCompute: explore.databricksCompute,
             },
         );
-        const contextWithValues =
-            dashboardContext &&
-            (dashboardContext.dashboardSlug || dashboardContext.dashboardName)
-                ? dashboardContext
-                : undefined;
+        // Only a context verified against the database may be used for the dbt
+        // `sql_filter`. When the client sent a slug that could not be verified,
+        // the client context is dropped entirely (no row filter is applied, but
+        // the explore allow-list is enforced above).
+        const contextWithValues: DashboardQueryContextAttributes | undefined =
+            trustedDashboardContext ??
+            (!hasClientDashboardContext && dashboardContext?.dashboardName
+                ? { dashboardName: dashboardContext.dashboardName }
+                : undefined);
         if (contextWithValues) {
             this.logger.info(
                 `[USER_ATTRIBUTES_DEBUG][ProjectService.searchFieldUniqueValues] Dashboard context detected ${JSON.stringify(
@@ -4412,6 +4547,275 @@ export class ProjectService extends BaseService {
             });
     }
 
+    /**
+     * Account.user is LightdashSessionUser, not SessionUser.
+     * Allow-list only needs userUuid + email (looked up in DB by DashboardService).
+     */
+    protected static exploreAllowListUserFromAccount(
+        account: Account,
+    ): Pick<SessionUser, 'userUuid' | 'email'> | undefined {
+        if (!account.isRegisteredUser()) {
+            return undefined;
+        }
+        if (!('userUuid' in account.user)) {
+            return undefined;
+        }
+        return {
+            userUuid: account.user.userUuid,
+            email: account.user.email,
+        };
+    }
+
+    /**
+     * User information needed to resolve a dashboard context from an account.
+     *
+     * Only registered users (session, personal access token, oauth, service
+     * accounts) can have a dashboard context: anonymous users (JWT/embed) have
+     * no user uuid and no ability to open dashboards.
+     */
+    protected static dashboardContextUserFromAccount(
+        account: Account,
+    ): DashboardContextUser | undefined {
+        if (account.user.type !== 'registered') {
+            return undefined;
+        }
+        return {
+            userUuid: account.user.userUuid,
+            email: account.user.email,
+            organizationUuid: account.organization.organizationUuid,
+            ability: account.user.ability,
+        };
+    }
+
+    /**
+     * Checks that the user is allowed to open the dashboard.
+     *
+     * The dashboard drives the row level filters (dbt `sql_filter`), so a
+     * query must not be able to use the context of a dashboard the user
+     * cannot see.
+     */
+    protected async assertDashboardAccess(
+        account: Account,
+        projectUuid: string,
+        dashboard: { uuid: string; spaceUuid: string },
+    ): Promise<void> {
+        const space = await this.spaceModel.getSpaceSummary(
+            dashboard.spaceUuid,
+        );
+        const access = await this.spaceModel.getUserSpaceAccess(
+            account.user.id,
+            dashboard.spaceUuid,
+        );
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('Dashboard', {
+                    dashboardUuid: dashboard.uuid,
+                    organizationUuid: account.organization.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this dashboard belongs to",
+            );
+        }
+    }
+
+    /**
+     * Resolves the dashboard context (slug + name + uuid) used by the query
+     * execution paths, from the uuid of the dashboard.
+     *
+     * @see resolveDashboardContextForRowLevelSecurity
+     */
+    protected async resolveDashboardContextForQuery(
+        account: Account,
+        projectUuid: string,
+        dashboardUuid: string | undefined,
+    ): Promise<DashboardQueryContextAttributes | undefined> {
+        if (!dashboardUuid) {
+            return undefined;
+        }
+
+        return this.resolveDashboardContextForRowLevelSecurity(
+            account,
+            projectUuid,
+            {
+                dashboardUuid,
+            },
+        );
+    }
+
+    /**
+     * Resolves the dashboard context of a dashboard of this project, without
+     * checking the permissions of the user.
+     *
+     * Used for the contexts that do not come from the client (eg: the
+     * dashboard of a query history record), where the dashboard is already
+     * bound to the project. The dashboard is looked up scoped to the project,
+     * so a slug of another project can never be used.
+     */
+    protected async resolveDashboardContextForProject(
+        projectUuid: string,
+        dashboardUuidOrSlug: string,
+    ): Promise<DashboardQueryContextAttributes> {
+        try {
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuidOrSlug,
+                projectUuid,
+            );
+            return {
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+                dashboardUuid: dashboard.uuid,
+            };
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw new ForbiddenError(
+                    'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+                );
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Resolve the dashboard context sent by the client against the database.
+     *
+     * The dbt `sql_filter` (row level security) is applied with the dashboard
+     * slug, so the slug used for the query has to be the canonical one of a
+     * dashboard of this project that the user is allowed to open. A client must
+     * not be able to spoof it (eg: by sending nothing, so that the `NA` branch
+     * of the filter is used, or by sending the slug of another dashboard).
+     *
+     * Returns undefined when the client did not send any context (the query
+     * then runs without a dashboard context, as before) and throws a
+     * ForbiddenError when the client sent a context that cannot be verified.
+     */
+    protected async resolveDashboardContextForRowLevelSecurity(
+        account: Account,
+        projectUuid: string,
+        dashboardContext?: DashboardQueryContextAttributes,
+    ): Promise<DashboardQueryContextAttributes | undefined> {
+        const hasClientDashboardContext = Boolean(
+            dashboardContext?.dashboardSlug ||
+                dashboardContext?.dashboardUuid ||
+                dashboardContext?.dashboardName,
+        );
+        if (!hasClientDashboardContext || dashboardContext === undefined) {
+            return undefined;
+        }
+
+        const user = ProjectService.dashboardContextUserFromAccount(account);
+        if (user === undefined) {
+            // Anonymous (embed) users have no session user to check the
+            // dashboard permissions against (their row level security comes
+            // from the JWT controls), but the dashboard still has to be the one
+            // the token gives access to, and it has to belong to the project.
+            const dashboardUuidOrSlug =
+                dashboardContext.dashboardUuid ??
+                dashboardContext.dashboardSlug;
+            if (!dashboardUuidOrSlug) {
+                throw new ForbiddenError(
+                    'Dashboard context cannot be used by this user, the row level security filter cannot be applied',
+                );
+            }
+            const dashboard = await this.resolveDashboardContextForProject(
+                projectUuid,
+                dashboardUuidOrSlug,
+            );
+            if (
+                account.user.ability.cannot(
+                    'view',
+                    subject('Dashboard', {
+                        dashboardUuid: dashboard.dashboardUuid,
+                        organizationUuid: account.organization.organizationUuid,
+                        projectUuid,
+                    }),
+                )
+            ) {
+                throw new ForbiddenError(
+                    "You don't have access to this dashboard",
+                );
+            }
+            return dashboard;
+        }
+
+        const trustedDashboardContext =
+            await this.dashboardService.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                dashboardContext.dashboardUuid ??
+                    dashboardContext.dashboardSlug,
+                dashboardContext.dashboardName,
+            );
+
+        if (trustedDashboardContext === undefined) {
+            throw new ForbiddenError(
+                'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+            );
+        }
+
+        return {
+            dashboardSlug: trustedDashboardContext.dashboardSlug,
+            dashboardName: trustedDashboardContext.dashboardName,
+            dashboardUuid: trustedDashboardContext.dashboardUuid,
+        };
+    }
+
+    protected async getAllowedExploreNamesForViewer(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        return this.dashboardService.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+    }
+
+    protected async filterExploresByViewerAllowList<T extends { name: string }>(
+        account: Account,
+        projectUuid: string,
+        explores: T[],
+    ): Promise<T[]> {
+        const user = ProjectService.exploreAllowListUserFromAccount(account);
+        if (!user) {
+            return explores;
+        }
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (allowedExploreNames === undefined) {
+            return explores;
+        }
+        return explores.filter((explore) =>
+            allowedExploreNames.has(explore.name),
+        );
+    }
+
+    protected async assertExploreAllowedForAdhocQuery(
+        user: Pick<SessionUser, 'userUuid' | 'email'>,
+        projectUuid: string,
+        exploreName: string,
+    ): Promise<void> {
+        const allowedExploreNames = await this.getAllowedExploreNamesForViewer(
+            user,
+            projectUuid,
+        );
+        if (
+            allowedExploreNames !== undefined &&
+            !allowedExploreNames.has(exploreName)
+        ) {
+            throw new ForbiddenError(
+                `You don't have access to the explore ${exploreName}`,
+            );
+        }
+    }
+
     private async getExploreSummaries(
         account: Account,
         projectUuid: string,
@@ -4474,19 +4878,19 @@ export class ProjectService extends BaseService {
             includeErrors,
         );
 
+        let exploreSummaries = allExploreSummaries;
         if (filtered) {
             const {
                 tableSelection: { type, value },
             } = await this.getTablesConfiguration(account, projectUuid);
             if (type === TableSelectionType.WITH_TAGS) {
-                return allExploreSummaries.filter(
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         hasIntersection(explore.tags || [], value || []) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
                 );
-            }
-            if (type === TableSelectionType.WITH_NAMES) {
-                return allExploreSummaries.filter(
+            } else if (type === TableSelectionType.WITH_NAMES) {
+                exploreSummaries = allExploreSummaries.filter(
                     (explore) =>
                         (value || []).includes(explore.name) ||
                         explore.type === ExploreType.VIRTUAL, // Custom explores/Virtual views are included by default
@@ -4494,7 +4898,11 @@ export class ProjectService extends BaseService {
             }
         }
 
-        return allExploreSummaries;
+        return this.filterExploresByViewerAllowList(
+            account,
+            projectUuid,
+            exploreSummaries,
+        );
     }
 
     async getExplore(
@@ -4504,6 +4912,11 @@ export class ProjectService extends BaseService {
         organizationUuid?: string,
         includeUnfilteredTables: boolean = true,
         dashboardUuid?: string,
+        /**
+         * A dashboard context that has already been resolved (and verified)
+         * by the caller, to avoid resolving it twice.
+         */
+        verifiedDashboardContext?: DashboardQueryContextAttributes,
     ): Promise<Explore> {
         return Sentry.startSpan(
             {
@@ -4512,29 +4925,13 @@ export class ProjectService extends BaseService {
             },
             async () => {
                 // Get dashboard context if dashboardUuid is provided
-                let dashboardContext:
-                    | {
-                          dashboardSlug?: string;
-                          dashboardName?: string;
-                      }
-                    | undefined;
-                if (dashboardUuid) {
-                    try {
-                        const dashboard =
-                            await this.dashboardModel.getByIdOrSlug(
-                                dashboardUuid,
-                            );
-                        dashboardContext = {
-                            dashboardSlug: dashboard.slug,
-                            dashboardName: dashboard.name,
-                        };
-                    } catch (error) {
-                        // If dashboard not found, continue without context
-                        this.logger.warn(
-                            `Dashboard ${dashboardUuid} not found, continuing without dashboard context`,
-                        );
-                    }
-                }
+                const dashboardContext =
+                    verifiedDashboardContext ??
+                    (await this.resolveDashboardContextForQuery(
+                        account,
+                        projectUuid,
+                        dashboardUuid,
+                    ));
 
                 const exploresMap = await this.findExplores({
                     account,
@@ -4574,10 +4971,7 @@ export class ProjectService extends BaseService {
         projectUuid: string;
         exploreNames: string[];
         organizationUuid?: string;
-        context?: {
-            dashboardSlug?: string;
-            dashboardName?: string;
-        };
+        context?: DashboardQueryContextAttributes;
     }): Promise<Record<string, Explore | ExploreError>> {
         return Sentry.startSpan(
             {
@@ -5133,6 +5527,16 @@ export class ProjectService extends BaseService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use: only the charts of the visible scope count.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope !== undefined) {
+            return viewerScope.chartUuids.length > 0;
+        }
+
         try {
             const charts = await this.contentModel.findSummaryContents(
                 {
@@ -5233,6 +5637,29 @@ export class ProjectService extends BaseService {
             data.email,
             data.role,
         );
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const createdMember = members.find(
+            (member) => member.email === data.email,
+        );
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ADDED,
+            resourceType: 'project_member',
+            resourceUuid: createdMember?.userUuid ?? null,
+            resourceName:
+                createdMember != null
+                    ? `${createdMember.firstName} ${createdMember.lastName}`.trim() ||
+                      createdMember.email
+                    : data.email,
+            summary: {
+                targetUserUuid: createdMember?.userUuid ?? null,
+                targetEmail: data.email,
+                fromRole: null,
+                toRole: data.role,
+            },
+        });
         const project = await this.projectModel.getSummary(projectUuid);
         const projectUrl = new URL(
             `/projects/${projectUuid}/home`,
@@ -5269,11 +5696,32 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const existing = members.find((member) => member.userUuid === userUuid);
         await this.projectModel.updateProjectAccess(
             projectUuid,
             userUuid,
             data.role,
         );
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_ROLE_UPDATED,
+            resourceType: 'project_member',
+            resourceUuid: userUuid,
+            resourceName:
+                existing != null
+                    ? `${existing.firstName} ${existing.lastName}`.trim() ||
+                      existing.email
+                    : userUuid,
+            summary: {
+                targetUserUuid: userUuid,
+                targetEmail: existing?.email ?? null,
+                fromRole: existing?.role ?? null,
+                toRole: data.role,
+            },
+        });
     }
 
     async updateMetadata(
@@ -5319,7 +5767,28 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const members = await this.projectModel.getProjectAccess(projectUuid);
+        const existing = members.find((member) => member.userUuid === userUuid);
         await this.projectModel.deleteProjectAccess(projectUuid, userUuid);
+        await this.projectOperationLogService.record({
+            organizationUuid,
+            projectUuid,
+            actor: user,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_MEMBER_REMOVED,
+            resourceType: 'project_member',
+            resourceUuid: userUuid,
+            resourceName:
+                existing != null
+                    ? `${existing.firstName} ${existing.lastName}`.trim() ||
+                      existing.email
+                    : userUuid,
+            summary: {
+                targetUserUuid: userUuid,
+                targetEmail: existing?.email ?? null,
+                fromRole: existing?.role ?? null,
+                toRole: null,
+            },
+        });
     }
 
     async getProjectGroupAccesses(
@@ -5385,7 +5854,20 @@ export class ProjectService extends BaseService {
             allowedSpaceUuids,
         );
 
-        return [...savedQueries, ...savedSqlCharts];
+        const charts = [...savedQueries, ...savedSqlCharts];
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getChartSummaries(
@@ -5423,11 +5905,24 @@ export class ProjectService extends BaseService {
             )
             .map((space) => space.uuid);
 
-        return this.savedChartModel.find({
+        const charts = await this.savedChartModel.find({
             projectUuid,
             spaceUuids: allowedSpaceUuids,
             excludeChartsSavedInDashboard,
         });
+
+        // Client-use: only the charts that are mounted on an allow-listed
+        // dashboard are visible.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return charts;
+        }
+        return charts.filter((chart) =>
+            viewerScope.chartUuids.includes(chart.uuid),
+        );
     }
 
     async getMostPopularAndRecentlyUpdated(
@@ -5454,17 +5949,60 @@ export class ProjectService extends BaseService {
                 hasDirectAccessToSpace(user, space), // NOTE: We don't check for admin access to the space - exclude private spaces from this panel if admin
         );
 
-        const mostPopular = await this.getMostPopular(allowedSpaces);
-        const recentlyUpdated = await this.getRecentlyUpdated(allowedSpaces);
+        // Client-use: the panel must only show content of the visible spaces,
+        // and the visible charts / dashboards.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const visibleSpaces =
+            viewerScope === undefined
+                ? allowedSpaces
+                : allowedSpaces.filter((space) =>
+                      viewerScope.spaceUuids.includes(space.uuid),
+                  );
+
+        // SQL already LIMITs to MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT (10).
+        // Allow-list is applied after that cut, so a permitted dashboard outside
+        // the top 10 is not backfilled. Client-use home hides this panel; do not
+        // switch to fetch-all-then-slice unless that UI starts using this API.
+        const mostPopular = await this.getMostPopular(visibleSpaces);
+        const recentlyUpdated = await this.getRecentlyUpdated(visibleSpaces);
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
+        // Charts (SpaceQuery) have slug; dashboard details from getSpaceDashboards
+        // do not. Do not add slug to that dashboard mapping or this filter breaks.
+        const isVisibleItem = (
+            item: SpaceQuery | DashboardBasicDetails,
+        ): boolean => {
+            if (viewerScope !== undefined) {
+                // Client-use: charts and dashboards must be part of the scope
+                return 'slug' in item
+                    ? viewerScope.chartUuids.includes(item.uuid)
+                    : viewerScope.dashboardUuids.includes(item.uuid);
+            }
+            return (
+                allowedDashboardUuids === undefined ||
+                !isUserWithOrg(user) ||
+                'slug' in item ||
+                allowedDashboardUuids.has(item.uuid)
+            );
+        };
 
         return {
             mostPopular: mostPopular
+                .filter(isVisibleItem)
                 .sort((a, b) => b.views - a.views)
                 .slice(
                     0,
                     this.spaceModel.MOST_POPULAR_OR_RECENTLY_UPDATED_LIMIT,
                 ),
             recentlyUpdated: recentlyUpdated
+                .filter(isVisibleItem)
                 .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
                 .slice(
                     0,
@@ -5563,7 +6101,46 @@ export class ProjectService extends BaseService {
                 userAccess: spacesAccess[spaceSummary.uuid]?.[0] ?? [],
             }));
 
-        return spacesWithUserAccess;
+        // undefined: the client-use allow-list does not apply to this user
+        // (not a client-use project or not a restricted role). Keep the SQL
+        // counts and every space the user has access to.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        if (viewerScope === undefined || !isUserWithOrg(user)) {
+            return spacesWithUserAccess;
+        }
+
+        // Client-use: a space is visible when it holds visible content (an
+        // allow-listed dashboard or a visible chart), or when it is an
+        // ancestor of such a space.
+        const scopedSpaces = spacesWithUserAccess.filter((space) =>
+            viewerScope.spaceUuids.includes(space.uuid),
+        );
+        if (scopedSpaces.length === 0) {
+            return [];
+        }
+
+        const spaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                scopedSpaces.map((space) => space.uuid),
+                new Set(viewerScope.dashboardUuids),
+            );
+
+        // The chartCount of a space must not leak the charts that are hidden
+        // by the client-use scope.
+        const chartCounts =
+            await this.spaceModel.getVisibleChartCountsBySpaceUuids(
+                scopedSpaces.map((space) => space.uuid),
+                viewerScope.chartUuids,
+            );
+
+        return scopedSpaces.map((space) => ({
+            ...space,
+            dashboardCount: spaceCounts.get(space.uuid) ?? 0,
+            chartCount: chartCounts.get(space.uuid) ?? 0,
+        }));
     }
 
     async createPreview(
@@ -5715,7 +6292,7 @@ export class ProjectService extends BaseService {
         );
     }
 
-    async _getCalculateTotalQuery(
+    static async _getCalculateTotalQuery(
         userAttributes: UserAttributeValueMap,
         intrinsicUserAttributes: IntrinsicUserAttributes,
         explore: Explore,
@@ -5756,7 +6333,7 @@ export class ProjectService extends BaseService {
         metricQuery: MetricQuery,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -5794,7 +6371,7 @@ export class ProjectService extends BaseService {
         });
 
         try {
-            const { query } = await this._getCalculateTotalQuery(
+            const { query } = await ProjectService._getCalculateTotalQuery(
                 userAttributes,
                 intrinsicUserAttributes,
                 explore,
@@ -5834,7 +6411,7 @@ export class ProjectService extends BaseService {
         invalidateCache: boolean,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -5872,17 +6449,18 @@ export class ProjectService extends BaseService {
         });
 
         try {
-            const { query, totalQuery } = await this._getCalculateTotalQuery(
-                userAttributes,
-                intrinsicUserAttributes,
-                explore,
-                metricQuery,
-                warehouseClient,
-                availableParameterDefinitions,
-                parameters,
-                timezone,
-                useTimezoneAwareDateTrunc,
-            );
+            const { query, totalQuery } =
+                await ProjectService._getCalculateTotalQuery(
+                    userAttributes,
+                    intrinsicUserAttributes,
+                    explore,
+                    metricQuery,
+                    warehouseClient,
+                    availableParameterDefinitions,
+                    parameters,
+                    timezone,
+                    useTimezoneAwareDateTrunc,
+                );
 
             const queryTags: RunQueryTags = {
                 ...this.getUserQueryTags(account),
@@ -5919,7 +6497,7 @@ export class ProjectService extends BaseService {
         dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         assertIsAccountWithOrg(account);
 
@@ -5928,6 +6506,16 @@ export class ProjectService extends BaseService {
             undefined, // VersionUuid
         );
         const { organizationUuid, projectUuid } = savedChart;
+
+        // The dashboard context is verified against the database: the row level
+        // security filter (dbt `sql_filter`) must be applied with the canonical
+        // slug of a dashboard of this project, never with a client provided one.
+        const trustedDashboardContext =
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                dashboardContext,
+            );
 
         const explore = await this.getExplore(
             account,
@@ -6005,7 +6593,7 @@ export class ProjectService extends BaseService {
             invalidateCache,
             savedChart.organizationUuid,
             combinedParameters,
-            dashboardContext,
+            trustedDashboardContext,
         );
         return results.row;
     }
@@ -6072,10 +6660,15 @@ export class ProjectService extends BaseService {
             data.metricQuery,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
         return results.row;
     }
@@ -6159,7 +6752,7 @@ export class ProjectService extends BaseService {
         invalidateCache: boolean,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{ rowCount: number }> {
         if (
             metricQuery.dimensions.length === 0 &&
@@ -6230,7 +6823,7 @@ export class ProjectService extends BaseService {
         dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{ rowCount: number }> {
         assertIsAccountWithOrg(account);
 
@@ -6239,6 +6832,16 @@ export class ProjectService extends BaseService {
             undefined, // VersionUuid
         );
         const { organizationUuid, projectUuid } = savedChart;
+
+        // The dashboard context is verified against the database: the row level
+        // security filter (dbt `sql_filter`) must be applied with the canonical
+        // slug of a dashboard of this project, never with a client provided one.
+        const trustedDashboardContext =
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                dashboardContext,
+            );
 
         const explore = await this.getExplore(
             account,
@@ -6318,7 +6921,7 @@ export class ProjectService extends BaseService {
             invalidateCache,
             savedChart.organizationUuid,
             combinedParameters,
-            dashboardContext,
+            trustedDashboardContext,
         );
     }
 
@@ -6385,10 +6988,15 @@ export class ProjectService extends BaseService {
             false,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
     }
 
@@ -6399,7 +7007,7 @@ export class ProjectService extends BaseService {
         explore: Explore,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const {
             explore: exploreName,
@@ -6554,10 +7162,15 @@ export class ProjectService extends BaseService {
             explore,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
     }
 
@@ -7051,8 +7664,9 @@ export class ProjectService extends BaseService {
     }
 
     async getQueryTimezoneForProject(projectUuid: string): Promise<string> {
-        const projectTimezone =
-            await this.projectModel.getQueryTimezone(projectUuid);
+        const projectTimezone = await this.projectModel.getQueryTimezone(
+            projectUuid,
+        );
         return projectTimezone ?? this.lightdashConfig.query.timezone ?? 'UTC';
     }
 
@@ -7068,8 +7682,9 @@ export class ProjectService extends BaseService {
         if (!enabled) {
             return this.lightdashConfig.query.timezone || 'UTC';
         }
-        const projectTimezone =
-            await this.getQueryTimezoneForProject(projectUuid);
+        const projectTimezone = await this.getQueryTimezoneForProject(
+            projectUuid,
+        );
         return resolveQueryTimezone({
             sessionTimezone: null,
             metricQuery,
@@ -7314,8 +7929,9 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError();
         }
 
-        const settings =
-            await this.projectModel.getResultsCacheSettings(projectUuid);
+        const settings = await this.projectModel.getResultsCacheSettings(
+            projectUuid,
+        );
         return {
             projectUuid,
             ...settings,
@@ -7760,7 +8376,7 @@ export class ProjectService extends BaseService {
         };
     }
 
-    protected getMergeJoinFieldTypes(
+    protected static getMergeJoinFieldTypes(
         mergeQuery: MergeQuery,
         itemMapBySourceId: Record<string, ItemsMap>,
     ): MergeFieldTypes {
@@ -7780,7 +8396,7 @@ export class ProjectService extends BaseService {
                     fieldTypes[sourceId][fieldId] = {
                         type: convertItemTypeToDimensionType(dimension),
                         timeInterval: isDimension(dimension)
-                            ? (dimension.timeInterval ?? null)
+                            ? dimension.timeInterval ?? null
                             : null,
                         timestampDomain: isDimension(dimension)
                             ? dimension.timestampDomain
@@ -7835,8 +8451,9 @@ export class ProjectService extends BaseService {
             throw new ForbiddenError('Merge queries are not enabled');
         }
 
-        const { organizationUuid } =
-            await this.projectModel.getSummary(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
         if (
             account.user.ability.cannot(
                 'view',
@@ -7916,7 +8533,7 @@ export class ProjectService extends BaseService {
         const itemMapBySourceId = Object.fromEntries(
             resolvedSources.map(({ source, itemMap }) => [source.id, itemMap]),
         );
-        const fieldTypes = this.getMergeJoinFieldTypes(
+        const fieldTypes = ProjectService.getMergeJoinFieldTypes(
             mergeQuery,
             itemMapBySourceId,
         );
@@ -7932,7 +8549,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.UNSUPPORTED_TABLE_CALCULATION,
                               sourceId: source.id,
                               fieldIds: unsupported,
-                              message: `Query "${source.id}" uses ${unsupported.join(
+                              message: `Query "${
+                                  source.id
+                              }" uses ${unsupported.join(
                                   ', ',
                               )}, which depend on that query's complete row set and cannot be carried across a merge.`,
                           },
@@ -8004,9 +8623,7 @@ export class ProjectService extends BaseService {
 
         const parameterReferences = Array.from(
             new Set(
-                compiledSources.flatMap(
-                    (source) => source.parameterReferences,
-                ),
+                compiledSources.flatMap((source) => source.parameterReferences),
             ),
         );
         const usedParametersValues = Object.assign(
@@ -8022,7 +8639,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.MISSING_PARAMETERS,
                               sourceId: source.id,
                               fieldIds: source.missingParameters,
-                              message: `Query "${source.id}" is missing values for: ${source.missingParameters.join(
+                              message: `Query "${
+                                  source.id
+                              }" is missing values for: ${source.missingParameters.join(
                                   ', ',
                               )}.`,
                           },
@@ -8076,8 +8695,7 @@ export class ProjectService extends BaseService {
                 ]
                     .map((match) => match[1])
                     .filter(
-                        (reference) =>
-                            !availableReferences.includes(reference),
+                        (reference) => !availableReferences.includes(reference),
                     );
                 return unresolved.length === 0
                     ? []
@@ -8086,7 +8704,9 @@ export class ProjectService extends BaseService {
                               kind: MergeQueryErrorKind.UNRESOLVED_CALCULATION_REFERENCE,
                               sourceId: null,
                               fieldIds: unresolved,
-                              message: `Calculation "${calculation.name}" references unavailable fields: ${unresolved.join(
+                              message: `Calculation "${
+                                  calculation.name
+                              }" references unavailable fields: ${unresolved.join(
                                   ', ',
                               )}.`,
                           },
@@ -8141,7 +8761,7 @@ export class ProjectService extends BaseService {
                     label:
                         origin && !isCustomDimension(origin)
                             ? origin.label
-                            : (origin?.name ?? part.name),
+                            : origin?.name ?? part.name,
                     sql: '',
                     hidden: false,
                 },
@@ -8155,7 +8775,7 @@ export class ProjectService extends BaseService {
                 label:
                     origin && !isCustomDimension(origin)
                         ? origin.label
-                        : (origin?.name ?? part.name),
+                        : origin?.name ?? part.name,
                 kind: 'dimension',
                 type,
                 sourceId: null,
@@ -8189,12 +8809,12 @@ export class ProjectService extends BaseService {
                             });
                             return;
                         }
-                        const label =
-                            origin && 'label' in origin
-                                ? origin.label
-                                : origin && 'displayName' in origin
-                                  ? origin.displayName
-                                  : (origin?.name ?? sourceFieldId);
+                        let label = origin?.name ?? sourceFieldId;
+                        if (origin && 'label' in origin) {
+                            label = origin.label;
+                        } else if (origin && 'displayName' in origin) {
+                            label = origin.displayName;
+                        }
                         entries.push({
                             column,
                             item: isOriginMetric

@@ -37,21 +37,21 @@ import {
     useExplorerSelector,
 } from '../../../features/explorer/store';
 import { resolveMergeColumnOrder } from '../../../features/mergeQuery/utils/resolveMergeColumnOrder';
+import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
 import { type EChartSeries } from '../../../hooks/echarts/useEchartsCartesianConfig';
 import { uploadGsheet } from '../../../hooks/gdrive/useGdrive';
 import { useOrganization } from '../../../hooks/organization/useOrganization';
-import { useDashboardQuery } from '../../../hooks/dashboard/useDashboard';
 import { useCalculateCount } from '../../../hooks/useCalculateCount';
 import { useExplore } from '../../../hooks/useExplore';
 import { useExplorerChartPagedQuery } from '../../../hooks/useExplorerChartPagedQuery';
-import {
-    getTableConfigPageSize,
-    isWarehousePaginatedTableConfig,
-} from '../../../utils/isWarehousePaginatedTableChart';
 import { Can } from '../../../providers/Ability';
 import useApp from '../../../providers/App/useApp';
 import { ExplorerSection } from '../../../providers/Explorer/types';
 import useExplorerContext from '../../../providers/Explorer/useExplorerContext';
+import {
+    getTableConfigPageSize,
+    isWarehousePaginatedTableConfig,
+} from '../../../utils/isWarehousePaginatedTableChart';
 import ChartDownloadMenu from '../../common/ChartDownload/ChartDownloadMenu';
 import CollapsableCard from '../../common/CollapsableCard/CollapsableCard';
 import { COLLAPSABLE_CARD_BUTTON_PROPS } from '../../common/CollapsableCard/constants';
@@ -159,9 +159,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
 
     const chartPagedQuery = useExplorerChartPagedQuery({
         enabled:
-            isWarehousePaginatedTable &&
-            Boolean(tableName) &&
-            !mergeResults,
+            isWarehousePaginatedTable && Boolean(tableName) && !mergeResults,
         projectUuid,
         tableName,
         metricQuery: computedMetricQuery,
@@ -173,6 +171,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             ? {
                   dashboardSlug: fromDashboardData.slug,
                   dashboardName: fromDashboardData.name,
+                  dashboardUuid: fromDashboardData.uuid,
               }
             : undefined,
     });
@@ -203,6 +202,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             ? {
                   dashboardSlug: fromDashboardData.slug,
                   dashboardName: fromDashboardData.name,
+                  dashboardUuid: fromDashboardData.uuid,
               }
             : undefined,
         enabled: showResultsTotalWithoutPagination && Boolean(tableName),
@@ -341,10 +341,11 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
             } satisfies ApiErrorDetail;
         }
 
-        const queryError = isWarehousePaginatedTable && !mergeResults
-            ? (chartPagedQuery.query.error?.error ??
-              chartPagedQuery.queryResults.error?.error)
-            : (query.error?.error ?? queryResults.error?.error);
+        const queryError =
+            isWarehousePaginatedTable && !mergeResults
+                ? chartPagedQuery.query.error?.error ??
+                  chartPagedQuery.queryResults.error?.error
+                : query.error?.error ?? queryResults.error?.error;
 
         return !missingRequiredParameters?.length
             ? queryError
@@ -418,6 +419,7 @@ const VisualizationCard: FC<Props> = memo(({ projectUuid: fallBackUUid }) => {
                 onSeriesContextMenu={onSeriesContextMenu}
                 pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
                 savedChartUuid={isEditMode ? undefined : savedChart?.uuid}
+                isEditMode={isEditMode}
                 onChartConfigChange={setChartConfig}
                 onChartTypeChange={setChartType}
                 onPivotDimensionsChange={setPivotFields}

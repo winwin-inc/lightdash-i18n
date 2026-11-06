@@ -2,7 +2,6 @@ import { subject } from '@casl/ability';
 import {
     Account,
     addDashboardFiltersToMetricQuery,
-    applyMetricQueryLimitOffset,
     type ApiDownloadAsyncQueryResults,
     type ApiDownloadAsyncQueryResultsAsCsv,
     type ApiDownloadAsyncQueryResultsAsXlsx,
@@ -12,6 +11,7 @@ import {
     type ApiExecuteAsyncMetricQueryResults,
     ApiExecuteAsyncSqlQueryResults,
     type ApiGetAsyncQueryResults,
+    applyMetricQueryLimitOffset,
     assertIsAccountWithOrg,
     assertUnreachable,
     CompiledDimension,
@@ -21,7 +21,9 @@ import {
     CreateWarehouseCredentials,
     type CustomDimension,
     CustomSqlQueryForbiddenError,
+    type DashboardDAO,
     DashboardFilters,
+    DashboardQueryContextAttributes,
     DEFAULT_RESULTS_PAGE_SIZE,
     derivePivotConfigurationFromChart,
     Dimension,
@@ -40,6 +42,7 @@ import {
     formatItemValue,
     formatRawValue,
     formatRow,
+    getColumnTimezone,
     getDashboardFilterRulesForTables,
     getDashboardFilterRulesForTileAndReferences,
     getDimensions,
@@ -47,7 +50,6 @@ import {
     getFieldsFromMetricQuery,
     getItemId,
     getItemMap,
-    getColumnTimezone,
     getMetrics,
     isCartesianChartConfig,
     isCustomBinDimension,
@@ -56,14 +58,15 @@ import {
     isDateItem,
     isField,
     isJwtUser,
-    isMetricSourcedMergeQuery,
     isMetric,
+    isMetricSourcedMergeQuery,
     isVizTableConfig,
     ItemsMap,
     MAX_SAFE_INTEGER,
-    type MetricOverrides,
-    MetricQuery,
     MergeQueryErrorKind,
+    type MetricOverrides,
+    mergeDashboardSorts,
+    MetricQuery,
     normalizeIndexColumns,
     NotFoundError,
     type Organization,
@@ -118,6 +121,11 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import type { ICacheService } from '../CacheService/ICacheService';
 import { CreateCacheResult } from '../CacheService/types';
+import {
+    assertChartInViewerContentScope,
+    assertDashboardInViewerContentScope,
+    toViewerContentScopeUser,
+} from '../ClientUseScopeService/clientUseScope';
 import { CsvService } from '../CsvService/CsvService';
 import { ExcelService } from '../ExcelService/ExcelService';
 import { PermissionsService } from '../PermissionsService/PermissionsService';
@@ -134,6 +142,7 @@ import {
 import { getFilteredExplore } from '../UserAttributesService/UserAttributeUtils';
 import { getPivotedColumns } from './getPivotedColumns';
 import { getUnpivotedColumns } from './getUnpivotedColumns';
+import { applyMergeExportLimit } from './mergeQueryExecution';
 import {
     type DownloadAsyncQueryResultsArgs,
     type ExecuteAsyncDashboardChartQueryArgs,
@@ -151,7 +160,6 @@ import {
     type RunAsyncWarehouseQueryArgs,
     type ScheduleDownloadAsyncQueryResultsArgs,
 } from './types';
-import { applyMergeExportLimit } from './mergeQueryExecution';
 
 const SQL_QUERY_MOCK_EXPLORER_NAME = 'sql_query_explorer';
 
@@ -1054,6 +1062,7 @@ export class AsyncQueryService extends ProjectService {
                 headers: string[],
                 streams: { readStream: Readable; writeStream: Writable },
                 displayTimezone?: string,
+                maxLines?: number,
             ) => Promise<{ truncated: boolean }>;
         },
         options?: {
@@ -1103,6 +1112,8 @@ export class AsyncQueryService extends ProjectService {
                         writeStream,
                     },
                     this.lightdashConfig.query.timezone,
+                    // Hard cap so a runaway "all results" export can't exhaust the pod.
+                    this.lightdashConfig.query.exportMaxRows,
                 );
 
                 return {
@@ -1113,6 +1124,13 @@ export class AsyncQueryService extends ProjectService {
         );
     }
 
+    /**
+     * Returns a URL to the raw result file.
+     *
+     * Note: when `RESULTS_JSONL_GZIP=true` the stored object is gzip encoded and S3 serves it
+     * with `Content-Encoding: gzip`. Browsers/axios decompress transparently, but raw clients
+     * (e.g. `curl` without `--compressed`) receive compressed bytes.
+     */
     private async downloadAsyncQueryResultsAsJson(
         resultsFileName: string,
     ): Promise<ApiDownloadAsyncQueryResults> {
@@ -1608,10 +1626,7 @@ export class AsyncQueryService extends ProjectService {
         warehouseCredentials: CreateWarehouseCredentials;
         explore: Explore;
         pivotConfiguration?: PivotConfiguration;
-        context?: {
-            dashboardSlug?: string;
-            dashboardName?: string;
-        };
+        context?: DashboardQueryContextAttributes;
     }) {
         assertIsAccountWithOrg(account);
 
@@ -2084,6 +2099,16 @@ export class AsyncQueryService extends ProjectService {
             query_context: context,
         };
 
+        const adhocUser =
+            ProjectService.exploreAllowListUserFromAccount(account);
+        if (adhocUser) {
+            await this.assertExploreAllowedForAdhocQuery(
+                adhocUser,
+                projectUuid,
+                metricQuery.exploreName,
+            );
+        }
+
         const explore = await this.getExplore(
             account,
             projectUuid,
@@ -2110,18 +2135,15 @@ export class AsyncQueryService extends ProjectService {
         );
 
         // 从看板跳转到探索页时，通过 dashboardUuid 获取看板上下文，以便 SQL 变量替换正常工作
-        let exploreContext:
-            | { dashboardSlug?: string; dashboardName?: string }
-            | undefined;
-        if (dashboardUuid) {
-            const dashboard = await this.dashboardModel.getByIdOrSlug(
-                dashboardUuid,
-            );
-            exploreContext = {
-                dashboardSlug: dashboard.slug,
-                dashboardName: dashboard.name,
-            };
-        }
+        // 看板上下文由服务端解析并校验（项目归属 + 空间权限 + client-use 白名单）：
+        // dbt 的 `sql_filter`（行级权限）依赖看板 slug，客户端不能指向其它看板
+        // （或其它项目的看板）来改变可见的行。无法校验时直接报错（fail closed），
+        // 而不是静默按 NA 跳过行级过滤。
+        const exploreContext = await this.resolveDashboardContextForQuery(
+            account,
+            projectUuid,
+            dashboardUuid,
+        );
 
         const {
             sql,
@@ -2240,6 +2262,15 @@ export class AsyncQueryService extends ProjectService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
 
         await this.analyticsModel.addChartViewEvent(
             savedChartUuid,
@@ -2404,6 +2435,15 @@ export class AsyncQueryService extends ProjectService {
         ) {
             throw new ForbiddenError();
         }
+
+        // Client-use projects: fail closed. Only the charts mounted on an
+        // allow-listed dashboard can be executed.
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChartUuid,
+        );
     }
 
     async executeAsyncDashboardChartQuery({
@@ -2428,7 +2468,7 @@ export class AsyncQueryService extends ProjectService {
             savedChart;
 
         if (savedChartProjectUuid !== projectUuid) {
-            throw new ForbiddenError('Dashboard does not belong to project');
+            throw new ForbiddenError('Chart does not belong to project');
         }
 
         const [space, explore] = await Promise.all([
@@ -2446,6 +2486,47 @@ export class AsyncQueryService extends ProjectService {
             projectUuid,
             savedChart.uuid,
             space,
+        );
+
+        // Client-use projects: fail closed. The dashboard itself has to be
+        // allow-listed, not only the chart.
+        // The dashboard is resolved on the server: its slug / name drives the
+        // row level filters in dbt (`sql_filter`) and its parameters are
+        // applied to the query, so it has to belong to the same project as
+        // the chart. The lookup is scoped to the project, so a dashboard of
+        // another project can never be used.
+        let dashboard: DashboardDAO;
+        try {
+            dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuid,
+                projectUuid,
+            );
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw new ForbiddenError(
+                    'Dashboard does not belong to project',
+                );
+            }
+            throw error;
+        }
+        if (dashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to project');
+        }
+        // The dashboard drives the row level filters, so the user has to be
+        // allowed to open it. The space of a dashboard is usually the space of
+        // its charts, which is already checked above (the embed users are
+        // always checked, their scope comes from the JWT).
+        if (
+            isJwtUser(account) ||
+            dashboard.spaceUuid !== savedChart.spaceUuid
+        ) {
+            await this.assertDashboardAccess(account, projectUuid, dashboard);
+        }
+        await assertDashboardInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            dashboard.uuid,
         );
 
         await this.analyticsModel.addChartViewEvent(
@@ -2475,10 +2556,10 @@ export class AsyncQueryService extends ProjectService {
                 appliedDashboardFilters,
                 explore,
             ),
-            sorts:
-                dashboardSorts && dashboardSorts.length > 0
-                    ? dashboardSorts
-                    : savedChart.metricQuery.sorts,
+            sorts: mergeDashboardSorts(
+                savedChart.metricQuery.sorts,
+                dashboardSorts ?? [],
+            ),
         };
 
         // Warehouse pagination: when offset is set, never keep chart metricQuery.limit
@@ -2551,9 +2632,6 @@ export class AsyncQueryService extends ProjectService {
             warehouseCredentials.startOfWeek,
         );
 
-        const dashboard = await this.dashboardModel.getByIdOrSlug(
-            dashboardUuid,
-        );
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first
@@ -2599,6 +2677,7 @@ export class AsyncQueryService extends ProjectService {
             context: {
                 dashboardSlug: dashboard.slug,
                 dashboardName: dashboard.name,
+                dashboardUuid: dashboard.uuid,
             },
         });
 
@@ -2681,20 +2760,15 @@ export class AsyncQueryService extends ProjectService {
             typeof requestParameters.dashboardUuid === 'string';
 
         // Get dashboard info if available
-        let dashboardContext:
-            | {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              }
-            | undefined;
+        // 这里的 dashboardUuid 来自查询历史（服务端记录），不是客户端输入：
+        // 只需要按项目解析，保证不会用到其它项目的看板 slug；
+        // 解析不到时直接报错（fail closed），避免行级过滤被静默跳过。
+        let dashboardContext: DashboardQueryContextAttributes | undefined;
         if (isDashboardContext) {
-            const dashboard = await this.dashboardModel.getByIdOrSlug(
+            dashboardContext = await this.resolveDashboardContextForProject(
+                projectUuid,
                 requestParameters.dashboardUuid!,
             );
-            dashboardContext = {
-                dashboardSlug: dashboard.slug,
-                dashboardName: dashboard.name,
-            };
         }
 
         const explore = await this.getExplore(
@@ -2964,6 +3038,7 @@ export class AsyncQueryService extends ProjectService {
         parameters,
         dashboardSlug,
         dashboardName,
+        dashboardUuid,
     }: {
         account: Account;
         projectUuid: string;
@@ -2978,6 +3053,7 @@ export class AsyncQueryService extends ProjectService {
         parameters?: ParametersValuesMap;
         dashboardSlug?: string;
         dashboardName?: string;
+        dashboardUuid?: string;
     }) {
         const warehouseConnection = await this._getWarehouseClient(
             projectUuid,
@@ -2999,16 +3075,12 @@ export class AsyncQueryService extends ProjectService {
         const columns: { name: string; type: DimensionType }[] = [];
 
         // Get user attributes for replacement
-        const contextParam:
-            | {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              }
-            | undefined =
-            dashboardSlug || dashboardName
+        const contextParam: DashboardQueryContextAttributes | undefined =
+            dashboardSlug || dashboardName || dashboardUuid
                 ? {
                       dashboardSlug,
                       dashboardName,
+                      dashboardUuid,
                   }
                 : undefined;
         if (contextParam) {
@@ -3020,6 +3092,7 @@ export class AsyncQueryService extends ProjectService {
                         userUuid: account.user.id,
                         dashboardSlug: contextParam.dashboardSlug,
                         dashboardName: contextParam.dashboardName,
+                        dashboardUuid: contextParam.dashboardUuid,
                     },
                 )}`,
             );
@@ -3345,9 +3418,54 @@ export class AsyncQueryService extends ProjectService {
             throw new ForbiddenError("You don't have access to this chart");
         }
 
-        const dashboard = await this.dashboardModel.getByIdOrSlug(
-            dashboardUuid,
+        // Client-use projects: fail closed. The SQL chart has to be mounted on
+        // an allow-listed dashboard, and the dashboard itself has to be
+        // allow-listed too (same as the metric chart query path).
+        // The dashboard is resolved on the server: its slug / name drives the
+        // row level filters in dbt (`sql_filter`) and its parameters are
+        // applied to the query, so it has to belong to the same project. The
+        // lookup is scoped to the project, so a dashboard of another project
+        // can never be used.
+        let dashboard: DashboardDAO;
+        try {
+            dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuid,
+                projectUuid,
+            );
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw new ForbiddenError(
+                    'Dashboard does not belong to project',
+                );
+            }
+            throw error;
+        }
+        if (dashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to project');
+        }
+        // The dashboard drives the row level filters, so the user has to be
+        // allowed to open it. The space of a dashboard is usually the space of
+        // its charts, which is already checked above (the embed users are
+        // always checked, their scope comes from the JWT).
+        if (
+            isJwtUser(account) ||
+            dashboard.spaceUuid !== savedChart.space.uuid
+        ) {
+            await this.assertDashboardAccess(account, projectUuid, dashboard);
+        }
+        await assertChartInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            savedChart.savedSqlUuid,
         );
+        await assertDashboardInViewerContentScope(
+            this.dashboardService,
+            toViewerContentScopeUser(account.user),
+            projectUuid,
+            dashboard.uuid,
+        );
+
         const dashboardParameters = getDashboardParametersValuesMap(dashboard);
 
         // Combine default parameter values, dashboard parameters, and request parameters first
@@ -3384,6 +3502,7 @@ export class AsyncQueryService extends ProjectService {
             parameters: combinedParameters,
             dashboardSlug: dashboard.slug,
             dashboardName: dashboard.name,
+            dashboardUuid: dashboard.uuid,
         });
 
         // Disconnect the ssh tunnel to avoid leaking connections, another client is created in the scheduler task
@@ -3461,8 +3580,9 @@ export class AsyncQueryService extends ProjectService {
         pivotConfiguration?: PivotConfiguration;
     }): Promise<ApiExecuteAsyncMergeQueryResults> {
         assertIsAccountWithOrg(account);
-        const { organizationUuid } =
-            await this.projectModel.getSummary(projectUuid);
+        const { organizationUuid } = await this.projectModel.getSummary(
+            projectUuid,
+        );
         const effectiveMergeQuery =
             mode.type === 'export'
                 ? applyMergeExportLimit({
@@ -3515,7 +3635,9 @@ export class AsyncQueryService extends ProjectService {
         const fieldIds = Object.keys(fields);
         const resultMetricQuery: MetricQuery = {
             exploreName: explore.name,
-            dimensions: fieldIds.filter((fieldId) => !isMetric(fields[fieldId])),
+            dimensions: fieldIds.filter(
+                (fieldId) => !isMetric(fields[fieldId]),
+            ),
             metrics: fieldIds.filter((fieldId) => isMetric(fields[fieldId])),
             filters: {},
             sorts: [],

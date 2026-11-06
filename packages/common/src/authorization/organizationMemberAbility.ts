@@ -262,6 +262,12 @@ const applyOrganizationMemberStaticAbilities: Record<
         can('manage', 'MetricsTree', {
             organizationUuid: member.organizationUuid,
         });
+        can('view', 'ContentAsCode', {
+            organizationUuid: member.organizationUuid,
+        });
+        can('create', 'ContentAsCode', {
+            organizationUuid: member.organizationUuid,
+        });
     },
     developer(member, { can }) {
         applyOrganizationMemberStaticAbilities.editor(member, { can });
@@ -317,6 +323,11 @@ const applyOrganizationMemberStaticAbilities: Record<
         });
         can('manage', 'ContentAsCode', {
             organizationUuid: member.organizationUuid,
+        });
+        can('manage', 'ContentAsCode', {
+            organizationUuid: member.organizationUuid,
+            type: ProjectType.PREVIEW,
+            createdByUserUuid: member.userUuid,
         });
         can('view', 'JobStatus', {
             organizationUuid: member.organizationUuid,

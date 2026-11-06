@@ -237,7 +237,10 @@
     "validation_error": "验证错误",
     "validation_error_subtitle": "字段 {{keys}} 的值 {{values}} 无效。团队已收到通知，我们将尽快修复。",
     "unknown_validation_error": "未知验证错误",
-    "chart_error": "图表「{{chartName}}」：出错了"
+    "chart_error": "图表「{{chartName}}」：出错了",
+    "warehouse_resource_limit": "仓库查询资源不足（引擎内存已达上限），请稍后重试或缩小筛选范围。",
+    "category_resolution_failed": "类目筛选器解析失败，已保留原值，联动可能未生效。",
+    "category_no_candidates": "父级下没有可选的类目，子级筛选器已保留原值。"
   },
   "hooks_explorer_route": {
     "parse_url_error": "解析 URL 出错",
@@ -1121,6 +1124,17 @@
     "select_color_palette": "选择颜色调色板",
     "select_charts": "选择图表",
     "sync_chart_colors_for": "同步颜色的图表：",
+    "sync_chart_colors_types": {
+      "cartesian": "（标准图表）",
+      "pie": "（饼图）",
+      "custom": "（自定义图表）",
+      "table": "（表格）",
+      "big_number": "（指标卡）",
+      "funnel": "（漏斗图）",
+      "treemap": "（矩形树图）",
+      "data_app_viz": "（数据应用）",
+      "sql_chart": "（SQL 图表）"
+    },
     "clear_all": "清除全部",
     "default": "默认",
     "palettes": {
@@ -1204,10 +1218,24 @@
       "groups": {
         "spaces": "空间",
         "dashboards": "看板",
-        "charts": "图表"
+        "charts": "图表",
+        "sql_charts": "SQL 图表",
+        "apps": "数据应用"
       },
       "no_changes": "没有需要升级的内容",
       "without_changes": "我们只升级此项目中最新的内容。",
+      "conflicts": {
+        "upstream_changed": {
+          "title": "线上项目中的看板已被修改",
+          "description": "线上项目中的看板在上次提升之后被修改过，再次提升会覆盖这些修改。",
+          "confirm": "我确认可以覆盖线上项目中的修改"
+        },
+        "name_mismatch": {
+          "title": "线上项目中的看板名称不同",
+          "description": "线上项目中的看板名称为“{{upstreamName}}”，本项目中的名称为“{{sourceName}}”。默认保留线上名称，除非你选择同步。",
+          "sync": "同步看板名称到线上项目"
+        }
+      },
       "cancel": "取消",
       "promote": "升级"
     },
@@ -2383,10 +2411,6 @@
       "save_changes": "保存更改"
     },
     "cancel": "取消",
-    "tooltip_fullscreen": {
-      "exit_fullscreen_mode": "退出全屏模式",
-      "enter_fullscreen_mode": "进入全屏模式"
-    },
     "tooltip_eidt_dashboard": {
       "edit_dashboard": "编辑看板"
     },
@@ -2661,6 +2685,8 @@
     "drill_into": "深入查看"
   },
   "components_common_table": {
+    "resize_column": "拖拽调整列宽",
+    "reset_column_width": "双击恢复自动列宽",
     "copied_to_clipboard": "已复制到剪贴板!",
     "pagination": {
       "pages": "分页",
@@ -2757,17 +2783,28 @@
       },
       "category_level": {
         "label": "类目层级",
+        "follow_parent_label": "跟随父级筛选器",
+        "follow_parent_placeholder": "选择一个类目筛选器",
+        "follow_parent_hint": "父级类目变化时，会按实际数据自动校正该筛选器的取值",
         "tooltip": "将此筛选器绑定到类目字段，用于类目筛选器联动",
         "placeholder": "不绑定类目",
+        "derived_hint": "已按列名/名称推导为 {{level}} 级类目（未显式声明，留空即按推导生效）",
         "level1": "一级类目",
         "level2": "二级类目",
         "level3": "三级类目",
         "level4": "四级类目",
         "parent_filter_label": "父级筛选器",
-        "parent_filter_placeholder": "不设置父级筛选器"
+        "parent_filter_placeholder": "不设置父级筛选器",
+        "parent_scope_global": "全局",
+        "parent_scope_tab": "当前 Tab",
+        "parent_scope_hint": "Tab 筛选器可把全局筛选器设为父级；父级无取值时，下级会被清空。",
+        "parent_invalid": "已失效的父级",
+        "parent_option_label": "{{label}} • {{level}}（{{scope}}）",
+        "parent_option_label_short": "{{level}}（{{scope}}）"
       },
       "filter_read_only": "筛选器只读",
       "filter_hidden": "筛选器隐藏",
+      "filter_no_clear": "不可清空",
       "date_range": {
         "min_label": "可选最早日期",
         "max_label": "可选最晚日期",
@@ -2793,12 +2830,22 @@
         "label": "限定筛选方式",
         "description": "留空则不限制，客户可使用全部筛选方式",
         "placeholder": "选择允许客户使用的筛选方式"
+      },
+      "section": {
+        "value": "条件",
+        "value_policy": "取值策略",
+        "viewer_limits": "查看者限制",
+        "option_limits": "选项约束",
+        "linkage": "维度联动"
       }
     },
     "batch_bind": {
       "button": "批量绑定",
       "title": "批量绑定类目筛选器",
-      "no_changes": "所有类目筛选器的父级关系都已正确设置，无需更新。",
+      "bind_hint": "按类目名称与层级生成父子关系，不需要父级先选值；勾选后写入当前作用域。",
+      "bind_hint_global": "按类目名称与层级生成全局筛选器的父子关系；全局关系对所有 Tab 生效。",
+      "no_changes": "所有类目筛选器都已按规则绑定好，无需更新。",
+      "no_category_filters": "当前 Tab 没有类目筛选器。请先在筛选器的「类目层级」里选择层级。",
       "select_filters": "选择要更新的筛选器",
       "select_all": "全选",
       "deselect_all": "取消全选",
@@ -2806,6 +2853,12 @@
       "parent_filter_change": "父级筛选器：{{from}} → {{to}}",
       "none": "无",
       "unset": "未设置",
+      "parent_bound": "父级筛选器：{{parent}}（已绑定）",
+      "unbound_no_parent": "存在更低层级的筛选器，但它还没有设置「类目层级」，无法自动绑定。请先在对应筛选器里选择层级。",
+      "orphan_parent": "原父级已失效，且没有可用的上级类目；保持原绑定不变。",
+      "root_no_parent": "已是当前最高层级，无需绑定父级。",
+      "ambiguous_parent": "同一层级存在多个候选筛选器；已优先保留现有绑定或同表候选，请确认绑定是否正确。",
+      "implicit_level": "已勾选它的下级筛选器，会一并写入类目层级。",
       "cancel": "取消",
       "apply": "应用"
     },
@@ -2846,6 +2899,8 @@
       }
     },
     "filter": {
+      "auto_adjusted_hint": "已按当前类目自动调整（原值：",
+      "cascade_updating": "更新中",
       "tooltip_creating_new": {
         "label": {
           "part_1": "只有在",
@@ -3247,11 +3302,11 @@
     "edit_tile_content": "编辑图块内容",
     "title": "标题",
     "select_chart": "选择图表",
-    "search": "搜索中...",
     "no_charts_found": "未找到图表",
     "load_more": "加载更多",
     "cancel": "取消",
-    "update": "更新"
+    "update": "更新",
+    "select_placeholder": "请选择图表"
   },
   "components_dashboard_tiles_forms_loom_tile": {
     "title": {
@@ -3343,6 +3398,10 @@
     "no_data_available": "没有可用数据",
     "cannot_edit_chart": "无法编辑属于空间的图表：",
     "not_have_permission": "您没有权限编辑此图表"
+  },
+  "components_dashboard_tiles_chart_fullscreen": {
+    "enter_fullscreen": "全屏查看",
+    "exit_fullscreen": "退出全屏"
   },
   "components_dashboard_tiles_dashboard_export_image": {
     "export_image": "导出图片",
@@ -3826,7 +3885,7 @@
       },
       "data_app": {
         "title": "数据应用",
-        "description": "基于你的数据构建交互式应用。"
+        "description": "上传本地构建的 React 应用，并嵌到看板中。"
       },
       "space": {
         "title": "空间",
@@ -4095,6 +4154,15 @@
         "create": "创建新空间"
       }
     }
+  },
+  "components_common_modal_app_delete": {
+    "title": "删除应用",
+    "tip": "确定删除 ",
+    "tip_suffix": "？应用及其全部版本和构建产物将被永久删除。",
+    "content": "该应用已被 {{length}} 个看板引用：",
+    "warning": "删除后这些看板中的图块仍在，但无法再使用。请编辑图块另选应用，或删掉图块。",
+    "cancel": "取消",
+    "delete": "删除"
   },
   "components_common_modal_chart_delete": {
     "title": "删除图表",
@@ -4733,13 +4801,13 @@
     "project_management_settings": "项目管理设置",
     "create_new": "新建项目",
     "delete": "删除选中的 {{length}} 项",
-    "customer_use_updated": "客户使用状态已更新",
-    "customer_use_update_error": "更新客户使用状态失败",
+    "client_use_updated": "客户使用状态已更新",
+    "client_use_update_error": "更新客户使用状态失败",
     "table": {
       "select_all": "全选",
       "name": "名称",
       "status": "状态",
-      "customer_use": "客户使用",
+      "client_use": "客户使用",
       "actions": "操作"
     },
     "tabs": {
@@ -5288,6 +5356,8 @@
     "add": "添加",
     "copy_config": "复制",
     "copied": "已复制",
+    "delete": "删除",
+    "remove_item": "移除 {{label}}",
     "errors": {
       "custom_hex": "输入自定义 HEX 颜色",
       "invalid_hex": "无效的 HEX 颜色"
@@ -5532,13 +5602,15 @@
   "components_visualization_configs_table": {
     "column_configuration": {
       "tooltip_columns": {
-        "part_1": "透视时无法隐藏维度",
-        "part_2": "透视时无法隐藏维度",
+        "part_1": "无法隐藏作为透视列的维度",
+        "part_2": "无法隐藏作为透视列的维度",
         "part_3": "隐藏列",
         "part_4": "显示列"
       },
       "unfreeze": "取消冻结列",
-      "freeze": "冻结列"
+      "freeze": "冻结列",
+      "width": "列宽",
+      "reset_width": "重置为自动列宽"
     },
     "formatting_item": {
       "single": "单个",
@@ -5553,7 +5625,8 @@
       "color": "颜色",
       "apply_color_to": "应用到",
       "apply_to_background": "背景",
-      "apply_to_font": "字体"
+      "apply_to_font": "字体",
+      "rule": "规则 {{index}}"
     },
     "compare": {
       "compare": "比较",
@@ -5588,13 +5661,13 @@
       "pivot_metric_header_top_disabled": "仅在透视表且指标作为列时可用",
       "pivot_auto_fill_width": "铺满剩余空间",
       "pivot_auto_fill_width_hint": "仅在列总宽小于容器时均分剩余空间；不会按列名加宽。列名完整显示由内容自适应默认开启。",
-      "pivot_auto_fill_width_tooltip": "关：列宽仍按内容自适应，不铺满空白。\n开：列总宽小于容器时，均分剩余空间铺满。",
+      "pivot_auto_fill_width_tooltip": "关：列宽仍按内容自适应，不铺满空白。\n开：列总宽小于容器时，均分剩余空间铺满。\n注意：已手动拖拽过列宽时不生效（单列宽度优先），开关会置灰。",
       "pivot_dimension_column_max_width": "行维度列最大宽度 (px)",
       "pivot_dimension_column_max_width_placeholder": "300",
-      "pivot_dimension_column_max_width_tooltip": "限制左侧行维度列最大宽度。留空默认 450；超出省略，悬停看全文。",
+      "pivot_dimension_column_max_width_tooltip": "限制左侧行维度列最大宽度。留空默认 450；超出省略，悬停看全文。手动拖拽过的列不受该上限限制。",
       "pivot_data_column_max_width": "数据列最大宽度 (px)",
       "pivot_data_column_max_width_placeholder": "240",
-      "pivot_data_column_max_width_tooltip": "限制指标数据列最大宽度。留空默认 450，占位 240 为更紧建议值；超出省略，悬停看全文。",
+      "pivot_data_column_max_width_tooltip": "限制指标数据列最大宽度。留空默认 450，占位 240 为更紧建议值；超出省略，悬停看全文。手动拖拽过的列不受该上限限制。",
       "pivot_column_max_width_hint": "同时约束内容自适应与撑满拉伸；留空使用默认上限 450，占位值为更紧的建议值",
       "display": "显示",
       "show_table_names": "显示表名",
@@ -6444,6 +6517,9 @@
         "space": {
           "label": "空间"
         },
+        "status": {
+          "label": "状态"
+        },
         "updated": {
           "label": "最后编辑时间"
         }
@@ -6506,6 +6582,9 @@
       },
       "delete": {
         "title": "删除{{type}}"
+      },
+      "upload_package": {
+        "title": "更新包"
       }
     }
   },
@@ -6710,6 +6789,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "自定义顺序",
+    "custom_order_tooltip": "按固定值排序",
+    "custom_order_candidates": "当前结果中的值",
+    "custom_order_others_hint": "未列出的值排在最后，按 A-Z / Z-A",
+    "custom_order_limit_hint": "仅展示前 500 个值，可搜索缩小范围",
+    "custom_order_missing_value": "当前数据中未找到该值",
+    "custom_order_all_selected": "候选值已全部选入",
+    "custom_order_max_selected": "最多 200 个值，超出的不会生效",
+    "custom_order_move_up": "上移",
+    "custom_order_move_down": "下移",
+    "custom_order_remove": "移除该值",
+    "custom_order_short": "自定义",
+    "custom_order_search_placeholder": "搜索数据库中的值",
+    "custom_order_no_candidates": "没有找到可选值",
+    "custom_order_badge": "自定义顺序",
     "no_sort": "未排序",
     "fields": "字段",
     "field": "1个字段",
@@ -6727,7 +6821,9 @@
       "old_new": "旧-新",
       "new_old": "新-旧",
       "false_true": "假-真",
-      "true_false": "真-假"
+      "true_false": "真-假",
+      "custom_asc": "正序",
+      "custom_desc": "反序"
     }
   },
   "components_export_csv": {
@@ -6774,14 +6870,17 @@
   "components_export_results": {
     "exporting": {
       "title": "导出结果",
-      "subtitle": "这可能需要几分钟的时间..."
+      "subtitle": "这可能需要几分钟的时间...",
+      "subtitle_elapsed": "已处理 {{seconds}} 秒，大表导出通常需要几分钟，完成后会自动下载..."
     },
     "warning": {
       "title": "导出结果被限制",
       "subtitle": "导出结果被截断,因为大小限制。"
     },
     "error": {
-      "title": "无法下载 CSV"
+      "title": "无法下载 CSV",
+      "no_file": "导出已完成，但没有拿到文件地址，请重试或联系管理员。",
+      "timeout": "导出超过 20 分钟仍未完成，已停止等待。请缩小范围（如减少月份或列）后重试，或联系管理员查看后台任务。"
     },
     "no_data_to_export": "没有可导出的数据",
     "file_format": "文件格式",
@@ -7024,7 +7123,37 @@
       "create": "创建"
     },
     "create_new_space": "创建新空间",
-    "create": "创建"
+    "create": "创建",
+    "client_use_scope": {
+      "title": "内容可见范围诊断",
+      "show": "展开",
+      "hide": "收起",
+      "applied": "生效状态",
+      "applied_yes": "已生效（受限角色）",
+      "applied_no": "未生效",
+      "status": "状态码",
+      "reason": "说明",
+      "effective_role": "有效项目角色",
+      "effective_role_value": "{{role}}（{{source}}）",
+      "mobile": "手机号",
+      "rpc_configured": "RPC 已配置",
+      "yes": "是",
+      "no": "否",
+      "allowed_dashboard_count": "白名单看板数",
+      "allowed_dashboards": "白名单看板",
+      "none": "无",
+      "scope_counts": "内容范围计数",
+      "dashboards": "看板",
+      "charts": "图表",
+      "spaces": "空间",
+      "explores": "数据集",
+      "role_source": {
+        "project_membership": "项目成员",
+        "group_membership": "用户组",
+        "organization": "组织",
+        "none": "无"
+      }
+    }
   },
   "pages_mobile_spaces": {
     "loading_spaces": "正在加载空间",
@@ -8463,7 +8592,28 @@
     "title": "数据应用",
     "breadcrumb_home": "首页",
     "breadcrumb_all": "全部数据应用",
-    "create": "创建数据应用"
+    "create": "创建数据应用",
+    "upload": "上传应用"
+  },
+  "features_apps_upload": {
+    "title": "上传数据应用",
+    "update_title": "更新包",
+    "hint": "请选择本地模板目录（先执行 pnpm build）。须包含 src/、dist/index.html 与 lightdash-app.yml。人工上传不走云端 sandbox。",
+    "folder_label": "应用目录",
+    "folder_placeholder": "选择已构建的应用目录",
+    "folder_description": "请用目录选择器，以便保留 src/ 与 dist/ 的相对路径。",
+    "pick_folder": "选择目录",
+    "file_count": "已选择 {{count}} 个文件",
+    "need_folder": "请选择包含 src/、dist/ 与 lightdash-app.yml 的目录",
+    "parse_failed": "无法读取所选目录",
+    "error": "上传失败",
+    "submit": "上传",
+    "status_ready": "可使用",
+    "status_unavailable": "无可用版本",
+    "toast_created": "应用已上传",
+    "toast_append": "已上传新版本",
+    "toast_unchanged": "应用未变化，已保留当前版本",
+    "toast_failed": "上传数据应用失败"
   },
   "pages_app_generate": {
     "title": "创建数据应用",
@@ -9574,14 +9724,23 @@
       "dashboard_filters_add_button_visibility_changed": "显示/隐藏添加筛选器",
       "dashboard_filters_read_only_changed": "设置筛选器只读",
       "dashboard_filters_hidden_changed": "设置筛选器隐藏",
+      "dashboard_filters_clearable_changed": "设置筛选器不可清空",
       "dashboard_filters_allowed_operators_changed": "修改允许的筛选方式",
-      "dashboard_filters_input_mode_changed": "修改单选/多选"
+      "dashboard_filters_input_mode_changed": "修改单选/多选",
+      "project_member_added": "添加项目成员",
+      "project_member_role_updated": "修改项目成员角色",
+      "project_member_removed": "移除项目成员",
+      "project_group_access_added": "添加用户组项目角色",
+      "project_group_access_role_updated": "修改用户组项目角色",
+      "project_group_access_removed": "移除用户组项目角色"
     },
     "resource_types": {
       "dashboard": "看板",
       "dashboard_filter": "看板筛选器",
       "chart": "图表",
       "project": "项目",
+      "project_member": "项目成员",
+      "project_group_access": "用户组项目角色",
       "operation_log": "操作日志"
     },
     "statuses": {
@@ -9657,9 +9816,16 @@
       "visible": "可见",
       "readOnly": "只读",
       "hidden": "隐藏",
+      "clearable": "不可清空",
       "allowedOperators": "允许的筛选方式",
       "singleValue": "仅单选",
-      "required": "运行需要值"
+      "required": "运行需要值",
+      "targetUserUuid": "目标用户",
+      "targetEmail": "目标邮箱",
+      "fromRole": "原角色",
+      "toRole": "新角色",
+      "groupUuid": "用户组 ID",
+      "groupName": "用户组"
     },
     "summary_values": {
       "global": "全局",

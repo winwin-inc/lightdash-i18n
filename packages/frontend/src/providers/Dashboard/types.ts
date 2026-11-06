@@ -40,6 +40,21 @@ export type DashboardContextType = {
     setActiveTab: Dispatch<
         SetStateAction<Dashboard['tabs'][number] | undefined>
     >;
+    /**
+     * 全局类目是否正在解析（解析中时所有 Tab 的图表都要等）。
+     */
+    isGlobalCategoryResolutionPending: boolean;
+    /**
+     * 每个 Tab 的类目解析状态（key = tab uuid）。
+     * 只有「自己的 Tab 还在解析」才需要挡住该 Tab 的图表查询，
+     * 避免切到某个 Tab 后把其它 Tab 的查询也一起按住。
+     */
+    pendingTabCategoryResolutions: Record<string, boolean>;
+    /**
+     * 用户访问过的 Tab（只增不减）。
+     * 只有访问过的 Tab 才让 tile 发起查询，避免多 Tab 看板首屏查询风暴。
+     */
+    visitedTabUuids: Set<string>;
     dashboardFilters: DashboardFilters;
     dashboardTemporaryFilters: DashboardFilters;
     allFilters: DashboardFilters;
@@ -129,6 +144,12 @@ export type DashboardContextType = {
     // tabs-filter start
     tabFilters: Record<string, DashboardFilters>;
     setTabFilters: Dispatch<SetStateAction<Record<string, DashboardFilters>>>;
+    /**
+     * 首屏类目筛选器是否还在解析中。
+     * 解析中时图表不发起查询，等类目解析完成后按最终类目一次性查询，
+     * 避免图表先按「未解析的类目」跑一次、解析完再刷新一次。
+     */
+    isCategoryResolutionPending: boolean;
     tabTemporaryFilters: Record<string, DashboardFilters>;
     setTabTemporaryFilters: Dispatch<
         SetStateAction<Record<string, DashboardFilters>>
@@ -140,6 +161,11 @@ export type DashboardContextType = {
     getMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
     /** 顶部筛选 UI 用：存在类目级联展示态时优先展示态，图表查询仍用 getMergedFiltersForTab */
     getDisplayedMergedFiltersForTab: (tabUuid: string) => DashboardFilters;
+    /**
+     * 被「按当前类目自动解析」改写过的筛选器（运行时，不落库）。
+     * key = 作用域（'global' / tab uuid），value = { filterId: 被替换前的取值 }
+     */
+    tabAutoAdjustedFilterIds: Record<string, Record<string, string[]>>;
     /** Tab 类目级联即时展示态；无 pending 时为空对象 */
     tabCategoryDisplayFilters: Record<
         string,

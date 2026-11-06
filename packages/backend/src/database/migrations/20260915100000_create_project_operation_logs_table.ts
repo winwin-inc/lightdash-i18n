@@ -48,7 +48,10 @@ export async function up(knex: Knex): Promise<void> {
                 ['project_uuid', 'resource_type', 'resource_uuid'],
                 'project_operation_logs_project_resource_idx',
             );
-            table.index(['created_at'], 'project_operation_logs_created_at_idx');
+            table.index(
+                ['created_at'],
+                'project_operation_logs_created_at_idx',
+            );
         });
     }
     await knex.raw(`RESET lock_timeout`);

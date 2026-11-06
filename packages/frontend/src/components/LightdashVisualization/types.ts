@@ -153,6 +153,12 @@ export type VisualizationTableConfigProps =
         parameters?: ParametersValuesMap;
         dashboardSlug?: string;
         dashboardName?: string;
+        /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+        dashboardUuid?: string;
+        /** Explore 编辑模式：列宽写回 chart 配置 */
+        isEditMode?: boolean;
+        /** 看板 tile uuid：本地列宽按 tile 隔离 */
+        tileUuid?: string;
     };
 
 // Treemap

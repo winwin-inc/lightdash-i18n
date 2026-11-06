@@ -1,11 +1,14 @@
 import {
     PromotionAction,
+    PromotionConflictType,
     type PromotedChart,
     type PromotionChanges,
 } from '@lightdash/common';
 import {
     Accordion,
+    Alert,
     Button,
+    Checkbox,
     Flex,
     Group,
     Loader,
@@ -14,22 +17,29 @@ import {
     Text,
     Title,
 } from '@mantine/core';
-import { useMemo, type FC } from 'react';
+import { useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
     IconChartAreaLine,
+    IconCode,
     IconFolder,
     IconLayoutDashboard,
+    IconRobot,
 } from '@tabler/icons-react';
 
 import MantineIcon from '../../../components/common/MantineIcon';
+
+export type PromotionConfirmOptions = {
+    confirmConflicts: boolean;
+    syncDashboardName: boolean;
+};
 
 type Props = {
     type: 'chart' | 'dashboard';
     resourceName: string;
     promotionChanges: PromotionChanges | undefined;
-    onConfirm: () => void;
+    onConfirm: (options: PromotionConfirmOptions) => void;
     onClose: () => void;
     /** 为 true 时表示正在执行 promote，确认按钮禁用并显示 loading，由父组件在 mutation 成功后再关闭弹窗 */
     isPromoting?: boolean;
@@ -40,7 +50,7 @@ type PromotionChange = {
     data: Pick<PromotedChart, 'name' | 'uuid'>;
 };
 const PromotionChangesAccordion: FC<{
-    type: 'spaces' | 'charts' | 'dashboards';
+    type: 'spaces' | 'charts' | 'dashboards' | 'sqlCharts' | 'apps';
     items: {
         created: PromotionChange[];
         updated: PromotionChange[];
@@ -126,9 +136,41 @@ export const PromotionConfirmDialog: FC<Props> = ({
     isPromoting = false,
 }) => {
     const { t } = useTranslation();
+    const [confirmConflicts, setConfirmConflicts] = useState(false);
+    const [syncDashboardName, setSyncDashboardName] = useState(false);
+
+    const conflicts = promotionChanges?.conflicts ?? [];
+    const hasUpstreamChanges = conflicts.some(
+        (conflict) =>
+            conflict.type ===
+            PromotionConflictType.UPSTREAM_MODIFIED_AFTER_PROMOTION,
+    );
+    const nameConflict = conflicts.find(
+        (conflict) =>
+            conflict.type === PromotionConflictType.UPSTREAM_NAME_MISMATCH,
+    );
+    const needsConflictConfirmation = hasUpstreamChanges && !confirmConflicts;
 
     const { groupedChanges, totalChanges, withoutChanges } = useMemo(() => {
         if (promotionChanges === undefined) return {};
+        // The SQL charts and data apps of a dashboard are promoted with it.
+        // They are optional in the response, so older backends are supported.
+        const sqlChartChanges = (promotionChanges.sqlCharts ?? []).map(
+            (item) => ({
+                action: item.action,
+                data: {
+                    uuid: item.data.savedSqlUuid,
+                    name: item.data.name,
+                },
+            }),
+        );
+        const appChanges = (promotionChanges.apps ?? []).map((item) => ({
+            action: item.action,
+            data: {
+                uuid: item.data.uuid,
+                name: item.data.name,
+            },
+        }));
         const changes = {
             spaces: {
                 total: promotionChanges.spaces.filter(
@@ -173,11 +215,41 @@ export const PromotionConfirmDialog: FC<Props> = ({
                     (item) => item.action === PromotionAction.DELETE,
                 ),
             },
+            sqlCharts: {
+                total: sqlChartChanges.filter(
+                    (item) => item.action !== PromotionAction.NO_CHANGES,
+                ).length,
+                created: sqlChartChanges.filter(
+                    (item) => item.action === PromotionAction.CREATE,
+                ),
+                updated: sqlChartChanges.filter(
+                    (item) => item.action === PromotionAction.UPDATE,
+                ),
+                deleted: sqlChartChanges.filter(
+                    (item) => item.action === PromotionAction.DELETE,
+                ),
+            },
+            apps: {
+                total: appChanges.filter(
+                    (item) => item.action !== PromotionAction.NO_CHANGES,
+                ).length,
+                created: appChanges.filter(
+                    (item) => item.action === PromotionAction.CREATE,
+                ),
+                updated: appChanges.filter(
+                    (item) => item.action === PromotionAction.UPDATE,
+                ),
+                deleted: appChanges.filter(
+                    (item) => item.action === PromotionAction.DELETE,
+                ),
+            },
         };
         const totalChangesNum =
             changes.spaces.total +
             changes.charts.total +
-            changes.dashboards.total;
+            changes.dashboards.total +
+            changes.sqlCharts.total +
+            changes.apps.total;
         const withoutChangesNum =
             promotionChanges.spaces.filter(
                 (item) => item.action === PromotionAction.NO_CHANGES,
@@ -186,6 +258,12 @@ export const PromotionConfirmDialog: FC<Props> = ({
                 (item) => item.action === PromotionAction.NO_CHANGES,
             ).length +
             promotionChanges.charts.filter(
+                (item) => item.action === PromotionAction.NO_CHANGES,
+            ).length +
+            sqlChartChanges.filter(
+                (item) => item.action === PromotionAction.NO_CHANGES,
+            ).length +
+            appChanges.filter(
                 (item) => item.action === PromotionAction.NO_CHANGES,
             ).length;
 
@@ -287,6 +365,48 @@ export const PromotionConfirmDialog: FC<Props> = ({
                             </>
                         )}
 
+                        {groupedChanges.sqlCharts.total > 0 && (
+                            <>
+                                <Flex>
+                                    <MantineIcon
+                                        icon={IconCode}
+                                        color="grape.7"
+                                    />{' '}
+                                    <Text ml={10} fw={600}>
+                                        {t(
+                                            'feature_promotion.modal.groups.sql_charts',
+                                        )}
+                                        :{' '}
+                                    </Text>{' '}
+                                </Flex>
+                                <PromotionChangesAccordion
+                                    type="sqlCharts"
+                                    items={groupedChanges.sqlCharts}
+                                />
+                            </>
+                        )}
+
+                        {groupedChanges.apps.total > 0 && (
+                            <>
+                                <Flex>
+                                    <MantineIcon
+                                        icon={IconRobot}
+                                        color="orange.7"
+                                    />{' '}
+                                    <Text ml={10} fw={600}>
+                                        {t(
+                                            'feature_promotion.modal.groups.apps',
+                                        )}
+                                        :{' '}
+                                    </Text>{' '}
+                                </Flex>
+                                <PromotionChangesAccordion
+                                    type="apps"
+                                    items={groupedChanges.apps}
+                                />
+                            </>
+                        )}
+
                         {totalChanges === 0 && (
                             <Text color="yellow.9" fw={600}>
                                 {t('feature_promotion.modal.no_changes')}
@@ -296,6 +416,71 @@ export const PromotionConfirmDialog: FC<Props> = ({
                             <Text color="yellow.9" fw={600}>
                                 {t('feature_promotion.modal.without_changes')}
                             </Text>
+                        )}
+
+                        {hasUpstreamChanges && (
+                            <Alert
+                                color="red"
+                                title={t(
+                                    'feature_promotion.modal.conflicts.upstream_changed.title',
+                                )}
+                            >
+                                <Stack spacing="xs">
+                                    <Text size="sm">
+                                        {t(
+                                            'feature_promotion.modal.conflicts.upstream_changed.description',
+                                        )}
+                                    </Text>
+                                    <Checkbox
+                                        label={t(
+                                            'feature_promotion.modal.conflicts.upstream_changed.confirm',
+                                        )}
+                                        checked={confirmConflicts}
+                                        onChange={(event) =>
+                                            setConfirmConflicts(
+                                                event.currentTarget.checked,
+                                            )
+                                        }
+                                        disabled={isPromoting}
+                                    />
+                                </Stack>
+                            </Alert>
+                        )}
+
+                        {nameConflict && (
+                            <Alert
+                                color="yellow"
+                                title={t(
+                                    'feature_promotion.modal.conflicts.name_mismatch.title',
+                                )}
+                            >
+                                <Stack spacing="xs">
+                                    <Text size="sm">
+                                        {t(
+                                            'feature_promotion.modal.conflicts.name_mismatch.description',
+                                            {
+                                                sourceName:
+                                                    nameConflict.sourceName,
+                                                upstreamName:
+                                                    nameConflict.upstreamName ??
+                                                    '',
+                                            },
+                                        )}
+                                    </Text>
+                                    <Checkbox
+                                        label={t(
+                                            'feature_promotion.modal.conflicts.name_mismatch.sync',
+                                        )}
+                                        checked={syncDashboardName}
+                                        onChange={(event) =>
+                                            setSyncDashboardName(
+                                                event.currentTarget.checked,
+                                            )
+                                        }
+                                        disabled={isPromoting}
+                                    />
+                                </Stack>
+                            </Alert>
                         )}
                     </Stack>
                 )}
@@ -311,9 +496,18 @@ export const PromotionConfirmDialog: FC<Props> = ({
 
                     <Button
                         color="green"
-                        disabled={totalChanges === 0 || isPromoting}
+                        disabled={
+                            totalChanges === 0 ||
+                            isPromoting ||
+                            needsConflictConfirmation
+                        }
                         loading={isPromoting}
-                        onClick={() => onConfirm()}
+                        onClick={() =>
+                            onConfirm({
+                                confirmConflicts,
+                                syncDashboardName,
+                            })
+                        }
                     >
                         {t('feature_promotion.modal.promote')}
                     </Button>

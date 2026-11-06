@@ -4,6 +4,7 @@ import {
 } from './field';
 import { type DashboardFilters } from './filter';
 import { type DashboardParameters } from './parameters';
+import { type DashboardOperationClientEvent } from './projectOperationLog';
 import {
     type ChartKind,
     type CreateSavedChart,
@@ -282,7 +283,7 @@ export type DashboardVersionedFields = Pick<
 export type UpdateDashboardDetails = Pick<Dashboard, 'name' | 'description'>;
 
 export type UpdateDashboardClientEvents = {
-    clientEvents?: import('./projectOperationLog').DashboardOperationClientEvent[];
+    clientEvents?: DashboardOperationClientEvent[];
 };
 
 export type UpdateDashboard =
@@ -379,6 +380,14 @@ export type ApiGetDashboardContextsResponse = {
     status: 'ok';
     results: {
         contexts: DashboardQueryContext[];
+        /**
+         * 权限过滤前的关联看板数量。
+         *
+         * 调用方用它区分「这个数据集没挂任何看板」（0，配置问题）和
+         * 「挂了看板但当前账号一个都看不到」（>0，权限问题）。
+         * 恒等于权限过滤前的看板数，与 includePrivate 无关。
+         */
+        associatedCount: number;
     };
 };
 

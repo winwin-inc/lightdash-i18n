@@ -1,8 +1,9 @@
 import { subject } from '@casl/ability';
-import { PROJECT_OPERATION_LOG_ACTIONS } from '@lightdash/common';
 import {
     AbilityAction,
+    assertUnreachable,
     BulkActionable,
+    convertOrganizationRoleToProjectRole,
     CreateDashboard,
     CreateDashboardWithCharts,
     CreateSavedChart,
@@ -14,41 +15,54 @@ import {
     DashboardVersionedFields,
     ExploreType,
     ForbiddenError,
+    generateSlug,
+    hasChartsInDashboard,
+    isChartScheduler,
+    isClientUseRestrictedProjectRole,
+    isDashboardChartTileType,
+    isDashboardScheduler,
+    isDashboardSqlChartTile,
+    isDashboardUnversionedFields,
+    isDashboardVersionedFields,
+    isUserWithOrg,
+    isValidFrequency,
+    isValidTimezone,
+    NotFoundError,
     OrganizationMemberRole,
     ParameterError,
+    PROJECT_OPERATION_LOG_ACTIONS,
     ProjectMemberRole,
+    SCHEDULER_TASKS,
     SchedulerAndTargets,
     SchedulerFormat,
     SessionUser,
     TogglePinnedItemInfo,
     UpdateDashboard,
     UpdateMultipleDashboards,
-    convertOrganizationRoleToProjectRole,
-    generateSlug,
-    hasChartsInDashboard,
-    isChartScheduler,
-    isDashboardChartTileType,
-    isDashboardScheduler,
-    isDashboardUnversionedFields,
-    isDashboardVersionedFields,
-    isUserWithOrg,
-    isValidFrequency,
-    isValidTimezone,
-    SCHEDULER_TASKS,
     type ChartFieldUpdates,
     type DashboardBasicDetailsWithTileTypes,
     type DashboardConfig,
     type DashboardFilterRule,
+    type DashboardFilters,
     type DashboardQueryContext,
+    type DashboardTile,
+    type DashboardTileTarget,
     type DuplicateDashboardParams,
     type Explore,
     type ExploreError,
     type ExportContentPayload,
     type ExportContentRequest,
+    type MemberAbility,
+    type SavedChartDAO,
     type SchedulerCsvOptions,
     type UserDashboardsSummary,
     type UUID,
+    type ViewerContentScope,
+    type ViewerContentScopeDiagnostics,
+    type ViewerContentScopeStatus,
+    type ViewerProjectRoleSource,
 } from '@lightdash/common';
+
 import cronstrue from 'cronstrue';
 import { type Knex } from 'knex';
 import { v4 as uuidv4 } from 'uuid';
@@ -70,6 +84,7 @@ import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberP
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
@@ -77,10 +92,55 @@ import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { createTwoColumnTiles } from '../../utils/dashboardTileUtils';
 import { assertDashboardSchedulerFilterRequirementsMet } from '../../utils/schedulerFilterRequirements';
 import { BaseService } from '../BaseService';
-import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
-import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
+import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
+import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
+
+/** Fields needed to resolve client-use dashboard / explore allow-lists. */
+export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
+
+/**
+ * User information needed to resolve a dashboard context.
+ *
+ * It is deliberately narrower than `SessionUser` so that the same resolution
+ * can be done for accounts that are not session users (eg: a personal access
+ * token), where the user is only available through the account.
+ */
+export type DashboardContextUser = {
+    userUuid: string;
+    email: string | undefined;
+    organizationUuid?: string;
+    ability: MemberAbility;
+};
+
+/**
+ * Result of the client-use allow-list resolution.
+ *
+ * - `uuids: undefined`: the allow-list does not apply (not a client-use
+ *   project, or the user is not a restricted role).
+ * - `uuids: Set`: the allowed dashboards (an empty set means fail-closed).
+ * - `failed`: the Admin RPC failed. The result stays fail-closed but is only
+ *   cached briefly so the next request retries as soon as the RPC recovers.
+ */
+type AllowedDashboardUuidsResult = {
+    uuids: Set<string> | undefined;
+    failed: boolean;
+    /**
+     * Why the allow-list is (not) applied. Kept next to the result so the
+     * diagnostic endpoint does not need a second Admin RPC call.
+     */
+    status: ViewerContentScopeStatus;
+    /** Effective project role (project membership > group > organization) */
+    effectiveProjectRole: string | null;
+    roleSource: ViewerProjectRoleSource;
+    /** Mobile number derived from the user email */
+    mobile: string | null;
+    /** `projects.is_client_use` */
+    clientUseEnabled: boolean;
+    /** `ADMIN_API_HOST` + `ADMIN_API_KEY` are both configured */
+    rpcConfigured: boolean;
+};
 
 type DashboardServiceArguments = {
     analytics: LightdashAnalytics;
@@ -91,6 +151,7 @@ type DashboardServiceArguments = {
     schedulerModel: SchedulerModel;
     savedChartModel: SavedChartModel;
     savedChartService: SavedChartService;
+    savedSqlModel: SavedSqlModel;
     schedulerClient: SchedulerClient;
     slackClient: SlackClient;
     projectModel: ProjectModel;
@@ -101,10 +162,69 @@ type DashboardServiceArguments = {
     projectOperationLogService: ProjectOperationLogService;
 };
 
+/**
+ * Human readable explanation of the client-use allow-list resolution.
+ * Used by the diagnostic endpoint / the client-use diagnostic panel.
+ */
+const describeViewerContentScopeStatus = (
+    result: AllowedDashboardUuidsResult,
+): string => {
+    switch (result.status) {
+        case 'not_client_use':
+            return '项目未开启客户使用模式，不启用内容范围限制。';
+        case 'role_not_restricted':
+            return `项目开启了客户使用模式，但该用户的有效项目角色为 ${
+                result.effectiveProjectRole ?? '未知'
+            }（不属于 viewer / interactive_viewer），因此不启用内容范围限制。`;
+        case 'user_not_found':
+            return '用户在 users 表中不存在（通常是 SSO 首次登录未同步），无法查询授权看板。';
+        case 'no_email':
+            return '用户没有邮箱（或邮箱不含手机号前缀），无法映射到客户授权接口，手机号无法查询授权。';
+        case 'rpc_not_configured':
+            return '客户授权接口（Admin RPC）未配置（缺少 ADMIN_API_HOST 或 ADMIN_API_KEY），未启用内容范围限制。';
+        case 'rpc_error':
+            return '客户授权接口（Admin RPC）调用失败，已按 fail-closed 处理：当前看不到任何看板，请检查接口可用性。';
+        case 'rpc_empty':
+            return `客户授权接口返回该手机号（${
+                result.mobile ?? '未知'
+            }）在本项目下没有任何授权看板，属于正常的“未授权”状态。`;
+        case 'rpc_ok':
+            return `客户授权接口返回该手机号（${
+                result.mobile ?? '未知'
+            }）在本项目下有授权看板。`;
+        default:
+            return assertUnreachable(
+                result.status,
+                'Unknown viewer content scope status',
+            );
+    }
+};
+
 export class DashboardService
     extends BaseService
     implements BulkActionable<Knex>
 {
+    /**
+     * The client-use allow-list comes from the customer's Admin RPC (a network
+     * round trip) and is consulted by content lists, chart reads and every query
+     * execution. Without a cache, opening a dashboard would trigger dozens of
+     * RPC calls (one or two per tile).
+     *
+     * The TTL bounds how long a permission change can take to be applied, so it
+     * is kept short and aligned with the customer's permission sync expectation.
+     */
+    private static readonly ALLOW_LIST_CACHE_TTL_MS = 30_000;
+
+    /**
+     * When the Admin RPC fails the result is an empty allow-list (fail closed).
+     * Cache it only briefly so the next request retries quickly.
+     */
+    private static readonly ALLOW_LIST_CACHE_ERROR_TTL_MS = 5_000;
+
+    private static readonly SCOPE_CACHE_TTL_MS = 30_000;
+
+    private static readonly MAX_VIEWER_CACHE_ENTRIES = 1000;
+
     analytics: LightdashAnalytics;
 
     dashboardModel: DashboardModel;
@@ -121,6 +241,8 @@ export class DashboardService
 
     savedChartService: SavedChartService;
 
+    savedSqlModel: SavedSqlModel;
+
     catalogModel: CatalogModel;
 
     projectModel: ProjectModel;
@@ -137,6 +259,24 @@ export class DashboardService
 
     projectOperationLogService: ProjectOperationLogService;
 
+    /**
+     * Cached allow-list per `projectUuid:userUuid`.
+     * The promise is cached (not only its result) so concurrent requests share
+     * a single RPC call instead of racing each other.
+     */
+    private readonly allowListCache = new Map<
+        string,
+        { expiresAt: number; promise: Promise<AllowedDashboardUuidsResult> }
+    >();
+
+    /**
+     * Cached content scope per `projectUuid:userUuid`.
+     */
+    private readonly viewerScopeCache = new Map<
+        string,
+        { expiresAt: number; promise: Promise<ViewerContentScope | undefined> }
+    >();
+
     constructor({
         analytics,
         dashboardModel,
@@ -146,6 +286,7 @@ export class DashboardService
         schedulerModel,
         savedChartModel,
         savedChartService,
+        savedSqlModel,
         schedulerClient,
         slackClient,
         projectModel,
@@ -164,6 +305,7 @@ export class DashboardService
         this.schedulerModel = schedulerModel;
         this.savedChartModel = savedChartModel;
         this.savedChartService = savedChartService;
+        this.savedSqlModel = savedSqlModel;
         this.projectModel = projectModel;
         this.catalogModel = catalogModel;
         this.schedulerClient = schedulerClient;
@@ -208,6 +350,8 @@ export class DashboardService
     private async deleteOrphanedChartsInDashboards(
         user: SessionUser,
         dashboardUuid: string,
+        projectUuid: string,
+        organizationUuid: string,
     ) {
         const orphanedCharts = await this.dashboardModel.getOrphanedCharts(
             dashboardUuid,
@@ -228,46 +372,183 @@ export class DashboardService
                 });
             }),
         );
+
+        // SQL charts owned by the dashboard that are not used by a tile
+        // anymore are deleted too, they would be invisible leftovers
+        const orphanedSqlCharts =
+            await this.dashboardModel.getOrphanedSqlCharts(dashboardUuid);
+
+        await Promise.all(
+            orphanedSqlCharts.map(async (chart) => {
+                await this.savedSqlModel.delete(chart.savedSqlUuid);
+                this.analytics.track({
+                    event: 'sql_chart.deleted',
+                    userId: user.userUuid,
+                    properties: {
+                        chartId: chart.savedSqlUuid,
+                        projectId: projectUuid,
+                        organizationId: organizationUuid,
+                    },
+                });
+            }),
+        );
     }
 
     /**
-     * Get allowed dashboard UUIDs for viewer users in customer use projects
-     * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs
-     * Can be used for a single project or multiple projects
+     * Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects.
+     * Session and personal access token use the same whitelist (mobile from user email).
+     * Returns undefined if filtering is not needed, or a Set of allowed dashboard UUIDs.
+     *
+     * The result is cached (promise included, so concurrent requests share a
+     * single Admin RPC call) for a short period: the allow-list is consulted by
+     * content lists, chart reads and every query execution.
      */
     async getAllowedDashboardUuidsForViewer(
-        user: SessionUser,
+        user: DashboardAllowListUser,
         projectUuid: string,
     ): Promise<Set<string> | undefined> {
-        // If this is an API token request, skip RPC filtering and let CASL handle permissions
-        if (user.isApiTokenRequest) {
-            this.logger.warn(
-                `API token request detected for user ${user.userUuid} in project ${projectUuid}, skipping RPC filtering.`,
-            );
-            return undefined;
+        const result = await this.getAllowedDashboardUuidsResult(
+            user,
+            projectUuid,
+        );
+        return result.uuids;
+    }
+
+    /**
+     * Same as {@link getAllowedDashboardUuidsForViewer} but keeps the
+     * diagnostic metadata (why the allow-list does or does not apply).
+     *
+     * The result is cached (promise included, so concurrent requests share a
+     * single Admin RPC call) for a short period: the allow-list is consulted by
+     * content lists, chart reads and every query execution.
+     */
+    async getAllowedDashboardUuidsResult(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<AllowedDashboardUuidsResult> {
+        const cacheKey = `${projectUuid}:${user.userUuid}`;
+        const cached = this.allowListCache.get(cacheKey);
+        if (cached !== undefined && cached.expiresAt > Date.now()) {
+            return cached.promise;
         }
 
+        const promise = this.fetchAllowedDashboardUuids(user, projectUuid);
+        const entry = {
+            expiresAt: Date.now() + DashboardService.ALLOW_LIST_CACHE_TTL_MS,
+            promise,
+        };
+        this.allowListCache.set(cacheKey, entry);
+        promise.then(
+            (result) => {
+                entry.expiresAt =
+                    Date.now() +
+                    (result.failed
+                        ? DashboardService.ALLOW_LIST_CACHE_ERROR_TTL_MS
+                        : DashboardService.ALLOW_LIST_CACHE_TTL_MS);
+            },
+            () => {
+                // The promise never rejects (fail-closed), this is only a
+                // safety net
+                entry.expiresAt =
+                    Date.now() + DashboardService.ALLOW_LIST_CACHE_ERROR_TTL_MS;
+            },
+        );
+        DashboardService.pruneViewerCache(this.allowListCache);
+
+        return promise;
+    }
+
+    /**
+     * Drop the cached client-use allow-list and content scope.
+     *
+     * The allow-list itself comes from the customer's Admin RPC and cannot be
+     * invalidated from the outside, but the derived content scope depends on
+     * the content of the project: it is dropped when a dashboard changes.
+     */
+    clearViewerContentCache(projectUuid?: string): void {
+        if (projectUuid === undefined) {
+            this.allowListCache.clear();
+            this.viewerScopeCache.clear();
+            return;
+        }
+
+        const prefix = `${projectUuid}:`;
+        [...this.allowListCache.keys()]
+            .filter((key) => key.startsWith(prefix))
+            .forEach((key) => this.allowListCache.delete(key));
+        [...this.viewerScopeCache.keys()]
+            .filter((key) => key.startsWith(prefix))
+            .forEach((key) => this.viewerScopeCache.delete(key));
+    }
+
+    /**
+     * Drop the oldest entries when the cache grows past its maximum size.
+     */
+    private static pruneViewerCache<T>(cache: Map<string, T>): void {
+        if (cache.size <= DashboardService.MAX_VIEWER_CACHE_ENTRIES) {
+            return;
+        }
+        const toRemove = cache.size - DashboardService.MAX_VIEWER_CACHE_ENTRIES;
+        let removed = 0;
+        for (const key of cache.keys()) {
+            cache.delete(key);
+            removed += 1;
+            if (removed >= toRemove) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Resolve the allow-list of a client-use project for a restricted role.
+     *
+     * `failed` marks an Admin RPC failure: the result is still fail-closed
+     * (empty allow-list) but it is only cached for a short time so the next
+     * request retries as soon as the RPC recovers.
+     */
+    private async fetchAllowedDashboardUuids(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<AllowedDashboardUuidsResult> {
         const db = this.userDashboardCategoryModel.getDatabase();
 
         // Get project info
         const project = await db
             .from('projects')
             .where('project_uuid', projectUuid)
-            .select('project_id', 'is_customer_use', 'organization_id')
+            .select('project_id', 'is_client_use', 'organization_id')
             .first();
         if (!project) {
             this.logger.warn(
                 `Project ${projectUuid} not found in projects table, skipping RPC filtering`,
             );
-            return undefined;
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'not_client_use',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: false,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
-        const isCustomerUse = project.is_customer_use ?? false;
-        if (!isCustomerUse) {
+        const isClientUse = project.is_client_use ?? false;
+        if (!isClientUse) {
             this.logger.warn(
-                `Project ${projectUuid} is not in customer use mode, skipping RPC filtering`,
+                `Project ${projectUuid} is not in client use mode, skipping RPC filtering`,
             );
-            return undefined;
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'not_client_use',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: false,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Get user's userId (needed for group_memberships query)
@@ -281,7 +562,16 @@ export class DashboardService
             this.logger.warn(
                 `User ${user.userUuid} not found in users table, skipping RPC filtering`,
             );
-            return undefined;
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'user_not_found',
+                effectiveProjectRole: null,
+                roleSource: 'none',
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Get user's project role from direct membership
@@ -322,30 +612,56 @@ export class DashboardService
         // 2. Group membership
         // 3. Organization role converted to project role (fallback)
         let userRole = directMembership?.role || groupMembership?.role;
+        let roleSource: ViewerProjectRoleSource = directMembership?.role
+            ? 'project_membership'
+            : 'group_membership';
         if (!userRole && orgMembership?.role) {
             userRole = convertOrganizationRoleToProjectRole(
                 orgMembership.role as OrganizationMemberRole,
             );
+            roleSource = 'organization';
+        }
+        if (!userRole) {
+            roleSource = 'none';
         }
 
-        const isViewer = userRole === ProjectMemberRole.VIEWER;
+        const shouldApplyRpcDashboardFilter =
+            isClientUseRestrictedProjectRole(userRole);
 
-        // Only filter if user is viewer and project has customer use enabled
-        if (!isViewer) {
+        // Only filter if user is viewer / interactive_viewer and project has client use enabled
+        if (!shouldApplyRpcDashboardFilter) {
             this.logger.warn(
                 `User ${user.userUuid} is ${userRole} in project ${projectUuid}, skipping RPC filtering`,
             );
-            return undefined;
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'role_not_restricted',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
-        // For VIEWER users in customer use mode, RPC interface is required
+        // For viewer / interactive_viewer in client use mode, RPC interface is required
         // If user.email is missing, cannot verify permissions via RPC
         // Return empty Set to filter out all dashboards (cannot verify = no access)
         if (!user.email) {
             this.logger.warn(
-                `User ${user.userUuid} (VIEWER) has no email in customer use project ${projectUuid}, filtering out all dashboards.`,
+                `User ${user.userUuid} (viewer / interactive_viewer) has no email in client use project ${projectUuid}, filtering out all dashboards.`,
             );
-            return new Set<string>();
+            return {
+                uuids: new Set<string>(),
+                failed: false,
+                status: 'no_email',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
         }
 
         // Extract mobile number from email (remove @ and everything after it)
@@ -354,9 +670,34 @@ export class DashboardService
 
         if (!mobile) {
             this.logger.warn(
-                `User ${user.userUuid} (VIEWER) email ${normalizedEmail} has no mobile part in customer use project ${projectUuid}, skipping RPC filtering`,
+                `User ${user.userUuid} (viewer / interactive_viewer) email ${normalizedEmail} has no mobile part in client use project ${projectUuid}, skipping RPC filtering`,
             );
-            return undefined;
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'no_email',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile: null,
+                clientUseEnabled: true,
+                rpcConfigured: this.categoryRpcClient.isConfigured(),
+            };
+        }
+
+        if (!this.categoryRpcClient.isConfigured()) {
+            this.logger.warn(
+                `Admin RPC is not configured, skipping dashboard RPC filtering for project ${projectUuid}`,
+            );
+            return {
+                uuids: undefined,
+                failed: false,
+                status: 'rpc_not_configured',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: false,
+            };
         }
 
         try {
@@ -383,17 +724,380 @@ export class DashboardService
                 );
             }
 
-            return allowedUuids;
+            return {
+                uuids: allowedUuids,
+                failed: false,
+                status: allowedUuids.size > 0 ? 'rpc_ok' : 'rpc_empty',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: true,
+            };
         } catch (error) {
             this.logger.error(
-                `Error fetching dashboards by mobile ${mobile}: ${
+                `Error fetching dashboards by mobile ${mobile} in project ${projectUuid}: ${
                     error instanceof Error ? error.message : String(error)
-                }`,
+                }. Returning empty allow-list; viewer / interactive_viewer will see no dashboards until RPC recovers.`,
             );
-            // On error, return empty Set to filter out all dashboards
-            // For VIEWER users in customer use mode, RPC interface is required
-            return new Set<string>();
+            return {
+                uuids: new Set<string>(),
+                failed: true,
+                status: 'rpc_error',
+                effectiveProjectRole: userRole ?? null,
+                roleSource,
+                mobile,
+                clientUseEnabled: true,
+                rpcConfigured: true,
+            };
         }
+    }
+
+    /**
+     * Explores used by allow-listed dashboards for client-use viewer / interactive_viewer.
+     * undefined: skip this layer. Set (including empty): restrict list and ad-hoc query.
+     */
+    async getAllowedExploreNamesForViewer(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<Set<string> | undefined> {
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (allowedDashboardUuids === undefined) {
+            return undefined;
+        }
+        return this.dashboardModel.getExploreNamesByDashboardUuids([
+            ...allowedDashboardUuids,
+        ]);
+    }
+
+    /**
+     * Resolve a trusted dashboard context (slug + name) for metadata queries.
+     *
+     * The slug sent by the client is verified against the database so the dbt
+     * `sql_filter` (row level security) always receives the canonical slug of a
+     * dashboard the user is actually allowed to open. A client cannot spoof the
+     * context to bypass the row level filter (e.g. by sending `NA`).
+     *
+     * Returns undefined when the slug does not belong to the project.
+     * Throws ForbiddenError when the user cannot see the dashboard.
+     *
+     * `filterTableNames` are the tables the dashboard filters on. They are not
+     * necessarily covered by the explore allow-list (a dashboard can filter on
+     * a table that none of its tiles uses), but the user has to be able to
+     * read their values to use the dashboard filters.
+     */
+    /**
+     * Resolves the dashboard context used for metadata queries (eg: field value
+     * searches) so that the dbt `sql_filter` (row level security) can be
+     * applied with the canonical dashboard slug.
+     *
+     * The dashboard can be referenced by uuid (globally unique, preferred) or by
+     * slug (only unique within a project, so the lookup is scoped to the
+     * project). As a last resort the dashboard name is used, still scoped to
+     * the project, so that a stale slug cannot silently disable the row filter.
+     */
+    async resolveDashboardContextForMetadata(
+        user: DashboardContextUser,
+        projectUuid: string,
+        dashboardUuidOrSlug?: string,
+        dashboardName?: string,
+    ): Promise<
+        | {
+              dashboardSlug: string;
+              dashboardName: string;
+              dashboardUuid: string;
+              filterTableNames: string[];
+          }
+        | undefined
+    > {
+        let dashboard: DashboardDAO | undefined;
+        try {
+            // Scope the lookup to the project: slugs are only unique within a
+            // project, so an unscoped lookup can resolve a dashboard that
+            // belongs to another project and silently drop the row filter.
+            if (dashboardUuidOrSlug) {
+                dashboard = await this.dashboardModel.getByIdOrSlug(
+                    dashboardUuidOrSlug,
+                    projectUuid,
+                );
+            }
+        } catch (error) {
+            // A missing dashboard is a valid answer, any other error is not
+            if (!(error instanceof NotFoundError)) {
+                throw error;
+            }
+            dashboard = undefined;
+        }
+
+        if (!dashboard && dashboardName) {
+            // Fallback: resolve the dashboard by name within the project, so a
+            // stale/duplicated slug still resolves to the right dashboard.
+            const matchingDashboardUuids =
+                await this.dashboardModel.getUuidsByNameInProject(
+                    projectUuid,
+                    dashboardName,
+                );
+            if (matchingDashboardUuids.length === 1) {
+                try {
+                    dashboard = await this.dashboardModel.getByIdOrSlug(
+                        matchingDashboardUuids[0],
+                        projectUuid,
+                    );
+                } catch (error) {
+                    if (!(error instanceof NotFoundError)) {
+                        throw error;
+                    }
+                    dashboard = undefined;
+                }
+            }
+        }
+
+        if (!dashboard || dashboard.projectUuid !== projectUuid) {
+            this.logger.warn(
+                `[DASHBOARD_CONTEXT][DashboardService.resolveDashboardContextForMetadata] Dashboard context could not be verified, ignoring client context ${JSON.stringify(
+                    {
+                        projectUuid,
+                        dashboardUuidOrSlug,
+                        dashboardName,
+                        dashboardProjectUuid: dashboard?.projectUuid,
+                        userUuid: user.userUuid,
+                    },
+                )}`,
+            );
+            return undefined;
+        }
+
+        const space = await this.spaceModel.getSpaceSummary(
+            dashboard.spaceUuid,
+        );
+        const spaceAccess = await this.spaceModel.getUserSpaceAccess(
+            user.userUuid,
+            dashboard.spaceUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('Dashboard', {
+                    organizationUuid: user.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access: spaceAccess,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this dashboard belongs to",
+            );
+        }
+
+        // Client-use projects: the dashboard must also be in the allow-list
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (
+            allowedDashboardUuids !== undefined &&
+            typeof user.organizationUuid === 'string' &&
+            !allowedDashboardUuids.has(dashboard.uuid)
+        ) {
+            throw new ForbiddenError("You don't have access to this dashboard");
+        }
+
+        return {
+            dashboardSlug: dashboard.slug,
+            dashboardName: dashboard.name,
+            dashboardUuid: dashboard.uuid,
+            filterTableNames: [
+                ...new Set(
+                    [
+                        ...dashboard.filters.dimensions,
+                        ...dashboard.filters.metrics,
+                    ]
+                        .map((filter) => filter.target.tableName)
+                        .filter((tableName): tableName is string =>
+                            Boolean(tableName),
+                        ),
+                ),
+            ],
+        };
+    }
+
+    /**
+     * Visible content scope for client-use viewer / interactive_viewer.
+     *
+     * Everything is derived from the dashboard allow-list (Admin RPC), so spaces,
+     * saved charts and explores stay consistent with the dashboards the customer
+     * is allowed to open:
+     * - dashboards: the allow-listed dashboards (other dashboards of the same
+     *   space stay hidden)
+     * - charts: the tiles of the allow-listed dashboards
+     * - spaces: the spaces that hold an allow-listed dashboard (a space without
+     *   an allow-listed dashboard is removed, even when it holds one of the
+     *   tiles of an allow-listed dashboard)
+     * - explores: the explores used by those charts
+     *
+     * Returns undefined when the allow-list does not apply (project is not
+     * client-use or the role is not restricted). Returns a scope with empty
+     * lists when the customer has no visible dashboard (fail-closed).
+     */
+    async getViewerContentScope(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScope | undefined> {
+        const cacheKey = `${projectUuid}:${user.userUuid}`;
+        const cached = this.viewerScopeCache.get(cacheKey);
+        if (cached !== undefined && cached.expiresAt > Date.now()) {
+            return cached.promise;
+        }
+
+        const promise = this.fetchViewerContentScope(user, projectUuid);
+        this.viewerScopeCache.set(cacheKey, {
+            expiresAt: Date.now() + DashboardService.SCOPE_CACHE_TTL_MS,
+            promise,
+        });
+        DashboardService.pruneViewerCache(this.viewerScopeCache);
+
+        return promise;
+    }
+
+    /**
+     * Build the visible content scope of a client-use project for a restricted
+     * role. See {@link getViewerContentScope}.
+     */
+    private async fetchViewerContentScope(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScope | undefined> {
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+        if (allowedDashboardUuids === undefined) {
+            return undefined;
+        }
+
+        const dashboardUuids = [...allowedDashboardUuids];
+        if (dashboardUuids.length === 0) {
+            return {
+                dashboardUuids: [],
+                chartUuids: [],
+                spaceUuids: [],
+                exploreNames: [],
+            };
+        }
+
+        const [chartUuids, dashboardSpaceUuids, exploreNames] =
+            await Promise.all([
+                this.dashboardModel.getChartUuidsByDashboardUuids(
+                    dashboardUuids,
+                ),
+                this.dashboardModel.getSpaceUuidsByDashboardUuids(
+                    dashboardUuids,
+                ),
+                this.dashboardModel.getExploreNamesByDashboardUuids(
+                    dashboardUuids,
+                ),
+            ]);
+
+        // The spaces of the visible charts are visible too: a chart that the
+        // user can see always belongs to a visible space.
+        const chartSpaceUuids =
+            await this.dashboardModel.getSpaceUuidsByChartUuids([
+                ...chartUuids,
+            ]);
+
+        // A space is visible when it holds visible content, plus the
+        // ancestors of those spaces so the space tree stays navigable.
+        const contentSpaceUuids = new Set([
+            ...dashboardSpaceUuids,
+            ...chartSpaceUuids,
+        ]);
+        const spaceUuids = await this.spaceModel.getSpaceUuidsWithAncestors([
+            ...contentSpaceUuids,
+        ]);
+
+        return {
+            dashboardUuids,
+            chartUuids: [...chartUuids],
+            spaceUuids: [...spaceUuids],
+            exploreNames: [...exploreNames],
+        };
+    }
+
+    /**
+     * Explain the client-use content scope of a user in a project.
+     *
+     * This is a read-only diagnostic: it answers "why can this user not see
+     * any dashboard?". It never grants more access than the scope itself and
+     * it reuses the cached allow-list, so it does not add an Admin RPC call.
+     */
+    async getViewerContentScopeDiagnostics(
+        user: DashboardAllowListUser,
+        projectUuid: string,
+    ): Promise<ViewerContentScopeDiagnostics> {
+        const allowList = await this.getAllowedDashboardUuidsResult(
+            user,
+            projectUuid,
+        );
+        const scope = await this.getViewerContentScope(user, projectUuid);
+
+        const allowedDashboardUuids = allowList.uuids
+            ? [...allowList.uuids]
+            : [];
+        const dashboardNames = await this.dashboardModel.getNamesForUuids(
+            allowedDashboardUuids,
+        );
+
+        return {
+            projectUuid,
+            clientUseEnabled: allowList.clientUseEnabled,
+            rpcConfigured: allowList.rpcConfigured,
+            effectiveProjectRole: allowList.effectiveProjectRole,
+            roleSource: allowList.roleSource,
+            scopeApplied: allowList.uuids !== undefined,
+            status: allowList.status,
+            reason: describeViewerContentScopeStatus(allowList),
+            mobile: allowList.mobile,
+            allowedDashboardCount: allowedDashboardUuids.length,
+            allowedDashboardUuids,
+            allowedDashboardNames: allowedDashboardUuids
+                .map((uuid) => dashboardNames[uuid])
+                .filter((name): name is string => !!name),
+            scopeCounts: scope
+                ? {
+                      dashboards: scope.dashboardUuids.length,
+                      charts: scope.chartUuids.length,
+                      spaces: scope.spaceUuids.length,
+                      explores: scope.exploreNames.length,
+                  }
+                : null,
+        };
+    }
+
+    /**
+     * Count dashboards per space that are in the viewer allow-list.
+     * Call only when the allow-list is a Set; undefined means keep the SQL count.
+     * Spaces are not removed when the visible count is 0.
+     */
+    async getVisibleDashboardCountBySpaceUuid(
+        spaceUuids: string[],
+        allowedDashboardUuids: Set<string>,
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>(
+            spaceUuids.map((spaceUuid) => [spaceUuid, 0]),
+        );
+        if (spaceUuids.length === 0) {
+            return counts;
+        }
+
+        const dashboards = await this.spaceModel.getSpaceDashboards(spaceUuids);
+        dashboards.forEach((dashboard) => {
+            if (allowedDashboardUuids.has(dashboard.uuid)) {
+                counts.set(
+                    dashboard.spaceUuid,
+                    (counts.get(dashboard.spaceUuid) ?? 0) + 1,
+                );
+            }
+        });
+        return counts;
     }
 
     async getAllByProject(
@@ -401,10 +1105,12 @@ export class DashboardService
         projectUuid: string,
         chartUuid?: string,
         includePrivate?: boolean,
+        appUuid?: string,
     ): Promise<DashboardBasicDetailsWithTileTypes[]> {
         const dashboards = await this.dashboardModel.getAllByProject(
             projectUuid,
             chartUuid,
+            appUuid,
         );
         const spaceUuids = [
             ...new Set(dashboards.map((dashboard) => dashboard.spaceUuid)),
@@ -419,8 +1125,7 @@ export class DashboardService
             spaces.map((s) => s.uuid),
         );
 
-        // Get allowed dashboard UUIDs for viewer users in customer use projects
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
+        // Get allowed dashboard UUIDs for viewer / interactive_viewer in client-use projects
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
 
@@ -438,8 +1143,8 @@ export class DashboardService
                 }),
             );
 
-            // Filter by RPC interface if viewer and customer use enabled
-            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., API token users without email, non-VIEWER users, or non-customer-use projects)
+            // Filter by RPC if viewer / interactive_viewer and client use enabled
+            // If allowedDashboardUuids is undefined, skip RPC filtering (e.g., non-restricted roles or non-client-use projects)
             // If allowedDashboardUuids is defined (not undefined), it means RPC filtering is required
             // - If it's an empty Set, user has no dashboard access (RPC returned no dashboards)
             // - If it has values, check if this dashboard is in the allowed list
@@ -473,7 +1178,13 @@ export class DashboardService
             chartUuid?: string;
         },
         includePrivate: boolean = true,
-    ): Promise<DashboardQueryContext[]> {
+    ): Promise<{
+        contexts: DashboardQueryContext[];
+        /**
+         * 权限过滤前的关联看板数量，用于区分「没配看板」与「没权限」。
+         */
+        associatedCount: number;
+    }> {
         if (!filters.exploreName && !filters.chartUuid) {
             throw new ParameterError('exploreName or chartUuid is required');
         }
@@ -482,6 +1193,8 @@ export class DashboardService
             projectUuid,
             filters,
         );
+        // 计数必须在权限过滤前取，调用方据此区分配置问题与权限问题
+        const associatedCount = rows.length;
         const spaceUuids = [...new Set(rows.map((row) => row.spaceUuid))];
         const spaces = await Promise.all(
             spaceUuids.map((spaceUuid) =>
@@ -527,7 +1240,7 @@ export class DashboardService
             );
         });
 
-        return filtered
+        const contexts = filtered
             .map((row) => ({
                 dashboardUuid: row.dashboardUuid,
                 dashboardSlug: row.dashboardSlug,
@@ -541,6 +1254,8 @@ export class DashboardService
                 if (bySlug !== 0) return bySlug;
                 return a.dashboardUuid.localeCompare(b.dashboardUuid);
             });
+
+        return { contexts, associatedCount };
     }
 
     async getByIdOrSlug(
@@ -566,9 +1281,8 @@ export class DashboardService
             access: spaceAccess,
         };
 
-        // Check dashboard permission for viewer users in customer use projects
+        // Check dashboard permission for viewer / interactive_viewer in client-use projects
         // This check should happen before CASL ability check
-        // API token requests are handled inside getAllowedDashboardUuidsForViewer
         const allowedDashboardUuids =
             await this.getAllowedDashboardUuidsForViewer(
                 user,
@@ -746,6 +1460,273 @@ export class DashboardService
         };
     }
 
+    /**
+     * A tile holds a chart resource (a saved chart or a SQL chart) when it
+     * references one. Those tiles are duplicated as brand new resources.
+     */
+    private static isChartResourceTile(tile: DashboardTile): boolean {
+        if (isDashboardSqlChartTile(tile)) {
+            return tile.properties.savedSqlUuid !== null;
+        }
+        if (isDashboardChartTileType(tile)) {
+            return tile.properties.savedChartUuid !== null;
+        }
+        return false;
+    }
+
+    /**
+     * Throws when the user is not allowed to see the content of a space.
+     */
+    private async assertCanViewSpaceContent(
+        user: SessionUser,
+        projectUuid: string,
+        spaceUuid: string,
+    ): Promise<void> {
+        const space = await this.spaceModel.getSpaceSummary(spaceUuid);
+        const access = await this.spaceModel.getUserSpaceAccess(
+            user.userUuid,
+            spaceUuid,
+        );
+        if (
+            user.ability.cannot(
+                'view',
+                subject('SavedChart', {
+                    organizationUuid: space.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this chart belongs to",
+            );
+        }
+    }
+
+    /**
+     * Duplicates a saved chart into a new chart owned by the given dashboard.
+     * The copy is a fully independent resource: new uuid, new slug and new
+     * version rows, so editing the copy never affects the source chart.
+     */
+    private async duplicateChartForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        savedChartUuid,
+        tileUuid,
+        fallbackSpaceUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        savedChartUuid: string;
+        /** Tile the chart belongs to - used to build a unique slug */
+        tileUuid: string;
+        /** Space used to resolve permissions for dashboard-owned charts */
+        fallbackSpaceUuid: string;
+    }): Promise<SavedChartDAO> {
+        const chartInDashboard = await this.savedChartModel.get(savedChartUuid);
+        if (chartInDashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Chart does not belong to this project',
+            );
+        }
+
+        await this.assertCanViewSpaceContent(
+            user,
+            projectUuid,
+            chartInDashboard.spaceUuid ?? fallbackSpaceUuid,
+        );
+
+        const duplicatedChart = await this.savedChartModel.create(
+            projectUuid,
+            user.userUuid,
+            {
+                ...chartInDashboard,
+                spaceUuid: null,
+                dashboardUuid,
+                updatedByUser: {
+                    userUuid: user.userUuid,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                },
+                // The slug is made unique by the model, the tile uuid keeps
+                // it readable when the same chart is copied more than once
+                slug: generateSlug(
+                    `${chartInDashboard.name} ${Date.now()}-${tileUuid}`,
+                ),
+            },
+        );
+
+        const cachedExplore = await this.projectModel.getExploreFromCache(
+            projectUuid,
+            duplicatedChart.tableName,
+        );
+
+        try {
+            await this.updateChartFieldUsage(projectUuid, cachedExplore, {
+                oldChartFields: {
+                    metrics: [],
+                    dimensions: [],
+                },
+                newChartFields: {
+                    metrics: duplicatedChart.metricQuery.metrics,
+                    dimensions: duplicatedChart.metricQuery.dimensions,
+                },
+            });
+        } catch (error) {
+            this.logger.error(
+                `Error updating chart field usage for chart ${duplicatedChart.uuid}`,
+                error,
+            );
+        }
+
+        this.analytics.track({
+            event: 'saved_chart.created',
+            userId: user.userUuid,
+            properties: {
+                ...SavedChartService.getCreateEventProperties(duplicatedChart),
+                dashboardId: duplicatedChart.dashboardUuid ?? undefined,
+                duplicated: true,
+                virtualViewId:
+                    cachedExplore?.type === ExploreType.VIRTUAL
+                        ? cachedExplore.name
+                        : undefined,
+            },
+        });
+
+        return duplicatedChart;
+    }
+
+    /**
+     * Duplicates a SQL chart into a new SQL chart owned by the given
+     * dashboard. The copy is a fully independent resource: new uuid, new slug
+     * and new version row, so editing the copy never affects the source
+     * SQL chart.
+     */
+    private async duplicateSqlChartForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        savedSqlUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        savedSqlUuid: string;
+    }): Promise<{ savedSqlUuid: string; name: string; slug: string }> {
+        const sourceChart = await this.savedSqlModel.getByUuid(savedSqlUuid, {
+            projectUuid,
+        });
+
+        if (sourceChart.project.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'SQL chart does not belong to this project',
+            );
+        }
+
+        // The user must be able to see the space the SQL chart lives in.
+        // The `CustomSql` ability is checked upfront, when the dashboard is
+        // duplicated: creating a SQL chart requires it, copying one too.
+        await this.assertCanViewSpaceContent(
+            user,
+            projectUuid,
+            sourceChart.space.uuid,
+        );
+
+        const duplicatedChart = await this.savedSqlModel.create(
+            user.userUuid,
+            projectUuid,
+            {
+                name: sourceChart.name,
+                description: sourceChart.description,
+                sql: sourceChart.sql,
+                limit: sourceChart.limit,
+                config: sourceChart.config,
+                dashboardUuid,
+            },
+        );
+
+        return {
+            savedSqlUuid: duplicatedChart.savedSqlUuid,
+            name: sourceChart.name,
+            slug: duplicatedChart.slug,
+        };
+    }
+
+    /**
+     * Duplicates a tile of the source dashboard. Tiles holding a chart
+     * resource (saved chart or SQL chart) are linked to a new, independent
+     * copy of that chart. Every other tile (markdown, loom, data app) is
+     * copied as is.
+     */
+    private async duplicateTileForDashboard({
+        user,
+        projectUuid,
+        dashboardUuid,
+        tile,
+        fallbackSpaceUuid,
+        remapTileUuid,
+    }: {
+        user: SessionUser;
+        projectUuid: string;
+        dashboardUuid: string;
+        tile: DashboardTile;
+        /** Space used to resolve permissions for dashboard-owned charts */
+        fallbackSpaceUuid: string;
+        /** Maps a tile uuid of the source dashboard to the new tile uuid */
+        remapTileUuid: (tileUuid: string) => string;
+    }): Promise<DashboardTile> {
+        if (isDashboardSqlChartTile(tile)) {
+            if (!tile.properties.savedSqlUuid) {
+                return { ...tile };
+            }
+            const duplicatedSqlChart = await this.duplicateSqlChartForDashboard(
+                {
+                    user,
+                    projectUuid,
+                    dashboardUuid,
+                    savedSqlUuid: tile.properties.savedSqlUuid,
+                },
+            );
+            return {
+                ...tile,
+                uuid: remapTileUuid(tile.uuid),
+                properties: {
+                    ...tile.properties,
+                    savedSqlUuid: duplicatedSqlChart.savedSqlUuid,
+                    chartName: duplicatedSqlChart.name,
+                    chartSlug: duplicatedSqlChart.slug,
+                },
+            };
+        }
+
+        if (isDashboardChartTileType(tile) && tile.properties.savedChartUuid) {
+            const duplicatedChart = await this.duplicateChartForDashboard({
+                user,
+                projectUuid,
+                dashboardUuid,
+                savedChartUuid: tile.properties.savedChartUuid,
+                tileUuid: tile.uuid,
+                fallbackSpaceUuid,
+            });
+            return {
+                ...tile,
+                uuid: remapTileUuid(tile.uuid),
+                properties: {
+                    ...tile.properties,
+                    savedChartUuid: duplicatedChart.uuid,
+                    belongsToDashboard: true,
+                    chartName: duplicatedChart.name,
+                    chartSlug: duplicatedChart.slug,
+                },
+            };
+        }
+
+        return { ...tile };
+    }
+
     async duplicate(
         user: SessionUser,
         projectUuid: string,
@@ -755,9 +1736,17 @@ export class DashboardService
         const dashboardDao = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
         );
+        if (dashboardDao.projectUuid !== projectUuid) {
+            throw new ForbiddenError('Dashboard does not belong to this project');
+        }
         const space = await this.spaceModel.getSpaceSummary(
             dashboardDao.spaceUuid,
         );
+        if (space.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                'Target space does not belong to this project',
+            );
+        }
         const spaceAccess = await this.spaceModel.getUserSpaceAccess(
             user.userUuid,
             dashboardDao.spaceUuid,
@@ -774,10 +1763,32 @@ export class DashboardService
             );
         }
 
-        const newTabsMap = dashboard.tabs.map((tab) => ({
-            uuid: tab.uuid,
-            newUuid: uuidv4(), // generate new uuid for copied tabs
-        }));
+        // A duplicated SQL chart is a new SQL chart resource: creating one
+        // requires the `CustomSql` ability, copying a SQL chart included.
+        // The check happens before anything is created, so a dashboard with
+        // SQL charts is not copied at all when the user is not allowed to.
+        const hasSqlChartTiles = dashboard.tiles.some((tile) =>
+            isDashboardSqlChartTile(tile),
+        );
+        if (
+            hasSqlChartTiles &&
+            user.ability.cannot(
+                'manage',
+                subject('CustomSql', {
+                    organizationUuid: dashboard.organizationUuid,
+                    projectUuid,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have permission to duplicate dashboards with SQL charts",
+            );
+        }
+
+        const tabUuidMap = new Map<string, string>();
+        dashboard.tabs.forEach((tab) => {
+            tabUuidMap.set(tab.uuid, uuidv4());
+        });
 
         const remapTabConfigProperty = <T>(
             property?: Record<string, T>,
@@ -785,9 +1796,7 @@ export class DashboardService
             if (!property) return property;
             return Object.entries(property).reduce<Record<string, T>>(
                 (acc, [tabUuid, value]) => {
-                    const newUuid = newTabsMap.find(
-                        (tabMap) => tabMap.uuid === tabUuid,
-                    )?.newUuid;
+                    const newUuid = tabUuidMap.get(tabUuid);
                     if (!newUuid) return acc;
                     return {
                         ...acc,
@@ -796,6 +1805,53 @@ export class DashboardService
                 },
                 {},
             );
+        };
+
+        /**
+         * Tiles holding a chart resource (saved chart or SQL chart) point to a
+         * duplicated chart, so they get a new tile uuid. Every other tile
+         * (markdown, loom, data app) is copied as is.
+         */
+        const tileUuidMap = new Map<string, string>();
+        dashboard.tiles.forEach((tile) => {
+            if (DashboardService.isChartResourceTile(tile)) {
+                tileUuidMap.set(tile.uuid, uuidv4());
+            }
+        });
+
+        const remapTileUuid = (tileUuid: string): string =>
+            tileUuidMap.get(tileUuid) ?? tileUuid;
+
+        const remapFilterRule = <T extends DashboardFilterRule>(rule: T): T => ({
+            ...rule,
+            tileTargets: rule.tileTargets
+                ? Object.entries(rule.tileTargets).reduce<
+                      Record<string, DashboardTileTarget>
+                  >((acc, [tileUuid, target]) => {
+                      acc[remapTileUuid(tileUuid)] = target;
+                      return acc;
+                  }, {})
+                : undefined,
+            lockedTabUuids: rule.lockedTabUuids?.map(
+                (tabUuid) => tabUuidMap.get(tabUuid) ?? tabUuid,
+            ),
+            parentTabUuid:
+                rule.parentScope === 'tab' && rule.parentTabUuid !== undefined
+                    ? tabUuidMap.get(rule.parentTabUuid) ?? rule.parentTabUuid
+                    : rule.parentTabUuid,
+        });
+
+        const remapFilters = (
+            filters?: DashboardFilters,
+        ): DashboardFilters | undefined => {
+            if (!filters) return filters;
+            return {
+                dimensions: filters.dimensions.map(remapFilterRule),
+                metrics: filters.metrics.map(remapFilterRule),
+                tableCalculations: filters.tableCalculations.map(
+                    remapFilterRule,
+                ),
+            };
         };
 
         const remapDashboardConfig = (
@@ -810,27 +1866,51 @@ export class DashboardService
                 showTabAddFilterButton: remapTabConfigProperty(
                     config.showTabAddFilterButton,
                 ),
+                syncChartTileUuids: config.syncChartTileUuids?.map(
+                    remapTileUuid,
+                ),
             };
         };
 
         const newTabs: DashboardTab[] = dashboard.tabs.map((tab) => ({
             ...tab,
-            uuid: newTabsMap.find((tabMap) => tabMap.uuid === tab.uuid)
-                ?.newUuid!,
+            uuid: tabUuidMap.get(tab.uuid)!,
+            filters: remapFilters(tab.filters),
         }));
+
+        const hasChartResourceTiles = dashboard.tiles.some((tile) =>
+            DashboardService.isChartResourceTile(tile),
+        );
+
+        const remapTileTabUuid = (tile: DashboardTile) => ({
+            ...tile,
+            tabUuid: tile.tabUuid
+                ? tabUuidMap.get(tile.tabUuid) ?? tile.tabUuid
+                : tile.tabUuid,
+        });
 
         const duplicatedDashboard = {
             ...dashboard,
-            tiles: dashboard.tiles.map((tile) => ({
-                ...tile,
-                tabUuid: newTabsMap.find((tab) => tab.uuid === tile.tabUuid)
-                    ?.newUuid!,
-            })),
+            // Tiles holding a chart resource are added in a second version,
+            // once every chart resource has been duplicated - the duplicated
+            // charts need the uuid of the new dashboard.
+            tiles: hasChartResourceTiles
+                ? []
+                : dashboard.tiles.map(remapTileTabUuid),
+            filters: hasChartResourceTiles
+                ? {
+                      dimensions: [],
+                      metrics: [],
+                      tableCalculations: [],
+                  }
+                : remapFilters(dashboard.filters),
             description: data.dashboardDesc,
             name: data.dashboardName,
-            slug: generateSlug(dashboard.name),
+            slug: generateSlug(data.dashboardName || dashboard.name),
             tabs: newTabs,
             config: remapDashboardConfig(dashboard.config),
+            // The copy keeps the owner of the dashboard it was copied from
+            ownerUserUuid: dashboard.owner?.userUuid ?? null,
         };
 
         const newDashboard = await this.dashboardModel.create(
@@ -840,113 +1920,61 @@ export class DashboardService
             projectUuid,
         );
 
-        if (hasChartsInDashboard(newDashboard)) {
-            const updatedTiles = await Promise.all(
-                newDashboard.tiles.map(async (tile) => {
-                    if (
-                        isDashboardChartTileType(tile) &&
-                        tile.properties.savedChartUuid
-                    ) {
-                        const chartInDashboard = await this.savedChartModel.get(
-                            tile.properties.savedChartUuid,
-                        );
-                        const duplicatedChart =
-                            await this.savedChartModel.create(
-                                newDashboard.projectUuid,
-                                user.userUuid,
-                                {
-                                    ...chartInDashboard,
-                                    spaceUuid: null,
+        if (hasChartResourceTiles) {
+            try {
+                // The tiles are duplicated one by one: slug generation is not
+                // safe to run in parallel for charts with the same name
+                const clonedTiles: CreateDashboard['tiles'] = [];
+                await dashboard.tiles.reduce(
+                    (previous: Promise<void>, rawTile) =>
+                        previous.then(async () => {
+                            clonedTiles.push(
+                                await this.duplicateTileForDashboard({
+                                    user,
+                                    projectUuid,
                                     dashboardUuid: newDashboard.uuid,
-                                    updatedByUser: {
-                                        userUuid: user.userUuid,
-                                        firstName: user.firstName,
-                                        lastName: user.lastName,
-                                    },
-                                    slug: generateSlug(
-                                        `${
-                                            chartInDashboard.name
-                                        } ${Date.now()}-${tile.uuid}`,
-                                    ),
-                                },
+                                    tile: remapTileTabUuid(rawTile),
+                                    fallbackSpaceUuid: dashboard.spaceUuid,
+                                    remapTileUuid,
+                                }),
                             );
-                        const cachedExplore =
-                            await this.projectModel.getExploreFromCache(
-                                projectUuid,
-                                duplicatedChart.tableName,
-                            );
+                        }),
+                    Promise.resolve(),
+                );
 
-                        try {
-                            await this.updateChartFieldUsage(
-                                projectUuid,
-                                cachedExplore,
-                                {
-                                    oldChartFields: {
-                                        metrics: [],
-                                        dimensions: [],
-                                    },
-                                    newChartFields: {
-                                        metrics:
-                                            duplicatedChart.metricQuery.metrics,
-                                        dimensions:
-                                            duplicatedChart.metricQuery
-                                                .dimensions,
-                                    },
-                                },
-                            );
-                        } catch (error) {
-                            this.logger.error(
-                                `Error updating chart field usage for chart ${duplicatedChart.uuid}`,
-                                error,
-                            );
-                        }
-
-                        this.analytics.track({
-                            event: 'saved_chart.created',
-                            userId: user.userUuid,
-                            properties: {
-                                ...SavedChartService.getCreateEventProperties(
-                                    duplicatedChart,
-                                ),
-                                dashboardId:
-                                    duplicatedChart.dashboardUuid ?? undefined,
-                                duplicated: true,
-                                virtualViewId:
-                                    cachedExplore?.type === ExploreType.VIRTUAL
-                                        ? cachedExplore.name
-                                        : undefined,
-                            },
-                        });
-
-                        return {
-                            ...tile,
-                            uuid: uuidv4(),
-                            properties: {
-                                ...tile.properties,
-                                savedChartUuid: duplicatedChart.uuid,
-                            },
-                        };
-                    }
-                    return tile;
-                }),
-            );
-
-            await this.dashboardModel.addVersion(
-                newDashboard.uuid,
-                {
-                    tiles: [...updatedTiles],
-                    filters: newDashboard.filters,
-                    tabs: newTabs,
-                    parameters: newDashboard.parameters,
-                    config: newDashboard.config,
-                },
-                user,
-                projectUuid,
-            );
+                await this.dashboardModel.addVersion(
+                    newDashboard.uuid,
+                    {
+                        tiles: clonedTiles,
+                        filters: remapFilters(dashboard.filters),
+                        tabs: newTabs,
+                        parameters: newDashboard.parameters,
+                        config: remapDashboardConfig(dashboard.config),
+                    },
+                    user,
+                    projectUuid,
+                );
+            } catch (error) {
+                // The copy is incomplete: remove it, together with the
+                // charts that were already duplicated for it
+                try {
+                    await this.dashboardModel.delete(newDashboard.uuid);
+                } catch (cleanupError) {
+                    this.logger.error(
+                        `Error removing the incomplete duplicated dashboard ${newDashboard.uuid}`,
+                        cleanupError,
+                    );
+                }
+                throw error;
+            }
         }
 
+        const updatedNewDashboard = await this.dashboardModel.getByIdOrSlug(
+            newDashboard.uuid,
+        );
+
         const dashboardProperties =
-            DashboardService.getCreateEventProperties(newDashboard);
+            DashboardService.getCreateEventProperties(updatedNewDashboard);
         this.analytics.track({
             event: 'dashboard.created',
             userId: user.userUuid,
@@ -976,10 +2004,6 @@ export class DashboardService
                 duplicateOfDashboardId: dashboard.uuid,
             },
         });
-
-        const updatedNewDashboard = await this.dashboardModel.getByIdOrSlug(
-            newDashboard.uuid,
-        );
 
         return {
             ...updatedNewDashboard,
@@ -1104,6 +2128,8 @@ export class DashboardService
             await this.deleteOrphanedChartsInDashboards(
                 user,
                 existingDashboardDao.uuid,
+                existingDashboardDao.projectUuid,
+                existingDashboardDao.organizationUuid,
             );
         }
 
@@ -1142,7 +2168,6 @@ export class DashboardService
                 },
             });
         }
-
 
         const clientEvents =
             'clientEvents' in dashboard
@@ -1255,10 +2280,7 @@ export class DashboardService
                     },
                 });
             }
-        } else if (
-            isDashboardUnversionedFields(dashboard) &&
-            !spaceMoved
-        ) {
+        } else if (isDashboardUnversionedFields(dashboard) && !spaceMoved) {
             await this.projectOperationLogService.record({
                 ...baseLog,
                 action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
@@ -1376,10 +2398,9 @@ export class DashboardService
                 targetUserUuid,
             );
 
-        const summary =
-            await this.dashboardModel.getDashboardsSummaryByOwner(
-                targetUserUuid,
-            );
+        const summary = await this.dashboardModel.getDashboardsSummaryByOwner(
+            targetUserUuid,
+        );
 
         const projectsWithoutPermission = summary.byProject
             .filter(

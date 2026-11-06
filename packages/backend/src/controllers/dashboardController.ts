@@ -9,6 +9,7 @@ import {
     OperationId,
     Path,
     Post,
+    Query,
     Request,
     Response,
     Route,
@@ -31,6 +32,8 @@ export class DashboardController extends BaseController {
      * Promote dashboard to its upstream project
      * @param dashboardUuid dashboardUuid for the dashboard to run
      * @param req express request
+     * @param confirmConflicts confirm that the changes made in the upstream project after the last promotion can be overwritten
+     * @param syncDashboardName copy the name of the dashboard to the upstream project
      */
     @Middlewares([
         allowApiKeyAuthentication,
@@ -43,13 +46,18 @@ export class DashboardController extends BaseController {
     async promoteDashboard(
         @Path() dashboardUuid: string,
         @Request() req: express.Request,
+        @Query() confirmConflicts?: boolean,
+        @Query() syncDashboardName?: boolean,
     ): Promise<ApiPromoteDashboardResponse> {
         this.setStatus(200);
         return {
             status: 'ok',
             results: await this.services
                 .getPromoteService()
-                .promoteDashboard(req.user!, dashboardUuid),
+                .promoteDashboard(req.user!, dashboardUuid, {
+                    confirmConflicts: confirmConflicts === true,
+                    syncDashboardName: syncDashboardName === true,
+                }),
         };
     }
 

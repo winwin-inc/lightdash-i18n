@@ -49,11 +49,11 @@ import {
     selectTableName,
     useExplorerSelector,
 } from '../../../features/explorer/store';
+import useToaster from '../../../hooks/toaster/useToaster';
 import { useExplore } from '../../../hooks/useExplore';
 import { useProject } from '../../../hooks/useProject';
 import { useProjectUuid } from '../../../hooks/useProjectUuid';
 import { useCannotAuthorCustomSqlTableCalculations } from '../../../hooks/user/useCannotAuthorCustomSqlTableCalculations';
-import useToaster from '../../../hooks/toaster/useToaster';
 import { getUniqueTableCalculationName } from '../utils';
 import { FormulaForm } from './FormulaForm/FormulaForm';
 import { SqlForm } from './SqlForm';
@@ -73,6 +73,7 @@ type TableCalculationFormInputs = {
     totalMode?: TableCalculationTotalMode;
 };
 
+// prettier-ignore
 enum EditMode {
     SQL = 'sql',
     TEMPLATE = 'template',
@@ -129,20 +130,26 @@ const TableCalculationModal: FC<Props> = ({
 
     const tableCalculationTypeLabels = useTableCalculationTypeLabels();
 
-    // Default mode: formula if editing formula calc; template if template; else sql
+    // Default mode: formula if editing formula calc; template if template;
+    // SQL if editing a saved SQL calc; else formula when supported, otherwise SQL
     const hasTemplate = tableCalculation
         ? isTemplateTableCalculation(tableCalculation)
         : false;
     const hasFormula = tableCalculation
         ? isFormulaTableCalculation(tableCalculation)
         : false;
+    const hasSql = tableCalculation
+        ? isSqlTableCalculation(tableCalculation)
+        : false;
     const defaultMode = hasFormula
         ? EditMode.FORMULA
         : hasTemplate
           ? EditMode.TEMPLATE
-          : formulaSupported
-            ? EditMode.FORMULA
-            : EditMode.SQL;
+          : hasSql
+            ? EditMode.SQL
+            : formulaSupported
+              ? EditMode.FORMULA
+              : EditMode.SQL;
     const [editMode, setEditMode] = useState<EditMode>(defaultMode);
     const [formulaError, setFormulaError] = useState<string | null>(null);
     const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -165,7 +172,8 @@ const TableCalculationModal: FC<Props> = ({
                     : '=',
             type: tableCalculation?.type || TableCalculationType.NUMBER,
             totalMode:
-                tableCalculation?.totalMode || TableCalculationTotalMode.FORMULA,
+                tableCalculation?.totalMode ||
+                TableCalculationTotalMode.FORMULA,
             format: {
                 type:
                     tableCalculation?.format?.type || CustomFormatType.DEFAULT,
@@ -391,7 +399,9 @@ const TableCalculationModal: FC<Props> = ({
                                 {...form.getInputProps('name')}
                             />
 
-                            {(hasTemplate || formulaSupported || hasFormula) && (
+                            {(hasTemplate ||
+                                formulaSupported ||
+                                hasFormula) && (
                                 <Select
                                     label={t(
                                         'features_table_calculation_modal.form.calculation_mode.label',
@@ -469,9 +479,7 @@ const TableCalculationModal: FC<Props> = ({
                                             explore={explore}
                                             metricQuery={metricQuery}
                                             formula={form.values.formula}
-                                            initialFormula={
-                                                form.values.formula
-                                            }
+                                            initialFormula={form.values.formula}
                                             onChange={(value) =>
                                                 form.setFieldValue(
                                                     'formula',

@@ -35,7 +35,7 @@ export function getJsonRpcMethod(body: unknown): string | undefined {
     if (typeof body !== 'object') {
         return undefined;
     }
-    const method = (body as { method?: unknown }).method;
+    const { method } = body as { method?: unknown };
     return typeof method === 'string' ? method : undefined;
 }
 

@@ -189,10 +189,7 @@ const useDashboardStorage = () => {
                 tabUuid,
             );
             sessionStorage.setItem('activeTabUuid', tabUuid); // legacy
-            localStorage.setItem(
-                dashboardLastTabStorageKey(dashUuid),
-                tabUuid,
-            );
+            localStorage.setItem(dashboardLastTabStorageKey(dashUuid), tabUuid);
             window.dispatchEvent(new Event('storage'));
         },
         [],

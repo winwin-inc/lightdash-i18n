@@ -1,6 +1,6 @@
 # @lightdash/mcp
 
-独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **25 个 MCP 工具**（**17** 个核心：健康/项目/目录/内容/查询/文档；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
+独立运行的 Lightdash [Model Context Protocol](https://modelcontextprotocol.io) 服务，面向 Claude Code、Cursor 等客户端。通过站点 **REST API** 注册 **26 个 MCP 工具**（**18** 个核心：健康/项目/权限/目录/内容/查询/文档；**8** 个站点与已保存图表/看板导出相关），以及 **`lightdash-analyst`** 提示词；工具名**统一无前缀**（与 EE 内置 MCP 对齐的仍用上游同名，如 `find_charts`）。不托管在 Lightdash 进程内，适合单独扩缩或与主站版本解耦。
 
 ---
 
@@ -67,6 +67,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | 变量                               | 必填  | 说明                                                     |
 | -------------------------------- | --- | ------------------------------------------------------ |
 | `LIGHTDASH_SITE_URL`             | 是   | Lightdash 站点根 URL（无尾斜杠亦可）                              |
+| `LIGHTDASH_PUBLIC_SITE_URL`     | 否   | 浏览器打开用公网根（拼 `webUrl`）；未设则同 `LIGHTDASH_SITE_URL` |
 | `LIGHTDASH_PROJECT_UUID`         | 否   | MCP 默认项目 UUID；未传时可依赖 **`set_project`** 或各工具可选参数 **`projectUuid`**（见下节） |
 | `LIGHTDASH_API_KEY`              | 否   | 默认 PAT（仅在 OAuth 关闭时作为请求兜底）；OAuth 模式下用于调用 introspect        |
 | `LIGHTDASH_MAX_LIMIT`            | 否   | 查询类接口的 `limit` 上限                                      |
@@ -81,6 +82,13 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `LIGHTDASH_MCP_LRU_MIN_IDLE_MS`  | 否   | LRU 候选最小空闲时间，默认 `300000`（5 分钟） |
 | `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 无业务活动（POST/DELETE）后的回收 TTL，默认 `900000`（15 分钟） |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
+| `MCP_DASHBOARD_STRICT`           | 否   | 强制看板模式总开关（`true/false`，默认 `false`）。设为 `true` 后，**所有查询类工具**查数前必须解析出 `dashboardUuid`（与角色无关）；仅外部品牌 CT 部署设 `true` |
+| `MCP_DASHBOARD_CONTACT`          | 否   | 看板无权限时的联系文案，默认“请联系客服开通看板访问权限。” |
+
+> 强制看板模式的完整行为、权限口径与返回契约见
+> [`docs/mcp/lightdash-mcp-dashboard-strict-mode.md`](../../docs/mcp/lightdash-mcp-dashboard-strict-mode.md)（**v2 设计稿**：覆盖全部查询工具、0 候选按后端 `associatedCount` 分流、不按角色放行）。
+> 开启后，查询类工具（`run_metric_query` / `run_semantic_metric_query` / `search_field_values` / `run_saved_chart` / `run_dashboard_tiles`）会先解析看板上下文：显式传入的 `dashboardUuid` 会被校验（可打开 + 属于本项目 + 属于该数据集的关联看板），未传入时按数据集反查关联看板。解析不出就**不查数**，而是返回 `status` ∈ { `dashboard_permission_required`、`dashboard_configuration_required`、`dashboard_selection_required`、`dashboard_not_found`、`dashboard_context_unavailable` } 与对应 `action`。
+> 看板发现路径（只读、不查数）：`list_dashboards` / `find_dashboards` → `get_dashboard_tiles`；`get_my_access` 会返回 `dashboardStrict` / `dashboardContact`。
 
 ### 多用户并发与内存防护
 
@@ -107,7 +115,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 - 若频繁 **503** → 增大 `MAX_SESSIONS` / 单 owner 硬上限，或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests` 便于监控
+- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests`、`dashboardStrict` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 
@@ -120,7 +128,7 @@ Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tool
 正确冒烟流程：
 
 ```bash
-# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests）
+# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests / dashboardStrict）
 curl -s http://localhost:3333/health
 
 # 2. initialize（从响应头取 Mcp-Session-Id）
@@ -195,14 +203,15 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 工具名以本服务实际注册为准；命名列表见 **[`DEV_TOOL_NAMES.md`](./DEV_TOOL_NAMES.md)**。
 
-### 核心工具（17 个）
+### 核心工具（18 个）
 
-`get_lightdash_version` · `get_mcp_docs` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
+`get_lightdash_version` · `get_mcp_docs` · `get_my_access` · `list_projects` · `set_project` · `get_current_project` · `list_explores` · `find_explores` · `find_fields` · `find_content` · `find_charts` · `find_dashboards` · `find_spaces` · `list_dashboards` · `list_verified_content` · `search_field_values` · `run_semantic_metric_query` · `run_metric_query`
 
 说明要点：
 
 - `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `content_fields` / `session_lifecycle` / `security`）。`content_fields` 说明 `chartKind`（认图）与 `chartConfig.type`（仅 full）、`groups` 等。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
+- `get_my_access`：返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回表名单，建议同时传 `projectUuid`。非 `queryable` 表用 `run_metric_query` / `run_semantic_metric_query` 会拒绝查询；`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 与未知表。另返回 `dashboardStrict` / `dashboardContact`（强制看板模式策略与无权限联系文案）。见 [`docs/mcp/mcp-get-my-access.md`](../../docs/mcp/mcp-get-my-access.md)。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。默认 slim 图表项含 **`chartKind`**（认图；UI「自定义」=`custom`）；勿把 `chartConfig.type`（仅 `full`）当成折线/柱状。
 - `list_explores`：默认精简含 **`groups`**（嵌套 path keys）与 `groupLabel`；完整嵌套分组以本工具为准（`find_explores` 的 catalog 可能无 `groups`）。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。
@@ -218,7 +227,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 | 工具名                  | 用途                                                       |
 | -------------------- | ---------------------------------------------------------- |
-| `get_site_info`      | 返回 `siteBaseUrl`（与 `LIGHTDASH_SITE_URL` 一致）                |
+| `get_site_info`      | 返回 `siteBaseUrl`（打开链接）与 `apiBaseUrl`（API） |
 | `list_spaces`        | 列出当前项目下的空间（层级浏览，默认精简输出）                        |
 | `list_charts`        | 按 `dashboardUuid` 列出看板内已保存图表磁贴；默认含 **`chartKind`**（统计自定义：`chartKind==="custom"`） |
 | `get_saved_chart`    | 已保存图表定义（含 `webUrl`）；默认精简同时含 **`chartKind`**（认图）与 **`chartType`**（=`chartConfig.type`）；`full=true` 含完整 `chartConfig` |
@@ -271,6 +280,7 @@ docker build -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:0.1.0 .
 
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e LIGHTDASH_PUBLIC_SITE_URL="https://your-lightdash.example.com" \
   -e LIGHTDASH_PROJECT_UUID="your-project-uuid" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0

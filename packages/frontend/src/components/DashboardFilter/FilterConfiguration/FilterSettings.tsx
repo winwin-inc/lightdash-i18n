@@ -14,6 +14,7 @@ import {
     Box,
     Button,
     Checkbox,
+    Divider,
     Group,
     MultiSelect,
     Select,
@@ -29,6 +30,10 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
+import {
+    getCategoryLevelOf,
+    looksLikeCategoryFilter,
+} from '../../../utils/categoryLevel';
 import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
@@ -37,17 +42,29 @@ import useFiltersContext from '../../common/Filters/useFiltersContext';
 import { usePlaceholderByFilterTypeAndOperator } from '../../common/Filters/utils/getPlaceholderByFilterTypeAndOperator';
 import MantineIcon from '../../common/MantineIcon';
 import { TagInput } from '../../common/TagInput/TagInput';
+import {
+    applyParentFilterRef,
+    decodeParentFilterRef,
+    encodeParentFilterRef,
+    type ParentFilterRef,
+} from '../common/parentFilterRef';
 import DateRangeConstraintEditor from './DateRangeConstraintEditor';
 import {
     mergeExcludedValues,
     normalizeExcludedValues,
     removeValuesExcludedFromFilterRule,
 } from './utils';
-
 type ParentFilterOption = {
     value: string;
     label: string;
-    categoryLevel?: number;
+    /** 父级的显式类目层级（父级没配层级时为 null / undefined） */
+    categoryLevel?: number | null;
+    /** 父级所在作用域 */
+    scope?: 'global' | 'tab';
+    /** 父级所在的 Tab uuid（scope === 'tab'） */
+    tabUuid?: string | null;
+    /** 父级的字段 id */
+    fieldId?: string;
 };
 
 type DashboardFilterRuleWithAllowedOperators = DashboardFilterRule & {
@@ -102,6 +119,8 @@ interface FilterSettingsProps {
     onPendingExcludedValueChange?: (value: string) => void;
     pendingExcludedValue?: string;
     parentFilterOptions?: ParentFilterOption[];
+    /** 当前筛选器的作用域：决定自动选择父级时的优先级 */
+    filterScope?: 'global' | 'tab';
 }
 
 const FilterSettings: FC<FilterSettingsProps> = ({
@@ -115,8 +134,17 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     onPendingExcludedValueChange,
     pendingExcludedValue = '',
     parentFilterOptions = [],
+    filterScope = 'global',
 }) => {
     const { t } = useTranslation();
+
+    // 非类目字段（集团 / 品牌 / 商品名称 / 时间…）也能绑定父级类目（「跟随父级筛选器」），
+    // 但没有自己的层级：对它们隐藏「类目层级」选择器，避免误设 categoryLevel
+    // （一旦设置，该筛选器会被当成类目参与自动解析 / 同级继承 / 重置为首值）。
+    // 判据含 cls 列名与「X级类目」label 兜底，保证老看板仍能声明层级。
+    const isCategoryRule = looksLikeCategoryFilter(filterRule);
+    /** 判据推导出的层级（未显式声明时用于提示，不写回字段） */
+    const derivedCategoryLevel = getCategoryLevelOf(filterRule);
     const { getField } = useFiltersContext();
 
     const isMobileDevice = useIsMobileDevice();
@@ -132,6 +160,31 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     );
     const filterRuleWithAllowedOperators =
         filterRule as DashboardFilterRuleWithAllowedOperators;
+
+    // 当前父级选项的复合键：
+    // - 显式声明作用域（parentScope）→ 直接编码
+    // - 旧数据（只有 parentFieldId）→ 按候选列表匹配，保留原有绑定
+    const parentOptionValue = useMemo(() => {
+        if (!filterRule.parentFieldId) return null;
+
+        if (filterRule.parentScope) {
+            return encodeParentFilterRef({
+                scope: filterRule.parentScope,
+                tabUuid: filterRule.parentTabUuid ?? null,
+                fieldId: filterRule.parentFieldId,
+            });
+        }
+
+        const matched = parentFilterOptions.find(
+            (option) => option.fieldId === filterRule.parentFieldId,
+        );
+        return matched?.value ?? null;
+    }, [
+        filterRule.parentFieldId,
+        filterRule.parentScope,
+        filterRule.parentTabUuid,
+        parentFilterOptions,
+    ]);
 
     const filterOperatorOptions = useMemo(
         () =>
@@ -170,6 +223,15 @@ const FilterSettings: FC<FilterSettingsProps> = ({
 
     const isFilterDisabled = !!filterRule.disabled;
     const isFilterReadOnly = filterRule.readOnly ?? false;
+
+    /**
+     * 查看者是否可以把取值清空：
+     * - 编辑模式：作者始终可以清空自己的默认值
+     * - 查看模式：clearable === false 的筛选器不允许把取值清成空
+     * （输入控件层面的 clearable 只隐藏清空按钮，所有清空路径最终由
+     *   FilterConfiguration 的 handleChangeFilterRule 兜底）
+     */
+    const canClearValue = isEditMode || filterRule.clearable !== false;
 
     const showValueInput = useMemo(() => {
         // Always show the input in view mode
@@ -238,6 +300,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         );
     };
 
+    // 分组只做视觉区隔，任何一项都不折叠：
+    // 「维度联动（类目层级 / 父级筛选器）」是行为配置，藏起来会让作者以为字段挂不上类目，
+    // 而折叠本身也无法减少字段读写（值始终存在 draftFilterRule 里），只会把已配置的内容藏掉。
+
     return (
         <Stack
             sx={{
@@ -245,13 +311,37 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 maxWidth: '100%',
             }}
         >
-            <Stack spacing="xs">
+            <Stack spacing={6}>
+                {/*
+                 * Mantine v6 的 Popover 默认 trapFocus，激活时会把焦点丢给面板里
+                 * 「第一个可聚焦元素」（@mantine/hooks use-focus-trap 的 focusNode）。
+                 * 当第一个可聚焦元素是 searchable 的 MultiSelect/Select 时，它一拿到焦点
+                 * 就会 openDropdown —— 表现就是「点开筛选器，里面的时间/取值下拉自己展开」。
+                 * 这里放一个零尺寸、不可见的占位作为 autofocus 目标，焦点落空，下拉不会自己开。
+                 */}
+                <Box
+                    data-autofocus
+                    tabIndex={-1}
+                    aria-hidden
+                    sx={{ width: 0, height: 0 }}
+                />
+                {/* 分组标题只在编辑态渲染，查看模式保持原有渲染不变；
+                    筛选器标签归入「条件」组，避免输入框和分组标题之间多出一段空白 */}
+                {isEditMode && (
+                    <Divider
+                        label={t(
+                            'components_dashboard_filter.configuration.section.value',
+                        )}
+                        labelPosition="left"
+                        my={2}
+                    />
+                )}
+
                 {isEditMode && (
                     <TextInput
                         label={t(
                             'components_dashboard_filter.configuration.filter.label',
                         )}
-                        mb="sm"
                         size="xs"
                         onChange={(e) => {
                             setFilterLabel(e.target.value);
@@ -291,6 +381,10 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     onDropdownClose={popoverProps?.onClose}
                     onChange={handleChangeFilterOperator}
                     value={filterRule.operator}
+                    disabled={
+                        isFilterReadOnly ||
+                        (!isEditMode && filterRule.clearable === false)
+                    }
                     rightSectionWidth={140}
                     rightSectionProps={{
                         style: {
@@ -405,6 +499,7 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         }
                         closeDropdownOnMouseLeave={isEditMode}
                         isEditMode={isEditMode}
+                        clearable={canClearValue}
                     />
                 )}
 
@@ -483,71 +578,106 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
+                {isEditMode &&
+                    filterRule.required &&
+                    (filterRule?.values || []).length > 0 && (
+                        <Text size="xs" color={'gray.7'}>
+                            {t('components_dashboard_filter.configuration.tip')}
+                        </Text>
+                    )}
+
+                {/* ── 取值策略 ── */}
                 {isEditMode && (
                     <>
-                        {filterRule.required &&
-                            (filterRule?.values || []).length > 0 && (
-                                <Text size="xs" color={'gray.7'}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.tip',
-                                    )}
-                                </Text>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.value_policy',
                             )}
-                        {!filterRule.required && (
-                            <Tooltip
-                                withinPortal
-                                position="right"
-                                label={
-                                    isFilterDisabled
-                                        ? t(
-                                              'components_dashboard_filter.configuration.tooltip_eidt.label.on',
-                                          )
-                                        : t(
-                                              'components_dashboard_filter.configuration.tooltip_eidt.label.off',
-                                          )
-                                }
-                                openDelay={500}
-                            >
-                                <Box w="max-content">
-                                    <Switch
-                                        label={
-                                            <Text size="xs" mt="two" fw={500}>
-                                                {t(
-                                                    'components_dashboard_filter.configuration.tooltip_eidt.content',
-                                                )}
-                                            </Text>
-                                        }
-                                        labelPosition="right"
-                                        checked={!isFilterDisabled}
-                                        onChange={(e) => {
-                                            const newFilter: DashboardFilterRule =
-                                                {
-                                                    ...filterRule,
-                                                    disabled:
-                                                        !e.currentTarget
-                                                            .checked,
-                                                    required:
-                                                        filterRule.required &&
-                                                        !e.currentTarget.checked
-                                                            ? // If the filter is required and the user is disabling it, we should also disable the required flag
-                                                              false
-                                                            : filterRule.required,
-                                                };
+                            labelPosition="left"
+                            my={2}
+                        />
 
-                                            onChangeFilterRule(
-                                                e.currentTarget.checked
-                                                    ? newFilter
-                                                    : getFilterRuleWithDefaultValue(
-                                                          filterType,
-                                                          field,
-                                                          newFilter,
-                                                          null,
-                                                      ),
-                                            );
-                                        }}
-                                    />
-                                </Box>
-                            </Tooltip>
+                        {!filterRule.required && (
+                            <Group spacing="lg" mt={2}>
+                                <Tooltip
+                                    withinPortal
+                                    position="right"
+                                    label={
+                                        isFilterDisabled
+                                            ? t(
+                                                  'components_dashboard_filter.configuration.tooltip_eidt.label.on',
+                                              )
+                                            : t(
+                                                  'components_dashboard_filter.configuration.tooltip_eidt.label.off',
+                                              )
+                                    }
+                                    openDelay={500}
+                                >
+                                    <Box w="max-content">
+                                        <Switch
+                                            label={
+                                                <Text size="xs" fw={500}>
+                                                    {t(
+                                                        'components_dashboard_filter.configuration.tooltip_eidt.content',
+                                                    )}
+                                                </Text>
+                                            }
+                                            labelPosition="right"
+                                            checked={!isFilterDisabled}
+                                            onChange={(e) => {
+                                                const newFilter: DashboardFilterRule =
+                                                    {
+                                                        ...filterRule,
+                                                        disabled:
+                                                            !e.currentTarget
+                                                                .checked,
+                                                        required:
+                                                            filterRule.required &&
+                                                            !e.currentTarget
+                                                                .checked
+                                                                ? // If the filter is required and the user is disabling it, we should also disable the required flag
+                                                                  false
+                                                                : filterRule.required,
+                                                    };
+
+                                                onChangeFilterRule(
+                                                    e.currentTarget.checked
+                                                        ? newFilter
+                                                        : getFilterRuleWithDefaultValue(
+                                                              filterType,
+                                                              field,
+                                                              newFilter,
+                                                              null,
+                                                          ),
+                                                );
+                                            }}
+                                        />
+                                    </Box>
+                                </Tooltip>
+
+                                {/* 「不可清空」：查看者不能把取值清成空（仍可切换取值 / 重置为默认值）。
+                                    label 是禁止语义，字段 clearable 是允许语义，故 checked 取反。 */}
+                                <Switch
+                                    label={
+                                        <Text size="xs" fw={500}>
+                                            {t(
+                                                'components_dashboard_filter.configuration.filter_no_clear',
+                                            )}
+                                        </Text>
+                                    }
+                                    labelPosition="right"
+                                    checked={filterRule.clearable === false}
+                                    disabled={isFilterReadOnly}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            clearable: e.currentTarget.checked
+                                                ? false
+                                                : undefined,
+                                        });
+                                    }}
+                                />
+                            </Group>
                         )}
 
                         <Checkbox
@@ -574,12 +704,81 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 'components_dashboard_filter.configuration.require',
                             )}
                         />
+                    </>
+                )}
+
+                {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
+                {/* ── 查看者限制 ── */}
+                {isEditMode && (
+                    <>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.viewer_limits',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
+
+                        {/* 筛选器只读 / 隐藏：开关并排一行，省垂直空间 */}
+                        <Group spacing="lg" mt={2}>
+                            <Switch
+                                label={
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.filter_read_only',
+                                        )}
+                                    </Text>
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.readOnly}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        readOnly:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
+
+                            <Switch
+                                label={
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.filter_hidden',
+                                        )}
+                                    </Text>
+                                }
+                                labelPosition="right"
+                                checked={!!filterRule.hidden}
+                                onChange={(e) => {
+                                    onChangeFilterRule({
+                                        ...filterRule,
+                                        hidden:
+                                            e.currentTarget.checked ||
+                                            undefined,
+                                    });
+                                }}
+                            />
+                        </Group>
+                    </>
+                )}
+
+                {/* ── 选项约束 ── */}
+                {isEditMode && (
+                    <>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.option_limits',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
 
                         <MultiSelect
-                            mt="xs"
                             size="xs"
                             label={
-                                <Text size="xs" mt="two" fw={500}>
+                                <Text size="xs" fw={500}>
                                     {t(
                                         'components_dashboard_filter.configuration.allowed_operators.label',
                                     )}
@@ -635,231 +834,218 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                             }}
                         />
 
-                        {/* 类目层级、筛选器只读、筛选器隐藏：所有环境可配置，配置随看板保存，提升到线上后即生效 */}
-                        <Box mt="xs">
-                            <Group spacing="xs" mb="xs">
-                                <Text size="xs" fw={500}>
+                        {filterType === FilterType.STRING && (
+                            <Box>
+                                <Text size="xs" fw={500} mb={4}>
                                     {t(
-                                        'components_dashboard_filter.configuration.category_level.label',
+                                        'components_dashboard_filter.configuration.exclude_values.label',
                                     )}
                                 </Text>
-                                <Tooltip
-                                    withinPortal
-                                    variant="xs"
-                                    label={t(
-                                        'components_dashboard_filter.configuration.category_level.tooltip',
-                                    )}
-                                >
-                                    <MantineIcon
-                                        size="sm"
-                                        icon={IconHelpCircle}
-                                    />
-                                </Tooltip>
-                            </Group>
-                            <Select
-                                size="xs"
-                                placeholder={t(
-                                    'components_dashboard_filter.configuration.category_level.placeholder',
-                                )}
-                                clearable
-                                data={[
-                                    {
-                                        value: '1',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level1',
-                                        ),
-                                    },
-                                    {
-                                        value: '2',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level2',
-                                        ),
-                                    },
-                                    {
-                                        value: '3',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level3',
-                                        ),
-                                    },
-                                    {
-                                        value: '4',
-                                        label: t(
-                                            'components_dashboard_filter.configuration.category_level.level4',
-                                        ),
-                                    },
-                                ]}
-                                value={filterRule.categoryLevel?.toString()}
-                                onChange={(value) => {
-                                    const newCategoryLevel = value
-                                        ? (Number.parseInt(value, 10) as
-                                              | 1
-                                              | 2
-                                              | 3
-                                              | 4)
-                                        : undefined;
-
-                                    // 自动查找并设置父级筛选器
-                                    let autoParentFieldId: string | undefined;
-                                    if (
-                                        newCategoryLevel &&
-                                        newCategoryLevel > 1 &&
-                                        parentFilterOptions.length > 0
-                                    ) {
-                                        // 查找 categoryLevel 为 newCategoryLevel - 1 的筛选器
-                                        const targetParentLevel =
-                                            newCategoryLevel - 1;
-                                        const parentOption =
-                                            parentFilterOptions.find(
-                                                (option) =>
-                                                    option.categoryLevel ===
-                                                    targetParentLevel,
-                                            );
-                                        autoParentFieldId = parentOption?.value;
-                                    }
-
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        categoryLevel: newCategoryLevel,
-                                        parentFieldId:
-                                            autoParentFieldId || undefined,
-                                    } as DashboardFilterRule & {
-                                        parentFieldId?: string;
-                                    });
-                                }}
-                            />
-                            <Select
-                                mt="xs"
-                                size="xs"
-                                data={parentFilterOptions}
-                                value={
-                                    (
-                                        filterRule as DashboardFilterRule & {
-                                            parentFieldId?: string;
+                                {canUseExcludeAutocomplete ? (
+                                    <FilterStringAutoComplete
+                                        limit={FILTER_SELECT_LIMIT}
+                                        filterId={filterRule.id}
+                                        field={field}
+                                        suggestions={fieldSuggestions}
+                                        placeholder={t(
+                                            'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                        )}
+                                        withinPortal={
+                                            popoverProps?.withinPortal ?? true
                                         }
-                                    ).parentFieldId ?? null
-                                }
-                                label={t(
-                                    'components_dashboard_filter.configuration.category_level.parent_filter_label',
+                                        onDropdownOpen={popoverProps?.onOpen}
+                                        onDropdownClose={popoverProps?.onClose}
+                                        values={filterRule.excludedValues ?? []}
+                                        onExternalSearchChange={
+                                            onPendingExcludedValueChange
+                                        }
+                                        onChange={handleExcludedValuesChange}
+                                        closeDropdownOnMouseLeave={isEditMode}
+                                    />
+                                ) : (
+                                    <TagInput
+                                        size="xs"
+                                        placeholder={t(
+                                            'components_dashboard_filter.configuration.exclude_values.placeholder',
+                                        )}
+                                        clearable
+                                        value={filterRule.excludedValues ?? []}
+                                        onSearchChange={
+                                            onPendingExcludedValueChange
+                                        }
+                                        onChange={handleExcludedValuesChange}
+                                    />
                                 )}
-                                placeholder={t(
-                                    'components_dashboard_filter.configuration.category_level.parent_filter_placeholder',
-                                )}
-                                disabled={parentFilterOptions.length === 0}
-                                clearable
-                                onChange={(value) =>
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        parentFieldId: value || undefined,
-                                    } as DashboardFilterRule & {
-                                        parentFieldId?: string;
-                                    })
-                                }
-                            />
+                            </Box>
+                        )}
 
-                            {/* 筛选器只读配置 */}
-                            <Switch
-                                mt="xs"
-                                label={
-                                    <Text size="xs" mt="two" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.filter_read_only',
-                                        )}
-                                    </Text>
-                                }
-                                labelPosition="right"
-                                checked={!!filterRule.readOnly}
-                                onChange={(e) => {
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        readOnly:
-                                            e.currentTarget.checked ||
-                                            undefined,
-                                    });
-                                }}
-                            />
-
-                            {/* 筛选器隐藏配置 */}
-                            <Switch
-                                mt="xs"
-                                label={
-                                    <Text size="xs" mt="two" fw={500}>
-                                        {t(
-                                            'components_dashboard_filter.configuration.filter_hidden',
-                                        )}
-                                    </Text>
-                                }
-                                labelPosition="right"
-                                checked={!!filterRule.hidden}
-                                onChange={(e) => {
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        hidden:
-                                            e.currentTarget.checked ||
-                                            undefined,
-                                    });
-                                }}
-                            />
-
-                            {filterType === FilterType.STRING && (
-                                <Box mt="xs">
-                                    <Text size="xs" mt="two" fw={500} mb="xs">
-                                        {t(
-                                            'components_dashboard_filter.configuration.exclude_values.label',
-                                        )}
-                                    </Text>
-                                    {canUseExcludeAutocomplete ? (
-                                        <FilterStringAutoComplete
-                                            limit={FILTER_SELECT_LIMIT}
-                                            filterId={filterRule.id}
-                                            field={field}
-                                            suggestions={fieldSuggestions}
-                                            placeholder={t(
-                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
-                                            )}
-                                            withinPortal={
-                                                popoverProps?.withinPortal ??
-                                                true
-                                            }
-                                            onDropdownOpen={
-                                                popoverProps?.onOpen
-                                            }
-                                            onDropdownClose={
-                                                popoverProps?.onClose
-                                            }
-                                            values={
-                                                filterRule.excludedValues ?? []
-                                            }
-                                            onExternalSearchChange={
-                                                onPendingExcludedValueChange
-                                            }
-                                            onChange={
-                                                handleExcludedValuesChange
-                                            }
-                                            closeDropdownOnMouseLeave={
-                                                isEditMode
-                                            }
-                                        />
-                                    ) : (
-                                        <TagInput
-                                            size="xs"
-                                            placeholder={t(
-                                                'components_dashboard_filter.configuration.exclude_values.placeholder',
-                                            )}
-                                            clearable
-                                            value={
-                                                filterRule.excludedValues ?? []
-                                            }
-                                            onSearchChange={
-                                                onPendingExcludedValueChange
-                                            }
-                                            onChange={
-                                                handleExcludedValuesChange
-                                            }
-                                        />
-                                    )}
-                                </Box>
+                        {/* ── 维度联动 ── */}
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.linkage',
                             )}
-                        </Box>
+                            labelPosition="left"
+                            my={2}
+                        />
+
+                        {/* 「类目层级」对所有筛选器可见：
+                            类目链的顶端字段（如 product_line「产品线」）不一定命中 cls_N 列名 /
+                            label 关键词这两个判据，但 isValidParentBinding 要求
+                            「子级有层级 ⇒ 父级必须有更低层级」，所以顶端一旦无法声明层级，
+                            下级就挂不上去，整条链的类目能力（跨 Tab 同级继承、重置为首值）也就用不了。
+                            因此这里不做隐藏：不需要层级就留空（不绑定类目）。 */}
+                        <Group spacing="xs" mb={2}>
+                            <Text size="xs" fw={500}>
+                                {t(
+                                    'components_dashboard_filter.configuration.category_level.label',
+                                )}
+                            </Text>
+                            <Tooltip
+                                withinPortal
+                                variant="xs"
+                                label={t(
+                                    'components_dashboard_filter.configuration.category_level.tooltip',
+                                )}
+                            >
+                                <MantineIcon size="sm" icon={IconHelpCircle} />
+                            </Tooltip>
+                        </Group>
+                        <Select
+                            size="xs"
+                            placeholder={t(
+                                'components_dashboard_filter.configuration.category_level.placeholder',
+                            )}
+                            clearable
+                            data={[
+                                {
+                                    value: '1',
+                                    label: t(
+                                        'components_dashboard_filter.configuration.category_level.level1',
+                                    ),
+                                },
+                                {
+                                    value: '2',
+                                    label: t(
+                                        'components_dashboard_filter.configuration.category_level.level2',
+                                    ),
+                                },
+                                {
+                                    value: '3',
+                                    label: t(
+                                        'components_dashboard_filter.configuration.category_level.level3',
+                                    ),
+                                },
+                                {
+                                    value: '4',
+                                    label: t(
+                                        'components_dashboard_filter.configuration.category_level.level4',
+                                    ),
+                                },
+                            ]}
+                            value={filterRule.categoryLevel?.toString()}
+                            onChange={(value) => {
+                                const newCategoryLevel = value
+                                    ? (Number.parseInt(value, 10) as
+                                          | 1
+                                          | 2
+                                          | 3
+                                          | 4)
+                                    : undefined;
+
+                                // 自动查找并设置父级筛选器：
+                                // 优先同作用域的上一级，其次全局的上一级
+                                // （Tab 三级可以自动绑定全局二级）
+                                // 有多个同层级候选时无法判断属于哪条链 → 不自动绑定，
+                                // 交由作者在「父级筛选器」里显式选择
+                                let autoParentRef: ParentFilterRef | null =
+                                    null;
+                                if (
+                                    newCategoryLevel &&
+                                    newCategoryLevel > 1 &&
+                                    parentFilterOptions.length > 0
+                                ) {
+                                    const targetParentLevel =
+                                        newCategoryLevel - 1;
+                                    const candidates =
+                                        parentFilterOptions.filter(
+                                            (option) =>
+                                                option.categoryLevel ===
+                                                targetParentLevel,
+                                        );
+                                    const sameScope = candidates.filter(
+                                        (option) =>
+                                            option.scope === filterScope,
+                                    );
+                                    const globalScope = candidates.filter(
+                                        (option) => option.scope === 'global',
+                                    );
+                                    const preferred =
+                                        sameScope.length === 1
+                                            ? sameScope[0]
+                                            : sameScope.length === 0 &&
+                                              globalScope.length === 1
+                                            ? globalScope[0]
+                                            : undefined;
+                                    autoParentRef = preferred
+                                        ? decodeParentFilterRef(preferred.value)
+                                        : null;
+                                }
+
+                                onChangeFilterRule(
+                                    applyParentFilterRef(
+                                        {
+                                            ...filterRule,
+                                            categoryLevel: newCategoryLevel,
+                                        },
+                                        autoParentRef,
+                                    ),
+                                );
+                            }}
+                        />
+                        {isCategoryRule &&
+                            filterRule.categoryLevel === undefined &&
+                            derivedCategoryLevel !== null && (
+                                <Text size="xs" c="dimmed" mt={2}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.category_level.derived_hint',
+                                        { level: derivedCategoryLevel },
+                                    )}
+                                </Text>
+                            )}
+                        {/* 父级筛选器：类目与非类目共用（非类目=「跟随父级筛选器」） */}
+                        <Select
+                            mt={2}
+                            size="xs"
+                            data={parentFilterOptions}
+                            value={parentOptionValue}
+                            label={t(
+                                isCategoryRule
+                                    ? 'components_dashboard_filter.configuration.category_level.parent_filter_label'
+                                    : 'components_dashboard_filter.configuration.category_level.follow_parent_label',
+                            )}
+                            placeholder={t(
+                                isCategoryRule
+                                    ? 'components_dashboard_filter.configuration.category_level.parent_filter_placeholder'
+                                    : 'components_dashboard_filter.configuration.category_level.follow_parent_placeholder',
+                            )}
+                            disabled={parentFilterOptions.length === 0}
+                            clearable
+                            onChange={(value) =>
+                                onChangeFilterRule(
+                                    applyParentFilterRef(
+                                        filterRule,
+                                        decodeParentFilterRef(value),
+                                    ),
+                                )
+                            }
+                        />
+                        <Text size="xs" c="dimmed" mt={2}>
+                            {t(
+                                isCategoryRule
+                                    ? 'components_dashboard_filter.configuration.category_level.parent_scope_hint'
+                                    : 'components_dashboard_filter.configuration.category_level.follow_parent_hint',
+                            )}
+                        </Text>
                     </>
                 )}
             </Stack>

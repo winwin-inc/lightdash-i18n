@@ -40,7 +40,7 @@ import {
     Text,
     Tooltip,
 } from '@mantine/core';
-import { useClipboard } from '@mantine/hooks';
+import { useClipboard, useDisclosure } from '@mantine/hooks';
 import {
     IconAlertCircle,
     IconAlertTriangle,
@@ -67,6 +67,10 @@ import { useParams } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 
 import { formatChartErrorMessage } from '../../utils/chartErrorUtils';
+import {
+    resolveEffectiveTabUuid,
+    shouldQueryTileForTab,
+} from '../../utils/dashboardTabs';
 
 import { DashboardTileComments } from '../../features/comments';
 import { DateZoomInfoOnTile } from '../../features/dateZoom';
@@ -119,6 +123,10 @@ import { type EchartSeriesClickEvent } from '../SimpleChart';
 import MantineIcon from '../common/MantineIcon';
 import SuboptimalState from '../common/SuboptimalState/SuboptimalState';
 import MoveChartThatBelongsToDashboardModal from '../common/modal/MoveChartThatBelongsToDashboardModal';
+import {
+    ChartTileFullscreenButton,
+    ChartTileFullscreenModal,
+} from './ChartTileFullscreen';
 import { DashboardExportImage } from './DashboardExportImage';
 import DashboardExportImageModal from './DashboardExportImageModal';
 import EditChartMenuItem from './EditChartMenuItem';
@@ -255,6 +263,25 @@ const ValidDashboardChartTile: FC<{
     const countDashboardFilters = tabUuid
         ? dashboardTabFilters
         : dashboardFilters;
+    // 与 useDashboardChartReadyQuery 保持一致：未访问过的 Tab 不发查询，
+    // 避免多 Tab 看板把所有 Tab 的查询一次性打进数仓排队
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const visitedTabUuids = useDashboardContext((c) => c.visitedTabUuids);
+    const isGlobalCategoryResolutionPending = useDashboardContext(
+        (c) => c.isGlobalCategoryResolutionPending,
+    );
+    const isTabCategoryResolutionPending = useDashboardContext((c) =>
+        tabUuid ? c.pendingTabCategoryResolutions[tabUuid] === true : false,
+    );
+    const isCategoryResolutionPending =
+        isGlobalCategoryResolutionPending || isTabCategoryResolutionPending;
+    const isTileTabVisited = useMemo(() => {
+        const effectiveTabUuid = resolveEffectiveTabUuid(
+            tabUuid,
+            dashboardTabs,
+        );
+        return shouldQueryTileForTab(effectiveTabUuid, visitedTabUuids);
+    }, [tabUuid, dashboardTabs, visitedTabUuids]);
     const invalidateCache = useDashboardContext((c) => c.invalidateCache);
 
     const { health } = useApp();
@@ -298,6 +325,8 @@ const ValidDashboardChartTile: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车）
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
     const showResultsTotalWithoutPagination = useMemo(() => {
         if (tablePagination?.enabled) {
             return false;
@@ -324,10 +353,15 @@ const ValidDashboardChartTile: FC<{
         dashboardContext: {
             dashboardSlug,
             dashboardName,
+            dashboardUuid,
         },
         enabled:
-            Boolean(tablePagination?.enabled) ||
-            showResultsTotalWithoutPagination,
+            (Boolean(tablePagination?.enabled) ||
+                showResultsTotalWithoutPagination) &&
+            // 与图表查询保持一致：未访问过的 Tab 不查（避免多 Tab 看板首屏查询风暴），
+            // 类目还没解析完时也不查（否则会拿到未级联的结果再查一次）
+            isTileTabVisited &&
+            !isCategoryResolutionPending,
     });
     const resolvedTablePagination = useMemo(():
         | TablePaginationState
@@ -356,13 +390,16 @@ const ValidDashboardChartTile: FC<{
         showResultsTotalWithoutPagination,
     ]);
 
-    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
-    const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
-        useDashboardChartTileColorSync({
-            tileUuid,
-            isCustomChart,
-            chartColorPalette: chart.colorPalette,
-        });
+    const {
+        shouldSyncColors,
+        colorPalette,
+        manualColors,
+        knownHashAssignments,
+        hashAssignments,
+    } = useDashboardChartTileColorSync({
+        tileUuid,
+        chartColorPalette: chart.colorPalette,
+    });
 
     if (health.isInitialLoading || !health.data) {
         return null;
@@ -381,6 +418,7 @@ const ValidDashboardChartTile: FC<{
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
             savedChartUuid={chart.uuid}
+            tileUuid={tileUuid}
             dashboardFilters={dashboardFilters}
             invalidateCache={invalidateCache}
             colorPalette={colorPalette}
@@ -392,8 +430,10 @@ const ValidDashboardChartTile: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            dashboardUuid={dashboardUuid}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
+            knownHashAssignments={knownHashAssignments}
             hashAssignments={hashAssignments}
             tablePagination={resolvedTablePagination}
         >
@@ -468,13 +508,18 @@ const ValidDashboardChartTileMinimal: FC<{
 
     const dashboardSlug = useDashboardContext((c) => c.dashboard?.slug);
     const dashboardName = useDashboardContext((c) => c.dashboard?.name);
-    const isCustomChart = chart.chartConfig.type === ChartType.CUSTOM;
-    const { shouldSyncColors, colorPalette, manualColors, hashAssignments } =
-        useDashboardChartTileColorSync({
-            tileUuid,
-            isCustomChart,
-            chartColorPalette: chart.colorPalette,
-        });
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车）
+    const dashboardUuid = useDashboardContext((c) => c.dashboard?.uuid);
+    const {
+        shouldSyncColors,
+        colorPalette,
+        manualColors,
+        knownHashAssignments,
+        hashAssignments,
+    } = useDashboardChartTileColorSync({
+        tileUuid,
+        chartColorPalette: chart.colorPalette,
+    });
 
     if (health.isInitialLoading || !health.data) {
         return null;
@@ -494,6 +539,7 @@ const ValidDashboardChartTileMinimal: FC<{
             columnOrder={chart.tableConfig.columnOrder}
             pivotTableMaxColumnLimit={health.data.pivotTable.maxColumnLimit}
             savedChartUuid={chart.uuid}
+            tileUuid={tileUuid}
             dashboardFilters={dashboardFilters}
             colorPalette={colorPalette}
             setEchartsRef={setEchartsRef}
@@ -504,8 +550,10 @@ const ValidDashboardChartTileMinimal: FC<{
             }
             dashboardSlug={dashboardSlug}
             dashboardName={dashboardName}
+            dashboardUuid={dashboardUuid}
             useHashBased={shouldSyncColors}
             manualColorMap={manualColors}
+            knownHashAssignments={knownHashAssignments}
             hashAssignments={hashAssignments}
         >
             <ErrorBoundary wrapper={{ h: '100%', w: '100%' }}>
@@ -835,6 +883,10 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
 
     const [isDataExportModalOpen, setIsDataExportModalOpen] = useState(false);
     const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
+    const [
+        isChartFullscreenOpen,
+        { open: openChartFullscreen, close: closeChartFullscreen },
+    ] = useDisclosure(false);
     const closeImageExportModal = useCallback(
         () => setIsImageExportModalOpen(false),
         [],
@@ -1228,6 +1280,9 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                                     </HoverCard.Target>
                                 </HoverCard>
                             )}
+                        <ChartTileFullscreenButton
+                            onClick={openChartFullscreen}
+                        />
                     </>
                 }
                 titleLeftIcon={
@@ -1514,6 +1569,24 @@ const DashboardChartTileMain: FC<DashboardChartTileMainProps> = (props) => {
                     />
                 </>
             </TileBase>
+
+            <ChartTileFullscreenModal
+                opened={isChartFullscreenOpen}
+                onClose={closeChartFullscreen}
+                title={title || chart.name || ''}
+            >
+                <ValidDashboardChartTile
+                    key={`chart-tile-fullscreen-${tileUuid}`}
+                    tileUuid={tileUuid}
+                    tabUuid={tabUuid}
+                    dashboardChartReadyQuery={dashboardChartReadyQuery}
+                    resultsData={resultsData}
+                    project={chart.projectUuid}
+                    isTitleHidden
+                    onSeriesContextMenu={onSeriesContextMenu}
+                    tablePagination={tablePagination}
+                />
+            </ChartTileFullscreenModal>
 
             {chart.spaceUuid && (
                 <MoveChartThatBelongsToDashboardModal
@@ -1962,7 +2035,16 @@ export const GenericDashboardChartTile: FC<
         );
     }
 
-    if (isLoading || !dashboardChartReadyQuery || !resultsData) {
+    // 已经有结果就优先渲染：分页/总行数（fetchAll）这类"后台补数"的 loading
+    // 不应该把已经拿到的数据挡在骨架图后面（移动端曾出现数据已返回但一直 loading）。
+    const hasResults =
+        (resultsData?.rows?.length ?? 0) > 0 ||
+        (resultsData?.totalResults ?? 0) > 0;
+    if (
+        !dashboardChartReadyQuery ||
+        !resultsData ||
+        (isLoading && !hasResults)
+    ) {
         return (
             <TileBase
                 isEditMode={isEditMode}

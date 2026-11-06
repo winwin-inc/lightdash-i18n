@@ -38,7 +38,7 @@ const SavedDashboards = () => {
         useState<boolean>(false);
 
     const project = useProject(projectUuid);
-    const isCustomerUse = project.data?.isCustomerUse ?? false;
+    const isClientUse = project.data?.isClientUse ?? false;
 
     const { health, user } = useApp();
     const isDemo = health.data?.mode === LightdashMode.DEMO;
@@ -61,7 +61,7 @@ const SavedDashboards = () => {
     );
 
     // 客户使用模式 + 查看者权限时，隐藏首页面包屑
-    const shouldHideHomeBreadcrumb = isCustomerUse && !userCanManageProject;
+    const shouldHideHomeBreadcrumb = isClientUse && !userCanManageProject;
 
     // 根据条件构建面包屑项
     const breadcrumbItems = useMemo(() => {
@@ -125,7 +125,7 @@ const SavedDashboards = () => {
                         projectUuid,
                         contentTypes: [ContentType.DASHBOARD],
                     }}
-                    isCustomerUse={isCustomerUse}
+                    isClientUse={isClientUse}
                 />
             </Stack>
 

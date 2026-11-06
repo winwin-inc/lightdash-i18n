@@ -14,6 +14,8 @@ type Props<T extends DefaultFieldsMap> = {
     projectUuid?: string;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
     itemsMap?: T;
     baseTable?: string;
     startOfWeek?: WeekDay;
@@ -27,6 +29,7 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
     projectUuid,
     dashboardSlug,
     dashboardName,
+    dashboardUuid,
     itemsMap = {} as T,
     baseTable,
     startOfWeek,
@@ -80,6 +83,7 @@ const FiltersProvider = <T extends DefaultFieldsMap = DefaultFieldsMap>({
                 projectUuid,
                 dashboardSlug,
                 dashboardName,
+                dashboardUuid,
                 itemsMap,
                 startOfWeek,
                 baseTable,

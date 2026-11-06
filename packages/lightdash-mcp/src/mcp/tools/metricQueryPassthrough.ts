@@ -90,11 +90,7 @@ export function prepareSemanticMetricQueryBody(
     }
     const embeddedDashboardUuid = nonEmptyString(parsed.dashboardUuid);
     const embeddedProjectUuid = nonEmptyString(parsed.projectUuid);
-    const {
-        dashboardUuid: _dashboardUuid,
-        projectUuid: _projectUuid,
-        ...withoutContext
-    } = parsed;
+    const { dashboardUuid, projectUuid, ...withoutContext } = parsed;
     let query = omitEmptyOptionalMetricQueryFields(withoutContext);
     if (limitOverride !== undefined) {
         query = { ...query, limit: limitOverride };

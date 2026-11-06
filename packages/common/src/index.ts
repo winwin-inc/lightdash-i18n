@@ -11,11 +11,6 @@ import {
     type ViewStatistics,
 } from './types/analytics';
 import {
-    type ProjectOperationLogList,
-    type ProjectOperationLogListItem,
-    type ProjectOperationLogPurgeResult,
-} from './types/projectOperationLog';
-import {
     type Dashboard,
     type DashboardAvailableFilters,
     type DashboardBasicDetails,
@@ -59,6 +54,11 @@ import {
 } from './types/personalAccessToken';
 import { type ProjectMemberProfile } from './types/projectMemberProfile';
 import {
+    type ProjectOperationLogList,
+    type ProjectOperationLogListItem,
+    type ProjectOperationLogPurgeResult,
+} from './types/projectOperationLog';
+import {
     type ApiCalculateCountResponse,
     type ApiCalculateSubtotalsResponse,
     type ApiCalculateTotalResponse,
@@ -74,17 +74,6 @@ import { type SlackSettings } from './types/slackSettings';
 import { type ApiCreateTagResponse } from './types/tags';
 
 import {
-    type ApiCreateComment,
-    type ApiDeleteComment,
-    type ApiGetComments,
-} from './types/api/comments';
-import { type Email } from './types/api/email';
-import { type ApiSuccessEmpty } from './types/api/success';
-import { type ApiFormulaValidationResults } from './types/api';
-import { type ApiGetChangeResponse } from './types/changeset';
-import { type DbtExposure } from './types/dbt';
-import { type EmailStatusExpiring } from './types/email';
-import {
     type ApiAppImageUrlResponse,
     type ApiAppThumbnailUrlResponse,
     type ApiDataAppActivityResponse,
@@ -99,6 +88,17 @@ import {
     type ApiUpdateAppResponse,
     type ApiUpgradeAppResponse,
 } from './ee/apps/types';
+import { type ApiFormulaValidationResults } from './types/api';
+import {
+    type ApiCreateComment,
+    type ApiDeleteComment,
+    type ApiGetComments,
+} from './types/api/comments';
+import { type Email } from './types/api/email';
+import { type ApiSuccessEmpty } from './types/api/success';
+import { type ApiGetChangeResponse } from './types/changeset';
+import { type DbtExposure } from './types/dbt';
+import { type EmailStatusExpiring } from './types/email';
 import {
     type ApiFavoriteItems,
     type ApiToggleFavorite,
@@ -202,6 +202,7 @@ import {
     type ApiChartContentResponse,
     type ApiContentResponse,
 } from './types/content';
+import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import type { ApiGroupListResponse } from './types/groups';
 import type {
     ApiCompiledMergeQueryResults,
@@ -213,13 +214,12 @@ import type {
     ApiMetricsExplorerTotalResults,
 } from './types/metricsExplorer';
 import type { ResultsPaginationMetadata } from './types/paginateResults';
-import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
-import type { ApiDataTimezonePreviewResults } from './types/dataTimezonePreview';
 import { type ParametersValuesMap } from './types/parameters';
 import { type PivotConfiguration } from './types/pivot';
 import { type ApiPromotionChangesResponse } from './types/promotion';
 import { type QueryHistoryStatus } from './types/queryHistory';
 import { type ApiRenameFieldsResponse } from './types/rename';
+import type { ResultsCacheProjectSettings } from './types/resultsCacheProjectSettings';
 import { type SchedulerWithLogs } from './types/schedulerLog';
 import {
     type ApiCreateSqlChart,
@@ -262,12 +262,13 @@ export { default as DbtSchemaEditor } from './dbt/DbtSchemaEditor/DbtSchemaEdito
 export * from './dbt/validation';
 export * from './ee/index';
 export * from './pivot/index';
+export { default as chartAsCodeSchema } from './schemas/json/chart-as-code-1.0.json';
+export { default as dashboardAsCodeSchema } from './schemas/json/dashboard-as-code-1.0.json';
 export { default as lightdashDbtYamlSchema } from './schemas/json/lightdash-dbt-2.0.json';
 export { default as lightdashProjectConfigSchema } from './schemas/json/lightdash-project-config-1.0.json';
 export * from './templating/template';
 export * from './types/account';
 export * from './types/analytics';
-export * from './types/projectOperationLog';
 export * from './types/any';
 export * from './types/api';
 export * from './types/api/comments';
@@ -286,6 +287,7 @@ export * from './types/bigQuerySSO';
 export * from './types/catalog';
 export * from './types/category';
 export * from './types/changeset';
+export * from './types/clientUseScope';
 export * from './types/coder';
 export * from './types/comments';
 export * from './types/conditionalFormatting';
@@ -310,15 +312,15 @@ export * from './types/groups';
 export * from './types/job';
 export * from './types/knex-paginate';
 export * from './types/lightdashProjectConfig';
-export * from './types/resultsCacheProjectSettings';
+export * from './types/mergeQuery';
 export * from './types/metricQuery';
 export * from './types/metricsExplorer';
-export * from './types/mergeQuery';
 export * from './types/notifications';
 export * from './types/oauth';
 export * from './types/openIdIdentity';
 export * from './types/organization';
 export * from './types/organizationMemberProfile';
+export * from './types/organizationUserProvision';
 export * from './types/organizationWarehouseCredentials';
 export * from './types/paginateResults';
 export * from './types/parameters';
@@ -329,12 +331,14 @@ export * from './types/pivot';
 export * from './types/projectGroupAccess';
 export * from './types/projectMemberProfile';
 export * from './types/projectMemberRole';
+export * from './types/projectOperationLog';
 export * from './types/projects';
 export * from './types/promotion';
 export * from './types/queryHistory';
 export * from './types/rename';
 export * from './types/resourceViewItem';
 export * from './types/results';
+export * from './types/resultsCacheProjectSettings';
 export * from './types/roles';
 export * from './types/savedCharts';
 export * from './types/scheduler';
@@ -378,20 +382,21 @@ export * from './utils/dependencyGraph';
 export * from './utils/email';
 export * from './utils/fields';
 export * from './utils/filters';
-export * from './utils/getActiveTabForTabs';
 export * from './utils/formatting';
+export * from './utils/getActiveTabForTabs';
 export * from './utils/github';
 export * from './utils/i18n';
 export * from './utils/item';
 export * from './utils/loadLightdashProjectConfig';
+export * from './utils/mergeQueryItems';
 export * from './utils/metricQueryLimitOffset';
 export * from './utils/metricsExplorer';
-export * from './utils/mergeQueryItems';
 export * from './utils/oauth';
 export * from './utils/organization';
 export * from './utils/projectMemberRole';
 export * from './utils/promises';
 export * from './utils/resolveQueryTimezone';
+export * from './utils/sorts';
 export * from './utils/resultColumns';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
@@ -804,7 +809,7 @@ export type UpdateProjectMember = {
 
 export type UpdateMetadata = {
     upstreamProjectUuid?: string | null; // null means we unset this value
-    isCustomerUse?: boolean;
+    isClientUse?: boolean;
 };
 export type ApiCompiledQueryResults = {
     query: string;

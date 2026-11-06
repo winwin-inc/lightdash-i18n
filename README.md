@@ -44,9 +44,10 @@ MCP / CLI 工具镜像由独立 workflow 构建（`mcp-v*` / `cli-v*`），不�
 -   `dev`：开发主分支
 -   `feat/xxx`：功能分支（基于 `dev`）
 
-详见 [分支管理](docs/branch-manage.md)。
+详见 [分支管理](docs/ops/branch-manage.md)。
 
 ## 相关文档
 
+-   [文档总索引](docs/README.md)（按主题分目录：运维 / CLI / 看板 / 图表 / MCP / V2）；根 `docs/` 只放索引
 -   [Lightdash MCP 文档索引](docs/mcp/README.md)
--   [本地前端调试线上环境](docs/local-frontend-debug-production.md)
+-   [本地前端调试线上环境](docs/ops/local-frontend-debug-production.md)

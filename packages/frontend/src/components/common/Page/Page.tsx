@@ -42,6 +42,15 @@ type StyleProps = {
     flexContent?: boolean;
     hasBanner?: boolean;
     noContentPadding?: boolean;
+    /**
+     * Only removes the top padding of the scrollable content.
+     *
+     * The padding of the scroll container is not covered by sticky
+     * elements: they stick below it and leave a gap where the content
+     * scrolls through. Pages with sticky elements should use this and add
+     * the spacing as a margin on the sticky element instead.
+     */
+    noContentTopPadding?: boolean;
     noSidebarPadding?: boolean;
     isSidebarResizing?: boolean;
     backgroundColor?: string;
@@ -109,7 +118,9 @@ const usePageStyles = createStyles<string, StyleProps>((theme, params) => {
                       padding: 0,
                   }
                 : {
-                      paddingTop: theme.spacing.lg,
+                      ...(params.noContentTopPadding
+                          ? {}
+                          : { paddingTop: theme.spacing.lg }),
                       paddingBottom: theme.spacing.lg,
                   }),
 
@@ -221,6 +232,7 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
     withSidebarFooter = false,
     withSidebarBorder = false,
     noContentPadding = false,
+    noContentTopPadding = false,
     noSidebarPadding = false,
     flexContent = false,
     backgroundColor,
@@ -261,6 +273,7 @@ const Page: FC<React.PropsWithChildren<Props>> = ({
             withRightSidebar: !!rightSidebar,
             hasBanner: isCurrentProjectPreview,
             noContentPadding,
+            noContentTopPadding,
             flexContent,
             isSidebarResizing,
             backgroundColor,

@@ -21,10 +21,10 @@ import { MetricsLink } from './MetricsLink';
 
 interface Props {
     projectUuid: string;
-    isCustomerUse: boolean;
+    isClientUse: boolean;
 }
 
-const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
+const BrowseMenu: FC<Props> = ({ projectUuid, isClientUse }) => {
     const { t } = useTranslation();
     const { user } = useApp();
     const dataAppsFlag = useServerFeatureFlag(FeatureFlags.EnableDataApps);
@@ -51,9 +51,9 @@ const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
     );
 
     // 客户使用模式下，管理员可以多看到"全部空间"
-    const isCustomerUseWithAdmin = isCustomerUse && userCanManageProject;
+    const isClientUseWithAdmin = isClientUse && userCanManageProject;
 
-    if (isCustomerUse && !userCanManageProject) {
+    if (isClientUse && !userCanManageProject) {
         // 客户使用模式 + 普通用户：只显示 Dashboards
         return (
             <Menu
@@ -91,7 +91,7 @@ const BrowseMenu: FC<Props> = ({ projectUuid, isCustomerUse }) => {
         );
     }
 
-    if (isCustomerUseWithAdmin) {
+    if (isClientUseWithAdmin) {
         // 客户使用模式 + 管理员：显示 Dashboards + 全部空间
         return (
             <Menu

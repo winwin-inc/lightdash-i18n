@@ -7,6 +7,7 @@ import {
     IconBuildingSkyscraper,
     IconCalendarStats,
     IconChecklist,
+    IconClipboardList,
     IconClock,
     IconDatabase,
     IconDatabaseCog,
@@ -22,7 +23,6 @@ import {
     IconUserCircle,
     IconUserCode,
     IconUserPlus,
-    IconClipboardList,
     IconUsers,
     IconUserShield,
     IconVariable,
@@ -861,7 +861,6 @@ const Settings: FC = () => {
                                         />
                                     ) : null}
 
-                                    
                                     {user.ability.can(
                                         'manage',
                                         subject('Project', {
@@ -884,7 +883,7 @@ const Settings: FC = () => {
                                         />
                                     ) : null}
 
-<RouterNavLink
+                                    <RouterNavLink
                                         label={t(
                                             'pages_settings.scroll_area_box_update.navs.syncs_scheduled_deliveries',
                                         )}
@@ -903,9 +902,7 @@ const Settings: FC = () => {
                                         )}
                                         exact
                                         to={`/generalSettings/projectManagement/${project.projectUuid}/queryTimezone`}
-                                        icon={
-                                            <MantineIcon icon={IconClock} />
-                                        }
+                                        icon={<MantineIcon icon={IconClock} />}
                                     />
 
                                     {user.ability?.can(

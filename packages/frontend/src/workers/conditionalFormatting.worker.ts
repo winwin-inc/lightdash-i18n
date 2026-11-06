@@ -9,7 +9,10 @@ import {
     type ConditionalFormattingRowFields,
 } from '@lightdash/common';
 import { getColorFromRange, readableColor } from '../utils/colorUtils';
-import type { WorkerRequest, WorkerResponse } from './conditionalFormatting.worker.types';
+import type {
+    WorkerRequest,
+    WorkerResponse,
+} from './conditionalFormatting.worker.types';
 
 function getConditionalFormatCacheKey(
     fieldId: string,
@@ -31,48 +34,61 @@ function computeRowFormat(request: WorkerRequest): WorkerResponse {
         conditionalFormattings,
         cacheSnapshot,
     } = request;
-    const map: Record<string, { backgroundColor?: string; fontColor?: string }> = {};
-    const cacheUpdates: Record<string, { backgroundColor?: string; fontColor?: string }> = {};
+    const map: Record<
+        string,
+        { backgroundColor?: string; fontColor?: string }
+    > = {};
+    const cacheUpdates: Record<
+        string,
+        { backgroundColor?: string; fontColor?: string }
+    > = {};
 
-    cells.forEach(({ cellId, fieldId, rawValue, field }) => {
-        const cacheKey = getConditionalFormatCacheKey(fieldId, rawValue, rowFields);
-        const cached = cacheSnapshot[cacheKey];
-        if (cached) {
-            map[cellId] = cached;
-            return;
-        }
-
-        const config = getConditionalFormattingConfig({
-            field,
-            value: rawValue,
-            minMaxMap,
-            conditionalFormattings,
-            rowFields,
-        });
-        const color = getConditionalFormattingColor({
-            field,
-            value: rawValue,
-            config,
-            minMaxMap,
-            getColorFromRange,
-        });
-        const colorApplyTo = config?.colorApplyTo ?? 'background';
-        let backgroundColor: string | undefined;
-        let fontColor: string | undefined;
-        if (color) {
-            if (colorApplyTo === 'font') {
-                fontColor = color;
-            } else {
-                backgroundColor = color;
-                fontColor =
-                    readableColor(color) === 'white' ? 'white' : undefined;
+    cells.forEach(
+        ({ cellId, fieldId, rawValue, field, rowFields: cellRowFields }) => {
+            const effectiveRowFields = cellRowFields ?? rowFields;
+            const cacheKey = getConditionalFormatCacheKey(
+                fieldId,
+                rawValue,
+                effectiveRowFields,
+            );
+            const cached = cacheSnapshot[cacheKey];
+            if (cached) {
+                map[cellId] = cached;
+                return;
             }
-        }
 
-        const value = { backgroundColor, fontColor };
-        map[cellId] = value;
-        cacheUpdates[cacheKey] = value;
-    });
+            const config = getConditionalFormattingConfig({
+                field,
+                value: rawValue,
+                minMaxMap,
+                conditionalFormattings,
+                rowFields: effectiveRowFields,
+            });
+            const color = getConditionalFormattingColor({
+                field,
+                value: rawValue,
+                config,
+                minMaxMap,
+                getColorFromRange,
+            });
+            const colorApplyTo = config?.colorApplyTo ?? 'background';
+            let backgroundColor: string | undefined;
+            let fontColor: string | undefined;
+            if (color) {
+                if (colorApplyTo === 'font') {
+                    fontColor = color;
+                } else {
+                    backgroundColor = color;
+                    fontColor =
+                        readableColor(color) === 'white' ? 'white' : undefined;
+                }
+            }
+
+            const value = { backgroundColor, fontColor };
+            map[cellId] = value;
+            cacheUpdates[cacheKey] = value;
+        },
+    );
 
     return {
         rowIndex: request.rowIndex,

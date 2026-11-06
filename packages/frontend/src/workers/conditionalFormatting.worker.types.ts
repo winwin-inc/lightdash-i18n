@@ -13,6 +13,8 @@ export type WorkerFormatCell = {
     fieldId: string;
     rawValue: unknown;
     field: ItemsMap[string] | undefined;
+    /** Per-cell rowFields (pivot header dims); falls back to request.rowFields */
+    rowFields?: ConditionalFormattingRowFields;
 };
 
 export type WorkerRequest = {

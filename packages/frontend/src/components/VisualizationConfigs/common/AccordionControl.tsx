@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { IconDots, IconTrash } from '@tabler/icons-react';
 import { type FC } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../../common/MantineIcon';
 
@@ -29,6 +30,8 @@ export const AccordionControl: FC<Props> = ({
     extraControlElements,
     ...props
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Flex
             px="xs"
@@ -63,7 +66,10 @@ export const AccordionControl: FC<Props> = ({
             <Group noWrap ml="sm" spacing="lg">
                 <Tooltip
                     variant="xs"
-                    label={`Remove ${label}`}
+                    label={t(
+                        'components_visualization_configs_common.remove_item',
+                        { label },
+                    )}
                     position="right"
                     withinPortal
                 >
@@ -80,7 +86,9 @@ export const AccordionControl: FC<Props> = ({
                                 onClick={onRemove}
                             >
                                 <Text fz="xs" fw={500}>
-                                    Delete
+                                    {t(
+                                        'components_visualization_configs_common.delete',
+                                    )}
                                 </Text>
                             </Menu.Item>
                         </Menu.Dropdown>

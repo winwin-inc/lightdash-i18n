@@ -39,6 +39,22 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         return json.results ?? json;
     }
 
+    async function getAuthenticatedUser(
+        apiKey: string,
+        projectUuid?: string,
+    ): Promise<unknown> {
+        // projectUuid 可选：带上时后端额外返回 clientUse 诊断
+        // （客户使用模式白名单是否对该用户生效），用于分流受控 / 非受控文案
+        const query = projectUuid
+            ? `?projectUuid=${encodeURIComponent(projectUuid)}`
+            : '';
+        const json = await requestJson<{ results?: unknown }>(
+            apiKey,
+            `/api/v1/user${query}`,
+        );
+        return json.results ?? json;
+    }
+
     async function listSpaces(
         apiKey: string,
         projectUuid: string,
@@ -126,13 +142,25 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
     async function getCatalog(
         apiKey: string,
         projectUuid: string,
-        query: { search?: string; type?: 'table' | 'field'; catalogTags?: string[] },
+        query: {
+            search?: string;
+            type?: 'table' | 'field';
+            catalogTags?: string[];
+            page?: number;
+            pageSize?: number;
+        },
     ): Promise<unknown> {
         const params = new URLSearchParams();
         if (query.search) params.set('search', query.search);
         if (query.type) params.set('type', query.type);
         if (query.catalogTags?.length) {
             query.catalogTags.forEach((t) => params.append('catalogTags', t));
+        }
+        if (typeof query.page === 'number') {
+            params.set('page', String(query.page));
+        }
+        if (typeof query.pageSize === 'number') {
+            params.set('pageSize', String(query.pageSize));
         }
         const q = params.toString();
         const json = await requestJson<{ results?: unknown }>(
@@ -158,6 +186,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
             parameters?: Record<string, unknown>;
             dashboardSlug?: string;
             dashboardName?: string;
+            dashboardUuid?: string;
         },
     ): Promise<unknown> {
         const json = await requestJson<{ results?: unknown }>(
@@ -176,6 +205,7 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
                     parameters: args.parameters,
                     dashboardSlug: args.dashboardSlug,
                     dashboardName: args.dashboardName,
+                    dashboardUuid: args.dashboardUuid,
                 }),
             },
         );
@@ -239,6 +269,12 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
             dashboardName: string;
             chartUuids: string[];
         }>;
+        /**
+         * 权限过滤前的关联看板数。
+         * 后端未升级时为 undefined（不要归一成 0：否则会把
+         * “后端没升级”误判成“没配看板”）。
+         */
+        associatedCount: number | undefined;
     }> {
         const params = new URLSearchParams();
         if (options.exploreName) {
@@ -253,12 +289,13 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
         const query = params.toString();
         const json = await requestJson<{
             results?: {
-                contexts: Array<{
+                contexts?: Array<{
                     dashboardUuid: string;
                     dashboardSlug: string;
                     dashboardName: string;
                     chartUuids: string[];
                 }>;
+                associatedCount?: number;
             };
         }>(
             apiKey,
@@ -266,17 +303,28 @@ export function createEndpointMethods(requestJson: RequestJsonFn) {
                 projectUuid,
             )}/dashboards/context${query ? `?${query}` : ''}`,
         );
-        const results = json.results;
-        if (results && Array.isArray(results.contexts)) {
-            return results;
+        const { results } = json;
+        if (!results || !Array.isArray(results.contexts)) {
+            // 形状异常必须报错：回退成 { contexts: [] } 会把接口故障
+            // 伪装成“没有关联看板”，在强制看板模式下等于放行。
+            throw new Error(
+                'Lightdash API response shape invalid: /dashboards/context 缺少 results.contexts',
+            );
         }
-        return { contexts: [] };
+        return {
+            contexts: results.contexts,
+            associatedCount:
+                typeof results.associatedCount === 'number'
+                    ? results.associatedCount
+                    : undefined,
+        };
     }
 
     return {
         listExplores,
         getExplore,
         listProjects,
+        getAuthenticatedUser,
         listSpaces,
         searchContent,
         getSavedChart,

@@ -193,12 +193,20 @@ export class SearchService extends BaseService {
             results.dashboards.map(filterItem),
         );
 
-        // Filter dashboards for viewer users in customer use projects
+        // Filter dashboards for viewer / interactive_viewer in client-use projects
         const allowedDashboardUuids =
             await this.dashboardService.getAllowedDashboardUuidsForViewer(
                 user,
                 projectUuid,
             );
+
+        // Client-use: the search results must respect the content scope.
+        // The dashboard allow-list only covers dashboards (and their tabs), the
+        // charts and the spaces need the scope.
+        const viewerScope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
 
         const hasDashboardTabAccess = await Promise.all(
             results.dashboardTabs.map(filterItem),
@@ -235,16 +243,38 @@ export class SearchService extends BaseService {
             tables: filteredTables,
             fields: filteredFields,
             dashboards: filteredDashboards,
+            // Tabs include dashboardName; use the same allow-list as dashboards.
             dashboardTabs: results.dashboardTabs.filter(
-                (_, index) => hasDashboardTabAccess[index],
+                (tab, index) =>
+                    hasDashboardTabAccess[index] &&
+                    (allowedDashboardUuids === undefined ||
+                        !isUserWithOrg(user) ||
+                        allowedDashboardUuids.has(tab.dashboardUuid)),
             ),
             savedCharts: results.savedCharts.filter(
-                (_, index) => hasSavedChartAccess[index],
+                (_, index) =>
+                    hasSavedChartAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.chartUuids.includes(
+                            results.savedCharts[index].uuid,
+                        )),
             ),
             sqlCharts: results.sqlCharts.filter(
-                (_, index) => hasSqlChartAccess[index],
+                (_, index) =>
+                    hasSqlChartAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.chartUuids.includes(
+                            results.sqlCharts[index].uuid,
+                        )),
             ),
-            spaces: results.spaces.filter((_, index) => hasSpaceAccess[index]),
+            spaces: results.spaces.filter(
+                (_, index) =>
+                    hasSpaceAccess[index] &&
+                    (viewerScope === undefined ||
+                        viewerScope.spaceUuids.includes(
+                            results.spaces[index].uuid,
+                        )),
+            ),
             pages: user.ability.can(
                 'view',
                 subject('Analytics', {

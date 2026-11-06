@@ -1,7 +1,36 @@
+import { ProjectMemberRole } from '../types/projectMemberRole';
 import { SpaceMemberRole } from '../types/space';
-import { getHighestSpaceRole } from './projectMemberRole';
+import {
+    getHighestSpaceRole,
+    isClientUseRestrictedProjectRole,
+} from './projectMemberRole';
 
 describe('projectMemberRole', () => {
+    describe('isClientUseRestrictedProjectRole', () => {
+        it('returns true for viewer and interactive_viewer', () => {
+            expect(
+                isClientUseRestrictedProjectRole(ProjectMemberRole.VIEWER),
+            ).toBe(true);
+            expect(
+                isClientUseRestrictedProjectRole(
+                    ProjectMemberRole.INTERACTIVE_VIEWER,
+                ),
+            ).toBe(true);
+        });
+
+        it('returns false for editor, developer, admin and undefined', () => {
+            expect(
+                isClientUseRestrictedProjectRole(ProjectMemberRole.EDITOR),
+            ).toBe(false);
+            expect(
+                isClientUseRestrictedProjectRole(ProjectMemberRole.DEVELOPER),
+            ).toBe(false);
+            expect(
+                isClientUseRestrictedProjectRole(ProjectMemberRole.ADMIN),
+            ).toBe(false);
+            expect(isClientUseRestrictedProjectRole(undefined)).toBe(false);
+        });
+    });
     describe('getHighestSpaceRole', () => {
         it('should get the highest space role', () => {
             const highestRole = getHighestSpaceRole([

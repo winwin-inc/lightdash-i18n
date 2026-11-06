@@ -4,8 +4,17 @@ import { config as loadDotenv } from 'dotenv';
 // Node 不会自动读 .env；与 packages/lightdash-mcp/.env.example 对齐
 loadDotenv({ path: path.join(__dirname, '..', '.env') });
 
+/** 无看板访问权限时给客户的联系文案默认值（MCP_DASHBOARD_CONTACT 未设置时使用） */
+export const DEFAULT_DASHBOARD_CONTACT = '请联系客服开通看板访问权限。';
+
 export type LightdashMcpEnvConfig = {
+    /** REST / 鉴权等 API 基址（LIGHTDASH_SITE_URL） */
     baseUrl: string;
+    /**
+     * 浏览器可打开的站点根（拼 webUrl / get_site_info.siteBaseUrl）。
+     * 来自 LIGHTDASH_PUBLIC_SITE_URL；未设置时与 baseUrl 相同。
+     */
+    publicBaseUrl: string;
     apiKey: string | undefined;
     /** 未配置时须通过 set_project 或各工具可选 projectUuid 提供项目 */
     defaultProjectUuid: string | null;
@@ -26,6 +35,13 @@ export type LightdashMcpEnvConfig = {
     sessionTtlMs: number;
     /** 后台 prune 间隔（毫秒） */
     pruneIntervalMs: number;
+    /**
+     * 强制看板模式总开关（MCP_DASHBOARD_STRICT=true）。
+     * 打开后所有会执行查询的工具都必须先解析出 dashboardUuid。
+     */
+    dashboardStrict: boolean;
+    /** 无看板权限时给客户的联系文案（MCP_DASHBOARD_CONTACT） */
+    dashboardContact: string;
 };
 
 function parsePositiveIntEnv(
@@ -68,6 +84,10 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         );
     }
     const baseUrl = raw.replace(/\/$/, '');
+    const publicRaw = process.env.LIGHTDASH_PUBLIC_SITE_URL?.trim() ?? '';
+    const publicBaseUrl = (
+        publicRaw.length > 0 ? publicRaw : baseUrl
+    ).replace(/\/$/, '');
     const maxLimitRaw = process.env.LIGHTDASH_MAX_LIMIT;
     const maxLimit =
         maxLimitRaw !== undefined &&
@@ -112,8 +132,13 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         process.env.LIGHTDASH_MCP_PRUNE_INTERVAL_MS,
         300_000,
     );
+    const dashboardStrict =
+        (process.env.MCP_DASHBOARD_STRICT ?? 'false').trim() === 'true';
+    const dashboardContact =
+        process.env.MCP_DASHBOARD_CONTACT?.trim() || DEFAULT_DASHBOARD_CONTACT;
     return {
         baseUrl,
+        publicBaseUrl,
         apiKey,
         defaultProjectUuid,
         maxLimit,
@@ -127,5 +152,7 @@ export function loadConfigFromEnv(): LightdashMcpEnvConfig {
         lruMinIdleMs,
         sessionTtlMs,
         pruneIntervalMs,
+        dashboardStrict,
+        dashboardContact,
     };
 }

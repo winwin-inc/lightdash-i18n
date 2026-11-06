@@ -254,9 +254,7 @@ const UserActivity: FC = () => {
                         },
                     ]}
                 />
-                <Tooltip
-                    label={t('pages_user_activity.export_csv_tooltip')}
-                >
+                <Tooltip label={t('pages_user_activity.export_csv_tooltip')}>
                     <Button
                         variant="outline"
                         disabled={isDownloadingCsv}

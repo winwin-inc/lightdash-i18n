@@ -886,13 +886,31 @@ export const deleteFilterRuleFromGroup = (
     } as FilterGroup;
 };
 
+export const isDisabledCategoryDashboardFilterRule = (
+    rule: DashboardFilterRule,
+): boolean =>
+    rule.disabled === true &&
+    rule.categoryLevel !== undefined &&
+    rule.categoryLevel >= 1 &&
+    rule.categoryLevel <= 4;
+
+const normalizeDisabledCategoryDashboardFilterRule = (
+    filter: DashboardFilterRule,
+): DashboardFilterRule =>
+    isDisabledCategoryDashboardFilterRule(filter)
+        ? { ...filter, values: [] }
+        : filter;
+
 export const getDashboardFilterRulesForTile = (
     tileUuid: string,
     rules: DashboardFilterRule[],
     needsExplicitTileOverride: boolean = false, // If true, we don't apply the default tile targets to the filter rule'
 ): DashboardFilterRule[] =>
     rules
-        .filter((rule) => !rule.disabled)
+        .filter(
+            (rule) =>
+                !rule.disabled || isDisabledCategoryDashboardFilterRule(rule),
+        )
         .map((filter) => {
             const tileConfig = filter.tileTargets?.[tileUuid];
 
@@ -908,13 +926,13 @@ export const getDashboardFilterRulesForTile = (
                 if (needsExplicitTileOverride) {
                     return null;
                 }
-                return filter;
+                return normalizeDisabledCategoryDashboardFilterRule(filter);
             }
 
-            return {
+            return normalizeDisabledCategoryDashboardFilterRule({
                 ...filter,
                 target: tileConfig,
-            };
+            });
         })
         .filter((f): f is DashboardFilterRule => f !== null);
 
@@ -1122,6 +1140,32 @@ const getDeduplicatedFilterRules = (
     );
 };
 
+const removeFilterRulesByFieldIds = (
+    filterGroup: FilterGroup | undefined,
+    fieldIds: Set<string>,
+): FilterGroup | undefined => {
+    if (!filterGroup || fieldIds.size === 0) {
+        return filterGroup;
+    }
+
+    const items = getItemsFromFilterGroup(filterGroup)
+        .map((item) => {
+            if (isFilterGroup(item)) {
+                return removeFilterRulesByFieldIds(item, fieldIds);
+            }
+            if (isFilterRule(item) && fieldIds.has(item.target.fieldId)) {
+                return undefined;
+            }
+            return item;
+        })
+        .filter((item): item is FilterGroupItem => item !== undefined);
+
+    return {
+        id: filterGroup.id,
+        [getFilterGroupItemsPropertyName(filterGroup)]: items,
+    } as FilterGroup;
+};
+
 /**
  * Merges dashboard filters with existing filters using override tracking
  * @param filterGroup - Existing filter group to override
@@ -1281,7 +1325,16 @@ export const addDashboardFiltersToMetricQuery = (
 ): MetricQuery => {
     const timeBasedOverrideMap: TimeBasedOverrideMap = {};
 
-    const processedDimensionFilters = dashboardFilters.dimensions
+    const disabledCategoryFieldIds = new Set(
+        dashboardFilters.dimensions
+            .filter(isDisabledCategoryDashboardFilterRule)
+            .map((filter) => filter.target.fieldId),
+    );
+    const activeDimensionFilters = dashboardFilters.dimensions.filter(
+        (filter) => !isDisabledCategoryDashboardFilterRule(filter),
+    );
+
+    const processedDimensionFilters = activeDimensionFilters
         .map((filter) => {
             const result = trackWhichTimeBasedMetricFiltersToOverride(
                 metricQuery.filters?.dimensions,
@@ -1295,11 +1348,16 @@ export const addDashboardFiltersToMetricQuery = (
         })
         .map(convertDashboardFilterRuleToFilterRule);
 
+    const chartDimensionFilters = removeFilterRulesByFieldIds(
+        metricQuery.filters?.dimensions,
+        disabledCategoryFieldIds,
+    );
+
     return {
         ...metricQuery,
         filters: {
             dimensions: overrideFilterGroupWithFilterRules(
-                metricQuery.filters?.dimensions,
+                chartDimensionFilters,
                 processedDimensionFilters,
                 timeBasedOverrideMap,
             ),

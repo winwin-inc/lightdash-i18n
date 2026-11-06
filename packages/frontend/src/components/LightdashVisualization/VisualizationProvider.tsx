@@ -21,6 +21,7 @@ import omit from 'lodash/omit';
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -33,10 +34,7 @@ import {
     lookupSyncedColor,
     pieRowColorKeys,
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
-import {
-    appendUnknownHashColors,
-    resolveSyncedHashColor,
-} from '../../hooks/useChartColorConfig/hashColorAssignment';
+import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -49,6 +47,7 @@ import {
 } from '../../hooks/useFeatureFlagEnabled';
 import usePivotDimensions from '../../hooks/usePivotDimensions';
 import { type InfiniteQueryResults } from '../../hooks/useQueryResults';
+import { useRegisterDashboardVisibleColorKeys } from '../../providers/DashboardChartColorSync/useDashboardChartColorSync';
 import { type EchartSeriesClickEvent } from '../SimpleChart';
 import VisualizationBigNumberConfig from './VisualizationBigNumberConfig';
 import VisualizationCartesianConfig from './VisualizationConfigCartesian';
@@ -66,6 +65,10 @@ const EMPTY_COLOR_MAP: Record<string, string> = {};
 export type VisualizationProviderProps = {
     minimal?: boolean;
     isDashboard?: boolean;
+    /** Explore 编辑模式；未传视为查看模式 */
+    isEditMode?: boolean;
+    /** 看板 tile uuid：本地列宽按 tile 隔离 */
+    tileUuid?: string;
     chartConfig: ChartConfig;
     initialPivotDimensions: string[] | undefined;
     unsavedMetricQuery?: MetricQuery;
@@ -94,11 +97,15 @@ export type VisualizationProviderProps = {
     apiErrorDetail?: ApiErrorDetail | null;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+    dashboardUuid?: string;
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
     /** 看板级系列手配色，跨 Tab 预取后传入 */
     manualColorMap?: Record<string, string>;
-    /** 看板已知系列名的确定性哈希色，筛选新系列只避让这些槽 */
+    /** 看板已知系列分配到的颜色（不含运行时追加的未知名） */
+    knownHashAssignments?: Record<string, string>;
+    /** 看板已知系列 + 筛选后追加未知名的合并色表 */
     hashAssignments?: Record<string, string>;
     tablePagination?: TablePaginationState;
 };
@@ -108,6 +115,8 @@ const VisualizationProvider: FC<
 > = ({
     minimal = false,
     isDashboard = false,
+    isEditMode = false,
+    tileUuid,
     initialPivotDimensions,
     resultsData,
     isLoading,
@@ -131,7 +140,9 @@ const VisualizationProvider: FC<
     unsavedMetricQuery,
     dashboardSlug,
     dashboardName,
+    dashboardUuid,
     useHashBased = false,
+    knownHashAssignments = EMPTY_COLOR_MAP,
     hashAssignments = EMPTY_COLOR_MAP,
     tablePagination,
 }) => {
@@ -175,7 +186,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
+            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
             : lastValidResultsData?.metricQuery,
     );
 
@@ -213,14 +224,32 @@ const VisualizationProvider: FC<
         return keys;
     }, [chartConfig, computedSeries, resultsData]);
 
-    const chartHashAssignments = useMemo(() => {
-        if (!useHashBased) return hashAssignments;
-        return appendUnknownHashColors(
-            visibleColorKeys,
+    const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
+
+    useLayoutEffect(() => {
+        if (!useHashBased) return;
+        registerVisibleColorKeys(visibleColorKeys);
+    }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
+
+    const chartHashAssignments = hashAssignments;
+
+    /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
+    const colorSync = useMemo(
+        () => ({
+            enabled: useHashBased,
+            palette: colorPalette,
+            knownHashAssignments: knownHashAssignments ?? {},
+            hashAssignments: chartHashAssignments,
+            registerVisibleColorKeys,
+        }),
+        [
+            useHashBased,
             colorPalette,
-            hashAssignments,
-        );
-    }, [useHashBased, visibleColorKeys, colorPalette, hashAssignments]);
+            knownHashAssignments,
+            chartHashAssignments,
+            registerVisibleColorKeys,
+        ],
+    );
 
     const { calculateKeyColorAssignment, calculateSeriesColorAssignment } =
         useChartColorConfig({
@@ -276,7 +305,7 @@ const VisualizationProvider: FC<
             .map((series) => calculateSeriesLikeIdentifier(series).join('|'))
             .sort((a, b) => b.localeCompare(a));
 
-        // 当 useHashBased 开启时，以看板 hashAssignments 为准，未知名只追加
+        // 当 useHashBased 开启时，以看板级合并色表为准
         if (useHashBased) {
             return Object.fromEntries(
                 sortedSeriesIdentifiers.map((identifier) => {
@@ -366,21 +395,14 @@ const VisualizationProvider: FC<
     const getGroupColors = useCallback(
         (groupPrefix: string, identifiers: string[]) => {
             if (useHashBased) {
-                // 优先复用 chartHashAssignments；仅有未覆盖 identifier 时增量追加
-                const assigned = appendUnknownHashColors(
-                    identifiers,
-                    colorPalette,
-                    chartHashAssignments,
-                );
                 return Object.fromEntries(
                     identifiers.map((identifier) => [
                         identifier,
-                        lookupSyncedColor(identifier, assigned) ??
-                            resolveSyncedHashColor(
-                                identifier,
-                                colorPalette,
-                                assigned,
-                            ),
+                        resolveSyncedHashColor(
+                            identifier,
+                            colorPalette,
+                            chartHashAssignments,
+                        ),
                     ]),
                 );
             }
@@ -479,6 +501,7 @@ const VisualizationProvider: FC<
     > = {
         minimal,
         isDashboard,
+        isEditMode,
         pivotDimensions: validPivotDimensions,
         chartRef,
         resultsData: effectiveResultsData,
@@ -497,6 +520,7 @@ const VisualizationProvider: FC<
         getSeriesColor,
         chartConfig,
         useHashBased,
+        colorSync,
         tablePagination,
     };
 
@@ -615,6 +639,9 @@ const VisualizationProvider: FC<
                     parameters={parameters}
                     dashboardSlug={dashboardSlug}
                     dashboardName={dashboardName}
+                    dashboardUuid={dashboardUuid}
+                    isEditMode={isEditMode}
+                    tileUuid={tileUuid}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

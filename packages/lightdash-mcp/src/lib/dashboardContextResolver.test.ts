@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { LightdashApiError } from '../rest/requestBase';
 import {
     buildDashboardSelectionRequiredResult,
     createDashboardContextResolver,
@@ -12,6 +13,7 @@ describe('createDashboardContextResolver', () => {
                 uuid: 'dash-explicit',
                 slug: 'explicit-slug',
                 name: 'Explicit Dashboard',
+                projectUuid: 'proj',
             }),
             getDashboardContexts: async () => {
                 throw new Error('should not call context API');
@@ -36,6 +38,37 @@ describe('createDashboardContextResolver', () => {
         }
     });
 
+    it('falls back to the uuid when the explicit dashboard cannot be fetched (legacy behaviour)', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new LightdashApiError(
+                    403,
+                    "You don't have access to this dashboard",
+                );
+            },
+            getDashboardContexts: async () => {
+                throw new Error('should not call context API');
+            },
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            dashboardUuid: 'dash-forbidden',
+            exploreName: 'orders',
+        });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.deepEqual(resolved.context, {
+                dashboardUuid: 'dash-forbidden',
+                dashboardSlug: 'dash-forbidden',
+                dashboardName: 'dash-forbidden',
+                source: 'explicitDashboardUuid',
+                candidateCount: 1,
+            });
+        }
+    });
+
     it('auto-resolves when explore has exactly one related dashboard', async () => {
         const api = {
             getDashboard: async () => {
@@ -50,6 +83,7 @@ describe('createDashboardContextResolver', () => {
                         chartUuids: ['c1'],
                     },
                 ],
+                associatedCount: 1,
             }),
         };
         const resolver = createDashboardContextResolver(api as never);
@@ -82,6 +116,7 @@ describe('createDashboardContextResolver', () => {
                         chartUuids: ['chart-1'],
                     },
                 ],
+                associatedCount: 1,
             }),
         };
         const resolver = createDashboardContextResolver(api as never);
@@ -97,7 +132,7 @@ describe('createDashboardContextResolver', () => {
         }
     });
 
-    it('does not auto-select when explore has multiple related dashboards', async () => {
+    it('selects first (sorted) when explore has multiple related dashboards', async () => {
         const api = {
             getDashboard: async () => {
                 throw new Error('should not call getDashboard');
@@ -117,6 +152,7 @@ describe('createDashboardContextResolver', () => {
                         chartUuids: ['c1'],
                     },
                 ],
+                associatedCount: 2,
             }),
         };
         const resolver = createDashboardContextResolver(api as never);
@@ -125,15 +161,145 @@ describe('createDashboardContextResolver', () => {
             projectUuid: 'proj',
             exploreName: 'report_newproduct_hotsales',
         });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.equal(resolved.context.source, 'firstExploreContext');
+            assert.equal(resolved.context.candidateCount, 2);
+            assert.equal(resolved.context.dashboardUuid, 'a');
+            assert.equal(resolved.context.dashboardName, 'Alpha');
+            assert.equal(resolved.context.candidates?.length, 2);
+            assert.equal(resolved.context.candidates?.[0].dashboardName, 'Alpha');
+            assert.equal(resolved.context.candidates?.[1].dashboardName, 'Beta');
+        }
+    });
+
+    it('selects first (sorted) when chart has multiple related dashboards', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [
+                    {
+                        dashboardUuid: 'd1',
+                        dashboardSlug: 's1',
+                        dashboardName: 'First',
+                        chartUuids: ['chart-1'],
+                    },
+                    {
+                        dashboardUuid: 'd2',
+                        dashboardSlug: 's2',
+                        dashboardName: 'Second',
+                        chartUuids: ['chart-1'],
+                    },
+                ],
+                associatedCount: 2,
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            chartUuid: 'chart-1',
+        });
+        assert.equal(resolved.status, 'resolved');
+        if (resolved.status === 'resolved') {
+            assert.equal(resolved.context.source, 'firstChartContext');
+            assert.equal(resolved.context.dashboardUuid, 'd1');
+            assert.equal(resolved.context.dashboardName, 'First');
+            assert.equal(resolved.context.candidates?.length, 2);
+            assert.equal(resolved.context.candidates?.[0].dashboardName, 'First');
+        }
+    });
+
+    it('returns needs_selection for multiple candidates when blockOnMultiple is on', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [
+                    {
+                        dashboardUuid: 'd1',
+                        dashboardSlug: 's1',
+                        dashboardName: 'First',
+                        chartUuids: ['chart-1'],
+                    },
+                    {
+                        dashboardUuid: 'd2',
+                        dashboardSlug: 's2',
+                        dashboardName: 'Second',
+                        chartUuids: ['chart-1'],
+                    },
+                ],
+                associatedCount: 2,
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never, {
+            blockOnMultiple: true,
+            publicBaseUrl: 'https://example.com',
+        });
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            chartUuid: 'chart-1',
+        });
         assert.equal(resolved.status, 'needs_selection');
         if (resolved.status === 'needs_selection') {
+            assert.equal(resolved.source, 'chartUuid');
             assert.equal(resolved.candidateCount, 2);
-            assert.equal(resolved.candidates[0].dashboardName, 'Alpha');
-            assert.equal(resolved.source, 'exploreName');
+            assert.equal(
+                resolved.candidates[0].dashboardUrl,
+                'https://example.com/projects/proj/dashboards/d1/view',
+            );
         }
     });
 
     it('returns none when chart has no dashboards', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [],
+                associatedCount: 0,
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            chartUuid: 'chart-1',
+        });
+        assert.equal(resolved.status, 'none');
+        if (resolved.status === 'none') {
+            assert.equal(resolved.associatedCount, 0);
+        }
+    });
+
+    it('returns none when explore has no dashboards', async () => {
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => ({
+                contexts: [],
+                associatedCount: 3,
+            }),
+        };
+        const resolver = createDashboardContextResolver(api as never);
+        const resolved = await resolver.resolve({
+            apiKey: 'key',
+            projectUuid: 'proj',
+            exploreName: 'orphan_explore',
+        });
+        assert.equal(resolved.status, 'none');
+        if (resolved.status === 'none') {
+            assert.equal(resolved.associatedCount, 3);
+        }
+    });
+
+    it('keeps associatedCount undefined when the backend did not return it', async () => {
         const api = {
             getDashboard: async () => {
                 throw new Error('should not call getDashboard');
@@ -144,9 +310,12 @@ describe('createDashboardContextResolver', () => {
         const resolved = await resolver.resolve({
             apiKey: 'key',
             projectUuid: 'proj',
-            chartUuid: 'chart-1',
+            exploreName: 'orphan_explore',
         });
         assert.equal(resolved.status, 'none');
+        if (resolved.status === 'none') {
+            assert.equal(resolved.associatedCount, null);
+        }
     });
 
     it('caches explore context lookups briefly', async () => {
@@ -166,6 +335,7 @@ describe('createDashboardContextResolver', () => {
                             chartUuids: ['c1'],
                         },
                     ],
+                    associatedCount: 1,
                 };
             },
         };
@@ -183,6 +353,37 @@ describe('createDashboardContextResolver', () => {
             exploreName: 'orders',
         });
         assert.equal(calls, 1);
+    });
+
+    it('bypasses the cache when asked (blocking path re-check)', async () => {
+        let calls = 0;
+        const api = {
+            getDashboard: async () => {
+                throw new Error('should not call getDashboard');
+            },
+            getDashboardContexts: async () => {
+                calls += 1;
+                return {
+                    contexts: [],
+                    associatedCount: 0,
+                };
+            },
+        };
+        const resolver = createDashboardContextResolver(api as never, {
+            cacheTtlMs: 60_000,
+        });
+        const first = await resolver.fetchContexts('key', 'proj', {
+            exploreName: 'orders',
+        });
+        const second = await resolver.fetchContexts(
+            'key',
+            'proj',
+            { exploreName: 'orders' },
+            { bypassCache: true },
+        );
+        assert.equal(calls, 2);
+        assert.equal(first.associatedCount, 0);
+        assert.equal(second.associatedCount, 0);
     });
 });
 

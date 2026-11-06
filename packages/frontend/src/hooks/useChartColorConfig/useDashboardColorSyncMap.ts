@@ -47,9 +47,7 @@ export const buildDashboardColorSyncMap = (
     const chartColorKeyGroups = collectChartColorKeyGroups(chartConfigs);
     const manualColors = mergeManualColorMaps(
         chartConfigs.map((chartConfig) =>
-            chartConfig
-                ? extractManualColorsFromChartConfig(chartConfig)
-                : {},
+            chartConfig ? extractManualColorsFromChartConfig(chartConfig) : {},
         ),
     );
 
@@ -67,8 +65,7 @@ export const buildDashboardColorSyncMap = (
 export const publishColorSyncMap = (
     previous: DashboardColorSyncMapResult,
     next: DashboardColorSyncMapResult,
-): DashboardColorSyncMapResult =>
-    isEqual(previous, next) ? previous : next;
+): DashboardColorSyncMapResult => (isEqual(previous, next) ? previous : next);
 
 /**
  * 预取看板全部 Tab 上的已保存图表配置。

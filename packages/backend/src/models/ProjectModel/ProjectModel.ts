@@ -321,7 +321,7 @@ export class ProjectModel {
                 'projects.created_at',
                 `projects.copied_from_project_uuid`,
                 `projects.created_by_user_uuid`,
-                `projects.is_customer_use`,
+                `projects.is_client_use`,
                 `${WarehouseCredentialTableName}.warehouse_type`,
                 `${WarehouseCredentialTableName}.encrypted_credentials`,
                 this.database.raw(
@@ -358,7 +358,7 @@ export class ProjectModel {
                 created_at,
                 created_by_user_uuid,
                 copied_from_project_uuid,
-                is_customer_use,
+                is_client_use,
                 warehouse_type,
                 encrypted_credentials,
             }) => {
@@ -384,7 +384,7 @@ export class ProjectModel {
                                 : undefined,
                         requireUserCredentials:
                             !!warehouseCredentials?.requireUserCredentials,
-                        isCustomerUse: is_customer_use ?? false,
+                        isClientUse: is_client_use ?? false,
                     };
                 } catch (e) {
                     throw new UnexpectedServerError(
@@ -630,7 +630,7 @@ export class ProjectModel {
                   scheduler_timezone: string;
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
-                  is_customer_use: boolean;
+                  is_client_use: boolean;
                   query_timezone: string | null;
                   use_project_timezone_in_filters: boolean;
               }
@@ -647,7 +647,7 @@ export class ProjectModel {
                   scheduler_timezone: string;
                   created_by_user_uuid: string | null;
                   organization_warehouse_credentials_uuid: string | null;
-                  is_customer_use: boolean;
+                  is_client_use: boolean;
                   query_timezone: string | null;
                   use_project_timezone_in_filters: boolean;
               }
@@ -708,7 +708,7 @@ export class ProjectModel {
                             .ref('organization_warehouse_credentials_uuid')
                             .withSchema(ProjectTableName),
                         this.database
-                            .ref('is_customer_use')
+                            .ref('is_client_use')
                             .withSchema(ProjectTableName),
                         this.database
                             .ref('query_timezone')
@@ -755,7 +755,7 @@ export class ProjectModel {
                     organizationWarehouseCredentialsUuid:
                         project.organization_warehouse_credentials_uuid ??
                         undefined,
-                    isCustomerUse: project.is_customer_use ?? false,
+                    isClientUse: project.is_client_use ?? false,
                     queryTimezone: project.query_timezone ?? null,
                     useProjectTimezoneInFilters:
                         project.use_project_timezone_in_filters ?? false,
@@ -894,8 +894,9 @@ export class ProjectModel {
     async getEffectiveResultsCacheTtlSeconds(
         projectUuid: string,
     ): Promise<number> {
-        const { cacheTtlSeconds } =
-            await this.getResultsCacheSettings(projectUuid);
+        const { cacheTtlSeconds } = await this.getResultsCacheSettings(
+            projectUuid,
+        );
         return (
             cacheTtlSeconds ??
             this.lightdashConfig.results.cacheStateTimeSeconds
@@ -1016,7 +1017,7 @@ export class ProjectModel {
             type: project.type,
             dbtConnection: nonSensitiveDbtCredentials,
             warehouseConnection: nonSensitiveCredentialsWithDefaults,
-            isCustomerUse: project.isCustomerUse ?? false,
+            isClientUse: project.isClientUse ?? false,
             pinnedListUuid: project.pinnedListUuid,
             dbtVersion: project.dbtVersion,
             upstreamProjectUuid: project.upstreamProjectUuid || undefined,
@@ -1617,8 +1618,8 @@ export class ProjectModel {
             updateData.copied_from_project_uuid = data.upstreamProjectUuid; // if upstreamProjectUuid is undefined, it will do nothing, if it is null, it will be unset
         }
 
-        if (data.isCustomerUse !== undefined) {
-            updateData.is_customer_use = data.isCustomerUse;
+        if (data.isClientUse !== undefined) {
+            updateData.is_client_use = data.isClientUse;
         }
 
         if (Object.keys(updateData).length > 0) {

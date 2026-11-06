@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { LightdashMcpEnvConfig } from '../config';
 import type { SharedExploreCache } from '../lib/sharedExploreCache';
+import { writeStderrLog } from '../lib/stderrLog';
 import { createLightdashMcpServer } from '../mcp/createMcpServer';
 
 export class McpSessionCapacityError extends Error {
@@ -195,8 +196,8 @@ export function createMcpSessionRegistry(
                 ? ` id=${truncateSessionId(sessionId)}`
                 : '';
         const extraPart = extra ? ` | ${extra}` : '';
-        process.stderr.write(
-            `[McpSession] ${message}${idPart}${extraPart} | active=${sessions.size} compat=${compatByOwner.size} pending=${pendingEntries.size}\n`,
+        writeStderrLog(
+            `[McpSession] ${message}${idPart}${extraPart} | active=${sessions.size} compat=${compatByOwner.size} pending=${pendingEntries.size}`,
         );
     };
 

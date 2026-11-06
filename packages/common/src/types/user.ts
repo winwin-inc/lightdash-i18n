@@ -1,8 +1,10 @@
 import { type AbilityBuilder } from '@casl/ability';
 import { type MemberAbility } from '../authorization/types';
 import { type AnyType } from './any';
+import { type ViewerContentScopeDiagnostics } from './clientUseScope';
 import { type OpenIdIdentityIssuerType } from './openIdIdentity';
 import { type OrganizationMemberRole } from './organizationMemberProfile';
+import { type PromotionAction } from './promotion';
 
 export type AccountUser = {
     id: string;
@@ -135,7 +137,16 @@ export type ApiUserAllowedOrganizationsResponse = {
  */
 export type ApiGetAuthenticatedUserResponse = {
     status: 'ok';
-    results: LightdashUser;
+    results: LightdashUser & {
+        /**
+         * Client-use (客户使用模式) content scope diagnostics.
+         *
+         * Only returned when the request passes `?projectUuid=`.
+         * It explains which dashboards the user can see in that project and
+         * why (allow-list empty, RPC failure, role not restricted, ...).
+         */
+        clientUse?: ViewerContentScopeDiagnostics;
+    };
 };
 
 export type ApiRegisterUserResponse = {
@@ -165,18 +176,70 @@ export type IntrinsicUserAttributes = {
     email?: string;
     dashboardSlug?: string;
     dashboardName?: string;
+    /**
+     * The uuid of the dashboard the query is run from. The uuid is globally
+     * unique (the slug is only unique within a project), so it is the
+     * safest identifier for the dbt row level filters.
+     */
+    dashboardUuid?: string;
+};
+
+/**
+ * The dashboard context of a query. It is passed to the dbt schema as the
+ * intrinsic user attributes:
+ * - `lightdash.user.dashboardSlug`
+ * - `lightdash.user.dashboardName`
+ * - `lightdash.user.dashboardUuid`
+ */
+export type DashboardQueryContextAttributes = {
+    dashboardSlug?: string;
+    dashboardName?: string;
+    dashboardUuid?: string;
+};
+
+export type UserAsCodeRole =
+    | {
+          type: 'system';
+          name: OrganizationMemberRole;
+      }
+    | {
+          type: 'custom';
+          name: string;
+      };
+
+export type UserAsCode = {
+    version: 1;
+    email: string;
+    disabled: boolean;
+    role: UserAsCodeRole;
+    additionalRoles?: Extract<UserAsCodeRole, { type: 'custom' }>[];
+};
+
+export type ApiUserAsCodeListResponse = {
+    status: 'ok';
+    results: {
+        users: UserAsCode[];
+    };
+};
+
+export type ApiUserAsCodeUpsertResponse = {
+    status: 'ok';
+    results: {
+        action:
+            | PromotionAction.CREATE
+            | PromotionAction.UPDATE
+            | PromotionAction.NO_CHANGES;
+    };
 };
 
 export const DEFAULT_DASHBOARD_ATTRIBUTE_VALUE = 'NA';
 
 export const getIntrinsicUserAttributes = (
     user: Pick<LightdashUser, 'email'>,
-    context?: {
-        dashboardSlug?: string;
-        dashboardName?: string;
-    },
+    context?: DashboardQueryContextAttributes,
 ): IntrinsicUserAttributes => ({
     email: user.email,
     dashboardSlug: context?.dashboardSlug ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
     dashboardName: context?.dashboardName ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+    dashboardUuid: context?.dashboardUuid ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
 });

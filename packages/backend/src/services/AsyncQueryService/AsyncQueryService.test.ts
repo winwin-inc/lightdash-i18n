@@ -1,12 +1,14 @@
+import { Ability } from '@casl/ability';
 import {
     DimensionType,
-    ForbiddenError,
     NotFoundError,
+    PossibleAbilities,
     QueryExecutionContext,
     QueryHistoryStatus,
     VizAggregationOptions,
     VizIndexType,
     WarehouseTypes,
+    type Account,
     type CreateWarehouseCredentials,
     type ExecuteAsyncQueryRequestParams,
     type QueryHistory,
@@ -194,6 +196,15 @@ const getMockedAsyncQueryService = (
             downloadFileModel: {} as DownloadFileModel,
         }),
         permissionsService: {} as PermissionsService,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as never,
+        dashboardService: {
+            getAllowedDashboardUuidsForViewer: jest.fn(async () => undefined),
+            getAllowedExploreNamesForViewer: jest.fn(async () => undefined),
+            getViewerContentScope: jest.fn(async () => undefined),
+            getVisibleDashboardCountBySpaceUuid: jest.fn(async () => new Map()),
+        } as never,
         ...overrides,
     });
 
@@ -1418,6 +1429,278 @@ describe('AsyncQueryService', () => {
                     }),
                 ).rejects.toThrow();
             });
+        });
+    });
+
+    describe('explore viewer allow-list', () => {
+        const adhocAccount = {
+            ...sessionAccount,
+            user: {
+                ...sessionAccount.user,
+                ability: new Ability<PossibleAbilities>([
+                    { subject: 'Explore', action: ['view', 'manage'] },
+                    { subject: 'Project', action: ['view'] },
+                    { subject: 'SavedChart', action: ['view'] },
+                ]),
+            },
+        } as Account;
+
+        test('should reject ad-hoc metric query when explore is not on allow-list', async () => {
+            const service = getMockedAsyncQueryService(lightdashConfigMock);
+            (
+                service.dashboardService
+                    .getAllowedExploreNamesForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['other_explore']));
+
+            await expect(
+                service.executeAsyncMetricQuery({
+                    account: adhocAccount,
+                    projectUuid,
+                    context: QueryExecutionContext.EXPLORE,
+                    metricQuery: metricQueryMock,
+                }),
+            ).rejects.toThrow(
+                "You don't have access to the explore valid_explore",
+            );
+        });
+
+        test('should not apply explore allow-list to saved chart queries', async () => {
+            const service = getMockedAsyncQueryService(lightdashConfigMock);
+            const getAllowedExploreNames = service.dashboardService
+                .getAllowedExploreNamesForViewer as jest.Mock;
+            getAllowedExploreNames.mockResolvedValue(
+                new Set(['other_explore']),
+            );
+
+            service.savedChartModel.get = jest.fn(async () => ({
+                uuid: 'saved-chart-uuid',
+                organizationUuid: projectSummary.organizationUuid,
+                projectUuid,
+                spaceUuid: 'space-uuid',
+                tableName: 'valid_explore',
+                metricQuery: metricQueryMock,
+                parameters: {},
+            })) as never;
+            service.spaceModel.getSpaceSummary = jest.fn(async () => ({
+                uuid: 'space-uuid',
+                isPrivate: false,
+            })) as never;
+            service.spaceModel.getUserSpaceAccess = jest.fn(async () => []);
+            service.analyticsModel = {
+                addChartViewEvent: jest.fn(),
+            } as never;
+
+            await service
+                .executeAsyncSavedChartQuery({
+                    account: adhocAccount,
+                    projectUuid,
+                    chartUuid: 'saved-chart-uuid',
+                    context: QueryExecutionContext.EXPLORE,
+                })
+                .catch(() => undefined);
+
+            expect(getAllowedExploreNames).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('dashboard query context', () => {
+        const dashboardAccount = {
+            ...sessionAccount,
+            user: {
+                ...sessionAccount.user,
+                ability: new Ability<PossibleAbilities>([
+                    { subject: 'Explore', action: ['view'] },
+                    { subject: 'Project', action: ['view'] },
+                    { subject: 'SavedChart', action: ['view'] },
+                ]),
+            },
+        } as Account;
+
+        const mockDashboard = (
+            overrides: Record<string, unknown> = {},
+        ): Record<string, unknown> => ({
+            uuid: 'dashboard-uuid',
+            projectUuid,
+            organizationUuid: projectSummary.organizationUuid,
+            slug: 'server-dashboard-slug',
+            name: 'Server dashboard',
+            parameters: [],
+            tiles: [],
+            ...overrides,
+        });
+
+        const getServiceWithDashboard = (
+            dashboard: Record<string, unknown>,
+        ) => {
+            const service = getMockedAsyncQueryService(lightdashConfigMock);
+            Object.assign(service, {
+                projectParametersModel: {
+                    find: jest.fn(async () => []),
+                },
+                getExplore: jest.fn(async () => validExplore),
+            });
+            service.savedChartModel.get = jest.fn(async () => ({
+                uuid: 'chart-uuid',
+                organizationUuid: projectSummary.organizationUuid,
+                projectUuid,
+                spaceUuid: 'space-uuid',
+                tableName: 'valid_explore',
+                metricQuery: metricQueryMock,
+                parameters: {},
+                chartConfig: { config: { type: 'table' } },
+            })) as never;
+            service.spaceModel.getSpaceSummary = jest.fn(async () => ({
+                uuid: 'space-uuid',
+                isPrivate: false,
+                organizationUuid: projectSummary.organizationUuid,
+            })) as never;
+            service.spaceModel.getUserSpaceAccess = jest.fn(async () => []);
+            service.analyticsModel = {
+                addChartViewEvent: jest.fn(),
+            } as never;
+            service.dashboardModel.getByIdOrSlug = jest.fn(
+                async () => dashboard,
+            ) as never;
+            return service;
+        };
+
+        test('uses the dashboard resolved on the server for the row level filters', async () => {
+            const service = getServiceWithDashboard(mockDashboard());
+            const prepareSpy = jest.fn(async () => ({
+                sql: 'select 1',
+                parameterReferences: {},
+                missingParameterReferences: [],
+                usedParameters: {},
+                timezone: 'UTC',
+                useTimezoneAwareDateTrunc: false,
+            }));
+            Object.assign(service, {
+                prepareMetricQueryAsyncQueryArgs: prepareSpy,
+                executeAsyncQuery: jest.fn(async () => ({
+                    queryUuid: 'query-uuid',
+                    cacheMetadata: {
+                        cacheHit: false,
+                        updatedAt: undefined,
+                        expiresAt: undefined,
+                    } satisfies MissCacheResult,
+                })),
+            });
+
+            await service.executeAsyncDashboardChartQuery({
+                account: dashboardAccount,
+                projectUuid,
+                chartUuid: 'chart-uuid',
+                dashboardUuid: 'dashboard-uuid',
+                dashboardFilters: {
+                    dimensions: [],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                dashboardSorts: [],
+                // The client can send any context it wants, it must not be
+                // used for the row level filters (`sql_filter`).
+                context: {
+                    dashboardSlug: 'forged-slug',
+                    dashboardName: 'Forged dashboard',
+                },
+            } as never);
+
+            expect(prepareSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    context: {
+                        dashboardSlug: 'server-dashboard-slug',
+                        dashboardName: 'Server dashboard',
+                    },
+                }),
+            );
+        });
+
+        test('rejects a dashboard that belongs to another project', async () => {
+            const service = getServiceWithDashboard(
+                mockDashboard({ projectUuid: 'another-project-uuid' }),
+            );
+
+            await expect(
+                service.executeAsyncDashboardChartQuery({
+                    account: dashboardAccount,
+                    projectUuid,
+                    chartUuid: 'chart-uuid',
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardFilters: {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                    dashboardSorts: [],
+                    context: QueryExecutionContext.DASHBOARD,
+                } as never),
+            ).rejects.toThrow('Dashboard does not belong to project');
+        });
+
+        test('rejects a sql chart dashboard that belongs to another project', async () => {
+            const service = getServiceWithDashboard(
+                mockDashboard({ projectUuid: 'another-project-uuid' }),
+            );
+            service.savedSqlModel.getByUuid = jest.fn(async () => ({
+                savedSqlUuid: 'sql-chart-uuid',
+                name: 'SQL chart',
+                project: { projectUuid },
+                organization: {
+                    organizationUuid: projectSummary.organizationUuid,
+                },
+                space: { uuid: 'space-uuid' },
+                sql: 'select 1',
+                config: {},
+                limit: 100,
+                parameters: {},
+            })) as never;
+
+            await expect(
+                service.executeAsyncDashboardSqlChartQuery({
+                    account: dashboardAccount,
+                    projectUuid,
+                    tileUuid: 'tile-uuid',
+                    dashboardUuid: 'dashboard-uuid',
+                    savedSqlUuid: 'sql-chart-uuid',
+                    dashboardFilters: {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                    dashboardSorts: [],
+                    context: QueryExecutionContext.DASHBOARD,
+                } as never),
+            ).rejects.toThrow('Dashboard does not belong to project');
+        });
+
+        test('rejects a chart that belongs to another project with a distinct message', async () => {
+            const service = getServiceWithDashboard(mockDashboard());
+            service.savedChartModel.get = jest.fn(async () => ({
+                uuid: 'chart-uuid',
+                organizationUuid: projectSummary.organizationUuid,
+                projectUuid: 'another-project-uuid',
+                spaceUuid: 'space-uuid',
+                tableName: 'valid_explore',
+                metricQuery: metricQueryMock,
+                parameters: {},
+                chartConfig: { config: { type: 'table' } },
+            })) as never;
+
+            await expect(
+                service.executeAsyncDashboardChartQuery({
+                    account: dashboardAccount,
+                    projectUuid,
+                    chartUuid: 'chart-uuid',
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardFilters: {
+                        dimensions: [],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                    dashboardSorts: [],
+                    context: QueryExecutionContext.DASHBOARD,
+                } as never),
+            ).rejects.toThrow('Chart does not belong to project');
         });
     });
 });

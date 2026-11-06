@@ -33,6 +33,7 @@ docker build --no-cache -f packages/lightdash-mcp/Dockerfile -t lightdash-mcp:de
 ```bash
 docker run --rm -p 3333:3333 \
   -e LIGHTDASH_SITE_URL="https://your-lightdash.example.com" \
+  -e LIGHTDASH_PUBLIC_SITE_URL="https://your-lightdash.example.com" \
   -e LIGHTDASH_MCP_HTTP_PORT=3333 \
   lightdash-mcp:0.1.0
 # 可选再加：-e LIGHTDASH_PROJECT_UUID="..."（未设时须 MCP 客户端先 set_project 或在工具里传 projectUuid）
@@ -81,10 +82,15 @@ curl -s http://localhost:3333/health
 | 变量 | 必填 | 说明 |
 |------|------|------|
 | `LIGHTDASH_SITE_URL` | 是 | Lightdash 站点根 URL（MCP 调 REST 使用） |
+| `LIGHTDASH_PUBLIC_SITE_URL` | 否 | 浏览器打开用的公网根（拼 `webUrl`）；未设则与 `LIGHTDASH_SITE_URL` 相同 |
 | `LIGHTDASH_PROJECT_UUID` | 否 | MCP 默认项目；未设时依赖 `set_project` 或工具参数 `projectUuid`（解析顺序见包 README） |
 | `LIGHTDASH_API_KEY` | 否 | 默认兜底 PAT；优先级低于请求头 `x-api-key` 和 tool 参数 `apiKey` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 监听端口，默认 `3333` |
+| `MCP_DASHBOARD_STRICT` | 否 | **计划中（未实现）**：强制看板模式。仅外部品牌 CT 部署设 `true`；内部不设 |
+| `MCP_DASHBOARD_CONTACT` | 否 | **计划中（未实现）**：看板无权限时的联系文案 |
+
+> 强制看板模式的设计与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**，设置上述变量不会改变运行时行为。
 
 ---
 

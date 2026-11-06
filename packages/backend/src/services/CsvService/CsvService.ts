@@ -85,6 +85,7 @@ import {
     sanitizeGenericFileName,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import { formatMomentByTimezone } from '../../utils/FileDownloadUtils/formatMomentByTimezone';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import { BaseService } from '../BaseService';
 import { PivotTableService } from '../PivotTableService/PivotTableService';
@@ -158,40 +159,6 @@ export const getSchedulerCsvLimit = (
 };
 
 export class CsvService extends BaseService {
-    private static formatMomentByTimezone(
-        value: AnyType,
-        pattern: string,
-        displayTimezone?: string,
-    ): string {
-        if (displayTimezone) {
-            const date = new Date(String(value));
-            if (!Number.isNaN(date.getTime())) {
-                const parts = new Intl.DateTimeFormat('sv-SE', {
-                    timeZone: displayTimezone,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false,
-                }).formatToParts(date);
-                const lookup = Object.fromEntries(
-                    parts.map((part) => [part.type, part.value]),
-                );
-                if (pattern === 'YYYY-MM-DD') {
-                    return `${lookup.year}-${lookup.month}-${lookup.day}`;
-                }
-                const milliseconds = String(date.getUTCMilliseconds()).padStart(
-                    3,
-                    '0',
-                );
-                return `${lookup.year}-${lookup.month}-${lookup.day} ${lookup.hour}:${lookup.minute}:${lookup.second}.${milliseconds}`;
-            }
-        }
-        return moment(value).format(pattern);
-    }
-
     // Helper method to escape CSV values
     private static escapeCsvValue(value: AnyType): string {
         if (value === null || value === undefined) return '';
@@ -294,14 +261,14 @@ export class CsvService extends BaseService {
 
             const itemIsField = isField(item);
             if (itemIsField && item.type === DimensionType.TIMESTAMP) {
-                data = CsvService.formatMomentByTimezone(
+                data = formatMomentByTimezone(
                     data,
                     'YYYY-MM-DD HH:mm:ss.SSS',
                     displayTimezone,
                 );
             }
             if (itemIsField && item.type === DimensionType.DATE) {
-                data = CsvService.formatMomentByTimezone(
+                data = formatMomentByTimezone(
                     data,
                     'YYYY-MM-DD',
                     displayTimezone,
@@ -419,6 +386,7 @@ export class CsvService extends BaseService {
             writeStream,
         }: { readStream: Readable; writeStream: Writable },
         displayTimezone?: string,
+        maxLines?: number,
     ): Promise<{ truncated: boolean }> {
         return new Promise((resolve, reject) => {
             const stringifier = stringify({
@@ -473,6 +441,9 @@ export class CsvService extends BaseService {
 
             streamJsonlData({
                 readStream,
+                // `undefined` = no cap. When capped, `streamJsonlData` reports
+                // `truncated` so the job can warn the user and name the file.
+                maxLines,
                 onRow: (parsedRow) => {
                     const csvRow = CsvService.convertRowToCsv(
                         parsedRow,

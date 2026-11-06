@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     ForbiddenError,
+    isUserWithOrg,
     PinnedItems,
     SessionUser,
     UpdatePinnedItemOrder,
@@ -12,6 +13,7 @@ import { ResourceViewItemModel } from '../../models/ResourceViewItemModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
+import { DashboardService } from '../DashboardService/DashboardService';
 import { hasViewAccessToSpace } from '../SpaceService/SpaceService';
 
 type PinningServiceArguments = {
@@ -24,6 +26,7 @@ type PinningServiceArguments = {
     pinnedListModel: PinnedListModel;
     resourceViewItemModel: ResourceViewItemModel;
     projectModel: ProjectModel;
+    dashboardService: DashboardService;
 };
 
 export class PinningService extends BaseService {
@@ -39,6 +42,8 @@ export class PinningService extends BaseService {
 
     projectModel: ProjectModel;
 
+    dashboardService: DashboardService;
+
     constructor({
         dashboardModel,
         savedChartModel,
@@ -46,6 +51,7 @@ export class PinningService extends BaseService {
         pinnedListModel,
         resourceViewItemModel,
         projectModel,
+        dashboardService,
     }: PinningServiceArguments) {
         super();
         this.dashboardModel = dashboardModel;
@@ -54,6 +60,7 @@ export class PinningService extends BaseService {
         this.pinnedListModel = pinnedListModel;
         this.resourceViewItemModel = resourceViewItemModel;
         this.projectModel = projectModel;
+        this.dashboardService = dashboardService;
     }
 
     async getPinnedItems(
@@ -71,6 +78,15 @@ export class PinningService extends BaseService {
             user.userUuid,
             spaces.map((s) => s.uuid),
         );
+
+        // Client-use content scope: the pinned spaces must also be visible
+        // content-wise (visible content + ancestors), not only accessible.
+        const scope = await this.dashboardService.getViewerContentScope(
+            user,
+            projectUuid,
+        );
+        const scopeSpaceUuids = scope ? new Set(scope.spaceUuids) : undefined;
+
         const allowedSpaceUuids = spaces
             .filter((space, index) =>
                 hasViewAccessToSpace(
@@ -79,7 +95,11 @@ export class PinningService extends BaseService {
                     spacesAccess[space.uuid] ?? [],
                 ),
             )
-            .map((s) => s.uuid);
+            .map((s) => s.uuid)
+            .filter(
+                (uuid) =>
+                    scopeSpaceUuids === undefined || scopeSpaceUuids.has(uuid),
+            );
 
         if (allowedSpaceUuids.length === 0) {
             return [];
@@ -100,7 +120,51 @@ export class PinningService extends BaseService {
                 allowedSpaceUuids,
             );
 
-        return [...allowedPinnedSpaces, ...allowedCharts, ...allowedDashboards];
+        // Client-use: pinned charts are only visible when they are referenced
+        // by an allow-listed dashboard.
+        const visiblePinnedCharts = scope
+            ? allowedCharts.filter(({ data }) =>
+                  scope.chartUuids.includes(data.uuid),
+              )
+            : allowedCharts;
+
+        const allowedDashboardUuids =
+            await this.dashboardService.getAllowedDashboardUuidsForViewer(
+                user,
+                projectUuid,
+            );
+
+        // undefined: keep SQL dashboardCount and unfiltered pins.
+        // Set: drop unauthorized dashboards and recount pinned-space counts.
+        if (allowedDashboardUuids === undefined || !isUserWithOrg(user)) {
+            return [
+                ...allowedPinnedSpaces,
+                ...visiblePinnedCharts,
+                ...allowedDashboards,
+            ];
+        }
+
+        const visibleDashboards = allowedDashboards.filter(({ data }) =>
+            allowedDashboardUuids.has(data.uuid),
+        );
+        const spaceCounts =
+            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                allowedPinnedSpaces.map(({ data }) => data.uuid),
+                allowedDashboardUuids,
+            );
+        const visiblePinnedSpaces = allowedPinnedSpaces.map((space) => ({
+            ...space,
+            data: {
+                ...space.data,
+                dashboardCount: spaceCounts.get(space.data.uuid) ?? 0,
+            },
+        }));
+
+        return [
+            ...visiblePinnedSpaces,
+            ...visiblePinnedCharts,
+            ...visibleDashboards,
+        ];
     }
 
     async updatePinnedItemsOrder(

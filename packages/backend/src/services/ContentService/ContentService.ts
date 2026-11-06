@@ -13,6 +13,7 @@ import {
     NotExistsError,
     SessionUser,
     SummaryContent,
+    type ViewerContentScope,
 } from '@lightdash/common';
 import { intersection } from 'lodash';
 import { LightdashAnalytics } from '../../analytics/LightdashAnalytics';
@@ -109,39 +110,41 @@ export class ContentService extends BaseService {
             user.userUuid,
             spaces.map((p) => p.uuid),
         );
-        const allowedSpaceUuids = spaces
-            .filter((space) =>
-                hasViewAccessToSpace(
-                    user,
-                    space,
-                    spacesAccess[space.uuid] ?? [],
-                ),
-            )
-            .map((space) => space.uuid);
-
-        const result = await this.contentModel.findSummaryContents(
-            {
-                ...filters,
-                projectUuids: allowedProjectUuids,
-                spaceUuids: allowedSpaceUuids,
-                space: {
-                    rootSpaces:
-                        !filters.spaceUuids || filters.spaceUuids.length === 0,
-                },
-            },
-            queryArgs,
-            paginateArgs,
+        const visibleSpaces = spaces.filter((space) =>
+            hasViewAccessToSpace(user, space, spacesAccess[space.uuid] ?? []),
         );
 
-        // Filter dashboards for viewer users in customer use projects
-        // Only apply if contentTypes includes dashboard or is undefined (all types)
-        const shouldFilterDashboards =
-            !filters.contentTypes ||
-            filters.contentTypes.includes(ContentType.DASHBOARD);
+        // Client-use projects: the dashboard allow-list is the only source of
+        // truth. Spaces, saved charts and explores are derived from it, so a
+        // customer can only reach the content of the dashboards they are
+        // allowed to open.
+        const contentScopes = new Map<string, ViewerContentScope>();
+        await Promise.all(
+            allowedProjectUuids.map(async (projectUuid) => {
+                const scope = await this.dashboardService.getViewerContentScope(
+                    user,
+                    projectUuid,
+                );
+                if (scope !== undefined) {
+                    contentScopes.set(projectUuid, scope);
+                }
+            }),
+        );
 
-        if (shouldFilterDashboards) {
-            // Get allowed dashboard UUIDs for each project
-            const allowedDashboardUuidsMap = new Map<string, Set<string>>();
+        // The `spaceUuids` filter is shared by the space, dashboard and chart
+        // queries, so it must only contain the spaces the user has access to.
+        // The client-use scope is applied to the content items themselves
+        // (see below): narrowing this list would also drop allow-listed
+        // dashboards and their charts from the results.
+        const allowedSpaceUuids = visibleSpaces.map((space) => space.uuid);
+
+        const shouldApplyDashboardAllowList =
+            !filters.contentTypes ||
+            filters.contentTypes.includes(ContentType.DASHBOARD) ||
+            filters.contentTypes.includes(ContentType.SPACE);
+
+        const allowedDashboardUuidsMap = new Map<string, Set<string>>();
+        if (shouldApplyDashboardAllowList) {
             const allowedDashboardEntries = await Promise.all(
                 allowedProjectUuids.map(async (projectUuid) => {
                     const allowedUuids =
@@ -163,34 +166,144 @@ export class ContentService extends BaseService {
                     );
                 }
             });
-
-            // Filter dashboard content
-            // Only filter if user has joined organization and has identity
-            // Otherwise, let CASL check handle it (e.g., for users who need to join organization)
-            if (allowedDashboardUuidsMap.size > 0 && isUserWithOrg(user)) {
-                result.data = result.data.filter((content) => {
-                    if (content.contentType !== ContentType.DASHBOARD) {
-                        return true; // Keep non-dashboard content
-                    }
-
-                    // Check if dashboard is in allowed list for its project
-                    const allowedUuids = allowedDashboardUuidsMap.get(
-                        content.project.uuid,
-                    );
-                    if (allowedUuids === undefined) {
-                        return true; // No filtering needed for this project
-                    }
-
-                    // Filter: only keep if dashboard UUID is in allowed list
-                    return allowedUuids.has(content.uuid);
-                });
-
-                // Note: pagination.totalResults reflects pre-filtered count
-                // This is acceptable as filtering happens after database query
-            }
         }
 
-        return result;
+        // undefined allow-list: keep DB pagination. Set (including empty):
+        // load the full match set, filter, then slice so totalResults is
+        // the post-filter count. Only when the viewer allow-list applies.
+        const shouldFilterInMemory =
+            (allowedDashboardUuidsMap.size > 0 || contentScopes.size > 0) &&
+            (isUserWithOrg(user) || contentScopes.size > 0);
+
+        const result = await this.contentModel.findSummaryContents(
+            {
+                ...filters,
+                projectUuids: allowedProjectUuids,
+                spaceUuids: allowedSpaceUuids,
+                space: {
+                    rootSpaces:
+                        !filters.spaceUuids || filters.spaceUuids.length === 0,
+                },
+            },
+            queryArgs,
+            shouldFilterInMemory ? undefined : paginateArgs,
+        );
+
+        if (!shouldFilterInMemory) {
+            return result;
+        }
+
+        const filtered = result.data.filter((content) => {
+            if (content.contentType === ContentType.SPACE) {
+                // Client-use: only the spaces that hold an allow-listed
+                // dashboard are visible
+                const scope = contentScopes.get(content.project.uuid);
+                if (scope === undefined) {
+                    return true;
+                }
+                return scope.spaceUuids.includes(content.uuid);
+            }
+
+            if (content.contentType === ContentType.CHART) {
+                // Client-use: only the charts mounted on an allow-listed
+                // dashboard are visible
+                const scope = contentScopes.get(content.project.uuid);
+                if (scope === undefined) {
+                    return true;
+                }
+                return scope.chartUuids.includes(content.uuid);
+            }
+
+            if (content.contentType !== ContentType.DASHBOARD) {
+                return true;
+            }
+
+            const allowedUuids = allowedDashboardUuidsMap.get(
+                content.project.uuid,
+            );
+            if (allowedUuids === undefined) {
+                return true;
+            }
+
+            return allowedUuids.has(content.uuid);
+        });
+
+        // Recount SPACE dashboardCount from the same allow-list; count may be 0.
+        const spaceUuidsByProject = new Map<string, string[]>();
+        filtered.forEach((content) => {
+            if (content.contentType !== ContentType.SPACE) {
+                return;
+            }
+            const projectUuid = content.project.uuid;
+            const spaceUuids = spaceUuidsByProject.get(projectUuid) ?? [];
+            spaceUuids.push(content.uuid);
+            spaceUuidsByProject.set(projectUuid, spaceUuids);
+        });
+
+        const spaceCountsByUuid = new Map<string, number>();
+        const spaceChartCountsByUuid = new Map<string, number>();
+        await Promise.all(
+            [...spaceUuidsByProject.entries()].map(
+                async ([projectUuid, spaceUuids]) => {
+                    const allowedUuids =
+                        allowedDashboardUuidsMap.get(projectUuid);
+                    if (allowedUuids !== undefined) {
+                        const counts =
+                            await this.dashboardService.getVisibleDashboardCountBySpaceUuid(
+                                spaceUuids,
+                                allowedUuids,
+                            );
+                        counts.forEach((count, spaceUuid) => {
+                            spaceCountsByUuid.set(spaceUuid, count);
+                        });
+                    }
+
+                    // Recount chartCount from the same scope, so hidden charts
+                    // are not leaked through the space counters
+                    const scope = contentScopes.get(projectUuid);
+                    if (scope !== undefined) {
+                        const chartCounts =
+                            await this.spaceModel.getVisibleChartCountsBySpaceUuids(
+                                spaceUuids,
+                                scope.chartUuids,
+                            );
+                        chartCounts.forEach((count, spaceUuid) => {
+                            spaceChartCountsByUuid.set(spaceUuid, count);
+                        });
+                    }
+                },
+            ),
+        );
+
+        const recounted = filtered.map((content) => {
+            if (content.contentType !== ContentType.SPACE) {
+                return content;
+            }
+            const hasDashboardCount = spaceCountsByUuid.has(content.uuid);
+            const hasChartCount = spaceChartCountsByUuid.has(content.uuid);
+            if (!hasDashboardCount && !hasChartCount) {
+                return content;
+            }
+            return {
+                ...content,
+                dashboardCount: spaceCountsByUuid.get(content.uuid) ?? 0,
+                chartCount: spaceChartCountsByUuid.get(content.uuid) ?? 0,
+            };
+        });
+
+        const { page, pageSize } = paginateArgs;
+        const totalResults = recounted.length;
+        const start = (page - 1) * pageSize;
+
+        return {
+            data: recounted.slice(start, start + pageSize),
+            pagination: {
+                page,
+                pageSize,
+                totalResults,
+                totalPageCount: Math.ceil(totalResults / pageSize),
+            },
+        };
     }
 
     async bulkMove(

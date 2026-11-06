@@ -8,11 +8,11 @@ import {
     Title,
 } from '@mantine/core';
 import { IconChevronDown, IconChevronUp, IconX } from '@tabler/icons-react';
-import MarkdownPreview from '@uiw/react-markdown-preview';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import rehypeExternalLinks from 'rehype-external-links';
 import MantineIcon from '../../components/common/MantineIcon';
+import { Markdown } from '../../components/common/Markdown/Markdown';
 import ApiErrorDisplay from './ApiErrorDisplay';
 import { type NotificationData } from './types';
 
@@ -93,7 +93,7 @@ const MultipleToastBody = ({
                                         </Title>
                                     )}
                                     {toastData.subtitle && (
-                                        <MarkdownPreview
+                                        <Markdown
                                             source={toastData.subtitle.toString()}
                                             rehypePlugins={[
                                                 [

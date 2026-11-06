@@ -481,10 +481,10 @@ export type Project = {
     createdByUserUuid: string | null;
     organizationWarehouseCredentialsUuid?: string;
     /**
-     * Whether this project is for customer use
+     * Whether this project is for client use
      * If true, certain features/content may be hidden
      */
-    isCustomerUse?: boolean;
+    isClientUse?: boolean;
     /** IANA zone used as the project default for query timezone resolution */
     queryTimezone: string | null;
     /** When true, absolute date filters use the project timezone */

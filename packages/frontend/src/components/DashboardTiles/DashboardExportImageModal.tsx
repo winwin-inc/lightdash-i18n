@@ -91,7 +91,7 @@ const downloadChartImage = async (
         let relativeHeight = 0;
 
         if (chartType === ChartType.CUSTOM) {
-            // vega lite (vega-embed 7 defaults to SVG renderer)
+            // vega lite：优先取 canvas 渲染结果，没有 canvas 时回退到 svg
             const vegaEmbed = echartRef?.current?.vegaEmbed;
             if (!vegaEmbed) {
                 console.error('View is not available');

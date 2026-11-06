@@ -17,6 +17,8 @@ export type FiltersContext<T extends DefaultFieldsMap = DefaultFieldsMap> = {
     projectUuid?: string;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid is globally unique, the slug is only unique per project */
+    dashboardUuid?: string;
     itemsMap: T;
     baseTable?: string;
     startOfWeek?: WeekDay;

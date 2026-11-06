@@ -1,11 +1,18 @@
-import { isDimension } from '@lightdash/common';
-import { ActionIcon, Box, Group, TextInput, Tooltip } from '@mantine/core';
+import {
+    ActionIcon,
+    Box,
+    Group,
+    Text,
+    TextInput,
+    Tooltip,
+} from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
     IconEye,
     IconEyeOff,
     IconLock,
     IconLockOpen,
+    IconX,
 } from '@tabler/icons-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -98,12 +105,19 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
 
     if (!isTableVisualizationConfig(visualizationConfig)) return null;
 
-    const { updateColumnProperty, isColumnVisible, isColumnFrozen, getField } =
-        visualizationConfig.chartConfig;
+    const {
+        updateColumnProperty,
+        isColumnVisible,
+        isColumnFrozen,
+        columnProperties,
+        setLocalColumnWidth,
+    } = visualizationConfig.chartConfig;
+    const columnWidth = columnProperties[fieldId]?.width;
 
-    const field = getField(fieldId);
-    const isPivotingDimension = pivotDimensions?.includes(fieldId);
-    const disableHidingDimensions = !!(pivotDimensions && isDimension(field));
+    const isPivotingDimension = !!pivotDimensions?.includes(fieldId);
+    // Only the dimensions placed in Columns (pivoted) cannot be hidden.
+    // Row/index dimensions (e.g. sort helpers) can be hidden from display.
+    const disableHidingDimensions = isPivotingDimension;
 
     return (
         <Group spacing="xs" noWrap style={{ flexGrow: 1 }}>
@@ -129,16 +143,16 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                               'components_visualization_configs_table.column_configuration.tooltip_columns.part_1',
                           )
                         : disableHidingDimensions
-                          ? t(
-                                'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
-                            )
-                          : isColumnVisible(fieldId)
-                            ? t(
-                                  'components_visualization_configs_table.column_configuration.tooltip_columns.part_3',
-                              )
-                            : t(
-                                  'components_visualization_configs_table.column_configuration.tooltip_columns.part_4',
-                              )
+                        ? t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
+                          )
+                        : isColumnVisible(fieldId)
+                        ? t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_3',
+                          )
+                        : t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_4',
+                          )
                 }
             >
                 <Box
@@ -146,10 +160,7 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                     onMouseLeave={() => setShowTooltipVisible(false)}
                 >
                     <ActionIcon
-                        disabled={
-                            disableHidingDimensions ||
-                            pivotDimensions?.includes(fieldId)
-                        }
+                        disabled={disableHidingDimensions}
                         variant="light"
                         onClick={() => {
                             // TODO: render perf issues on this page seem to be
@@ -214,6 +225,40 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                             />
                         </ActionIcon>
                     </Box>
+                </Tooltip>
+            ) : null}
+
+            {columnWidth !== undefined ? (
+                <Tooltip
+                    position="top"
+                    withinPortal
+                    label={t(
+                        'components_visualization_configs_table.column_configuration.reset_width',
+                    )}
+                >
+                    <Group
+                        spacing={2}
+                        noWrap
+                        px={4}
+                        py={2}
+                        bg="ldGray.1"
+                        style={{ borderRadius: 4, cursor: 'pointer' }}
+                        data-testid="column-width-reset"
+                        onClick={() => {
+                            // 本地覆盖层优先级更高，一并清掉，否则「点了没变化」
+                            setLocalColumnWidth(fieldId, null);
+                            updateColumnProperty(fieldId, {
+                                width: undefined,
+                            });
+                        }}
+                    >
+                        <Text size="xs" c="dimmed">
+                            {Math.round(columnWidth)}px
+                        </Text>
+                        <ActionIcon size="xs" variant="transparent">
+                            <MantineIcon icon={IconX} size={12} />
+                        </ActionIcon>
+                    </Group>
                 </Tooltip>
             ) : null}
         </Group>

@@ -19,12 +19,12 @@ export const applyMetricQueryLimitOffset = (
     offset: number | undefined,
 ): MetricQuery => {
     if (offset !== undefined) {
-        const pageLimit =
-            limit === null
-                ? MAX_SAFE_INTEGER
-                : limit !== undefined
-                  ? limit
-                  : DEFAULT_WAREHOUSE_PAGE_SIZE;
+        let pageLimit = DEFAULT_WAREHOUSE_PAGE_SIZE;
+        if (limit === null) {
+            pageLimit = MAX_SAFE_INTEGER;
+        } else if (limit !== undefined) {
+            pageLimit = limit;
+        }
         return {
             ...metricQuery,
             limit: pageLimit,

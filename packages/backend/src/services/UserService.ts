@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     ActivateUser,
+    AlreadyExistsError,
     AnyType,
     ArgumentsOf,
     assertUnreachable,
@@ -21,6 +22,8 @@ import {
     InviteLink,
     isOpenIdIdentityIssuerType,
     isOpenIdUser,
+    isOrganizationMemberRole,
+    isProvisionOrganizationUser,
     isUserWithOrg,
     isValidTimezone,
     LightdashMode,
@@ -38,6 +41,10 @@ import {
     OrganizationMemberRole,
     ParameterError,
     PasswordReset,
+    PROVISION_ORGANIZATION_USERS_BATCH_MAX,
+    ProvisionOrganizationUser,
+    ProvisionOrganizationUserBatchItemResult,
+    ProvisionOrganizationUserResult,
     RegisterOrActivateUser,
     SessionUser,
     SnowflakeAuthenticationType,
@@ -51,6 +58,7 @@ import {
 import { randomInt } from 'crypto';
 import { uniq } from 'lodash';
 import { nanoid } from 'nanoid';
+import { Issuer } from 'openid-client';
 import refresh from 'passport-oauth2-refresh';
 import { LightdashAnalytics } from '../analytics/LightdashAnalytics';
 import EmailClient from '../clients/EmailClient/EmailClient';
@@ -128,6 +136,9 @@ export class UserService extends BaseService {
     private readonly emailOneTimePasscodeExpirySeconds = 60 * 15;
 
     private readonly emailOneTimePasscodeMaxAttempts = 5;
+
+    /** Cached issuer from OIDC discovery (same source as oidcStrategy). */
+    private oidcIssuerCache: string | undefined;
 
     constructor({
         lightdashConfig,
@@ -2076,5 +2087,350 @@ export class UserService extends BaseService {
         );
 
         return openId !== undefined;
+    }
+
+    /**
+     * Resolve OIDC issuer the same way login does:
+     * Issuer.discover(auth.oidc.metadataDocumentEndpoint).metadata.issuer
+     */
+    private async resolveOidcIssuer(): Promise<string> {
+        const { oidc } = this.lightdashConfig.auth;
+        if (!oidc.clientId || !oidc.metadataDocumentEndpoint) {
+            throw new ParameterError(
+                'OIDC is not configured. Set AUTH_OIDC_CLIENT_ID and AUTH_OIDC_METADATA_DOCUMENT_URL.',
+            );
+        }
+        if (this.oidcIssuerCache) {
+            return this.oidcIssuerCache;
+        }
+        try {
+            const discovered = await Issuer.discover(
+                oidc.metadataDocumentEndpoint,
+            );
+            if (!discovered.metadata.issuer) {
+                throw new ParameterError(
+                    'OIDC metadata document did not include an issuer',
+                );
+            }
+            this.oidcIssuerCache = discovered.metadata.issuer;
+            return this.oidcIssuerCache;
+        } catch (e) {
+            if (e instanceof ParameterError) {
+                throw e;
+            }
+            throw new ParameterError(
+                `Failed to resolve OIDC issuer from metadata document: ${
+                    e instanceof Error ? e.message : String(e)
+                }`,
+            );
+        }
+    }
+
+    // eslint-disable-next-line class-methods-use-this
+    private assertCanManageOrganizationMembers(user: SessionUser): string {
+        const { organizationUuid } = user;
+        if (organizationUuid === undefined) {
+            throw new ForbiddenError('User is not part of an organization');
+        }
+        if (
+            user.ability.cannot(
+                'manage',
+                subject('OrganizationMemberProfile', { organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+        return organizationUuid;
+    }
+
+    // eslint-disable-next-line class-methods-use-this
+    private parseProvisionOrganizationUser(
+        data: unknown,
+    ): ProvisionOrganizationUser {
+        if (!isProvisionOrganizationUser(data)) {
+            throw new ParameterError(
+                'Invalid provision body: email and subject are required; firstName/lastName must be strings when provided; role must be a valid organization member role when provided',
+            );
+        }
+        const email = data.email.trim().toLowerCase();
+        if (!email) {
+            throw new ParameterError('email is required');
+        }
+        if (!data.subject.trim()) {
+            throw new ParameterError('subject is required');
+        }
+        if (data.role !== undefined && !isOrganizationMemberRole(data.role)) {
+            throw new ParameterError(`Invalid role: ${data.role}`);
+        }
+        return {
+            ...data,
+            email,
+            firstName:
+                data.firstName !== undefined
+                    ? data.firstName.trim()
+                    : undefined,
+            lastName:
+                data.lastName !== undefined ? data.lastName.trim() : undefined,
+            subject: data.subject.trim(),
+        };
+    }
+
+    /**
+     * Admin-only idempotent provision of an organization user with OIDC binding.
+     * Replaces the previous Postgres upsert script for OIDC provisioning.
+     *
+     * Email is the lookup key. Create path defaults isActive/isSetupComplete/
+     * verifyEmail/invalidateInvite to true and requires firstName/lastName.
+     * Update path keeps existing values when those fields (or names) are omitted.
+     * Demoting the last organization admin is refused (aligns with
+     * OrganizationService.updateMember).
+     */
+    async provisionOrganizationUser(
+        user: SessionUser,
+        rawData: unknown,
+    ): Promise<ProvisionOrganizationUserResult> {
+        const organizationUuid = this.assertCanManageOrganizationMembers(user);
+        const data = this.parseProvisionOrganizationUser(rawData);
+        const issuer = await this.resolveOidcIssuer();
+        const issuerType = OpenIdIdentityIssuerType.GENERIC_OIDC;
+
+        const roleForCreate = data.role ?? OrganizationMemberRole.MEMBER;
+
+        let created = false;
+        let targetUser = await this.userModel.findUserByEmail(data.email);
+
+        if (targetUser?.organizationUuid) {
+            if (targetUser.organizationUuid !== organizationUuid) {
+                throw new ParameterError(
+                    'Email is already used by a user in another organization',
+                );
+            }
+        } else if (targetUser && !targetUser.organizationUuid) {
+            await this.userModel.joinOrg(
+                targetUser.userUuid,
+                organizationUuid,
+                roleForCreate,
+                undefined,
+            );
+            targetUser = await this.userModel.getUserDetailsByUuid(
+                targetUser.userUuid,
+            );
+        } else if (!targetUser) {
+            // Create requires names (optional on the type for update-only omit).
+            if (!data.firstName || !data.lastName) {
+                throw new ParameterError(
+                    'firstName and lastName are required when creating a user',
+                );
+            }
+            targetUser = await this.userModel.createPendingUser(
+                organizationUuid,
+                {
+                    email: data.email,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    role: roleForCreate,
+                },
+            );
+            created = true;
+        }
+
+        // Create: default true. Update: omit => keep previous (do not force true).
+        const isActive = created ? data.isActive ?? true : data.isActive;
+        const isSetupComplete = created
+            ? data.isSetupComplete ?? true
+            : data.isSetupComplete;
+        const verifyEmail = created
+            ? data.verifyEmail ?? true
+            : data.verifyEmail === true;
+        const invalidateInvite = created
+            ? data.invalidateInvite ?? true
+            : data.invalidateInvite === true;
+
+        if (data.role !== undefined && !created) {
+            // Align with OrganizationService.updateMember: refuse changing
+            // the last organization admin (403).
+            const [admin, ...remainingAdmins] =
+                await this.organizationMemberProfileModel.getOrganizationAdmins(
+                    organizationUuid,
+                );
+            if (
+                remainingAdmins.length === 0 &&
+                admin.userUuid === targetUser.userUuid
+            ) {
+                throw new ForbiddenError(
+                    'Organization must have at least one admin',
+                );
+            }
+            await this.organizationMemberProfileModel.updateOrganizationMember(
+                organizationUuid,
+                targetUser.userUuid,
+                { role: data.role },
+            );
+        }
+
+        const userUpdate: {
+            firstName?: string;
+            lastName?: string;
+            isActive?: boolean;
+            isSetupComplete?: boolean;
+        } = {};
+        if (created || data.firstName !== undefined) {
+            userUpdate.firstName = data.firstName ?? targetUser.firstName ?? '';
+        }
+        if (created || data.lastName !== undefined) {
+            userUpdate.lastName = data.lastName ?? targetUser.lastName ?? '';
+        }
+        if (isActive !== undefined) {
+            userUpdate.isActive = isActive;
+        }
+        if (isSetupComplete !== undefined) {
+            userUpdate.isSetupComplete = isSetupComplete;
+        }
+
+        const updatedUser =
+            Object.keys(userUpdate).length > 0
+                ? await this.userModel.updateUser(
+                      targetUser.userUuid,
+                      targetUser.email,
+                      userUpdate,
+                  )
+                : targetUser;
+
+        if (verifyEmail) {
+            await this.tryVerifyUserEmail(updatedUser, data.email);
+        }
+
+        let openidLinked = false;
+        try {
+            const identity = await this.openIdIdentityModel.getIdentityByOpenId(
+                issuer,
+                data.subject,
+            );
+            if (identity.userUuid !== updatedUser.userUuid) {
+                throw new AlreadyExistsError(
+                    'OpenID identity (issuer, subject) is already bound to another user',
+                );
+            }
+        } catch (e) {
+            if (e instanceof AlreadyExistsError) {
+                throw e;
+            }
+            if (!(e instanceof NotExistsError)) {
+                throw e;
+            }
+            await this.openIdIdentityModel.createIdentity({
+                userId: updatedUser.userId,
+                issuer,
+                subject: data.subject,
+                email: data.email,
+                issuerType,
+            });
+            openidLinked = true;
+        }
+
+        let inviteInvalidated = false;
+        if (invalidateInvite) {
+            const deleted = await this.inviteLinkModel.deleteByUserUuid(
+                updatedUser.userUuid,
+            );
+            inviteInvalidated = deleted > 0;
+        }
+
+        this.analytics.track({
+            userId: user.userUuid,
+            event: 'user.provisioned',
+            properties: {
+                organizationId: organizationUuid,
+                targetUserUuid: updatedUser.userUuid,
+                targetEmail: data.email,
+                created,
+                ...(data.role !== undefined ? { role: data.role } : {}),
+                openidLinked,
+                inviteInvalidated,
+            },
+        });
+
+        if (data.role !== undefined) {
+            const organization = await this.organizationModel.get(
+                organizationUuid,
+            );
+            this.analytics.track({
+                userId: user.userUuid,
+                event: 'permission.updated',
+                properties: {
+                    userId: user.userUuid,
+                    userIdUpdated: updatedUser.userUuid,
+                    organizationPermissions: data.role,
+                    projectPermissions: {
+                        name: organization.name,
+                        role: data.role,
+                    },
+                    newUser: created,
+                    generatedInvite: false,
+                },
+            });
+        }
+
+        return {
+            userUuid: updatedUser.userUuid,
+            email: data.email,
+            created,
+            openidLinked,
+            inviteInvalidated,
+            isActive: updatedUser.isActive,
+        };
+    }
+
+    /**
+     * Batch provision: each item is processed independently.
+     */
+    async provisionOrganizationUsers(
+        user: SessionUser,
+        rawBody: unknown,
+    ): Promise<ProvisionOrganizationUserBatchItemResult[]> {
+        this.assertCanManageOrganizationMembers(user);
+
+        if (
+            typeof rawBody !== 'object' ||
+            rawBody === null ||
+            !Array.isArray((rawBody as { users?: unknown }).users)
+        ) {
+            throw new ParameterError(
+                'Invalid batch body: expected { users: ProvisionOrganizationUser[] }',
+            );
+        }
+
+        const { users } = rawBody as { users: unknown[] };
+        if (users.length === 0) {
+            throw new ParameterError('users array must not be empty');
+        }
+        if (users.length > PROVISION_ORGANIZATION_USERS_BATCH_MAX) {
+            throw new ParameterError(
+                `Batch size exceeds maximum of ${PROVISION_ORGANIZATION_USERS_BATCH_MAX}`,
+            );
+        }
+
+        const results: ProvisionOrganizationUserBatchItemResult[] = [];
+        /* eslint-disable no-await-in-loop */
+        for (const item of users) {
+            const emailHint =
+                typeof item === 'object' &&
+                item !== null &&
+                typeof (item as { email?: unknown }).email === 'string'
+                    ? (item as { email: string }).email
+                    : '';
+            try {
+                const result = await this.provisionOrganizationUser(user, item);
+                results.push({ ...result, ok: true });
+            } catch (e) {
+                results.push({
+                    email: emailHint,
+                    ok: false,
+                    error: e instanceof Error ? e.message : String(e),
+                });
+            }
+        }
+        /* eslint-enable no-await-in-loop */
+        return results;
     }
 }

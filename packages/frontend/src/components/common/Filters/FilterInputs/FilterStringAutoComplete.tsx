@@ -30,6 +30,7 @@ import {
     useFieldValues,
 } from '../../../../hooks/useFieldValues';
 import { useIsMobileDevice } from '../../../../hooks/useIsMobileDevice';
+import { isWarehouseResourceLimitError } from '../../../../utils/warehouseError';
 import MantineIcon from '../../MantineIcon';
 import useFiltersContext from '../useFiltersContext';
 import classes from './FilterMultiStringInput.module.css';
@@ -47,6 +48,10 @@ type Props = Omit<MultiSelectProps, 'data' | 'onChange'> & {
     onChange: (values: string[]) => void;
     singleValue?: boolean;
     excludedValues?: string[];
+    /**
+     * false = 不允许清空取值（隐藏单选模式下的清空 X 按钮）；不传 / true = 可清空
+     */
+    clearable?: boolean;
     /** 编辑模式为 true 时启用「鼠标移出下拉区域则收起」；查看模式不传或 false，不收起 */
     closeDropdownOnMouseLeave?: boolean;
     /** 搜索词变化时通知父组件（如排除项 pending 值） */
@@ -81,6 +86,7 @@ const FilterStringAutoComplete: FC<Props> = ({
     onDropdownClose,
     singleValue,
     excludedValues,
+    clearable = true,
     closeDropdownOnMouseLeave = false,
     onExternalSearchChange,
     ...rest
@@ -93,6 +99,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         getAutocompleteFilterGroup,
         dashboardSlug,
         dashboardName,
+        dashboardUuid,
     } = useFiltersContext();
     if (!projectUuid) {
         throw new Error(t('components_common_filters_inputs.filters_error'));
@@ -136,6 +143,7 @@ const FilterStringAutoComplete: FC<Props> = ({
         {
             dashboardSlug,
             dashboardName,
+            dashboardUuid,
         },
     );
 
@@ -670,7 +678,7 @@ const FilterStringAutoComplete: FC<Props> = ({
                 }}
                 disableSelectedItemFiltering
                 searchable
-                clearable={singleValue}
+                clearable={singleValue && clearable !== false}
                 clearSearchOnChange={false}
                 {...rest}
                 searchValue={search}
@@ -690,10 +698,14 @@ const FilterStringAutoComplete: FC<Props> = ({
                     ) : isError ? (
                         <Tooltip
                             label={
-                                error?.error?.message ||
-                                t(
-                                    'components_common_filters_inputs.filter_not_available',
-                                )
+                                isWarehouseResourceLimitError(error)
+                                    ? t(
+                                          'hooks_query_error.warehouse_resource_limit',
+                                      )
+                                    : error?.error?.message ||
+                                      t(
+                                          'components_common_filters_inputs.filter_not_available',
+                                      )
                             }
                             withinPortal
                         >

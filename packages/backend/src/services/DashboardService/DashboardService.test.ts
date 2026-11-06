@@ -1,11 +1,22 @@
 import { Ability } from '@casl/ability';
 import {
+    ChartKind,
+    type Dashboard,
+    type DashboardChartTile,
+    type DashboardSqlChartTile,
+    type DashboardTab,
+    type DashboardTile,
+    DashboardTileTypes,
     defineUserAbility,
+    type Explore,
+    FilterOperator,
     ForbiddenError,
     OrganizationMemberRole,
+    ParameterError,
     PossibleAbilities,
     ProjectMemberRole,
     SessionUser,
+    ViewerContentScope,
 } from '@lightdash/common';
 
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
@@ -18,12 +29,14 @@ import { OrganizationMemberProfileModel } from '../../models/OrganizationMemberP
 import { PinnedListModel } from '../../models/PinnedListModel';
 import type { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SchedulerModel } from '../../models/SchedulerModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserDashboardCategoryModel } from '../../models/UserDashboardCategoryModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
+import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
-import { DashboardService } from './DashboardService';
+import { DashboardAllowListUser, DashboardService } from './DashboardService';
 import {
     chart,
     createDashboard,
@@ -55,6 +68,18 @@ const dashboardModel = {
     addVersion: jest.fn(async () => dashboard),
 
     getOrphanedCharts: jest.fn(async () => []),
+
+    getOrphanedSqlCharts: jest.fn(async () => []),
+
+    getExploreNamesByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getChartUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByDashboardUuids: jest.fn(async () => new Set<string>()),
+
+    getSpaceUuidsByChartUuids: jest.fn(async () => new Set<string>()),
+
+    findDashboardContexts: jest.fn(async () => []),
 };
 
 const spaceModel = {
@@ -63,6 +88,9 @@ const spaceModel = {
     getFirstAccessibleSpace: jest.fn(async () => space),
     getUserSpaceAccess: jest.fn(async () => []),
     getUserSpacesAccess: jest.fn(async () => ({})),
+    getSpaceUuidsWithAncestors: jest.fn(
+        async (uuids: string[]) => new Set(uuids),
+    ),
 };
 const analyticsModel = {
     addDashboardViewEvent: jest.fn(async () => null),
@@ -73,9 +101,43 @@ const savedChartModel = {
         uuid: 'chart_uuid',
         projectUuid: 'project_uuid',
     })),
+    create: jest.fn(async () => chart),
+};
+const projectModel = {
+    getExploreFromCache: jest.fn(async () => ({}) as unknown as Explore),
+};
+const catalogModel = {
+    findTablesCachedExploreUuid: jest.fn(async () => ({})),
+    updateFieldsChartUsage: jest.fn(async () => undefined),
 };
 const userDashboardCategoryModel = {
     getDatabase: jest.fn(),
+};
+const savedSqlModel = {
+    getByUuid: jest.fn(async () => ({
+        savedSqlUuid: 'savedSqlUuid',
+        name: 'sql chart name',
+        description: null,
+        slug: 'sql-chart-slug',
+        sql: 'select 1',
+        limit: 100,
+        config: { type: ChartKind.TABLE },
+        chartKind: ChartKind.TABLE,
+        space: {
+            uuid: 'spaceUuid',
+            name: 'space name',
+            isPrivate: false,
+        },
+        project: { projectUuid: 'projectUuid' },
+        dashboard: null,
+        organization: { organizationUuid: 'organizationUuid' },
+    })),
+    create: jest.fn(async () => ({
+        savedSqlUuid: 'newSavedSqlUuid',
+        slug: 'new-sql-chart-slug',
+        savedSqlVersionUuid: 'newSavedSqlVersionUuid',
+    })),
+    delete: jest.fn(async () => undefined),
 };
 
 jest.spyOn(analyticsMock, 'track');
@@ -90,22 +152,543 @@ describe('DashboardService', () => {
         pinnedListModel: {} as PinnedListModel,
         schedulerModel: {} as SchedulerModel,
         savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
         savedChartService: {} as SavedChartService, // Mock for test
-        projectModel: {} as ProjectModel,
+        projectModel: projectModel as unknown as ProjectModel,
         slackClient: {} as SlackClient,
         schedulerClient: {} as SchedulerClient,
-        catalogModel: {} as CatalogModel,
+        catalogModel: catalogModel as unknown as CatalogModel,
         userDashboardCategoryModel:
             userDashboardCategoryModel as unknown as UserDashboardCategoryModel,
         categoryRpcClient: {} as CategoryRpcClient,
         organizationMemberProfileModel: {} as OrganizationMemberProfileModel,
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
-        } as any,
+        } as unknown as ProjectOperationLogService,
     });
+    service.getAllowedDashboardUuidsForViewer = jest.fn(async () => undefined);
     afterEach(() => {
         jest.clearAllMocks();
+        // The client-use allow-list / content scope are cached, drop the cache
+        // so the tests do not share results
+        service.clearViewerContentCache();
+        (
+            service.getAllowedDashboardUuidsForViewer as jest.Mock
+        ).mockResolvedValue(undefined);
     });
+    describe('getAllowedExploreNamesForViewer', () => {
+        test('should skip when dashboard allow-list is undefined', async () => {
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toBeUndefined();
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).not.toHaveBeenCalled();
+        });
+
+        test('should reverse-lookup explores from allow-listed dashboards', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual(new Set(['orders']));
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).toHaveBeenCalledWith(['dash-1']);
+        });
+
+        test('should return empty set when dashboard allow-list is empty', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getAllowedExploreNamesForViewer(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual(new Set());
+            expect(
+                dashboardModel.getExploreNamesByDashboardUuids,
+            ).toHaveBeenCalledWith([]);
+        });
+    });
+
+    describe('getViewerContentScope', () => {
+        test('should skip when the dashboard allow-list is undefined', async () => {
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toBeUndefined();
+            expect(
+                dashboardModel.getChartUuidsByDashboardUuids,
+            ).not.toHaveBeenCalled();
+        });
+
+        test('should fail closed when the dashboard allow-list is empty', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set());
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: [],
+                chartUuids: [],
+                spaceUuids: [],
+                exploreNames: [],
+            });
+        });
+
+        test('should derive charts, spaces and explores from the allow-listed dashboards', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result).toEqual({
+                dashboardUuids: ['dash-1'],
+                chartUuids: ['chart-1'],
+                // The space of the allow-listed dashboard plus its
+                // ancestors, so the space tree stays navigable
+                spaceUuids: ['space-child'],
+                exploreNames: ['orders'],
+            });
+        });
+
+        test('keeps the space of the allow-listed dashboard', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-dashboard']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual(['space-of-dashboard']);
+            expect(result?.chartUuids).toEqual(['chart-1']);
+        });
+
+        test('keeps the space of a visible chart', async () => {
+            // A chart the user can see always belongs to a visible space
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-dashboard']));
+            (
+                dashboardModel.getSpaceUuidsByChartUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-of-chart']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-of-dashboard', 'space-of-chart']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-of-dashboard',
+                'space-of-chart',
+            ]);
+        });
+
+        test('keeps the ancestors of the visible spaces', async () => {
+            // The parent space has to stay visible, otherwise the space tree
+            // is not navigable
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+            (
+                dashboardModel.getChartUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['chart-1']));
+            (
+                dashboardModel.getSpaceUuidsByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['space-child']));
+            (
+                dashboardModel.getExploreNamesByDashboardUuids as jest.Mock
+            ).mockResolvedValueOnce(new Set(['orders']));
+            (
+                spaceModel.getSpaceUuidsWithAncestors as jest.Mock
+            ).mockResolvedValueOnce(
+                new Set(['space-child', 'space-parent', 'space-root']),
+            );
+
+            const result = await service.getViewerContentScope(
+                user,
+                projectUuid,
+            );
+
+            expect(result?.spaceUuids).toEqual([
+                'space-child',
+                'space-parent',
+                'space-root',
+            ]);
+        });
+    });
+
+    describe('client-use content cache', () => {
+        // The instance method is replaced by a mock in this test file, the
+        // original implementation is needed to test the cache
+        const originalGetAllowedDashboardUuidsForViewer =
+            DashboardService.prototype.getAllowedDashboardUuidsForViewer;
+
+        const callAllowList = () =>
+            originalGetAllowedDashboardUuidsForViewer.call(
+                service,
+                user,
+                projectUuid,
+            );
+
+        type AllowListInternals = {
+            fetchAllowedDashboardUuids: (
+                u: DashboardAllowListUser,
+                p: string,
+            ) => Promise<{ uuids: Set<string> | undefined; failed: boolean }>;
+            fetchViewerContentScope: (
+                u: DashboardAllowListUser,
+                p: string,
+            ) => Promise<ViewerContentScope | undefined>;
+        };
+
+        const internals = service as unknown as AllowListInternals;
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        test('shares a single allow-list resolution between concurrent requests', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            const [first, second] = await Promise.all([
+                callAllowList(),
+                callAllowList(),
+            ]);
+
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+            expect(first).toEqual(new Set(['dash-1']));
+            expect(second).toEqual(new Set(['dash-1']));
+        });
+
+        test('reuses the allow-list until the cache expires', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            await callAllowList();
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+            jest.advanceTimersByTime(31_000);
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+
+        test('retries a failed allow-list quickly', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({ uuids: new Set<string>(), failed: true });
+
+            await callAllowList();
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+            // The failed result is only cached briefly
+            jest.advanceTimersByTime(6_000);
+            await callAllowList();
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+
+        test('caches the content scope', async () => {
+            const scopeSpy = jest
+                .spyOn(internals, 'fetchViewerContentScope')
+                .mockResolvedValue({
+                    dashboardUuids: ['dash-1'],
+                    chartUuids: [],
+                    spaceUuids: [],
+                    exploreNames: [],
+                });
+
+            await service.getViewerContentScope(user, projectUuid);
+            await service.getViewerContentScope(user, projectUuid);
+
+            expect(scopeSpy).toHaveBeenCalledTimes(1);
+        });
+
+        test('drops the cache on demand', async () => {
+            const fetchSpy = jest
+                .spyOn(internals, 'fetchAllowedDashboardUuids')
+                .mockResolvedValue({
+                    uuids: new Set(['dash-1']),
+                    failed: false,
+                });
+
+            await callAllowList();
+            service.clearViewerContentCache();
+            await callAllowList();
+
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('resolveDashboardContextForMetadata', () => {
+        test('should return the canonical slug and name of the dashboard', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result).toEqual({
+                dashboardSlug: 'name',
+                dashboardName: 'name',
+                // dashboardUuid 全局唯一（slug 只在项目内唯一），
+                // field/search 与 MCP 取值查询按它反查看板上下文（dbt 行级过滤）
+                dashboardUuid: dashboard.uuid,
+                filterTableNames: [],
+            });
+        });
+
+        test('should return the tables the dashboard filters on', async () => {
+            (dashboardModel.getByIdOrSlug as jest.Mock).mockImplementationOnce(
+                async () => ({
+                    ...dashboard,
+                    filters: {
+                        dimensions: [
+                            {
+                                id: 'filter-dimension',
+                                target: { fieldId: 'a_dim1', tableName: 'a' },
+                            },
+                        ],
+                        metrics: [
+                            {
+                                id: 'filter-metric',
+                                target: { fieldId: 'b_count', tableName: 'b' },
+                            },
+                        ],
+                        tableCalculations: [],
+                    },
+                }),
+            );
+
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                'name',
+            );
+
+            expect(result?.filterTableNames).toEqual(['a', 'b']);
+        });
+
+        test('should return undefined when the dashboard belongs to another project', async () => {
+            const result = await service.resolveDashboardContextForMetadata(
+                user,
+                'another-project',
+                'name',
+            );
+
+            expect(result).toBeUndefined();
+        });
+
+        test('should throw when the dashboard is not in the client-use allow-list', async () => {
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['another-dashboard']));
+
+            await expect(
+                service.resolveDashboardContextForMetadata(
+                    user,
+                    projectUuid,
+                    'name',
+                ),
+            ).rejects.toThrow(ForbiddenError);
+        });
+    });
+
+    describe('getDashboardContexts', () => {
+        const buildRow = (
+            overrides: Partial<{
+                dashboardUuid: string;
+                dashboardSlug: string;
+                dashboardName: string;
+                spaceUuid: string;
+                chartUuids: string[];
+            }> = {},
+        ) => ({
+            dashboardUuid: 'dashboard-uuid',
+            dashboardSlug: 'dashboard-slug',
+            dashboardName: 'dashboard name',
+            spaceUuid: 'spaceUuid',
+            projectUuid: 'projectUuid',
+            organizationUuid: 'organizationUuid',
+            chartUuids: ['chart-uuid'],
+            ...overrides,
+        });
+
+        test('should throw when neither exploreName nor chartUuid is given', async () => {
+            await expect(
+                service.getDashboardContexts(user, projectUuid, {}),
+            ).rejects.toThrow(ParameterError);
+            expect(dashboardModel.findDashboardContexts).not.toHaveBeenCalled();
+        });
+
+        test('should return every visible dashboard and the associated count', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({
+                    dashboardUuid: 'dash-2',
+                    dashboardName: 'B dashboard',
+                }),
+                buildRow({
+                    dashboardUuid: 'dash-1',
+                    dashboardName: 'A dashboard',
+                }),
+            ]);
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.associatedCount).toBe(2);
+            // the contexts are sorted by name
+            expect(result.contexts.map((c) => c.dashboardUuid)).toEqual([
+                'dash-1',
+                'dash-2',
+            ]);
+            expect(result.contexts[0]).toEqual({
+                dashboardUuid: 'dash-1',
+                dashboardSlug: 'dashboard-slug',
+                dashboardName: 'A dashboard',
+                chartUuids: ['chart-uuid'],
+            });
+            expect(dashboardModel.findDashboardContexts).toHaveBeenCalledWith(
+                projectUuid,
+                { exploreName: 'orders' },
+            );
+        });
+
+        test('should count the associated dashboards the user cannot see', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({ dashboardUuid: 'dash-1' }),
+                buildRow({ dashboardUuid: 'dash-2' }),
+            ]);
+            // the client-use allow-list only exposes one of the dashboards
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                chartUuid: 'chart-uuid',
+            });
+
+            expect(result.contexts.map((c) => c.dashboardUuid)).toEqual([
+                'dash-1',
+            ]);
+            // the count is taken before the permission filter, so the caller
+            // can tell "no dashboard configured" from "no permission"
+            expect(result.associatedCount).toBe(2);
+        });
+
+        test('should return no context and a zero count when nothing is associated', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([]);
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.contexts).toEqual([]);
+            expect(result.associatedCount).toBe(0);
+        });
+
+        test('should hide every dashboard when the allow-list is empty', async () => {
+            (
+                dashboardModel.findDashboardContexts as jest.Mock
+            ).mockResolvedValueOnce([
+                buildRow({ dashboardUuid: 'dash-1' }),
+                buildRow({ dashboardUuid: 'dash-2' }),
+            ]);
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set<string>());
+
+            const result = await service.getDashboardContexts(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(result.contexts).toEqual([]);
+            expect(result.associatedCount).toBe(2);
+        });
+    });
+
     test('should get dashboard by uuid', async () => {
         const result = await service.getByIdOrSlug(user, dashboard.uuid);
 
@@ -126,6 +709,7 @@ describe('DashboardService', () => {
         expect(dashboardModel.getAllByProject).toHaveBeenCalledTimes(1);
         expect(dashboardModel.getAllByProject).toHaveBeenCalledWith(
             projectUuid,
+            undefined,
             undefined,
         );
     });
@@ -282,6 +866,25 @@ describe('DashboardService', () => {
             }),
         );
     });
+    test('should delete orphan SQL charts when updating dashboard version', async () => {
+        (
+            dashboardModel.getOrphanedSqlCharts as jest.Mock
+        ).mockImplementationOnce(async () => [
+            { savedSqlUuid: 'orphan-sql-chart-uuid' },
+        ]);
+
+        await service.update(user, dashboardUuid, updateDashboardTiles);
+
+        expect(savedSqlModel.delete).toHaveBeenCalledTimes(1);
+        expect(savedSqlModel.delete).toHaveBeenCalledWith(
+            'orphan-sql-chart-uuid',
+        );
+        expect(analyticsMock.track).toHaveBeenCalledWith(
+            expect.objectContaining({
+                event: 'sql_chart.deleted',
+            }),
+        );
+    });
     test('should delete dashboard', async () => {
         await service.delete(user, dashboardUuid);
 
@@ -330,6 +933,7 @@ describe('DashboardService', () => {
         expect(dashboardModel.getAllByProject).toHaveBeenCalledTimes(1);
         expect(dashboardModel.getAllByProject).toHaveBeenCalledWith(
             projectUuid,
+            undefined,
             undefined,
         );
     });
@@ -396,5 +1000,500 @@ describe('DashboardService', () => {
         );
 
         expect(result).toEqual([]);
+    });
+
+    describe('duplicate', () => {
+        const NEW_DASHBOARD_UUID = 'new-dashboard-uuid';
+        const SOURCE_DASHBOARD_UUID = 'source-dashboard-uuid';
+        const SOURCE_TILE_UUID = 'source-tile-uuid';
+        const SOURCE_TAB_UUID = 'source-tab-uuid';
+        const SOURCE_CHART_UUID = 'source-chart-uuid';
+        const DUPLICATED_CHART_UUID = 'duplicated-chart-uuid';
+        const DUPLICATED_SQL_UUID = 'duplicated-sql-uuid';
+
+        // The user needs to be able to create dashboards and to view the
+        // charts of the space they belong to
+        const duplicateUser: SessionUser = {
+            ...user,
+            ability: new Ability<PossibleAbilities>([
+                {
+                    subject: 'Dashboard',
+                    action: ['view', 'update', 'delete', 'create'],
+                },
+                {
+                    subject: 'SavedChart',
+                    action: ['view', 'update', 'delete', 'create'],
+                },
+                {
+                    // duplicating a dashboard with SQL charts creates SQL
+                    // chart resources
+                    subject: 'CustomSql',
+                    action: ['manage'],
+                },
+            ]),
+        };
+
+        const newDashboard: Dashboard = {
+            ...dashboard,
+            uuid: NEW_DASHBOARD_UUID,
+            name: 'duplicated dashboard',
+            slug: 'duplicated-dashboard',
+            tiles: [],
+        };
+
+        // A chart owned by a space (not by a dashboard)
+        const sourceChart = {
+            ...chart,
+            uuid: SOURCE_CHART_UUID,
+            spaceUuid: 'spaceUuid',
+            dashboardUuid: null,
+        };
+
+        const duplicatedChart = {
+            ...chart,
+            uuid: DUPLICATED_CHART_UUID,
+            slug: 'chart-name-duplicated',
+            dashboardUuid: NEW_DASHBOARD_UUID,
+        };
+
+        const sourceSqlChart = {
+            savedSqlUuid: 'source-sql-uuid',
+            name: 'sql chart name',
+            description: null,
+            slug: 'sql-chart-slug',
+            sql: 'select 1',
+            limit: 100,
+            config: { type: ChartKind.TABLE },
+            chartKind: ChartKind.TABLE,
+            space: {
+                uuid: 'spaceUuid',
+                name: 'space name',
+                isPrivate: false,
+            },
+            project: { projectUuid: 'projectUuid' },
+            dashboard: null,
+            organization: { organizationUuid: 'organizationUuid' },
+        };
+
+        const savedChartTile: DashboardTile = {
+            uuid: SOURCE_TILE_UUID,
+            type: DashboardTileTypes.SAVED_CHART,
+            properties: {
+                savedChartUuid: SOURCE_CHART_UUID,
+                title: 'source chart',
+            },
+            x: 0,
+            y: 0,
+            h: 9,
+            w: 15,
+            tabUuid: SOURCE_TAB_UUID,
+        };
+
+        const sqlChartTile: DashboardTile = {
+            uuid: 'source-sql-tile-uuid',
+            type: DashboardTileTypes.SQL_CHART,
+            properties: {
+                savedSqlUuid: 'source-sql-uuid',
+                chartName: 'sql chart name',
+                title: 'sql chart',
+            },
+            x: 0,
+            y: 0,
+            h: 9,
+            w: 15,
+            tabUuid: SOURCE_TAB_UUID,
+        };
+
+        const markdownTile: DashboardTile = {
+            uuid: 'source-markdown-tile-uuid',
+            type: DashboardTileTypes.MARKDOWN,
+            properties: {
+                title: 'markdown',
+                content: '# hello',
+            },
+            x: 0,
+            y: 0,
+            h: 9,
+            w: 15,
+            tabUuid: SOURCE_TAB_UUID,
+        };
+
+        const tileTargets = {
+            [SOURCE_TILE_UUID]: {
+                fieldId: 'orders_status',
+                tableName: 'orders',
+            },
+        };
+
+        const sourceTab: DashboardTab = {
+            uuid: SOURCE_TAB_UUID,
+            name: 'Tab 1',
+            order: 0,
+            filters: {
+                dimensions: [
+                    {
+                        id: 'tab-filter-1',
+                        label: undefined,
+                        operator: FilterOperator.EQUALS,
+                        target: { fieldId: 'orders_status', tableName: 'orders' },
+                        values: [],
+                        tileTargets,
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            },
+        };
+
+        const buildSourceDashboard = (
+            overrides: Partial<Dashboard> = {},
+        ): Dashboard => ({
+            ...dashboard,
+            uuid: SOURCE_DASHBOARD_UUID,
+            name: 'source dashboard',
+            slug: 'source-dashboard',
+            projectUuid: 'projectUuid',
+            spaceUuid: 'spaceUuid',
+            tiles: [savedChartTile],
+            tabs: [sourceTab],
+            filters: {
+                dimensions: [
+                    {
+                        id: 'dashboard-filter-1',
+                        label: undefined,
+                        operator: FilterOperator.EQUALS,
+                        target: {
+                            fieldId: 'orders_status',
+                            tableName: 'orders',
+                        },
+                        values: [],
+                        tileTargets,
+                        lockedTabUuids: [SOURCE_TAB_UUID],
+                        parentScope: 'tab',
+                        parentTabUuid: SOURCE_TAB_UUID,
+                    },
+                    {
+                        id: 'dashboard-filter-global',
+                        label: undefined,
+                        operator: FilterOperator.EQUALS,
+                        target: { fieldId: 'orders_id', tableName: 'orders' },
+                        values: [],
+                        parentScope: 'global',
+                        parentTabUuid: SOURCE_TAB_UUID,
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            },
+            config: {
+                isDateZoomDisabled: false,
+                syncChartTileUuids: [SOURCE_TILE_UUID],
+            },
+            ...overrides,
+        });
+
+        let sourceDashboard: Dashboard;
+
+        const duplicateParams = {
+            dashboardName: 'duplicated dashboard',
+            dashboardDesc: 'duplicated description',
+        };
+
+        const getAddVersionPayload = () =>
+            (dashboardModel.addVersion as jest.Mock).mock.calls[0][1];
+
+        beforeEach(() => {
+            sourceDashboard = buildSourceDashboard();
+            (
+                dashboardModel.getByIdOrSlug as jest.Mock
+            ).mockImplementation(async (uuid: string) =>
+                uuid === NEW_DASHBOARD_UUID ? newDashboard : sourceDashboard,
+            );
+            (dashboardModel.create as jest.Mock).mockResolvedValue(newDashboard);
+            (dashboardModel.addVersion as jest.Mock).mockResolvedValue(
+                newDashboard,
+            );
+            (spaceModel.getSpaceSummary as jest.Mock).mockResolvedValue(
+                publicSpace,
+            );
+            (spaceModel.getUserSpaceAccess as jest.Mock).mockResolvedValue([]);
+            (savedChartModel.get as jest.Mock).mockResolvedValue(sourceChart);
+            (savedChartModel.create as jest.Mock).mockResolvedValue(
+                duplicatedChart,
+            );
+            (savedSqlModel.getByUuid as jest.Mock).mockResolvedValue(
+                sourceSqlChart,
+            );
+            (savedSqlModel.create as jest.Mock).mockResolvedValue({
+                savedSqlUuid: DUPLICATED_SQL_UUID,
+                slug: 'duplicated-sql-slug',
+                savedSqlVersionUuid: 'duplicated-sql-version-uuid',
+            });
+        });
+
+        test('duplicates a space owned saved chart into a new dashboard owned chart', async () => {
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            expect(savedChartModel.create).toHaveBeenCalledTimes(1);
+            const [
+                createProjectUuid,
+                createUserUuid,
+                createPayload,
+            ] = (savedChartModel.create as jest.Mock).mock.calls[0];
+            expect(createProjectUuid).toBe(projectUuid);
+            expect(createUserUuid).toBe(user.userUuid);
+            expect(createPayload.dashboardUuid).toBe(NEW_DASHBOARD_UUID);
+            expect(createPayload.spaceUuid).toBeNull();
+            expect(createPayload.updatedByUser).toEqual({
+                userUuid: user.userUuid,
+                firstName: user.firstName,
+                lastName: user.lastName,
+            });
+            // the copy gets its own slug
+            expect(createPayload.slug).not.toBe(chart.slug);
+            expect(createPayload.slug).toContain(SOURCE_TILE_UUID);
+            expect(createPayload.slug.startsWith('chart-name')).toBe(true);
+
+            // the content of the chart is copied as is
+            expect(createPayload.name).toBe(sourceChart.name);
+            expect(createPayload.description).toBe(sourceChart.description);
+            expect(createPayload.tableName).toBe(sourceChart.tableName);
+            expect(createPayload.metricQuery).toEqual(sourceChart.metricQuery);
+            expect(createPayload.chartConfig).toEqual(sourceChart.chartConfig);
+            expect(createPayload.tableConfig).toEqual(sourceChart.tableConfig);
+            expect(createPayload.pivotConfig).toEqual(sourceChart.pivotConfig);
+            expect(createPayload.parameters).toEqual(sourceChart.parameters);
+
+            const payload = getAddVersionPayload();
+            const newTile = payload.tiles[0] as DashboardChartTile;
+            expect(newTile.uuid).not.toBe(SOURCE_TILE_UUID);
+            expect(newTile.properties.savedChartUuid).toBe(
+                DUPLICATED_CHART_UUID,
+            );
+            expect(newTile.properties.belongsToDashboard).toBe(true);
+        });
+
+        test('duplicates a SQL chart tile into a new SQL chart owned by the new dashboard', async () => {
+            sourceDashboard = buildSourceDashboard({ tiles: [sqlChartTile] });
+
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            expect(savedSqlModel.create).toHaveBeenCalledTimes(1);
+            const [
+                createUserUuid,
+                createProjectUuid,
+                createPayload,
+            ] = (savedSqlModel.create as jest.Mock).mock.calls[0];
+            expect(createUserUuid).toBe(user.userUuid);
+            expect(createProjectUuid).toBe(projectUuid);
+            expect(createPayload).toEqual(
+                expect.objectContaining({
+                    dashboardUuid: NEW_DASHBOARD_UUID,
+                    name: 'sql chart name',
+                    description: null,
+                    sql: 'select 1',
+                    limit: 100,
+                    config: { type: ChartKind.TABLE },
+                }),
+            );
+            // a SQL chart belongs to a dashboard or to a space, never both
+            expect(createPayload.spaceUuid).toBeUndefined();
+
+            const payload = getAddVersionPayload();
+            const newTile = payload.tiles[0] as DashboardSqlChartTile;
+            expect(newTile.properties.savedSqlUuid).toBe(DUPLICATED_SQL_UUID);
+            expect(newTile.properties.chartName).toBe('sql chart name');
+            expect(newTile.properties.chartSlug).toBe('duplicated-sql-slug');
+        });
+
+        test('remaps the tile targets of the dashboard and tab filters to the new tile uuid', async () => {
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            const payload = getAddVersionPayload();
+            const newTileUuid = (payload.tiles[0] as DashboardChartTile).uuid;
+            expect(newTileUuid).not.toBe(SOURCE_TILE_UUID);
+
+            const dashboardTileTargets =
+                payload.filters.dimensions[0].tileTargets ?? {};
+            expect(Object.keys(dashboardTileTargets)).toEqual([newTileUuid]);
+            expect(dashboardTileTargets[newTileUuid]).toEqual({
+                fieldId: 'orders_status',
+                tableName: 'orders',
+            });
+
+            const tabFilters = payload.tabs[0].filters ?? {
+                dimensions: [],
+                metrics: [],
+                tableCalculations: [],
+            };
+            const tabTileTargets = tabFilters.dimensions[0].tileTargets ?? {};
+            expect(Object.keys(tabTileTargets)).toEqual([newTileUuid]);
+        });
+
+        test('remaps the locked tab uuids and the tab scoped parent tab uuids', async () => {
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            const payload = getAddVersionPayload();
+            const newTabUuid = payload.tabs[0].uuid;
+            expect(newTabUuid).not.toBe(SOURCE_TAB_UUID);
+
+            const [tabScopedFilter, globalFilter] =
+                payload.filters.dimensions;
+            expect(tabScopedFilter.lockedTabUuids).toEqual([newTabUuid]);
+            expect(tabScopedFilter.parentScope).toBe('tab');
+            expect(tabScopedFilter.parentTabUuid).toBe(newTabUuid);
+
+            // global filters keep the original parent tab uuid
+            expect(globalFilter.parentScope).toBe('global');
+            expect(globalFilter.parentTabUuid).toBe(SOURCE_TAB_UUID);
+        });
+
+        test('remaps the synced chart tile uuids of the dashboard config', async () => {
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            const payload = getAddVersionPayload();
+            const newTileUuid = (payload.tiles[0] as DashboardChartTile).uuid;
+            expect(payload.config?.syncChartTileUuids).toEqual([newTileUuid]);
+        });
+
+        test('throws when the source chart belongs to another project', async () => {
+            (savedChartModel.get as jest.Mock).mockResolvedValueOnce({
+                ...sourceChart,
+                projectUuid: 'another-project',
+            });
+
+            await expect(
+                service.duplicate(
+                    duplicateUser,
+                    projectUuid,
+                    SOURCE_DASHBOARD_UUID,
+                    duplicateParams,
+                ),
+            ).rejects.toThrow(ForbiddenError);
+
+            expect(savedChartModel.create).not.toHaveBeenCalled();
+        });
+
+        test('removes the duplicated dashboard when the duplication fails', async () => {
+            (savedChartModel.get as jest.Mock).mockResolvedValueOnce({
+                ...sourceChart,
+                projectUuid: 'another-project',
+            });
+
+            await expect(
+                service.duplicate(
+                    duplicateUser,
+                    projectUuid,
+                    SOURCE_DASHBOARD_UUID,
+                    duplicateParams,
+                ),
+            ).rejects.toThrow(ForbiddenError);
+
+            // the incomplete copy must not be left behind
+            expect(dashboardModel.delete).toHaveBeenCalledWith(
+                NEW_DASHBOARD_UUID,
+            );
+        });
+
+        test('throws when the user cannot view the space of the source chart', async () => {
+            const restrictedUser: SessionUser = {
+                ...user,
+                ability: new Ability<PossibleAbilities>([
+                    {
+                        subject: 'Dashboard',
+                        action: ['view', 'create'],
+                    },
+                ]),
+            };
+
+            await expect(
+                service.duplicate(
+                    restrictedUser,
+                    projectUuid,
+                    SOURCE_DASHBOARD_UUID,
+                    duplicateParams,
+                ),
+            ).rejects.toThrow(ForbiddenError);
+
+            expect(savedChartModel.create).not.toHaveBeenCalled();
+        });
+
+        test('throws when the user cannot manage custom SQL and the dashboard has SQL charts', async () => {
+            sourceDashboard = buildSourceDashboard({ tiles: [sqlChartTile] });
+
+            const restrictedUser: SessionUser = {
+                ...user,
+                ability: new Ability<PossibleAbilities>([
+                    {
+                        subject: 'Dashboard',
+                        action: ['view', 'create'],
+                    },
+                    {
+                        subject: 'SavedChart',
+                        action: ['view'],
+                    },
+                ]),
+            };
+
+            await expect(
+                service.duplicate(
+                    restrictedUser,
+                    projectUuid,
+                    SOURCE_DASHBOARD_UUID,
+                    duplicateParams,
+                ),
+            ).rejects.toThrow(
+                "You don't have permission to duplicate dashboards with SQL charts",
+            );
+
+            // nothing is created: the check happens before the copy starts
+            expect(dashboardModel.create).not.toHaveBeenCalled();
+            expect(savedSqlModel.create).not.toHaveBeenCalled();
+        });
+
+        test('keeps the tiles of a dashboard without chart resources and does not duplicate any chart', async () => {
+            sourceDashboard = buildSourceDashboard({ tiles: [markdownTile] });
+
+            await service.duplicate(
+                duplicateUser,
+                projectUuid,
+                SOURCE_DASHBOARD_UUID,
+                duplicateParams,
+            );
+
+            expect(savedChartModel.create).not.toHaveBeenCalled();
+            expect(savedSqlModel.create).not.toHaveBeenCalled();
+            expect(dashboardModel.addVersion).not.toHaveBeenCalled();
+
+            const createPayload = (dashboardModel.create as jest.Mock).mock
+                .calls[0][1];
+            expect(createPayload.tiles).toHaveLength(1);
+            expect(createPayload.tiles[0].uuid).toBe(markdownTile.uuid);
+        });
     });
 });

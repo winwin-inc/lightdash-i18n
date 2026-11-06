@@ -20,13 +20,22 @@ import { BaseService } from '../BaseService';
 const MIN_RETENTION_DAYS = 30;
 const DEFAULT_PURGE_DAYS = 90;
 
+const parseActionFilter = (
+    action: string | undefined,
+): string | string[] | undefined => {
+    if (!action) {
+        return undefined;
+    }
+    if (action.includes(',')) {
+        return action.split(',').map((item) => item.trim());
+    }
+    return action;
+};
+
 export type RecordProjectOperationLog = {
     organizationUuid: string;
     projectUuid: string;
-    actor: Pick<
-        SessionUser,
-        'userUuid' | 'email' | 'firstName' | 'lastName'
-    >;
+    actor: Pick<SessionUser, 'userUuid' | 'email' | 'firstName' | 'lastName'>;
     action: string;
     resourceType: string;
     resourceUuid?: string | null;
@@ -140,11 +149,7 @@ export class ProjectOperationLogService extends BaseService {
             pageSize: filters.pageSize,
             from: filters.from ? new Date(filters.from) : undefined,
             to: filters.to ? new Date(filters.to) : undefined,
-            action: filters.action
-                ? filters.action.includes(',')
-                    ? filters.action.split(',').map((a) => a.trim())
-                    : filters.action
-                : undefined,
+            action: parseActionFilter(filters.action),
             actorUserUuid: filters.actorUserUuid,
             actorEmail: filters.actorEmail,
             resourceType: filters.resourceType,
@@ -185,7 +190,7 @@ export class ProjectOperationLogService extends BaseService {
 
         const mode = body.mode ?? 'before_days';
         let cutoff: Date;
-        let beforeDays: number | undefined = body.beforeDays;
+        let { beforeDays } = body;
         let deletedCount: number;
 
         if (mode === 'all') {
@@ -205,11 +210,10 @@ export class ProjectOperationLogService extends BaseService {
                     `Retention minimum is ${MIN_RETENTION_DAYS} days`,
                 );
             }
-            deletedCount =
-                await this.projectOperationLogModel.purgeBefore(
-                    projectUuid,
-                    cutoff,
-                );
+            deletedCount = await this.projectOperationLogModel.purgeBefore(
+                projectUuid,
+                cutoff,
+            );
         } else {
             beforeDays = beforeDays ?? DEFAULT_PURGE_DAYS;
             if (beforeDays < MIN_RETENTION_DAYS) {
@@ -219,11 +223,10 @@ export class ProjectOperationLogService extends BaseService {
             }
             cutoff = new Date();
             cutoff.setUTCDate(cutoff.getUTCDate() - beforeDays);
-            deletedCount =
-                await this.projectOperationLogModel.purgeBefore(
-                    projectUuid,
-                    cutoff,
-                );
+            deletedCount = await this.projectOperationLogModel.purgeBefore(
+                projectUuid,
+                cutoff,
+            );
         }
 
         await this.record({

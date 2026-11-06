@@ -66,10 +66,10 @@ export type OrganizationProject = {
     warehouseType?: WarehouseTypes;
     requireUserCredentials?: boolean;
     /**
-     * Whether this project is for customer use
+     * Whether this project is for client use
      * If true, certain features/content may be hidden
      */
-    isCustomerUse?: boolean;
+    isClientUse?: boolean;
 };
 
 /**

@@ -3,12 +3,13 @@ import {
     FeatureFlags,
     ForbiddenError,
     Group,
+    GroupAsCode,
     GroupMember,
     GroupMembership,
     GroupWithMembers,
     LightdashUser,
+    PROJECT_OPERATION_LOG_ACTIONS,
     ProjectGroupAccess,
-    ProjectMemberRole,
     SessionUser,
     UpdateGroupWithMembers,
 } from '@lightdash/common';
@@ -18,12 +19,14 @@ import { GroupsModel } from '../models/GroupsModel';
 import { ProjectModel } from '../models/ProjectModel/ProjectModel';
 import { BaseService } from './BaseService';
 import { FeatureFlagService } from './FeatureFlag/FeatureFlagService';
+import { ProjectOperationLogService } from './ProjectOperationLogService/ProjectOperationLogService';
 
 type GroupServiceArguments = {
     analytics: LightdashAnalytics;
     groupsModel: GroupsModel;
     projectModel: ProjectModel;
     featureFlagService: FeatureFlagService;
+    projectOperationLogService: ProjectOperationLogService;
 };
 
 export class GroupsService extends BaseService {
@@ -35,12 +38,15 @@ export class GroupsService extends BaseService {
 
     private readonly featureFlagService: FeatureFlagService;
 
+    private readonly projectOperationLogService: ProjectOperationLogService;
+
     constructor(args: GroupServiceArguments) {
         super();
         this.analytics = args.analytics;
         this.groupsModel = args.groupsModel;
         this.projectModel = args.projectModel;
         this.featureFlagService = args.featureFlagService;
+        this.projectOperationLogService = args.projectOperationLogService;
     }
 
     private async isGroupServiceEnabled(
@@ -51,6 +57,51 @@ export class GroupsService extends BaseService {
             featureFlagId: FeatureFlags.UserGroupsEnabled,
         });
         return featureFlag.enabled;
+    }
+
+    async getGroupsAsCode(
+        actor: SessionUser,
+        organizationUuid: string,
+    ): Promise<GroupAsCode[]> {
+        if (actor.organizationUuid !== organizationUuid) {
+            throw new ForbiddenError();
+        }
+        if (
+            actor.ability.cannot(
+                'manage',
+                subject('Group', { organizationUuid }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+        if (!(await this.isGroupServiceEnabled(actor))) {
+            throw new ForbiddenError('Group service is not enabled');
+        }
+
+        const { data: groups } = await this.groupsModel.find({
+            organizationUuid,
+        });
+        const { data: members } = await this.groupsModel.findGroupMembers({
+            organizationUuid,
+            groupUuids: groups.map((group) => group.uuid),
+        });
+        const membersByGroupUuid = members.reduce<Map<string, string[]>>(
+            (map, member) => {
+                const groupMembers = map.get(member.groupUuid) ?? [];
+                groupMembers.push(member.email.toLowerCase());
+                map.set(member.groupUuid, groupMembers);
+                return map;
+            },
+            new Map(),
+        );
+
+        return groups
+            .map((group) => ({
+                version: 1 as const,
+                name: group.name,
+                members: (membersByGroupUuid.get(group.uuid) ?? []).sort(),
+            }))
+            .sort((left, right) => left.name.localeCompare(right.name));
     }
 
     async addGroupMember(
@@ -303,11 +354,29 @@ export class GroupsService extends BaseService {
             projectUuid,
             role,
         });
+        const assignedRole =
+            groupProjectAccess.role_uuid || groupProjectAccess.role;
+
+        await this.projectOperationLogService.record({
+            organizationUuid: project.organizationUuid,
+            projectUuid,
+            actor,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_GROUP_ACCESS_ADDED,
+            resourceType: 'project_group_access',
+            resourceUuid: groupUuid,
+            resourceName: group.name,
+            summary: {
+                groupUuid,
+                groupName: group.name,
+                fromRole: null,
+                toRole: assignedRole,
+            },
+        });
 
         return {
             projectUuid,
             groupUuid: groupProjectAccess.group_uuid,
-            role: groupProjectAccess.role_uuid || groupProjectAccess.role,
+            role: assignedRole,
         };
     }
 
@@ -351,9 +420,29 @@ export class GroupsService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const existingAccesses =
+            await this.projectModel.getProjectGroupAccesses(projectUuid);
+        const existing = existingAccesses.find(
+            (access) => access.groupUuid === groupUuid,
+        );
         const removed = await this.groupsModel.removeProjectAccess({
             groupUuid,
             projectUuid,
+        });
+        await this.projectOperationLogService.record({
+            organizationUuid: project.organizationUuid,
+            projectUuid,
+            actor,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_GROUP_ACCESS_REMOVED,
+            resourceType: 'project_group_access',
+            resourceUuid: groupUuid,
+            resourceName: group.name,
+            summary: {
+                groupUuid,
+                groupName: group.name,
+                fromRole: existing?.role ?? null,
+                toRole: null,
+            },
         });
 
         return removed;
@@ -400,15 +489,37 @@ export class GroupsService extends BaseService {
             throw new ForbiddenError();
         }
 
+        const existingAccesses =
+            await this.projectModel.getProjectGroupAccesses(projectUuid);
+        const existing = existingAccesses.find(
+            (access) => access.groupUuid === groupUuid,
+        );
         const updated = await this.groupsModel.updateProjectAccess(
             { groupUuid, projectUuid },
             updateAttributes,
         );
+        const toRole = updated.role_uuid || updated.role;
+
+        await this.projectOperationLogService.record({
+            organizationUuid: project.organizationUuid,
+            projectUuid,
+            actor,
+            action: PROJECT_OPERATION_LOG_ACTIONS.PROJECT_GROUP_ACCESS_ROLE_UPDATED,
+            resourceType: 'project_group_access',
+            resourceUuid: groupUuid,
+            resourceName: group.name,
+            summary: {
+                groupUuid,
+                groupName: group.name,
+                fromRole: existing?.role ?? null,
+                toRole,
+            },
+        });
 
         return {
             projectUuid: updated.project_uuid,
             groupUuid: updated.group_uuid,
-            role: updated.role_uuid || updated.role,
+            role: toRole,
         };
     }
 }

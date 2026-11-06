@@ -1,6 +1,5 @@
 import type {
     DashboardFilterRule,
-    DashboardTab,
     ParametersValuesMap,
 } from '@lightdash/common';
 import {
@@ -65,7 +64,9 @@ const MinimalDashboard: FC = () => {
         }
     }, [dashboardError, navigate]);
 
-    const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
+    const activeTab = useDashboardContext((c) => c.activeTab);
+    const setActiveTab = useDashboardContext((c) => c.setActiveTab);
+    const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
 
     const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const setDashboardTiles = useDashboardContext((c) => c.setDashboardTiles);
@@ -74,12 +75,24 @@ const MinimalDashboard: FC = () => {
         (c) => c.hasTilesThatSupportFilters,
     );
 
+    /**
+     * 把 Tab 列表与当前 Tab 同步给 Provider。
+     *
+     * Provider 的「已访问 Tab」调度（visitedTabUuids → 图表查询开关）依赖它自己的
+     * `dashboardTabs` / `activeTab`：PC 页面会同步，而这里以前只在本地保存 activeTab，
+     * Provider 的 tabs 一直是空 → activeTab 解析不出来 → visitedTabUuids 永远为空
+     * → 所有图表的查询被永久 disable（表现就是移动端一直 loading）。
+     */
     useEffect(() => {
+        if (!dashboard?.tabs) return;
+        setDashboardTabs(dashboard.tabs);
         const matchedTab =
-            dashboard?.tabs.find((tab) => tab.uuid === tabUuid) ??
-            dashboard?.tabs[0];
-        setActiveTab(matchedTab || null);
-    }, [tabUuid, dashboard?.tabs]);
+            dashboard.tabs.find((tab) => tab.uuid === tabUuid) ??
+            dashboard.tabs[0];
+        if (matchedTab) {
+            setActiveTab(matchedTab);
+        }
+    }, [tabUuid, dashboard?.tabs, setDashboardTabs, setActiveTab]);
 
     useEffect(() => {
         if (isDashboardLoading) return;
@@ -200,6 +213,11 @@ const MinimalDashboard: FC = () => {
         }
     }
 
+    /**
+     * 移动端吸顶：移动端走的是 MinimalDashboard（不走 pages/Dashboard），
+     * 所以 PC 的吸顶栈在这里不存在。这里给「全局筛选器 / 标签栏 / Tab 筛选器」
+     * 各注册一层，滚动时逐层叠在顶部，保证任何时候都能看到当前 Tab 与生效的筛选。
+     */
     if (!dashboard) {
         return <>{t('pages_minimal_dashboard.loading')}</>;
     }

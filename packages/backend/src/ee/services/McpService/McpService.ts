@@ -1056,13 +1056,29 @@ export class McpService extends BaseService {
                             searchResults,
                         );
 
-                    const totalResults = filteredDashboards.length;
+                    // Client-use projects: only the allow-listed dashboards
+                    // are visible to viewer / interactive_viewer
+                    const dashboardScope =
+                        await this.projectService.dashboardService.getViewerContentScope(
+                            user,
+                            projectUuid,
+                        );
+                    const visibleDashboards =
+                        dashboardScope === undefined
+                            ? filteredDashboards
+                            : filteredDashboards.filter((dashboard) =>
+                                  dashboardScope.dashboardUuids.includes(
+                                      dashboard.uuid,
+                                  ),
+                              );
+
+                    const totalResults = visibleDashboards.length;
                     const totalPageCount = Math.ceil(
                         totalResults / args.pageSize,
                     );
 
                     return {
-                        dashboards: filteredDashboards,
+                        dashboards: visibleDashboards,
                         pagination: {
                             page: args.page,
                             pageSize: args.pageSize,
@@ -1118,11 +1134,26 @@ export class McpService extends BaseService {
                         searchResults,
                     );
 
-                const totalResults = filteredCharts.length;
+                // Client-use projects: only the charts mounted on an
+                // allow-listed dashboard are visible to
+                // viewer / interactive_viewer
+                const chartScope =
+                    await this.projectService.dashboardService.getViewerContentScope(
+                        user,
+                        projectUuid,
+                    );
+                const visibleCharts =
+                    chartScope === undefined
+                        ? filteredCharts
+                        : filteredCharts.filter((chart) =>
+                              chartScope.chartUuids.includes(chart.uuid),
+                          );
+
+                const totalResults = visibleCharts.length;
                 const totalPageCount = Math.ceil(totalResults / args.pageSize);
 
                 return {
-                    charts: filteredCharts,
+                    charts: visibleCharts,
                     pagination: {
                         page: args.page,
                         pageSize: args.pageSize,

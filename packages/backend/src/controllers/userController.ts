@@ -52,6 +52,10 @@ import { BaseController } from './baseController';
 export class UserController extends BaseController {
     /**
      * Get authenticated user
+     *
+     * When `?projectUuid=` is provided, the response also contains the
+     * client-use content scope diagnostics (`results.clientUse`): which
+     * dashboards the user can see in that project and why.
      * @param req express request
      */
     @Middlewares([allowApiKeyAuthentication, isAuthenticated])
@@ -62,9 +66,30 @@ export class UserController extends BaseController {
     ): Promise<ApiGetAuthenticatedUserResponse> {
         this.setStatus(200);
 
+        const user = UserModel.lightdashUserFromSession(req.user!);
+
+        const projectUuid =
+            typeof req.query?.projectUuid === 'string'
+                ? req.query.projectUuid
+                : undefined;
+
+        if (projectUuid === undefined) {
+            return {
+                status: 'ok',
+                results: user,
+            };
+        }
+
+        const clientUse = await this.services
+            .getDashboardService()
+            .getViewerContentScopeDiagnostics(req.user!, projectUuid);
+
         return {
             status: 'ok',
-            results: UserModel.lightdashUserFromSession(req.user!),
+            results: {
+                ...user,
+                clientUse,
+            },
         };
     }
 

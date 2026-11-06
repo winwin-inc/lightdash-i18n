@@ -44,10 +44,7 @@ const listOperationLogs = async (
         body: undefined,
     });
 
-const getOperationLog = async (
-    projectUuid: string,
-    operationLogUuid: string,
-) =>
+const getOperationLog = async (projectUuid: string, operationLogUuid: string) =>
     lightdashApi<ProjectOperationLogListItem>({
         url: `/projects/${projectUuid}/operation-logs/${operationLogUuid}`,
         method: 'GET',
@@ -92,14 +89,12 @@ export const useProjectOperationLog = (
 ) => {
     const setErrorResponse = useQueryError();
     return useQuery<ProjectOperationLogListItem, ApiError>({
-        queryKey: [
-            'project_operation_log',
-            projectUuid,
-            operationLogUuid,
-        ],
+        queryKey: ['project_operation_log', projectUuid, operationLogUuid],
         queryFn: () => {
             if (!projectUuid || !operationLogUuid) {
-                throw new Error('projectUuid and operationLogUuid are required');
+                throw new Error(
+                    'projectUuid and operationLogUuid are required',
+                );
             }
             return getOperationLog(projectUuid, operationLogUuid);
         },
