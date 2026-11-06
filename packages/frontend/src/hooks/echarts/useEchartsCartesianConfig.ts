@@ -517,21 +517,18 @@ export const isBaselineLayoutField = (
 
 /**
  * ECharts overrides for baseline series: bolder line (default width 3, solid),
- * no point markers, raised z so baselines draw above regular series, and an
- * `isBaseline` marker used by legend/tooltip handling downstream.
+ * raised z so baselines draw above regular series, and an `isBaseline` marker
+ * used by legend/tooltip handling downstream. Symbol config (show symbol /
+ * filled circle) is NOT overridden — baselines follow the same toggles as
+ * regular series.
  */
 export const getBaselineSeriesOverrides = (
     baselineStyle?: CartesianChart['layout']['baselineStyle'],
-): Pick<
-    EChartSeries,
-    'lineStyle' | 'symbol' | 'showSymbol' | 'z' | 'isBaseline'
-> => ({
+): Pick<EChartSeries, 'lineStyle' | 'z' | 'isBaseline'> => ({
     lineStyle: {
         width: baselineStyle?.width ?? BASELINE_SERIES_DEFAULT_LINE_WIDTH,
         type: baselineStyle?.lineType ?? 'solid',
     },
-    symbol: 'none',
-    showSymbol: false,
     z: BASELINE_SERIES_Z,
     isBaseline: true,
 });

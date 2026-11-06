@@ -405,40 +405,36 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         chartValue === CartesianSeriesType.AREA) && (
                         <>
                             <Group spacing="xs">
-                                {!isBaselineField && (
-                                    <Checkbox
-                                        checked={Boolean(
-                                            seriesGroup[0].showSymbol,
-                                        )}
-                                        label={t(
-                                            'components_visualization_configs_chart.series.show_symbol',
-                                        )}
-                                        onChange={() => {
-                                            updateAllGroupedSeries(fieldKey, {
-                                                showSymbol: !Boolean(
-                                                    seriesGroup[0].showSymbol,
-                                                ),
-                                            });
-                                        }}
-                                    />
-                                )}
-                                {!isBaselineField && (
-                                    <Checkbox
-                                        checked={Boolean(
-                                            seriesGroup[0].filledSymbol,
-                                        )}
-                                        label={t(
-                                            'components_visualization_configs_chart.series.filled_symbol',
-                                        )}
-                                        onChange={() => {
-                                            updateAllGroupedSeries(fieldKey, {
-                                                filledSymbol: !Boolean(
-                                                    seriesGroup[0].filledSymbol,
-                                                ),
-                                            });
-                                        }}
-                                    />
-                                )}
+                                <Checkbox
+                                    checked={Boolean(
+                                        seriesGroup[0].showSymbol,
+                                    )}
+                                    label={t(
+                                        'components_visualization_configs_chart.series.show_symbol',
+                                    )}
+                                    onChange={() => {
+                                        updateAllGroupedSeries(fieldKey, {
+                                            showSymbol: !Boolean(
+                                                seriesGroup[0].showSymbol,
+                                            ),
+                                        });
+                                    }}
+                                />
+                                <Checkbox
+                                    checked={Boolean(
+                                        seriesGroup[0].filledSymbol,
+                                    )}
+                                    label={t(
+                                        'components_visualization_configs_chart.series.filled_symbol',
+                                    )}
+                                    onChange={() => {
+                                        updateAllGroupedSeries(fieldKey, {
+                                            filledSymbol: !Boolean(
+                                                seriesGroup[0].filledSymbol,
+                                            ),
+                                        });
+                                    }}
+                                />
                                 <Checkbox
                                     checked={seriesGroup[0].smooth}
                                     label={t(

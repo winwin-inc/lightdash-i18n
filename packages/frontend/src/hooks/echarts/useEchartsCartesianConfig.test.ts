@@ -2356,7 +2356,7 @@ describe('指标基准线 baseline series', () => {
         },
     });
 
-    test('simple 系列：基准线默认加粗(3)、实线、无标记、z 提升、带 isBaseline 标记', () => {
+    test('simple 系列：基准线默认加粗(3)、实线、符号跟随普通逻辑、z 提升、带 isBaseline 标记', () => {
         const serie = getSimpleSeries({
             series: makeSourceSeries('metric_target'),
             itemsMap: {},
@@ -2364,13 +2364,35 @@ describe('指标基准线 baseline series', () => {
             flipAxes: false,
             yFieldHash: 'metric_target',
             xFieldHash: 'dim_month',
-        });
+        }) as EChartSeries;
 
         expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
-        expect(serie.symbol).toBe('none');
-        expect(serie.showSymbol).toBe(false);
+        // 符号配置不复写：跟随普通系列逻辑（默认 showSymbol=true、showSymbol 未勾时 symbolSize=0）
+        expect(serie.showSymbol).toBe(true);
+        expect(serie.symbolSize).toBe(0);
+        expect(serie.symbol).toBeUndefined();
         // 普通系列 z=2；基准线 z=4 在其上层，但低于 markLine/markPoint 默认 z=5
         expect(serie.z).toBe(4);
+        expect(serie.isBaseline).toBe(true);
+    });
+
+    test('simple 系列：基准线勾选显示符号/实心后带圆点标记', () => {
+        const serie = getSimpleSeries({
+            series: {
+                ...makeSourceSeries('metric_target'),
+                showSymbol: true,
+                filledSymbol: true,
+            },
+            itemsMap: {},
+            cartesianChart: makeChart({ baselineFieldIds: ['metric_target'] }),
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        }) as EChartSeries;
+
+        expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
+        expect(serie.symbol).toBe('circle');
+        expect(serie.symbolSize).toBe(4);
         expect(serie.isBaseline).toBe(true);
     });
 
@@ -2388,7 +2410,6 @@ describe('指标基准线 baseline series', () => {
         });
 
         expect(serie.lineStyle).toEqual({ width: 5, type: 'dashed' });
-        expect(serie.symbol).toBe('none');
         expect(serie.z).toBe(4);
     });
 
@@ -2407,7 +2428,6 @@ describe('指标基准线 baseline series', () => {
         });
 
         expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
-        expect(serie.symbol).toBe('none');
         expect(serie.z).toBe(4);
         expect(serie.isBaseline).toBe(true);
     });
