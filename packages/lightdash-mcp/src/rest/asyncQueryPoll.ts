@@ -11,6 +11,7 @@ import {
     clampLimit,
     normalizeMetricQueryRequest,
 } from '../lib/normalizeMetricQuery';
+import { QueryStillRunningError } from './queryStillRunning';
 import type { RequestJsonFn } from './types';
 
 /**
@@ -182,13 +183,11 @@ export function createAsyncQueryMethods(
             }
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
-        throw new Error(
-            `Query ${ 
-                queryUuid 
-                } timed out after ${ 
-                options.maxPollAttempts 
-                } polls`,
-        );
+        throw new QueryStillRunningError({
+            queryUuid,
+            waitedMs: options.maxPollAttempts * options.pollIntervalMs,
+            label: 'metric query',
+        });
     }
 
     async function runSavedChart(
@@ -278,13 +277,11 @@ export function createAsyncQueryMethods(
             }
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
-        throw new Error(
-            `Saved chart query ${ 
-                queryUuid 
-                } timed out after ${ 
-                options.maxPollAttempts 
-                } polls`,
-        );
+        throw new QueryStillRunningError({
+            queryUuid,
+            waitedMs: options.maxPollAttempts * options.pollIntervalMs,
+            label: 'saved chart query',
+        });
     }
 
     async function runDashboardChart(
@@ -388,9 +385,11 @@ export function createAsyncQueryMethods(
             }
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
-        throw new Error(
-            `Dashboard chart query ${queryUuid} timed out after ${options.maxPollAttempts} polls`,
-        );
+        throw new QueryStillRunningError({
+            queryUuid,
+            waitedMs: options.maxPollAttempts * options.pollIntervalMs,
+            label: 'dashboard chart query',
+        });
     }
 
     async function pollQueryPageUntilReady(
@@ -437,13 +436,11 @@ export function createAsyncQueryMethods(
             }
             await new Promise((r) => setTimeout(r, options.pollIntervalMs));
         }
-        throw new Error(
-            `Query ${ 
-                queryUuid 
-                } timed out after ${ 
-                options.maxPollAttempts 
-                } polls`,
-        );
+        throw new QueryStillRunningError({
+            queryUuid,
+            waitedMs: options.maxPollAttempts * options.pollIntervalMs,
+            label: 'SQL query',
+        });
     }
 
     async function executeFieldValueSearch(

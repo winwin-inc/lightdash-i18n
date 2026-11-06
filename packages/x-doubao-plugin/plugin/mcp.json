@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "x": {
+      "type": "streamable-http",
+      "url": "https://mcp-x.brandct.com/mcp"
+    }
+  }
+}

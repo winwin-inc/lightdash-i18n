@@ -50,9 +50,7 @@ const EmbedDashboardChartTile: FC<Props> = ({
         const isFetchingAllRows =
             resultsData.fetchAll && !resultsData.hasFetchedAllRows;
         return (
-            (isCreatingQuery ||
-                isFetchingFirstPage ||
-                isFetchingAllRows) &&
+            (isCreatingQuery || isFetchingFirstPage || isFetchingAllRows) &&
             !resultsData.error
         );
     }, [
@@ -122,6 +120,8 @@ const EmbedDashboardChartTile: FC<Props> = ({
             dashboardChartReadyQuery={dashboardChartReadyQuery}
             error={error}
             onExplore={onExplore}
+            // embed 页面向非内部用户展示：不渲染错误诊断面板，避免暴露字段名/schema
+            suppressErrorDetails
         />
     );
 };

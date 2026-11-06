@@ -1,0 +1,18 @@
+{
+  "credentials": [
+    {
+      "id": "pat",
+      "label": "马上赢 X 平台访问令牌（PAT）",
+      "description": "在 https://x.brandct.com/generalSettings/personalAccessTokens 创建，格式为 ldpat_ 开头。令牌只显示一次；失效请卸载插件后重装并重新填写。",
+      "required": true,
+      "secret": true
+    }
+  ],
+  "injections": [
+    {
+      "target": "header",
+      "name": "x-api-key",
+      "value": "${pat}"
+    }
+  ]
+}

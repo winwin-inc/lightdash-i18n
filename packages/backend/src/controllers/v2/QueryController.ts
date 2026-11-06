@@ -1,8 +1,6 @@
 import {
     AnyType,
     ApiErrorPayload,
-    type ApiExecuteAsyncMergeQueryRequest,
-    type ApiExecuteAsyncMergeQueryResults,
     ApiExecuteAsyncDashboardChartQueryResults,
     ApiExecuteAsyncDashboardSqlChartQueryResults,
     ApiExecuteAsyncSqlQueryResults,
@@ -13,12 +11,15 @@ import {
     DownloadAsyncQueryResultsRequestParams,
     ExecuteAsyncSqlQueryRequestParams,
     ForbiddenError,
+    getErrorMessage,
     isExecuteAsyncDashboardSqlChartByUuidParams,
     isExecuteAsyncSqlChartByUuidParams,
     QueryExecutionContext,
     type ApiDownloadAsyncQueryResults,
     type ApiDownloadAsyncQueryResultsAsCsv,
     type ApiDownloadAsyncQueryResultsAsXlsx,
+    type ApiExecuteAsyncMergeQueryRequest,
+    type ApiExecuteAsyncMergeQueryResults,
     type ApiExecuteAsyncMetricQueryResults,
     type ApiJobScheduledResponse,
     type ExecuteAsyncDashboardChartRequestParams,
@@ -45,7 +46,9 @@ import {
     Tags,
 } from '@tsoa/runtime';
 import express from 'express';
+import { pipeline } from 'stream/promises';
 import { getContextFromHeader } from '../../analytics/LightdashAnalytics';
+import Logger from '../../logging/logger';
 import { allowApiKeyAuthentication, isAuthenticated } from '../authentication';
 import { BaseController } from '../baseController';
 
@@ -485,14 +488,26 @@ export class QueryController extends BaseController {
             });
 
         const { res } = req;
-        if (res) {
-            readStream.pipe(res);
-            await new Promise<void>((resolve, reject) => {
-                readStream.on('end', () => {
-                    res.end();
-                    resolve();
-                });
-            });
+        if (!res) {
+            return;
+        }
+
+        // `pipeline` owns both sides of the stream: if the client goes away mid-stream
+        // (tab switch / reload in the SQL runner) it destroys the source, so the S3
+        // response is not left half-read until S3_REQUEST_TIMEOUT — one leaked
+        // connection per aborted stream.
+        try {
+            await pipeline(readStream, res);
+        } catch (error) {
+            // A client closing early (`ERR_STREAM_PREMATURE_CLOSE`) is not a server
+            // error and `pipeline` has already cleaned up; only log real failures.
+            if (!res.destroyed && !res.writableEnded) {
+                Logger.error(
+                    `Failed to stream results for query ${queryUuid}: ${getErrorMessage(
+                        error,
+                    )}`,
+                );
+            }
         }
     }
 

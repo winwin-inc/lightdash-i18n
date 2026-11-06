@@ -26,6 +26,10 @@ import {
     generateGenericFileId,
     streamJsonlData,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
+import {
+    getPivotExportLimits,
+    getPivotExportWidth,
+} from '../../utils/FileDownloadUtils/exportLimits';
 import { BaseService } from '../BaseService';
 
 type PivotTableServiceArguments = {
@@ -102,14 +106,18 @@ export class PivotTableService extends BaseService {
     /**
      * Checks if the rows could be truncated based on cell limit
      */
-    private couldBeTruncated(rows: Record<string, AnyType>[]) {
+    private couldBeTruncated(
+        rows: Record<string, AnyType>[],
+        configuredCellsLimit: number = this.lightdashConfig.query
+            ?.csvCellsLimit || 100000,
+    ) {
         if (rows.length === 0) return false;
 
         const numberRows = rows.length;
         const numberColumns = Object.keys(rows[0]).length;
 
         // we use floor when limiting the rows, so the need to make sure we got the last row valid
-        const cellsLimit = this.lightdashConfig.query?.csvCellsLimit || 100000;
+        const cellsLimit = configuredCellsLimit;
 
         return numberRows * numberColumns >= cellsLimit - numberColumns;
     }
@@ -153,9 +161,22 @@ export class PivotTableService extends BaseService {
 
         const fieldCount = Object.keys(fields).length;
         const cellsLimit = this.lightdashConfig.query?.csvCellsLimit || 100000;
-
-        // Use standard csvCellsLimit calculation - same as original downloadPivotTableCsv
-        const maxRows = Math.floor(cellsLimit / fieldCount);
+        // A pivoted export is as wide as its output matrix, not the input row width.
+        const width = getPivotExportWidth({
+            fieldCount,
+            pivotTotalColumnCount: pivotDetails?.totalColumnCount,
+            maxColumnLimit: this.lightdashConfig.pivotTable.maxColumnLimit,
+        });
+        const { effectiveCells, maxRows, clamped } = getPivotExportLimits(
+            width,
+            cellsLimit,
+            this.lightdashConfig.query?.exportMaxPivotCells,
+        );
+        if (clamped) {
+            Logger.warn(
+                `Pivot CSV export clamped to ${maxRows} rows (${effectiveCells} cells, width ${width}, fields ${fieldCount}); csvCellsLimit=${cellsLimit}`,
+            );
+        }
 
         const { results: rows, truncated } = await streamJsonlData<
             Record<string, unknown>
@@ -170,7 +191,8 @@ export class PivotTableService extends BaseService {
         }
 
         // Use same truncation logic as original downloadPivotTableCsv
-        const finalTruncated = truncated || this.couldBeTruncated(rows);
+        const finalTruncated =
+            truncated || this.couldBeTruncated(rows, effectiveCells);
 
         if (finalTruncated) {
             Logger.warn(
@@ -287,9 +309,17 @@ export class PivotTableService extends BaseService {
             );
 
             // Delete local file in 10 minutes, we could still read from the local file to upload to google sheets
-            setTimeout(async () => {
-                await fsPromise.unlink(filePath);
-            }, 60 * 10 * 1000);
+            setTimeout(() => {
+                fsPromise.unlink(filePath).catch((error) => {
+                    // Already gone (e.g. local download consumed it) or /tmp was cleaned:
+                    // a rejected unlink here used to be an unhandled rejection.
+                    Logger.warn(
+                        `Could not delete pivot CSV temp file ${filePath}: ${getErrorMessage(
+                            error,
+                        )}`,
+                    );
+                });
+            }, 60 * 10 * 1000).unref();
 
             return {
                 filename: fileName,

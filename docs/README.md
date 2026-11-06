@@ -28,6 +28,8 @@
 | [组织管理员：OIDC 用户开通 API](./ops/org-admin-users-provision.md) | 预开通 + 绑定 `openid_identities`（单个 / 批量） |
 | [大数据量导出（CSV/XLSX）优化](./ops/csv-export-performance.md) | 反馈原文、耗时构成与根因、已实施改动与实测值、产物一致性回测、后续可评估事项（**部分已实施**） |
 | [查询性能优化方案](./ops/query-performance-plan.md) | 四件代码层能做的事（count 查询、连接复用、分页索引、导出复用）+ 数据层边界（**草案**） |
+| [数仓查询超时后上游没有取消](./ops/warehouse-query-cancel.md) | 客户端超时只断 socket、MCP 把“还在跑”报成失败的机制与修复（**已实施**） |
+| [导出与 API 分进程（scheduler 独立 Deployment）](./ops/export-scheduler-split.md) | 同一镜像换启动参数把 graphile worker 拆出去；k8s 清单、迁移竞争与验证步骤（**待开发**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 
 ## cli/ — CLI 与内容即代码
@@ -69,6 +71,7 @@
 | [表格可视化体验优化批次（W1–W4）](./visualization/table-ux-optimization-plan.md) | 列宽拖拽（编辑落库 / 查看本地记住）、表头不折行、重置、冻列偏移（**已实施**） |
 | [表格列宽可拖拽调整（W1 详版）](./visualization/table-column-resize-plan.md) | 分支/实现细节、上游 PR 对照与已知坑 |
 | [表格滚动卡顿排查](./visualization/table-scroll-performance.md) | 平表虚拟化 / 透视表 v2（Canvas）现状与逐项结论 |
+| [图表错误态诊断与可恢复](./visualization/chart-error-diagnostics-plan.md) | 图打不开时看不到字段/类型；判定链以 explore 为准（v2）、P0 三步拆分、embed/minimal 门控（**草案**） |
 
 ## features/ — 其他产品能力
 

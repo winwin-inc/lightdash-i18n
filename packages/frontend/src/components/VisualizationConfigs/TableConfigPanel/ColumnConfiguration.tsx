@@ -14,7 +14,7 @@ import {
     IconLockOpen,
     IconX,
 } from '@tabler/icons-react';
-import { useEffect, useState, type FC } from 'react';
+import { useCallback, useEffect, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import MantineIcon from '../../common/MantineIcon';
 import {
@@ -49,35 +49,31 @@ const ColumnConfigurationInput: FC<ColumnConfigurationInputProps> = ({
     );
     const [debouncedValue] = useDebouncedValue(value, 500);
 
+    // 列名提交规则只保留一份：debounce 与失焦都走这里，避免两处规则漂移
+    const commitName = useCallback(
+        (nextValue: string) => {
+            const currentValue = fieldLabelOverride ?? fieldLabelDefault ?? '';
+            if (nextValue === currentValue) return;
+
+            updateColumnProperty(fieldId, {
+                name: nextValue === fieldLabelDefault ? undefined : nextValue,
+            });
+        },
+        [fieldId, fieldLabelDefault, fieldLabelOverride, updateColumnProperty],
+    );
+
     useEffect(() => {
         setValue(fieldLabelOverride ?? fieldLabelDefault ?? '');
     }, [fieldId, fieldLabelOverride, fieldLabelDefault]);
 
     useEffect(() => {
-        const currentValue = fieldLabelOverride ?? fieldLabelDefault ?? '';
-
+        // 等用户停止输入再提交，避免每个字符都写一次配置
         if (value !== debouncedValue) {
             return;
         }
 
-        if (debouncedValue === currentValue) {
-            return;
-        }
-
-        updateColumnProperty(fieldId, {
-            name:
-                debouncedValue === fieldLabelDefault
-                    ? undefined
-                    : debouncedValue,
-        });
-    }, [
-        debouncedValue,
-        fieldId,
-        fieldLabelDefault,
-        fieldLabelOverride,
-        updateColumnProperty,
-        value,
-    ]);
+        commitName(debouncedValue);
+    }, [commitName, debouncedValue, value]);
 
     return (
         <TextInput
@@ -86,6 +82,10 @@ const ColumnConfigurationInput: FC<ColumnConfigurationInputProps> = ({
             value={value}
             onChange={(e) => {
                 setValue(e.currentTarget.value);
+            }}
+            onBlur={() => {
+                // 输入后立刻点保存/失焦时，不等 500ms debounce，立即提交
+                commitName(value);
             }}
         />
     );

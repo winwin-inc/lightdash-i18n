@@ -826,6 +826,13 @@ export type LightdashConfig = {
          * is marked as truncated so the UI can warn the user.
          */
         exportMaxRows: number;
+        /**
+         * Memory budget (in cells) for pivot exports, which materialise the whole
+         * result in memory (rows array + formatted string matrix). It tightens
+         * `csvCellsLimit` so a huge pivot export is truncated instead of OOMKilling
+         * the pod. See `utils/FileDownloadUtils/exportLimits.ts`.
+         */
+        exportMaxPivotCells: number;
     };
     pivotTable: {
         maxColumnLimit: number;
@@ -2043,6 +2050,10 @@ export const parseConfig = (): LightdashConfig => {
             useSqlPivotResults: process.env.USE_SQL_PIVOT_RESULTS === 'true',
             exportMaxRows:
                 getIntegerFromEnvironmentVariable('EXPORT_MAX_ROWS') || 1000000,
+            exportMaxPivotCells:
+                getIntegerFromEnvironmentVariable(
+                    'EXPORT_MAX_PIVOT_CELLS',
+                ) || 2000000,
         },
         chart: {
             versionHistory: {

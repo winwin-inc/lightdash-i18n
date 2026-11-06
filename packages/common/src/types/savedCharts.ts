@@ -177,6 +177,8 @@ export type TableChart = {
     showColumnCalculation?: boolean;
     showRowCalculation?: boolean;
     showTableNames?: boolean;
+    /** 表头悬停是否显示字段描述（dbt 字段 description）。默认 true，未定义时显示。 */
+    showFieldDescriptionTooltip?: boolean;
     hideRowNumbers?: boolean;
     showResultsTotal?: boolean;
     showSubtotals?: boolean;
@@ -274,6 +276,12 @@ export type Series = {
         position?: 'left' | 'top' | 'right' | 'bottom' | 'inside';
     };
     hidden?: boolean;
+    /**
+     * Hide the metric label in the pivoted series display name (legend and
+     * tooltip show only the pivot value, e.g. `产品A` instead of
+     * `[产品A] 销售额市占率`).
+     */
+    hideMetricName?: boolean;
     areaStyle?: Record<string, unknown>;
     showSymbol?: boolean;
     filledSymbol?: boolean;
@@ -387,6 +395,17 @@ export type CompleteCartesianChartLayout = {
     stack?: boolean | string | undefined; // Support both old boolean and new StackType string for backward compatibility
     barMaxWidth?: number;
     barMaxWidthMobile?: number;
+    /**
+     * Field ids of metrics that should be rendered as baseline (benchmark) series.
+     * Baseline series are drawn bolder, excluded from the legend, and keep
+     * their values in the tooltip.
+     */
+    baselineFieldIds?: string[];
+    /** Common style applied to baseline series. Defaults: width 3, solid. */
+    baselineStyle?: {
+        width?: number;
+        lineType?: 'solid' | 'dashed';
+    };
 };
 
 export type CartesianChartLayout = Partial<CompleteCartesianChartLayout>;
