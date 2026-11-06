@@ -1090,6 +1090,7 @@ const useCartesianChartConfig = ({
                     yFields: dirtyLayout.yField,
                     defaultLabel,
                     itemsMap,
+                    baselineFieldIds: dirtyLayout?.baselineFieldIds,
                 });
                 const newSeries = mergeExistingAndExpectedSeries({
                     expectedSeriesMap,

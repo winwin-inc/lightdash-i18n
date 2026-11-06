@@ -33,6 +33,7 @@ import {
     TableCalculationType,
     TimeFrames,
     transformToPercentageStacking,
+    VizAggregationOptions,
     XAxisSortType,
     type CartesianChart,
     type CustomDimension,
@@ -71,8 +72,11 @@ import {
     getStackSeriesSortDirection,
 } from '../cartesianChartConfig/utils';
 import {
+    BASELINE_MERGED_PIVOT_VALUE,
+    getBaselineMergedColumnKey,
     getPivotedDataFromPivotDetails,
     getPlottedData,
+    isBaselineMergedPivotValues,
     type RowKeyMap,
 } from '../plottedData/getPlottedData';
 import { type InfiniteQueryResults } from '../useQueryResults';
@@ -864,19 +868,23 @@ export const getPivotSeries = ({
     cartesianChart,
     pivotValuesColumnsMap,
 }: GetPivotSeriesArg): EChartSeries => {
-    const pivotLabel = pivotReference.pivotValues.reduce(
-        (acc, { field, value }) => {
-            const formattedValue = getFormattedValue(
-                value,
-                field,
-                itemsMap,
-                undefined,
-                pivotValuesColumnsMap,
-            );
-            return acc ? `${acc} - ${formattedValue}` : formattedValue;
-        },
-        '',
+    // Merged baseline series carry sentinel pivot values; their label is the
+    // metric name itself (the baseline does not vary by the pivot dimension).
+    const isMergedBaseline = isBaselineMergedPivotValues(
+        pivotReference.pivotValues,
     );
+    const pivotLabel = isMergedBaseline
+        ? getLabelFromField(itemsMap, series.encode.yRef.field)
+        : pivotReference.pivotValues.reduce((acc, { field, value }) => {
+              const formattedValue = getFormattedValue(
+                  value,
+                  field,
+                  itemsMap,
+                  undefined,
+                  pivotValuesColumnsMap,
+              );
+              return acc ? `${acc} - ${formattedValue}` : formattedValue;
+          }, '');
 
     const isBaseline =
         isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
@@ -905,14 +913,15 @@ export const getPivotSeries = ({
             },
             {
                 name: yFieldHash,
-                displayName:
-                    cartesianChart.layout.yField &&
-                    cartesianChart.layout.yField.length > 1
-                        ? `[${pivotLabel}] ${getLabelFromField(
-                              itemsMap,
-                              series.encode.yRef.field,
-                          )}`
-                        : pivotLabel,
+                displayName: isMergedBaseline
+                    ? getLabelFromField(itemsMap, series.encode.yRef.field)
+                    : cartesianChart.layout.yField &&
+                          cartesianChart.layout.yField.length > 1
+                      ? `[${pivotLabel}] ${getLabelFromField(
+                            itemsMap,
+                            series.encode.yRef.field,
+                        )}`
+                      : pivotLabel,
             },
         ],
         tooltip: {
@@ -3962,15 +3971,42 @@ const useEchartsCartesianConfig = (
     }, [itemsMap, validCartesianConfig]);
 
     const pivotValuesColumnsMap = useMemo(() => {
-        if (!resultsData?.pivotDetails) return;
-        return convertPivotValuesColumnsIntoMap(
-            resultsData.pivotDetails.valuesColumns,
-        );
-    }, [resultsData?.pivotDetails]);
+        const pivotDetails = resultsData?.pivotDetails;
+        if (!pivotDetails) return;
+        const map = convertPivotValuesColumnsIntoMap(pivotDetails.valuesColumns);
+        if (!map) return map;
+        // Inject synthetic merged columns for baseline metrics so their
+        // series resolve to the merged dataset column.
+        const baselineFieldIds =
+            validCartesianConfig?.layout?.baselineFieldIds ?? [];
+        baselineFieldIds.forEach((field) => {
+            const mergedKey = getBaselineMergedColumnKey(field);
+            if (!map[mergedKey]) {
+                map[mergedKey] = {
+                    referenceField: field,
+                    pivotColumnName: mergedKey,
+                    aggregation: VizAggregationOptions.ANY,
+                    pivotValues: (pivotDetails.groupByColumns ?? []).map(
+                        (col) => ({
+                            referenceField: col.reference,
+                            value: BASELINE_MERGED_PIVOT_VALUE,
+                        }),
+                    ),
+                };
+            }
+        });
+        return map;
+    }, [resultsData?.pivotDetails, validCartesianConfig?.layout?.baselineFieldIds]);
 
     const { rows, rowKeyMap } = useMemo(() => {
+        const baselineFieldIds =
+            validCartesianConfig?.layout?.baselineFieldIds;
         if (resultsData?.pivotDetails) {
-            return getPivotedDataFromPivotDetails(resultsData, undefined);
+            return getPivotedDataFromPivotDetails(
+                resultsData,
+                undefined,
+                baselineFieldIds,
+            );
         }
 
         // Legacy implementation - comment out when fully migrated
@@ -3979,8 +4015,15 @@ const useEchartsCartesianConfig = (
             pivotDimensions,
             pivotedKeys,
             nonPivotedKeys,
+            baselineFieldIds,
         );
-    }, [resultsData, pivotDimensions, pivotedKeys, nonPivotedKeys]);
+    }, [
+        resultsData,
+        pivotDimensions,
+        pivotedKeys,
+        nonPivotedKeys,
+        validCartesianConfig?.layout?.baselineFieldIds,
+    ]);
 
     const series = useMemo(() => {
         if (!itemsMap || !validCartesianConfig || !resultsData) {

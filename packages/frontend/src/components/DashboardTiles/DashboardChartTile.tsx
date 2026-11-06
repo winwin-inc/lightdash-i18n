@@ -217,6 +217,7 @@ const computeDashboardChartSeries = (
             yFields: chart.chartConfig.config.layout.yField,
             defaultLabel: firstSerie?.label,
             itemsMap,
+            baselineFieldIds: chart.chartConfig.config.layout.baselineFieldIds,
         });
         const newSeries = mergeExistingAndExpectedSeries({
             expectedSeriesMap,

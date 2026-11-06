@@ -13,6 +13,7 @@ import {
 import {
     getPivotedData,
     getPivotedDataFromPivotDetails,
+    isBaselineMergedPivotValues,
 } from '../plottedData/getPlottedData';
 import type { InfiniteQueryResults } from '../useQueryResults';
 
@@ -34,11 +35,19 @@ export const applyStackFromLayout = (
 
     const isPivoted = Boolean(pivotKeys && pivotKeys.length > 0);
     const yFields = layout?.yField ?? [];
+    const baselineFieldIds = layout?.baselineFieldIds ?? [];
 
     return series.map((serie) => {
         const { field } = serie.encode.yRef;
         if (!yFields.includes(field)) {
             return serie;
+        }
+
+        // Baselines are reference lines: they never join the stack.
+        if (baselineFieldIds.includes(field)) {
+            return serie.stack === undefined
+                ? serie
+                : { ...serie, stack: undefined };
         }
 
         return {
@@ -62,6 +71,8 @@ export type GetExpectedSeriesMapArgs = {
     availableDimensions: string[];
     defaultLabel?: Series['label'];
     itemsMap: ItemsMap | undefined;
+    /** Metrics declared as baselines: collapse their pivot series into one. */
+    baselineFieldIds?: string[];
 };
 
 export const getExpectedSeriesMap = ({
@@ -78,6 +89,7 @@ export const getExpectedSeriesMap = ({
     availableDimensions,
     defaultLabel,
     itemsMap,
+    baselineFieldIds,
 }: GetExpectedSeriesMapArgs) => {
     let expectedSeriesMap: Record<string, Series>;
 
@@ -95,7 +107,11 @@ export const getExpectedSeriesMap = ({
     if (pivotKeys && pivotKeys.length > 0) {
         // Use new pivoted data format if available
         const { rowKeyMap } = resultsData.pivotDetails
-            ? getPivotedDataFromPivotDetails(resultsData, itemsMap)
+            ? getPivotedDataFromPivotDetails(
+                  resultsData,
+                  itemsMap,
+                  baselineFieldIds,
+              )
             : getPivotedData(
                   resultsData.rows,
                   pivotKeys,
@@ -105,11 +121,24 @@ export const getExpectedSeriesMap = ({
                   yFields.filter((yField) =>
                       availableDimensions.includes(yField),
                   ),
+                  baselineFieldIds,
               );
 
         expectedSeriesMap = Object.values(rowKeyMap).reduce<
             Record<string, Series>
         >((acc, rowKey) => {
+            // Baseline metrics collapse into their single merged series;
+            // skip the per-pivot-value baseline entries.
+            const rowKeyField =
+                typeof rowKey === 'string' ? rowKey : rowKey.field;
+            const rowKeyPivotValues =
+                typeof rowKey === 'string' ? undefined : rowKey.pivotValues;
+            if (
+                baselineFieldIds?.includes(rowKeyField) &&
+                !isBaselineMergedPivotValues(rowKeyPivotValues)
+            ) {
+                return acc;
+            }
             let series: Series;
             if (typeof rowKey === 'string') {
                 series = {

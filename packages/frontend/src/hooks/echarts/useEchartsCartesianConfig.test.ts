@@ -2,6 +2,7 @@ import {
     CartesianSeriesType,
     type CartesianChart,
     type ResultRow,
+    type ItemsMap,
     type Series,
 } from '@lightdash/common';
 import { describe, expect, test, vi } from 'vitest';
@@ -2429,6 +2430,39 @@ describe('指标基准线 baseline series', () => {
 
         expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
         expect(serie.z).toBe(4);
+        expect(serie.isBaseline).toBe(true);
+    });
+
+    test('pivoted 合并基准线：系列名为指标名（不带分组前缀）', () => {
+        const itemsMap = {
+            metric_target: {
+                fieldType: 'METRIC',
+                type: 'NUMBER',
+                label: '基准线市占率',
+            },
+        } as unknown as ItemsMap;
+        const serie = getPivotSeries({
+            series: makeSourceSeries('metric_target'),
+            itemsMap,
+            cartesianChart: makeChart({
+                yField: ['metric_actual', 'metric_target'],
+                baselineFieldIds: ['metric_target'],
+            }),
+            pivotReference: {
+                field: 'metric_target',
+                pivotValues: [
+                    {
+                        field: 'pro_name',
+                        value: '__lightdash_baseline_merged__',
+                    },
+                ],
+            },
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.dimensions?.[1]?.displayName).toBe('基准线市占率');
         expect(serie.isBaseline).toBe(true);
     });
 
