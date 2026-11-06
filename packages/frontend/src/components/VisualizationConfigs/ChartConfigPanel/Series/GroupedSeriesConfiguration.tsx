@@ -239,12 +239,11 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     const metricLabel = getItemLabelWithoutTableName(item);
     const groupHeadingLabel =
         pivotDimLabels.length > 0
-            ? `${metricLabel}（按 ${pivotDimLabels.join('、')}）`
-            : metricLabel;
-    const groupHeadingTitle =
-        pivotDimLabels.length > 0
             ? `${metricLabel}（按 ${pivotDimLabels.join('、')} 分组）`
-            : undefined;
+            : `${metricLabel}${t(
+                  'components_visualization_configs_chart.series.grouped_suffix',
+              )}`;
+    const groupHeadingTitle = groupHeadingLabel;
     const isBaselineField = (layout?.baselineFieldIds ?? []).includes(fieldKey);
     const canSortStackSeriesByValue =
         Boolean(seriesGroup[0].stack) &&
