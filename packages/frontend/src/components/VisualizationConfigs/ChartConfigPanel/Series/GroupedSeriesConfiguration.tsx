@@ -25,6 +25,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import type useCartesianChartConfig from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
+import { isBaselineMergedPivotValues } from '../../../../hooks/plottedData/getPlottedData';
 import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../../common/Config';
@@ -468,6 +469,23 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                         });
                                     }}
                                 />
+                                <Checkbox
+                                    checked={
+                                        seriesGroup[0].hideMetricName === true
+                                    }
+                                    label={t(
+                                        'components_visualization_configs_chart.series.hide_metric_name',
+                                    )}
+                                    onChange={() => {
+                                        updateAllGroupedSeries(fieldKey, {
+                                            hideMetricName:
+                                                seriesGroup[0].hideMetricName ===
+                                                true
+                                                    ? undefined
+                                                    : true,
+                                        });
+                                    }}
+                                />
                             </Group>
                             <Stack spacing="xs" mt="xs">
                                 <Group spacing="xs">
@@ -533,24 +551,6 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                             </Stack>
                         </>
                     )}
-                    <Stack spacing="xs" mt="xs">
-                        <Checkbox
-                            checked={
-                                seriesGroup[0].hideMetricName === true
-                            }
-                            label={t(
-                                'components_visualization_configs_chart.series.hide_metric_name',
-                            )}
-                            onChange={() => {
-                                updateAllGroupedSeries(fieldKey, {
-                                    hideMetricName:
-                                        seriesGroup[0].hideMetricName === true
-                                            ? undefined
-                                            : true,
-                                });
-                            }}
-                        />
-                    </Stack>
                     {canSortSeriesByValue && (
                         <Stack spacing="xs" mt="xs">
                             <Group spacing="xs">
@@ -666,21 +666,31 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                     ref={dropProps.innerRef}
                                 >
                                     {seriesGroup.map((singleSeries, i) => {
-                                        const pivotLabel =
-                                            singleSeries.encode.yRef.pivotValues!.reduce(
-                                                (acc, { field, value }) => {
-                                                    const formattedValue =
-                                                        getFormatterValue(
-                                                            value,
-                                                            field,
-                                                            items,
-                                                        );
-                                                    return acc
-                                                        ? `${acc} - ${formattedValue}`
-                                                        : formattedValue;
-                                                },
-                                                '',
+                                        // 合并基准线系列的 pivot 值是哨兵字符串，标签直接用指标名
+                                        const isMergedBaselineSeries =
+                                            isBaselineMergedPivotValues(
+                                                singleSeries.encode.yRef
+                                                    .pivotValues,
                                             );
+                                        const pivotLabel =
+                                            isMergedBaselineSeries
+                                                ? getItemLabelWithoutTableName(
+                                                      item,
+                                                  )
+                                                : singleSeries.encode.yRef.pivotValues!.reduce(
+                                                      (acc, { field, value }) => {
+                                                          const formattedValue =
+                                                              getFormatterValue(
+                                                                  value,
+                                                                  field,
+                                                                  items,
+                                                              );
+                                                          return acc
+                                                              ? `${acc} - ${formattedValue}`
+                                                              : formattedValue;
+                                                      },
+                                                      '',
+                                                  );
                                         return (
                                             <Draggable
                                                 key={getSeriesId(singleSeries)}
@@ -723,15 +733,17 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                                                         singleSeries
                                                                     }
                                                                     seriesLabel={
-                                                                        layout?.yField &&
-                                                                        layout
-                                                                            .yField
-                                                                            .length >
-                                                                            1
-                                                                            ? `[${pivotLabel}] ${getItemLabelWithoutTableName(
-                                                                                  item,
-                                                                              )}`
-                                                                            : pivotLabel
+                                                                        isMergedBaselineSeries
+                                                                            ? pivotLabel
+                                                                            : layout?.yField &&
+                                                                                  layout
+                                                                                      .yField
+                                                                                      .length >
+                                                                                  1
+                                                                              ? `[${pivotLabel}] ${getItemLabelWithoutTableName(
+                                                                                    item,
+                                                                                )}`
+                                                                              : pivotLabel
                                                                     }
                                                                     updateSingleSeries={
                                                                         handleUpdateSingleSeries
