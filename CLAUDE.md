@@ -152,6 +152,15 @@ pnpm -F backend rollback-last
 
 -   dbt 相关问题时，确认仓库根目录有 python3 venv，且已安装 dbt-core、dbt-postgres
 
+## Agent 协作纪律（强制）
+
+所有 agent（含子 agent）必须遵守 `.agents/` 下的规则，要点：
+
+-   **聚焦测试**：只跑与改动直接相关的单文件/单用例测试（详见 `.agents/rules/testing-discipline.md` 与 `.agents/skills/focused-testing/SKILL.md`）；全量 test/lint/typecheck 由主控收尾统一执行，worker 不做批量验证
+-   frontend vitest 冷启动极慢（重插件 transform 40min+、默认堆会 OOM），必须按 focused-testing 技能中的方式探路；所有验证命令必须带 `timeout`
+-   环境性失败同类最多重试 2 次，之后必须上报，禁止蛮试
+-   多 agent 派发/验收/生成物同步流程见 `.agents/rules/multi-agent.md`；给既有组件新增 context 依赖时必须同步检查其既有测试的 Provider mock
+
 ## 本地数据库调试
 
 可用 `psql` 直连本地开发库，例如：
