@@ -389,6 +389,17 @@ export type CompleteCartesianChartLayout = {
     stack?: boolean | string | undefined; // Support both old boolean and new StackType string for backward compatibility
     barMaxWidth?: number;
     barMaxWidthMobile?: number;
+    /**
+     * Field ids of metrics that should be rendered as baseline (benchmark) series.
+     * Baseline series are drawn bolder, excluded from the legend, and keep
+     * their values in the tooltip.
+     */
+    baselineFieldIds?: string[];
+    /** Common style applied to baseline series. Defaults: width 3, solid. */
+    baselineStyle?: {
+        width?: number;
+        lineType?: 'solid' | 'dashed';
+    };
 };
 
 export type CartesianChartLayout = Partial<CompleteCartesianChartLayout>;

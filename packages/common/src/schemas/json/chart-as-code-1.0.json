@@ -1584,6 +1584,27 @@
                     "format": "double",
                     "type": "number"
                 },
+                "baselineFieldIds": {
+                    "description": "Field ids of metrics that should be rendered as baseline (benchmark) series.\nBaseline series are drawn bolder, excluded from the legend, and keep\ntheir values in the tooltip.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "baselineStyle": {
+                    "description": "Common style applied to baseline series. Defaults: width 3, solid.",
+                    "properties": {
+                        "lineType": {
+                            "enum": ["solid", "dashed"],
+                            "type": "string"
+                        },
+                        "width": {
+                            "format": "double",
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
                 "flipAxes": {
                     "type": "boolean"
                 },

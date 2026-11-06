@@ -330,7 +330,9 @@ export const getXAxisLineConfig = ({
 }: {
     axisLineOnZero: boolean | undefined;
     existingAxisLine?: { show?: boolean } | Record<string, unknown>;
-}): { axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown> } => ({
+}): {
+    axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown>;
+} => ({
     axisLine: {
         ...(existingAxisLine && typeof existingAxisLine === 'object'
             ? existingAxisLine
@@ -414,6 +416,14 @@ export type EChartSeries = {
     data?: unknown[];
     showSymbol?: boolean;
     symbolSize?: number;
+    symbol?: string;
+    lineStyle?: {
+        width?: number;
+        type?: 'solid' | 'dashed' | 'dotted';
+    };
+    z?: number;
+    /** Marks a baseline (benchmark) series declared via `layout.baselineFieldIds`. */
+    isBaseline?: boolean;
     barMaxWidth?: number;
 };
 
@@ -467,7 +477,66 @@ const removeEmptyProperties = <T = Record<any, any>>(obj: T | undefined) => {
 
 const DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH = 10;
 
-const mergeLegendSettings = <T = Record<any, any>>(
+/** Default line width for baseline (benchmark) series when `baselineStyle.width` is unset. */
+const BASELINE_SERIES_DEFAULT_LINE_WIDTH = 3;
+
+/**
+ * z for baseline series. Regular series keep the ECharts default (z = 2),
+ * so baselines always render above them. Kept below ECharts markLine/markPoint
+ * default z (5) so axis reference lines and markers stay visible on top.
+ */
+const BASELINE_SERIES_Z = 4;
+
+export const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
+    if (serie.name) return serie.name;
+
+    const displayName = serie.dimensions?.[1]?.displayName;
+    if (typeof displayName === 'string' && displayName.length > 0) {
+        return displayName;
+    }
+
+    if (typeof serie.encode?.seriesName === 'string') {
+        return serie.encode.seriesName;
+    }
+
+    return '';
+};
+
+export const isBaselineSeries = (serie: EChartSeries): boolean =>
+    serie.isBaseline === true;
+
+/**
+ * Whether a field id is declared as a baseline metric in the chart layout.
+ * Detection is based on `serie.encode.yRef.field` (value axis), so it holds
+ * for both `flipAxes` orientations.
+ */
+export const isBaselineLayoutField = (
+    layout: CartesianChart['layout'] | undefined,
+    fieldId: string | undefined,
+): boolean => !!fieldId && !!layout?.baselineFieldIds?.includes(fieldId);
+
+/**
+ * ECharts overrides for baseline series: bolder line (default width 3, solid),
+ * no point markers, raised z so baselines draw above regular series, and an
+ * `isBaseline` marker used by legend/tooltip handling downstream.
+ */
+export const getBaselineSeriesOverrides = (
+    baselineStyle?: CartesianChart['layout']['baselineStyle'],
+): Pick<
+    EChartSeries,
+    'lineStyle' | 'symbol' | 'showSymbol' | 'z' | 'isBaseline'
+> => ({
+    lineStyle: {
+        width: baselineStyle?.width ?? BASELINE_SERIES_DEFAULT_LINE_WIDTH,
+        type: baselineStyle?.lineType ?? 'solid',
+    },
+    symbol: 'none',
+    showSymbol: false,
+    z: BASELINE_SERIES_Z,
+    isBaseline: true,
+});
+
+export const mergeLegendSettings = <T = Record<any, any>>(
     legendConfig: T | undefined,
     legendsSelected: LegendValues,
     series: EChartSeries[],
@@ -483,10 +552,27 @@ const mergeLegendSettings = <T = Record<any, any>>(
     const filledLegendIcon = hasFilledLineSymbol
         ? { icon: 'circle' as const }
         : {};
-    const legendData =
-        legendDataOrder && legendDataOrder.length > 0
-            ? { data: legendDataOrder }
-            : {};
+    // Baseline series never appear in the legend: drop their names from a
+    // provided order; when baselines exist, always provide explicit legend
+    // data built from the remaining series (ECharts would otherwise auto-add
+    // every series name, including baselines).
+    const baselineNames = new Set(
+        series.filter(isBaselineSeries).map(getEchartsSeriesLegendName),
+    );
+    const hasBaselineSeries = baselineNames.size > 0;
+    const nonBaselineLegendNames = series
+        .filter((serie) => !isBaselineSeries(serie))
+        .map(getEchartsSeriesLegendName)
+        .filter((name) => name.length > 0);
+    let legendDataNames: string[] | undefined;
+    if (hasBaselineSeries) {
+        legendDataNames = legendDataOrder?.length
+            ? legendDataOrder.filter((name) => !baselineNames.has(name))
+            : nonBaselineLegendNames;
+    } else if (legendDataOrder?.length) {
+        legendDataNames = legendDataOrder;
+    }
+    const legendData = legendDataNames ? { data: legendDataNames } : {};
     if (!normalizedConfig) {
         return {
             show: series.length > 1,
@@ -771,7 +857,7 @@ const seriesValueFormatter = (item: Item, value: unknown) => {
     }
 };
 
-const getPivotSeries = ({
+export const getPivotSeries = ({
     series,
     pivotReference,
     itemsMap,
@@ -794,6 +880,11 @@ const getPivotSeries = ({
         },
         '',
     );
+
+    const isBaseline =
+        isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
+        (series.type === CartesianSeriesType.LINE ||
+            series.type === CartesianSeriesType.AREA);
 
     return {
         ...series,
@@ -852,6 +943,9 @@ const getPivotSeries = ({
                 hideOverlap: true,
             },
         }),
+        ...(isBaseline
+            ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+            : {}),
     };
 };
 
@@ -884,18 +978,20 @@ const getSimpleSeriesSymbolConfig = (series: Series) => {
 type GetSimpleSeriesArg = {
     series: Series;
     itemsMap: ItemsMap;
+    cartesianChart: CartesianChart;
     flipAxes: boolean | undefined;
     yFieldHash: string;
     xFieldHash: string;
     pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
 };
 
-const getSimpleSeries = ({
+export const getSimpleSeries = ({
     series,
     flipAxes,
     yFieldHash,
     xFieldHash,
     itemsMap,
+    cartesianChart,
     pivotValuesColumnsMap,
 }: GetSimpleSeriesArg) => ({
     ...series,
@@ -930,6 +1026,11 @@ const getSimpleSeries = ({
         ),
     },
     ...getSimpleSeriesSymbolConfig(series),
+    ...(isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
+        (series.type === CartesianSeriesType.LINE ||
+            series.type === CartesianSeriesType.AREA)
+        ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+        : {}),
     ...(series.label?.show && {
         label: {
             ...series.label,
@@ -1051,6 +1152,7 @@ const getEchartsSeriesFromPivotedData = (
             return getSimpleSeries({
                 series,
                 itemsMap,
+                cartesianChart,
                 flipAxes,
                 yFieldHash,
                 xFieldHash,
@@ -1087,6 +1189,7 @@ const getEchartsSeries = (
             return getSimpleSeries({
                 series,
                 itemsMap,
+                cartesianChart,
                 flipAxes,
                 yFieldHash,
                 xFieldHash,
@@ -1637,7 +1740,7 @@ const getSerieTotalForSort = ({
     return getSerieTotalFromRows(serie, rows, flipAxes);
 };
 
-const sortTooltipParamsByLegendOrder = (
+export const sortTooltipParamsByLegendOrder = (
     params: unknown[],
     legendOrder: string[] | undefined,
 ): unknown[] => {
@@ -1668,22 +1771,7 @@ const sortTooltipParamsByLegendOrder = (
     });
 };
 
-const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
-    if (serie.name) return serie.name;
-
-    const displayName = serie.dimensions?.[1]?.displayName;
-    if (typeof displayName === 'string' && displayName.length > 0) {
-        return displayName;
-    }
-
-    if (typeof serie.encode?.seriesName === 'string') {
-        return serie.encode.seriesName;
-    }
-
-    return '';
-};
-
-const mergeValueSortLegendData = (
+export const mergeValueSortLegendData = (
     series: EChartSeries[],
     stackOrder?: string[],
     lineOrder?: string[],
@@ -1692,13 +1780,18 @@ const mergeValueSortLegendData = (
         return undefined;
     }
 
+    // Baseline series names never belong in legend data
+    const baselineNames = new Set(
+        series.filter(isBaselineSeries).map(getEchartsSeriesLegendName),
+    );
+
     const result: string[] = [];
     const seen = new Set<string>();
 
     const appendNames = (names: string[] | undefined) => {
         if (!names?.length) return;
         names.forEach((name) => {
-            if (name && !seen.has(name)) {
+            if (name && !baselineNames.has(name) && !seen.has(name)) {
                 result.push(name);
                 seen.add(name);
             }
@@ -1724,10 +1817,12 @@ const mergeValueSortLegendData = (
             }
             appendNames(lineOrder);
         } else {
-            const name = getEchartsSeriesLegendName(serie);
-            if (name && !seen.has(name)) {
-                result.push(name);
-                seen.add(name);
+            if (!isBaselineSeries(serie)) {
+                const name = getEchartsSeriesLegendName(serie);
+                if (name && !seen.has(name)) {
+                    result.push(name);
+                    seen.add(name);
+                }
             }
             index += 1;
         }
@@ -1737,6 +1832,7 @@ const mergeValueSortLegendData = (
     appendNames(lineOrder);
 
     series.forEach((serie) => {
+        if (isBaselineSeries(serie)) return;
         const name = getEchartsSeriesLegendName(serie);
         if (name && !seen.has(name)) {
             result.push(name);
@@ -1822,15 +1918,19 @@ export const getStackedBarLegendOrder = ({
     sortDirection: 'asc' | 'desc';
     flipAxes: boolean;
 }): string[] => {
-    return sortStackedBarSeriesByTotalValue({
-        series,
-        rows,
-        datasetRows,
-        sortDirection,
-        flipAxes,
-    })
-        .map(getEchartsSeriesLegendName)
-        .filter((name) => name.length > 0);
+    return (
+        sortStackedBarSeriesByTotalValue({
+            series,
+            rows,
+            datasetRows,
+            sortDirection,
+            flipAxes,
+        })
+            // Baseline series never appear in the legend
+            .filter((serie) => !isBaselineSeries(serie))
+            .map(getEchartsSeriesLegendName)
+            .filter((name) => name.length > 0)
+    );
 };
 
 /**
@@ -1943,16 +2043,20 @@ export const getLineLegendOrder = ({
     sortDirection: 'asc' | 'desc';
     flipAxes: boolean;
 }): string[] => {
-    return sortLineSeriesByValue({
-        series,
-        rows,
-        datasetRows,
-        sortDirection,
-        flipAxes,
-    })
-        .filter((serie) => serie.type === CartesianSeriesType.LINE)
-        .map(getEchartsSeriesLegendName)
-        .filter((name) => name.length > 0);
+    return (
+        sortLineSeriesByValue({
+            series,
+            rows,
+            datasetRows,
+            sortDirection,
+            flipAxes,
+        })
+            .filter((serie) => serie.type === CartesianSeriesType.LINE)
+            // Baseline series never appear in the legend
+            .filter((serie) => !isBaselineSeries(serie))
+            .map(getEchartsSeriesLegendName)
+            .filter((name) => name.length > 0)
+    );
 };
 
 /**
@@ -3323,10 +3427,10 @@ const getEchartAxes = ({
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
                 ? 100 // For 100% stacking without flipped axes, max is always 100
                 : shouldUseAlignedMaxForLeftAxis
-                  ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
-                  : yAxisConfiguration?.[0]?.max ||
-                    referenceLineMaxLeftY ||
-                    maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+                ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
+                : yAxisConfiguration?.[0]?.max ||
+                  referenceLineMaxLeftY ||
+                  maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
             : undefined;
 
     const minYAxisValue =
@@ -4001,6 +4105,7 @@ const useEchartsCartesianConfig = (
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
             stackSortLegendData = sortedSeries
+                .filter((serie) => !isBaselineSeries(serie))
                 .map(getEchartsSeriesLegendName)
                 .filter((name) => name.length > 0);
 
@@ -4798,9 +4903,9 @@ const useEchartsCartesianConfig = (
             containLabel: useManualFlipAxesLeftPadding
                 ? false
                 : validCartesianConfig?.layout.flipAxes &&
-                    validCartesianConfig.layout.xField
-                  ? true
-                  : grid.containLabel,
+                  validCartesianConfig.layout.xField
+                ? true
+                : grid.containLabel,
             left: gridLeft.includes('px')
                 ? `${resolvedLeftPadding}px`
                 : grid.left,

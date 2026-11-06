@@ -5491,7 +5491,12 @@
       },
       "stack_series_sort_by_value": "Sort stacked series",
       "series_sort": "Sort series",
-      "tried": "Tried to reference field with unknown id:"
+      "tried": "Tried to reference field with unknown id:",
+      "baseline": "Show as baseline",
+      "baseline_style_width": "Line width",
+      "baseline_style_line_type": "Line style",
+      "baseline_line_type_solid": "Solid",
+      "baseline_line_type_dashed": "Dashed"
     }
   },
   "components_visualization_configs_chart_funnel": {

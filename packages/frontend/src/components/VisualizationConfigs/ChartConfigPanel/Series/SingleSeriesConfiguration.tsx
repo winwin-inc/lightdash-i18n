@@ -71,6 +71,10 @@ const SingleSeriesConfiguration: FC<Props> = ({
         series.type === CartesianSeriesType.LINE && !!series.areaStyle
             ? CartesianSeriesType.AREA
             : series.type;
+    // 基准线系列强制无数据点符号，对应复选框隐藏，避免无效配置
+    const isBaselineRow = (layout?.baselineFieldIds ?? []).includes(
+        series.encode?.yRef?.field ?? '',
+    );
     const [seriesValue, setSeriesValue] = useDebouncedState(
         getSingleSeries(series)?.name || seriesLabel,
         200,
@@ -288,32 +292,38 @@ const SingleSeriesConfiguration: FC<Props> = ({
                     {(type === CartesianSeriesType.LINE ||
                         type === CartesianSeriesType.AREA) && (
                         <Group spacing="xs">
-                            <Checkbox
-                                checked={Boolean(series.showSymbol)}
-                                label={t(
-                                    'components_visualization_configs_chart.series.show_symbol',
-                                )}
-                                onChange={() => {
-                                    updateSingleSeries({
-                                        ...series,
-                                        showSymbol: !Boolean(series.showSymbol),
-                                    });
-                                }}
-                            />
-                            <Checkbox
-                                checked={Boolean(series.filledSymbol)}
-                                label={t(
-                                    'components_visualization_configs_chart.series.filled_symbol',
-                                )}
-                                onChange={() => {
-                                    updateSingleSeries({
-                                        ...series,
-                                        filledSymbol: !Boolean(
-                                            series.filledSymbol,
-                                        ),
-                                    });
-                                }}
-                            />
+                            {!isBaselineRow && (
+                                <Checkbox
+                                    checked={Boolean(series.showSymbol)}
+                                    label={t(
+                                        'components_visualization_configs_chart.series.show_symbol',
+                                    )}
+                                    onChange={() => {
+                                        updateSingleSeries({
+                                            ...series,
+                                            showSymbol: !Boolean(
+                                                series.showSymbol,
+                                            ),
+                                        });
+                                    }}
+                                />
+                            )}
+                            {!isBaselineRow && (
+                                <Checkbox
+                                    checked={Boolean(series.filledSymbol)}
+                                    label={t(
+                                        'components_visualization_configs_chart.series.filled_symbol',
+                                    )}
+                                    onChange={() => {
+                                        updateSingleSeries({
+                                            ...series,
+                                            filledSymbol: !Boolean(
+                                                series.filledSymbol,
+                                            ),
+                                        });
+                                    }}
+                                />
+                            )}
                             <Checkbox
                                 checked={series.smooth}
                                 label={t(

@@ -5517,7 +5517,12 @@
       },
       "stack_series_sort_by_value": "堆叠系列排序",
       "series_sort": "系列排序",
-      "tried": "尝试引用未知ID的字段:"
+      "tried": "尝试引用未知ID的字段:",
+      "baseline": "作为基准线",
+      "baseline_style_width": "线宽",
+      "baseline_style_line_type": "线型",
+      "baseline_line_type_solid": "实线",
+      "baseline_line_type_dashed": "虚线"
     }
   },
   "components_visualization_configs_chart_funnel": {

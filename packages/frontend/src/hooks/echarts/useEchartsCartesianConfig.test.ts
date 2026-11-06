@@ -1,4 +1,9 @@
-import { CartesianSeriesType, type ResultRow } from '@lightdash/common';
+import {
+    CartesianSeriesType,
+    type CartesianChart,
+    type ResultRow,
+    type Series,
+} from '@lightdash/common';
 import { describe, expect, test, vi } from 'vitest';
 import { type InfiniteQueryResults } from '../useQueryResults';
 import {
@@ -9,18 +14,23 @@ import {
     getAxisDefaultMinValue,
     getLineLegendOrder,
     getMinAndMaxValues,
+    getPivotSeries,
     getSeriesValueFromRow,
+    getSimpleSeries,
     getSinglePointTimeAxisConfig,
     getStackedBarLegendOrder,
     getTopXAxisVisualOverrides,
     getXAxisLineConfig,
     isUnusedTopXAxis,
+    mergeLegendSettings,
+    mergeValueSortLegendData,
     resolveXAxisLineOnZero,
     reverseStackedBarSeriesForPaint,
     shouldInjectSeriesCategoryAxis,
     sortFlipAxesWidePivotBarSeriesByBarTotals,
     sortLineSeriesByValue,
     sortStackedBarSeriesByValue,
+    sortTooltipParamsByLegendOrder,
     sortVerticalBarSeriesByBarTotals,
     sortWidePivotBarSeriesByBarTotals,
     type EChartSeries,
@@ -2312,5 +2322,352 @@ describe('getSinglePointTimeAxisConfig', () => {
         });
 
         expect(config).toEqual({});
+    });
+});
+
+describe('指标基准线 baseline series', () => {
+    const makeSourceSeries = (
+        fieldId: string,
+        type: Series['type'] = CartesianSeriesType.LINE,
+    ): Series => ({
+        encode: {
+            xRef: { field: 'dim_month' },
+            yRef: { field: fieldId },
+        },
+        type,
+    });
+
+    const makeChart = (layout: Record<string, unknown>): CartesianChart =>
+        ({ layout } as unknown as CartesianChart);
+
+    const makeLegendLineSerie = (
+        name: string,
+        isBaseline = false,
+    ): EChartSeries => ({
+        type: CartesianSeriesType.LINE,
+        connectNulls: true,
+        name,
+        ...(isBaseline ? { isBaseline: true } : {}),
+        encode: {
+            x: 'month',
+            y: name,
+            tooltip: [name],
+            seriesName: name,
+        },
+    });
+
+    test('simple 系列：基准线默认加粗(3)、实线、无标记、z 提升、带 isBaseline 标记', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_target'),
+            itemsMap: {},
+            cartesianChart: makeChart({ baselineFieldIds: ['metric_target'] }),
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
+        expect(serie.symbol).toBe('none');
+        expect(serie.showSymbol).toBe(false);
+        // 普通系列 z=2；基准线 z=4 在其上层，但低于 markLine/markPoint 默认 z=5
+        expect(serie.z).toBe(4);
+        expect(serie.isBaseline).toBe(true);
+    });
+
+    test('simple 系列：baselineStyle 覆盖宽度与线型', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_target'),
+            itemsMap: {},
+            cartesianChart: makeChart({
+                baselineFieldIds: ['metric_target'],
+                baselineStyle: { width: 5, lineType: 'dashed' },
+            }),
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.lineStyle).toEqual({ width: 5, type: 'dashed' });
+        expect(serie.symbol).toBe('none');
+        expect(serie.z).toBe(4);
+    });
+
+    test('pivoted 系列：按 yRef.field 判定并应用基准线样式', () => {
+        const serie = getPivotSeries({
+            series: makeSourceSeries('metric_target'),
+            itemsMap: {},
+            cartesianChart: makeChart({
+                yField: ['metric_actual', 'metric_target'],
+                baselineFieldIds: ['metric_target'],
+            }),
+            pivotReference: { field: 'metric_target', pivotValues: [] },
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
+        expect(serie.symbol).toBe('none');
+        expect(serie.z).toBe(4);
+        expect(serie.isBaseline).toBe(true);
+    });
+
+    test('flipAxes 时判定仍以 yRef.field 为准（轴互换不影响）', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_target'),
+            itemsMap: {},
+            cartesianChart: makeChart({ baselineFieldIds: ['metric_target'] }),
+            flipAxes: true,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.isBaseline).toBe(true);
+        expect(serie.encode?.x).toBe('metric_target');
+        expect(serie.encode?.y).toBe('dim_month');
+    });
+
+    test('回归：无 baselineFieldIds 时输出不含基准线相关字段', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_actual'),
+            itemsMap: {},
+            cartesianChart: makeChart({}),
+            flipAxes: false,
+            yFieldHash: 'metric_actual',
+            xFieldHash: 'dim_month',
+        }) as EChartSeries;
+
+        expect(serie.lineStyle).toBeUndefined();
+        expect(serie.symbol).toBeUndefined();
+        expect(serie.z).toBeUndefined();
+        expect(serie.isBaseline).toBeUndefined();
+        // 保持原有默认：LINE 系列 showSymbol=true，symbolSize 由原逻辑决定
+        expect(serie.showSymbol).toBe(true);
+        expect(serie.symbolSize).toBe(0);
+    });
+
+    test('回归：baselineFieldIds 不包含该字段时不按基准线渲染', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_actual'),
+            itemsMap: {},
+            cartesianChart: makeChart({ baselineFieldIds: ['metric_target'] }),
+            flipAxes: false,
+            yFieldHash: 'metric_actual',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.isBaseline).toBeUndefined();
+        expect(serie.lineStyle).toBeUndefined();
+    });
+
+    test('回归：基准线指标切为 bar 类型后不再按基准线渲染（可从图例找回）', () => {
+        const serie = getSimpleSeries({
+            series: makeSourceSeries('metric_target', CartesianSeriesType.BAR),
+            itemsMap: {},
+            cartesianChart: makeChart({ baselineFieldIds: ['metric_target'] }),
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        });
+
+        expect(serie.isBaseline).toBeUndefined();
+        expect(serie.lineStyle).toBeUndefined();
+        expect(serie.z).toBeUndefined();
+    });
+
+    describe('图例排除', () => {
+        test('getLineLegendOrder 排除基准线名', () => {
+            const series = [
+                makeLegendLineSerie('实际值'),
+                makeLegendLineSerie('目标基准', true),
+                makeLegendLineSerie('预算'),
+            ];
+            const datasetRows = [
+                {
+                    month: '2025-07',
+                    实际值: 10,
+                    目标基准: 99,
+                    预算: 5,
+                },
+            ];
+
+            const legendOrder = getLineLegendOrder({
+                series,
+                rows: [],
+                datasetRows,
+                sortDirection: 'desc',
+                flipAxes: false,
+            });
+
+            expect(legendOrder).toEqual(['实际值', '预算']);
+        });
+
+        test('getStackedBarLegendOrder 排除基准线名', () => {
+            const makeStackedBarSerie = (
+                name: string,
+                isBaseline = false,
+            ): EChartSeries => ({
+                type: CartesianSeriesType.BAR,
+                connectNulls: true,
+                stack: 'stack1',
+                name,
+                ...(isBaseline ? { isBaseline: true } : {}),
+                encode: {
+                    x: name,
+                    y: 'category',
+                    tooltip: [name],
+                    seriesName: name,
+                },
+            });
+            const series = [
+                makeStackedBarSerie('普通柱'),
+                makeStackedBarSerie('基准柱', true),
+            ];
+            const datasetRows = [{ category: 0, 普通柱: 3, 基准柱: 9 }];
+
+            const legendOrder = getStackedBarLegendOrder({
+                series,
+                rows: [],
+                datasetRows,
+                sortDirection: 'desc',
+                flipAxes: true,
+            });
+
+            expect(legendOrder).toEqual(['普通柱']);
+        });
+
+        test('mergeValueSortLegendData 从排序 order 与兜底序列中排除基准线名', () => {
+            const series = [
+                makeLegendLineSerie('线1'),
+                makeLegendLineSerie('目标基准', true),
+            ];
+
+            // lineOrder 中混入基准线名
+            expect(
+                mergeValueSortLegendData(series, undefined, [
+                    '目标基准',
+                    '线1',
+                ]),
+            ).toEqual(['线1']);
+
+            // 无 lineOrder 时走 series 兜底路径
+            expect(
+                mergeValueSortLegendData(series, ['线1'], undefined),
+            ).toEqual(['线1']);
+        });
+
+        test('mergeLegendSettings：有基准线时 legend.data 由非基准线名构成', () => {
+            const series = [
+                makeLegendLineSerie('实际值'),
+                makeLegendLineSerie('目标基准', true),
+                makeLegendLineSerie('预算'),
+            ];
+
+            const legend = mergeLegendSettings(
+                undefined,
+                undefined,
+                series,
+            ) as { show?: boolean; data?: string[] };
+
+            expect(legend.data).toEqual(['实际值', '预算']);
+            expect(legend.show).toBe(true);
+        });
+
+        test('mergeLegendSettings：legendDataOrder 中过滤基准线名', () => {
+            const series = [
+                makeLegendLineSerie('实际值'),
+                makeLegendLineSerie('目标基准', true),
+            ];
+
+            const legend = mergeLegendSettings(undefined, undefined, series, [
+                '目标基准',
+                '实际值',
+            ]) as { data?: string[] };
+
+            expect(legend.data).toEqual(['实际值']);
+        });
+
+        test('回归：无基准线时 mergeLegendSettings/mergeValueSortLegendData 输出与原来一致', () => {
+            const series = [
+                makeLegendLineSerie('线1'),
+                makeLegendLineSerie('线2'),
+            ];
+
+            // 无 legendDataOrder 时不设置 data（保持 ECharts 默认构建）
+            const legend = mergeLegendSettings(
+                undefined,
+                undefined,
+                series,
+            ) as { show?: boolean; data?: string[] };
+            expect(legend).not.toHaveProperty('data');
+            expect(legend.show).toBe(true);
+
+            // legendDataOrder 原样透传
+            const legendWithOrder = mergeLegendSettings(
+                undefined,
+                undefined,
+                series,
+                ['线2', '线1'],
+            ) as { data?: string[] };
+            expect(legendWithOrder.data).toEqual(['线2', '线1']);
+
+            // 无排序 order 时返回 undefined
+            expect(
+                mergeValueSortLegendData(series, undefined, undefined),
+            ).toBeUndefined();
+        });
+    });
+
+    describe('tooltip', () => {
+        test('基准线名不在 legendOrder 时 tooltip 参数保留并排末尾', () => {
+            const params = [
+                { seriesName: '实际值', value: 1 },
+                { seriesName: '目标基准', value: 2 },
+                { seriesName: '预算', value: 3 },
+            ];
+
+            const sorted = sortTooltipParamsByLegendOrder(params, [
+                '预算',
+                '实际值',
+            ]) as { seriesName: string; value: number }[];
+
+            expect(sorted).toHaveLength(3);
+            expect(sorted.map((p) => p.seriesName)).toEqual([
+                '预算',
+                '实际值',
+                '目标基准',
+            ]);
+        });
+
+        test('基准线名在 legendOrder 中时按其顺序排序', () => {
+            const params = [
+                { seriesName: '实际值', value: 1 },
+                { seriesName: '目标基准', value: 2 },
+            ];
+
+            const sorted = sortTooltipParamsByLegendOrder(params, [
+                '目标基准',
+                '实际值',
+            ]) as { seriesName: string; value: number }[];
+
+            expect(sorted.map((p) => p.seriesName)).toEqual([
+                '目标基准',
+                '实际值',
+            ]);
+        });
+
+        test('无 legendOrder 时保持原序且不报错', () => {
+            const params = [
+                { seriesName: '实际值', value: 1 },
+                { seriesName: '目标基准', value: 2 },
+            ];
+
+            const sorted = sortTooltipParamsByLegendOrder(
+                params,
+                undefined,
+            ) as { seriesName: string; value: number }[];
+
+            expect(sorted).toEqual(params);
+        });
     });
 });

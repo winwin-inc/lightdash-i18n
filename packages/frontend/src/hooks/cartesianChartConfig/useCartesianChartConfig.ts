@@ -497,6 +497,40 @@ const useCartesianChartConfig = ({
         },
         [],
     );
+
+    /**
+     * Declares (enabled) or removes (disabled) a metric field as a baseline
+     * series in the chart layout.
+     */
+    const setBaselineFieldEnabled = useCallback(
+        (fieldId: string, enabled: boolean) => {
+            setDirtyLayout((prev) => {
+                const currentFieldIds = prev?.baselineFieldIds ?? [];
+                const nextFieldIds = enabled
+                    ? currentFieldIds.includes(fieldId)
+                        ? currentFieldIds
+                        : [...currentFieldIds, fieldId]
+                    : currentFieldIds.filter((id) => id !== fieldId);
+
+                return {
+                    ...prev,
+                    baselineFieldIds: nextFieldIds,
+                };
+            });
+        },
+        [],
+    );
+
+    /** Partially updates the shared baseline style on the chart layout. */
+    const updateBaselineStyle = useCallback(
+        (style: NonNullable<CompleteCartesianChartLayout['baselineStyle']>) => {
+            setDirtyLayout((prev) => ({
+                ...prev,
+                baselineStyle: { ...prev?.baselineStyle, ...style },
+            }));
+        },
+        [],
+    );
     const addSingleSeries = useCallback((yField: string) => {
         setDirtyLayout((prev) => ({
             ...prev,
@@ -1184,6 +1218,8 @@ const useCartesianChartConfig = ({
         setXAxisLineOnZero,
         setBarMaxWidth,
         setBarMaxWidthMobile,
+        setBaselineFieldEnabled,
+        updateBaselineStyle,
         updateSeries,
         referenceLines,
         setReferenceLines,

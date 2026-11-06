@@ -25,6 +25,8 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import type useCartesianChartConfig from '../../../../hooks/cartesianChartConfig/useCartesianChartConfig';
+import { isCartesianVisualizationConfig } from '../../../LightdashVisualization/types';
+import { useVisualizationContext } from '../../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../../common/Config';
 import { GrabIcon } from '../../common/GrabIcon';
 import { ChartTypeSelect } from './ChartTypeSelect';
@@ -76,6 +78,15 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
     series,
 }) => {
     const { t } = useTranslation();
+    const { visualizationConfig } = useVisualizationContext();
+    const cartesianChartConfig = isCartesianVisualizationConfig(
+        visualizationConfig,
+    )
+        ? visualizationConfig.chartConfig
+        : undefined;
+    const setBaselineFieldEnabled =
+        cartesianChartConfig?.setBaselineFieldEnabled;
+    const updateBaselineStyle = cartesianChartConfig?.updateBaselineStyle;
 
     const VALUE_LABELS_OPTIONS = [
         {
@@ -185,6 +196,26 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
         },
     ];
 
+    const BASELINE_WIDTH_OPTIONS = ['1', '2', '3', '4', '5'].map((width) => ({
+        value: width,
+        label: width,
+    }));
+
+    const BASELINE_LINE_TYPE_OPTIONS = [
+        {
+            value: 'solid',
+            label: t(
+                'components_visualization_configs_chart.series.baseline_line_type_solid',
+            ),
+        },
+        {
+            value: 'dashed',
+            label: t(
+                'components_visualization_configs_chart.series.baseline_line_type_dashed',
+            ),
+        },
+    ];
+
     const chartType =
         seriesGroup[0].type === CartesianSeriesType.LINE &&
         !!seriesGroup[0].areaStyle
@@ -193,6 +224,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
 
     const chartValue = isChartTypeTheSameForAllSeries ? chartType : 'mixed';
     const fieldKey = getItemId(item);
+    const isBaselineField = (layout?.baselineFieldIds ?? []).includes(fieldKey);
     const canSortStackSeriesByValue =
         Boolean(seriesGroup[0].stack) &&
         chartValue === CartesianSeriesType.BAR &&
@@ -201,6 +233,21 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
         (chartValue === CartesianSeriesType.LINE ||
             chartValue === CartesianSeriesType.AREA) &&
         seriesGroup.length > 1;
+
+    /**
+     * Clearing the rename input of a pivot series restores its default name,
+     * so an empty override is stored as `undefined` instead of ''.
+     */
+    const handleUpdateSingleSeries = useCallback(
+        (updatedSeries: Series) => {
+            updateSingleSeries(
+                updatedSeries.name === ''
+                    ? { ...updatedSeries, name: undefined }
+                    : updatedSeries,
+            );
+        },
+        [updateSingleSeries],
+    );
 
     const onDragEnd = useCallback(
         (result: DropResult) => {
@@ -356,47 +403,119 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                     </Group>
                     {(chartValue === CartesianSeriesType.LINE ||
                         chartValue === CartesianSeriesType.AREA) && (
-                        <Group spacing="xs">
-                            <Checkbox
-                                checked={Boolean(seriesGroup[0].showSymbol)}
-                                label={t(
-                                    'components_visualization_configs_chart.series.show_symbol',
-                                )}
-                                onChange={() => {
-                                    updateAllGroupedSeries(fieldKey, {
-                                        showSymbol: !Boolean(
+                        <>
+                            <Group spacing="xs">
+                                {!isBaselineField && (
+                                    <Checkbox
+                                        checked={Boolean(
                                             seriesGroup[0].showSymbol,
-                                        ),
-                                    });
-                                }}
-                            />
-                            <Checkbox
-                                checked={Boolean(seriesGroup[0].filledSymbol)}
-                                label={t(
-                                    'components_visualization_configs_chart.series.filled_symbol',
+                                        )}
+                                        label={t(
+                                            'components_visualization_configs_chart.series.show_symbol',
+                                        )}
+                                        onChange={() => {
+                                            updateAllGroupedSeries(fieldKey, {
+                                                showSymbol: !Boolean(
+                                                    seriesGroup[0].showSymbol,
+                                                ),
+                                            });
+                                        }}
+                                    />
                                 )}
-                                onChange={() => {
-                                    updateAllGroupedSeries(fieldKey, {
-                                        filledSymbol: !Boolean(
+                                {!isBaselineField && (
+                                    <Checkbox
+                                        checked={Boolean(
                                             seriesGroup[0].filledSymbol,
-                                        ),
-                                    });
-                                }}
-                            />
-                            <Checkbox
-                                checked={seriesGroup[0].smooth}
-                                label={t(
-                                    'components_visualization_configs_chart.series.smooth',
+                                        )}
+                                        label={t(
+                                            'components_visualization_configs_chart.series.filled_symbol',
+                                        )}
+                                        onChange={() => {
+                                            updateAllGroupedSeries(fieldKey, {
+                                                filledSymbol: !Boolean(
+                                                    seriesGroup[0].filledSymbol,
+                                                ),
+                                            });
+                                        }}
+                                    />
                                 )}
-                                onChange={() => {
-                                    updateAllGroupedSeries(fieldKey, {
-                                        smooth: !(
-                                            seriesGroup[0].smooth ?? true
-                                        ),
-                                    });
-                                }}
-                            />
-                        </Group>
+                                <Checkbox
+                                    checked={seriesGroup[0].smooth}
+                                    label={t(
+                                        'components_visualization_configs_chart.series.smooth',
+                                    )}
+                                    onChange={() => {
+                                        updateAllGroupedSeries(fieldKey, {
+                                            smooth: !(
+                                                seriesGroup[0].smooth ?? true
+                                            ),
+                                        });
+                                    }}
+                                />
+                            </Group>
+                            <Stack spacing="xs" mt="xs">
+                                <Group spacing="xs">
+                                    <Checkbox
+                                        checked={isBaselineField}
+                                        label={t(
+                                            'components_visualization_configs_chart.series.baseline',
+                                        )}
+                                        onChange={() => {
+                                            setBaselineFieldEnabled?.(
+                                                fieldKey,
+                                                !isBaselineField,
+                                            );
+                                        }}
+                                    />
+                                </Group>
+                                {isBaselineField && (
+                                    <Group spacing="xs" noWrap>
+                                        <Select
+                                            label={t(
+                                                'components_visualization_configs_chart.series.baseline_style_width',
+                                            )}
+                                            value={String(
+                                                Math.min(
+                                                    5,
+                                                    Math.max(
+                                                        1,
+                                                        layout?.baselineStyle
+                                                            ?.width ?? 3,
+                                                    ),
+                                                )
+                                            )}
+                                            data={BASELINE_WIDTH_OPTIONS}
+                                            onChange={(value) => {
+                                                updateBaselineStyle?.({
+                                                    width: parseInt(
+                                                        value || '3',
+                                                        10,
+                                                    ),
+                                                });
+                                            }}
+                                        />
+                                        <Select
+                                            label={t(
+                                                'components_visualization_configs_chart.series.baseline_style_line_type',
+                                            )}
+                                            value={
+                                                layout?.baselineStyle
+                                                    ?.lineType ?? 'solid'
+                                            }
+                                            data={BASELINE_LINE_TYPE_OPTIONS}
+                                            onChange={(value) => {
+                                                updateBaselineStyle?.({
+                                                    lineType:
+                                                        value === 'dashed'
+                                                            ? 'dashed'
+                                                            : 'solid',
+                                                });
+                                            }}
+                                        />
+                                    </Group>
+                                )}
+                            </Stack>
+                        </>
                     )}
                     {canSortSeriesByValue && (
                         <Stack spacing="xs" mt="xs">
@@ -581,7 +700,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                                                             : pivotLabel
                                                                     }
                                                                     updateSingleSeries={
-                                                                        updateSingleSeries
+                                                                        handleUpdateSingleSeries
                                                                     }
                                                                     getSingleSeries={
                                                                         getSingleSeries
