@@ -487,7 +487,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                     }}
                                 />
                             </Group>
-                            <Stack spacing="xs" mt="xs">
+                            <Stack spacing="xs">
                                 <Group spacing="xs">
                                     <Checkbox
                                         checked={isBaselineField}
@@ -552,7 +552,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         </>
                     )}
                     {canSortSeriesByValue && (
-                        <Stack spacing="xs" mt="xs">
+                        <Stack spacing="xs">
                             <Group spacing="xs">
                                 <Checkbox
                                     checked={
@@ -600,7 +600,7 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                         </Stack>
                     )}
                     {canSortStackSeriesByValue && (
-                        <Stack spacing="xs" mt="xs">
+                        <Stack spacing="xs">
                             <Group spacing="xs">
                                 <Checkbox
                                     checked={
