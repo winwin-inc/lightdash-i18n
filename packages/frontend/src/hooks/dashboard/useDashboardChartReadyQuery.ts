@@ -154,7 +154,10 @@ export const useDashboardChartReadyQuery = (
 
     const error = chartQuery.error;
 
-    const { data: explore } = useExplore(
+    // explore 的 error 必须保留：explore 加载失败时 queryEnabled 为 false、
+    // queryResult 永远不会发出请求，若丢弃 error 会让 tile 落进 loading 分支永久骨架
+    // （见 docs/visualization/chart-error-diagnostics-plan.md 第 6 节）
+    const { data: explore, error: exploreError } = useExplore(
         chartQuery.data?.metricQuery?.exploreName,
         undefined,
         dashboardUuid || undefined,
@@ -486,7 +489,13 @@ export const useDashboardChartReadyQuery = (
 
     return {
         ...queryResult,
-        error: error || queryResult.error,
+        // 顶层单独暴露 chart/explore：查询失败时 queryResult.data 为 undefined，
+        // 错误诊断仍需要用到图表定义（两者与 data 同源）
+        chart: chartQuery.data ?? queryResult.data?.chart,
+        explore: explore ?? queryResult.data?.explore,
+        // explore 加载失败（如 NotExistsError）也要合并进 error，
+        // 否则 queryEnabled=false 且 error=null → tile 永久骨架
+        error: error || queryResult.error || (exploreError ?? null),
         tablePagination,
     };
 };

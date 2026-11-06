@@ -1,6 +1,7 @@
 import { subject } from '@casl/ability';
 import {
     CartesianSeriesType,
+    ChartKind,
     ChartType,
     createDashboardFilterRuleFromField,
     DashboardTileTypes,
@@ -35,6 +36,7 @@ import {
     Group,
     HoverCard,
     Menu,
+    Modal,
     Portal,
     Stack,
     Text,
@@ -111,6 +113,7 @@ import useTracking from '../../providers/Tracking/useTracking';
 import { EventName } from '../../types/Events';
 import { FilterDashboardTo } from '../DashboardFilter/FilterDashboardTo';
 import LightdashVisualization from '../LightdashVisualization';
+import ChartErrorDetails from '../LightdashVisualization/ChartErrorDetails';
 import VisualizationProvider from '../LightdashVisualization/VisualizationProvider';
 import { type TablePaginationState } from '../LightdashVisualization/context';
 import DrillDownMenuItem from '../MetricQueryData/DrillDownMenuItem';
@@ -1942,11 +1945,30 @@ const DashboardChartTileMinimal: FC<DashboardChartTileMainProps> = (props) => {
     );
 };
 
+/** ChartKind → i18n key 后缀（前缀 components_explorer_visualization_card_options.chart_types.） */
+const CHART_KIND_LABEL_KEYS: Record<ChartKind, string> = {
+    [ChartKind.LINE]: 'line_chart',
+    [ChartKind.HORIZONTAL_BAR]: 'horizontal_bar_chart',
+    [ChartKind.VERTICAL_BAR]: 'bar_chart',
+    [ChartKind.SCATTER]: 'scatter_chart',
+    [ChartKind.AREA]: 'area_chart',
+    [ChartKind.MIXED]: 'mixed',
+    [ChartKind.PIE]: 'pie_chart',
+    [ChartKind.TABLE]: 'table',
+    [ChartKind.BIG_NUMBER]: 'big_value',
+    [ChartKind.FUNNEL]: 'funnel_chart',
+    [ChartKind.TREEMAP]: 'treemap',
+    [ChartKind.CUSTOM]: 'custom',
+    [ChartKind.DATA_APP_VIZ]: 'unknown',
+};
+
 type DashboardChartTileProps = Omit<
     DashboardChartTileMainProps,
     'dashboardChartReadyQuery' | 'resultsData'
 > & {
     minimal?: boolean;
+    /** 门控：embed / 截图等场景不渲染错误诊断面板，避免向非内部用户暴露 schema */
+    suppressErrorDetails?: boolean;
     canExportCsv?: boolean;
     canExportImages?: boolean;
     dashboardChartReadyQuery?: DashboardChartReadyQuery;
@@ -1960,6 +1982,10 @@ export const GenericDashboardChartTile: FC<
     DashboardChartTileProps & {
         isLoading: boolean;
         error: ApiError | null;
+        /** 查询失败时（data 为 undefined）用于错误诊断的 chart 兜底（与 data 同源） */
+        errorFallbackChart?: SavedChart;
+        /** 查询失败时（data 为 undefined）用于错误诊断的 explore 兜底（与 data 同源） */
+        errorFallbackExplore?: Explore | null;
         tablePagination?: Omit<
             TablePaginationState,
             'totalRowCount' | 'isCountLoading' | 'isCountError'
@@ -1967,12 +1993,15 @@ export const GenericDashboardChartTile: FC<
     }
 > = ({
     minimal = false,
+    suppressErrorDetails = false,
     tile,
     isEditMode,
     isLoading,
     dashboardChartReadyQuery,
     resultsData,
     error,
+    errorFallbackChart,
+    errorFallbackExplore,
     canExportCsv = false,
     canExportImages = false,
     onExplore,
@@ -1987,6 +2016,8 @@ export const GenericDashboardChartTile: FC<
     }>();
     const { user } = useApp();
 
+    const [isDetailsOpen, { open, close }] = useDisclosure(false);
+
     const userCanManageChart =
         dashboardChartReadyQuery?.chart &&
         user.data?.ability?.can(
@@ -1995,43 +2026,95 @@ export const GenericDashboardChartTile: FC<
         );
 
     if (error !== null) {
+        // 门控：minimal（定时截图/邮件）与 embed 不渲染诊断面板，
+        // 避免向非内部用户暴露字段名/schema（plan 第 7 节约束 5）
+        const canShowErrorDetails = !minimal && !suppressErrorDetails;
+        // 查询失败时 readyQuery.data 为 undefined，诊断入参回退到
+        // hook 顶层暴露的 chart/explore（与 data 同源）
+        const errorChart =
+            errorFallbackChart ?? dashboardChartReadyQuery?.chart;
+        const errorExplore =
+            errorFallbackExplore ?? dashboardChartReadyQuery?.explore ?? null;
+        const errorMetricQuery =
+            errorChart?.metricQuery ??
+            dashboardChartReadyQuery?.executeQueryResponse?.metricQuery;
+        const chartKind = tile.properties.lastVersionChartKind;
+        const chartTypeLabel = chartKind
+            ? t(
+                  `components_explorer_visualization_card_options.chart_types.${CHART_KIND_LABEL_KEYS[chartKind]}`,
+              )
+            : undefined;
+
         return (
-            <TileBase
-                title=""
-                isEditMode={isEditMode}
-                tile={tile}
-                extraMenuItems={
-                    tile.properties.savedChartUuid && (
-                        <Tooltip
-                            disabled={!isEditMode}
-                            label={t(
-                                'components_dashboard_tiles_chart_title.tooltip_editing_chart',
-                            )}
-                        >
-                            <Box>
-                                <EditChartMenuItem
-                                    tile={tile}
-                                    disabled={isEditMode}
-                                />
-                            </Box>
-                        </Tooltip>
-                    )
-                }
-                {...rest}
-            >
-                <SuboptimalState
-                    icon={IconAlertCircle}
-                    title={formatChartErrorMessage(
-                        dashboardChartReadyQuery?.chart?.name ||
-                            tile.properties.chartName ||
-                            undefined,
-                        error?.error?.message ||
-                            t(
-                                'components_dashboard_tiles_chart_title.no_data_available',
-                            ),
-                    )}
-                ></SuboptimalState>
-            </TileBase>
+            <>
+                <TileBase
+                    title=""
+                    isEditMode={isEditMode}
+                    tile={tile}
+                    extraMenuItems={
+                        tile.properties.savedChartUuid && (
+                            <Tooltip
+                                disabled={!isEditMode}
+                                label={t(
+                                    'components_dashboard_tiles_chart_title.tooltip_editing_chart',
+                                )}
+                            >
+                                <Box>
+                                    <EditChartMenuItem
+                                        tile={tile}
+                                        disabled={isEditMode}
+                                    />
+                                </Box>
+                            </Tooltip>
+                        )
+                    }
+                    {...rest}
+                >
+                    <SuboptimalState
+                        icon={IconAlertCircle}
+                        title={formatChartErrorMessage(
+                            dashboardChartReadyQuery?.chart?.name ||
+                                tile.properties.chartName ||
+                                undefined,
+                            error?.error?.message ||
+                                t(
+                                    'components_dashboard_tiles_chart_title.no_data_available',
+                                ),
+                        )}
+                    >
+                        {canShowErrorDetails ? (
+                            <ChartErrorDetails
+                                chartTypeLabel={chartTypeLabel}
+                                compact
+                                error={error.error}
+                                explore={errorExplore}
+                                metricQuery={errorMetricQuery}
+                                onViewDetails={open}
+                            />
+                        ) : null}
+                    </SuboptimalState>
+                </TileBase>
+                <Modal
+                    onClose={close}
+                    opened={isDetailsOpen}
+                    title={t('components_chart_error_details.view_details')}
+                >
+                    {/* v6 ScrollArea.Autosize 与 @types/react 19 类型不兼容，用 overflow 容器代替 */}
+                    <Box
+                        mah="70vh"
+                        style={{
+                            overflow: 'auto',
+                        }}
+                    >
+                        <ChartErrorDetails
+                            chartTypeLabel={chartTypeLabel}
+                            error={error.error}
+                            explore={errorExplore}
+                            metricQuery={errorMetricQuery}
+                        />
+                    </Box>
+                </Modal>
+            </>
         );
     }
 
@@ -2142,6 +2225,8 @@ const DashboardChartTile: FC<DashboardChartTileProps> = (props) => {
             resultsData={resultsData}
             dashboardChartReadyQuery={readyQuery.data}
             error={readyQuery.error ?? resultsData.error}
+            errorFallbackChart={readyQuery.chart}
+            errorFallbackExplore={readyQuery.explore}
             tablePagination={readyQuery.tablePagination}
         />
     );

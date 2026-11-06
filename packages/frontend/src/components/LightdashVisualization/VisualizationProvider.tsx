@@ -7,6 +7,7 @@ import {
     type ApiErrorDetail,
     type ChartConfig,
     type DashboardFilters,
+    type Explore,
     type ItemsMap,
     type MetricQuery,
     type ParametersValuesMap,
@@ -72,6 +73,8 @@ export type VisualizationProviderProps = {
     chartConfig: ChartConfig;
     initialPivotDimensions: string[] | undefined;
     unsavedMetricQuery?: MetricQuery;
+    /** 图表错误诊断用：当前 explore（编译后的字段宇宙） */
+    explore?: Explore | null;
     resultsData: InfiniteQueryResults & {
         metricQuery?: MetricQuery;
         fields?: ItemsMap;
@@ -138,6 +141,7 @@ const VisualizationProvider: FC<
     apiErrorDetail,
     parameters,
     unsavedMetricQuery,
+    explore,
     dashboardSlug,
     dashboardName,
     dashboardUuid,
@@ -540,6 +544,8 @@ const VisualizationProvider: FC<
         resultsData: effectiveResultsData,
         isLoading,
         apiErrorDetail,
+        unsavedMetricQuery,
+        explore,
         columnOrder,
         itemsMap,
         setStacking,

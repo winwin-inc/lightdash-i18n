@@ -8384,6 +8384,30 @@
   "components_lightdash_visualization": {
     "unable_to_load_visualization": "无法加载图表"
   },
+  "components_chart_error_details": {
+    "summary_invalid_one": "本图有 {{count}} 个字段不可用",
+    "summary_invalid_other": "本图有 {{count}} 个字段不可用",
+    "summary_none": "未发现失效字段，错误可能来自字段引用之外的原因",
+    "summary_uncertain": "本次查询共 {{count}} 个字段，错误可能来自其中之一",
+    "view_details": "查看详情",
+    "technical_details": "技术详情",
+    "group_dimension": "维度",
+    "group_metric": "指标",
+    "group_table_calculation": "表计算",
+    "more_in_group": "还有 {{count}} 个",
+    "invalid_badge": "不可用",
+    "origin_query": "图表字段",
+    "origin_filter": "图表筛选",
+    "origin_sort": "图表排序",
+    "origin_dashboard_filter": "看板筛选",
+    "origin_dashboard_sort": "看板排序",
+    "origin_date_zoom": "日期缩放",
+    "permission": "无权限访问该图表数据",
+    "not_found": "模型不可用，图表无法加载",
+    "parameter": "缺少必需参数，请先配置参数",
+    "chart_type_label": "类型：{{type}}",
+    "note_query_fields_only": "仅列出查询字段，不含自定义图表 spec 引用"
+  },
   "components_run_query_settings": {
     "auto_fetch_results": "自动获取结果",
     "automatically_rerun_query_on_change": "在更改时自动重新运行查询 (例如添加字段、更改排序)"

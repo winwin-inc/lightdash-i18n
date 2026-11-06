@@ -8358,6 +8358,30 @@
   "components_lightdash_visualization": {
     "unable_to_load_visualization": "Unable to load visualization"
   },
+  "components_chart_error_details": {
+    "summary_invalid_one": "This chart has 1 unavailable field",
+    "summary_invalid_other": "This chart has {{count}} unavailable fields",
+    "summary_none": "No unavailable fields found; the error may come from elsewhere",
+    "summary_uncertain": "This query uses {{count}} fields; the error may come from one of them",
+    "view_details": "View details",
+    "technical_details": "Technical details",
+    "group_dimension": "Dimensions",
+    "group_metric": "Metrics",
+    "group_table_calculation": "Table calculations",
+    "more_in_group": "{{count}} more",
+    "invalid_badge": "Unavailable",
+    "origin_query": "Chart field",
+    "origin_filter": "Chart filter",
+    "origin_sort": "Chart sort",
+    "origin_dashboard_filter": "Dashboard filter",
+    "origin_dashboard_sort": "Dashboard sort",
+    "origin_date_zoom": "Date zoom",
+    "permission": "No permission to access this chart's data",
+    "not_found": "The model is unavailable",
+    "parameter": "Missing required parameters",
+    "chart_type_label": "Type: {{type}}",
+    "note_query_fields_only": "Only query fields are listed"
+  },
   "components_run_query_settings": {
     "auto_fetch_results": "Auto-fetch results",
     "automatically_rerun_query_on_change": "Automatically re-run query on change (e.g. add fields, change sort)"
