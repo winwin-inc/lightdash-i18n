@@ -3,6 +3,7 @@ import {
     getSeriesId,
     type CartesianChart,
     type ItemsMap,
+    type PivotReference,
     type Series,
 } from '@lightdash/common';
 import { describe, expect, it, vi } from 'vitest';
@@ -253,7 +254,8 @@ describe('mergeExistingAndExpectedSeries：看板链路用户属性不丢失', (
                     yField: ['metric_actual'],
                 },
             } as unknown as CartesianChart,
-            pivotReference: rebuilt!.encode.yRef,
+            // 上面按 pivotValues[0].value === '产品C' 查找，pivotValues 必有值
+            pivotReference: rebuilt!.encode.yRef as Required<PivotReference>,
             flipAxes: false,
             xFieldHash: 'dim_month',
             yFieldHash: 'metric_actual.pro_name.产品C',
