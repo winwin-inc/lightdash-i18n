@@ -200,11 +200,19 @@ const getGroupUserPropertiesFromExistingSeries = (
     expectedSeries: Series,
     existingSeries: Series[],
 ): Pick<Series, 'hideMetricName' | 'color'> => {
-    const donorSeries = existingSeries.find(
+    const fieldSeries = existingSeries.filter(
         (serie) =>
             serie.encode.yRef.field === expectedSeries.encode.yRef.field,
     );
-    if (donorSeries === undefined) return {};
+    if (fieldSeries.length === 0) return {};
+
+    // 组级属性（hideMetricName）任何同 field 系列都携带；系列级自定义色只从
+    // 第一个非隐藏系列取（与渲染层 collapseBaselineSeries 的取色规则一致，
+    // 用户隐藏的系列不捐色）。全部隐藏时只携带 hideMetricName。
+    const firstVisibleSeries = fieldSeries.find(
+        (serie) => serie.hidden !== true,
+    );
+    const donorSeries = firstVisibleSeries ?? fieldSeries[0];
 
     // 逐值自定义颜色是系列级意图，不随新分组值继承；仅当合并基准线哨兵
     // 替换同 field 的逐值系列（同一条参考线）时携带用户色。
@@ -217,8 +225,8 @@ const getGroupUserPropertiesFromExistingSeries = (
             hideMetricName: donorSeries.hideMetricName,
         }),
         ...(replacesMergedBaseline &&
-            donorSeries.color !== undefined && {
-                color: donorSeries.color,
+            firstVisibleSeries?.color !== undefined && {
+                color: firstVisibleSeries.color,
             }),
     };
 };

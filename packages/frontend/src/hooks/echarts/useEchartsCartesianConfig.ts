@@ -1111,8 +1111,97 @@ export const getSimpleSeries = ({
     }),
 });
 
+/**
+ * Data column a series reads from the plotted dataset. Merged baseline series
+ * carry sentinel pivot values; `hashFieldReference` would hash them into
+ * `<field>.<dim>.__lightdash_baseline_merged__`, which is NOT the synthetic
+ * merged column produced by `applyBaselineMergedColumns`
+ * (`__baseline_merged__:<field>`). Resolve the merged column explicitly so
+ * sentinel-shaped saved series land on real data.
+ */
+export const getSeriesDataColumnKey = (yRef: PivotReference): string =>
+    isBaselineMergedPivotValues(yRef.pivotValues)
+        ? getBaselineMergedColumnKey(yRef.field)
+        : hashFieldReference(yRef);
+
+/**
+ * Render-layer normalization for baseline metrics declared in
+ * `layout.baselineFieldIds`. Whatever shape the saved series are in — one
+ * series per pivot value (`metric.dim.value`) or the merged sentinel series
+ * (`metric.dim.__lightdash_baseline_merged__`) — collapse them into a single
+ * series per field that reads the synthetic merged column, carrying the user
+ * properties (hideMetricName, color, …) of the field's first non-hidden
+ * series. This runs right before series generation on both the pivotDetails
+ * and the legacy pivot paths, so rendering is correct independent of the
+ * config-rebuild timing (dashboards skip the rebuild when rows are
+ * truncated) and of the shape the chart was saved in.
+ *
+ * Fields without a merged `rowKeyMap` entry (not pivoted in the data, or no
+ * data columns at all) are left untouched.
+ */
+export const collapseBaselineSeries = ({
+    series,
+    layout,
+    rowKeyMap,
+}: {
+    series: Series[];
+    layout: CartesianChart['layout'];
+    rowKeyMap: RowKeyMap;
+}): Series[] => {
+    const baselineFieldIds = layout.baselineFieldIds ?? [];
+    if (baselineFieldIds.length === 0) return series;
+
+    const mergedRefsByField = new Map<string, PivotReference>();
+    baselineFieldIds.forEach((field) => {
+        const ref = rowKeyMap[getBaselineMergedColumnKey(field)];
+        if (
+            ref &&
+            typeof ref === 'object' &&
+            'pivotValues' in ref &&
+            isBaselineMergedPivotValues(ref.pivotValues)
+        ) {
+            mergedRefsByField.set(field, ref);
+        }
+    });
+    if (mergedRefsByField.size === 0) return series;
+
+    const collapsedFields = new Set<string>();
+    return series.reduce<Series[]>((acc, serie) => {
+        const field = serie.encode.yRef.field;
+        const mergedRef = mergedRefsByField.get(field);
+        if (mergedRef === undefined) {
+            // Not a collapsible baseline field — render as saved
+            return [...acc, serie];
+        }
+        // Keep a single series per baseline field, anchored at the group's
+        // first position; drop the remaining per-value/sentinel siblings.
+        if (collapsedFields.has(field)) return acc;
+        collapsedFields.add(field);
+
+        // User properties come from the field's first non-hidden series; if
+        // every series of the field is hidden the user hid the baseline.
+        const donorSeries =
+            series.find(
+                (candidate) =>
+                    candidate.encode.yRef.field === field &&
+                    candidate.hidden !== true,
+            ) ?? serie;
+        if (donorSeries.hidden === true) return acc;
+
+        return [
+            ...acc,
+            {
+                ...donorSeries,
+                // Baselines are reference lines: they never join the stack
+                stack: undefined,
+                encode: { ...donorSeries.encode, yRef: mergedRef },
+            },
+        ];
+    }, []);
+};
+
 // New series generation for pre-pivoted data from backend
-const getEchartsSeriesFromPivotedData = (
+export const getEchartsSeriesFromPivotedData = (
     itemsMap: ItemsMap,
     cartesianChart: CartesianChart,
     rowKeyMap: RowKeyMap,
@@ -1122,6 +1211,11 @@ const getEchartsSeriesFromPivotedData = (
     const findMatchingColumnName = (series: Series): string | undefined => {
         if (isPivotReferenceWithValues(series.encode.yRef)) {
             const yRef = series.encode.yRef;
+            // Sentinel merged baseline series read the synthetic merged
+            // column directly — no pivotDetails column matches their values.
+            if (isBaselineMergedPivotValues(yRef.pivotValues)) {
+                return getBaselineMergedColumnKey(yRef.field);
+            }
             const valuesColumn = Object.values(
                 pivotValuesColumnsMap || {},
             ).find((col) => {
@@ -1146,7 +1240,11 @@ const getEchartsSeriesFromPivotedData = (
         return series.encode.yRef.field;
     };
 
-    const allSeries = cartesianChart.eChartsConfig.series || [];
+    const allSeries = collapseBaselineSeries({
+        series: cartesianChart.eChartsConfig.series || [],
+        layout: cartesianChart.layout,
+        rowKeyMap,
+    });
 
     const hasStackSeriesSortByValue = Boolean(
         getStackSeriesSortDirection(allSeries),
@@ -1229,17 +1327,24 @@ const getEchartsSeriesFromPivotedData = (
     );
 };
 
-const getEchartsSeries = (
+export const getEchartsSeries = (
     itemsMap: ItemsMap,
     cartesianChart: CartesianChart,
     pivotKeys: string[] | undefined,
+    rowKeyMap: RowKeyMap,
 ): EChartSeries[] => {
-    const resultSeries = (cartesianChart.eChartsConfig.series || [])
+    const resultSeries = collapseBaselineSeries({
+        series: cartesianChart.eChartsConfig.series || [],
+        layout: cartesianChart.layout,
+        rowKeyMap,
+    })
         .filter((s) => !s.hidden)
         .map<EChartSeries>((series) => {
             const { flipAxes } = cartesianChart.layout;
             const xFieldHash = hashFieldReference(series.encode.xRef);
-            const yFieldHash = hashFieldReference(series.encode.yRef);
+            // Sentinel merged baseline series must read the synthetic merged
+            // column, not the hash of their sentinel pivot reference.
+            const yFieldHash = getSeriesDataColumnKey(series.encode.yRef);
             if (pivotKeys && isPivotReferenceWithValues(series.encode.yRef)) {
                 return getPivotSeries({
                     series,
@@ -4107,6 +4212,7 @@ const useEchartsCartesianConfig = (
             itemsMap,
             validCartesianConfig,
             pivotDimensions,
+            rowKeyMap,
         );
     }, [
         validCartesianConfig,
