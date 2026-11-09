@@ -40,6 +40,7 @@ import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
     calculateSeriesLikeIdentifier,
+    getBaselineUserColor,
     isGroupedSeries,
 } from '../../hooks/useChartColorConfig/utils';
 import {
@@ -465,6 +466,15 @@ const VisualizationProvider: FC<
         (seriesLike: SeriesLike) => {
             // 哈希模式下，忽略当前图的 series/metadata 顺序色，改用看板系列色表 + 哈希避让
             if (!useHashBased && seriesLike.color) return seriesLike.color;
+
+            // 基准线系列是用户特意配色的参考线：哈希同步模式下也保留用户自定义色
+            if (useHashBased) {
+                const baselineColor = getBaselineUserColor(
+                    seriesLike,
+                    chartConfig,
+                );
+                if (baselineColor) return baselineColor;
+            }
 
             const seriesIdentifier = calculateSeriesLikeIdentifier(seriesLike);
             const completeIdentifier = seriesIdentifier[1] ?? '';
