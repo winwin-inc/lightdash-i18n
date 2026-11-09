@@ -1,169 +1,665 @@
-# Lightdash 空间授权「没生效却显示已授权」排查与修复
+# 空间授权判断的代码增强（PHP）
 
-**状态：原因已定位／修复待开发**
+**状态：待开发**
 
-> 现象：员工在报表系统里被分配了看板，Lightdash 里也显示「已授权」，但那员工始终看不到看板。
-> 本仓（Lightdash）不用改，要改的是报表系统 `report-server`。
-
----
-
-## 一、原因（一句话）
-
-**报表系统只看了「服务器有没有报错」，没看「这个人到底有没有权限」。**
-
-所以会出现：授权请求回来了、系统打个勾说「已授权」，但权限其实根本没给到那个人、也没给到那个空间。更麻烦的是——**打了勾之后，每 2 小时自动补漏的任务就会跳过它**，于是永远不会自我修复。
-
-打个比方：快递系统看到「下单成功」就把件标成「已签收」，从来不确认包裹到底送到没送到。签收之后，客服也不会再去追这个单了。
+> 目标：把「授权看板」这条链路的判断从「服务器没报错就算成功」改成「这个人现在真的有权限才算成功」。
+> 只涉及两个文件：`src/service/LightDashClientServiceImpl.php`、`src/service/DashboardServiceImpl.php`，
+> 外加一个命令 `src/application/command/LightdashSpaceChangeCommand.php`。
 
 ---
 
-## 二、怎么会走到这一步（三步）
+## 核心思路（三句话）
 
-1. **授权时只看响应**：请求返回「ok」就认为成功，连 HTTP 状态码都不看。
-2. **而这个接口的「ok」很廉价**：Lightdash 的共享接口只要那个空间存在就返回成功，**不检查授权给了谁、也不检查是不是看板真正所在的空间**。所以「成功」只代表一条记录写进库了，不代表那是对的。
-3. **成功后打个「已授权」标记，就再也不查了**：全代码库没有任何地方会把「已授权」改回「未授权」。
-
-第 1 步 + 第 2 步 = **假成功**。第 3 步 = **假成功永远不被发现**。
+1. **判断标准**：看 HTTP 状态码（`httpCode`），不看响应体里那个 `"status":"ok"`。
+2. **成功的定义**：写完立刻回查「这个人是不是在这个空间的访问列表里」，在才算成功。
+3. **失败必须留痕**：不置 `is_auth`、写操作日志、单条失败不中断同批。
 
 ---
 
-## 三、哪些情况会踩到
+## 改动清单
 
-| 情况 | 系统以为 | 实际是 |
-|---|---|---|
-| 看板后来换过空间 | 授权成功，已授权 | 权限给了旧空间，新空间没有 |
-| 手机号拼出的邮箱正好对上了另一个人 | 授权成功，已授权 | 权限给了别人，本人没有 |
-| 授权成功之后又被「取消权限」删掉了 | 已授权 | 已经没有了 |
-| 有人手工设了「完全访问」 | 下次自动授权再跑一遍 | 被自动流程降级成「可查看」 |
-| 看板分配被系统当成「已删除」处理 | 顺手撤销了空间权限 | 配置里看板还在，但没权限了 |
-| 建号 / 加项目成员失败 | 没人管，继续往下走 | 用户根本进不了项目 |
-
-注意后两条是「做得太多」——系统不但没授权，还主动把权限撤了。
-
----
-
-## 四、已经排除的（别再往这几个方向查）
-
-走了一圈都证明不是：
-
-- **不是「空间没指定」**——代码里明确传了空间 ID，而且是按 ID 走，不按空间名字匹配。
-- **不是「两个同名空间搞混了」**——授权按 ID 执行，不会串。同名只影响人眼辨认。
-- **不是「用户不是项目成员」**——Lightdash 的共享接口**根本不检查**这个。
-- **不是「找不到用户？只能与现有的项目成员共享空间」那句提示**——那只是弹窗里的一句话说明，不是报错。
+| # | 文件 | 方法 | 一句话 |
+|---|---|---|---|
+| 1 | ClientImpl | `isSuccess()` | 新增：统一响应判定 |
+| 2 | ClientImpl | `grantUserSpace()` | **核心**：改判 httpCode + 写完回查 |
+| 3 | ClientImpl | `getUserSpace()` | 加固：用 httpCode + email 忽略大小写 |
+| 4 | ServiceImpl | `grantUserSpace()` | 只有回查通过才置 `is_auth` |
+| 5 | RepositoryImpl | `updateAuth()` | 多记一列「授权时的空间」 |
+| 6 | ServiceImpl | `saveDashboardEmployeeRole()` | 消费返回值、失败落 `operator_log` |
+| 7 | ClientImpl | `createLightDashUser()` | 早退改查「是否真在项目成员表」 |
+| 8 | ClientImpl | `isProjectMember()` | 新增：查 `project_memberships` |
+| 9 | ClientImpl | `grantUserProject()` | 200/409 才成功，失败记日志 |
+| 10 | ClientImpl | `createOpenId()` | 删掉 `is_auth_project` 的写入 |
+| 11 | ClientImpl | `removeUserLightSpace()` | 404 视为成功 |
+| 12 | Command | `light-dash-space-change` | 授权失败要回滚快照，否则不再重试 |
 
 ---
 
-## 五、怎么确认是不是这个问题
+## 1. 新增统一判定
 
-只需要两个数据，**如果两者互相矛盾，就是这个病**。
+现有代码里三个方法用了三套标准，先收敛：
 
-**第一步：报表系统这边，标记是不是「已授权」**
+```php
+/**
+ * 统一响应判定：以 httpCode 为准，body.status 只做辅助。
+ *
+ * @param array $response request() 的返回值
+ * @param int[] $alsoOk   额外视为成功的状态码（如 409 幂等、400 预期语义）
+ */
+private function isSuccess(array $response, array $alsoOk = []): bool
+{
+    $httpCode = (int) ($response['httpCode'] ?? 0);
+
+    if (in_array($httpCode, $alsoOk, true)) {
+        return true;
+    }
+
+    return 200 === $httpCode && 'ok' === ($response['status'] ?? null);
+}
+```
+
+---
+
+## 2. `grantUserSpace()` —— 核心改动
+
+### 现状
+
+```php
+public function grantUserSpace(string $mobile, string $spaceUuid): bool
+{
+    $userInfo = $this->findUserByMobile($mobile);
+    Assert::notNull($userInfo['user_uuid'], '用户UUID不能为空 mobile='.$mobile);
+    // 获取父的空间权限
+    $currentSpaceUuid = $this->getCurrentSpaceUuid($spaceUuid);
+    $shareUri = sprintf('projects/%s/spaces/%s/share', $this->projectUuid, $currentSpaceUuid);
+    $organizateionMember = $this->getOrganizateionMember($userInfo['user_id']);
+    $spaceRequest = [
+        'userUuid' => $userInfo['user_uuid'],
+        'spaceRole' => in_array($organizateionMember['role'], ['developer', 'admin'], true) ? 'editor' : 'viewer',
+    ];
+    $result = $this->request('POST', $shareUri, $spaceRequest);
+
+    return 'ok' === $result['status'];   // ← 只看响应体，不看状态码，也不回查
+}
+```
+
+### 问题
+
+| 问题 | 后果 |
+|---|---|
+| 只看 `$result['status']` | 任何带 `"status":"ok"` 的响应都算成功，哪怕 HTTP 是 4xx |
+| 不校验 `httpCode` | `request()` 明明算了 `httpCode` 却没用 |
+| 不回查 | 接口只要空间存在就返回成功，**不校验授给了谁、授到哪个空间** |
+| 失败信息全丢 | 上层拿不到原因，日志里也没有 |
+
+### 改为
+
+```php
+public function grantUserSpace(string $mobile, string $spaceUuid): bool
+{
+    // ① 身份：先确认这个人存在
+    $userInfo = $this->findUserByMobile($mobile);
+    if (Arrays::isEmpty($userInfo) || empty($userInfo['user_uuid'])) {
+        $this->logger->error('grantUserSpace: 用户不存在', ['mobile' => $mobile]);
+
+        return false;
+    }
+
+    $currentSpaceUuid = $this->getCurrentSpaceUuid($spaceUuid);
+
+    // ② 发起授权
+    $response = $this->request(
+        'POST',
+        sprintf('projects/%s/spaces/%s/share', $this->projectUuid, $currentSpaceUuid),
+        [
+            'userUuid' => $userInfo['user_uuid'],
+            'spaceRole' => 'viewer',
+        ]
+    );
+
+    // ③ 判断标准：看状态码
+    $httpCode = (int) ($response['httpCode'] ?? 0);
+    if (!$this->isSuccess($response)) {
+        $this->logger->error('grantUserSpaceFailed', [
+            'mobile'    => $mobile,
+            'spaceUuid' => $currentSpaceUuid,
+            'httpCode'  => $httpCode,
+            'message'   => $response['message'] ?? $response['error'] ?? '',
+        ]);
+
+        return false;
+    }
+
+    // ④ 写完回查：确认这个人真的出现在该空间的访问列表里
+    if (!$this->getUserSpace($mobile, $currentSpaceUuid)) {
+        $this->logger->error('grantUserSpaceVerifyFailed', [
+            'mobile'    => $mobile,
+            'spaceUuid' => $currentSpaceUuid,
+            'httpCode'  => $httpCode,
+        ]);
+
+        return false;
+    }
+
+    return true;
+}
+```
+
+> `spaceRole` 直接写死 `viewer`。原来从**组织角色**推断 `editor`/`viewer`，而 `createOpenId()` 又会把 viewer/interactive_viewer 提升成 `member`，两处口径不一致，容易在员工提权后意外拿到编辑权限。
+
+---
+
+## 3. `getUserSpace()` —— 回查方法本身要加固
+
+回查是整个方案的地基，必须可靠。
+
+### 现状
+
+```php
+public function getUserSpace(string $mobile, string $spaceUuid): bool
+{
+    $uri = sprintf('projects/%s/spaces/%s', $this->projectUuid, $spaceUuid);
+    $email = $this->getEmail($mobile);
+    $response = $this->request('GET', $uri);
+
+    if ('ok' !== $response['status']) {
+        return false;
+    }
+    if (Arrays::isEmpty($response['results']['access'])) {
+        return false;                                  // ← access 不存在会 warning
+    }
+    foreach ($response['results']['access'] as $access) {
+        if ($access['email'] === $email) {             // ← 大小写敏感
+            return true;
+        }
+    }
+
+    return false;
+}
+```
+
+### 改为
+
+```php
+public function getUserSpace(string $mobile, string $spaceUuid): bool
+{
+    $response = $this->request(
+        'GET',
+        sprintf('projects/%s/spaces/%s', $this->projectUuid, $spaceUuid)
+    );
+
+    if (200 !== (int) ($response['httpCode'] ?? 0)) {
+        return false;
+    }
+
+    $accessList = $response['results']['access'] ?? [];
+    if (!is_array($accessList) || Arrays::isEmpty($accessList)) {
+        return false;
+    }
+
+    $email = $this->getEmail($mobile);
+    foreach ($accessList as $access) {
+        if (isset($access['email']) && 0 === strcasecmp((string) $access['email'], $email)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+```
+
+---
+
+## 4. `DashboardServiceImpl::grantUserSpace()` —— 只有回查通过才置 `is_auth`
+
+### 现状
+
+```php
+public function grantUserSpace(Employee $employee, Dashboard $dashboardInfo): bool
+{
+    $result = $this->lightDashClientService->grantUserSpace($employee->getMobile(), $dashboardInfo->getSpaceUuid());
+    if (true === $result) {
+        $this->employeeRoleRepository->updateAuth($employee->getId(), $dashboardInfo->getId());
+    }
+
+    return $result;
+}
+```
+
+### 改为
+
+```php
+public function grantUserSpace(Employee $employee, Dashboard $dashboardInfo): bool
+{
+    $spaceUuid = $dashboardInfo->getSpaceUuid();
+
+    try {
+        $result = $this->lightDashClientService->grantUserSpace($employee->getMobile(), $spaceUuid);
+    } catch (\Throwable $e) {
+        // 单条异常不允许冒泡，否则会中断整个 foreach，同批后面全部不授权
+        $this->logger->error('grantUserSpaceException', [
+            'employee_id'  => $employee->getId(),
+            'dashboard_id' => $dashboardInfo->getId(),
+            'space_uuid'   => $spaceUuid,
+            'message'      => $e->getMessage(),
+        ]);
+
+        return false;
+    }
+
+    if (true !== $result) {
+        return false;                          // 失败绝不推进 is_auth
+    }
+
+    $this->employeeRoleRepository->updateAuth($employee->getId(), $dashboardInfo->getId(), $spaceUuid);
+
+    return true;
+}
+```
+
+---
+
+## 5. `updateAuth()` —— 记住「授权到哪个空间」
+
+现在只有一个「是/否」标记，没记授权时用的是哪个空间。看板换空间之后，标记就永远对不上了。
+
+### 先加一列
 
 ```sql
-SELECT r.dashboard_id, r.is_auth, d.dashboard_name, d.space_uuid
-FROM report_dashboard_employee_role r
-JOIN report_dashboard d ON d.id = r.dashboard_id
-JOIN report_employee e ON e.id = r.employee_id
-WHERE e.mobile = '手机号';
+ALTER TABLE report_dashboard_employee_role
+    ADD COLUMN auth_space_uuid VARCHAR(64) NULL AFTER is_auth;
 ```
 
-**第二步：Lightdash 这边，这个空间到底授没授给他**
+### 再改方法
+
+```php
+// DashboardEmployeeRoleRepositoryImpl.php
+public function updateAuth(int $employeeId, int $dashboardId, string $spaceUuid): void
+{
+    $criteria = Criteria::create([
+        'employee_id'  => $employeeId,
+        'dashboard_id' => $dashboardId,
+    ]);
+    $this->updateBy($criteria, [
+        'is_auth'         => 1,
+        'auth_space_uuid' => $spaceUuid,
+    ]);
+}
+```
+
+接口 `DashboardEmployeeRoleRepository.php` 同步加参数：
+
+```php
+public function updateAuth(int $employeeId, int $dashboardId, string $spaceUuid): void;
+```
+
+「已授权」的定义从此变成可以随时重算的：
 
 ```sql
-SELECT sua.space_uuid, s.name, sua.space_role, sua.created_at
-FROM space_user_access sua
-LEFT JOIN spaces s ON s.space_uuid = sua.space_uuid
-JOIN emails e ON e.user_id = sua.user_id
-WHERE e.email = '手机号@公司域名';
+is_auth = 1 AND auth_space_uuid = report_dashboard.space_uuid
 ```
-
-**怎么读结果：**
-
-| 情况 | 结论 |
-|---|---|
-| `is_auth = 1`，但第二步里**没有**第一步那个 `space_uuid` | **就是这个病**：标记说已授权，实际没有，而且永远不会重试 |
-| `is_auth = 1`，第二步里有，但 `created_at` 是手工操作那天 | 同上——说明之前一直没有，是手工补的 |
-| `is_auth = 0` | 每 2 小时都在重试，说明是请求一直失败，去看日志 |
-| 第一步查不到这一行 | 被当成「已删除」处理了，权限被主动撤销 |
-| 两步对得上 | 不是这个问题，得查别处（比如用户登录的是别的账号） |
-
-**想直接看请求结果**，在日志里按用户 ID 捞（日志里带 ID，不带手机号）：
-
-```bash
-grep "用户的userUuid" 日志文件 | grep -E "lightDashClientRequest|/spaces/" | tail -20
-```
-
-里面能看到每次授权请求去的哪个空间、返回了什么。
 
 ---
 
-## 六、怎么改（四件事，按优先级）
+## 6. `saveDashboardEmployeeRole()` —— 消费返回值
 
-### 1. 判断改成看 HTTP 状态码
+### 现状
 
-现在是「响应内容里有 ok 就算成功」，太宽松。改成看状态码是不是 200。
+```php
+if (Arrays::isNotEmpty($addDashboardIds)) {
+    $this->createLightDashUserWithRetry($employee, $addDashboardIds);   // 返回值丢弃
+    foreach ($addDashboardIds as $dashboardId) {
+        $dashboardInfo = $dashboardList[$dashboardId];
+        if (null === $dashboardInfo) { continue; }
+        $this->grantUserSpace($employee, $dashboardInfo);               // 返回值丢弃
+    }
+}
+```
 
-顺带统一一下：现在这个类里三个方法用了三种判断标准，很乱。
+### 改为
 
-### 2. 授权之后回查一遍
+```php
+if (Arrays::isNotEmpty($addDashboardIds)) {
+    $this->createLightDashUserWithRetry($employee, $addDashboardIds);
 
-这是最关键的一条。写完立刻再查一次「这个人在不在这个空间的访问列表里」，在才算成功。
+    $failedIds = [];
+    foreach ($addDashboardIds as $dashboardId) {
+        /** @var Dashboard|null $dashboardInfo */
+        $dashboardInfo = $dashboardList[$dashboardId] ?? null;
+        if (null === $dashboardInfo) {
+            $this->logger->error('Add dashboardInfo is empty dashboardId ='.$dashboardId);
+            continue;
+        }
+        if (!$this->grantUserSpace($employee, $dashboardInfo)) {
+            $failedIds[] = $dashboardId;
+        }
+    }
 
-好处：接口返回的「成功」不再是唯一依据，假的成功会当场暴露。
-
-代码里**已经有现成的查询方法**（查空间详情的那个），只是没人用它，直接调就行。
-
-### 3. 失败必须说出来，不能吞掉
-
-现在授权失败**不报错、不记录、不影响返回值**，上层永远以为成功。要改成：
-
-- 单条失败不影响同批其他看板（现在一条抛异常会让后面全部不授权）
-- 失败写进操作日志，能查到「哪天、哪个人、哪个看板失败」
-- 失败的不要打「已授权」标记，留着下次重试
-
-### 4. 记录「授权到了哪个空间」
-
-现在的标记只有一个「是/否」，**没记授权时用的是哪个空间**。所以看板换空间之后，系统没法知道「这个标记已经过期了」。
-
-加一列记录授权时的空间 ID，然后：
-
-- 「已授权」的定义变成：**授权时的空间 = 看板现在的空间**
-- 自动补漏任务改成：只要两者不一致就重试
-
-再配合一条：**看板空间的快照必须等授权成功之后再更新**。现在顺序是反的（先改快照再授权），所以失败一次之后，「空间变了」这个信号就丢了，下次不会再触发。
+    if (Arrays::isNotEmpty($failedIds)) {
+        $this->saveOperatorLog(
+            'lightdash',
+            'grant-space-fail',
+            (string) $employee->getId(),
+            [
+                'mobile'               => $employee->getMobile(),
+                'failed_dashboard_ids' => array_values($failedIds),
+            ],
+            $employee->getCreateBy() ?? 'admin-job',
+            sprintf('Lightdash空间授权失败(mobile:%s)', $employee->getMobile())
+        );
+    }
+}
+```
 
 ---
 
-## 七、顺带发现的两个小问题
+## 7. `createLightDashUser()` —— 早退改查事实
 
-| 问题 | 影响 | 改法 |
+### 现状
+
+```php
+$userInfo = $this->findUserByMobile($mobile);
+if (Arrays::isNotEmpty($userInfo) && true === $userInfo['is_auth_project']) {
+    return $userInfo;                              // 只看标记，不看事实
+}
+$result = $this->request('POST', 'invite-links', $data);
+if ('ok' === $result['status'] || 400 === $result['httpCode']) {
+    $this->createOpenId($mobile, $userName);       // 返回值丢弃
+    $this->grantUserProject($mobile);              // 返回值丢弃 ← 失败也没人知道
+    return $userInfo ?? $result['results'];
+}
+return [];
+```
+
+### 改为
+
+```php
+$userInfo = $this->findUserByMobile($mobile);
+
+// 早退只看事实：真的在 project_memberships 里才跳过
+if (
+    Arrays::isNotEmpty($userInfo)
+    && !empty($userInfo['user_id'])
+    && $this->isProjectMember((int) $userInfo['user_id'])
+) {
+    return $userInfo;
+}
+
+$result = $this->request('POST', 'invite-links', [
+    'email'     => $email,
+    'role'      => 'member',
+    'expiresAt' => date('Y-m-d\TH:i:s\Z', time() + 3 * 86400),
+]);
+
+// 200 = 建号成功；400 = 邮箱已存在（预期语义，继续走授权）
+if (!$this->isSuccess($result, [400])) {
+    $this->logger->error('createLightDashUser: invite-links 失败', [
+        'mobile'   => $mobile,
+        'httpCode' => $result['httpCode'] ?? 0,
+    ]);
+
+    return [];
+}
+
+$this->createOpenId($mobile, $userName);
+
+// 项目授权失败必须中断，不能继续标「已授权」
+if (!$this->grantUserProject($mobile)) {
+    $this->logger->error('createLightDashUser: 项目授权失败', [
+        'mobile' => $mobile,
+    ]);
+
+    return [];
+}
+
+return $userInfo ?? ($result['results'] ?? []);
+```
+
+---
+
+## 8. 新增 `isProjectMember()`
+
+```php
+private function isProjectMember(int $userId): bool
+{
+    $project = $this->queryBuilder->from($this->getTableName('projects'))
+        ->select('project_id')
+        ->where('project_uuid = ?', $this->projectUuid)
+        ->query()
+        ->fetch(\PDO::FETCH_ASSOC);
+
+    if (empty($project)) {
+        return false;
+    }
+
+    $row = $this->queryBuilder->from($this->getTableName('project_memberships'))
+        ->select('user_id')
+        ->where('project_id = ?', $project['project_id'])
+        ->where('user_id = ?', $userId)
+        ->query()
+        ->fetch(\PDO::FETCH_ASSOC);
+
+    return !empty($row);
+}
+```
+
+---
+
+## 9. `grantUserProject()` —— 统一判断 + 失败留痕
+
+```php
+public function grantUserProject(string $mobile): bool
+{
+    $email = $this->getEmail($mobile);
+
+    $response = $this->request(
+        'POST',
+        sprintf('projects/%s/access', $this->projectUuid),
+        [
+            'email'     => $email,
+            'role'      => self::DEFAULT_PROJECT_ROLE,
+            'sendEmail' => false,
+        ]
+    );
+
+    // 200 = 新加成功；409 = 已经是成员（幂等，也算成功）
+    if ($this->isSuccess($response, [409])) {
+        return true;
+    }
+
+    $this->logger->error('grantUserProjectFailed', [
+        'mobile'   => $mobile,
+        'email'    => $email,
+        'httpCode' => (int) ($response['httpCode'] ?? 0),
+        'message'  => $response['message'] ?? $response['error'] ?? '',
+    ]);
+
+    return false;
+}
+```
+
+> 404 表示「这个邮箱不在组织里」，是最该告警的一种，日志里会单独看到 `httpCode: 404`。
+
+---
+
+## 10. `createOpenId()` —— 删掉影子列写入
+
+```php
+// 现有（第 351 行附近），把 is_auth_project=true 去掉
+$updateUserSql = 'UPDATE '.$userTable.' set first_name=:first_name, last_name=:last_name, is_setup_complete=true, is_active=true, is_auth_project=true where user_id=:user_id';
+```
+
+改为：
+
+```php
+$updateUserSql = 'UPDATE '.$userTable.' set first_name=:first_name, last_name=:last_name, is_setup_complete=true, is_active=true where user_id=:user_id';
+```
+
+理由：`is_auth_project` 不是 Lightdash 的字段（本仓所有 migration 里都没有），而且它在授权**之前**就被置位，导致「走过流程」被当成「已授权」。早退条件已经在第 7 步改成查 `project_memberships`，这个字段可以彻底不用。
+
+---
+
+## 11. `removeUserLightSpace()` —— 404 也算成功
+
+```php
+$result = $this->request('DELETE', $uri);
+
+// 404 = 本来就没有这条授权，等同于撤销成功
+if ($this->isSuccess($result, [404])) {
+    return true;
+}
+
+$this->logger->error('removeUserLightSpaceFailed', [
+    'mobile'    => $mobile,
+    'spaceUuid' => $spaceParentUuid,
+    'httpCode'  => (int) ($result['httpCode'] ?? 0),
+]);
+
+return false;
+```
+
+顺带把 `removeUserSpace()` 的本地短路去掉：
+
+```php
+public function removeUserSpace(int $employeeId, string $mobile, string $spaceUuid): bool
+{
+    // 原来：本地计数命中就 return true，连接口都不调，导致该撤的权限一直残留
+    return $this->removeUserLightSpace($mobile, $spaceUuid);
+}
+```
+
+---
+
+## 12. `light-dash-space-change` 命令 —— 失败要回滚快照
+
+这是最关键的一处顺序问题。现在的做法是**先改快照、再授权**，授权失败也不回滚：
+
+```php
+if ($spaceUuid !== $dashboardInfo->getSpaceUuid()) {
+    $dashboardInfo->setSpaceUuid($spaceUuid);
+    $dashboardMapper[$dashboardInfo->getId()] = $spaceUuid;
+    $this->dashboardRepository->update($dashboardInfo);   // ← 快照当场就变了
+    continue;
+}
+```
+
+后果：下一次运行 `$spaceUuid === getSpaceUuid()`，**「空间变了」这个信号已经用掉了**，再也不会触发重试。
+
+### 改法（最小改动）
+
+第一个循环里把旧值存下来：
+
+```php
+$oldSpaceMap = [];   // 新增
+
+foreach ($dashboardList as $dashboardInfo) {
+    $currentSpace = $dashboardSpaceList[$dashboardInfo->getDashboardUuid()] ?? [];
+    if (Arrays::isEmpty($currentSpace)) {
+        $this->writeln('Error: dashboardUuid:'.$dashboardInfo->getDashboardUuid().' is not found');
+        continue;
+    }
+
+    $spaceUuid = Text::isNotEmpty($currentSpace['parent_space_uuid'])
+        ? $currentSpace['parent_space_uuid']
+        : $currentSpace['space_uuid'];
+
+    if ($spaceUuid !== $dashboardInfo->getSpaceUuid()) {
+        $oldSpaceMap[$dashboardInfo->getId()] = $dashboardInfo->getSpaceUuid();   // 记旧值
+
+        $dashboardInfo->setSpaceUuid($spaceUuid);
+        $dashboardMapper[$dashboardInfo->getId()] = $spaceUuid;
+        $dashboardInfo->setDashboardName($currentSpace['dashboard_name']);
+        $this->dashboardRepository->update($dashboardInfo);
+        continue;
+    }
+    // ... 名字变化的分支保持原样
+}
+```
+
+授权循环里，失败就还原快照：
+
+```php
+foreach ($employeeRoleList as $employeeRole) {
+    // ... 原有取值逻辑
+
+    $result = $this->dashboardService->grantUserSpace($employeeInfo, $dashBoardInfo);
+
+    if (!$result && isset($oldSpaceMap[$dashBoardInfo->getId()])) {
+        // 授权失败 → 把快照还原，保证下次跑还能检测到「空间变了」并重试
+        $dashBoardInfo->setSpaceUuid($oldSpaceMap[$dashBoardInfo->getId()]);
+        $this->dashboardRepository->update($dashBoardInfo);
+    }
+
+    $this->writeln(sprintf(
+        'mobile = %s, spaceUuid = %s, employeeId = %d, result = %s',
+        $employeeInfo->getMobile(),
+        $dashBoardInfo->getSpaceUuid(),
+        $employeeInfo->getId(),
+        $result ? 'success' : 'failed'
+    ));
+}
+```
+
+### 筛选条件也要改
+
+原来的 `is_auth = 0` 无法表达「授权空间已经过期」，配合新的 `auth_space_uuid` 列：
+
+```php
+// 原来
+$criteria = Criteria::create(['is_auth' => 0]);
+
+// 改为：没授权过，或者授权时的空间和看板现在的空间对不上
+$criteria = Criteria::create()->whereRaw(
+    'is_auth = 0 OR auth_space_uuid IS NULL OR auth_space_uuid <> ('
+    .'SELECT d.space_uuid FROM report_dashboard d WHERE d.id = report_dashboard_employee_role.dashboard_id'
+    .')'
+);
+```
+
+---
+
+## 上线顺序
+
+1. **先加列 + 改 `updateAuth()`**（第 5 步）——不改变行为，只是多记一列
+2. **再改判断与回查**（第 1–4、9、11 步）——从这之后「假成功」会变成「失败」
+3. **再改消费与留痕**（第 6–8 步）——失败开始出现在操作日志里
+4. **最后改命令**（第 12 步）——补偿链路闭环
+
+前两步可以先行，即使后续步骤没做完也不会比现在更差。
+
+---
+
+## 验证
+
+1. 把某员工的 `is_auth` 改回 0，等自动任务跑（或手动触发命令），确认输出 `result = success`
+2. 查库确认真的落库：
+
+   ```sql
+   SELECT sua.space_uuid, s.name, sua.space_role
+   FROM space_user_access sua
+   LEFT JOIN spaces s ON s.space_uuid = sua.space_uuid
+   JOIN emails e ON e.user_id = sua.user_id
+   WHERE e.email = '手机号@公司域名';
+   ```
+
+3. **反向验证**（最重要）：故意传一个不存在的空间 ID，确认三件事同时成立
+   - 操作日志出现 `grant-space-fail`
+   - `is_auth` 仍然是 `0`
+   - 日志里有 `grantUserSpaceFailed` 且 `httpCode: 404`
+
+---
+
+## 附：为什么这么改（改前 / 改后）
+
+| 场景 | 改前判定 | 改后判定 |
 |---|---|---|
-| 找空间时只往上找了一层父空间 | 两层以上嵌套的空间，授权必然失败 | 一直往上找到最顶层 |
-| 「取消权限」时如果本地查到还有别的看板在同空间，就直接返回成功、不调用接口 | 该撤的权限没撤，长期残留 | 照常调用接口，接口说没有也算成功 |
+| 正常授权 | 成功 | 成功 |
+| 空间不存在（404） | 失败 | 失败（带 404 日志） |
+| 调用方权限不足（403） | 失败 | 失败（带 403 日志） |
+| **授权到旧快照空间** | **成功 → 打勾** | **回查失败 → 不打勾** |
+| **授权给了另一个人** | **成功 → 打勾** | **回查失败 → 不打勾** |
+| **响应体含 ok 但状态码异常** | **成功 → 打勾** | **失败** |
+| **撤销时本地命中** | 直接返回成功，不调接口 | 照常调接口 |
+| **看板换空间后授权失败** | 快照已更新，不再重试 | 快照回滚，下次重试 |
 
----
-
-## 八、改完怎么验证
-
-1. 把某个员工的 `is_auth` 手动改成 0，等自动任务跑（或手动触发），看输出是不是 `success`
-2. 跑第五节的第二条 SQL，确认权限真的落库了
-3. 用那个员工账号登录 Lightdash，确认看板能打开
-4. **故意制造一次失败**（填个不存在的空间 ID），确认：操作日志里有失败记录、`is_auth` 保持 0、日志里有 404
-
-第 4 步很重要——以前的问题就是「失败了看不出来」，这次要保证失败一定能被发现。
-
----
-
-## 九、日志里搜什么
-
-| 关键词 | 意思 |
-|---|---|
-| `lightDashClientRequest` | 每次请求的完整记录（地址、参数、响应） |
-| `lightdashRequestError` | 失败的请求，带状态码 |
-| `create-user-fail` | 建号失败（连试 3 次） |
-| `EmailNotFind` | 按手机号拼的邮箱在库里找不到 |
-
-**相关文档**
-
-- [组织管理员：OIDC 用户开通 API](./org-admin-users-provision.md)
-- [OIDC 登录/退出三种方式](./oidc-logout-modes.md)
+核心就一句：**把「服务器没报错」换成「这个人真的在访问列表里」。**
