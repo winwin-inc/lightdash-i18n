@@ -69,6 +69,7 @@ pnpm -F backend rollback-last
 
 ## 开发流程
 
+0. **分支约定**：默认在 `fix/bugs` 分支上开发/修 bug，不要擅自切到 dev；若目标代码只在 dev 有，先把 dev 合入 `fix/bugs`（fast-forward 或 merge）再改，改动一律提交在 `fix/bugs`
 1. **包管理**：使用 `pnpm`（v9.15.5+），不要用 npm 或 yarn
 2. **TypeScript**：各包使用 TypeScript project references 做类型检查
 3. **Lint**：ESLint（Airbnb 配置），包含 `no-floating-promises`
