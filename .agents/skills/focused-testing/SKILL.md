@@ -1,3 +1,8 @@
+---
+name: focused-testing
+description: 聚焦测试纪律：只跑与改动直接相关的单文件/单用例测试。提供本仓库 frontend vitest 冷启动慢、jsdom 缺 localStorage 等问题的快速验证命令与绕过方案；禁止全量 test 自检。需要验证 packages/frontend 或其他包改动时使用。
+---
+
 # Skill: 聚焦测试（本仓库 frontend vitest 快速通道）
 
 适用：需要验证 `packages/frontend` 改动时的最小代价测试方式。
