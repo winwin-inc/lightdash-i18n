@@ -22,7 +22,7 @@
 |---|---|---|---|
 | 1 | ClientImpl | `isSuccess()` | 新增：统一响应判定 |
 | 2 | ClientImpl | `grantUserSpace()` | **核心**：改判 httpCode + 写完回查 |
-| 3 | ClientImpl | `getUserSpace()` | 加固：用 httpCode + email 忽略大小写 |
+| 3 | ClientImpl | `getUserSpace()` | **必须校验 `hasDirectAccess`**，否则公开空间恒通过 |
 | 4 | ServiceImpl | `grantUserSpace()` | 只有回查通过才置 `is_auth` |
 | 5 | RepositoryImpl | `updateAuth()` | 多记一列「授权时的空间」 |
 | 6 | ServiceImpl | `saveDashboardEmployeeRole()` | 消费返回值、失败落 `operator_log` |
@@ -32,6 +32,9 @@
 | 10 | ClientImpl | `createOpenId()` | 删掉 `is_auth_project` 的写入 |
 | 11 | ClientImpl | `removeUserLightSpace()` | 404 视为成功 |
 | 12 | Command | `light-dash-space-change` | 授权失败要回滚快照，否则不再重试 |
+| 13 | Entity / ServiceImpl | 重建角色行 | `auth_space_uuid` 必须跟 `is_auth` 一起继承 |
+| 14 | ServiceImpl | `saveDashboardEmployeeRole()` | 「删除」差异用配置算，不能用过滤后的集合 |
+| ❌ | ClientImpl | `removeUserSpace()` | **不要改**，本地短路是有意为之 |
 
 ---
 
@@ -178,7 +181,25 @@ public function getUserSpace(string $mobile, string $spaceUuid): bool
 }
 ```
 
-### 改为
+### ⚠️ 关键坑：不能只看「email 在不在列表里」
+
+Lightdash 返回的 `access` 列表**包含继承来的权限**（`SpaceModel._getUserAccess`）：
+
+```ts
+if (highestRole.role === ProjectMemberRole.ADMIN) {
+    spaceRole = SpaceMemberRole.ADMIN;                    // 管理员：没有直接授权也会出现
+} else if (user_with_direct_access) {
+    ...
+} else if (!is_private && !user_with_direct_access) {
+    spaceRole = convertProjectRoleToSpaceRole(...);       // 公开空间：所有项目成员都继承
+}
+// 每条都带 hasDirectAccess: !!user_with_direct_access
+```
+
+所以：**公开空间里所有项目成员都会出现在列表中，组织/项目管理员在任何空间都会出现。**
+只判断「找到这个 email」→ 回查恒为 true → 假成功依旧是假成功。
+
+### 改为（必须校验 `hasDirectAccess`）
 
 ```php
 public function getUserSpace(string $mobile, string $spaceUuid): bool
@@ -188,7 +209,7 @@ public function getUserSpace(string $mobile, string $spaceUuid): bool
         sprintf('projects/%s/spaces/%s', $this->projectUuid, $spaceUuid)
     );
 
-    if (200 !== (int) ($response['httpCode'] ?? 0)) {
+    if (!$this->isSuccess($response)) {
         return false;
     }
 
@@ -199,14 +220,38 @@ public function getUserSpace(string $mobile, string $spaceUuid): bool
 
     $email = $this->getEmail($mobile);
     foreach ($accessList as $access) {
-        if (isset($access['email']) && 0 === strcasecmp((string) $access['email'], $email)) {
-            return true;
+        if (!isset($access['email']) || 0 !== strcasecmp((string) $access['email'], $email)) {
+            continue;
         }
+
+        // 只有「直接授权」才算数；继承来的（公开空间全员、管理员）不算
+        return true === ($access['hasDirectAccess'] ?? false);
     }
 
     return false;
 }
 ```
+
+### 更硬的写法：直接查库
+
+如果不想依赖 API 返回列表的语义，直接查 `space_user_access` 最可靠——那是授权的唯一事实来源：
+
+```php
+private function hasDirectSpaceAccess(string $userUuid, string $spaceUuid): bool
+{
+    $row = $this->queryBuilder
+        ->from($this->getTableName('space_user_access'))
+        ->select('user_uuid')
+        ->where('space_uuid = ?', $spaceUuid)
+        ->where('user_uuid = ?', $userUuid)
+        ->query()
+        ->fetch(\PDO::FETCH_ASSOC);
+
+    return !empty($row);
+}
+```
+
+`grantUserSpace()` 里两处都可以用，推荐「API 回查 + 查库」都做，任一不通过就判失败。
 
 ---
 
@@ -287,6 +332,37 @@ public function updateAuth(int $employeeId, int $dashboardId, string $spaceUuid)
 }
 ```
 
+### ⚠️ 必须同时改「重建继承」，否则新列每次都会被清空
+
+`saveDashboardEmployeeRole()` 是「全删重建」，靠这一行抢救旧状态（`DashboardServiceImpl:314`）：
+
+```php
+$entity->setIsAuth($oldRoleInfo?->getIsAuth() ?? 0);
+```
+
+加了新列之后必须一起继承，否则**每次保存看板配置都会把 `auth_space_uuid` 清成 NULL** → 所有记录永久变成「待重新授权」→ 每 2 小时全量重放一遍：
+
+```php
+// Entity：新增字段 + getter/setter
+private ?string $authSpaceUuid = null;
+
+public function getAuthSpaceUuid(): ?string
+{
+    return $this->authSpaceUuid;
+}
+
+public function setAuthSpaceUuid(?string $authSpaceUuid): void
+{
+    $this->authSpaceUuid = $authSpaceUuid;
+}
+```
+
+```php
+// ServiceImpl:314
+$entity->setIsAuth($oldRoleInfo?->getIsAuth() ?? 0);
+$entity->setAuthSpaceUuid($oldRoleInfo?->getAuthSpaceUuid());   // 新增这一行
+```
+
 接口 `DashboardEmployeeRoleRepository.php` 同步加参数：
 
 ```php
@@ -349,6 +425,31 @@ if (Arrays::isNotEmpty($addDashboardIds)) {
         );
     }
 }
+```
+
+---
+
+## 6.5 `saveDashboardEmployeeRole()` —— 「删除」差异要用配置算
+
+`$dashboardIds` 取的是**过滤后**的 `$entities`（`:325`），而过滤条件是「有叶类目 或 类目层级 ≤ 0」：
+
+```php
+if (Arrays::isNotEmpty($config['leaf_categories']) || (int) $dashboardInfo->getCategoryLevel() <= 0) {
+    $entities[] = $entity;
+}
+```
+
+于是「配置里还在、但没通过过滤」的看板会被 `array_diff` 判成**已删除**，进而触发 `removeUserSpace()` 把空间权限撤掉——配置没动，权限却没了。
+
+### 改法：删除差异用配置算，新增差异用过滤后的集合算
+
+```php
+// $dashboardIds = Arrays::pull($entities, 'dashboardId');   ← 原：过滤后的
+
+$configDashboardIds = array_values(array_unique(Arrays::pull($dashboardConfig, 'dashboard_id')));
+
+del = array_diff($oldDashboardIds, $configDashboardIds);   // 只有配置里真的移除了才撤权
+$addDashboardIds = array_diff($dashboardIds, $oldDashboardIds);   // 真正要落库的才授权
 ```
 
 ---
@@ -518,15 +619,23 @@ $this->logger->error('removeUserLightSpaceFailed', [
 return false;
 ```
 
-顺带把 `removeUserSpace()` 的本地短路去掉：
+### ⚠️ `removeUserSpace()` 的本地短路**不要动**
 
 ```php
 public function removeUserSpace(int $employeeId, string $mobile, string $spaceUuid): bool
 {
-    // 原来：本地计数命中就 return true，连接口都不调，导致该撤的权限一直残留
+    $result = $this->employeeRoleRepository->getEmployeeSpace($employeeId, $spaceUuid);
+    if (true === $result) {
+        return true;                             // ← 这是对的，不要删
+    }
+
     return $this->removeUserLightSpace($mobile, $spaceUuid);
 }
 ```
+
+`getEmployeeSpace()` 问的是「**这个员工在这个空间下还有没有别的看板**」。删除 A 看板时如果 B 还在同空间，跳过后端删除才是正确行为——否则 B 的权限会被一起删掉。
+
+**如果把它改成「照常调接口」，会造成批量误删。** 这条保持原样。
 
 ---
 
@@ -620,10 +729,14 @@ $criteria = Criteria::create()->whereRaw(
 
 ## 上线顺序
 
-1. **先加列 + 改 `updateAuth()`**（第 5 步）——不改变行为，只是多记一列
-2. **再改判断与回查**（第 1–4、9、11 步）——从这之后「假成功」会变成「失败」
-3. **再改消费与留痕**（第 6–8 步）——失败开始出现在操作日志里
+1. **加列 + 改 `updateAuth()` + 改重建继承**（第 5、13 步）——不改变行为，只是多记一列；**继承那行不能漏**，否则每次保存都会清空
+2. **改判断与回查**（第 1–4、9、11 步）——从这之后「假成功」会变成「失败」。第 3 步的 `hasDirectAccess` 是关键，漏了等于没改
+3. **改消费与留痕**（第 6–8、14 步）——失败开始出现在操作日志里
 4. **最后改命令**（第 12 步）——补偿链路闭环
+
+必须在第 2 步之前完成第 1 步：否则回查失败时无处记录授权空间，命令无法区分「没授过」和「授错空间」。
+
+`removeUserSpace()`（第 11 步那个 ❌）全程保持原样。
 
 前两步可以先行，即使后续步骤没做完也不会比现在更差。
 
@@ -649,7 +762,7 @@ $criteria = Criteria::create()->whereRaw(
 
 ---
 
-## 附：为什么这么改（改前 / 改后）
+## 附一：为什么这么改（改前 / 改后）
 
 | 场景 | 改前判定 | 改后判定 |
 |---|---|---|
@@ -659,7 +772,23 @@ $criteria = Criteria::create()->whereRaw(
 | **授权到旧快照空间** | **成功 → 打勾** | **回查失败 → 不打勾** |
 | **授权给了另一个人** | **成功 → 打勾** | **回查失败 → 不打勾** |
 | **响应体含 ok 但状态码异常** | **成功 → 打勾** | **失败** |
-| **撤销时本地命中** | 直接返回成功，不调接口 | 照常调接口 |
+| **公开空间授权失败** | 成功 → 打勾 | 看 `hasDirectAccess`，失败 → 不打勾 |
 | **看板换空间后授权失败** | 快照已更新，不再重试 | 快照回滚，下次重试 |
 
-核心就一句：**把「服务器没报错」换成「这个人真的在访问列表里」。**
+核心就一句：**把「服务器没报错」换成「这个人真的被直接授权了」。**
+
+---
+
+## 附二：这套方案仍不解决的问题（已知边界）
+
+改完之后「假成功」会变成「明确的失败」，但下面这些仍然存在，不属于本次改动范围：
+
+| 问题 | 现状 |
+|---|---|
+| `createOpenId()` 直改 Lightdash 库 | 绕过 API 写入 `users` / `organization_memberships` / `openid_identities`，Lightdash 侧审计看不到，且字段变更不受保护 |
+| `is_auth_project` 影子列 | 本仓 migration 里没有，重建库会让 `SELECT v.is_auth_project` 直接报错。建议彻底不读（第 7、10 步已做了） |
+| 公开空间的空间授权本身无意义 | 公开空间所有项目成员都继承访问权，给它做空间授权纯属空转 |
+| 人工提权的空间 admin 会被覆盖 | `addSpaceAccess` 是 `onConflict.merge()`，自动授权再跑一次会把人工设的 `admin` 降成 `viewer` |
+| 组织/项目角色变化不触发重算 | 员工被降级为 `viewer` 后，已授的空间权限不会被自动回收 |
+
+前两项建议另开任务处理；后三项如果发生，至少现在能在操作日志里看到失败记录，不再是静默的。
