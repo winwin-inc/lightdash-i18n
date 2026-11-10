@@ -199,7 +199,16 @@ export const getExpectedSeriesMap = ({
 const getGroupUserPropertiesFromExistingSeries = (
     expectedSeries: Series,
     existingSeries: Series[],
-): Pick<Series, 'hideMetricName' | 'color' | 'name'> => {
+): Pick<
+    Series,
+    | 'hideMetricName'
+    | 'color'
+    | 'name'
+    | 'label'
+    | 'smooth'
+    | 'showSymbol'
+    | 'filledSymbol'
+> => {
     const fieldSeries = existingSeries.filter(
         (serie) =>
             serie.encode.yRef.field === expectedSeries.encode.yRef.field,
@@ -240,6 +249,17 @@ const getGroupUserPropertiesFromExistingSeries = (
     return {
         ...(carryDonor.hideMetricName !== undefined && {
             hideMetricName: carryDonor.hideMetricName,
+        }),
+        // 组级视觉属性（面板上 updateAllGroupedSeries 一次写给整组）：值标签、
+        // 平滑、符号。重建时若从 defaultProperties 取模板系列的值，基准线
+        // 开了值标签也会在看板丢失（编辑页能看到、看板看不到）。
+        ...(carryDonor.label !== undefined && { label: carryDonor.label }),
+        ...(carryDonor.smooth !== undefined && { smooth: carryDonor.smooth }),
+        ...(carryDonor.showSymbol !== undefined && {
+            showSymbol: carryDonor.showSymbol,
+        }),
+        ...(carryDonor.filledSymbol !== undefined && {
+            filledSymbol: carryDonor.filledSymbol,
         }),
         ...(carriesBaselineIdentity &&
             carryDonor.color !== undefined && {
