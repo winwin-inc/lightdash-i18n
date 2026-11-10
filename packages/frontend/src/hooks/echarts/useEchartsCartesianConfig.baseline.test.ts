@@ -798,24 +798,6 @@ describe('F. tooltip 按当前 x 点的值排序', () => {
         ).toEqual(['C', 'A', 'B']);
     });
 
-    test('基准线不参与按值排序，固定在最后（即使它的值最大）', () => {
-        const params = [
-            makeTooltipParam('统一冰红茶', 8.02),
-            makeTooltipParam('店均卖力(销量)基准线', 99),
-            makeTooltipParam('统一苹果气泡', 10.63),
-        ];
-
-        const sorted = sortTooltipParamsByAxisValue(
-            params,
-            false,
-            'desc',
-            new Set(['店均卖力(销量)基准线']),
-        );
-        expect(
-            sorted.map((p) => (p as { seriesName: string }).seriesName),
-        ).toEqual(['统一苹果气泡', '统一冰红茶', '店均卖力(销量)基准线']);
-    });
-
     test('无数值的行（如基准线缺值）排在末尾并保持相对顺序', () => {
         const params = [
             { seriesName: 'no-value' },

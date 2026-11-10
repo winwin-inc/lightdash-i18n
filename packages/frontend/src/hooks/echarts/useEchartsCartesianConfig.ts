@@ -2001,43 +2001,25 @@ const getTooltipParamAxisValue = (
  * has a value sort enabled. Series/legend order stays global (by total) — only
  * the per-point tooltip list is value-sorted, because a tooltip describes a
  * single x value while the drawing order cannot change per point.
- *
- * `pinnedSeriesNames` (baseline / reference series) are never value-sorted:
- * they are reference lines, not comparable measures, so they always stay at the
- * bottom in their original relative order.
  */
 export const sortTooltipParamsByAxisValue = (
     params: unknown[],
     flipAxes: boolean,
     direction: SeriesSortDirection,
-    pinnedSeriesNames?: Set<string>,
 ): unknown[] => {
-    const getSeriesName = (param: unknown): string =>
-        typeof param === 'object' &&
-        param !== null &&
-        'seriesName' in param &&
-        typeof (param as { seriesName: unknown }).seriesName === 'string'
-            ? (param as { seriesName: string }).seriesName
-            : '';
-
     const withValues = params.map((param, index) => ({
         param,
         index,
         value: getTooltipParamAxisValue(param, flipAxes),
-        pinned:
-            !!pinnedSeriesNames?.size &&
-            pinnedSeriesNames.has(getSeriesName(param)),
     }));
 
-    // Rows without a numeric value (e.g. a baseline missing on this point) and
-    // pinned reference rows keep their relative position at the end.
+    // Rows without a numeric value (e.g. reference/baseline entries missing on
+    // this point) keep their relative position at the end.
     withValues.sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? 1 : -1;
         if (a.value === null && b.value === null) return a.index - b.index;
         if (a.value === null) return 1;
         if (b.value === null) return -1;
-        const diff =
-            direction === 'desc' ? b.value - a.value : a.value - b.value;
+        const diff = direction === 'desc' ? b.value - a.value : a.value - b.value;
         return diff !== 0 ? diff : a.index - b.index;
     });
 
@@ -4979,16 +4961,6 @@ const useEchartsCartesianConfig = (
                               orderedParamsByLegend,
                               validCartesianConfig?.layout?.flipAxes ?? false,
                               tooltipValueSortDirection,
-                              // 基准线是参考线而非同类度量：不参与按值排序，
-                              // 始终留在最后
-                              new Set(
-                                  (
-                                      stackedSeriesWithColorAssignments ??
-                                      series
-                                  )
-                                      .filter(isBaselineSeries)
-                                      .map(getEchartsSeriesLegendName),
-                              ),
                           )
                         : orderedParamsByLegend
                 ) as typeof params;
@@ -5173,10 +5145,9 @@ const useEchartsCartesianConfig = (
             pivotValuesColumnsMap,
             originalValues,
             valueSortLegendData,
-            // 值排序方向与基准线名单取自渲染后的系列
+            // 值排序方向直接取自系列配置；列表本身已在上方 memo 里生成，
+            // 这里只需在配置变化时重算 tooltip
             validCartesianConfig?.eChartsConfig.series,
-            series,
-            stackedSeriesWithColorAssignments,
         ],
     );
 
