@@ -19,7 +19,74 @@ export type ClassifiedExplores = {
     metadataOnly: ExploreAccessItem[];
     /** Explores hidden by user attribute restrictions. */
     attributeDenied: ExploreAccessItem[];
+    /** 客户使用模式白名单是否对当前用户生效（来自
+     *  DashboardService.getViewerContentScopeDiagnostics，即
+     *  GET /api/v1/user?projectUuid= 的 clientUse 诊断）。
+     *  未知（null）时调用方必须按非受控中性口径出文案。 */
+    scope: ExploreScopeInfo;
 };
+
+/** 客户使用模式（client-use）白名单是否对当前令牌生效（v1 对齐移植） */
+export type ExploreScopeInfo = {
+    /** true = 白名单生效（受控角色）；false = 不生效；null = 未知 */
+    scopeApplied: boolean | null;
+    /** 后端诊断状态（rpc_error / no_email / …），未知为 null */
+    clientUseStatus: string | null;
+};
+
+export function unknownExploreScope(): ExploreScopeInfo {
+    return { scopeApplied: null, clientUseStatus: null };
+}
+
+/** 白名单生效：受控角色（客户使用模式 + viewer / interactive_viewer） */
+export function isRestrictedScope(scope: ExploreScopeInfo): boolean {
+    return scope.scopeApplied === true;
+}
+
+/**
+ * 白名单因为「取不到授权数据」而不是「没开通」被清空的状态。
+ *
+ * 只列后端真正会返回 `uuids = new Set()`（fail-closed，`scopeApplied = true`）的状态：
+ * - `rpc_error`：Admin RPC 调用失败；
+ * - `no_email`：用户没有邮箱（取不到手机号）。
+ *
+ * 不列 `rpc_not_configured` / `user_not_found`：后端这两态返回 `uuids = undefined`
+ * （fail-open、不收窄），不会走到「看不到表」。
+ * 判据见 DashboardService.fetchAllowedDashboardUuids。
+ */
+const SCOPE_UNAVAILABLE_STATUSES = new Set(['rpc_error', 'no_email']);
+
+export function isScopeAuthorizationUnavailable(
+    scope: ExploreScopeInfo,
+): boolean {
+    return (
+        scope.scopeApplied === true &&
+        scope.clientUseStatus !== null &&
+        SCOPE_UNAVAILABLE_STATUSES.has(scope.clientUseStatus)
+    );
+}
+
+/**
+ * 把 clientUse 诊断（ViewerContentScopeDiagnostics）压成分流用的 scope 信息。
+ *
+ * 诊断缺失 / 形状异常时返回「未知」（两个字段都是 null），调用方必须按
+ * 中性口径出文案，不得断言「不是权限问题」。
+ */
+export function toExploreScopeInfo(clientUse: unknown): ExploreScopeInfo {
+    if (
+        !clientUse ||
+        typeof clientUse !== 'object' ||
+        Array.isArray(clientUse)
+    ) {
+        return unknownExploreScope();
+    }
+    const row = clientUse as Record<string, unknown>;
+    return {
+        scopeApplied:
+            typeof row.scopeApplied === 'boolean' ? row.scopeApplied : null,
+        clientUseStatus: typeof row.status === 'string' ? row.status : null,
+    };
+}
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -87,6 +154,7 @@ export const classifyExplores = (
     explores: ExploreAccessItem[],
     catalog: ExploreAccessItem[],
     runMetricQuery: boolean,
+    scope: ExploreScopeInfo = unknownExploreScope(),
 ): ClassifiedExplores => {
     const catalogByName = new Map(
         catalog.map((item) => [item.name, item] as const),
@@ -107,5 +175,6 @@ export const classifyExplores = (
         queryable: sortExploreItems(queryable),
         metadataOnly: sortExploreItems(metadataOnly),
         attributeDenied: sortExploreItems(attributeDenied),
+        scope,
     };
 };
