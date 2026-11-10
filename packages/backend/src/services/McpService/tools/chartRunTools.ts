@@ -1,5 +1,6 @@
 import {
     AnyType,
+    Dashboard,
     ForbiddenError,
     getItemLabelWithoutTableName,
     getItemType,
@@ -8,8 +9,14 @@ import {
     QueryExecutionContext,
     SavedChart,
 } from '@lightdash/common';
+// eslint-disable-next-line import/extensions
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './access/requiredDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -25,6 +32,8 @@ type RunSavedChartArgs = {
     savedChartUuid: string;
     projectUuid?: string;
     limit?: number;
+    /** 强制看板模式（dashboardStrict）下传入的关联看板 UUID */
+    dashboardUuid?: string;
 };
 
 type RunDashboardTilesArgs = {
@@ -56,6 +65,12 @@ type DashboardTileRunResult = {
     error?: string;
 };
 
+/**
+ * 单个磁贴的执行结果：返回 CallToolResult 表示严格模式下
+ * 看板类 403/404 已把整批阻断（v1 对齐：提升为整批结果）。
+ */
+type DashboardTileRunOutcome = DashboardTileRunResult | CallToolResult;
+
 const runSavedChartArgsSchema = {
     savedChartUuid: z
         .string()
@@ -73,6 +88,14 @@ const runSavedChartArgsSchema = {
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
         ),
 };
+
+/** 强制看板模式：run_saved_chart 增加可选 dashboardUuid 参数（非 strict 时不加） */
+const dashboardUuidStrictParamSchema = z
+    .string()
+    .optional()
+    .describe(
+        '强制看板模式：本次查询关联的看板 UUID。未传时按 chartUuid 反查关联看板（唯一则自动使用；多个返回 status=dashboard_selection_required；一个都没有返回 dashboard_configuration_required）。',
+    );
 
 const runDashboardTilesArgsSchema = {
     dashboardUuid: z
@@ -132,6 +155,14 @@ const buildColumns = (fields: Record<string, AnyType>): QueryColumn[] =>
     }));
 
 /**
+ * 强制看板模式（MCP_DASHBOARD_STRICT，对齐 v1 环境变量同名义）。
+ *
+ * 默认 false：内部分析师零影响，非 strict 路径行为完全不变。
+ */
+const isDashboardStrict = (deps: McpToolDeps): boolean =>
+    deps.lightdashConfig.mcp?.dashboardStrict === true;
+
+/**
  * Runs the metric query of a saved chart and returns its rows.
  *
  * The chart metric query is executed as-is (filters, sorts, table
@@ -189,7 +220,9 @@ const runDashboardTile = async (
     tile: { uuid: string; properties: { title?: string } },
     chartUuid: string,
     limit: number | undefined,
-): Promise<DashboardTileRunResult> => {
+    /** 严格模式下用于看板类 403/404 映射的 dashboardUuid */
+    dashboardUuid: string,
+): Promise<DashboardTileRunOutcome> => {
     const tileName = tile.properties.title ?? chartUuid;
 
     try {
@@ -222,6 +255,17 @@ const runDashboardTile = async (
             rowCount: result.rowCount,
         };
     } catch (error) {
+        // 严格模式：看板类 403/404 提升为整批结果（v1 对齐，已在执行的磁贴无法取消）
+        if (isDashboardStrict(deps)) {
+            const mapped = formatDashboardAccessError({
+                error,
+                projectUuid,
+                dashboardUuid,
+            });
+            if (mapped) {
+                return mapped;
+            }
+        }
         return {
             uuid: tile.uuid,
             name: tileName,
@@ -244,18 +288,31 @@ export const registerChartRunTools = (
     registry: McpToolRegistry,
     deps: McpToolDeps,
 ): void => {
+    const strict = isDashboardStrict(deps);
+    // 严格模式 guard（仅 strict 时创建；反查/预检缓存在 guard 模块内共享）
+    const dashboardGuard = strict
+        ? createRequiredDashboardGuard(deps)
+        : null;
+
     registry.register(
         McpToolName.RUN_SAVED_CHART,
         {
             description:
                 'Run the query of a saved chart and get the resulting rows. Use get_saved_chart first to inspect the chart configuration. The chart filters, sorts and parameters are preserved; use limit to cap the number of returned rows.',
-            inputSchema: runSavedChartArgsSchema,
+            // 强制看板模式：schema 增加可选 dashboardUuid 参数（非 strict 时保持原 schema）
+            inputSchema: strict
+                ? {
+                      ...runSavedChartArgsSchema,
+                      dashboardUuid: dashboardUuidStrictParamSchema,
+                  }
+                : runSavedChartArgsSchema,
         },
         async (args, context) => {
             const {
                 savedChartUuid,
                 projectUuid: explicitProjectUuid,
                 limit,
+                dashboardUuid,
             } = args as RunSavedChartArgs;
 
             const { projectUuid } = await resolveProjectContext(
@@ -278,13 +335,45 @@ export const registerChartRunTools = (
                 );
             }
 
-            const result = await runChartQuery(
-                deps,
-                context,
-                projectUuid,
-                chart,
-                limit,
-            );
+            // 强制看板模式（v1 对齐：先取图表，再解析看板上下文）：
+            // 查数前必须拿到已验证的 dashboardUuid，blocked 时直接返回
+            // guard 构造的结构化 payload，不执行查询。
+            let dashboardUuidForQuery: string | undefined = dashboardUuid;
+            if (dashboardGuard) {
+                const guardResult = await dashboardGuard.ensure(context, {
+                    projectUuid,
+                    dashboardUuid,
+                    chartUuid: chart.uuid,
+                });
+                if (!guardResult.ok) {
+                    return guardResult.result;
+                }
+                dashboardUuidForQuery = guardResult.context.dashboardUuid;
+            }
+
+            let result: ChartRunResult;
+            try {
+                result = await runChartQuery(
+                    deps,
+                    context,
+                    projectUuid,
+                    chart,
+                    limit,
+                );
+            } catch (error) {
+                if (strict) {
+                    // 严格模式：看板类 403/404 映射成 dashboard_* 状态
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid: dashboardUuidForQuery ?? null,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
+            }
 
             return jsonToolResult({
                 savedChartUuid: chart.uuid,
@@ -321,16 +410,32 @@ export const registerChartRunTools = (
 
             // `DashboardService.getByIdOrSlug` applies the space permission
             // filtering and the viewer dashboard allow list of the calling user.
-            const dashboard = await deps.dashboardService.getByIdOrSlug(
-                context.user,
-                dashboardUuid,
-                { projectUuid },
-            );
-
-            if (dashboard.projectUuid !== projectUuid) {
-                throw new ForbiddenError(
-                    `Dashboard does not belong to project ${projectUuid}`,
+            let dashboard: Dashboard;
+            try {
+                dashboard = await deps.dashboardService.getByIdOrSlug(
+                    context.user,
+                    dashboardUuid,
+                    { projectUuid },
                 );
+
+                if (dashboard.projectUuid !== projectUuid) {
+                    throw new ForbiddenError(
+                        `Dashboard does not belong to project ${projectUuid}`,
+                    );
+                }
+            } catch (error) {
+                if (strict) {
+                    // 严格模式：看板 403/404 在跑任何磁贴前整批阻断
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
             }
 
             const savedChartTiles = dashboard.tiles.filter(
@@ -366,7 +471,12 @@ export const registerChartRunTools = (
                         tile,
                         chartUuid,
                         limit,
+                        dashboardUuid,
                     );
+                    if ('content' in tileResult) {
+                        // 整批中止：返回看板类阻断结果（已在执行的磁贴无法取消）
+                        return tileResult;
+                    }
                     tiles.push(tileResult);
                 }
             }

@@ -16,6 +16,8 @@ import {
 } from '@lightdash/common';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
+import { assertExploreQueryable } from './access/assertExploreQueryable';
+import { createRequiredDashboardGuard } from './access/requiredDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -72,6 +74,8 @@ type RunSemanticMetricQueryArgs = {
     dimensions?: string[];
     filters?: FiltersArgs;
     limit?: number;
+    /** 强制看板模式（dashboardStrict）下传入的关联看板 UUID */
+    dashboardUuid?: string;
 };
 
 type ExploreSummary = {
@@ -150,6 +154,21 @@ const runSemanticMetricQueryArgsSchema = {
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
         ),
 };
+
+/**
+ * 强制看板模式（MCP_DASHBOARD_STRICT，对齐 v1 环境变量同名义）。
+ *
+ * 默认 false：内部分析师零影响，除「预检文案口径」外路径行为完全不变。
+ */
+const isDashboardStrict = (deps: McpToolDeps): boolean =>
+    deps.lightdashConfig.mcp?.dashboardStrict === true;
+
+const dashboardUuidStrictParamSchema = z
+    .string()
+    .optional()
+    .describe(
+        '强制看板模式：本次查询关联的看板 UUID。未传时按 exploreName 反查关联看板（唯一则自动使用；多个返回 status=dashboard_selection_required；一个都没有返回 dashboard_configuration_required）。',
+    );
 
 const matchesExploreName = (
     exploreName: string,
@@ -278,6 +297,12 @@ export const registerQueryTools = (
     registry: McpToolRegistry,
     deps: McpToolDeps,
 ): void => {
+    const strict = isDashboardStrict(deps);
+    // 严格模式 guard（仅 strict 时创建；反查/预检缓存在 guard 模块内共享）
+    const dashboardGuard = strict
+        ? createRequiredDashboardGuard(deps)
+        : null;
+
     registry.register(
         McpToolName.LIST_EXPLORES,
         {
@@ -355,7 +380,13 @@ export const registerQueryTools = (
         {
             description:
                 'Run a semantic (dbt) metric query on a Lightdash explore and get the resulting rows. Provide the explore name, the metrics to compute and optionally the dimensions to group by, filters and a row limit.',
-            inputSchema: runSemanticMetricQueryArgsSchema,
+            // 强制看板模式：schema 增加可选 dashboardUuid 参数（非 strict 时保持原 schema）
+            inputSchema: strict
+                ? {
+                      ...runSemanticMetricQueryArgsSchema,
+                      dashboardUuid: dashboardUuidStrictParamSchema,
+                  }
+                : runSemanticMetricQueryArgsSchema,
         },
         async (args, context) => {
             const {
@@ -365,6 +396,7 @@ export const registerQueryTools = (
                 dimensions = [],
                 filters,
                 limit,
+                dashboardUuid,
             } = args as RunSemanticMetricQueryArgs;
 
             const { projectUuid } = await resolveProjectContext(
@@ -377,6 +409,31 @@ export const registerQueryTools = (
                 throw new ParameterError(
                     'Query must have at least one metric or dimension',
                 );
+            }
+
+            // v1 对齐（registerQueryTools）：执行前预检 explore 可查，
+            // 拒绝时抛出「受控角色 / 非受控角色」两行中文文案，不会跑数。
+            // 预检在 strict 与非 strict 下都执行（dashboardStrict 只影响文案口径）。
+            await assertExploreQueryable(
+                deps,
+                context,
+                projectUuid,
+                exploreName,
+                'metric',
+                { dashboardStrict: strict },
+            );
+
+            // 强制看板模式：查数前必须解析出已验证的 dashboardUuid，
+            // blocked 时直接返回 guard 构造的结构化 payload，不执行查询。
+            if (dashboardGuard) {
+                const guardResult = await dashboardGuard.ensure(context, {
+                    projectUuid,
+                    dashboardUuid,
+                    exploreName,
+                });
+                if (!guardResult.ok) {
+                    return guardResult.result;
+                }
             }
 
             const explore = await deps.projectService.getExplore(

@@ -84,11 +84,13 @@ const buildDeps = ({
     visibleProjectUuids = ['project-uuid'],
     charts = [buildChart()],
     tiles,
+    dashboardStrict = false,
 }: {
     contextProjectUuid?: string;
     visibleProjectUuids?: string[];
     charts?: AnyType[];
     tiles?: AnyType[];
+    dashboardStrict?: boolean;
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -219,6 +221,10 @@ const buildDeps = ({
             track,
         },
         lightdashConfig: {
+            mcp: {
+                dashboardStrict,
+                dashboardContact: '请联系客服开通看板访问权限。',
+            },
             ai: {
                 copilot: {
                     maxQueryLimit: 1000,
@@ -276,7 +282,47 @@ const buildContext = ({
 const parseResult = (result: AnyType) =>
     JSON.parse(result.content[0].text as string);
 
+// 看板门控模块的 mock（jest.mock 工厂只能引用 mock 前缀变量）
+const mockGuardEnsure = jest.fn();
+const mockFormatDashboardAccessError = jest.fn();
+
+jest.mock('./access/requiredDashboardContext', () => ({
+    createRequiredDashboardGuard: () => ({
+        ensure: (...args: AnyType[]) => mockGuardEnsure(...args),
+    }),
+    formatDashboardAccessError: (...args: AnyType[]) =>
+        mockFormatDashboardAccessError(...args),
+}));
+
+const buildGuardContext = (dashboardUuid = 'dashboard-uuid') => ({
+    dashboardUuid,
+    dashboardSlug: 'sales-dashboard',
+    dashboardName: 'Sales dashboard',
+    dashboardUrl: '',
+    source: 'uniqueChartContext' as const,
+    candidateCount: 1,
+});
+
+const buildBlockedResult = (status: string) => ({
+    content: [
+        {
+            type: 'text',
+            text: JSON.stringify({ status }, null, 2),
+        },
+    ],
+});
+
 describe('registerChartRunTools', () => {
+    beforeEach(() => {
+        mockGuardEnsure.mockReset();
+        mockFormatDashboardAccessError.mockReset();
+        mockGuardEnsure.mockResolvedValue({
+            ok: true,
+            context: buildGuardContext(),
+        });
+        mockFormatDashboardAccessError.mockReturnValue(null);
+    });
+
     it('registers the run_saved_chart and run_dashboard_tiles tools', () => {
         const { registry, registered } = buildRegistry();
         registerChartRunTools(registry, buildDeps().deps);
@@ -577,6 +623,213 @@ describe('registerChartRunTools', () => {
                     context,
                 ),
             ).rejects.toBeInstanceOf(ForbiddenError);
+        });
+    });
+
+    describe('dashboard strict gating', () => {
+        it('adds the optional dashboardUuid parameter to run_saved_chart only when strict is on', () => {
+            const { registry, registered } = buildRegistry();
+            registerChartRunTools(registry, buildDeps().deps);
+            expect(registered[0].config.inputSchema).not.toHaveProperty(
+                'dashboardUuid',
+            );
+
+            const { registry: strictRegistry, registered: strictRegistered } =
+                buildRegistry();
+            registerChartRunTools(
+                strictRegistry,
+                buildDeps({ dashboardStrict: true }).deps,
+            );
+            expect(strictRegistered[0].config.inputSchema).toHaveProperty(
+                'dashboardUuid',
+            );
+        });
+
+        it('blocks run_saved_chart with the structured guard payload when strict is on', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, get, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerChartRunTools(registry, deps);
+
+            const blockedResult = buildBlockedResult(
+                'dashboard_selection_required',
+            );
+            mockGuardEnsure.mockResolvedValueOnce({
+                ok: false,
+                result: blockedResult,
+            });
+
+            const context = buildContext();
+            const result = await registered[0].handler(
+                {
+                    savedChartUuid: 'chart-uuid',
+                    dashboardUuid: 'dashboard-uuid',
+                },
+                context,
+            );
+
+            expect(result).toEqual(blockedResult);
+            // v1 对齐：先取图表再 guard；blocked 时不跑数
+            expect(get).toHaveBeenCalledTimes(1);
+            expect(runMetricQuery).not.toHaveBeenCalled();
+            expect(mockGuardEnsure).toHaveBeenCalledWith(context, {
+                projectUuid: 'project-uuid',
+                dashboardUuid: 'dashboard-uuid',
+                chartUuid: 'chart-uuid',
+            });
+        });
+
+        it('maps dashboard-class errors of run_saved_chart when strict is on', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerChartRunTools(registry, deps);
+
+            runMetricQuery.mockRejectedValueOnce(
+                new ForbiddenError(
+                    'You must contact your administrator to configure dashboard access permissions',
+                ),
+            );
+            const mappedResult = buildBlockedResult(
+                'dashboard_permission_required',
+            );
+            mockFormatDashboardAccessError.mockReturnValueOnce(mappedResult);
+
+            const result = await registered[0].handler(
+                { savedChartUuid: 'chart-uuid' },
+                buildContext(),
+            );
+
+            expect(result).toEqual(mappedResult);
+            // guard 解析出的 dashboardUuid 用于错误映射
+            expect(mockFormatDashboardAccessError).toHaveBeenCalledWith({
+                error: expect.any(ForbiddenError),
+                projectUuid: 'project-uuid',
+                dashboardUuid: 'dashboard-uuid',
+            });
+        });
+
+        it('blocks run_dashboard_tiles before running any tile when the dashboard fetch fails (strict)', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, get, runMetricQuery, getByIdOrSlug } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerChartRunTools(registry, deps);
+
+            getByIdOrSlug.mockRejectedValueOnce(
+                new ForbiddenError(
+                    'You do not have access to the space this dashboard belongs to',
+                ),
+            );
+            const mappedResult = buildBlockedResult(
+                'dashboard_permission_required',
+            );
+            mockFormatDashboardAccessError.mockReturnValueOnce(mappedResult);
+
+            const result = await registered[1].handler(
+                { dashboardUuid: 'dashboard-uuid' },
+                buildContext(),
+            );
+
+            expect(result).toEqual(mappedResult);
+            expect(mockFormatDashboardAccessError).toHaveBeenCalledWith({
+                error: expect.any(ForbiddenError),
+                projectUuid: 'project-uuid',
+                dashboardUuid: 'dashboard-uuid',
+            });
+            expect(get).not.toHaveBeenCalled();
+            expect(runMetricQuery).not.toHaveBeenCalled();
+        });
+
+        it('blocks the whole batch when a tile fails with a dashboard-class error (strict)', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerChartRunTools(registry, deps);
+
+            runMetricQuery.mockRejectedValueOnce(
+                new ForbiddenError(
+                    'You must contact your administrator to configure dashboard access permissions',
+                ),
+            );
+            const mappedResult = buildBlockedResult(
+                'dashboard_permission_required',
+            );
+            mockFormatDashboardAccessError.mockReturnValueOnce(mappedResult);
+
+            const result = await registered[1].handler(
+                { dashboardUuid: 'dashboard-uuid' },
+                buildContext(),
+            );
+
+            expect(result).toEqual(mappedResult);
+            expect(mockFormatDashboardAccessError).toHaveBeenCalledWith({
+                error: expect.any(ForbiddenError),
+                projectUuid: 'project-uuid',
+                dashboardUuid: 'dashboard-uuid',
+            });
+        });
+
+        it('keeps non-dashboard tile errors per tile when strict is on', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+                charts: [buildChart({ uuid: 'chart-2' })],
+                tiles: [
+                    {
+                        uuid: 'tile-1',
+                        type: DashboardTileTypes.SAVED_CHART,
+                        x: 0,
+                        y: 0,
+                        h: 8,
+                        w: 12,
+                        tabUuid: undefined,
+                        properties: {
+                            title: 'Missing chart',
+                            savedChartUuid: 'chart-missing',
+                        },
+                    },
+                    {
+                        uuid: 'tile-2',
+                        type: DashboardTileTypes.SAVED_CHART,
+                        x: 0,
+                        y: 8,
+                        h: 8,
+                        w: 12,
+                        tabUuid: undefined,
+                        properties: {
+                            title: 'Working chart',
+                            savedChartUuid: 'chart-2',
+                        },
+                    },
+                ],
+            });
+            registerChartRunTools(registry, deps);
+
+            const context = buildContext();
+            const result = parseResult(
+                await registered[1].handler(
+                    { dashboardUuid: 'dashboard-uuid' },
+                    context,
+                ),
+            );
+
+            // 非看板类错误（formatDashboardAccessError 返回 null）不走整批阻断
+            expect(mockFormatDashboardAccessError).toHaveBeenCalled();
+            expect(result.tiles).toHaveLength(2);
+            expect(result.tiles[0].error).toEqual(
+                'Chart chart-missing not found',
+            );
+            expect(result.tiles[1].rowCount).toEqual(1);
+            expect(result.rowCount).toEqual(1);
         });
     });
 });

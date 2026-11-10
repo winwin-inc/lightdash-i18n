@@ -1,6 +1,13 @@
-import { ForbiddenError, getChartKind } from '@lightdash/common';
+import {
+    ForbiddenError,
+    getChartKind,
+    SavedChart,
+} from '@lightdash/common';
+// eslint-disable-next-line import/extensions
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
+import { formatDashboardAccessError } from './access/requiredDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -59,18 +66,36 @@ export const registerSavedChartTools = (
                 explicitProjectUuid,
             );
 
-            // `SavedChartService.get` applies the space permission filtering
-            // and the viewer content scope of the calling user.
-            const chart = await deps.savedChartService.get(
-                savedChartUuid,
-                context.account,
-                { projectUuid },
-            );
-
-            if (chart.projectUuid !== projectUuid) {
-                throw new ForbiddenError(
-                    `Chart does not belong to project ${projectUuid}`,
+            // 强制看板模式：图表所在空间 / 看板类 403/404 映射成 dashboard_*
+            // 状态的结构化 payload；非看板类错误原样抛出（行为不变）。
+            // 只读工具不查数，不适用 guard.ensure（v1 对齐）。
+            let chart: SavedChart;
+            try {
+                // `SavedChartService.get` applies the space permission filtering
+                // and the viewer content scope of the calling user.
+                chart = await deps.savedChartService.get(
+                    savedChartUuid,
+                    context.account,
+                    { projectUuid },
                 );
+
+                if (chart.projectUuid !== projectUuid) {
+                    throw new ForbiddenError(
+                        `Chart does not belong to project ${projectUuid}`,
+                    );
+                }
+            } catch (error) {
+                if (deps.lightdashConfig.mcp?.dashboardStrict === true) {
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid: null,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
             }
 
             const chartKind =

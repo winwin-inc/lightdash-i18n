@@ -83,9 +83,11 @@ const buildExplore = (): Explore =>
 const buildDeps = ({
     contextProjectUuid,
     visibleProjectUuids = ['project-uuid'],
+    dashboardStrict = false,
 }: {
     contextProjectUuid?: string;
     visibleProjectUuids?: string[];
+    dashboardStrict?: boolean;
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -189,6 +191,10 @@ const buildDeps = ({
             track,
         },
         lightdashConfig: {
+            mcp: {
+                dashboardStrict,
+                dashboardContact: '请联系客服开通看板访问权限。',
+            },
             ai: {
                 copilot: {
                     maxQueryLimit: 1000,
@@ -247,7 +253,46 @@ const buildContext = ({
 const parseResult = (result: AnyType) =>
     JSON.parse(result.content[0].text as string);
 
+// 预检 / 看板门控模块的 mock（jest.mock 工厂只能引用 mock 前缀变量）
+const mockAssertExploreQueryable = jest.fn();
+const mockGuardEnsure = jest.fn();
+const mockFormatDashboardAccessError = jest.fn();
+
+jest.mock('./access/assertExploreQueryable', () => ({
+    assertExploreQueryable: (...args: AnyType[]) =>
+        mockAssertExploreQueryable(...args),
+}));
+
+jest.mock('./access/requiredDashboardContext', () => ({
+    createRequiredDashboardGuard: () => ({
+        ensure: (...args: AnyType[]) => mockGuardEnsure(...args),
+    }),
+    formatDashboardAccessError: (...args: AnyType[]) =>
+        mockFormatDashboardAccessError(...args),
+}));
+
+const buildGuardContext = (dashboardUuid = 'dashboard-uuid') => ({
+    dashboardUuid,
+    dashboardSlug: 'sales-dashboard',
+    dashboardName: 'Sales dashboard',
+    dashboardUrl: '',
+    source: 'uniqueExploreContext' as const,
+    candidateCount: 1,
+});
+
 describe('registerQueryTools', () => {
+    beforeEach(() => {
+        mockAssertExploreQueryable.mockReset();
+        mockGuardEnsure.mockReset();
+        mockFormatDashboardAccessError.mockReset();
+        mockAssertExploreQueryable.mockResolvedValue(undefined);
+        mockGuardEnsure.mockResolvedValue({
+            ok: true,
+            context: buildGuardContext(),
+        });
+        mockFormatDashboardAccessError.mockReturnValue(null);
+    });
+
     it('registers the list_explores and run_semantic_metric_query tools', () => {
         const { registry, registered } = buildRegistry();
         registerQueryTools(registry, buildDeps().deps);
@@ -547,6 +592,168 @@ describe('registerQueryTools', () => {
                     context,
                 ),
             ).rejects.toBeInstanceOf(ForbiddenError);
+        });
+    });
+
+    describe('query preflight (assertExploreQueryable)', () => {
+        it('rejects with the two-line denial message before running the query', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerQueryTools(registry, deps);
+
+            const denialMessage = [
+                '已拒绝查询「orders」：当前账号看不到这张表（用户属性不满足，或该表未进目录 / 编译失败）。',
+                '下一步：检查该用户的 user attributes 后重试；get_my_access 可复核能力位与可查表。',
+            ].join('\n');
+            mockAssertExploreQueryable.mockRejectedValueOnce(
+                new Error(denialMessage),
+            );
+
+            const context = buildContext();
+
+            await expect(
+                registered[1].handler(
+                    {
+                        exploreName: 'orders',
+                        metrics: ['orders_total_revenue'],
+                    },
+                    context,
+                ),
+            ).rejects.toThrow(denialMessage);
+
+            expect(runMetricQuery).not.toHaveBeenCalled();
+            expect(mockAssertExploreQueryable).toHaveBeenCalledWith(
+                deps,
+                context,
+                'project-uuid',
+                'orders',
+                'metric',
+                { dashboardStrict: false },
+            );
+        });
+
+        it('does not run the preflight for list_explores', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps } = buildDeps({ contextProjectUuid: 'project-uuid' });
+            registerQueryTools(registry, deps);
+
+            await registered[0].handler({}, buildContext());
+
+            expect(mockAssertExploreQueryable).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('dashboard strict gating (run_semantic_metric_query)', () => {
+        it('keeps the original schema when strict is off and adds the optional dashboardUuid parameter when strict is on', () => {
+            const { registry, registered } = buildRegistry();
+            registerQueryTools(registry, buildDeps().deps);
+            expect(registered[1].config.inputSchema).not.toHaveProperty(
+                'dashboardUuid',
+            );
+
+            const { registry: strictRegistry, registered: strictRegistered } =
+                buildRegistry();
+            registerQueryTools(
+                strictRegistry,
+                buildDeps({ dashboardStrict: true }).deps,
+            );
+            expect(strictRegistered[1].config.inputSchema).toHaveProperty(
+                'dashboardUuid',
+            );
+        });
+
+        it('blocks with the structured guard payload before running the query when strict is on', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerQueryTools(registry, deps);
+
+            const blockedResult = {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(
+                            { status: 'dashboard_selection_required' },
+                            null,
+                            2,
+                        ),
+                    },
+                ],
+            };
+            mockGuardEnsure.mockResolvedValueOnce({
+                ok: false,
+                result: blockedResult,
+            });
+
+            const context = buildContext();
+            const result = await registered[1].handler(
+                {
+                    exploreName: 'orders',
+                    metrics: ['orders_total_revenue'],
+                    dashboardUuid: 'dashboard-uuid',
+                },
+                context,
+            );
+
+            expect(result).toEqual(blockedResult);
+            expect(runMetricQuery).not.toHaveBeenCalled();
+            expect(mockGuardEnsure).toHaveBeenCalledWith(context, {
+                projectUuid: 'project-uuid',
+                dashboardUuid: 'dashboard-uuid',
+                exploreName: 'orders',
+            });
+        });
+
+        it('resolves the dashboard context and runs the query when the guard allows it', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: true,
+            });
+            registerQueryTools(registry, deps);
+
+            const context = buildContext();
+            const result = parseResult(
+                await registered[1].handler(
+                    {
+                        exploreName: 'orders',
+                        metrics: ['orders_total_revenue'],
+                    },
+                    context,
+                ),
+            );
+
+            expect(mockGuardEnsure).toHaveBeenCalledWith(context, {
+                projectUuid: 'project-uuid',
+                dashboardUuid: undefined,
+                exploreName: 'orders',
+            });
+            expect(runMetricQuery).toHaveBeenCalledTimes(1);
+            expect(result.rowCount).toEqual(1);
+        });
+
+        it('does not create the guard nor call ensure when strict is off', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, runMetricQuery } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+                dashboardStrict: false,
+            });
+            registerQueryTools(registry, deps);
+
+            await registered[1].handler(
+                {
+                    exploreName: 'orders',
+                    metrics: ['orders_total_revenue'],
+                },
+                buildContext(),
+            );
+
+            expect(mockGuardEnsure).not.toHaveBeenCalled();
+            expect(runMetricQuery).toHaveBeenCalledTimes(1);
         });
     });
 });

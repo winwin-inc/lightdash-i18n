@@ -89,6 +89,8 @@ import { registerOrgTools } from './tools/orgTools';
 import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
+import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
+import { createRequiredDashboardGuard } from './tools/access/requiredDashboardContext';
 import { registerContentSearchTools } from './tools/contentSearchTools';
 import { registerContentListTools } from './tools/contentListTools';
 import { registerSavedChartTools } from './tools/savedChartTools';
@@ -610,7 +612,12 @@ export class McpService extends BaseService {
             {
                 description: toolRunMetricQueryArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
-                    toolRunMetricQueryArgsSchema,
+                    // 强制看板模式：schema 增加可选 dashboardUuid（非 strict 保持原 schema）
+                    this.lightdashConfig.mcp?.dashboardStrict === true
+                        ? toolRunMetricQueryArgsSchema.extend({
+                              dashboardUuid: z.string().optional(),
+                          })
+                        : toolRunMetricQueryArgsSchema,
                     { projectUuid: true },
                 ) as AnyType,
             },
@@ -623,6 +630,40 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
+                // v1 对齐（registerQueryTools run-query）：执行前预检 explore
+                // 可查，拒绝时抛受控/非受控两行中文文案，不跑数；strict 时还须
+                // 解析出已验证的看板上下文（dashboardUuid 可选参数）。
+                const strict =
+                    this.lightdashConfig.mcp?.dashboardStrict === true;
+                // v1 对齐：exploreName 存在才预检（vizConfig.exploreName 为
+                // schema 必填，实际恒有值；缺失时交由后续 parse 报参数错误）
+                const exploreName =
+                    argsWithProject.vizConfig?.exploreName;
+                if (exploreName) {
+                    await assertExploreQueryable(
+                        this.getToolDeps(),
+                        context,
+                        projectUuid,
+                        exploreName,
+                        'metric',
+                        { dashboardStrict: strict },
+                    );
+                    if (strict) {
+                        const guard = createRequiredDashboardGuard(
+                            this.getToolDeps(),
+                        );
+                        const guardResult = await guard.ensure(context, {
+                            projectUuid,
+                            dashboardUuid: (
+                                argsWithProject as { dashboardUuid?: string }
+                            ).dashboardUuid,
+                            exploreName,
+                        });
+                        if (!guardResult.ok) {
+                            return guardResult.result;
+                        }
+                    }
+                }
 
                 const { getExplore, runMiniMetricQuery } =
                     await this.getRunMetricQueryDependencies(
@@ -655,7 +696,11 @@ export class McpService extends BaseService {
             {
                 description: toolSearchFieldValuesArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
-                    toolSearchFieldValuesArgsSchema,
+                    this.lightdashConfig.mcp?.dashboardStrict === true
+                        ? toolSearchFieldValuesArgsSchema.extend({
+                              dashboardUuid: z.string().optional(),
+                          })
+                        : toolSearchFieldValuesArgsSchema,
                     { projectUuid: true },
                 ) as AnyType,
             },
@@ -668,6 +713,33 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
+                // v1 对齐（registerQueryTools search_field_values）：fieldValues
+                // 口径预检（metadataOnly 也可查值）+ strict 看板门控。
+                const strict =
+                    this.lightdashConfig.mcp?.dashboardStrict === true;
+                await assertExploreQueryable(
+                    this.getToolDeps(),
+                    context,
+                    projectUuid,
+                    argsWithProject.table,
+                    'fieldValues',
+                    { dashboardStrict: strict },
+                );
+                if (strict) {
+                    const guard = createRequiredDashboardGuard(
+                        this.getToolDeps(),
+                    );
+                    const guardResult = await guard.ensure(context, {
+                        projectUuid,
+                        dashboardUuid: (
+                            argsWithProject as { dashboardUuid?: string }
+                        ).dashboardUuid,
+                        exploreName: argsWithProject.table,
+                    });
+                    if (!guardResult.ok) {
+                        return guardResult.result;
+                    }
+                }
 
                 const searchFieldValues: SearchFieldValuesFn =
                     await this.getSearchFieldValuesFunction(
