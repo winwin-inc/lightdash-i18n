@@ -5,7 +5,14 @@ import {
     type DashboardTile,
     type Dashboard as IDashboard,
 } from '@lightdash/common';
-import { ActionIcon, Group, ScrollArea, Stack, Tabs } from '@mantine/core';
+import {
+    ActionIcon,
+    Group,
+    ScrollArea,
+    Stack,
+    Tabs,
+    useMantineTheme,
+} from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
@@ -14,6 +21,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
 import useDashboardStorage from '../../hooks/dashboard/useDashboardStorage';
+import { useVisibleDashboardFilters } from '../../hooks/dashboard/useVisibleDashboardFilters';
 import { useServerFeatureFlag } from '../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import { TrackSection } from '../../providers/Tracking/TrackingProvider';
@@ -22,6 +30,7 @@ import { SectionName } from '../../types/Events';
 import DashboardFilter from '../DashboardFilter';
 import EmptyStateNoTiles from '../DashboardTiles/EmptyStateNoTiles';
 import MantineIcon from '../common/MantineIcon';
+import { useStickyLayer } from '../common/StickyStack/useStickyLayer';
 import { LockedDashboardModal } from '../common/modal/LockedDashboardModal';
 import { TabAddModal } from './AddTabModal';
 import { TabDeleteModal } from './DeleteTabModal';
@@ -163,6 +172,7 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     setGridWidth,
     setAddingTab,
 }) => {
+    const theme = useMantineTheme();
     const gridProps = useMemo(() => getResponsiveGridLayoutProps(), []);
     const { data: dashboardTabsInMemoryFlag } = useServerFeatureFlag(
         FeatureFlags.DashboardTabsInMemory,
@@ -459,6 +469,35 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
 
     const MAGIC_SCROLL_AREA_HEIGHT = 40;
 
+    /**
+     * Sticky tabs: the tab bar and the tab filters stay visible while
+     * scrolling, so it is always clear which tab is active and which filters
+     * are applied. Disabled in edit mode to avoid blocking tile drag & drop.
+     */
+    const isStickyEnabled = !isEditMode;
+    const { ref: tabsBarRef, style: tabsBarStickyStyle } = useStickyLayer({
+        id: 'dashboard-tabs-bar',
+        order: 2,
+        enabled: isStickyEnabled,
+    });
+    const { ref: tabFiltersRef, style: tabFiltersStickyStyle } = useStickyLayer(
+        {
+            id: 'dashboard-tab-filters',
+            order: 3,
+            enabled: isStickyEnabled,
+        },
+    );
+    const showTabFilters = hasTilesThatSupportFilters && !!activeTab?.uuid;
+    // When the tab has no filters at all, the row must not take up any space,
+    // otherwise it leaves a gap in the sticky stack
+    const { hasVisibleContent: hasVisibleTabFilters } =
+        useVisibleDashboardFilters({
+            filterScope: 'tab',
+            activeTabUuid: activeTab?.uuid,
+            isEditMode,
+        });
+    const hasTabFilters = showTabFilters && hasVisibleTabFilters;
+
     return (
         <DragDropContext
             onDragEnd={(result) => {
@@ -492,7 +531,6 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         handleChangeTab(tab);
                                     }
                                 }}
-                                mt={tabsEnabled ? 'sm' : 'xs'}
                                 styles={{
                                     tabsList: {
                                         flexWrap: 'nowrap',
@@ -505,86 +543,123 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                 }}
                                 variant="outline"
                             >
-                                {sortedTabs && sortedTabs?.length > 0 && (
-                                    <Tabs.List bg="gray.0" px="lg">
-                                        <ScrollArea
-                                            type="hover"
-                                            offsetScrollbars
-                                            scrollHideDelay={200}
-                                            variant="primary"
-                                            scrollbarSize={6}
-                                            h={MAGIC_SCROLL_AREA_HEIGHT}
-                                            styles={{
-                                                viewport: {
-                                                    paddingBottom: 0,
-                                                },
-                                            }}
-                                        >
-                                            <Group noWrap spacing={8}>
-                                                {sortedTabs?.map((tab, idx) => {
-                                                    return (
-                                                        <DraggableTab
-                                                            key={tab.uuid}
-                                                            idx={idx}
-                                                            tab={tab}
-                                                            isEditMode={
-                                                                isEditMode
-                                                            }
-                                                            sortedTabs={
-                                                                sortedTabs
-                                                            }
-                                                            currentTabHasTiles={
-                                                                currentTabHasTiles
-                                                            }
-                                                            isActive={
-                                                                activeTab?.uuid ===
-                                                                tab.uuid
-                                                            }
-                                                            setEditingTab={
-                                                                setEditingTab
-                                                            }
-                                                            handleDeleteTab={
-                                                                handleDeleteTab
-                                                            }
-                                                            handleToggleTabHidden={
-                                                                handleToggleTabHidden
-                                                            }
-                                                            setDeletingTab={
-                                                                setDeletingTab
-                                                            }
-                                                        />
-                                                    );
-                                                })}
-                                            </Group>
-                                        </ScrollArea>
-                                        {provided.placeholder}
-                                        {isEditMode && (
-                                            <Group pl="md">
-                                                <ActionIcon
-                                                    size="xs"
-                                                    variant="light"
-                                                    color={'blue.6'}
-                                                    onClick={() =>
-                                                        setAddingTab(true)
-                                                    }
-                                                >
-                                                    <MantineIcon
-                                                        icon={IconPlus}
-                                                    />
-                                                </ActionIcon>
-                                            </Group>
-                                        )}
-                                    </Tabs.List>
-                                )}
-                                <Stack
-                                    pt={tabsEnabled ? 'sm' : undefined}
-                                    pb="lg"
-                                    px="sm"
-                                    spacing={0}
+                                <div
+                                    ref={tabsBarRef}
+                                    style={{
+                                        ...tabsBarStickyStyle,
+                                        // the spacing to the content above.
+                                        // It is a padding (and not a margin)
+                                        // so it is part of the sticky layer:
+                                        // a margin scrolls away and the bar
+                                        // would stick right below the header
+                                        paddingTop:
+                                            sortedTabs && sortedTabs.length > 0
+                                                ? tabsEnabled
+                                                    ? 12
+                                                    : 8
+                                                : 0,
+                                        // the page background, it has to be
+                                        // opaque so the content can't
+                                        // scroll through the bar
+                                        backgroundColor: theme.colors.gray[0],
+                                    }}
                                 >
-                                    <Group>
-                                        {hasTilesThatSupportFilters &&
-                                            activeTab?.uuid && (
+                                    {sortedTabs && sortedTabs?.length > 0 && (
+                                        <Tabs.List bg="gray.0" px="lg">
+                                            <ScrollArea
+                                                type="hover"
+                                                offsetScrollbars
+                                                scrollHideDelay={200}
+                                                variant="primary"
+                                                scrollbarSize={6}
+                                                h={MAGIC_SCROLL_AREA_HEIGHT}
+                                                styles={{
+                                                    viewport: {
+                                                        paddingBottom: 0,
+                                                    },
+                                                }}
+                                            >
+                                                <Group noWrap spacing={8}>
+                                                    {sortedTabs?.map(
+                                                        (tab, idx) => {
+                                                            return (
+                                                                <DraggableTab
+                                                                    key={
+                                                                        tab.uuid
+                                                                    }
+                                                                    idx={idx}
+                                                                    tab={tab}
+                                                                    isEditMode={
+                                                                        isEditMode
+                                                                    }
+                                                                    sortedTabs={
+                                                                        sortedTabs
+                                                                    }
+                                                                    currentTabHasTiles={
+                                                                        currentTabHasTiles
+                                                                    }
+                                                                    isActive={
+                                                                        activeTab?.uuid ===
+                                                                        tab.uuid
+                                                                    }
+                                                                    setEditingTab={
+                                                                        setEditingTab
+                                                                    }
+                                                                    handleDeleteTab={
+                                                                        handleDeleteTab
+                                                                    }
+                                                                    handleToggleTabHidden={
+                                                                        handleToggleTabHidden
+                                                                    }
+                                                                    setDeletingTab={
+                                                                        setDeletingTab
+                                                                    }
+                                                                />
+                                                            );
+                                                        },
+                                                    )}
+                                                </Group>
+                                            </ScrollArea>
+                                            {provided.placeholder}
+                                            {isEditMode && (
+                                                <Group pl="md">
+                                                    <ActionIcon
+                                                        size="xs"
+                                                        variant="light"
+                                                        color={'blue.6'}
+                                                        onClick={() =>
+                                                            setAddingTab(true)
+                                                        }
+                                                    >
+                                                        <MantineIcon
+                                                            icon={IconPlus}
+                                                        />
+                                                    </ActionIcon>
+                                                </Group>
+                                            )}
+                                        </Tabs.List>
+                                    )}
+                                </div>
+                                <Stack pb="lg" px="sm" spacing={0}>
+                                    <div
+                                        ref={tabFiltersRef}
+                                        style={{
+                                            ...tabFiltersStickyStyle,
+                                            // the spacing to the tabs bar. It
+                                            // is a padding (and not a margin)
+                                            // so it is part of the sticky
+                                            // layer and the content can't
+                                            // scroll through it
+                                            paddingTop: hasTabFilters ? 12 : 0,
+                                            // the page background, it has to
+                                            // be opaque so the content can't
+                                            // scroll through the bar
+                                            backgroundColor:
+                                                theme.colors.gray[0],
+                                        }}
+                                    >
+                                        <Group>
+                                            {showTabFilters && (
                                                 <DashboardFilter
                                                     isEditMode={isEditMode}
                                                     activeTabUuid={
@@ -593,9 +668,19 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                     filterScope="tab"
                                                 />
                                             )}
-                                    </Group>
+                                        </Group>
+                                    </div>
 
-                                    <div style={{ position: 'relative' }}>
+                                    <div
+                                        style={{
+                                            position: 'relative',
+                                            marginTop: hasTabFilters
+                                                ? 0
+                                                : tabsEnabled
+                                                ? 12
+                                                : 0,
+                                        }}
+                                    >
                                         {tabsEnabled
                                             ? visibleTabs
                                                   .filter((tab) =>

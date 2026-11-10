@@ -30,8 +30,13 @@ const SortButton: FC<Props> = ({ sorts, isEditMode }) => {
             const sort = sorts[0];
             const column = columns.find((c) => c.id === sort.fieldId);
             const item = column?.meta?.item;
-            if (!item) return t('components_sort_button.field');
-            return getItemLabelWithoutTableName(item);
+            const label = item
+                ? getItemLabelWithoutTableName(item)
+                : t('components_sort_button.field');
+            // 自定义顺序不看字母序，直接标明，避免被误读成 A-Z
+            return (sort.valueOrder ?? []).length > 0
+                ? `${label} · ${t('components_sort_button.custom_order_short')}`
+                : label;
         }
         return `${sorts.length} ${t('components_sort_button.fields')}`;
     };

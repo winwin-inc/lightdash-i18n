@@ -643,6 +643,10 @@ export class DashboardModel {
     /**
      * Lightweight explore/chart → dashboard contexts for query RLS (dashboardSlug).
      * Uses latest dashboard version tiles only.
+     *
+     * The exploreName filter only matches the latest version of each chart, so
+     * dashboards that used the explore on an old chart version are not counted
+     * as associated (same rule as getExploreNamesByDashboardUuids).
      */
     async findDashboardContexts(
         projectUuid: string,
@@ -667,6 +671,8 @@ export class DashboardModel {
         }
 
         const cteName = 'dashboard_last_version_cte';
+        const tileChartCteName = 'dashboard_tile_chart_cte';
+        const latestChartVersionCteName = 'latest_chart_version_cte';
         const query = this.database
             .with(cteName, (qb) => {
                 void qb
@@ -752,11 +758,58 @@ export class DashboardModel {
 
         if (exploreName) {
             void query
+                .with(tileChartCteName, (qb) => {
+                    void qb
+                        .distinct({
+                            saved_query_id: `${SavedChartsTableName}.saved_query_id`,
+                        })
+                        .from(cteName)
+                        .innerJoin(
+                            DashboardTileChartTableName,
+                            `${cteName}.dashboard_version_id`,
+                            `${DashboardTileChartTableName}.dashboard_version_id`,
+                        )
+                        .innerJoin(
+                            SavedChartsTableName,
+                            `${DashboardTileChartTableName}.saved_chart_id`,
+                            `${SavedChartsTableName}.saved_query_id`,
+                        );
+                })
+                .with(latestChartVersionCteName, (qb) => {
+                    void qb
+                        .select({
+                            saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
+                            saved_queries_version_id: this.database.raw(
+                                `MAX(${SavedChartVersionsTableName}.saved_queries_version_id)`,
+                            ),
+                        })
+                        .from(SavedChartVersionsTableName)
+                        .whereIn(
+                            `${SavedChartVersionsTableName}.saved_query_id`,
+                            this.database
+                                .select('saved_query_id')
+                                .from(tileChartCteName),
+                        )
+                        .groupBy(`${SavedChartVersionsTableName}.saved_query_id`);
+                })
                 .innerJoin(
-                    SavedChartVersionsTableName,
-                    `${SavedChartVersionsTableName}.saved_query_id`,
+                    latestChartVersionCteName,
+                    `${latestChartVersionCteName}.saved_query_id`,
                     `${SavedChartsTableName}.saved_query_id`,
                 )
+                .innerJoin(SavedChartVersionsTableName, (join) => {
+                    void join
+                        .on(
+                            `${SavedChartVersionsTableName}.saved_query_id`,
+                            '=',
+                            `${latestChartVersionCteName}.saved_query_id`,
+                        )
+                        .andOn(
+                            `${SavedChartVersionsTableName}.saved_queries_version_id`,
+                            '=',
+                            `${latestChartVersionCteName}.saved_queries_version_id`,
+                        );
+                })
                 .andWhere(
                     `${SavedChartVersionsTableName}.explore_name`,
                     exploreName,
@@ -1043,16 +1096,31 @@ export class DashboardModel {
     }): Promise<
         Pick<
             DashboardDAO,
-            'uuid' | 'name' | 'spaceUuid' | 'description' | 'slug'
+            'uuid' | 'name' | 'spaceUuid' | 'description' | 'slug' | 'updatedAt'
         >[]
     > {
-        const query = this.database(DashboardsTableName).select(
-            `${DashboardsTableName}.name`,
-            `${DashboardsTableName}.dashboard_uuid`,
-            `${SpaceTableName}.space_uuid`,
-            `${DashboardsTableName}.description`,
-            `${DashboardsTableName}.slug`,
-        );
+        // The last update of a dashboard is the creation date of its latest
+        // version, the `dashboards` table does not have an `updated_at` column
+        const latestVersion = this.database(DashboardVersionsTableName)
+            .select('dashboard_id')
+            .max('created_at as latest_version_created_at')
+            .groupBy('dashboard_id')
+            .as('latest_dashboard_version');
+
+        const query = this.database(DashboardsTableName)
+            .leftJoin(
+                latestVersion,
+                `${DashboardsTableName}.dashboard_id`,
+                'latest_dashboard_version.dashboard_id',
+            )
+            .select(
+                `${DashboardsTableName}.name`,
+                `${DashboardsTableName}.dashboard_uuid`,
+                `${SpaceTableName}.space_uuid`,
+                `${DashboardsTableName}.description`,
+                `${DashboardsTableName}.slug`,
+                'latest_dashboard_version.latest_version_created_at as updated_at',
+            );
 
         if (projectUuid) {
             void query
@@ -1088,17 +1156,56 @@ export class DashboardModel {
                 space_uuid,
                 description,
                 slug: dashboardSlug,
+                updated_at: updatedAt,
             }) => ({
                 name,
                 description,
                 uuid: dashboard_uuid,
                 spaceUuid: space_uuid,
                 slug: dashboardSlug,
+                updatedAt,
             }),
         );
     }
 
-    async getByIdOrSlug(dashboardUuidOrSlug: string): Promise<DashboardDAO> {
+    /**
+     * Resolves a dashboard by uuid or slug.
+     *
+     * `slug` is only unique within a project (slugs are generated per project
+     * and can be duplicated across projects), so a global `WHERE slug = ?` lookup
+     * can return a dashboard that belongs to a different project. When
+     * `projectUuid` is provided the lookup is scoped to that project so the
+     * resolved dashboard always belongs to the requested project.
+     */
+    /**
+     * Returns the uuids of the dashboards with the given name inside a project.
+     * Used as a fallback when a dashboard slug cannot be resolved (slugs are
+     * only unique within a project and can be duplicated across projects).
+     */
+    async getUuidsByNameInProject(
+        projectUuid: string,
+        name: string,
+    ): Promise<string[]> {
+        return this.database(DashboardsTableName)
+            .innerJoin(
+                SpaceTableName,
+                `${DashboardsTableName}.space_id`,
+                `${SpaceTableName}.space_id`,
+            )
+            .innerJoin(
+                ProjectTableName,
+                `${SpaceTableName}.project_id`,
+                `${ProjectTableName}.project_id`,
+            )
+            .where(`${ProjectTableName}.project_uuid`, projectUuid)
+            .where(`${DashboardsTableName}.name`, name)
+            .pluck(`${DashboardsTableName}.dashboard_uuid`);
+    }
+
+    async getByIdOrSlug(
+        dashboardUuidOrSlug: string,
+        projectUuid?: string,
+    ): Promise<DashboardDAO> {
         const query = this.database(DashboardsTableName)
             .leftJoin(
                 DashboardVersionsTableName,
@@ -1199,6 +1306,13 @@ export class DashboardModel {
             void query.where(
                 `${DashboardsTableName}.slug`,
                 dashboardUuidOrSlug,
+            );
+        }
+
+        if (projectUuid) {
+            void query.where(
+                `${ProjectTableName}.project_uuid`,
+                projectUuid,
             );
         }
 
@@ -1815,6 +1929,34 @@ export class DashboardModel {
 
         return orphanedCharts.map((chart) => ({
             uuid: chart.saved_query_uuid,
+        }));
+    }
+
+    /**
+     * SQL charts owned by a dashboard that are not referenced by any tile
+     * anymore. They are the SQL chart equivalent of the orphaned charts.
+     *
+     * A SQL chart is only deleted when it is not used by a tile of any
+     * dashboard: a SQL chart owned by a dashboard can still be used by a
+     * tile of another dashboard.
+     */
+    async getOrphanedSqlCharts(
+        dashboardUuid: string,
+    ): Promise<{ savedSqlUuid: string }[]> {
+        const getSqlChartsInTilesQuery = this.database(
+            DashboardTileSqlChartTableName,
+        ).distinct('saved_sql_uuid');
+
+        const orphanedSqlCharts = await this.database(SavedSqlTableName)
+            .select('saved_sql_uuid')
+            .where(`${SavedSqlTableName}.dashboard_uuid`, dashboardUuid)
+            .whereNotIn(
+                `${SavedSqlTableName}.saved_sql_uuid`,
+                getSqlChartsInTilesQuery,
+            );
+
+        return orphanedSqlCharts.map((chart) => ({
+            savedSqlUuid: chart.saved_sql_uuid,
         }));
     }
 

@@ -51,6 +51,8 @@ export type PivotDataToVTableOptions = {
     showSubtotals?: boolean;
     /** Chart column order; used to decide which index dims are grouped */
     columnOrder?: string[];
+    /** 列宽解析：本地覆盖 > 图表配置 > undefined（自动） */
+    getColumnWidth?: (widthKey: string) => number | undefined;
 };
 
 /** customRender 条形图用：与 BarChartDisplay 一致的柱上/柱后文字与颜色 */
@@ -88,6 +90,8 @@ type VTableCellStyle = Record<string, string | number | (number | string)[]>;
 export type VTableColumnDef = {
     field: string;
     title: string;
+    /** VTable 声明式列宽（columnWidthConfig）按此 key 匹配叶子列 */
+    key?: string;
     width?: number;
     minWidth?: number;
     maxWidth?: number;
@@ -157,7 +161,24 @@ export type VTableListOption = {
      * Keys are pivot column fieldIds; values are per data-row merge info.
      */
     rowSpanMerges: Map<string, RowSpanMerge[]> | null;
+    /** 持久化的列宽（VTable 原生声明式配置，按叶列 key 匹配） */
+    columnWidthConfig: { key: string; width: number }[];
 };
+
+/**
+ * 列宽的持久化键。
+ * 透视叶子列的 fieldId 是「表头拼接 + colIndex」，会随筛选/指标数量漂移，
+ * 因此按「字段」持久化：行维度/label 用自身 fieldId，数据列用底层指标字段。
+ */
+export const getPivotColumnWidthKey = (col: {
+    columnType: string | undefined;
+    fieldId: string;
+    underlyingId?: string;
+    baseId?: string;
+}): string =>
+    col.columnType === 'indexValue' || col.columnType === 'label'
+        ? col.fieldId
+        : col.underlyingId ?? col.baseId ?? col.fieldId;
 
 function getHeaderDisplay(
     cell: FieldValue,
@@ -369,6 +390,7 @@ function buildGroupedDataColumns(
             minMax && columnProperties[baseId]?.displayStyle === 'bar' && item;
         const colDef: VTableColumnDef = {
             field: col.fieldId,
+            key: getPivotColumnWidthKey(col),
             title,
             style: { textAlign: cellAlignment },
             headerStyle: { textAlign: cellAlignment },
@@ -558,6 +580,7 @@ export function pivotDataToVTable(
             const baseId = col.underlyingId || col.baseId || col.fieldId;
             const colDef: VTableColumnDef = {
                 field: col.fieldId,
+                key: getPivotColumnWidthKey(col),
                 title: getFieldLabel(baseId) ?? col.fieldId,
                 style: { textAlign: pivotRowDimensionAlignment },
                 headerStyle: { textAlign: pivotRowDimensionAlignment },
@@ -608,6 +631,7 @@ export function pivotDataToVTable(
                           item;
                       const colDef: VTableColumnDef = {
                           field: col.fieldId,
+                          key: getPivotColumnWidthKey(col),
                           title,
                           style: { textAlign: cellAlignment },
                           headerStyle: { textAlign: cellAlignment },
@@ -798,11 +822,39 @@ export function pivotDataToVTable(
         }
     }
 
+    // 持久化列宽：叶子列上打 key，clamp 上限对齐显式宽度，并产出
+    // VTable 原生 columnWidthConfig（autoWidth 模式下只有它生效）。
+    const columnWidthConfig: { key: string; width: number }[] = [];
+    const applyConfiguredWidths = (
+        cols: (VTableColumnDef | VTableColumnGroup)[],
+    ) => {
+        cols.forEach((c) => {
+            if (!('field' in c)) {
+                applyConfiguredWidths(c.columns);
+                return;
+            }
+            const widthKey = c.key;
+            if (!widthKey) return;
+            const width = options.getColumnWidth?.(widthKey);
+            if (width === undefined) return;
+
+            c.width = width;
+            // 避免「存 600 / 渲染 450」：上限至少放到显式宽度
+            c.maxWidth = Math.max(c.maxWidth ?? width, width);
+            if (c.minWidth !== undefined) {
+                c.minWidth = Math.min(c.minWidth, width);
+            }
+            columnWidthConfig.push({ key: widthKey, width });
+        });
+    };
+    applyConfiguredWidths(columns);
+
     return {
         columns,
         records,
         columnTotalsRecords,
         frozenColCount,
         rowSpanMerges,
+        columnWidthConfig,
     };
 }

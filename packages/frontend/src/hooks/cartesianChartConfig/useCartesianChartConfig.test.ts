@@ -1,5 +1,5 @@
 import { CartesianSeriesType, getItemMap, StackType } from '@lightdash/common';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('../useFeatureFlagEnabled', () => ({
@@ -615,5 +615,157 @@ describe('series sort config', () => {
                 ),
             ).toBe(true);
         });
+    });
+});
+
+describe('baseline config', () => {
+    test('setBaselineFieldEnabled should add, dedupe and remove baseline field ids', () => {
+        const { result } = renderHook(
+            // @ts-expect-error partially mock params for hook
+            () => useCartesianChartConfig(useCartesianChartConfigParamsMock),
+        );
+
+        const firstFieldId = 'orders_total_order_amount';
+        const secondFieldId = 'orders_fulfillment_rate';
+
+        act(() => {
+            result.current.setBaselineFieldEnabled(firstFieldId, true);
+        });
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+            firstFieldId,
+        ]);
+
+        // enabling the same field twice does not duplicate it
+        act(() => {
+            result.current.setBaselineFieldEnabled(firstFieldId, true);
+        });
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+            firstFieldId,
+        ]);
+
+        // a second field is appended
+        act(() => {
+            result.current.setBaselineFieldEnabled(secondFieldId, true);
+        });
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+            firstFieldId,
+            secondFieldId,
+        ]);
+
+        // disabling removes only that field
+        act(() => {
+            result.current.setBaselineFieldEnabled(firstFieldId, false);
+        });
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+            secondFieldId,
+        ]);
+
+        act(() => {
+            result.current.setBaselineFieldEnabled(secondFieldId, false);
+        });
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([]);
+    });
+
+    test('updateBaselineStyle should merge partial updates', () => {
+        const { result } = renderHook(
+            // @ts-expect-error partially mock params for hook
+            () => useCartesianChartConfig(useCartesianChartConfigParamsMock),
+        );
+
+        act(() => {
+            result.current.updateBaselineStyle({ width: 5 });
+        });
+        expect(result.current.dirtyLayout?.baselineStyle).toEqual({
+            width: 5,
+        });
+
+        // updating the line type keeps the width
+        act(() => {
+            result.current.updateBaselineStyle({ lineType: 'dashed' });
+        });
+        expect(result.current.dirtyLayout?.baselineStyle).toEqual({
+            width: 5,
+            lineType: 'dashed',
+        });
+
+        act(() => {
+            result.current.updateBaselineStyle({ width: 3 });
+        });
+        expect(result.current.dirtyLayout?.baselineStyle).toEqual({
+            width: 3,
+            lineType: 'dashed',
+        });
+    });
+
+    test('should keep baseline layout config when pivot series are rebuilt', async () => {
+        const { result } = renderHook(() =>
+            // @ts-expect-error partially mock params for hook
+            useCartesianChartConfig({
+                ...useCartesianChartConfigParamsMock,
+                pivotKeys: pivotSeriesMapArgs.pivotKeys,
+                resultsData: {
+                    ...pivotSeriesMapArgs.resultsData,
+                    hasFetchedAllRows: true,
+                    metricQuery: {
+                        exploreName: '',
+                        dimensions: ['my_dimension', 'dimension_x'],
+                        metrics: ['my_metric', 'my_second_metric'],
+                        filters: {},
+                        sorts: [],
+                        limit: 500,
+                        tableCalculations: [],
+                        additionalMetrics: [],
+                    },
+                },
+                initialChartConfig: {
+                    layout: {
+                        xField: 'my_dimension',
+                        yField: ['my_metric', 'my_second_metric'],
+                        baselineFieldIds: ['my_metric'],
+                        baselineStyle: { width: 4, lineType: 'dashed' },
+                    },
+                    eChartsConfig: {
+                        series: [],
+                    },
+                },
+            }),
+        );
+
+        // pivot series are rebuilt from the expected series map
+        await waitFor(() => {
+            const series = result.current.validConfig!.eChartsConfig.series!;
+            expect(
+                series.filter(
+                    (serie) => serie.encode.yRef.pivotValues !== undefined,
+                ).length,
+            ).toBe(4);
+        });
+
+        // baseline layout config survives the series rebuild
+        expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+            'my_metric',
+        ]);
+        expect(result.current.dirtyLayout?.baselineStyle).toEqual({
+            width: 4,
+            lineType: 'dashed',
+        });
+        expect(result.current.validConfig?.layout.baselineFieldIds).toEqual([
+            'my_metric',
+        ]);
+
+        // toggling a baseline field while pivot series exist updates the layout
+        act(() => {
+            result.current.setBaselineFieldEnabled('my_second_metric', true);
+        });
+        await waitFor(() => {
+            expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([
+                'my_metric',
+                'my_second_metric',
+            ]);
+        });
+        // series are rebuilt again but remain present
+        expect(
+            result.current.validConfig!.eChartsConfig.series!.length,
+        ).toBeGreaterThan(0);
     });
 });

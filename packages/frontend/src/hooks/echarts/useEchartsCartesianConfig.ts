@@ -33,6 +33,7 @@ import {
     TableCalculationType,
     TimeFrames,
     transformToPercentageStacking,
+    VizAggregationOptions,
     XAxisSortType,
     type CartesianChart,
     type CustomDimension,
@@ -71,8 +72,11 @@ import {
     getStackSeriesSortDirection,
 } from '../cartesianChartConfig/utils';
 import {
+    BASELINE_MERGED_PIVOT_VALUE,
+    getBaselineMergedColumnKey,
     getPivotedDataFromPivotDetails,
     getPlottedData,
+    isBaselineMergedPivotValues,
     type RowKeyMap,
 } from '../plottedData/getPlottedData';
 import { type InfiniteQueryResults } from '../useQueryResults';
@@ -330,7 +334,9 @@ export const getXAxisLineConfig = ({
 }: {
     axisLineOnZero: boolean | undefined;
     existingAxisLine?: { show?: boolean } | Record<string, unknown>;
-}): { axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown> } => ({
+}): {
+    axisLine: { onZero: boolean; show?: boolean } & Record<string, unknown>;
+} => ({
     axisLine: {
         ...(existingAxisLine && typeof existingAxisLine === 'object'
             ? existingAxisLine
@@ -373,6 +379,7 @@ export type EChartSeries = {
         show?: boolean;
     };
     name?: string;
+    hideMetricName?: boolean;
     color?: string;
     yAxisIndex?: number;
     xAxisIndex?: number;
@@ -414,6 +421,14 @@ export type EChartSeries = {
     data?: unknown[];
     showSymbol?: boolean;
     symbolSize?: number;
+    symbol?: string;
+    lineStyle?: {
+        width?: number;
+        type?: 'solid' | 'dashed' | 'dotted';
+    };
+    z?: number;
+    /** Marks a baseline (benchmark) series declared via `layout.baselineFieldIds`. */
+    isBaseline?: boolean;
     barMaxWidth?: number;
 };
 
@@ -467,7 +482,116 @@ const removeEmptyProperties = <T = Record<any, any>>(obj: T | undefined) => {
 
 const DEFAULT_ECHARTS_LEGEND_MARKER_WIDTH = 10;
 
-const mergeLegendSettings = <T = Record<any, any>>(
+/** Default line width for baseline (benchmark) series when `baselineStyle.width` is unset. */
+const BASELINE_SERIES_DEFAULT_LINE_WIDTH = 3;
+
+/**
+ * z for baseline series. Regular series keep the ECharts default (z = 2),
+ * so baselines always render above them. Kept below ECharts markLine/markPoint
+ * default z (5) so axis reference lines and markers stay visible on top.
+ */
+const BASELINE_SERIES_Z = 4;
+
+export const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
+    if (serie.name) return serie.name;
+
+    const displayName = serie.dimensions?.[1]?.displayName;
+    if (typeof displayName === 'string' && displayName.length > 0) {
+        return displayName;
+    }
+
+    if (typeof serie.encode?.seriesName === 'string') {
+        return serie.encode.seriesName;
+    }
+
+    return '';
+};
+
+export const isBaselineSeries = (serie: EChartSeries): boolean =>
+    serie.isBaseline === true;
+
+/**
+ * ECharts legend/tooltip group series by display name. When several `pivotOnly`
+ * series resolve to the same short name (e.g. two metrics pivoted by the same
+ * dimension), fall back to the default `[pivot] metric` format for the
+ * colliding ones so legend toggling stays per-series.
+ */
+export const dedupePivotOnlyDisplayNames = (
+    series: EChartSeries[],
+    itemsMap: ItemsMap,
+    pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null,
+): EChartSeries[] => {
+    const seen = new Set<string>();
+    return series.map((serie) => {
+        const name = serie.dimensions?.[1]?.displayName;
+        if (name === undefined) return serie;
+        if (!seen.has(name)) {
+            seen.add(name);
+            return serie;
+        }
+        if (serie.hideMetricName !== true || !serie.pivotReference) {
+            // Pre-existing duplicates keep their current behaviour
+            return serie;
+        }
+        const pivotLabel = (serie.pivotReference.pivotValues ?? []).reduce(
+            (acc, { field, value }) => {
+                const formattedValue = getFormattedValue(
+                    value,
+                    field,
+                    itemsMap,
+                    undefined,
+                    pivotValuesColumnsMap,
+                );
+                return acc ? `${acc} - ${formattedValue}` : formattedValue;
+            },
+            '',
+        );
+        const metricLabel = getLabelFromField(
+            itemsMap,
+            serie.pivotReference.field,
+        );
+        const fallback = pivotLabel
+            ? `[${pivotLabel}] ${metricLabel}`
+            : metricLabel;
+        seen.add(fallback);
+        return {
+            ...serie,
+            dimensions: serie.dimensions?.map((dim, idx) =>
+                idx === 1 ? { ...dim, displayName: fallback } : dim,
+            ),
+        };
+    });
+};
+
+/**
+ * Whether a field id is declared as a baseline metric in the chart layout.
+ * Detection is based on `serie.encode.yRef.field` (value axis), so it holds
+ * for both `flipAxes` orientations.
+ */
+export const isBaselineLayoutField = (
+    layout: CartesianChart['layout'] | undefined,
+    fieldId: string | undefined,
+): boolean => !!fieldId && !!layout?.baselineFieldIds?.includes(fieldId);
+
+/**
+ * ECharts overrides for baseline series: bolder line (default width 3, solid),
+ * raised z so baselines draw above regular series, and an `isBaseline` marker
+ * used by legend/tooltip handling downstream. Symbol config (show symbol /
+ * filled circle) is NOT overridden — baselines follow the same toggles as
+ * regular series.
+ */
+export const getBaselineSeriesOverrides = (
+    baselineStyle?: CartesianChart['layout']['baselineStyle'],
+): Pick<EChartSeries, 'lineStyle' | 'z' | 'isBaseline'> => ({
+    lineStyle: {
+        width: baselineStyle?.width ?? BASELINE_SERIES_DEFAULT_LINE_WIDTH,
+        type: baselineStyle?.lineType ?? 'solid',
+    },
+    z: BASELINE_SERIES_Z,
+    isBaseline: true,
+});
+
+export const mergeLegendSettings = <T = Record<any, any>>(
     legendConfig: T | undefined,
     legendsSelected: LegendValues,
     series: EChartSeries[],
@@ -483,10 +607,27 @@ const mergeLegendSettings = <T = Record<any, any>>(
     const filledLegendIcon = hasFilledLineSymbol
         ? { icon: 'circle' as const }
         : {};
-    const legendData =
-        legendDataOrder && legendDataOrder.length > 0
-            ? { data: legendDataOrder }
-            : {};
+    // Baseline series never appear in the legend: drop their names from a
+    // provided order; when baselines exist, always provide explicit legend
+    // data built from the remaining series (ECharts would otherwise auto-add
+    // every series name, including baselines).
+    const baselineNames = new Set(
+        series.filter(isBaselineSeries).map(getEchartsSeriesLegendName),
+    );
+    const hasBaselineSeries = baselineNames.size > 0;
+    const nonBaselineLegendNames = series
+        .filter((serie) => !isBaselineSeries(serie))
+        .map(getEchartsSeriesLegendName)
+        .filter((name) => name.length > 0);
+    let legendDataNames: string[] | undefined;
+    if (hasBaselineSeries) {
+        legendDataNames = legendDataOrder?.length
+            ? legendDataOrder.filter((name) => !baselineNames.has(name))
+            : nonBaselineLegendNames;
+    } else if (legendDataOrder?.length) {
+        legendDataNames = legendDataOrder;
+    }
+    const legendData = legendDataNames ? { data: legendDataNames } : {};
     if (!normalizedConfig) {
         return {
             show: series.length > 1,
@@ -771,7 +912,7 @@ const seriesValueFormatter = (item: Item, value: unknown) => {
     }
 };
 
-const getPivotSeries = ({
+export const getPivotSeries = ({
     series,
     pivotReference,
     itemsMap,
@@ -781,19 +922,28 @@ const getPivotSeries = ({
     cartesianChart,
     pivotValuesColumnsMap,
 }: GetPivotSeriesArg): EChartSeries => {
-    const pivotLabel = pivotReference.pivotValues.reduce(
-        (acc, { field, value }) => {
-            const formattedValue = getFormattedValue(
-                value,
-                field,
-                itemsMap,
-                undefined,
-                pivotValuesColumnsMap,
-            );
-            return acc ? `${acc} - ${formattedValue}` : formattedValue;
-        },
-        '',
+    // Merged baseline series carry sentinel pivot values; their label is the
+    // metric name itself (the baseline does not vary by the pivot dimension).
+    const isMergedBaseline = isBaselineMergedPivotValues(
+        pivotReference.pivotValues,
     );
+    const pivotLabel = isMergedBaseline
+        ? getLabelFromField(itemsMap, series.encode.yRef.field)
+        : pivotReference.pivotValues.reduce((acc, { field, value }) => {
+              const formattedValue = getFormattedValue(
+                  value,
+                  field,
+                  itemsMap,
+                  undefined,
+                  pivotValuesColumnsMap,
+              );
+              return acc ? `${acc} - ${formattedValue}` : formattedValue;
+          }, '');
+
+    const isBaseline =
+        isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
+        (series.type === CartesianSeriesType.LINE ||
+            series.type === CartesianSeriesType.AREA);
 
     return {
         ...series,
@@ -817,14 +967,17 @@ const getPivotSeries = ({
             },
             {
                 name: yFieldHash,
-                displayName:
-                    cartesianChart.layout.yField &&
-                    cartesianChart.layout.yField.length > 1
-                        ? `[${pivotLabel}] ${getLabelFromField(
-                              itemsMap,
-                              series.encode.yRef.field,
-                          )}`
-                        : pivotLabel,
+                displayName: isMergedBaseline
+                    ? getLabelFromField(itemsMap, series.encode.yRef.field)
+                    : series.hideMetricName === true
+                      ? pivotLabel
+                      : cartesianChart.layout.yField &&
+                              cartesianChart.layout.yField.length > 1
+                          ? `[${pivotLabel}] ${getLabelFromField(
+                                itemsMap,
+                                series.encode.yRef.field,
+                            )}`
+                          : pivotLabel,
             },
         ],
         tooltip: {
@@ -852,6 +1005,9 @@ const getPivotSeries = ({
                 hideOverlap: true,
             },
         }),
+        ...(isBaseline
+            ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+            : {}),
     };
 };
 
@@ -884,18 +1040,20 @@ const getSimpleSeriesSymbolConfig = (series: Series) => {
 type GetSimpleSeriesArg = {
     series: Series;
     itemsMap: ItemsMap;
+    cartesianChart: CartesianChart;
     flipAxes: boolean | undefined;
     yFieldHash: string;
     xFieldHash: string;
     pivotValuesColumnsMap?: Record<string, PivotValuesColumn> | null;
 };
 
-const getSimpleSeries = ({
+export const getSimpleSeries = ({
     series,
     flipAxes,
     yFieldHash,
     xFieldHash,
     itemsMap,
+    cartesianChart,
     pivotValuesColumnsMap,
 }: GetSimpleSeriesArg) => ({
     ...series,
@@ -930,6 +1088,11 @@ const getSimpleSeries = ({
         ),
     },
     ...getSimpleSeriesSymbolConfig(series),
+    ...(isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
+        (series.type === CartesianSeriesType.LINE ||
+            series.type === CartesianSeriesType.AREA)
+        ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+        : {}),
     ...(series.label?.show && {
         label: {
             ...series.label,
@@ -948,8 +1111,97 @@ const getSimpleSeries = ({
     }),
 });
 
+/**
+ * Data column a series reads from the plotted dataset. Merged baseline series
+ * carry sentinel pivot values; `hashFieldReference` would hash them into
+ * `<field>.<dim>.__lightdash_baseline_merged__`, which is NOT the synthetic
+ * merged column produced by `applyBaselineMergedColumns`
+ * (`__baseline_merged__:<field>`). Resolve the merged column explicitly so
+ * sentinel-shaped saved series land on real data.
+ */
+export const getSeriesDataColumnKey = (yRef: PivotReference): string =>
+    isBaselineMergedPivotValues(yRef.pivotValues)
+        ? getBaselineMergedColumnKey(yRef.field)
+        : hashFieldReference(yRef);
+
+/**
+ * Render-layer normalization for baseline metrics declared in
+ * `layout.baselineFieldIds`. Whatever shape the saved series are in — one
+ * series per pivot value (`metric.dim.value`) or the merged sentinel series
+ * (`metric.dim.__lightdash_baseline_merged__`) — collapse them into a single
+ * series per field that reads the synthetic merged column, carrying the user
+ * properties (hideMetricName, color, …) of the field's first non-hidden
+ * series. This runs right before series generation on both the pivotDetails
+ * and the legacy pivot paths, so rendering is correct independent of the
+ * config-rebuild timing (dashboards skip the rebuild when rows are
+ * truncated) and of the shape the chart was saved in.
+ *
+ * Fields without a merged `rowKeyMap` entry (not pivoted in the data, or no
+ * data columns at all) are left untouched.
+ */
+export const collapseBaselineSeries = ({
+    series,
+    layout,
+    rowKeyMap,
+}: {
+    series: Series[];
+    layout: CartesianChart['layout'];
+    rowKeyMap: RowKeyMap;
+}): Series[] => {
+    const baselineFieldIds = layout.baselineFieldIds ?? [];
+    if (baselineFieldIds.length === 0) return series;
+
+    const mergedRefsByField = new Map<string, PivotReference>();
+    baselineFieldIds.forEach((field) => {
+        const ref = rowKeyMap[getBaselineMergedColumnKey(field)];
+        if (
+            ref &&
+            typeof ref === 'object' &&
+            'pivotValues' in ref &&
+            isBaselineMergedPivotValues(ref.pivotValues)
+        ) {
+            mergedRefsByField.set(field, ref);
+        }
+    });
+    if (mergedRefsByField.size === 0) return series;
+
+    const collapsedFields = new Set<string>();
+    return series.reduce<Series[]>((acc, serie) => {
+        const field = serie.encode.yRef.field;
+        const mergedRef = mergedRefsByField.get(field);
+        if (mergedRef === undefined) {
+            // Not a collapsible baseline field — render as saved
+            return [...acc, serie];
+        }
+        // Keep a single series per baseline field, anchored at the group's
+        // first position; drop the remaining per-value/sentinel siblings.
+        if (collapsedFields.has(field)) return acc;
+        collapsedFields.add(field);
+
+        // User properties come from the field's first non-hidden series; if
+        // every series of the field is hidden the user hid the baseline.
+        const donorSeries =
+            series.find(
+                (candidate) =>
+                    candidate.encode.yRef.field === field &&
+                    candidate.hidden !== true,
+            ) ?? serie;
+        if (donorSeries.hidden === true) return acc;
+
+        return [
+            ...acc,
+            {
+                ...donorSeries,
+                // Baselines are reference lines: they never join the stack
+                stack: undefined,
+                encode: { ...donorSeries.encode, yRef: mergedRef },
+            },
+        ];
+    }, []);
+};
+
 // New series generation for pre-pivoted data from backend
-const getEchartsSeriesFromPivotedData = (
+export const getEchartsSeriesFromPivotedData = (
     itemsMap: ItemsMap,
     cartesianChart: CartesianChart,
     rowKeyMap: RowKeyMap,
@@ -959,6 +1211,11 @@ const getEchartsSeriesFromPivotedData = (
     const findMatchingColumnName = (series: Series): string | undefined => {
         if (isPivotReferenceWithValues(series.encode.yRef)) {
             const yRef = series.encode.yRef;
+            // Sentinel merged baseline series read the synthetic merged
+            // column directly — no pivotDetails column matches their values.
+            if (isBaselineMergedPivotValues(yRef.pivotValues)) {
+                return getBaselineMergedColumnKey(yRef.field);
+            }
             const valuesColumn = Object.values(
                 pivotValuesColumnsMap || {},
             ).find((col) => {
@@ -983,7 +1240,11 @@ const getEchartsSeriesFromPivotedData = (
         return series.encode.yRef.field;
     };
 
-    const allSeries = cartesianChart.eChartsConfig.series || [];
+    const allSeries = collapseBaselineSeries({
+        series: cartesianChart.eChartsConfig.series || [],
+        layout: cartesianChart.layout,
+        rowKeyMap,
+    });
 
     const hasStackSeriesSortByValue = Boolean(
         getStackSeriesSortDirection(allSeries),
@@ -1051,6 +1312,7 @@ const getEchartsSeriesFromPivotedData = (
             return getSimpleSeries({
                 series,
                 itemsMap,
+                cartesianChart,
                 flipAxes,
                 yFieldHash,
                 xFieldHash,
@@ -1058,20 +1320,31 @@ const getEchartsSeriesFromPivotedData = (
             });
         });
 
-    return resultSeries;
+    return dedupePivotOnlyDisplayNames(
+        resultSeries,
+        itemsMap,
+        pivotValuesColumnsMap,
+    );
 };
 
-const getEchartsSeries = (
+export const getEchartsSeries = (
     itemsMap: ItemsMap,
     cartesianChart: CartesianChart,
     pivotKeys: string[] | undefined,
+    rowKeyMap: RowKeyMap,
 ): EChartSeries[] => {
-    return (cartesianChart.eChartsConfig.series || [])
+    const resultSeries = collapseBaselineSeries({
+        series: cartesianChart.eChartsConfig.series || [],
+        layout: cartesianChart.layout,
+        rowKeyMap,
+    })
         .filter((s) => !s.hidden)
         .map<EChartSeries>((series) => {
             const { flipAxes } = cartesianChart.layout;
             const xFieldHash = hashFieldReference(series.encode.xRef);
-            const yFieldHash = hashFieldReference(series.encode.yRef);
+            // Sentinel merged baseline series must read the synthetic merged
+            // column, not the hash of their sentinel pivot reference.
+            const yFieldHash = getSeriesDataColumnKey(series.encode.yRef);
             if (pivotKeys && isPivotReferenceWithValues(series.encode.yRef)) {
                 return getPivotSeries({
                     series,
@@ -1087,11 +1360,14 @@ const getEchartsSeries = (
             return getSimpleSeries({
                 series,
                 itemsMap,
+                cartesianChart,
                 flipAxes,
                 yFieldHash,
                 xFieldHash,
             });
         });
+
+    return dedupePivotOnlyDisplayNames(resultSeries, itemsMap);
 };
 
 const calculateWidthText = (text: string | undefined): number => {
@@ -1637,7 +1913,7 @@ const getSerieTotalForSort = ({
     return getSerieTotalFromRows(serie, rows, flipAxes);
 };
 
-const sortTooltipParamsByLegendOrder = (
+export const sortTooltipParamsByLegendOrder = (
     params: unknown[],
     legendOrder: string[] | undefined,
 ): unknown[] => {
@@ -1668,22 +1944,7 @@ const sortTooltipParamsByLegendOrder = (
     });
 };
 
-const getEchartsSeriesLegendName = (serie: EChartSeries): string => {
-    if (serie.name) return serie.name;
-
-    const displayName = serie.dimensions?.[1]?.displayName;
-    if (typeof displayName === 'string' && displayName.length > 0) {
-        return displayName;
-    }
-
-    if (typeof serie.encode?.seriesName === 'string') {
-        return serie.encode.seriesName;
-    }
-
-    return '';
-};
-
-const mergeValueSortLegendData = (
+export const mergeValueSortLegendData = (
     series: EChartSeries[],
     stackOrder?: string[],
     lineOrder?: string[],
@@ -1692,13 +1953,18 @@ const mergeValueSortLegendData = (
         return undefined;
     }
 
+    // Baseline series names never belong in legend data
+    const baselineNames = new Set(
+        series.filter(isBaselineSeries).map(getEchartsSeriesLegendName),
+    );
+
     const result: string[] = [];
     const seen = new Set<string>();
 
     const appendNames = (names: string[] | undefined) => {
         if (!names?.length) return;
         names.forEach((name) => {
-            if (name && !seen.has(name)) {
+            if (name && !baselineNames.has(name) && !seen.has(name)) {
                 result.push(name);
                 seen.add(name);
             }
@@ -1724,10 +1990,12 @@ const mergeValueSortLegendData = (
             }
             appendNames(lineOrder);
         } else {
-            const name = getEchartsSeriesLegendName(serie);
-            if (name && !seen.has(name)) {
-                result.push(name);
-                seen.add(name);
+            if (!isBaselineSeries(serie)) {
+                const name = getEchartsSeriesLegendName(serie);
+                if (name && !seen.has(name)) {
+                    result.push(name);
+                    seen.add(name);
+                }
             }
             index += 1;
         }
@@ -1737,6 +2005,7 @@ const mergeValueSortLegendData = (
     appendNames(lineOrder);
 
     series.forEach((serie) => {
+        if (isBaselineSeries(serie)) return;
         const name = getEchartsSeriesLegendName(serie);
         if (name && !seen.has(name)) {
             result.push(name);
@@ -1822,15 +2091,19 @@ export const getStackedBarLegendOrder = ({
     sortDirection: 'asc' | 'desc';
     flipAxes: boolean;
 }): string[] => {
-    return sortStackedBarSeriesByTotalValue({
-        series,
-        rows,
-        datasetRows,
-        sortDirection,
-        flipAxes,
-    })
-        .map(getEchartsSeriesLegendName)
-        .filter((name) => name.length > 0);
+    return (
+        sortStackedBarSeriesByTotalValue({
+            series,
+            rows,
+            datasetRows,
+            sortDirection,
+            flipAxes,
+        })
+            // Baseline series never appear in the legend
+            .filter((serie) => !isBaselineSeries(serie))
+            .map(getEchartsSeriesLegendName)
+            .filter((name) => name.length > 0)
+    );
 };
 
 /**
@@ -1943,16 +2216,20 @@ export const getLineLegendOrder = ({
     sortDirection: 'asc' | 'desc';
     flipAxes: boolean;
 }): string[] => {
-    return sortLineSeriesByValue({
-        series,
-        rows,
-        datasetRows,
-        sortDirection,
-        flipAxes,
-    })
-        .filter((serie) => serie.type === CartesianSeriesType.LINE)
-        .map(getEchartsSeriesLegendName)
-        .filter((name) => name.length > 0);
+    return (
+        sortLineSeriesByValue({
+            series,
+            rows,
+            datasetRows,
+            sortDirection,
+            flipAxes,
+        })
+            .filter((serie) => serie.type === CartesianSeriesType.LINE)
+            // Baseline series never appear in the legend
+            .filter((serie) => !isBaselineSeries(serie))
+            .map(getEchartsSeriesLegendName)
+            .filter((name) => name.length > 0)
+    );
 };
 
 /**
@@ -3323,10 +3600,10 @@ const getEchartAxes = ({
             ? shouldStack100 && !validCartesianConfig.layout.flipAxes
                 ? 100 // For 100% stacking without flipped axes, max is always 100
                 : shouldUseAlignedMaxForLeftAxis
-                  ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
-                  : yAxisConfiguration?.[0]?.max ||
-                    referenceLineMaxLeftY ||
-                    maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
+                ? String(alignedLeftMax) // 使用对齐后的 max 值，以对齐零轴
+                : yAxisConfiguration?.[0]?.max ||
+                  referenceLineMaxLeftY ||
+                  maybeGetAxisDefaultMaxValue(allowFirstAxisDefaultRange)
             : undefined;
 
     const minYAxisValue =
@@ -3861,15 +4138,42 @@ const useEchartsCartesianConfig = (
     }, [itemsMap, validCartesianConfig]);
 
     const pivotValuesColumnsMap = useMemo(() => {
-        if (!resultsData?.pivotDetails) return;
-        return convertPivotValuesColumnsIntoMap(
-            resultsData.pivotDetails.valuesColumns,
-        );
-    }, [resultsData?.pivotDetails]);
+        const pivotDetails = resultsData?.pivotDetails;
+        if (!pivotDetails) return;
+        const map = convertPivotValuesColumnsIntoMap(pivotDetails.valuesColumns);
+        if (!map) return map;
+        // Inject synthetic merged columns for baseline metrics so their
+        // series resolve to the merged dataset column.
+        const baselineFieldIds =
+            validCartesianConfig?.layout?.baselineFieldIds ?? [];
+        baselineFieldIds.forEach((field) => {
+            const mergedKey = getBaselineMergedColumnKey(field);
+            if (!map[mergedKey]) {
+                map[mergedKey] = {
+                    referenceField: field,
+                    pivotColumnName: mergedKey,
+                    aggregation: VizAggregationOptions.ANY,
+                    pivotValues: (pivotDetails.groupByColumns ?? []).map(
+                        (col) => ({
+                            referenceField: col.reference,
+                            value: BASELINE_MERGED_PIVOT_VALUE,
+                        }),
+                    ),
+                };
+            }
+        });
+        return map;
+    }, [resultsData?.pivotDetails, validCartesianConfig?.layout?.baselineFieldIds]);
 
     const { rows, rowKeyMap } = useMemo(() => {
+        const baselineFieldIds =
+            validCartesianConfig?.layout?.baselineFieldIds;
         if (resultsData?.pivotDetails) {
-            return getPivotedDataFromPivotDetails(resultsData, undefined);
+            return getPivotedDataFromPivotDetails(
+                resultsData,
+                undefined,
+                baselineFieldIds,
+            );
         }
 
         // Legacy implementation - comment out when fully migrated
@@ -3878,8 +4182,15 @@ const useEchartsCartesianConfig = (
             pivotDimensions,
             pivotedKeys,
             nonPivotedKeys,
+            baselineFieldIds,
         );
-    }, [resultsData, pivotDimensions, pivotedKeys, nonPivotedKeys]);
+    }, [
+        resultsData,
+        pivotDimensions,
+        pivotedKeys,
+        nonPivotedKeys,
+        validCartesianConfig?.layout?.baselineFieldIds,
+    ]);
 
     const series = useMemo(() => {
         if (!itemsMap || !validCartesianConfig || !resultsData) {
@@ -3901,6 +4212,7 @@ const useEchartsCartesianConfig = (
             itemsMap,
             validCartesianConfig,
             pivotDimensions,
+            rowKeyMap,
         );
     }, [
         validCartesianConfig,
@@ -4001,6 +4313,7 @@ const useEchartsCartesianConfig = (
                 flipAxes: validCartesianConfig?.layout.flipAxes ?? false,
             });
             stackSortLegendData = sortedSeries
+                .filter((serie) => !isBaselineSeries(serie))
                 .map(getEchartsSeriesLegendName)
                 .filter((name) => name.length > 0);
 
@@ -4798,9 +5111,9 @@ const useEchartsCartesianConfig = (
             containLabel: useManualFlipAxesLeftPadding
                 ? false
                 : validCartesianConfig?.layout.flipAxes &&
-                    validCartesianConfig.layout.xField
-                  ? true
-                  : grid.containLabel,
+                  validCartesianConfig.layout.xField
+                ? true
+                : grid.containLabel,
             left: gridLeft.includes('px')
                 ? `${resolvedLeftPadding}px`
                 : grid.left,

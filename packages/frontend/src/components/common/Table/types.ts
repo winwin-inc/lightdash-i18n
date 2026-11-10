@@ -78,6 +78,8 @@ export type ProviderProps = {
     showSubtotals?: boolean;
     hideRowNumbers?: boolean;
     showColumnCalculation?: boolean;
+    /** false 时禁用表头悬停的字段描述 tooltip；undefined 视为显示 */
+    showFieldDescriptionTooltip?: boolean;
     conditionalFormattings?: ConditionalFormattingConfig[];
     minMaxMap?: ConditionalFormattingMinMaxMap;
     columnProperties?: Record<string, ColumnProperties>;
@@ -86,6 +88,8 @@ export type ProviderProps = {
     };
     columnOrder?: string[];
     onColumnOrderChange?: (value: string[]) => void;
+    /** `null` resets the column back to its automatic width */
+    onColumnWidthChange?: (fieldId: string, width: number | null) => void;
 };
 
 export type TableContext = ProviderProps & {

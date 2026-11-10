@@ -13,6 +13,7 @@ function baseConfig(
 ): LightdashMcpEnvConfig {
     return {
         baseUrl: 'https://example.com',
+        publicBaseUrl: 'https://example.com',
         apiKey: undefined,
         defaultProjectUuid,
         maxLimit: 5000,
@@ -27,6 +28,8 @@ function baseConfig(
         lruMinIdleMs: 300_000,
         sessionTtlMs: 1_800_000,
         pruneIntervalMs: 300_000,
+        dashboardStrict: false,
+        dashboardContact: '请联系客服开通看板访问权限。',
     };
 }
 

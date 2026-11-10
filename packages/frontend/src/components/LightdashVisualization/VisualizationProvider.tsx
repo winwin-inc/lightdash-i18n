@@ -7,6 +7,7 @@ import {
     type ApiErrorDetail,
     type ChartConfig,
     type DashboardFilters,
+    type Explore,
     type ItemsMap,
     type MetricQuery,
     type ParametersValuesMap,
@@ -39,6 +40,7 @@ import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
     calculateSeriesLikeIdentifier,
+    getBaselineUserColor,
     isGroupedSeries,
 } from '../../hooks/useChartColorConfig/utils';
 import {
@@ -65,9 +67,15 @@ const EMPTY_COLOR_MAP: Record<string, string> = {};
 export type VisualizationProviderProps = {
     minimal?: boolean;
     isDashboard?: boolean;
+    /** Explore 编辑模式；未传视为查看模式 */
+    isEditMode?: boolean;
+    /** 看板 tile uuid：本地列宽按 tile 隔离 */
+    tileUuid?: string;
     chartConfig: ChartConfig;
     initialPivotDimensions: string[] | undefined;
     unsavedMetricQuery?: MetricQuery;
+    /** 图表错误诊断用：当前 explore（编译后的字段宇宙） */
+    explore?: Explore | null;
     resultsData: InfiniteQueryResults & {
         metricQuery?: MetricQuery;
         fields?: ItemsMap;
@@ -93,6 +101,8 @@ export type VisualizationProviderProps = {
     apiErrorDetail?: ApiErrorDetail | null;
     dashboardSlug?: string;
     dashboardName?: string;
+    /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+    dashboardUuid?: string;
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
     /** 看板级系列手配色，跨 Tab 预取后传入 */
@@ -109,6 +119,8 @@ const VisualizationProvider: FC<
 > = ({
     minimal = false,
     isDashboard = false,
+    isEditMode = false,
+    tileUuid,
     initialPivotDimensions,
     resultsData,
     isLoading,
@@ -130,8 +142,10 @@ const VisualizationProvider: FC<
     apiErrorDetail,
     parameters,
     unsavedMetricQuery,
+    explore,
     dashboardSlug,
     dashboardName,
+    dashboardUuid,
     useHashBased = false,
     knownHashAssignments = EMPTY_COLOR_MAP,
     hashAssignments = EMPTY_COLOR_MAP,
@@ -177,7 +191,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
+            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
             : lastValidResultsData?.metricQuery,
     );
 
@@ -345,9 +359,42 @@ const VisualizationProvider: FC<
 
     const effectiveResultsData = resultsData ?? lastValidResultsData;
 
+    // 只有「结果里的字段集就是当前正在编辑的查询」时才推透视维度。
+    // 首帧的 resultsData.metricQuery 可能是上一份查询/上一页的残留（explorerStore 是模块级单例、
+    // useQueryResults 开了 keepPreviousData），用它校验会把已保存的 pivotConfig 清空并落库。
+    const resultsMatchEditingQuery = useMemo(() => {
+        if (!resultsData?.metricQuery) return false;
+        // 部分场景（如无编辑态查询来源）没有 unsavedMetricQuery，退回只看结果是否就绪
+        if (!unsavedMetricQuery) return true;
+
+        return (
+            isEqual(
+                resultsData.metricQuery.dimensions,
+                unsavedMetricQuery.dimensions,
+            ) &&
+            isEqual(
+                resultsData.metricQuery.metrics,
+                unsavedMetricQuery.metrics,
+            ) &&
+            isEqual(
+                (resultsData.metricQuery.tableCalculations ?? []).map(
+                    (tableCalculation) => tableCalculation.name,
+                ),
+                (unsavedMetricQuery.tableCalculations ?? []).map(
+                    (tableCalculation) => tableCalculation.name,
+                ),
+            )
+        );
+    }, [resultsData?.metricQuery, unsavedMetricQuery]);
+
     useEffect(() => {
+        if (!resultsMatchEditingQuery) return;
         onPivotDimensionsChange?.(validPivotDimensions);
-    }, [validPivotDimensions, onPivotDimensionsChange]);
+    }, [
+        resultsMatchEditingQuery,
+        validPivotDimensions,
+        onPivotDimensionsChange,
+    ]);
 
     /**
      * Gets a shared color for a given group name.
@@ -419,6 +466,15 @@ const VisualizationProvider: FC<
         (seriesLike: SeriesLike) => {
             // 哈希模式下，忽略当前图的 series/metadata 顺序色，改用看板系列色表 + 哈希避让
             if (!useHashBased && seriesLike.color) return seriesLike.color;
+
+            // 基准线系列是用户特意配色的参考线：哈希同步模式下也保留用户自定义色
+            if (useHashBased) {
+                const baselineColor = getBaselineUserColor(
+                    seriesLike,
+                    chartConfig,
+                );
+                if (baselineColor) return baselineColor;
+            }
 
             const seriesIdentifier = calculateSeriesLikeIdentifier(seriesLike);
             const completeIdentifier = seriesIdentifier[1] ?? '';
@@ -492,11 +548,14 @@ const VisualizationProvider: FC<
     > = {
         minimal,
         isDashboard,
+        isEditMode,
         pivotDimensions: validPivotDimensions,
         chartRef,
         resultsData: effectiveResultsData,
         isLoading,
         apiErrorDetail,
+        unsavedMetricQuery,
+        explore,
         columnOrder,
         itemsMap,
         setStacking,
@@ -629,6 +688,9 @@ const VisualizationProvider: FC<
                     parameters={parameters}
                     dashboardSlug={dashboardSlug}
                     dashboardName={dashboardName}
+                    dashboardUuid={dashboardUuid}
+                    isEditMode={isEditMode}
+                    tileUuid={tileUuid}
                 >
                     {({ visualizationConfig }) => (
                         <Context.Provider

@@ -331,6 +331,7 @@ export const Th = styled.th<{
     $width?: string;
     $textAlign?: string;
 }>`
+    position: relative;
     ${({ $width }) => ($width ? `width: ${$width};` : '')}
     max-width: ${({ $maxWidth }) => $maxWidth || '300px'};
     ${({ $minWidth }) => ($minWidth ? `min-width: ${$minWidth};` : '')}
@@ -350,9 +351,16 @@ export const ThContainer = styled.div<{ $textAlign?: string }>`
             : 'flex-start'};
 `;
 
-export const ThLabelContainer = styled.div``;
+/** Keep the header on a single line; overflow is clipped with an ellipsis. */
+export const ThLabelContainer = styled.div`
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+`;
 
 export const ThActionsContainer = styled.div<{ $textAlign?: string }>`
+    flex-shrink: 0;
     ${({ $textAlign }) =>
         !$textAlign || $textAlign === 'left' ? 'flex: 1;' : ''}
     display: flex;

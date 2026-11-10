@@ -461,6 +461,8 @@ export const lightdashConfigWithNoSMTP: Pick<
         csvCellsLimit: 100,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
 };
 

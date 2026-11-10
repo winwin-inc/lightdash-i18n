@@ -2,23 +2,33 @@ import { subject } from '@casl/ability';
 import {
     AlreadyExistsError,
     DashboardDAO,
+    DashboardTile,
     ForbiddenError,
     getDeepestPaths,
     getErrorMessage,
     isDashboardChartTileType,
+    isDashboardDataAppTileType,
+    isDashboardSqlChartTile,
     isSubPath,
     NotFoundError,
     ParameterError,
     PROJECT_OPERATION_LOG_ACTIONS,
     PromotedChart as PromotedChangeChart,
+    PromotedDataApp,
     PromotedSpace,
+    PromotedSqlChart,
     PromotionAction,
     PromotionChanges,
+    PromotionConflict,
+    PromotionConflictError,
+    PromotionConflictType,
+    PromoteDashboardOptions,
     SavedChartDAO,
     SessionUser,
     Space,
     SpaceShare,
     SpaceSummary,
+    SqlChart,
     UnexpectedServerError,
 } from '@lightdash/common';
 import isEqual from 'lodash/isEqual';
@@ -27,7 +37,9 @@ import { LightdashConfig } from '../../config/parseConfig';
 import Logger from '../../logging/logger';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
+import { ProjectOperationLogModel } from '../../models/ProjectOperationLogModel/ProjectOperationLogModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { BaseService } from '../BaseService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
@@ -57,7 +69,10 @@ export type PromotedDashboard = {
 export type UpstreamDashboard = {
     projectUuid: string;
     dashboard:
-        | Pick<DashboardDAO, 'uuid' | 'name' | 'spaceUuid' | 'description'>
+        | Pick<
+              DashboardDAO,
+              'uuid' | 'name' | 'spaceUuid' | 'description' | 'updatedAt'
+          >
         | undefined;
     space: PromotedSpace | undefined;
     access: SpaceShare[];
@@ -69,8 +84,37 @@ type PromoteServiceArguments = {
     projectModel: ProjectModel;
     spaceModel: SpaceModel;
     savedChartModel: SavedChartModel;
+    savedSqlModel: SavedSqlModel;
     dashboardModel: DashboardModel;
     projectOperationLogService: ProjectOperationLogService;
+    projectOperationLogModel: ProjectOperationLogModel;
+};
+
+/**
+ * Bridge to the data app (EE) promotion capabilities.
+ *
+ * The promote service lives in the OSS tree and cannot import the EE data app
+ * service (the EE service depends on this service). The EE layer registers
+ * itself through `setDataAppPromotionPort` so dashboards containing data app
+ * tiles can be promoted together with their apps.
+ */
+export type DataAppPromotionPort = {
+    promoteAppsForDashboard: (
+        user: SessionUser,
+        projectUuid: string,
+        appUuids: string[],
+    ) => Promise<
+        {
+            sourceAppUuid: string;
+            upstreamAppUuid: string;
+            upstreamAppVersion: number;
+        }[]
+    >;
+    getDataAppPromoteChanges: (
+        user: SessionUser,
+        projectUuid: string,
+        appUuids: string[],
+    ) => Promise<{ uuid: string; name: string; action: 'create' | 'update' }[]>;
 };
 
 const isChartWithinDashboard = (chart: Pick<SavedChartDAO, 'dashboardUuid'>) =>
@@ -91,15 +135,35 @@ export class PromoteService extends BaseService {
 
     private readonly projectOperationLogService: ProjectOperationLogService;
 
+    private readonly projectOperationLogModel: ProjectOperationLogModel;
+
+    private readonly savedSqlModel: SavedSqlModel;
+
+    /**
+     * Data app promotion capabilities. Registered by the EE layer, it is null
+     * in deployments where data apps cannot be promoted.
+     */
+    private dataAppPromotionPort: DataAppPromotionPort | null = null;
+
     constructor(args: PromoteServiceArguments) {
         super();
         this.lightdashConfig = args.lightdashConfig;
         this.analytics = args.analytics;
         this.savedChartModel = args.savedChartModel;
+        this.savedSqlModel = args.savedSqlModel;
         this.projectModel = args.projectModel;
         this.spaceModel = args.spaceModel;
         this.dashboardModel = args.dashboardModel;
         this.projectOperationLogService = args.projectOperationLogService;
+        this.projectOperationLogModel = args.projectOperationLogModel;
+    }
+
+    /**
+     * Registers the data app promotion capabilities. Called by the EE layer
+     * when the data app service is available.
+     */
+    setDataAppPromotionPort(port: DataAppPromotionPort) {
+        this.dataAppPromotionPort = port;
     }
 
     private async trackAnalytics(
@@ -844,6 +908,7 @@ export class PromoteService extends BaseService {
     async updateDashboard(
         user: SessionUser,
         promotionChanges: PromotionChanges,
+        syncDashboardName: boolean,
     ): Promise<PromotionChanges> {
         if (promotionChanges.dashboards.length !== 1) return promotionChanges;
 
@@ -859,8 +924,11 @@ export class PromoteService extends BaseService {
         if (dahsboardChange.action === PromotionAction.UPDATE) {
             // TODO Check if we need to update the dashboard
             // We also update dashboard name and description if they have changed
+            // The name is only copied to the upstream dashboard when it is
+            // explicitly requested, so a rename in the source project does not
+            // silently rename the dashboard in the upstream project
             await this.dashboardModel.update(promotedDashboard.uuid, {
-                name: promotedDashboard.name,
+                name: syncDashboardName ? promotedDashboard.name : undefined,
                 description: promotedDashboard.description,
                 spaceUuid: promotedDashboard.spaceUuid,
             });
@@ -1078,6 +1146,9 @@ export class PromoteService extends BaseService {
             spaces: allSpaces,
             dashboards: updateDashboardWithSpace,
             charts: updateChartsWithSpace,
+            sqlCharts: promotionChanges.sqlCharts,
+            apps: promotionChanges.apps,
+            conflicts: promotionChanges.conflicts,
         };
     }
 
@@ -1197,6 +1268,9 @@ export class PromoteService extends BaseService {
                 spaces: [spaceChange],
                 dashboards: [],
                 charts: [chartChange],
+                sqlCharts: [],
+                apps: [],
+                conflicts: [],
             };
         }
 
@@ -1210,7 +1284,459 @@ export class PromoteService extends BaseService {
             spaces: [spaceChange, ...spaceChanges],
             dashboards: [],
             charts: [chartChange],
+            sqlCharts: [],
+            apps: [],
+            conflicts: [],
         };
+    }
+
+    /**
+     * Collects the SQL charts referenced by the tiles of a dashboard and
+     * matches them with the SQL charts of the upstream project (by slug).
+     *
+     * SQL charts belong to a project, so they cannot be shared between the
+     * source and the upstream project: they have to be copied over and the
+     * tile references remapped, otherwise the upstream dashboard would point
+     * to a chart that does not exist in the upstream project.
+     */
+    async getSqlChartChanges(
+        upstreamProjectUuid: string,
+        dashboard: DashboardDAO,
+    ): Promise<PromotionChanges['sqlCharts']> {
+        const sqlChartUuids = Array.from(
+            new Set(
+                dashboard.tiles.reduce<string[]>((acc, tile) => {
+                    if (
+                        isDashboardSqlChartTile(tile) &&
+                        tile.properties.savedSqlUuid
+                    ) {
+                        return [...acc, tile.properties.savedSqlUuid];
+                    }
+                    return acc;
+                }, []),
+            ),
+        );
+
+        return Promise.all(
+            sqlChartUuids.map(async (savedSqlUuid) => {
+                const sourceChart = await this.savedSqlModel.getByUuid(
+                    savedSqlUuid,
+                    { projectUuid: dashboard.projectUuid },
+                );
+
+                const upstreamCharts = await this.savedSqlModel.findSqlCharts({
+                    projectUuid: upstreamProjectUuid,
+                    slug: sourceChart.slug,
+                });
+                if (upstreamCharts.length > 1) {
+                    throw new AlreadyExistsError(
+                        `There are multiple SQL charts with the same identifier ${sourceChart.slug}`,
+                    );
+                }
+                const upstreamChart =
+                    upstreamCharts.length === 1 ? upstreamCharts[0] : undefined;
+
+                const isDashboardOwned = sourceChart.dashboard !== null;
+                const spacePath = isDashboardOwned
+                    ? null
+                    : (
+                          await this.spaceModel.getSpaceSummary(
+                              sourceChart.space.uuid,
+                          )
+                      ).path;
+
+                const promoted: PromotedSqlChart = {
+                    savedSqlUuid: sourceChart.savedSqlUuid,
+                    upstreamUuid: upstreamChart?.savedSqlUuid ?? null,
+                    name: sourceChart.name,
+                    description: sourceChart.description,
+                    slug: sourceChart.slug,
+                    sql: sourceChart.sql,
+                    limit: sourceChart.limit,
+                    config: sourceChart.config,
+                    spacePath,
+                    spaceUuid: isDashboardOwned ? null : sourceChart.space.uuid,
+                    dashboardUuid: sourceChart.dashboard?.uuid ?? null,
+                    projectUuid: upstreamProjectUuid,
+                };
+
+                const action = ((): PromotionAction => {
+                    if (upstreamChart === undefined) {
+                        return PromotionAction.CREATE;
+                    }
+                    return PromoteService.isSqlChartUpdated(
+                        promoted,
+                        upstreamChart,
+                    )
+                        ? PromotionAction.UPDATE
+                        : PromotionAction.NO_CHANGES;
+                })();
+
+                return {
+                    action,
+                    data: promoted,
+                };
+            }),
+        );
+    }
+
+    static isSqlChartUpdated(
+        promoted: PromotedSqlChart,
+        upstream: Pick<
+            SqlChart,
+            'name' | 'description' | 'sql' | 'limit' | 'config'
+        >,
+    ): boolean {
+        return (
+            promoted.name !== upstream.name ||
+            promoted.description !== upstream.description ||
+            promoted.sql !== upstream.sql ||
+            promoted.limit !== upstream.limit ||
+            !isEqual(promoted.config, upstream.config)
+        );
+    }
+
+    /**
+     * Collects the data apps referenced by the tiles of a dashboard. Data apps
+     * are promoted by the data app service, this only resolves what would
+     * change so the promotion diff can show it.
+     */
+    async getDataAppChanges(
+        user: SessionUser,
+        projectUuid: string,
+        dashboard: DashboardDAO,
+    ): Promise<PromotionChanges['apps']> {
+        const appUuids = Array.from(
+            new Set(
+                dashboard.tiles.reduce<string[]>((acc, tile) => {
+                    if (isDashboardDataAppTileType(tile)) {
+                        return [...acc, tile.properties.appUuid];
+                    }
+                    return acc;
+                }, []),
+            ),
+        );
+
+        if (appUuids.length === 0) {
+            return [];
+        }
+
+        if (!this.dataAppPromotionPort) {
+            throw new ParameterError(
+                'This dashboard contains data apps, which cannot be promoted in this deployment.',
+            );
+        }
+
+        const changes =
+            await this.dataAppPromotionPort.getDataAppPromoteChanges(
+                user,
+                projectUuid,
+                appUuids,
+            );
+
+        return changes.map((change) => ({
+            action:
+                change.action === 'create'
+                    ? PromotionAction.CREATE
+                    : PromotionAction.UPDATE,
+            data: {
+                uuid: change.uuid,
+                name: change.name,
+                upstreamUuid: null,
+            } satisfies PromotedDataApp,
+        }));
+    }
+
+    /**
+     * Copies the SQL charts of the source dashboard into the upstream project
+     * and remaps the tile references to the upstream charts.
+     */
+    async upsertSqlCharts(
+        user: SessionUser,
+        promotionChanges: PromotionChanges,
+        upstreamDashboardUuid: string,
+    ): Promise<PromotionChanges> {
+        const { sqlCharts } = promotionChanges;
+        if (sqlCharts.length === 0) {
+            return promotionChanges;
+        }
+
+        const updatedSqlCharts = await Promise.all(
+            sqlCharts.map(async (sqlChartChange) => {
+                const source = sqlChartChange.data;
+
+                if (
+                    sqlChartChange.action === PromotionAction.NO_CHANGES ||
+                    sqlChartChange.action === PromotionAction.UPDATE
+                ) {
+                    if (source.upstreamUuid === null) {
+                        throw new UnexpectedServerError(
+                            `Missing upstream SQL chart for "${source.name}"`,
+                        );
+                    }
+
+                    if (sqlChartChange.action === PromotionAction.UPDATE) {
+                        const upstreamChart =
+                            await this.savedSqlModel.getByUuid(
+                                source.upstreamUuid,
+                                { projectUuid: source.projectUuid },
+                            );
+                        await this.savedSqlModel.update({
+                            userUuid: user.userUuid,
+                            savedSqlUuid: source.upstreamUuid,
+                            // Promotion never changes the ownership of a chart
+                            keepOwnership: true,
+                            sqlChart: {
+                                unversionedData: {
+                                    name: source.name,
+                                    description: source.description,
+                                    spaceUuid: upstreamChart.space.uuid,
+                                },
+                                versionedData: {
+                                    sql: source.sql,
+                                    limit: source.limit,
+                                    config: source.config,
+                                },
+                            },
+                        });
+                    }
+
+                    return sqlChartChange;
+                }
+
+                const isDashboardOwned = source.dashboardUuid !== null;
+                const spaceUuid = isDashboardOwned
+                    ? undefined
+                    : await this.getOrCreateUpstreamSpace(
+                          user,
+                          source.spaceUuid as string,
+                          source.projectUuid,
+                      );
+
+                const created = await this.savedSqlModel.create(
+                    user.userUuid,
+                    source.projectUuid,
+                    {
+                        name: source.name,
+                        description: source.description,
+                        slug: source.slug,
+                        sql: source.sql,
+                        limit: source.limit,
+                        config: source.config,
+                        ...(isDashboardOwned
+                            ? { dashboardUuid: upstreamDashboardUuid }
+                            : { spaceUuid }),
+                    },
+                );
+
+                return {
+                    ...sqlChartChange,
+                    data: {
+                        ...source,
+                        upstreamUuid: created.savedSqlUuid,
+                    },
+                };
+            }),
+        );
+
+        return {
+            ...promotionChanges,
+            sqlCharts: updatedSqlCharts,
+            dashboards: PromoteService.remapDashboardTiles(
+                promotionChanges.dashboards,
+                (tile) => {
+                    if (
+                        isDashboardSqlChartTile(tile) &&
+                        tile.properties.savedSqlUuid
+                    ) {
+                        const upstreamUuid = updatedSqlCharts.find(
+                            (change) =>
+                                change.data.savedSqlUuid ===
+                                tile.properties.savedSqlUuid,
+                        )?.data.upstreamUuid;
+                        if (upstreamUuid) {
+                            return {
+                                ...tile,
+                                properties: {
+                                    ...tile.properties,
+                                    savedSqlUuid: upstreamUuid,
+                                },
+                            };
+                        }
+                    }
+                    return tile;
+                },
+            ),
+        };
+    }
+
+    /**
+     * Promotes the data apps referenced by the dashboard and remaps the tile
+     * references to the promoted apps.
+     */
+    async upsertDataApps(
+        user: SessionUser,
+        promotionChanges: PromotionChanges,
+        sourceProjectUuid: string,
+    ): Promise<PromotionChanges> {
+        const appUuids = Array.from(
+            new Set(
+                promotionChanges.dashboards.flatMap((dashboardChange) =>
+                    dashboardChange.data.tiles.reduce<string[]>(
+                        (acc, tile) => {
+                            if (isDashboardDataAppTileType(tile)) {
+                                return [...acc, tile.properties.appUuid];
+                            }
+                            return acc;
+                        },
+                        [],
+                    ),
+                ),
+            ),
+        );
+
+        if (appUuids.length === 0) {
+            return promotionChanges;
+        }
+
+        if (!this.dataAppPromotionPort) {
+            throw new ParameterError(
+                'This dashboard contains data apps, which cannot be promoted in this deployment.',
+            );
+        }
+
+        const promotedApps =
+            await this.dataAppPromotionPort.promoteAppsForDashboard(
+                user,
+                sourceProjectUuid,
+                appUuids,
+            );
+
+        const upstreamUuidBySourceUuid = new Map(
+            promotedApps.map((app) => [app.sourceAppUuid, app.upstreamAppUuid]),
+        );
+
+        const apps = promotionChanges.apps.map((appChange) => ({
+            ...appChange,
+            data: {
+                ...appChange.data,
+                upstreamUuid:
+                    upstreamUuidBySourceUuid.get(appChange.data.uuid) ?? null,
+            },
+        }));
+
+        return {
+            ...promotionChanges,
+            apps,
+            dashboards: PromoteService.remapDashboardTiles(
+                promotionChanges.dashboards,
+                (tile) => {
+                    if (isDashboardDataAppTileType(tile)) {
+                        const upstreamUuid = upstreamUuidBySourceUuid.get(
+                            tile.properties.appUuid,
+                        );
+                        if (upstreamUuid) {
+                            return {
+                                ...tile,
+                                properties: {
+                                    ...tile.properties,
+                                    appUuid: upstreamUuid,
+                                },
+                            };
+                        }
+                    }
+                    return tile;
+                },
+            ),
+        };
+    }
+
+    static remapDashboardTiles(
+        dashboards: PromotionChanges['dashboards'],
+        remap: (tile: DashboardTile) => DashboardTile,
+    ): PromotionChanges['dashboards'] {
+        return dashboards.map((dashboardChange) => ({
+            ...dashboardChange,
+            data: {
+                ...dashboardChange.data,
+                tiles: dashboardChange.data.tiles.map(remap),
+            },
+        }));
+    }
+
+    /**
+     * Returns the date of the last promotion of the dashboard, so we can tell
+     * if the dashboard in the upstream project was changed after it was
+     * promoted.
+     */
+    private async getLastPromotionDate(
+        sourceProjectUuid: string,
+        sourceDashboardUuid: string,
+    ): Promise<Date | null> {
+        const { data } = await this.projectOperationLogModel.list({
+            projectUuid: sourceProjectUuid,
+            resourceUuid: sourceDashboardUuid,
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_PROMOTED,
+            pageSize: 1,
+        });
+
+        return data.length > 0 ? data[0].createdAt : null;
+    }
+
+    /**
+     * Changes in the upstream project that would be silently overwritten by
+     * the promotion:
+     * - the dashboard in the upstream project was updated after it was
+     *   promoted for the last time (eg: it was changed by hand)
+     * - the dashboard in the upstream project has a different name than the
+     *   one in the source project. The upstream name is kept unless the
+     *   promotion explicitly asks to sync it.
+     */
+    private async getPromotionConflicts(
+        promotedDashboard: PromotedDashboard,
+        upstreamDashboard: UpstreamDashboard,
+    ): Promise<PromotionConflict[]> {
+        const conflicts: PromotionConflict[] = [];
+        const upstreamDashboardData = upstreamDashboard.dashboard;
+        if (upstreamDashboardData === undefined) {
+            return conflicts;
+        }
+
+        const lastPromotedAt = await this.getLastPromotionDate(
+            promotedDashboard.projectUuid,
+            promotedDashboard.dashboard.uuid,
+        );
+        const upstreamUpdatedAt = new Date(
+            upstreamDashboardData.updatedAt,
+        ).toISOString();
+        const lastPromotedAtIso = lastPromotedAt?.toISOString() ?? null;
+
+        if (
+            upstreamDashboardData.name !== promotedDashboard.dashboard.name
+        ) {
+            conflicts.push({
+                type: PromotionConflictType.UPSTREAM_NAME_MISMATCH,
+                sourceName: promotedDashboard.dashboard.name,
+                upstreamName: upstreamDashboardData.name,
+                lastPromotedAt: lastPromotedAtIso,
+                upstreamUpdatedAt,
+            });
+        }
+
+        if (
+            lastPromotedAt !== null &&
+            new Date(upstreamDashboardData.updatedAt) > lastPromotedAt
+        ) {
+            conflicts.push({
+                type: PromotionConflictType.UPSTREAM_MODIFIED_AFTER_PROMOTION,
+                sourceName: promotedDashboard.dashboard.name,
+                upstreamName: upstreamDashboardData.name,
+                lastPromotedAt: lastPromotedAtIso,
+                upstreamUpdatedAt,
+            });
+        }
+
+        return conflicts;
     }
 
     async getPromotionDashboardChanges(
@@ -1347,6 +1873,22 @@ export class PromoteService extends BaseService {
                 PromoteService.getChartChange(promotedChart, upstreamChart),
         );
 
+        const sqlChartChanges = await this.getSqlChartChanges(
+            upstreamProjectUuid,
+            promotedDashboard.dashboard,
+        );
+
+        const appChanges = await this.getDataAppChanges(
+            user,
+            promotedDashboard.projectUuid,
+            promotedDashboard.dashboard,
+        );
+
+        const conflicts = await this.getPromotionConflicts(
+            promotedDashboard,
+            upstreamDashboard,
+        );
+
         // TODO return charts within dashboards that are going to be deleted after the promotion
         // For this we'll need to get all the tiles for the upstreamDashboard and compare against the promotedDashboard.tiles
 
@@ -1355,6 +1897,9 @@ export class PromoteService extends BaseService {
                 spaces: spaceChanges,
                 dashboards: dashboardChanges,
                 charts: chartChanges,
+                sqlCharts: sqlChartChanges,
+                apps: appChanges,
+                conflicts,
             },
             charts, // For permission checks
         ];
@@ -1436,7 +1981,14 @@ export class PromoteService extends BaseService {
         return { promotedDashboard, upstreamDashboard };
     }
 
-    async promoteDashboard(user: SessionUser, dashboardUuid: string) {
+    async promoteDashboard(
+        user: SessionUser,
+        dashboardUuid: string,
+        options: PromoteDashboardOptions = {
+            confirmConflicts: false,
+            syncDashboardName: false,
+        },
+    ) {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
         );
@@ -1472,6 +2024,23 @@ export class PromoteService extends BaseService {
                 upstreamDashboard,
             );
 
+            // Changes in the upstream project that were not made by a
+            // promotion would be silently overwritten, so they need to be
+            // confirmed explicitly
+            const blockingConflicts = promotionChanges.conflicts.filter(
+                (conflict) =>
+                    conflict.type ===
+                    PromotionConflictType.UPSTREAM_MODIFIED_AFTER_PROMOTION,
+            );
+            if (
+                blockingConflicts.length > 0 &&
+                !options.confirmConflicts
+            ) {
+                throw new PromotionConflictError(
+                    'The dashboard in the upstream project was changed after it was promoted. Confirm the promotion to overwrite those changes.',
+                );
+            }
+
             // Check permissions for all chart tiles
             promotedCharts.forEach(({ promotedChart, upstreamChart }) =>
                 PromoteService.checkPromoteChartPermissions(
@@ -1505,9 +2074,26 @@ export class PromoteService extends BaseService {
                 promotionChanges.dashboards[0].data.uuid,
             );
 
+            // Update or create the SQL charts of the dashboard and remap the
+            // tiles to the charts of the upstream project
+            promotionChanges = await this.upsertSqlCharts(
+                user,
+                promotionChanges,
+                promotionChanges.dashboards[0].data.uuid,
+            );
+
+            // Promote the data apps of the dashboard and remap the tiles to
+            // the promoted apps
+            promotionChanges = await this.upsertDataApps(
+                user,
+                promotionChanges,
+                dashboard.projectUuid,
+            );
+
             promotionChanges = await this.updateDashboard(
                 user,
                 promotionChanges,
+                options.syncDashboardName,
             );
 
             // Delete orphaned charts in dashboard if it already existed
@@ -1519,6 +2105,18 @@ export class PromoteService extends BaseService {
                 await Promise.all(
                     orphanedCharts.map((chart) =>
                         this.savedChartModel.delete(chart.uuid),
+                    ),
+                );
+
+                // SQL charts owned by the dashboard that are not referenced by
+                // any tile anymore are deleted as well
+                const orphanedSqlCharts =
+                    await this.dashboardModel.getOrphanedSqlCharts(
+                        upstreamDashboard.dashboard.uuid,
+                    );
+                await Promise.all(
+                    orphanedSqlCharts.map((chart) =>
+                        this.savedSqlModel.delete(chart.savedSqlUuid),
                     ),
                 );
             }
@@ -1563,17 +2161,108 @@ export class PromoteService extends BaseService {
         }
     }
 
-    // STUB: port from upstream PromoteService
+    /**
+     * Resolves the space of the source project in the upstream project,
+     * creating it (and its missing ancestors) when it does not exist yet.
+     *
+     * Spaces are matched by path, so the upstream space keeps the same
+     * position as the source space. Access is copied for private spaces, the
+     * same way the dashboard promotion does it.
+     */
     async getOrCreateUpstreamSpace(
-        _user: SessionUser,
-        _sourceSpaceUuid: string,
-        _upstreamProjectUuid: string,
+        user: SessionUser,
+        sourceSpaceUuid: string,
+        upstreamProjectUuid: string,
     ): Promise<string> {
-        this.logger.warn(
-            'getOrCreateUpstreamSpace is not available in this build',
+        const sourceSpace = await this.spaceModel.getSpaceSummary(
+            sourceSpaceUuid,
         );
-        throw new Error(
-            'getOrCreateUpstreamSpace is not available in this build',
-        );
+
+        // Walk up the tree of the source space, so every ancestor is resolved
+        // (and created when missing) before its child
+        const ancestors: (typeof sourceSpace)[] = [];
+        let currentSpace: (typeof sourceSpace) | null = sourceSpace;
+        /* eslint-disable no-await-in-loop */
+        while (currentSpace?.parentSpaceUuid) {
+            const parentSpace = await this.spaceModel.getSpaceSummary(
+                currentSpace.parentSpaceUuid,
+            );
+            ancestors.unshift(parentSpace);
+            currentSpace = parentSpace;
+        }
+        /* eslint-enable no-await-in-loop */
+
+        const orderedSpaces = [...ancestors, sourceSpace];
+
+        let parentSpaceUuid: string | null = null;
+        let resolvedSpaceUuid: string | null = null;
+
+        // eslint-disable-next-line no-restricted-syntax
+        /* eslint-disable no-await-in-loop */
+        for (const space of orderedSpaces) {
+            const existingSpaces = await this.spaceModel.find({
+                projectUuid: upstreamProjectUuid,
+                path: space.path,
+            });
+            if (existingSpaces.length > 1) {
+                throw new AlreadyExistsError(
+                    `There are multiple spaces with the same identifier ${space.path}`,
+                );
+            }
+            if (existingSpaces.length === 1) {
+                parentSpaceUuid = existingSpaces[0].uuid;
+                resolvedSpaceUuid = existingSpaces[0].uuid;
+                // eslint-disable-next-line no-continue
+                continue;
+            }
+
+            const createdSpace = await this.spaceModel.createSpace(
+                {
+                    name: space.name,
+                    isPrivate: space.isPrivate,
+                    parentSpaceUuid,
+                },
+                {
+                    projectUuid: upstreamProjectUuid,
+                    userId: user.userId,
+                    path: space.path,
+                },
+            );
+
+            if (space.isPrivate) {
+                const sourceSpaceWithAccess =
+                    await this.spaceModel.getFullSpace(space.uuid);
+                await Promise.all([
+                    ...sourceSpaceWithAccess.access
+                        .filter((access) => access.hasDirectAccess)
+                        .map((access) =>
+                            this.spaceModel.addSpaceAccess(
+                                createdSpace.uuid,
+                                access.userUuid,
+                                access.role,
+                            ),
+                        ),
+                    ...sourceSpaceWithAccess.groupsAccess.map((groupAccess) =>
+                        this.spaceModel.addSpaceGroupAccess(
+                            createdSpace.uuid,
+                            groupAccess.groupUuid,
+                            groupAccess.spaceRole,
+                        ),
+                    ),
+                ]);
+            }
+
+            parentSpaceUuid = createdSpace.uuid;
+            resolvedSpaceUuid = createdSpace.uuid;
+        }
+        /* eslint-enable no-await-in-loop */
+
+        if (resolvedSpaceUuid === null) {
+            throw new UnexpectedServerError(
+                `Unable to resolve the upstream space for "${sourceSpace.path}"`,
+            );
+        }
+
+        return resolvedSpaceUuid;
     }
 }

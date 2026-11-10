@@ -13,6 +13,7 @@ import {
     DashboardFilters,
     DateGranularity,
     DecodedEmbed,
+    DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
     Embed,
     EmbedUrl,
     ExecuteAsyncDashboardChartRequestParams,
@@ -628,7 +629,19 @@ export class EmbedService extends BaseService {
                 'User attributes are required for embed queries',
             );
         }
-        return { userAttributes, intrinsicUserAttributes };
+        return {
+            userAttributes,
+            intrinsicUserAttributes: {
+                ...intrinsicUserAttributes,
+                // The dashboard of the JWT is the dashboard context of the
+                // query, so the dbt row level filters can use it
+                // (`lightdash.user.dashboardUuid`).
+                dashboardUuid:
+                    intrinsicUserAttributes.dashboardUuid ??
+                    account.access.dashboardId ??
+                    DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+            },
+        };
     }
 
     /**

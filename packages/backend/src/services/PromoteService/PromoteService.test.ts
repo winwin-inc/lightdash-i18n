@@ -1,16 +1,21 @@
 import {
+    AlreadyExistsError,
     DashboardChartTile,
     DashboardTileTypes,
+    ParameterError,
     PromotionAction,
+    PromotionConflictType,
 } from '@lightdash/common';
 import { analyticsMock } from '../../analytics/LightdashAnalytics.mock';
 import { lightdashConfigMock } from '../../config/lightdashConfig.mock';
 import { DashboardModel } from '../../models/DashboardModel/DashboardModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SavedChartModel } from '../../models/SavedChartModel';
+import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
-import { PromoteService } from './PromoteService';
+import { ProjectOperationLogModel } from '../../models/ProjectOperationLogModel/ProjectOperationLogModel';
+import { PromoteService, type UpstreamDashboard } from './PromoteService';
 import {
     existingUpstreamChart,
     existingUpstreamDashboard,
@@ -21,8 +26,12 @@ import {
     promotedDashboard,
     promotedDashboardWithChartWithinDashboard,
     promotedDashboardWithNewPrivateSpace,
+    promotedDashboardWithSqlChartAndDataApp,
+    promotedSpace,
+    sourceSqlChart,
     upstreamFullSpace,
     upstreamSpace,
+    upstreamSqlChart,
     user,
 } from './PromoteService.mock';
 
@@ -55,6 +64,21 @@ const spaceModel = {
 const dashboardModel = {
     create: jest.fn(async () => existingUpstreamDashboard.dashboard),
 };
+
+const savedSqlModel = {
+    getByUuid: jest.fn(async () => sourceSqlChart),
+    findSqlCharts: jest.fn(async () => [] as (typeof sourceSqlChart)[]),
+    create: jest.fn(async () => ({
+        savedSqlUuid: 'upstream-sql-chart-uuid',
+        slug: 'sql-chart',
+        savedSqlVersionUuid: 'upstream-sql-version-uuid',
+    })),
+    update: jest.fn(async () => ({
+        savedSqlUuid: 'upstream-sql-chart-uuid',
+        savedSqlVersionUuid: 'upstream-sql-version-uuid',
+    })),
+    delete: jest.fn(async () => {}),
+};
 describe('PromoteService chart changes', () => {
     const service = new PromoteService({
         lightdashConfig: lightdashConfigMock,
@@ -62,11 +86,15 @@ describe('PromoteService chart changes', () => {
         analytics: analyticsMock,
         projectModel: projectModel as unknown as ProjectModel,
         savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
         } as unknown as ProjectOperationLogService,
+        projectOperationLogModel: {
+            list: jest.fn(async () => ({ data: [], pagination: {} })),
+        } as unknown as ProjectOperationLogModel,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -271,11 +299,15 @@ describe('PromoteService dashboard changes', () => {
         analytics: analyticsMock,
         projectModel: projectModel as unknown as ProjectModel,
         savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: {} as DashboardModel,
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
         } as unknown as ProjectOperationLogService,
+        projectOperationLogModel: {
+            list: jest.fn(async () => ({ data: [], pagination: {} })),
+        } as unknown as ProjectOperationLogModel,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -571,11 +603,15 @@ describe('PromoteService promoting and mutating changes', () => {
         analytics: analyticsMock,
         projectModel: projectModel as unknown as ProjectModel,
         savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
         spaceModel: spaceModel as unknown as SpaceModel,
         dashboardModel: dashboardModel as unknown as DashboardModel,
         projectOperationLogService: {
             record: jest.fn(async () => undefined),
         } as unknown as ProjectOperationLogService,
+        projectOperationLogModel: {
+            list: jest.fn(async () => ({ data: [], pagination: {} })),
+        } as unknown as ProjectOperationLogModel,
     });
     afterEach(() => {
         jest.clearAllMocks();
@@ -933,5 +969,416 @@ describe('PromoteService promoting and mutating changes', () => {
             newTile.type === DashboardTileTypes.SAVED_CHART &&
                 newTile.properties.savedChartUuid,
         ).toEqual(createdChart.uuid);
+    });
+});
+
+describe('PromoteService SQL chart and data app promotion', () => {
+    const service = new PromoteService({
+        lightdashConfig: lightdashConfigMock,
+
+        analytics: analyticsMock,
+        projectModel: projectModel as unknown as ProjectModel,
+        savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
+        spaceModel: spaceModel as unknown as SpaceModel,
+        dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
+        projectOperationLogModel: {
+            list: jest.fn(async () => ({ data: [], pagination: {} })),
+        } as unknown as ProjectOperationLogModel,
+    });
+
+    const promoteAppsForDashboard = jest.fn(async () => [
+        {
+            sourceAppUuid: 'source-app-uuid',
+            upstreamAppUuid: 'upstream-app-uuid',
+            upstreamAppVersion: 1,
+        },
+    ]);
+    const getDataAppPromoteChanges = jest.fn(async () => [
+        { uuid: 'source-app-uuid', name: 'source app', action: 'create' as const },
+    ]);
+
+    beforeEach(() => {
+        service.setDataAppPromotionPort({
+            promoteAppsForDashboard,
+            getDataAppPromoteChanges,
+        });
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('getPromotionDashboardChanges returns the sql charts and the data apps of the dashboard', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+
+        const [changes] = await service.getPromotionDashboardChanges(
+            user,
+            promotedDashboardWithSqlChartAndDataApp,
+            missingUpstreamDashboard,
+        );
+
+        expect(changes.sqlCharts.length).toBe(1);
+        expect(changes.sqlCharts[0].action).toBe(PromotionAction.CREATE);
+        expect(changes.sqlCharts[0].data.savedSqlUuid).toBe(
+            sourceSqlChart.savedSqlUuid,
+        );
+        expect(changes.sqlCharts[0].data.upstreamUuid).toBeNull();
+        expect(changes.sqlCharts[0].data.projectUuid).toBe(
+            missingUpstreamDashboard.projectUuid,
+        );
+
+        expect(changes.apps.length).toBe(1);
+        expect(changes.apps[0].action).toBe(PromotionAction.CREATE);
+        expect(changes.apps[0].data.uuid).toBe('source-app-uuid');
+    });
+
+    test('getPromotionDashboardChanges fails when the sql chart slug is not unique in the upstream project', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+        (savedSqlModel.findSqlCharts as jest.Mock).mockImplementationOnce(
+            async () => [upstreamSqlChart, upstreamSqlChart],
+        );
+
+        await expect(
+            service.getPromotionDashboardChanges(
+                user,
+                promotedDashboardWithSqlChartAndDataApp,
+                missingUpstreamDashboard,
+            ),
+        ).rejects.toThrow(AlreadyExistsError);
+    });
+
+    test('upsertSqlCharts creates the sql chart in the upstream project and remaps the tile', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+
+        const [changes] = await service.getPromotionDashboardChanges(
+            user,
+            promotedDashboardWithSqlChartAndDataApp,
+            missingUpstreamDashboard,
+        );
+
+        const newChanges = await service.upsertSqlCharts(
+            user,
+            changes,
+            'upstream-dashboard-uuid',
+        );
+
+        expect(savedSqlModel.create).toHaveBeenCalledTimes(1);
+        // The sql chart is created in the upstream project
+        expect(savedSqlModel.create).toHaveBeenCalledWith(
+            user.userUuid,
+            missingUpstreamDashboard.projectUuid,
+            expect.objectContaining({
+                name: sourceSqlChart.name,
+                slug: sourceSqlChart.slug,
+                sql: sourceSqlChart.sql,
+            }),
+        );
+
+        const tile = newChanges.dashboards[0].data.tiles[0];
+        expect(
+            tile.type === DashboardTileTypes.SQL_CHART &&
+                tile.properties.savedSqlUuid,
+        ).toEqual('upstream-sql-chart-uuid');
+    });
+
+    test('upsertSqlCharts updates the upstream sql chart when it already exists', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+        (savedSqlModel.findSqlCharts as jest.Mock).mockImplementationOnce(
+            async () => [
+                {
+                    ...upstreamSqlChart,
+                    name: 'an old name',
+                    sql: 'select 2',
+                },
+            ],
+        );
+
+        const [changes] = await service.getPromotionDashboardChanges(
+            user,
+            promotedDashboardWithSqlChartAndDataApp,
+            missingUpstreamDashboard,
+        );
+
+        expect(changes.sqlCharts[0].action).toBe(PromotionAction.UPDATE);
+
+        const newChanges = await service.upsertSqlCharts(
+            user,
+            changes,
+            'upstream-dashboard-uuid',
+        );
+
+        expect(savedSqlModel.create).not.toHaveBeenCalled();
+        expect(savedSqlModel.update).toHaveBeenCalledTimes(1);
+        expect(savedSqlModel.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                savedSqlUuid: 'upstream-sql-chart-uuid',
+                // The ownership of the chart is never changed by a promotion
+                keepOwnership: true,
+            }),
+        );
+
+        const tile = newChanges.dashboards[0].data.tiles[0];
+        expect(
+            tile.type === DashboardTileTypes.SQL_CHART &&
+                tile.properties.savedSqlUuid,
+        ).toEqual('upstream-sql-chart-uuid');
+    });
+
+    test('upsertDataApps promotes the data apps and remaps the tile', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+
+        const [changes] = await service.getPromotionDashboardChanges(
+            user,
+            promotedDashboardWithSqlChartAndDataApp,
+            missingUpstreamDashboard,
+        );
+
+        const newChanges = await service.upsertDataApps(
+            user,
+            changes,
+            promotedDashboardWithSqlChartAndDataApp.projectUuid,
+        );
+
+        expect(promoteAppsForDashboard).toHaveBeenCalledTimes(1);
+        expect(promoteAppsForDashboard).toHaveBeenCalledWith(
+            user,
+            promotedDashboardWithSqlChartAndDataApp.projectUuid,
+            ['source-app-uuid'],
+        );
+
+        const appTile = newChanges.dashboards[0].data.tiles.find(
+            (tile) => tile.type === DashboardTileTypes.DATA_APP,
+        );
+        expect(
+            appTile?.type === DashboardTileTypes.DATA_APP &&
+                appTile.properties.appUuid,
+        ).toEqual('upstream-app-uuid');
+
+        expect(newChanges.apps[0].data.upstreamUuid).toBe('upstream-app-uuid');
+    });
+
+    test('promoting a dashboard with data apps fails when data apps are not available', async () => {
+        (spaceModel.find as jest.Mock).mockImplementation(async () => []);
+        const serviceWithoutDataApps = new PromoteService({
+            lightdashConfig: lightdashConfigMock,
+
+            analytics: analyticsMock,
+            projectModel: projectModel as unknown as ProjectModel,
+            savedChartModel: savedChartModel as unknown as SavedChartModel,
+            savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
+            spaceModel: spaceModel as unknown as SpaceModel,
+            dashboardModel: {} as DashboardModel,
+            projectOperationLogService: {
+                record: jest.fn(async () => undefined),
+            } as unknown as ProjectOperationLogService,
+            projectOperationLogModel: {
+                list: jest.fn(async () => ({ data: [], pagination: {} })),
+            } as unknown as ProjectOperationLogModel,
+        });
+
+        await expect(
+            serviceWithoutDataApps.getPromotionDashboardChanges(
+                user,
+                promotedDashboardWithSqlChartAndDataApp,
+                missingUpstreamDashboard,
+            ),
+        ).rejects.toThrow(ParameterError);
+    });
+});
+
+describe('PromoteService upstream space resolution', () => {
+    const service = new PromoteService({
+        lightdashConfig: lightdashConfigMock,
+
+        analytics: analyticsMock,
+        projectModel: projectModel as unknown as ProjectModel,
+        savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
+        spaceModel: spaceModel as unknown as SpaceModel,
+        dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
+        projectOperationLogModel: {
+            list: jest.fn(async () => ({ data: [], pagination: {} })),
+        } as unknown as ProjectOperationLogModel,
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('getOrCreateUpstreamSpace returns the existing upstream space', async () => {
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => [
+            { uuid: 'upstream-space-uuid', path: 'jaffle_shop' },
+        ]);
+
+        const spaceUuid = await service.getOrCreateUpstreamSpace(
+            user,
+            promotedSpace.uuid,
+            'upstream-project-uuid',
+        );
+
+        expect(spaceUuid).toEqual('upstream-space-uuid');
+        expect(spaceModel.createSpace).not.toHaveBeenCalled();
+    });
+
+    test('getOrCreateUpstreamSpace creates the space in the upstream project when it is missing', async () => {
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => []);
+        (spaceModel.createSpace as jest.Mock).mockImplementationOnce(
+            async () => ({
+                ...upstreamSpace,
+                uuid: 'created-upstream-space-uuid',
+                path: 'jaffle_shop',
+            }),
+        );
+
+        const spaceUuid = await service.getOrCreateUpstreamSpace(
+            user,
+            promotedSpace.uuid,
+            'upstream-project-uuid',
+        );
+
+        expect(spaceUuid).toEqual('created-upstream-space-uuid');
+        expect(spaceModel.createSpace).toHaveBeenCalledWith(
+            {
+                name: promotedSpace.name,
+                isPrivate: promotedSpace.isPrivate,
+                parentSpaceUuid: null,
+            },
+            {
+                projectUuid: 'upstream-project-uuid',
+                userId: user.userId,
+                path: promotedSpace.path,
+            },
+        );
+    });
+
+    test('getOrCreateUpstreamSpace fails when the path is not unique in the upstream project', async () => {
+        (spaceModel.find as jest.Mock).mockImplementationOnce(async () => [
+            { uuid: 'upstream-space-uuid', path: 'jaffle_shop' },
+            { uuid: 'another-upstream-space-uuid', path: 'jaffle_shop' },
+        ]);
+
+        await expect(
+            service.getOrCreateUpstreamSpace(
+                user,
+                promotedSpace.uuid,
+                'upstream-project-uuid',
+            ),
+        ).rejects.toThrow(AlreadyExistsError);
+    });
+});
+
+describe('PromoteService promotion conflicts', () => {
+    const projectOperationLogModel = {
+        list: jest.fn(async () => ({
+            data: [] as { createdAt: Date }[],
+            pagination: {},
+        })),
+    };
+
+    const service = new PromoteService({
+        lightdashConfig: lightdashConfigMock,
+
+        analytics: analyticsMock,
+        projectModel: projectModel as unknown as ProjectModel,
+        savedChartModel: savedChartModel as unknown as SavedChartModel,
+        savedSqlModel: savedSqlModel as unknown as SavedSqlModel,
+        spaceModel: spaceModel as unknown as SpaceModel,
+        dashboardModel: {} as DashboardModel,
+        projectOperationLogService: {
+            record: jest.fn(async () => undefined),
+        } as unknown as ProjectOperationLogService,
+        projectOperationLogModel:
+            projectOperationLogModel as unknown as ProjectOperationLogModel,
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    const getChanges = async (
+        upstreamDashboard: UpstreamDashboard,
+    ) => {
+        const [changes] = await service.getPromotionDashboardChanges(
+            user,
+            promotedDashboard,
+            upstreamDashboard,
+        );
+        return changes;
+    };
+
+    test('reports a name conflict when the upstream dashboard has a different name', async () => {
+        const changes = await getChanges({
+            ...existingUpstreamDashboard,
+            dashboard: {
+                ...existingUpstreamDashboard.dashboard!,
+                name: 'another name',
+            },
+        });
+
+        const nameConflicts = changes.conflicts.filter(
+            (conflict) =>
+                conflict.type ===
+                PromotionConflictType.UPSTREAM_NAME_MISMATCH,
+        );
+        expect(nameConflicts.length).toBe(1);
+        expect(nameConflicts[0].sourceName).toBe(promotedDashboard.dashboard.name);
+        expect(nameConflicts[0].upstreamName).toBe('another name');
+    });
+
+    test('reports a conflict when the upstream dashboard changed after the last promotion', async () => {
+        const lastPromotedAt = new Date('2024-01-01T00:00:00.000Z');
+        projectOperationLogModel.list.mockImplementationOnce(async () => ({
+            data: [{ createdAt: lastPromotedAt }],
+            pagination: {},
+        }));
+
+        const changes = await getChanges({
+            ...existingUpstreamDashboard,
+            dashboard: {
+                ...existingUpstreamDashboard.dashboard!,
+                updatedAt: new Date('2024-02-01T00:00:00.000Z'),
+            },
+        });
+
+        const blockingConflicts = changes.conflicts.filter(
+            (conflict) =>
+                conflict.type ===
+                PromotionConflictType.UPSTREAM_MODIFIED_AFTER_PROMOTION,
+        );
+        expect(blockingConflicts.length).toBe(1);
+        expect(blockingConflicts[0].lastPromotedAt).toBe(
+            lastPromotedAt.toISOString(),
+        );
+    });
+
+    test('does not report a conflict when the upstream dashboard was not changed after the last promotion', async () => {
+        const lastPromotedAt = new Date('2024-02-01T00:00:00.000Z');
+        projectOperationLogModel.list.mockImplementationOnce(async () => ({
+            data: [{ createdAt: lastPromotedAt }],
+            pagination: {},
+        }));
+
+        const changes = await getChanges({
+            ...existingUpstreamDashboard,
+            dashboard: {
+                ...existingUpstreamDashboard.dashboard!,
+                updatedAt: new Date('2024-01-15T00:00:00.000Z'),
+            },
+        });
+
+        expect(changes.conflicts.length).toBe(0);
+    });
+
+    test('does not report conflicts when the dashboard does not exist upstream', async () => {
+        const changes = await getChanges(missingUpstreamDashboard);
+
+        expect(changes.conflicts.length).toBe(0);
     });
 });

@@ -176,6 +176,25 @@ export type IntrinsicUserAttributes = {
     email?: string;
     dashboardSlug?: string;
     dashboardName?: string;
+    /**
+     * The uuid of the dashboard the query is run from. The uuid is globally
+     * unique (the slug is only unique within a project), so it is the
+     * safest identifier for the dbt row level filters.
+     */
+    dashboardUuid?: string;
+};
+
+/**
+ * The dashboard context of a query. It is passed to the dbt schema as the
+ * intrinsic user attributes:
+ * - `lightdash.user.dashboardSlug`
+ * - `lightdash.user.dashboardName`
+ * - `lightdash.user.dashboardUuid`
+ */
+export type DashboardQueryContextAttributes = {
+    dashboardSlug?: string;
+    dashboardName?: string;
+    dashboardUuid?: string;
 };
 
 export type UserAsCodeRole =
@@ -217,12 +236,10 @@ export const DEFAULT_DASHBOARD_ATTRIBUTE_VALUE = 'NA';
 
 export const getIntrinsicUserAttributes = (
     user: Pick<LightdashUser, 'email'>,
-    context?: {
-        dashboardSlug?: string;
-        dashboardName?: string;
-    },
+    context?: DashboardQueryContextAttributes,
 ): IntrinsicUserAttributes => ({
     email: user.email,
     dashboardSlug: context?.dashboardSlug ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
     dashboardName: context?.dashboardName ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
+    dashboardUuid: context?.dashboardUuid ?? DEFAULT_DASHBOARD_ATTRIBUTE_VALUE,
 });

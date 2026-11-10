@@ -22,8 +22,8 @@ import { isTableVisualizationConfig } from '../../LightdashVisualization/types';
 import { useVisualizationContext } from '../../LightdashVisualization/useVisualizationContext';
 import { Config } from '../common/Config';
 import ColumnConfiguration from './ColumnConfiguration';
-import DroppableItemsList from './DroppableItemsList';
 import { DroppableIds, MAX_PIVOTS } from './constants';
+import DroppableItemsList from './DroppableItemsList';
 
 const GeneralSettings: FC = () => {
     const { t } = useTranslation();
@@ -176,6 +176,8 @@ const GeneralSettings: FC = () => {
         setShowSubtotals,
         setShowRowGrouping,
         setShowTableNames,
+        showFieldDescriptionTooltip,
+        setShowFieldDescriptionTooltip,
         showColumnCalculation,
         showResultsTotal,
         showRowCalculation,
@@ -194,7 +196,14 @@ const GeneralSettings: FC = () => {
         setCellAlignment,
         pivotRowDimensionAlignment,
         setPivotRowDimensionAlignment,
+        columnProperties,
     } = chartConfig;
+
+    // 有单列显式宽度（拖拽/重置产物）时，「铺满剩余空间」会等比缩放整表、
+    // 把手动宽度冲掉，因此互斥；这里置灰开关并说明原因。
+    const hasExplicitColumnWidths = Object.values(columnProperties ?? {}).some(
+        (column) => column.width !== undefined,
+    );
 
     return (
         <Stack>
@@ -326,6 +335,7 @@ const GeneralSettings: FC = () => {
                                             'components_visualization_configs_table.settings.pivot_auto_fill_width',
                                         )}
                                         labelPosition="right"
+                                        disabled={hasExplicitColumnWidths}
                                         checked={pivotAutoFillWidth}
                                         onChange={(event) =>
                                             setPivotAutoFillWidth(
@@ -451,6 +461,30 @@ const GeneralSettings: FC = () => {
                         setHideRowNumbers(!hideRowNumbers);
                     }}
                 />
+                <Tooltip
+                    label={t(
+                        'components_visualization_configs_table.settings.show_field_description_tooltip_hint',
+                    )}
+                    w={300}
+                    multiline
+                    fz="xs"
+                    withinPortal
+                    position="top-start"
+                >
+                    <Box>
+                        <Checkbox
+                            label={t(
+                                'components_visualization_configs_table.settings.show_field_description_tooltip',
+                            )}
+                            checked={showFieldDescriptionTooltip}
+                            onChange={() => {
+                                setShowFieldDescriptionTooltip(
+                                    (current) => !current,
+                                );
+                            }}
+                        />
+                    </Box>
+                </Tooltip>
             </Config.Section>
 
             <Config.Section>

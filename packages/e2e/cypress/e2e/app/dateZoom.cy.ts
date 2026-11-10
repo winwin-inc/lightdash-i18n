@@ -68,7 +68,9 @@ describe('Date zoom', () => {
         cy.login();
     });
 
-    it('I can use date zoom', () => {
+    // 日期缩放功能暂时下线（界面入口已隐藏），该用例暂时跳过，
+    // 待功能重新启用时再恢复执行。
+    it.skip('I can use date zoom', () => {
         // This barSelector will select all the blue bars in the chart
         const barSelector = 'path[fill="#5470c6"]';
 

@@ -44,7 +44,35 @@ const SimpleTable: FC<SimpleTableProps> = ({
         resultsData,
         isLoading,
         tablePagination,
+        isEditMode,
     } = useVisualizationContext();
+
+    /**
+     * 列宽拖拽：编辑模式写回图表配置（团队共享），其余场景（查看模式 /
+     * 看板 / embed）只记在本地，不改别人的图。
+     */
+    const onColumnWidthChange = useMemo(() => {
+        if (!isTableVisualizationConfig(visualizationConfig)) return undefined;
+        // Minimal 是截图/预览通道（UnfurlService 走 /minimal），不要出手柄
+        if (minimal) return undefined;
+        const { updateColumnProperty, setLocalColumnWidth } =
+            visualizationConfig.chartConfig;
+
+        return (fieldId: string, width: number | null) => {
+            if (isEditMode) {
+                setLocalColumnWidth(fieldId, null);
+                updateColumnProperty(fieldId, {
+                    width: width ?? undefined,
+                });
+                return;
+            }
+            setLocalColumnWidth(fieldId, width);
+        };
+    }, [visualizationConfig, isEditMode, minimal]);
+
+    const getColumnWidth = isTableVisualizationConfig(visualizationConfig)
+        ? visualizationConfig.chartConfig.getColumnWidth
+        : undefined;
 
     const shouldPaginateResults = useMemo(() => {
         return Boolean(
@@ -196,6 +224,7 @@ const SimpleTable: FC<SimpleTableProps> = ({
         pivotColumnMaxWidth,
         cellAlignment,
         pivotRowDimensionAlignment,
+        showFieldDescriptionTooltip,
     } = visualizationConfig.chartConfig;
 
     if (pivotTableData.error) {
@@ -269,6 +298,8 @@ const SimpleTable: FC<SimpleTableProps> = ({
                             columnProperties={
                                 visualizationConfig.chartConfig.columnProperties
                             }
+                            getColumnWidth={getColumnWidth}
+                            onColumnWidthChange={onColumnWidthChange}
                             pivotMetricHeaderPosition={
                                 pivotMetricHeaderPosition
                             }
@@ -333,12 +364,14 @@ const SimpleTable: FC<SimpleTableProps> = ({
                 columnOrder={columnOrder}
                 hideRowNumbers={hideRowNumbers}
                 showColumnCalculation={showColumnCalculation}
+                showFieldDescriptionTooltip={showFieldDescriptionTooltip}
                 showSubtotals={showSubtotals}
                 conditionalFormattings={conditionalFormattings}
                 minMaxMap={minMaxMap}
                 columnProperties={
                     visualizationConfig.chartConfig.columnProperties
                 }
+                onColumnWidthChange={onColumnWidthChange}
                 footer={footer}
                 headerContextMenu={headerContextMenu}
                 cellContextMenu={cellContextMenu}

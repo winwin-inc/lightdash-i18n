@@ -13,6 +13,15 @@
 
 两种调用的外层形状相同：始终返回 `email`、`firstName`、`lastName`、`userUuid`、`organization` 和 `projects` 数组。传入 `projectUuid` 时 `projects` 只含匹配的一项；找不到则为空数组。不跟 `set_project` 或环境变量绑死。默认项目对象没有 `explores` 字段。
 
+另有两个与强制看板模式相关的顶层字段：
+
+| 字段 | 含义 |
+|---|---|
+| `dashboardStrict` / `dashboardContact` | 当前 MCP 部署是否开启强制看板模式，以及看板无权限时给客户的联系文案。 |
+| `clientUse` | **仅传 `projectUuid` 时出现**（否则为 `null`）。客户使用模式白名单是否对该用户生效，来自 `GET /api/v1/user?projectUuid=` 的 `clientUse` 诊断：`scopeApplied`（白名单是否生效）、`restrictedRole`、`status`、`effectiveProjectRole`、`reason`（客服排查用中文说明）。**不含**看板名 / 数量 / 链接。 |
+
+`clientUse.scopeApplied=true` 即为「受控角色」（客户使用模式 + 查看者 / 交互式查看者）。此时查不到表属于**权限问题**，按"没有这张表的权限"解释；`false` / `null` 时按"没权限 / 没这张表"分别解释。详见 [强制看板模式 §9.7](./lightdash-mcp-dashboard-strict-mode.md#97-预检层可查表的拒绝文案按-scopeapplied-分流)。
+
 ## 组织权限和项目权限
 
 两套角色存在不同的地方，调用时叠加，取更高的一边。
@@ -57,7 +66,7 @@
 | `metadataOnly` | 目录里有，但不能跑临时指标查询 | 只能走已保存图表（`run_saved_chart` / `run_dashboard_tiles`）。`search_field_values` 可以用这里的表。 |
 | `attributeDenied` | explores 有、目录没有 | 用户属性不满足，不要用来查数。 |
 
-`run_metric_query`、`run_semantic_metric_query` 会按这三组预检：不在 `queryable` 里的表会**拒绝查询**，不会返回空结果。MCP 返回中文工具错误，例如「已拒绝查询「表名」：该表不存在或不在当前项目可访问表中」。`search_field_values` 允许 `queryable` 和 `metadataOnly`，`attributeDenied` 与未知表仍拒绝。请先 `get_my_access(..., includeExplores=true)` 再选表。行级 `sql_filter` 滤成 0 行仍可能是「表本身没数据」，与表级无权不同。
+`run_metric_query`、`run_semantic_metric_query` 会按这三组预检：不在 `queryable` 里的表会**拒绝查询**，不会返回空结果。MCP 返回中文工具错误，两种口径：受控角色（`clientUse.scopeApplied=true`）为「「表名」当前不可查询：你的账号没有这张数据表的权限。」；非受控角色为「已拒绝查询「表名」：当前账号没有这张表的查询权限（用户属性不满足，或该表所在看板未授权）…」或「该项目没有这张表，或目录尚未索引」。`search_field_values` 允许 `queryable` 和 `metadataOnly`，`attributeDenied` 与未知表仍拒绝。请先 `get_my_access(..., includeExplores=true)` 再选表。行级 `sql_filter` 滤成 0 行仍可能是「表本身没数据」，与表级无权不同。
 
 每项只含 `name`、`label`、`groupLabel`，没有字段和数据。没有表时对应数组为空。无权表只在打开 `includeExplores` 后出现在 `attributeDenied` 里，同样只有名字。
 

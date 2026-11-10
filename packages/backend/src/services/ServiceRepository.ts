@@ -1,4 +1,4 @@
-import { MissingConfigError } from '@lightdash/common';
+import { MissingConfigError, ParameterError, SessionUser } from '@lightdash/common';
 import { LightdashAnalytics } from '../analytics/LightdashAnalytics';
 import { ClientRepository } from '../clients/ClientRepository';
 import { LightdashConfig } from '../config/parseConfig';
@@ -56,6 +56,31 @@ import { UnfurlService } from './UnfurlService/UnfurlService';
 import { UserAttributesService } from './UserAttributesService/UserAttributesService';
 import { UserService } from './UserService';
 import { ValidationService } from './ValidationService/ValidationService';
+/**
+ * Structural type of the data app service, used by the promote service to
+ * promote the data apps referenced by a dashboard. The data app service lives
+ * in the EE tree, so it is referenced structurally to avoid a dependency from
+ * the OSS service tree.
+ */
+type AppGenerateServiceLike = {
+    promoteAppsForDashboard: (
+        user: SessionUser,
+        projectUuid: string,
+        appUuids: string[],
+    ) => Promise<
+        {
+            sourceAppUuid: string;
+            upstreamAppUuid: string;
+            upstreamAppVersion: number;
+        }[]
+    >;
+    getDataAppPromoteChanges: (
+        user: SessionUser,
+        projectUuid: string,
+        appUuids: string[],
+    ) => Promise<{ uuid: string; name: string; action: 'create' | 'update' }[]>;
+};
+
 /**
  * Interface outlining all services available under the `ServiceRepository`. Add new services to
  * this list (in alphabetical order, please!) to have typescript help ensure you've updated the
@@ -340,6 +365,7 @@ export class ServiceRepository
                     schedulerModel: this.models.getSchedulerModel(),
                     savedChartModel: this.models.getSavedChartModel(),
                     savedChartService: this.getSavedChartService(),
+                    savedSqlModel: this.models.getSavedSqlModel(),
                     projectModel: this.models.getProjectModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     slackClient: this.clients.getSlackClient(),
@@ -912,17 +938,47 @@ export class ServiceRepository
     public getPromoteService(): PromoteService {
         return this.getService(
             'promoteService',
-            () =>
-                new PromoteService({
+            () => {
+                const service = new PromoteService({
                     lightdashConfig: this.context.lightdashConfig,
                     analytics: this.context.lightdashAnalytics,
                     projectModel: this.models.getProjectModel(),
                     savedChartModel: this.models.getSavedChartModel(),
+                    savedSqlModel: this.models.getSavedSqlModel(),
                     spaceModel: this.models.getSpaceModel(),
                     dashboardModel: this.models.getDashboardModel(),
                     projectOperationLogService:
                         this.getProjectOperationLogService(),
-                }),
+                    projectOperationLogModel:
+                        this.models.getProjectOperationLogModel(),
+                });
+
+                // The data app service lives in the EE tree and depends on this
+                // service, so it is wired the other way around: the promote
+                // service asks the data app service to promote the apps
+                // referenced by a dashboard. The service is resolved lazily, on
+                // the first promotion that needs it.
+                service.setDataAppPromotionPort({
+                    promoteAppsForDashboard: (
+                        user,
+                        projectUuid,
+                        appUuids,
+                    ) =>
+                        this.getDataAppService().promoteAppsForDashboard(
+                            user,
+                            projectUuid,
+                            appUuids,
+                        ),
+                    getDataAppPromoteChanges: (user, projectUuid, appUuids) =>
+                        this.getDataAppService().getDataAppPromoteChanges(
+                            user,
+                            projectUuid,
+                            appUuids,
+                        ),
+                });
+
+                return service;
+            },
         );
     }
 
@@ -951,6 +1007,7 @@ export class ServiceRepository
                     projectModel: this.models.getProjectModel(),
                     spaceModel: this.models.getSpaceModel(),
                     savedSqlModel: this.models.getSavedSqlModel(),
+                    dashboardModel: this.models.getDashboardModel(),
                     schedulerClient: this.clients.getSchedulerClient(),
                     analyticsModel: this.models.getAnalyticsModel(),
                     // Lazy: the dashboard service depends on the saved chart service
@@ -999,6 +1056,20 @@ export class ServiceRepository
         return this.getService(
             'appGenerateService' as keyof ServiceManifest,
         ) as AppGenerateServiceImplT;
+    }
+
+    /**
+     * Resolves the data app service, failing with a readable error when data
+     * apps are not available in this deployment.
+     */
+    private getDataAppService(): AppGenerateServiceLike {
+        try {
+            return this.getAppGenerateService<AppGenerateServiceLike>();
+        } catch (e) {
+            throw new ParameterError(
+                'Data apps are not available in this deployment, so dashboards containing data apps cannot be promoted.',
+            );
+        }
     }
 
     public getEmbedService<EmbedServiceImplT>(): EmbedServiceImplT {

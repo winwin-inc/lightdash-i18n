@@ -65,6 +65,8 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
         .excludedValues,
     readOnly: (rule as DashboardFilterRule & { readOnly?: unknown }).readOnly,
     hidden: (rule as DashboardFilterRule & { hidden?: unknown }).hidden,
+    clearable: (rule as DashboardFilterRule & { clearable?: unknown })
+        .clearable,
     allowedOperators: (
         rule as DashboardFilterRule & { allowedOperators?: unknown }
     ).allowedOperators,
@@ -74,6 +76,10 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
         .categoryLevel,
     parentFieldId: (rule as DashboardFilterRule & { parentFieldId?: unknown })
         .parentFieldId,
+    parentScope: (rule as DashboardFilterRule & { parentScope?: unknown })
+        .parentScope,
+    parentTabUuid: (rule as DashboardFilterRule & { parentTabUuid?: unknown })
+        .parentTabUuid,
     settings: rule.settings,
     minAllowedDate: (rule as DashboardFilterRule & { minAllowedDate?: unknown })
         .minAllowedDate,
@@ -177,14 +183,23 @@ export const enqueueFilterUpdatedFromDiff = (
         });
     }
 
-    if (
-        stableJson(prevExt.parentFieldId) !== stableJson(nextExt.parentFieldId)
-    ) {
+    const previousParentBinding = {
+        parentFieldId: prevExt.parentFieldId ?? null,
+        parentScope: prevExt.parentScope ?? null,
+        parentTabUuid: prevExt.parentTabUuid ?? null,
+    };
+    const nextParentBinding = {
+        parentFieldId: nextExt.parentFieldId ?? null,
+        parentScope: nextExt.parentScope ?? null,
+        parentTabUuid: nextExt.parentTabUuid ?? null,
+    };
+
+    if (stableJson(previousParentBinding) !== stableJson(nextParentBinding)) {
         changes.push({
             changeKind: 'parent_binding',
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_PARENT_BINDING_CHANGED,
-            previous: { parentFieldId: prevExt.parentFieldId },
-            next: { parentFieldId: nextExt.parentFieldId },
+            previous: previousParentBinding,
+            next: nextParentBinding,
         });
     }
 
@@ -266,6 +281,15 @@ export const enqueueFilterUpdatedFromDiff = (
             action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_HIDDEN_CHANGED,
             previous: { hidden: prevExt.hidden },
             next: { hidden: nextExt.hidden },
+        });
+    }
+
+    if (stableJson(prevExt.clearable) !== stableJson(nextExt.clearable)) {
+        changes.push({
+            changeKind: 'clearable',
+            action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_FILTERS_CLEARABLE_CHANGED,
+            previous: { clearable: prevExt.clearable },
+            next: { clearable: nextExt.clearable },
         });
     }
 

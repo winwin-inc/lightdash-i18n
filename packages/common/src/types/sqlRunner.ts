@@ -264,7 +264,18 @@ export type CreateSqlChart = {
     sql: string;
     limit: number;
     config: AllVizChartConfig;
-    spaceUuid: string;
+    /**
+     * Space the SQL chart belongs to.
+     * Mutually exclusive with `dashboardUuid`: exactly one of them must be
+     * provided.
+     */
+    spaceUuid?: string;
+    /**
+     * Dashboard the SQL chart belongs to (dashboard-owned SQL chart).
+     * Mutually exclusive with `spaceUuid`: exactly one of them must be
+     * provided.
+     */
+    dashboardUuid?: string;
     slug?: string;
 };
 

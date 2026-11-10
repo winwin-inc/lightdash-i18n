@@ -22,6 +22,8 @@ export const lightdashConfigWithNoSMTP: Pick<
         csvCellsLimit: 100,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
 };
 
@@ -57,6 +59,8 @@ export const lightdashConfigWithBasicSMTP: Pick<
         csvCellsLimit: 100,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
 };
 
@@ -80,6 +84,8 @@ export const lightdashConfigWithOauth2SMTP: Pick<
         csvCellsLimit: 100,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
 };
 
@@ -99,6 +105,8 @@ export const lightdashConfigWithSecurePortSMTP: Pick<
         csvCellsLimit: 100,
         timezone: undefined,
         useSqlPivotResults: false,
+        exportMaxRows: 1000000,
+        exportMaxPivotCells: 2000000,
     },
 };
 

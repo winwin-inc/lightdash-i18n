@@ -216,6 +216,18 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
 
     const tabDisplayState = tabCategoryDisplayFilters[activeTabUuid || ''];
     const isCategoryCascadePending = Boolean(tabDisplayState);
+
+    // 被「按当前类目自动调整」过的筛选器：pill 上加标记（值不是用户上次选的）
+    const tabAutoAdjustedFilterIds = useDashboardContext(
+        (c) => c.tabAutoAdjustedFilterIds,
+    );
+    const autoAdjustedForScope = useMemo(
+        () =>
+            filterScope === 'global'
+                ? tabAutoAdjustedFilterIds.global ?? {}
+                : tabAutoAdjustedFilterIds[activeTabUuid || ''] ?? {},
+        [filterScope, activeTabUuid, tabAutoAdjustedFilterIds],
+    );
     const updatingFilterIds = useMemo(
         () => new Set(tabDisplayState?.updatingFilterIds ?? []),
         [tabDisplayState?.updatingFilterIds],
@@ -504,6 +516,9 @@ const ActiveFilters: FC<ActiveFiltersProps> = ({
                                         isCascadeUpdating={updatingFilterIds.has(
                                             item.id,
                                         )}
+                                        autoAdjustedPreviousValues={
+                                            autoAdjustedForScope[item.id]
+                                        }
                                         onRemove={() =>
                                             appliedRemoveDimensionFilter(
                                                 actualIndex,

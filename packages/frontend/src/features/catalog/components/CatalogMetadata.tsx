@@ -28,12 +28,12 @@ import {
     IconTable,
 } from '@tabler/icons-react';
 import { useIsMutating } from '@tanstack/react-query';
-import MarkdownPreview from '@uiw/react-markdown-preview';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import MantineIcon from '../../../components/common/MantineIcon';
+import { Markdown } from '../../../components/common/Markdown/Markdown';
 import {
     DEFAULT_EMPTY_EXPLORE_CONFIG,
     getExplorerUrlFromCreateSavedChartVersion,
@@ -275,7 +275,7 @@ export const CatalogMetadata: FC = () => {
                                         fontSize: theme.fontSizes.sm,
                                     })}
                                 >
-                                    <MarkdownPreview
+                                    <Markdown
                                         style={{
                                             backgroundColor: colors.gray[0],
                                             fontSize: 'small',

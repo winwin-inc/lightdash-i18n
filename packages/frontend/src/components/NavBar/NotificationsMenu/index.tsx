@@ -5,6 +5,7 @@ import { type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDashboardCommentsCheck } from '../../../features/comments';
+import { DASHBOARD_COMMENTS_NOTIFICATIONS_ENABLED } from '../../../features/notifications/constants';
 import {
     DashboardCommentsNotifications,
     useGetNotifications,
@@ -34,9 +35,10 @@ export const NotificationsMenu: FC<{ projectUuid: string }> = ({
 
     // Dashboard comments notifications
     const { canViewDashboardComments } = useDashboardCommentsCheck(user?.data);
+    // NOTE: Dashboard comment notifications are disabled, so we don't poll for them
     const { data: dashboardCommentsNotifications } = useGetNotifications(
         NotificationResourceType.DashboardComments,
-        canViewDashboardComments,
+        canViewDashboardComments && DASHBOARD_COMMENTS_NOTIFICATIONS_ENABLED,
     );
     const hasDashboardCommentsNotifications =
         dashboardCommentsNotifications &&
@@ -52,7 +54,7 @@ export const NotificationsMenu: FC<{ projectUuid: string }> = ({
             return !hasReadValidationNotification;
         }
 
-        if (canViewDashboardComments) {
+        if (canViewDashboardComments && DASHBOARD_COMMENTS_NOTIFICATIONS_ENABLED) {
             const hasUnreadComments = dashboardCommentsNotifications?.some(
                 (n) => !n.viewed,
             );

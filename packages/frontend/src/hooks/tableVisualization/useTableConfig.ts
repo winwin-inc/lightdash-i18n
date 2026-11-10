@@ -22,6 +22,7 @@ import {
     type TableChart,
 } from '@lightdash/common';
 import { createWorkerFactory, useWorker } from '@shopify/react-web-worker';
+import isEqual from 'lodash/isEqual';
 import uniq from 'lodash/uniq';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useEmbed from '../../ee/providers/Embed/useEmbed';
@@ -30,6 +31,7 @@ import { useCalculateSubtotals } from '../useCalculateSubtotals';
 import { useCalculateTotal } from '../useCalculateTotal';
 import { type InfiniteQueryResults } from '../useQueryResults';
 import getDataAndColumns from './getDataAndColumns';
+import { useLocalColumnWidths } from './useLocalColumnWidths';
 
 const createWorker = createWorkerFactory(
     () => import('@lightdash/common/src/pivot/pivotQueryResults'),
@@ -53,8 +55,18 @@ const useTableConfig = (
     parameters?: ParametersValuesMap,
     dashboardSlug?: string,
     dashboardName?: string,
+    /** Dashboard uuid 全局唯一，slug 只在项目内唯一 */
+    dashboardUuid?: string,
+    /** Explore 编辑模式：宽度写回 chart 配置，忽略本地覆盖 */
+    isEditMode?: boolean,
+    /** 看板 tile（本地宽度按 tile 隔离；图表页无此值） */
+    tileUuid?: string,
 ) => {
     const { embedToken } = useEmbed();
+    const { localColumnWidths, setLocalColumnWidth } = useLocalColumnWidths(
+        savedChartUuid,
+        tileUuid,
+    );
 
     const [showColumnCalculation, setShowColumnCalculation] = useState<boolean>(
         !!tableChartConfig?.showColumnCalculation,
@@ -122,6 +134,10 @@ const useTableConfig = (
     const [pivotAutoFillWidth, setPivotAutoFillWidth] = useState<boolean>(
         tableChartConfig?.pivotAutoFillWidth ?? false,
     );
+    const [showFieldDescriptionTooltip, setShowFieldDescriptionTooltip] =
+        useState<boolean>(
+            tableChartConfig?.showFieldDescriptionTooltip ?? true,
+        );
     const [pivotColumnMaxWidth, setPivotColumnMaxWidth] = useState<
         number | undefined
     >(tableChartConfig?.pivotColumnMaxWidth);
@@ -188,6 +204,7 @@ const useTableConfig = (
             ? itemsInMetricQuery(resultsData.metricQuery)
             : undefined;
     }, [resultsData?.metricQuery]);
+    const knownFieldIdsRef = useRef<Set<string>>(new Set());
 
     const getFieldLabelDefault = useCallback(
         (fieldId: string | null | undefined) => {
@@ -263,6 +280,14 @@ const useTableConfig = (
         [columnProperties],
     );
 
+    /** 列宽优先级：本地覆盖（仅非编辑模式）> 图表配置 > undefined（自动） */
+    const getColumnWidth = useCallback(
+        (fieldId: string) =>
+            (isEditMode ? undefined : localColumnWidths[fieldId]) ??
+            columnProperties[fieldId]?.width,
+        [columnProperties, isEditMode, localColumnWidths],
+    );
+
     const isPivotTableEnabled =
         resultsData?.metricQuery &&
         resultsData.metricQuery.metrics.length > 0 &&
@@ -300,8 +325,8 @@ const useTableConfig = (
     }, [dimensions.length, numUnpivotedDimensions]);
 
     const dashboardContext =
-        dashboardSlug || dashboardName
-            ? { dashboardSlug, dashboardName }
+        dashboardSlug || dashboardName || dashboardUuid
+            ? { dashboardSlug, dashboardName, dashboardUuid }
             : undefined;
 
     const { data: totalCalculations } = useCalculateTotal(
@@ -374,6 +399,7 @@ const useTableConfig = (
             columnProperties,
             cellAlignment,
             isColumnFrozen,
+            getColumnWidth,
             columnOrder,
             totals: totalCalculations,
             groupedSubtotals,
@@ -388,6 +414,7 @@ const useTableConfig = (
         showTableNames,
         cellAlignment,
         isColumnFrozen,
+        getColumnWidth,
         getFieldLabelOverride,
         totalCalculations,
         groupedSubtotals,
@@ -533,30 +560,59 @@ const useTableConfig = (
         groupedSubtotals,
     ]);
 
-    // Remove columnProperties from map if the column has been removed from results
+    // 外部替换配置时回灌列属性（重置 / 切换历史版本 / 换图表）。
+    // 三种情况必须区分开，否则会打架：
+    // 1. 首次挂载：已由 useState 初值处理
+    // 2. 自己改动的回流（我们 -> 父级 -> 再传回来）：与当前 state 相同，跳过
+    // 3. prune（删掉不在查询里的列）：父级配置没变化，跳过，否则「采纳 -> prune」死循环
+    const columnPropertiesRef = useRef(columnProperties);
+    columnPropertiesRef.current = columnProperties;
+    const lastIncomingColumnsRef = useRef<
+        Record<string, ColumnProperties> | undefined
+    >(undefined);
     useEffect(() => {
-        if (Object.keys(columnProperties).length > 0 && selectedItemIds) {
-            const newColumnProperties = Object.keys(columnProperties).reduce<
-                Record<string, ColumnProperties>
-            >(
-                (acc, field) =>
-                    selectedItemIds.includes(field)
-                        ? {
-                              ...acc,
-                              [field]: columnProperties[field],
-                          }
-                        : acc,
-                {},
+        const incoming = tableChartConfig?.columns ?? {};
+        const previousIncoming = lastIncomingColumnsRef.current;
+        lastIncomingColumnsRef.current = incoming;
+
+        if (previousIncoming === undefined) return;
+        if (isEqual(incoming, previousIncoming)) return;
+        if (isEqual(incoming, columnPropertiesRef.current)) return;
+
+        setColumnProperties(incoming);
+    }, [tableChartConfig?.columns]);
+
+    // 只删「本次会话里出现过、现在从查询中消失」的列属性。
+    // 首帧的 resultsData.metricQuery 可能是上一页残留或上一份查询（explorerStore 是模块级单例、
+    // useQueryResults 开了 keepPreviousData），按它判断会把已保存的列配置整体删掉并回写落库。
+    useEffect(() => {
+        // 没有可用字段集时不判断（避免用空集合清空全部配置）
+        if (!selectedItemIds || selectedItemIds.length === 0) return;
+
+        const knownFieldIds = knownFieldIdsRef.current;
+        selectedItemIds.forEach((fieldId) => knownFieldIds.add(fieldId));
+
+        setColumnProperties((previous) => {
+            const removedFieldIds = Object.keys(previous).filter(
+                (fieldId) =>
+                    !selectedItemIds.includes(fieldId) &&
+                    knownFieldIds.has(fieldId),
             );
-            // only update if something changed, otherwise we get into an infinite loop
-            if (
-                Object.keys(columnProperties).length !==
-                Object.keys(newColumnProperties).length
-            ) {
-                setColumnProperties(newColumnProperties);
-            }
-        }
-    }, [selectedItemIds, columnProperties]);
+            if (removedFieldIds.length === 0) return previous;
+
+            // 一帧就要删掉全部列属性时，更可能是结果来源变了（merge/分页表/跨图表残留），
+            // 而不是用户逐个移除了字段。此时保守保留：孤儿配置不渲染、不报错，
+            // 但一次误删会永久丢失用户设置。
+            const wouldRemoveAll =
+                removedFieldIds.length === Object.keys(previous).length &&
+                removedFieldIds.length > 1;
+            if (wouldRemoveAll) return previous;
+
+            const next = { ...previous };
+            removedFieldIds.forEach((fieldId) => delete next[fieldId]);
+            return next;
+        });
+    }, [selectedItemIds]);
 
     const updateColumnProperty = useCallback(
         (field: string, properties: Partial<ColumnProperties>) => {
@@ -658,6 +714,7 @@ const useTableConfig = (
             showColumnCalculation,
             showRowCalculation,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -679,6 +736,7 @@ const useTableConfig = (
             showRowCalculation,
             hideRowNumbers,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -729,6 +787,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             onSetConditionalFormattings: handleSetConditionalFormattings,
@@ -739,6 +800,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,
@@ -783,6 +846,9 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            getColumnWidth,
+            localColumnWidths,
+            setLocalColumnWidth,
             minMaxMap,
             conditionalFormattings,
             handleSetConditionalFormattings,
@@ -793,6 +859,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,

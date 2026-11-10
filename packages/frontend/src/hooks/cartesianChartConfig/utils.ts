@@ -13,6 +13,7 @@ import {
 import {
     getPivotedData,
     getPivotedDataFromPivotDetails,
+    isBaselineMergedPivotValues,
 } from '../plottedData/getPlottedData';
 import type { InfiniteQueryResults } from '../useQueryResults';
 
@@ -34,11 +35,19 @@ export const applyStackFromLayout = (
 
     const isPivoted = Boolean(pivotKeys && pivotKeys.length > 0);
     const yFields = layout?.yField ?? [];
+    const baselineFieldIds = layout?.baselineFieldIds ?? [];
 
     return series.map((serie) => {
         const { field } = serie.encode.yRef;
         if (!yFields.includes(field)) {
             return serie;
+        }
+
+        // Baselines are reference lines: they never join the stack.
+        if (baselineFieldIds.includes(field)) {
+            return serie.stack === undefined
+                ? serie
+                : { ...serie, stack: undefined };
         }
 
         return {
@@ -62,6 +71,8 @@ export type GetExpectedSeriesMapArgs = {
     availableDimensions: string[];
     defaultLabel?: Series['label'];
     itemsMap: ItemsMap | undefined;
+    /** Metrics declared as baselines: collapse their pivot series into one. */
+    baselineFieldIds?: string[];
 };
 
 export const getExpectedSeriesMap = ({
@@ -78,6 +89,7 @@ export const getExpectedSeriesMap = ({
     availableDimensions,
     defaultLabel,
     itemsMap,
+    baselineFieldIds,
 }: GetExpectedSeriesMapArgs) => {
     let expectedSeriesMap: Record<string, Series>;
 
@@ -95,7 +107,11 @@ export const getExpectedSeriesMap = ({
     if (pivotKeys && pivotKeys.length > 0) {
         // Use new pivoted data format if available
         const { rowKeyMap } = resultsData.pivotDetails
-            ? getPivotedDataFromPivotDetails(resultsData, itemsMap)
+            ? getPivotedDataFromPivotDetails(
+                  resultsData,
+                  itemsMap,
+                  baselineFieldIds,
+              )
             : getPivotedData(
                   resultsData.rows,
                   pivotKeys,
@@ -105,11 +121,24 @@ export const getExpectedSeriesMap = ({
                   yFields.filter((yField) =>
                       availableDimensions.includes(yField),
                   ),
+                  baselineFieldIds,
               );
 
         expectedSeriesMap = Object.values(rowKeyMap).reduce<
             Record<string, Series>
         >((acc, rowKey) => {
+            // Baseline metrics collapse into their single merged series;
+            // skip the per-pivot-value baseline entries.
+            const rowKeyField =
+                typeof rowKey === 'string' ? rowKey : rowKey.field;
+            const rowKeyPivotValues =
+                typeof rowKey === 'string' ? undefined : rowKey.pivotValues;
+            if (
+                baselineFieldIds?.includes(rowKeyField) &&
+                !isBaselineMergedPivotValues(rowKeyPivotValues)
+            ) {
+                return acc;
+            }
             let series: Series;
             if (typeof rowKey === 'string') {
                 series = {
@@ -158,6 +187,48 @@ export const getExpectedSeriesMap = ({
         );
     }
     return expectedSeriesMap;
+};
+
+/**
+ * 用户在配置面板按「组」写入的系列属性（如 hideMetricName，
+ * updateAllGroupedSeries 一次写进组内全部系列）。
+ * 看板上 expected 系列 id 与存量不一致时（过滤器收窄/放开后出现新分组值、
+ * 或基准线合并哨兵替换逐值系列）会由 defaultProperties 重建，
+ * 这些用户属性必须从同 field 的存量系列携带过去，否则看板与编辑页表现不一致。
+ */
+const getGroupUserPropertiesFromExistingSeries = (
+    expectedSeries: Series,
+    existingSeries: Series[],
+): Pick<Series, 'hideMetricName' | 'color'> => {
+    const fieldSeries = existingSeries.filter(
+        (serie) =>
+            serie.encode.yRef.field === expectedSeries.encode.yRef.field,
+    );
+    if (fieldSeries.length === 0) return {};
+
+    // 组级属性（hideMetricName）任何同 field 系列都携带；系列级自定义色只从
+    // 第一个非隐藏系列取（与渲染层 collapseBaselineSeries 的取色规则一致，
+    // 用户隐藏的系列不捐色）。全部隐藏时只携带 hideMetricName。
+    const firstVisibleSeries = fieldSeries.find(
+        (serie) => serie.hidden !== true,
+    );
+    const donorSeries = firstVisibleSeries ?? fieldSeries[0];
+
+    // 逐值自定义颜色是系列级意图，不随新分组值继承；仅当合并基准线哨兵
+    // 替换同 field 的逐值系列（同一条参考线）时携带用户色。
+    const replacesMergedBaseline = isBaselineMergedPivotValues(
+        expectedSeries.encode.yRef.pivotValues,
+    );
+
+    return {
+        ...(donorSeries.hideMetricName !== undefined && {
+            hideMetricName: donorSeries.hideMetricName,
+        }),
+        ...(replacesMergedBaseline &&
+            firstVisibleSeries?.color !== undefined && {
+                color: firstVisibleSeries.color,
+            }),
+    };
 };
 
 type MergeExistingAndExpectedSeriesArgs = {
@@ -210,7 +281,13 @@ export const mergeExistingAndExpectedSeries = ({
         );
 
     if (existingValidSeries.length <= 0) {
-        return Object.values(expectedSeriesMap);
+        return Object.values(expectedSeriesMap).map((expectedSeries) => ({
+            ...expectedSeries,
+            ...getGroupUserPropertiesFromExistingSeries(
+                expectedSeries,
+                existingSeries,
+            ),
+        }));
     }
 
     // add missing series in the correct order (next to series of the same group)
@@ -227,6 +304,15 @@ export const mergeExistingAndExpectedSeries = ({
                         : series,
                 );
             }
+            // Rebuilt series lose user-tuned group properties (hideMetricName,
+            // merged-baseline color) — carry them over from the same field
+            const expectedSeriesWithUserProperties: Series = {
+                ...expectedSeries,
+                ...getGroupUserPropertiesFromExistingSeries(
+                    expectedSeries,
+                    existingSeries,
+                ),
+            };
             // Add series to the end of its group
             if (
                 expectedSeries.encode.yRef.pivotValues &&
@@ -244,15 +330,15 @@ export const mergeExistingAndExpectedSeries = ({
                         // part of the array before the specified index
                         ...acc.slice(0, lastSeriesInGroupIndex),
                         // inserted item
-                        expectedSeries,
+                        expectedSeriesWithUserProperties,
                         // part of the array after the specified index
                         ...acc.slice(lastSeriesInGroupIndex),
                     ].reverse();
                 }
-                return [...acc.reverse(), expectedSeries];
+                return [...acc.reverse(), expectedSeriesWithUserProperties];
             }
             // Add series to the end
-            return [...acc, expectedSeries];
+            return [...acc, expectedSeriesWithUserProperties];
         },
         existingValidSeries,
     );

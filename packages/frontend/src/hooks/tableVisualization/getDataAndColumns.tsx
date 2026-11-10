@@ -33,6 +33,8 @@ type Args = {
     groupedSubtotals?: Record<string, Record<string, number>[]>;
     columnProperties?: Record<string, { displayStyle?: 'text' | 'bar' }>;
     cellAlignment?: TableCellAlignment;
+    /** 列宽解析：本地覆盖 > 图表配置 > 自动 */
+    getColumnWidth?: (fieldId: string) => number | undefined;
 };
 
 export function getGroupingValuesAndSubtotalKey(
@@ -88,6 +90,7 @@ const getDataAndColumns = ({
     groupedSubtotals,
     columnProperties,
     cellAlignment = 'left',
+    getColumnWidth,
 }: Args): Array<TableHeader | TableColumn> => {
     return selectedItemIds.reduce<Array<TableHeader | TableColumn>>(
         (acc, itemId) => {
@@ -108,6 +111,24 @@ const getDataAndColumns = ({
                 headerOverride?.startsWith(`${item.tableLabel} `)
                     ? headerOverride.slice(`${item.tableLabel} `.length)
                     : headerOverride;
+
+            // Plain-text header, used as `title` so a truncated header can still
+            // be read in full on hover.
+            const headerTitle = [
+                showTableNames && isField(item) ? item.tableLabel : undefined,
+                fieldHeaderLabel ??
+                    (isField(item)
+                        ? item.label
+                        : isCustomDimension(item)
+                        ? item.name
+                        : item && 'displayName' in item
+                        ? item.displayName
+                        : undefined),
+            ]
+                .filter(Boolean)
+                .join(' ');
+
+            const columnWidth = getColumnWidth?.(itemId);
 
             const column: TableHeader | TableColumn = columnHelper.accessor(
                 (row) => row[itemId],
@@ -154,16 +175,30 @@ const getDataAndColumns = ({
                         item,
                         isVisible: isColumnVisible(itemId),
                         frozen: isColumnFrozen(itemId),
-                        // Set fixed width for bar chart columns to ensure consistent bar widths
-                        // Same percentage values will display the same bar width across all cells
-                        // Text is overlaid on the bar, so fixed width ensures visual consistency
-                        ...(hasBarDisplay && {
-                            style: {
-                                width: '160px',
-                                minWidth: '160px',
-                                maxWidth: '160px',
-                            },
+                        headerTitle,
+                        ...(columnWidth !== undefined && {
+                            width: columnWidth,
                         }),
+                        // NOTE: `meta.style` widths are consumed as CSS strings by
+                        // `Th`/`BodyCell`; numbers there are silently ignored.
+                        // Precedence: user width > bar column fixed width.
+                        ...(columnWidth !== undefined
+                            ? {
+                                  style: {
+                                      width: `${columnWidth}px`,
+                                      minWidth: `${columnWidth}px`,
+                                      maxWidth: `${columnWidth}px`,
+                                  },
+                              }
+                            : hasBarDisplay
+                            ? {
+                                  style: {
+                                      width: '160px',
+                                      minWidth: '160px',
+                                      maxWidth: '160px',
+                                  },
+                              }
+                            : {}),
                         cellStyle: {
                             textAlign: cellAlignment,
                         },

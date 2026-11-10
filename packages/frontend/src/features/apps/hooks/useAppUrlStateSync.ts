@@ -58,7 +58,7 @@ const writeUrlStateParam = (encoded: string | null) => {
  * when the host opts in via `urlStateSync`: `applySeed` appends the latest
  * known state to the iframe URL, `handleUrlStateChange` mirrors the app's
  * changes back into the page's `?state=`. State is tagged with the app it came
- * from, so switching apps drops it. See docs/data-apps.md.
+ * from, so switching apps drops it. See docs/v2/v2-data-apps.md.
  */
 export function useAppUrlStateSync({
     appUuid,

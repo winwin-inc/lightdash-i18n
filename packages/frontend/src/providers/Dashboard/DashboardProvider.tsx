@@ -69,6 +69,7 @@ import { hasSavedFiltersOverrides } from '../../hooks/useSavedDashboardFiltersOv
 import {
     buildOptimisticCategoryDisplayState,
     decideCategoryInit,
+    getDescendantCategoryFilterIds,
     mergeDimensionIntoDisplayState,
     resolveActiveTabCategoryInit,
     shouldApplyCategoryInitResult,
@@ -76,15 +77,125 @@ import {
     type TabCategoryDisplayState,
 } from '../../utils/categoryFilterInitHelpers';
 import {
+    areFilterDimensionsEqual,
+    buildCategoryChain,
+    createCategoryRequestSession,
+    getCategoryChainFilters,
     getCategoryFiltersSignature,
-    hasCategoryFilters,
+    getCategoryFilterUpdateValue,
+    hasBoundFilters,
     initializeCategoryFiltersAsync,
+    isBoundValueFilter,
     isCategoryField,
+    logCategoryCascade,
+    shouldCascadeCategoryFilterUpdate,
     updateCategoryFilterCascadeAsync,
+    updateCrossScopeCategoryCascadeAsync,
+    type CategoryFilterLocation,
+    type CategoryRequestSession,
+    type CategoryResolutionIssue,
 } from '../../utils/categoryFilters';
+import {
+    applySelectionToTabFilters,
+    restoreAuthorDefaults,
+    type FilterNamespace,
+} from '../../utils/userFilterSelections';
+import { isWarehouseResourceLimitError } from '../../utils/warehouseError';
 import DashboardChartColorSyncProvider from '../DashboardChartColorSync/DashboardChartColorSyncProvider';
 import DashboardContext from './context';
 import { type SqlChartTileMetadata } from './types';
+
+/**
+ * 跨 Tab 继承的结果：接收方 Tab 与它们同步后的筛选器。
+ */
+type CrossTabSyncResult = {
+    tabFilters: Record<string, DashboardFilters>;
+    changedTabUuids: string[];
+};
+
+/**
+ * 自动解析改写过的筛选器（用于 pill 提示），key = 作用域（'global' / tab uuid）
+ * value = { filterId: 被替换前的取值 }
+ */
+type AutoAdjustedFilterIds = Record<string, Record<string, string[]>>;
+
+/** 两个规则的用户可见状态是否等价（取值 + 生效状态 + operator） */
+const isSameResolvedFilterState = (
+    a: DashboardFilterRule,
+    b: DashboardFilterRule,
+): boolean =>
+    // 字段身份：解析期间用户可能把该筛选器换成别的字段（同 id、就地更新）
+    a.target.fieldId === b.target.fieldId &&
+    a.target.tableName === b.target.tableName &&
+    a.operator === b.operator &&
+    (a.disabled ?? false) === (b.disabled ?? false) &&
+    (a.values ?? []).map(String).join('\u0000') ===
+        (b.values ?? []).map(String).join('\u0000') &&
+    JSON.stringify(a.settings ?? null) === JSON.stringify(b.settings ?? null) &&
+    JSON.stringify(a.excludedValues ?? null) ===
+        JSON.stringify(b.excludedValues ?? null);
+
+/**
+ * 找出「本次解析自动改写了哪些绑定字段」，用于 pill 标记。
+ *
+ * 只比较「请求快照 → 最终写回结果」，所以在写回被守卫拒绝时**不会**产生假标记。
+ */
+const collectAutoAdjusted = (
+    snapshot: DashboardFilters,
+    resolved: DashboardFilters,
+): { filterId: string; previousValues: string[] }[] => {
+    const snapshotById = new Map(
+        snapshot.dimensions.map((rule) => [rule.id, rule]),
+    );
+
+    return resolved.dimensions.flatMap((rule) => {
+        if (!isBoundValueFilter(rule)) return [];
+        const before = snapshotById.get(rule.id);
+        if (!before) return [];
+        if (isSameResolvedFilterState(before, rule)) return [];
+        return [
+            {
+                filterId: rule.id,
+                previousValues: (before.values ?? []).map(String),
+            },
+        ];
+    });
+};
+
+/**
+ * 把自动解析结果按 filter id 合并进当前筛选器。
+ *
+ * 解析是异步的：期间用户可能手改了某个筛选器（包括本次要写的字段）。
+ * 直接整体替换请求快照会把用户的选择回滚（表现为「选完值又跳回去」）。
+ * 只采纳「本次解析确实改动了、且用户没有同时改动」的字段。
+ */
+const mergeAutoResolvedFilters = (
+    current: DashboardFilters,
+    requestSnapshot: DashboardFilters,
+    resolved: DashboardFilters,
+): DashboardFilters => {
+    const snapshotById = new Map(
+        requestSnapshot.dimensions.map((rule) => [rule.id, rule]),
+    );
+    const resolvedById = new Map(
+        resolved.dimensions.map((rule) => [rule.id, rule]),
+    );
+
+    let changed = false;
+    const dimensions = current.dimensions.map((rule) => {
+        const resolvedRule = resolvedById.get(rule.id);
+        const snapshotRule = snapshotById.get(rule.id);
+        if (!resolvedRule || !snapshotRule) return rule;
+        // 本次解析没有改它
+        if (isSameResolvedFilterState(snapshotRule, resolvedRule)) return rule;
+        // 用户在请求期间改过它 → 用户优先
+        if (!isSameResolvedFilterState(rule, snapshotRule)) return rule;
+        changed = true;
+        return resolvedRule;
+    });
+
+    return changed ? { ...current, dimensions } : current;
+};
 
 const DashboardProvider: React.FC<
     React.PropsWithChildren<{
@@ -114,7 +225,42 @@ const DashboardProvider: React.FC<
     const navigate = useNavigate();
 
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
-    const { showToastInfo } = useToaster();
+    const { showToastInfo, showToastError, showToastWarning } = useToaster();
+
+    /**
+     * 类目解析异常（请求失败 / 没有候选值）的用户提示。
+     *
+     * 解析失败时前端会「保留原值」，如果不做任何提示，
+     * 用户看到的现象就是「父级绑定了但联动没生效」，无法定位原因。
+     * 相同类型用固定 key：重复发生时更新同一个 toast，而不是刷一屏。
+     */
+    const handleCategoryResolutionIssue = useCallback(
+        (issue: CategoryResolutionIssue) => {
+            if (issue.kind === 'error') {
+                if (isWarehouseResourceLimitError(issue.error)) {
+                    showToastError({
+                        key: 'warehouse-resource-limit',
+                        title: t('hooks_query_error.warehouse_resource_limit'),
+                        autoClose: 10000,
+                    });
+                    return;
+                }
+                showToastError({
+                    key: 'dashboard-category-resolution-failed',
+                    title: t('hooks_query_error.category_resolution_failed'),
+                    autoClose: 10000,
+                });
+                return;
+            }
+
+            showToastWarning({
+                key: 'dashboard-category-no-candidates',
+                title: t('hooks_query_error.category_no_candidates'),
+                autoClose: 10000,
+            });
+        },
+        [showToastError, showToastWarning, t],
+    );
 
     const { dashboardUuid, tabUuid, mode } = useParams<{
         dashboardUuid: string;
@@ -187,6 +333,12 @@ const DashboardProvider: React.FC<
     const [activeTab, setActiveTab] = useState<
         Dashboard['tabs'][number] | undefined
     >();
+    // 访问过的 Tab：只有访问过的 Tab 才允许发起 tile 查询，
+    // 避免打开多 Tab 看板时一次性把所有 Tab 的数仓查询全打出去排队。
+    // 引用保持稳定：只有新增 Tab 时才换新 Set，避免无关重渲染。
+    const [visitedTabUuids, setVisitedTabUuids] = useState<Set<string>>(
+        () => new Set(),
+    );
     const { setDashboardActiveTabUuid, getDashboardLastTabUuid } =
         useDashboardStorage();
 
@@ -258,12 +410,16 @@ const DashboardProvider: React.FC<
     // 类目联动按 field/search 实际数据（含 dashboardSlug → dbt RLS），不依赖 Admin 类目接口
     const dashboardSlug = (dashboard || embedDashboard)?.slug;
     const dashboardName = (dashboard || embedDashboard)?.name;
+    // dashboardUuid 全局唯一，slug 只在项目内唯一（跨项目可能撞车），
+    // 优先传 uuid 让服务端反查到正确的看板
+    const currentDashboardUuid = (dashboard || embedDashboard)?.uuid;
     const dashboardFilterContext = useMemo(
         () => ({
             dashboardSlug,
             dashboardName,
+            dashboardUuid: currentDashboardUuid,
         }),
-        [dashboardSlug, dashboardName],
+        [dashboardSlug, dashboardName, currentDashboardUuid],
     );
     // 须有 dashboardSlug，避免未就绪时按 NA 绕过 dbt 控制码
     const canApplyCategoryFilters =
@@ -280,6 +436,82 @@ const DashboardProvider: React.FC<
     const tabCategoryProcessedSignatureRef = useRef<Record<string, string>>({});
     const tabCategoryPendingSignatureRef = useRef<Record<string, string>>({});
 
+    /* ------------------------------------------------------------------ *
+     * 类目请求会话
+     *
+     * 同一个作用域开始新的操作时，取消上一个操作的请求：
+     * - 排队中的请求直接丢弃（不会发到仓库）
+     * - 在途的请求被 abort（立刻释放仓库引擎的查询内存）
+     * - 旧操作的结果不会写回
+     *
+     * 会话与 generation 一一对应：init 与 cascade 各自独立，
+     * 手动改动会同时作废在途的 init（与现有 generation 语义一致）。
+     * ------------------------------------------------------------------ */
+    const globalCategoryInitSessionRef = useRef<CategoryRequestSession | null>(
+        null,
+    );
+    const globalCategoryCascadeSessionRef =
+        useRef<CategoryRequestSession | null>(null);
+    const tabCategoryInitSessionRef = useRef<
+        Record<string, CategoryRequestSession>
+    >({});
+    const tabCategoryCascadeSessionRef = useRef<
+        Record<string, CategoryRequestSession>
+    >({});
+
+    const startGlobalCategoryInitSession = useCallback(() => {
+        globalCategoryInitSessionRef.current?.cancel();
+        const session = createCategoryRequestSession();
+        globalCategoryInitSessionRef.current = session;
+        return session;
+    }, []);
+
+    const startGlobalCategoryCascadeSession = useCallback(() => {
+        // 手动改动作废在途的自动初始化
+        globalCategoryInitSessionRef.current?.cancel();
+        globalCategoryInitSessionRef.current = null;
+        // 并作废更早的一次手动联动
+        globalCategoryCascadeSessionRef.current?.cancel();
+        const session = createCategoryRequestSession();
+        globalCategoryCascadeSessionRef.current = session;
+        return session;
+    }, []);
+
+    const startTabCategoryInitSession = useCallback((targetTabUuid: string) => {
+        tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+        const session = createCategoryRequestSession();
+        tabCategoryInitSessionRef.current[targetTabUuid] = session;
+        return session;
+    }, []);
+
+    const startTabCategoryCascadeSession = useCallback(
+        (targetTabUuid: string) => {
+            // 手动改动作废在途的自动初始化
+            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+            delete tabCategoryInitSessionRef.current[targetTabUuid];
+            // 并作废更早的一次手动联动
+            tabCategoryCascadeSessionRef.current[targetTabUuid]?.cancel();
+            const session = createCategoryRequestSession();
+            tabCategoryCascadeSessionRef.current[targetTabUuid] = session;
+            return session;
+        },
+        [],
+    );
+
+    /**
+     * 作废某个 Tab 在途的类目初始化（不新建会话）。
+     *
+     * 场景：Tab A 的值被 Tab B 继承时，Tab B 的初始化结果已经没有意义
+     * （父级取值已经变了），继续跑只会多打一次仓库并可能覆盖继承结果。
+     */
+    const cancelTabCategoryInitSession = useCallback(
+        (targetTabUuid: string) => {
+            tabCategoryInitSessionRef.current[targetTabUuid]?.cancel();
+            delete tabCategoryInitSessionRef.current[targetTabUuid];
+        },
+        [],
+    );
+
     // 首屏类目解析状态：解析完成前不发起图表查询。
     // 否则图表会先按「类目还没解析出来」的值跑一次，类目解析完再跑第二次，
     // 表现为看板加载时图表先出一版数据、随后又刷新一次。
@@ -289,39 +521,68 @@ const DashboardProvider: React.FC<
     ] = useState(false);
     const [pendingTabCategoryResolutions, setPendingTabCategoryResolutions] =
         useState<Record<string, boolean>>({});
-    const categoryResolutionTimeoutRef = useRef<ReturnType<
-        typeof setTimeout
-    > | null>(null);
+    /**
+     * 类目解析的兜底超时：**每个作用域各一个**（`global` 或 tabUuid）。
+     *
+     * 之前全局只用一个 timer：任何一个作用域解析结束都会 `clearTimeout`，
+     * 把其它作用域的兜底一起取消。跨 Tab 继承会给未打开的 Tab 置 pending，
+     * 一旦兜底被取消、而那个 Tab 又一直没被打开（移动端只显示一个 Tab 时很常见），
+     * pending 就永久为 true → 该 Tab 的图表永远不查询 / 一直 loading。
+     */
+    const categoryResolutionTimeoutsRef = useRef<
+        Map<string, ReturnType<typeof setTimeout>>
+    >(new Map());
 
     // 首屏最多等类目解析这么久：超时后先放行图表，类目解析完成后再校正一次，
     // 避免 field/search 卡住时看板一直转圈
     const CATEGORY_RESOLUTION_MAX_WAIT_MS = 10000;
 
-    const armCategoryResolutionTimeout = useCallback(() => {
-        if (categoryResolutionTimeoutRef.current) {
-            clearTimeout(categoryResolutionTimeoutRef.current);
-        }
-        categoryResolutionTimeoutRef.current = setTimeout(() => {
-            categoryResolutionTimeoutRef.current = null;
+    const releaseCategoryResolution = useCallback((key: string) => {
+        if (key === 'global') {
             setIsGlobalCategoryResolutionPending(false);
-            setPendingTabCategoryResolutions((prev) =>
-                Object.fromEntries(
-                    Object.entries(prev).map(([uuid]) => [uuid, false]),
-                ),
-            );
-        }, CATEGORY_RESOLUTION_MAX_WAIT_MS);
+            return;
+        }
+        setPendingTabCategoryResolutions((prev) => {
+            if (prev[key] === false) return prev;
+            return { ...prev, [key]: false };
+        });
     }, []);
 
-    const clearCategoryResolutionTimeout = useCallback(() => {
-        if (categoryResolutionTimeoutRef.current) {
-            clearTimeout(categoryResolutionTimeoutRef.current);
-            categoryResolutionTimeoutRef.current = null;
+    const armCategoryResolutionTimeout = useCallback(
+        (key: string) => {
+            const timeouts = categoryResolutionTimeoutsRef.current;
+            const existing = timeouts.get(key);
+            if (existing) {
+                clearTimeout(existing);
+            }
+            timeouts.set(
+                key,
+                setTimeout(() => {
+                    timeouts.delete(key);
+                    releaseCategoryResolution(key);
+                }, CATEGORY_RESOLUTION_MAX_WAIT_MS),
+            );
+        },
+        [releaseCategoryResolution],
+    );
+
+    const clearCategoryResolutionTimeout = useCallback((key: string) => {
+        const timeouts = categoryResolutionTimeoutsRef.current;
+        const existing = timeouts.get(key);
+        if (existing) {
+            clearTimeout(existing);
+            timeouts.delete(key);
         }
     }, []);
 
     useEffect(
-        () => clearCategoryResolutionTimeout,
-        [clearCategoryResolutionTimeout],
+        () => () => {
+            categoryResolutionTimeoutsRef.current.forEach((timeout) =>
+                clearTimeout(timeout),
+            );
+            categoryResolutionTimeoutsRef.current.clear();
+        },
+        [],
     );
 
     const markGlobalCategoryProcessed = useCallback(
@@ -337,17 +598,117 @@ const DashboardProvider: React.FC<
         [projectUuid, dashboardFilterContext],
     );
 
-    const markTabCategoryProcessed = useCallback(
-        (targetTabUuid: string, filters: DashboardFilters) => {
-            if (!projectUuid) return;
-            tabCategoryProcessedSignatureRef.current[targetTabUuid] =
-                getCategoryFiltersSignature(
-                    filters,
-                    projectUuid,
-                    dashboardFilterContext,
-                );
+    /**
+     * Tab 类目链的签名：必须覆盖全局祖先。
+     * 全局二级的值变化时，Tab 三级需要重新解析，签名不同才会触发新一轮 init。
+     */
+    const getTabCategoryChainSignature = useCallback(
+        (
+            targetTabUuid: string,
+            tabFiltersForTab: DashboardFilters,
+            globalFiltersForChain?: DashboardFilters,
+        ) => {
+            if (!projectUuid) return null;
+            return getCategoryFiltersSignature(
+                getCategoryChainFilters(
+                    buildCategoryChain(
+                        {
+                            globalFilters:
+                                globalFiltersForChain ?? dashboardFilters,
+                            tabFilters: { [targetTabUuid]: tabFiltersForTab },
+                        },
+                        targetTabUuid,
+                    ),
+                ),
+                projectUuid,
+                dashboardFilterContext,
+            );
         },
-        [projectUuid, dashboardFilterContext],
+        [projectUuid, dashboardFilterContext, dashboardFilters],
+    );
+
+    const markTabCategoryProcessed = useCallback(
+        (
+            targetTabUuid: string,
+            filters: DashboardFilters,
+            globalFiltersForChain?: DashboardFilters,
+        ) => {
+            const signature = getTabCategoryChainSignature(
+                targetTabUuid,
+                filters,
+                globalFiltersForChain,
+            );
+            if (!signature) return;
+            tabCategoryProcessedSignatureRef.current[targetTabUuid] = signature;
+        },
+        [getTabCategoryChainSignature],
+    );
+
+    /**
+     * 被自动解析改写过的筛选器（仅运行时）：pill 上给个标记，
+     * 让用户知道「这个值不是你上次选的，是按当前类目自动调整的」。
+     */
+    const [autoAdjustedFilterIds, setAutoAdjustedFilterIds] =
+        useState<AutoAdjustedFilterIds>({});
+
+    const recordAutoAdjusted = useCallback(
+        (
+            scope: string,
+            info: {
+                filterId: string;
+                previousValues: string[];
+            },
+        ) => {
+            setAutoAdjustedFilterIds((prev) => ({
+                ...prev,
+                [scope]: {
+                    ...(prev[scope] ?? {}),
+                    [info.filterId]: info.previousValues,
+                },
+            }));
+        },
+        [],
+    );
+
+    const recordAutoAdjustedMany = useCallback(
+        (
+            scope: string,
+            entries: { filterId: string; previousValues: string[] }[],
+        ) => {
+            if (entries.length === 0) return;
+            setAutoAdjustedFilterIds((prev) => {
+                const nextScope = { ...(prev[scope] ?? {}) };
+                entries.forEach((entry) => {
+                    nextScope[entry.filterId] = entry.previousValues;
+                });
+                return { ...prev, [scope]: nextScope };
+            });
+        },
+        [],
+    );
+
+    const clearAutoAdjusted = useCallback(
+        (scope: string, filterId?: string) => {
+            setAutoAdjustedFilterIds((prev) => {
+                const current = prev[scope];
+                if (!current) return prev;
+                if (filterId === undefined) {
+                    const next = { ...prev };
+                    delete next[scope];
+                    return next;
+                }
+                if (!(filterId in current)) return prev;
+                const nextScope = { ...current };
+                delete nextScope[filterId];
+                if (Object.keys(nextScope).length === 0) {
+                    const next = { ...prev };
+                    delete next[scope];
+                    return next;
+                }
+                return { ...prev, [scope]: nextScope };
+            });
+        },
+        [],
     );
 
     const runGlobalCategoryInit = useCallback(
@@ -368,6 +729,15 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                logCategoryCascade('global init skipped', {
+                    action: decision.action,
+                    canApplyCategoryFilters,
+                    hasProjectUuid: !!projectUuid,
+                    pendingSignature:
+                        globalCategoryPendingSignatureRef.current ?? null,
+                    processedSignature:
+                        globalCategoryProcessedSignatureRef.current ?? null,
+                });
                 // 没有可执行的任务（例如没有类目筛选器）：首屏不再等待类目解析
                 if (!globalCategoryPendingSignatureRef.current) {
                     setIsGlobalCategoryResolutionPending(false);
@@ -378,14 +748,27 @@ const DashboardProvider: React.FC<
             const generation = ++globalCategoryInitGenerationRef.current;
             const { signature } = decision;
             globalCategoryPendingSignatureRef.current = signature;
+            // 新的自动初始化：作废上一个初始化会话的请求
+            const session = startGlobalCategoryInitSession();
 
             void initializeCategoryFiltersAsync(
                 filters,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds },
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted('global', info),
+                },
             )
                 .then((refined) => {
+                    let adjustments: {
+                        filterId: string;
+                        previousValues: string[];
+                    }[] = [];
+
                     setDashboardFilters((currentFilters) => {
                         if (
                             !shouldApplyCategoryInitResult({
@@ -401,17 +784,34 @@ const DashboardProvider: React.FC<
                             return currentFilters;
                         }
 
-                        const nextFilters =
-                            refined === currentFilters
-                                ? currentFilters
-                                : refined;
+                        // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                        const nextFilters = mergeAutoResolvedFilters(
+                            currentFilters,
+                            filters,
+                            refined,
+                        );
+
+                        // 「已处理签名」必须在无变化时也写入：否则每次改筛选器都会
+                        // 因为签名未记录而重跑整条链（慢仓库下就是成倍的 field/search）。
                         globalCategoryProcessedSignatureRef.current =
                             getCategoryFiltersSignature(
                                 nextFilters,
                                 projectUuid,
                                 dashboardFilterContext,
                             );
+
+                        if (nextFilters === currentFilters) {
+                            return currentFilters;
+                        }
+
+                        adjustments = collectAutoAdjusted(filters, nextFilters);
                         return nextFilters;
+                    });
+
+                    // 写回被接受后才打标记（避免「值没改却显示已自动调整」）
+                    queueMicrotask(() => {
+                        if (adjustments.length === 0) return;
+                        recordAutoAdjustedMany('global', adjustments);
                     });
                 })
                 .finally(() => {
@@ -421,7 +821,7 @@ const DashboardProvider: React.FC<
                         globalCategoryInitGenerationRef.current === generation
                     ) {
                         globalCategoryPendingSignatureRef.current = null;
-                        clearCategoryResolutionTimeout();
+                        clearCategoryResolutionTimeout('global');
                         // 类目解析结束：图表可以按最终类目发起查询
                         setIsGlobalCategoryResolutionPending(false);
                     }
@@ -434,36 +834,84 @@ const DashboardProvider: React.FC<
             recoverableCategoryFilterIds,
             clearCategoryResolutionTimeout,
             setDashboardFilters,
+            startGlobalCategoryInitSession,
+            handleCategoryResolutionIssue,
+            recordAutoAdjusted,
+            recordAutoAdjustedMany,
         ],
     );
 
     // 按 field/search 实际类目初始化由 runGlobalCategoryInit / runTabCategoryInit 负责
 
-    // 父改子联动：按 field/search 实际类目纠正选中值
-    const updateCascadeWithFieldSearch = useCallback(
+    // 父改子联动：按 field/search 实际类目纠正选中值（Tab 作用域）
+    //
+    // 链 = 全局筛选器 + 当前 Tab 筛选器：Tab 筛选器可以显式绑定全局父级，
+    // 父级查找、级联条件（field/search 的左侧筛选）都要跨作用域。
+    const updateTabCascadeWithFieldSearch = useCallback(
         async (
+            targetTabUuid: string,
             filters: DashboardFilters,
             changedFilter: DashboardFilterRule,
             newValue: string | null,
+            session?: CategoryRequestSession,
         ): Promise<DashboardFilters> => {
             if (!canApplyCategoryFilters || !projectUuid) return filters;
+            const location: CategoryFilterLocation = {
+                scope: 'tab',
+                tabUuid: targetTabUuid,
+            };
             const cascaded = await updateCategoryFilterCascadeAsync(
                 filters,
                 changedFilter,
                 newValue,
                 projectUuid,
                 dashboardFilterContext,
-                { recoverableFilterIds: recoverableCategoryFilterIds },
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    scope: {
+                        location,
+                        chain: buildCategoryChain(
+                            {
+                                globalFilters: dashboardFilters,
+                                tabFilters: { [targetTabUuid]: filters },
+                            },
+                            targetTabUuid,
+                        ),
+                    },
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted(targetTabUuid, info),
+                },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
             // 否则会把用户的显式选择重置成别的类目（或直接清空）。
+            //
+            // 另外只处理「被改这一级的后代」：祖先取值没变、且已经校验过，
+            // 再查一遍纯属多余请求（一次改四级的操作会因此少发 3 个查询）。
             return initializeCategoryFiltersAsync(
                 cascaded,
                 projectUuid,
                 dashboardFilterContext,
                 {
                     skipFilterIds: [changedFilter.id],
+                    onlyFilterIds: getDescendantCategoryFilterIds(
+                        cascaded,
+                        changedFilter.target.fieldId,
+                    ),
                     recoverableFilterIds: recoverableCategoryFilterIds,
+                    scope: {
+                        location,
+                        chain: buildCategoryChain(
+                            {
+                                globalFilters: dashboardFilters,
+                                tabFilters: { [targetTabUuid]: cascaded },
+                            },
+                            targetTabUuid,
+                        ),
+                    },
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
                 },
             );
         },
@@ -472,6 +920,9 @@ const DashboardProvider: React.FC<
             projectUuid,
             dashboardFilterContext,
             recoverableCategoryFilterIds,
+            dashboardFilters,
+            handleCategoryResolutionIssue,
+            recordAutoAdjusted,
         ],
     );
 
@@ -490,127 +941,7 @@ const DashboardProvider: React.FC<
     );
     // This implements the reset logic directly (instead of using resetDashboardFilters from useDashboardFilters)
     // to ensure category filter initialization is applied before setting the filters.
-    const wrappedResetDashboardFilters = useCallback(() => {
-        const currentDashboard = dashboard || embedDashboard;
-        const filters =
-            currentDashboard?.filters ??
-            embedDashboard?.filters ??
-            emptyFilters;
-        const filteredFilters = embedDashboard
-            ? applyInteractivityFiltering(filters)
-            : filters;
-
-        // Category refine is handled by the dedicated global category effect
-        setDashboardFilters(filteredFilters);
-        setDashboardTemporaryFilters(emptyFilters);
-        resetSavedFilterOverrides();
-    }, [
-        dashboard,
-        embedDashboard,
-        setDashboardFilters,
-        setDashboardTemporaryFilters,
-        resetSavedFilterOverrides,
-        applyInteractivityFiltering,
-    ]);
-
-    // Wrap updateDimensionDashboardFilter to handle category filter cascade
-    const updateDimensionDashboardFilter = useCallback(
-        (
-            item: DashboardFilterRule,
-            index: number,
-            isTemporary: boolean,
-            isEdit: boolean,
-        ) => {
-            const hasSelectedValue =
-                item.values !== undefined && item.values.length > 0;
-
-            if (
-                !canApplyCategoryFilters ||
-                !isCategoryField(item) ||
-                isEdit ||
-                isTemporary ||
-                !hasSelectedValue
-            ) {
-                // 临时筛选器（图表交叉筛选）不做类目联动：
-                // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
-                originalUpdateDimensionDashboardFilter(
-                    item,
-                    index,
-                    isTemporary,
-                    isEdit,
-                );
-                return;
-            }
-
-            const newValue = String(item.values![0]);
-            const nextFilters = replaceDimensionFilterAtIndex(
-                dashboardFilters,
-                index,
-                item,
-            );
-
-            // 立即应用用户的选择：与普通筛选保持一致（更新筛选状态、记录 saved filter
-            // override、标记看板存在未保存改动）。否则用户的类目选择既不会立刻显示，
-            // 也无法保存，重新加载后会变回空值。
-            originalUpdateDimensionDashboardFilter(
-                item,
-                index,
-                isTemporary,
-                isEdit,
-            );
-            // 用户的显式选择不再需要自动解析：标记为已处理，避免 effect 触发的
-            // init 把用户刚选中的类目重置成别的值
-            markGlobalCategoryProcessed(nextFilters);
-
-            // 手动改动同时作废在途的 init 与更早的 cascade
-            ++globalCategoryInitGenerationRef.current;
-            const generation = ++globalCategoryCascadeGenerationRef.current;
-            // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
-            globalCategoryPendingSignatureRef.current = null;
-            const requestSignature = projectUuid
-                ? getCategoryFiltersSignature(
-                      nextFilters,
-                      projectUuid,
-                      dashboardFilterContext,
-                  )
-                : null;
-            void updateCascadeWithFieldSearch(nextFilters, item, newValue).then(
-                (refined) => {
-                    setDashboardFilters((currentFilters) => {
-                        if (
-                            !projectUuid ||
-                            !requestSignature ||
-                            !shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    globalCategoryCascadeGenerationRef.current,
-                                requestSignature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                            })
-                        ) {
-                            return currentFilters;
-                        }
-
-                        markGlobalCategoryProcessed(refined);
-                        return refined;
-                    });
-                },
-            );
-        },
-        [
-            originalUpdateDimensionDashboardFilter,
-            canApplyCategoryFilters,
-            dashboardFilters,
-            setDashboardFilters,
-            updateCascadeWithFieldSearch,
-            replaceDimensionFilterAtIndex,
-            markGlobalCategoryProcessed,
-            projectUuid,
-            dashboardFilterContext,
-        ],
-    );
+    // (定义在选择层之后：重置时需要一并清除用户选择与本地记忆)
 
     // dashboard tab filter
     const {
@@ -636,6 +967,89 @@ const DashboardProvider: React.FC<
         isGlobalFilterEnabled,
         isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
     });
+
+    /* ------------------------------------------------------------------ */
+    /*                     跨 Tab 取值继承与统一联动                       */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * 跨 Tab 继承：把用户的显式选择同步到所有含该字段规则的 Tab。
+     *
+     * 目标 Tab 没有该字段、或与来源不兼容（operator / settings 形态 /
+     * 类目层级 / 父级不同、被作者禁用）时跳过：不新建规则、不覆盖作者配置。
+     *
+     * 来源 Tab 自身不参与同步：它的写入由原有的更新路径负责，
+     * 否则会与类目级联的签名校验冲突。
+     *
+     * 返回同步结果：接收方 Tab 与它们的新规则，供后续统一联动使用。
+     * （写入用函数式更新，避免用旧快照覆盖并发的写回；返回值取自同一份快照，
+     *   规则定义（id / 层级 / 父级）不会在并发中变化。）
+     */
+    const syncSelectionToAllTabs = useCallback(
+        (
+            rule: DashboardFilterRule,
+            namespace: FilterNamespace,
+            sourceTabUuid?: string,
+        ): CrossTabSyncResult => {
+            const snapshot = applySelectionToTabFilters(
+                tabFilters,
+                rule,
+                namespace,
+                sourceTabUuid,
+            );
+            setTabFilters((prev) => {
+                const result = applySelectionToTabFilters(
+                    prev,
+                    rule,
+                    namespace,
+                    sourceTabUuid,
+                );
+                return result.changedTabUuids.length > 0
+                    ? result.tabFilters
+                    : prev;
+            });
+            return {
+                tabFilters: snapshot.tabFilters,
+                changedTabUuids: snapshot.changedTabUuids,
+            };
+        },
+        [tabFilters, setTabFilters],
+    );
+
+    /**
+     * 查看态移除全局筛选器：移除运行时筛选器。
+     */
+    const wrappedRemoveDimensionDashboardFilter = useCallback(
+        (index: number, isTemporary: boolean) => {
+            removeDimensionDashboardFilter(index, isTemporary);
+        },
+        [removeDimensionDashboardFilter],
+    );
+
+    // This implements the reset logic directly (instead of using resetDashboardFilters from useDashboardFilters)
+    // to ensure category filter initialization is applied before setting the filters.
+    const wrappedResetDashboardFilters = useCallback(() => {
+        const currentDashboard = dashboard || embedDashboard;
+        const filters =
+            currentDashboard?.filters ??
+            embedDashboard?.filters ??
+            emptyFilters;
+        const filteredFilters = embedDashboard
+            ? applyInteractivityFiltering(filters)
+            : filters;
+
+        // Category refine is handled by the dedicated global category effect
+        setDashboardFilters(filteredFilters);
+        setDashboardTemporaryFilters(emptyFilters);
+        resetSavedFilterOverrides();
+    }, [
+        dashboard,
+        embedDashboard,
+        setDashboardFilters,
+        setDashboardTemporaryFilters,
+        resetSavedFilterOverrides,
+        applyInteractivityFiltering,
+    ]);
 
     /** 类目级联期间顶部筛选项即时展示；图表仍读已提交 tabFilters */
     const [tabCategoryDisplayFilters, setTabCategoryDisplayFilters] = useState<
@@ -672,19 +1086,443 @@ const DashboardProvider: React.FC<
         [],
     );
 
+    /**
+     * 作废一组 Tab 的类目解析状态（重置 / 恢复作者默认值时使用）。
+     *
+     * 必须同时作废：在途的 init 与 cascade 会话、两个 generation、
+     * pending / processed 签名与展示态。只 bump init generation 不够：
+     * 在途的“父改子”级联晚到时会把重置后的值又写回筛选器。
+     */
+    const invalidateTabCategoryState = useCallback(
+        (tabUuids: string[]) => {
+            Array.from(new Set(tabUuids)).forEach((targetTabUuid) => {
+                bumpTabCategoryGeneration(targetTabUuid);
+                bumpTabCategoryCascadeGeneration(targetTabUuid);
+                cancelTabCategoryInitSession(targetTabUuid);
+                tabCategoryCascadeSessionRef.current[targetTabUuid]?.cancel();
+                delete tabCategoryCascadeSessionRef.current[targetTabUuid];
+                delete tabCategoryPendingSignatureRef.current[targetTabUuid];
+                delete tabCategoryProcessedSignatureRef.current[targetTabUuid];
+                clearTabCategoryDisplay(targetTabUuid);
+            });
+        },
+        [
+            bumpTabCategoryGeneration,
+            bumpTabCategoryCascadeGeneration,
+            cancelTabCategoryInitSession,
+            clearTabCategoryDisplay,
+        ],
+    );
+
+    // 父改子联动（全局作用域）：跨作用域传播到各 Tab 的子类目筛选器
+    //
+    // 全局一级/二级的变化需要驱动：
+    // - 全局范围内的子类目（二级 → 三级/四级）
+    // - 各 Tab 里绑定了全局父级的子类目（全局二级 → Tab 三级 → Tab 四级）
+    const updateGlobalCascadeWithFieldSearch = useCallback(
+        async (
+            filters: DashboardFilters,
+            changedFilter: DashboardFilterRule,
+            newValue: string | null,
+            session?: CategoryRequestSession,
+        ): Promise<{
+            globalFilters: DashboardFilters;
+            tabFilters: Record<string, DashboardFilters>;
+        }> => {
+            if (!canApplyCategoryFilters || !projectUuid) {
+                return { globalFilters: filters, tabFilters };
+            }
+            const cascaded = await updateCrossScopeCategoryCascadeAsync(
+                { globalFilters: filters, tabFilters },
+                changedFilter,
+                newValue,
+                projectUuid,
+                dashboardFilterContext,
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                    onValuesAutoAdjusted: (info) =>
+                        recordAutoAdjusted('global', info),
+                    // 只级联当前 Tab：其它 Tab 切过去时由各自的懒初始化重算，
+                    // 避免一次全局类目变更触发 N 个 Tab × M 个子孙的请求。
+                    activeTabUuid: activeTab?.uuid ?? null,
+                },
+            );
+            // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
+            // 否则会把用户的显式选择重置成别的类目（或直接清空）。
+            // 与 Tab 作用域一致：只重算被改级别的后代（祖先没变、已校验过）。
+            const refinedGlobal = await initializeCategoryFiltersAsync(
+                cascaded.globalFilters,
+                projectUuid,
+                dashboardFilterContext,
+                {
+                    skipFilterIds: [changedFilter.id],
+                    onlyFilterIds: getDescendantCategoryFilterIds(
+                        cascaded.globalFilters,
+                        changedFilter.target.fieldId,
+                    ),
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                },
+            );
+            return {
+                globalFilters: refinedGlobal,
+                tabFilters: cascaded.tabFilters,
+            };
+        },
+        [
+            canApplyCategoryFilters,
+            projectUuid,
+            dashboardFilterContext,
+            recoverableCategoryFilterIds,
+            tabFilters,
+            activeTab?.uuid,
+            handleCategoryResolutionIssue,
+            recordAutoAdjusted,
+        ],
+    );
+
+    // Wrap updateDimensionDashboardFilter to handle category filter cascade
+    const updateDimensionDashboardFilter = useCallback(
+        (
+            item: DashboardFilterRule,
+            index: number,
+            isTemporary: boolean,
+            isEdit: boolean,
+        ) => {
+            const hasSelectedValue =
+                item.values !== undefined && item.values.length > 0;
+            // 联动触发条件：类目，或绑定父级的普通维度（集团/品牌/商品 多级链的中间层）
+            const isCategoryFilterUpdate =
+                isCategoryField(item) || isBoundValueFilter(item);
+            // 清空类目筛选器（「任何值」）同样要级联：
+            // 父级没有值 → 子级（全局子级 + 各 Tab 里绑定该父级的子级）
+            // 必须一起清空，否则会出现「父级是任何值、子级还留着旧类目」的矛盾状态。
+            const isClearingCategory =
+                isCategoryFilterUpdate && !hasSelectedValue;
+            const shouldCascade = shouldCascadeCategoryFilterUpdate({
+                filter: item,
+                isEdit,
+                isTemporary,
+                canApplyCategoryFilters,
+            });
+
+            if (!shouldCascade) {
+                // 诊断：为什么没走类目联动
+                logCategoryCascade('global filter update: cascade skipped', {
+                    filterId: item.id,
+                    fieldId: item.target.fieldId,
+                    values: item.values,
+                    canApplyCategoryFilters,
+                    isCategoryFilter: isCategoryFilterUpdate,
+                    isEdit,
+                    isTemporary,
+                    hasSelectedValue,
+                });
+                // 用户手改绑定父级的普通维度：作废在途的自动解析，
+                // 避免晚到的结果覆盖用户刚选的值。
+                if (!isEdit && !isTemporary && isBoundValueFilter(item)) {
+                    ++globalCategoryInitGenerationRef.current;
+                    globalCategoryPendingSignatureRef.current = null;
+                    startGlobalCategoryCascadeSession();
+                    clearAutoAdjusted('global', item.id);
+                    // 同上：用户改动优先，标记已处理，避免全局 init effect 重跑整链
+                    markGlobalCategoryProcessed(
+                        replaceDimensionFilterAtIndex(
+                            dashboardFilters,
+                            index,
+                            item,
+                        ),
+                    );
+                }
+                // 临时筛选器（图表交叉筛选）不做类目联动：
+                // 联动的结果会写回永久筛选器，污染看板自身的类目配置。
+                originalUpdateDimensionDashboardFilter(
+                    item,
+                    index,
+                    isTemporary,
+                    isEdit,
+                );
+                return;
+            }
+
+            // 清空时传 null：级联把父级视为「没有值」，
+            // 后代类目随之清空（cascadeChildrenAsync 的 clear 分支）。
+            const newValue = getCategoryFilterUpdateValue(item);
+            logCategoryCascade('global filter update: cascade start', {
+                filterId: item.id,
+                fieldId: item.target.fieldId,
+                oldValue:
+                    dashboardFilters.dimensions[index]?.values?.[0] ?? null,
+                newValue,
+                isEdit,
+                isTemporary,
+                isClearing: isClearingCategory,
+            });
+            const nextFilters = replaceDimensionFilterAtIndex(
+                dashboardFilters,
+                index,
+                item,
+            );
+
+            // 立即应用用户的选择：与普通筛选保持一致（更新筛选状态、记录 saved filter
+            // override、标记看板存在未保存改动）。否则用户的类目选择既不会立刻显示，
+            // 也无法保存，重新加载后会变回空值。
+            originalUpdateDimensionDashboardFilter(
+                item,
+                index,
+                isTemporary,
+                isEdit,
+            );
+            // 用户的显式选择不再需要自动解析：标记为已处理，避免 effect 触发的
+            // init 把用户刚选中的类目重置成别的值
+            markGlobalCategoryProcessed(nextFilters);
+
+            // 手动改动同时作废在途的 init 与更早的 cascade
+            ++globalCategoryInitGenerationRef.current;
+            const generation = ++globalCategoryCascadeGenerationRef.current;
+            // 手动级联使旧 init 失效，清除 pending 以免挡住后续合法 init
+            globalCategoryPendingSignatureRef.current = null;
+            // 取消旧会话的请求：排队中的直接丢弃，在途的 abort
+            const session = startGlobalCategoryCascadeSession();
+            const requestSignature = projectUuid
+                ? getCategoryFiltersSignature(
+                      nextFilters,
+                      projectUuid,
+                      dashboardFilterContext,
+                  )
+                : null;
+            void updateGlobalCascadeWithFieldSearch(
+                nextFilters,
+                item,
+                newValue,
+                session,
+            )
+                .then(
+                    ({
+                        globalFilters: refinedGlobal,
+                        tabFilters: refinedTabs,
+                    }) => {
+                        // 会话已被取消（用户又改了一次）→ 丢弃本次结果，不写回
+                        if (session.isCancelled()) return;
+
+                        setDashboardFilters((currentFilters) => {
+                            if (
+                                !projectUuid ||
+                                !requestSignature ||
+                                !shouldApplyCategoryInitResult({
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        globalCategoryCascadeGenerationRef.current,
+                                    requestSignature,
+                                    currentFilters,
+                                    projectUuid,
+                                    dashboardContext: dashboardFilterContext,
+                                })
+                            ) {
+                                return currentFilters;
+                            }
+
+                            markGlobalCategoryProcessed(refinedGlobal);
+                            return refinedGlobal;
+                        });
+
+                        // 跨作用域级联：全局父级的变化要传播到各 Tab 的子类目筛选器
+                        // （级联基于闭包里的 tabFilters，这里用同一份快照判断哪些 Tab 变了）
+                        const changedTabUuids = Object.entries(refinedTabs)
+                            .filter(
+                                ([targetTabUuid, filtersForTab]) =>
+                                    !areFilterDimensionsEqual(
+                                        tabFilters[targetTabUuid] ??
+                                            emptyFilters,
+                                        filtersForTab,
+                                    ),
+                            )
+                            .map(([targetTabUuid]) => targetTabUuid);
+
+                        setTabFilters((currentTabs) => {
+                            let hasChanges = false;
+                            const nextTabs = { ...currentTabs };
+                            changedTabUuids.forEach((targetTabUuid) => {
+                                const filtersForTab =
+                                    refinedTabs[targetTabUuid];
+                                if (!filtersForTab) return;
+                                nextTabs[targetTabUuid] = filtersForTab;
+                                hasChanges = true;
+                                // 全局父级已经变了：作废该 Tab 在途的联动结果，
+                                // 否则它可能拿着旧的全局父值盖回本次结果。
+                                // （Tab 写回现在只用世代判断有效性）
+                                bumpTabCategoryCascadeGeneration(targetTabUuid);
+                                cancelTabCategoryInitSession(targetTabUuid);
+                                markTabCategoryProcessed(
+                                    targetTabUuid,
+                                    filtersForTab,
+                                    refinedGlobal,
+                                );
+                            });
+                            return hasChanges ? nextTabs : currentTabs;
+                        });
+                        // Tab 的 pill 展示态缓存了级联前的旧值：
+                        // 写回 tabFilters 后必须清掉展示态，
+                        // 否则界面一直显示旧类目（ActiveFilters 读 tabDisplayState）。
+                        changedTabUuids.forEach((targetTabUuid) => {
+                            clearTabCategoryDisplay(targetTabUuid);
+                        });
+                        // Tab 筛选器被全局父级联动修改：标记为已修改，随看板一起保存
+                        if (changedTabUuids.length > 0) {
+                            logCategoryCascade(
+                                'global cascade write-back: tabs changed',
+                                changedTabUuids.map((uuid) => ({
+                                    tabUuid: uuid,
+                                    dimensions: (
+                                        refinedTabs[uuid]?.dimensions ?? []
+                                    ).map((d) => ({
+                                        id: d.id,
+                                        fieldId: d.target.fieldId,
+                                        values: d.values,
+                                        parentFieldId: d.parentFieldId ?? null,
+                                        parentScope: d.parentScope ?? null,
+                                    })),
+                                })),
+                            );
+                            setHaveTabFiltersChanged((prev) => {
+                                const next = { ...prev };
+                                changedTabUuids.forEach((uuid) => {
+                                    next[uuid] = true;
+                                });
+                                return next;
+                            });
+                        } else {
+                            logCategoryCascade(
+                                'global cascade write-back: no tab changed',
+                                {
+                                    tabUuids: Object.keys(refinedTabs),
+                                    dimensions: Object.entries(refinedTabs).map(
+                                        ([uuid, f]) => ({
+                                            tabUuid: uuid,
+                                            dimensions: f.dimensions.map(
+                                                (d) => ({
+                                                    id: d.id,
+                                                    fieldId: d.target.fieldId,
+                                                    values: d.values,
+                                                    parentFieldId:
+                                                        d.parentFieldId ?? null,
+                                                    parentScope:
+                                                        d.parentScope ?? null,
+                                                }),
+                                            ),
+                                        }),
+                                    ),
+                                },
+                            );
+                        }
+                    },
+                )
+                .catch(() => {
+                    // 写回失败不阻断：状态更新不应抛出
+                })
+                .finally(() => {
+                    // 手动联动完成：图表可以按最终类目发起查询。
+                    // （否则要一直等到初始化超时才放行，看板会白等好几秒）
+                    if (
+                        !session.isCancelled() &&
+                        !globalCategoryPendingSignatureRef.current
+                    ) {
+                        setIsGlobalCategoryResolutionPending(false);
+                    }
+                });
+        },
+        [
+            originalUpdateDimensionDashboardFilter,
+            canApplyCategoryFilters,
+            dashboardFilters,
+            setDashboardFilters,
+            setTabFilters,
+            setHaveTabFiltersChanged,
+            tabFilters,
+            updateGlobalCascadeWithFieldSearch,
+            replaceDimensionFilterAtIndex,
+            markGlobalCategoryProcessed,
+            markTabCategoryProcessed,
+            projectUuid,
+            dashboardFilterContext,
+            startGlobalCategoryCascadeSession,
+            clearTabCategoryDisplay,
+            bumpTabCategoryCascadeGeneration,
+            cancelTabCategoryInitSession,
+            clearAutoAdjusted,
+        ],
+    );
+
+    /**
+     * 顶部筛选 UI 用的合并结果：同样按 Tab 缓存引用，
+     * 避免看板上下文任意变化都让筛选栏整块重渲染。
+     */
+    const displayedMergedFiltersCache = useRef<
+        Map<
+            string,
+            {
+                displayFilters: DashboardFilters | undefined;
+                globalFilters: DashboardFilters;
+                globalTemporaryFilters: DashboardFilters | undefined;
+                tabFilters: DashboardFilters;
+                tabTemporaryFilters: DashboardFilters;
+                isGlobalFilterEnabled: boolean;
+                isTabFilterEnabled: boolean;
+                value: DashboardFilters;
+            }
+        >
+    >(new Map());
+
     const getDisplayedMergedFiltersForTab = useCallback(
         (targetTabUuid: string) => {
             const display = tabCategoryDisplayFilters[targetTabUuid];
-            return mergeFiltersForTab({
+            const displayFilters = display?.filters;
+            const tabFiltersForTab =
+                displayFilters ?? getActiveTabFilters(targetTabUuid);
+            const tabTemporaryFiltersForTab =
+                getActiveTabTemporaryFilters(targetTabUuid);
+            const isTabFilterEnabledForTab =
+                isTabFilterEnabled[targetTabUuid] ?? true;
+
+            const cached =
+                displayedMergedFiltersCache.current.get(targetTabUuid);
+            if (
+                cached &&
+                cached.displayFilters === displayFilters &&
+                cached.globalFilters === dashboardFilters &&
+                cached.globalTemporaryFilters === dashboardTemporaryFilters &&
+                cached.tabFilters === tabFiltersForTab &&
+                cached.tabTemporaryFilters === tabTemporaryFiltersForTab &&
+                cached.isGlobalFilterEnabled === isGlobalFilterEnabled &&
+                cached.isTabFilterEnabled === isTabFilterEnabledForTab
+            ) {
+                return cached.value;
+            }
+
+            const value = mergeFiltersForTab({
                 globalFilters: dashboardFilters,
                 globalTemporaryFilters: dashboardTemporaryFilters,
-                tabFilters:
-                    display?.filters ?? getActiveTabFilters(targetTabUuid),
-                tabTemporaryFilters:
-                    getActiveTabTemporaryFilters(targetTabUuid),
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
                 isGlobalFilterEnabled,
-                isTabFilterEnabled: isTabFilterEnabled[targetTabUuid] ?? true,
+                isTabFilterEnabled: isTabFilterEnabledForTab,
             });
+
+            displayedMergedFiltersCache.current.set(targetTabUuid, {
+                displayFilters,
+                globalFilters: dashboardFilters,
+                globalTemporaryFilters: dashboardTemporaryFilters,
+                tabFilters: tabFiltersForTab,
+                tabTemporaryFilters: tabTemporaryFiltersForTab,
+                isGlobalFilterEnabled,
+                isTabFilterEnabled: isTabFilterEnabledForTab,
+                value,
+            });
+
+            return value;
         },
         [
             tabCategoryDisplayFilters,
@@ -699,6 +1537,16 @@ const DashboardProvider: React.FC<
 
     const runTabCategoryInit = useCallback(
         (targetTabUuid: string, filters: DashboardFilters) => {
+            // 链 = 全局筛选器 + 当前 Tab 筛选器：
+            // Tab 筛选器可以显式绑定全局父级（全局二级 → Tab 三级 → Tab 四级），
+            // 父级查找与级联条件都要基于链，签名也必须覆盖全局祖先。
+            const chain = buildCategoryChain(
+                {
+                    globalFilters: dashboardFilters,
+                    tabFilters: { [targetTabUuid]: filters },
+                },
+                targetTabUuid,
+            );
             const decision = resolveActiveTabCategoryInit({
                 tabFilters: { [targetTabUuid]: filters },
                 activeTabUuid: targetTabUuid,
@@ -706,6 +1554,7 @@ const DashboardProvider: React.FC<
                 projectUuid,
                 dashboardContext: dashboardFilterContext,
                 processedSignatures: tabCategoryProcessedSignatureRef.current,
+                globalFilters: dashboardFilters,
             });
 
             if (
@@ -717,6 +1566,19 @@ const DashboardProvider: React.FC<
                 !projectUuid ||
                 decision.action !== 'start'
             ) {
+                logCategoryCascade('tab init skipped', {
+                    tabUuid: targetTabUuid,
+                    action: decision.action,
+                    canApplyCategoryFilters,
+                    hasProjectUuid: !!projectUuid,
+                    pendingSignature:
+                        tabCategoryPendingSignatureRef.current[targetTabUuid] ??
+                        null,
+                    processedSignature:
+                        tabCategoryProcessedSignatureRef.current[
+                            targetTabUuid
+                        ] ?? null,
+                });
                 // 没有可执行的任务：不再等待该 Tab 的类目解析
                 if (!tabCategoryPendingSignatureRef.current[targetTabUuid]) {
                     setPendingTabCategoryResolutions((prev) => ({
@@ -733,17 +1595,33 @@ const DashboardProvider: React.FC<
             const { signature } = decision;
             tabCategoryPendingSignatureRef.current[targetTabUuid] = signature;
             // 该 Tab 的图表会等类目解析完成再查，设置等待上限防止一直转圈
-            armCategoryResolutionTimeout();
+            armCategoryResolutionTimeout(targetTabUuid);
+            // 新的自动初始化：作废上一个初始化会话的请求
+            const session = startTabCategoryInitSession(targetTabUuid);
 
             void initializeCategoryFiltersAsync(
                 filters,
                 projectUuid,
                 dashboardFilterContext,
+                {
+                    recoverableFilterIds: recoverableCategoryFilterIds,
+                    scope: {
+                        location: { scope: 'tab', tabUuid: targetTabUuid },
+                        chain,
+                    },
+                    session,
+                    onResolutionIssue: handleCategoryResolutionIssue,
+                },
             )
                 .then((refined) => {
-                    setTabFilters((currentTabFilters) => {
+                    let adjustments: {
+                        filterId: string;
+                        previousValues: string[];
+                    }[] = [];
+
+                    setTabFilters((prev) => {
                         const currentFilters =
-                            currentTabFilters[targetTabUuid] ?? emptyFilters;
+                            prev[targetTabUuid] ?? emptyFilters;
                         if (
                             !shouldApplyCategoryInitResult({
                                 requestGeneration: generation,
@@ -755,29 +1633,39 @@ const DashboardProvider: React.FC<
                                 currentFilters,
                                 projectUuid,
                                 dashboardContext: dashboardFilterContext,
+                                currentSignature:
+                                    getTabCategoryChainSignature(
+                                        targetTabUuid,
+                                        currentFilters,
+                                    ) ?? undefined,
                             })
                         ) {
-                            return currentTabFilters;
+                            return prev;
                         }
 
-                        const nextFilters =
-                            refined === currentFilters
-                                ? currentFilters
-                                : refined;
-                        tabCategoryProcessedSignatureRef.current[
-                            targetTabUuid
-                        ] = getCategoryFiltersSignature(
-                            nextFilters,
-                            projectUuid,
-                            dashboardFilterContext,
+                        // 按 filter id 合并：解析期间用户手改的字段不能被回滚
+                        const nextFilters = mergeAutoResolvedFilters(
+                            currentFilters,
+                            filters,
+                            refined,
                         );
-                        if (nextFilters === currentFilters) {
-                            return currentTabFilters;
-                        }
-                        return {
-                            ...currentTabFilters,
-                            [targetTabUuid]: nextFilters,
-                        };
+
+                        // 无变化也要记录「已处理签名」：否则每次改筛选器/切 Tab
+                        // 都会重跑整条链解析（请求放大）。
+                        markTabCategoryProcessed(targetTabUuid, nextFilters);
+
+                        if (nextFilters === currentFilters) return prev;
+
+                        adjustments = collectAutoAdjusted(
+                            filters,
+                            nextFilters,
+                        );
+                        return { ...prev, [targetTabUuid]: nextFilters };
+                    });
+
+                    queueMicrotask(() => {
+                        if (adjustments.length === 0) return;
+                        recordAutoAdjustedMany(targetTabUuid, adjustments);
                     });
                 })
                 .finally(() => {
@@ -791,7 +1679,7 @@ const DashboardProvider: React.FC<
                         delete tabCategoryPendingSignatureRef.current[
                             targetTabUuid
                         ];
-                        clearCategoryResolutionTimeout();
+                        clearCategoryResolutionTimeout(targetTabUuid);
                         // 类目解析结束：该 Tab 的图表可以按最终类目发起查询
                         setPendingTabCategoryResolutions((prev) => ({
                             ...prev,
@@ -807,6 +1695,13 @@ const DashboardProvider: React.FC<
             armCategoryResolutionTimeout,
             clearCategoryResolutionTimeout,
             setTabFilters,
+            dashboardFilters,
+            recoverableCategoryFilterIds,
+            getTabCategoryChainSignature,
+            markTabCategoryProcessed,
+            startTabCategoryInitSession,
+            handleCategoryResolutionIssue,
+            recordAutoAdjustedMany,
         ],
     );
 
@@ -822,13 +1717,82 @@ const DashboardProvider: React.FC<
                 item.values !== undefined && item.values.length > 0;
             const existingDisplay = tabCategoryDisplayFilters[uuid];
 
+            // 用户手改「绑定父级的普通维度」（集团/品牌/包装类型/商品名称…）：
+            // 作废在途的自动解析，确保用户最后的选择不会被晚到的结果覆盖。
+            if (!isEditMode && !isTemporary && isBoundValueFilter(item)) {
+                bumpTabCategoryGeneration(uuid);
+                bumpTabCategoryCascadeGeneration(uuid);
+                startTabCategoryCascadeSession(uuid);
+                clearTabCategoryDisplay(uuid);
+                clearAutoAdjusted(uuid, item.id);
+                // 用户的选择优先：把「当前组合」标为已处理，避免 init effect 因为
+                // 签名变化再跑一次整条链（4 类目 + 4 绑定字段 = 8 次串行查询）。
+                markTabCategoryProcessed(
+                    uuid,
+                    replaceDimensionFilterAtIndex(
+                        tabFilters[uuid] ?? emptyFilters,
+                        index,
+                        item,
+                    ),
+                );
+            }
+
+            // 查看模式：跨 Tab 继承：把用户的显式选择同步到其他含该字段的 Tab。
+            // 类目级联派生值与权限回退值不会进入继承（它们只写本 Tab 运行时）。
+            let crossTabSync: CrossTabSyncResult = {
+                tabFilters,
+                changedTabUuids: [],
+            };
+            if (!isEditMode && !isTemporary) {
+                crossTabSync = syncSelectionToAllTabs(item, 'dimension', uuid);
+            }
+
+            // 跨 Tab 继承的接收方：**只同步取值，不在这里发仓库请求**。
+            //
+            // 之前是在后台把每个接收 Tab 的各级类目都预先解析一遍（每个 Tab 1 次校验 +
+            // 每级 1 次查询），一次操作就是「Tab 数 × 层级数」个 field/search，
+            // 界面渲染完了还在请求，明显拖慢体验。
+            //
+            // 现在只作废接收方的类目解析状态（世代 / 在途会话 / 已处理签名 / 展示态），
+            // 等用户真的切到那个 Tab 时，由它自己的懒初始化（runTabCategoryInit）
+            // 按那个 Tab 的数据与权限重新解析。用户看不到的 Tab 不发请求。
+            if (
+                !isEditMode &&
+                !isTemporary &&
+                crossTabSync.changedTabUuids.length > 0
+            ) {
+                const inheritedTabUuids = crossTabSync.changedTabUuids;
+                invalidateTabCategoryState(inheritedTabUuids);
+                // 接收方在解析完成前不发图表查询（切过去时由初始化完成解除）
+                setPendingTabCategoryResolutions((prev) => {
+                    const next = { ...prev };
+                    inheritedTabUuids.forEach((targetTabUuid) => {
+                        next[targetTabUuid] = true;
+                    });
+                    return next;
+                });
+                // 每个接收 Tab 各自一个兜底：任一 Tab 解析结束不会取消其它 Tab 的兜底
+                inheritedTabUuids.forEach((targetTabUuid) => {
+                    armCategoryResolutionTimeout(targetTabUuid);
+                });
+                // 取值被继承修改过：标记为已修改，使「重置全部筛选」可用
+                setHaveTabFiltersChanged((prev) => {
+                    const next = { ...prev };
+                    inheritedTabUuids.forEach((targetTabUuid) => {
+                        next[targetTabUuid] = true;
+                    });
+                    return next;
+                });
+            }
+
             // pending 期间改普通筛选：合并进展示态、同步已提交，并重启类目校验
             if (
                 canApplyCategoryFilters &&
                 !isEditMode &&
                 !isTemporary &&
                 existingDisplay &&
-                !isCategoryField(item)
+                !isCategoryField(item) &&
+                !isBoundValueFilter(item)
             ) {
                 const mergedDisplay = mergeDimensionIntoDisplayState(
                     existingDisplay.filters,
@@ -853,20 +1817,40 @@ const DashboardProvider: React.FC<
                     item,
                 );
                 const generation = bumpTabCategoryGeneration(uuid);
-                const requestSignature = projectUuid
-                    ? getCategoryFiltersSignature(
-                          committedBase,
-                          projectUuid,
-                          dashboardFilterContext,
-                      )
-                    : null;
+                const requestSignature = getTabCategoryChainSignature(
+                    uuid,
+                    committedBase,
+                );
+                // 新的自动初始化：作废上一个初始化会话的请求
+                const session = startTabCategoryInitSession(uuid);
 
                 void initializeCategoryFiltersAsync(
                     mergedDisplay.filters,
                     projectUuid!,
                     dashboardFilterContext,
+                    {
+                        recoverableFilterIds: recoverableCategoryFilterIds,
+                        // 用户刚刚手改的字段（含绑定父级的普通维度）不能被自动解析覆盖
+                        skipFilterIds: [item.id],
+                        scope: {
+                            location: { scope: 'tab', tabUuid: uuid },
+                            chain: buildCategoryChain(
+                                {
+                                    globalFilters: dashboardFilters,
+                                    tabFilters: {
+                                        [uuid]: mergedDisplay.filters,
+                                    },
+                                },
+                                uuid,
+                            ),
+                        },
+                        session,
+                        onResolutionIssue: handleCategoryResolutionIssue,
+                    },
                 )
                     .then((refined) => {
+                        // 会话已被取消 → 丢弃本次结果
+                        if (session.isCancelled()) return;
                         if (
                             (tabCategoryInitGenerationRef.current[uuid] ??
                                 0) !== generation
@@ -889,13 +1873,24 @@ const DashboardProvider: React.FC<
                                     currentFilters,
                                     projectUuid,
                                     dashboardContext: dashboardFilterContext,
+                                    currentSignature:
+                                        getTabCategoryChainSignature(
+                                            uuid,
+                                            currentFilters,
+                                        ) ?? undefined,
                                 })
                             ) {
                                 return prev;
                             }
+                            const merged = mergeAutoResolvedFilters(
+                                currentFilters,
+                                mergedDisplay.filters,
+                                refined,
+                            );
+                            if (merged === currentFilters) return prev;
                             applied = true;
-                            markTabCategoryProcessed(uuid, refined);
-                            return { ...prev, [uuid]: refined };
+                            markTabCategoryProcessed(uuid, merged);
+                            return { ...prev, [uuid]: merged };
                         });
                         if (applied) {
                             clearTabCategoryDisplay(uuid);
@@ -914,7 +1909,7 @@ const DashboardProvider: React.FC<
 
             if (
                 !canApplyCategoryFilters ||
-                !isCategoryField(item) ||
+                (!isCategoryField(item) && !isBoundValueFilter(item)) ||
                 isEditMode ||
                 !hasSelectedValue ||
                 isTemporary
@@ -945,20 +1940,24 @@ const DashboardProvider: React.FC<
             // 手动改动同时作废在途的 init 与更早的 cascade
             bumpTabCategoryGeneration(uuid);
             const generation = bumpTabCategoryCascadeGeneration(uuid);
-            const requestSignature = projectUuid
-                ? getCategoryFiltersSignature(
-                      committedFilters,
-                      projectUuid,
-                      dashboardFilterContext,
-                  )
-                : null;
+            // 取消旧会话的请求：排队中的直接丢弃，在途的 abort
+            const session = startTabCategoryCascadeSession(uuid);
+            // 签名覆盖全局祖先：全局父级变化时，在途的 Tab 级联结果需要作废
+            const requestSignature = getTabCategoryChainSignature(
+                uuid,
+                committedFilters,
+            );
 
-            void updateCascadeWithFieldSearch(
+            void updateTabCascadeWithFieldSearch(
+                uuid,
                 displayState.filters,
                 item,
                 newValue,
+                session,
             )
                 .then((refined) => {
+                    // 会话已被取消（用户又改了一次）→ 丢弃本次结果
+                    if (session.isCancelled()) return;
                     if (
                         (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) !==
                         generation
@@ -968,21 +1967,42 @@ const DashboardProvider: React.FC<
                     let applied = false;
                     setTabFilters((prev) => {
                         const currentFilters = prev[uuid] ?? emptyFilters;
-                        if (
-                            !projectUuid ||
-                            !requestSignature ||
-                            !shouldApplyCategoryInitResult({
-                                requestGeneration: generation,
-                                currentGeneration:
-                                    tabCategoryCascadeGenerationRef.current[
-                                        uuid
-                                    ] ?? 0,
-                                requestSignature,
-                                currentFilters,
-                                projectUuid,
-                                dashboardContext: dashboardFilterContext,
-                            })
-                        ) {
+                        // 与全局联动路径保持一致：只用「世代」判断本次结果是否仍有效。
+                        //
+                        // 之前这里额外要求「签名未变」，但请求签名是在用户改动之前
+                        // 算的（committedFilters），而级联是按改动后的展示态算的，
+                        // 两边的输入本来就不是同一个状态，很容易误杀：
+                        // 结果被静默丢弃 → 值不生效 + pill 一直转圈。
+                        // 世代在每次用户改动该 Tab 时都会 bump，已足够作废旧结果；
+                        // 全局父级变更也会 bump（见全局写回处）。
+                        const canApply =
+                            !!projectUuid &&
+                            (tabCategoryCascadeGenerationRef.current[uuid] ??
+                                0) === generation;
+                        if (!canApply) {
+                            logCategoryCascade(
+                                'tab cascade write-back rejected',
+                                {
+                                    tabUuid: uuid,
+                                    hasProjectUuid: !!projectUuid,
+                                    requestGeneration: generation,
+                                    currentGeneration:
+                                        tabCategoryCascadeGenerationRef.current[
+                                            uuid
+                                        ] ?? 0,
+                                    requestSignature,
+                                    currentSignature:
+                                        getTabCategoryChainSignature(
+                                            uuid,
+                                            currentFilters,
+                                        ) ?? undefined,
+                                    refined: refined.dimensions.map((d) => ({
+                                        id: d.id,
+                                        fieldId: d.target.fieldId,
+                                        values: d.values,
+                                    })),
+                                },
+                            );
                             return prev;
                         }
 
@@ -1008,6 +2028,35 @@ const DashboardProvider: React.FC<
                     ) {
                         clearTabCategoryDisplay(uuid);
                     }
+                })
+                .finally(() => {
+                    // 「更新中」展示态必须在这里兜底清除。
+                    //
+                    // 展示态由 buildOptimisticCategoryDisplayState 写入（乐观状态，
+                    // 子孙类目标记为更新中），只在「成功写回」时清除。
+                    // 一旦写回被签名守卫拒绝、或世代已变，展示态就永远不会被清掉，
+                    // pill 会一直转圈（用户看到的就是「一直 loading、不消失」）。
+                    //
+                    // 只要这次尝试仍是最新的一次（世代未变），
+                    // 无论成功 / 被拒绝 / 失败，都要落回已提交状态。
+                    if (
+                        (tabCategoryCascadeGenerationRef.current[uuid] ?? 0) ===
+                        generation
+                    ) {
+                        clearTabCategoryDisplay(uuid);
+                    }
+
+                    // 手动联动完成：该 Tab 的图表可以按最终类目发起查询
+                    if (
+                        !session.isCancelled() &&
+                        !tabCategoryPendingSignatureRef.current[uuid]
+                    ) {
+                        setPendingTabCategoryResolutions((prev) => {
+                            // 已经是 false：不产生新对象，避免无谓的重渲染
+                            if (prev[uuid] === false) return prev;
+                            return { ...prev, [uuid]: false };
+                        });
+                    }
                 });
         },
         [
@@ -1018,14 +2067,89 @@ const DashboardProvider: React.FC<
             setTabFilters,
             setHaveTabFiltersChanged,
             isEditMode,
-            updateCascadeWithFieldSearch,
+            updateTabCascadeWithFieldSearch,
             replaceDimensionFilterAtIndex,
             markTabCategoryProcessed,
             projectUuid,
             dashboardFilterContext,
+            dashboardFilters,
+            recoverableCategoryFilterIds,
             bumpTabCategoryGeneration,
             bumpTabCategoryCascadeGeneration,
+            startTabCategoryCascadeSession,
+            startTabCategoryInitSession,
             clearTabCategoryDisplay,
+            getTabCategoryChainSignature,
+            syncSelectionToAllTabs,
+            handleCategoryResolutionIssue,
+            invalidateTabCategoryState,
+            armCategoryResolutionTimeout,
+            clearAutoAdjusted,
+        ],
+    );
+
+    /**
+     * 查看态移除 Tab 作用域的筛选器：
+     * - 各 Tab 恢复各自的作者默认值
+     * - 筛选器定义保留（作者配置的规则还在）
+     */
+    const clearTabFilterSelection = useCallback(
+        (targetTabUuid: string, index: number) => {
+            const currentFilters = tabFilters[targetTabUuid] ?? emptyFilters;
+            const rule = currentFilters.dimensions[index];
+            if (!rule) return;
+
+            // 各 Tab 恢复各自的作者默认值（含跨 mart 同级类目）
+            const currentDashboard = dashboard || embedDashboard;
+            const serverTabs = currentDashboard?.tabs ?? [];
+            const removedFieldRules: DashboardFilters = {
+                dimensions: [rule],
+                metrics: [],
+                tableCalculations: [],
+            };
+
+            const restoredTabs: Record<string, DashboardFilters> = {};
+            Object.entries(tabFilters).forEach(([uuid, filters]) => {
+                const serverFilters = serverTabs.find(
+                    (tab) => tab.uuid === uuid,
+                )?.filters;
+                const restored = restoreAuthorDefaults(
+                    filters,
+                    removedFieldRules,
+                    serverFilters,
+                );
+                if (restored !== filters) {
+                    restoredTabs[uuid] = restored;
+                }
+            });
+
+            clearAutoAdjusted(targetTabUuid, rule.id);
+            // 恢复默认值后这些 Tab 的类目链也变了：作废在途解析，
+            // 避免晚到的级联结果把刚恢复的值又写回去
+            invalidateTabCategoryState([
+                targetTabUuid,
+                ...Object.keys(restoredTabs),
+            ]);
+
+            if (Object.keys(restoredTabs).length === 0) return;
+            setTabFilters((prev) => {
+                let changed = false;
+                const next = { ...prev };
+                Object.entries(restoredTabs).forEach(([uuid, filters]) => {
+                    if (prev[uuid] === filters) return;
+                    next[uuid] = filters;
+                    changed = true;
+                });
+                return changed ? next : prev;
+            });
+        },
+        [
+            tabFilters,
+            dashboard,
+            embedDashboard,
+            setTabFilters,
+            invalidateTabCategoryState,
+            clearAutoAdjusted,
         ],
     );
 
@@ -1033,22 +2157,123 @@ const DashboardProvider: React.FC<
         (uuid: string, index: number, isTemporary: boolean) => {
             bumpTabCategoryGeneration(uuid);
             clearTabCategoryDisplay(uuid);
+
+            if (!isEditMode && !isTemporary) {
+                // 查看模式：清除用户选择并恢复作者默认值（筛选器定义保留）
+                clearTabFilterSelection(uuid, index);
+                return;
+            }
+
             removeTabDimensionFilter(uuid, index, isTemporary);
         },
         [
             bumpTabCategoryGeneration,
             clearTabCategoryDisplay,
             removeTabDimensionFilter,
+            isEditMode,
+            clearTabFilterSelection,
         ],
     );
 
     const wrappedResetTabFilters = useCallback(
         (uuid: string) => {
-            bumpTabCategoryGeneration(uuid);
-            clearTabCategoryDisplay(uuid);
+            const currentDashboard = dashboard || embedDashboard;
+            const serverTabs = currentDashboard?.tabs ?? [];
+            const resetServerFilters = serverTabs.find(
+                (tab) => tab.uuid === uuid,
+            )?.filters;
+
+            // 查看模式：当前 Tab + 其它 Tab 的同字段规则（含跨 mart 同级类目）
+            // 都退回各自作者默认值。
+            const restoredTabs: Record<string, DashboardFilters> = {};
+            if (!isEditMode && resetServerFilters) {
+                Object.entries(tabFilters).forEach(
+                    ([currentTabUuid, filters]) => {
+                        if (currentTabUuid === uuid) return;
+                        const tabServerFilters = serverTabs.find(
+                            (tab) => tab.uuid === currentTabUuid,
+                        )?.filters;
+                        const restored = restoreAuthorDefaults(
+                            filters,
+                            resetServerFilters,
+                            tabServerFilters,
+                        );
+                        if (restored !== filters) {
+                            restoredTabs[currentTabUuid] = restored;
+                        }
+                    },
+                );
+            }
+
+            // 重置前先作废在途的类目解析（init / cascade / 跨 Tab 继承）：
+            // 否则晚到的结果会把重置后的值又写回去（"重置无效"）。
+            invalidateTabCategoryState([uuid, ...Object.keys(restoredTabs)]);
+            // 回到作者默认值：自动调整标记一并清掉
+            clearAutoAdjusted(uuid);
+            Object.keys(restoredTabs).forEach((restoredTabUuid) =>
+                clearAutoAdjusted(restoredTabUuid),
+            );
+
+            // 当前 Tab 退回它自己的作者默认值
             resetTabFilters(uuid);
+
+            if (Object.keys(restoredTabs).length > 0) {
+                setTabFilters((prev) => {
+                    let changed = false;
+                    const next = { ...prev };
+                    Object.entries(restoredTabs).forEach(
+                        ([currentTabUuid, filters]) => {
+                            if (next[currentTabUuid] === filters) return;
+                            next[currentTabUuid] = filters;
+                            changed = true;
+                        },
+                    );
+                    return changed ? next : prev;
+                });
+            }
+
+            if (isEditMode) return;
+
+            // 作者默认值同样需要按数据 / 权限重新解析（否则可能停在无效类目上）
+            setPendingTabCategoryResolutions((prev) => ({
+                ...prev,
+                [uuid]:
+                    canApplyCategoryFilters &&
+                    !!resetServerFilters &&
+                    hasBoundFilters(resetServerFilters),
+            }));
+            armCategoryResolutionTimeout(uuid);
+            // 各 Tab 都已回到作者默认值：不再算"已修改"
+            setHaveTabFiltersChanged((prev) => {
+                const affected = [uuid, ...Object.keys(restoredTabs)];
+                if (
+                    affected.every(
+                        (affectedTabUuid) => prev[affectedTabUuid] === false,
+                    )
+                ) {
+                    return prev;
+                }
+                const next = { ...prev };
+                affected.forEach((affectedTabUuid) => {
+                    next[affectedTabUuid] = false;
+                });
+                return next;
+            });
         },
-        [bumpTabCategoryGeneration, clearTabCategoryDisplay, resetTabFilters],
+        [
+            resetTabFilters,
+            isEditMode,
+            dashboard,
+            embedDashboard,
+            setTabFilters,
+            tabFilters,
+            invalidateTabCategoryState,
+            setPendingTabCategoryResolutions,
+            armCategoryResolutionTimeout,
+            canApplyCategoryFilters,
+            setHaveTabFiltersChanged,
+            clearAutoAdjusted,
+        ],
     );
 
     const [resultsCacheTimes, setResultsCacheTimes] = useState<Date[]>([]);
@@ -1570,13 +2795,13 @@ const DashboardProvider: React.FC<
             // 首屏类目解析完成前不发起图表查询（避免图表先按未解析的类目跑一次）
             setIsGlobalCategoryResolutionPending(
                 canApplyCategoryFilters &&
-                    hasCategoryFilters(updatedDashboardFilters),
+                    hasBoundFilters(updatedDashboardFilters),
             );
             if (
                 canApplyCategoryFilters &&
-                hasCategoryFilters(updatedDashboardFilters)
+                hasBoundFilters(updatedDashboardFilters)
             ) {
-                armCategoryResolutionTimeout();
+                armCategoryResolutionTimeout('global');
             }
 
             // tab filters
@@ -1584,7 +2809,7 @@ const DashboardProvider: React.FC<
                 currentDashboard.tabs.length > 0 &&
                 isEmptyTabFilters(tabFilters)
             ) {
-                const updatedTabFilters = currentDashboard.tabs.reduce(
+                let updatedTabFilters = currentDashboard.tabs.reduce(
                     (acc, tab) => {
                         // Deep clone to avoid mutating the original object
                         acc[tab.uuid] = tab.filters ?? emptyFilters;
@@ -1595,13 +2820,20 @@ const DashboardProvider: React.FC<
 
                 setTabFilters(updatedTabFilters);
 
-                setPendingTabCategoryResolutions(
-                    currentDashboard.tabs.reduce((acc, tab) => {
-                        acc[tab.uuid] =
-                            canApplyCategoryFilters &&
-                            hasCategoryFilters(tab.filters ?? emptyFilters);
-                        return acc;
-                    }, {} as Record<string, boolean>),
+                const pendingTabs = currentDashboard.tabs.reduce((acc, tab) => {
+                    acc[tab.uuid] =
+                        canApplyCategoryFilters &&
+                        hasBoundFilters(tab.filters ?? emptyFilters);
+                    return acc;
+                }, {} as Record<string, boolean>);
+                setPendingTabCategoryResolutions(pendingTabs);
+                // 每个 pending 的 Tab 各自一个兜底超时
+                Object.entries(pendingTabs).forEach(
+                    ([pendingTabUuid, isPending]) => {
+                        if (isPending) {
+                            armCategoryResolutionTimeout(pendingTabUuid);
+                        }
+                    },
                 );
             }
         }
@@ -1626,6 +2858,53 @@ const DashboardProvider: React.FC<
         showToastInfo,
         t,
     ]);
+
+    /**
+     * 进入编辑模式时，用服务端快照重置运行时筛选器。
+     *
+     * 背景：查看模式下 Provider 不会因为 URL 变成 /edit 而重新挂载，
+     * 查看者的选择会一直留在运行时筛选器里，作者一点保存就把查看者的值写回服务端。
+     * 这里在 view → edit 的瞬间用服务端快照重置。
+     */
+    const prevIsEditModeRef = useRef(isEditMode);
+    useEffect(() => {
+        const wasEditMode = prevIsEditModeRef.current;
+        prevIsEditModeRef.current = isEditMode;
+
+        if (!wasEditMode && isEditMode) {
+            const currentDashboard = dashboard || embedDashboard;
+            if (!currentDashboard) return;
+
+            setDashboardFilters(clone(currentDashboard.filters));
+            setDashboardTemporaryFilters(emptyFilters);
+            setTabFilters(
+                (currentDashboard.tabs ?? []).reduce((acc, tab) => {
+                    acc[tab.uuid] = tab.filters ?? emptyFilters;
+                    return acc;
+                }, {} as Record<string, DashboardFilters>),
+            );
+            setTabTemporaryFilters({});
+            setHaveTabFiltersChanged({});
+            // 编辑模式用服务端快照覆盖运行时筛选器：自动调整标记全部失效
+            setAutoAdjustedFilterIds({});
+            // 同时作废在途的自动解析：否则晚到的解析结果会写回编辑态的运行时筛选器，
+            // 有机会被作者保存进看板定义（低概率但后果严重）。
+            ++globalCategoryInitGenerationRef.current;
+            globalCategoryPendingSignatureRef.current = null;
+            globalCategoryInitSessionRef.current?.cancel();
+            globalCategoryInitSessionRef.current = null;
+        }
+    }, [
+        isEditMode,
+        dashboard,
+        embedDashboard,
+        setDashboardFilters,
+        setDashboardTemporaryFilters,
+        setTabFilters,
+        setTabTemporaryFilters,
+        setHaveTabFiltersChanged,
+    ]);
+
     // Initialize global category filters once dashboard filters and slug context are ready
     useEffect(() => {
         if (dashboardFilters === emptyFilters) return;
@@ -1645,9 +2924,20 @@ const DashboardProvider: React.FC<
         ? tabFilters[activeTabUuid]
         : undefined;
 
+    // 记录访问过的 Tab（只增不减），供 tile 查询调度使用
+    useEffect(() => {
+        if (!activeTabUuid) return;
+        setVisitedTabUuids((prev) =>
+            prev.has(activeTabUuid) ? prev : new Set(prev).add(activeTabUuid),
+        );
+    }, [activeTabUuid]);
+
     useEffect(() => {
         if (!canApplyCategoryFilters || !projectUuid || isEditMode) return;
         if (!activeTabUuid || !activeTabFilters) return;
+        // 等全局类目解析完成：Tab 类目可能绑定全局父级（全局二级 → Tab 三级），
+        // 全局父级还没定值时解析 Tab 会把子类目误清空。
+        if (isGlobalCategoryResolutionPending) return;
 
         runTabCategoryInit(activeTabUuid, activeTabFilters);
     }, [
@@ -1659,6 +2949,7 @@ const DashboardProvider: React.FC<
         activeTabUuid,
         activeTabFilters,
         runTabCategoryInit,
+        isGlobalCategoryResolutionPending,
     ]);
 
     const {
@@ -1928,18 +3219,15 @@ const DashboardProvider: React.FC<
     ]);
 
     const allFilterableFieldsMap = useMemo(() => {
-        return dashboardAvailableFiltersData?.allFilterableFields &&
-            dashboardAvailableFiltersData.allFilterableFields.length > 0
-            ? dashboardAvailableFiltersData.allFilterableFields.reduce<
-                  Record<string, DashboardFilterableField>
-              >(
-                  (sum, field) => ({
-                      ...sum,
-                      [getItemId(field)]: field,
-                  }),
-                  {},
-              )
-            : {};
+        const fields = dashboardAvailableFiltersData?.allFilterableFields;
+        if (!fields || fields.length === 0) return {};
+
+        // 直接累积，避免在 reduce 里展开对象（O(n²) 的对象拷贝）
+        const map: Record<string, DashboardFilterableField> = {};
+        fields.forEach((field) => {
+            map[getItemId(field)] = field;
+        });
+        return map;
     }, [dashboardAvailableFiltersData]);
 
     // Watch for filter changes and emit events (skip initial render)
@@ -2119,12 +3407,15 @@ const DashboardProvider: React.FC<
         setDashboardTabs,
         activeTab,
         setActiveTab,
+        visitedTabUuids,
+        isGlobalCategoryResolutionPending,
+        pendingTabCategoryResolutions,
         setDashboardTemporaryFilters,
         dashboardFilters,
         dashboardTemporaryFilters,
         addDimensionDashboardFilter,
         updateDimensionDashboardFilter,
-        removeDimensionDashboardFilter,
+        removeDimensionDashboardFilter: wrappedRemoveDimensionDashboardFilter,
         addMetricDashboardFilter,
         resetDashboardFilters: wrappedResetDashboardFilters,
         setDashboardFilters,
@@ -2194,6 +3485,7 @@ const DashboardProvider: React.FC<
         getActiveTabTemporaryFilters,
         getMergedFiltersForTab,
         getDisplayedMergedFiltersForTab,
+        tabAutoAdjustedFilterIds: autoAdjustedFilterIds,
         tabCategoryDisplayFilters,
         addTabDimensionFilter,
         updateTabDimensionFilter: wrappedUpdateTabDimensionFilter,

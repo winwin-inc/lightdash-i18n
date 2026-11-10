@@ -13,10 +13,14 @@ import {
     type SavedChart,
 } from '@lightdash/common';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { lightdashApi } from '../../api';
 import { DEFAULT_PAGE_SIZE } from '../../components/common/Table/constants';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
+import {
+    resolveEffectiveTabUuid,
+    shouldQueryTileForTab,
+} from '../../utils/dashboardTabs';
 import { convertDateDashboardFilters } from '../../utils/dateFilter';
 import {
     getTableChartPageSize,
@@ -108,9 +112,28 @@ export const useDashboardChartReadyQuery = (
     );
     // 首屏类目还在解析时先不查询：等类目解析完成后按最终类目一次性查询，
     // 避免图表先按未解析的类目跑一次、解析完再刷新一次
-    const isCategoryResolutionPending = useDashboardContext(
-        (c) => c.isCategoryResolutionPending,
+    const isGlobalCategoryResolutionPending = useDashboardContext(
+        (c) => c.isGlobalCategoryResolutionPending,
     );
+    // 多 Tab 看板的所有 Tab 面板都会挂载（隐藏而非卸载），
+    // 若每个 tile 都无条件查询，首屏会把所有 Tab 的查询一次性打进数仓排队。
+    // 只有用户访问过的 Tab 才发起查询，切到新 Tab 时再补查该 Tab。
+    const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
+    const visitedTabUuids = useDashboardContext((c) => c.visitedTabUuids);
+    // 类目闸门按 Tab 隔离：只有「自己的 Tab 还在解析」才挡住查询，
+    // 否则切到某个 Tab 解析类目时会把其它 Tab 的查询也一起按住
+    const isTabCategoryResolutionPending = useDashboardContext((c) =>
+        tabUuid ? c.pendingTabCategoryResolutions[tabUuid] === true : false,
+    );
+    const isCategoryResolutionPending =
+        isGlobalCategoryResolutionPending || isTabCategoryResolutionPending;
+    const isTileTabVisited = useMemo(() => {
+        const effectiveTabUuid = resolveEffectiveTabUuid(
+            tabUuid,
+            dashboardTabs,
+        );
+        return shouldQueryTileForTab(effectiveTabUuid, visitedTabUuids);
+    }, [tabUuid, dashboardTabs, visitedTabUuids]);
 
     const sortKey =
         dashboardSorts
@@ -131,7 +154,10 @@ export const useDashboardChartReadyQuery = (
 
     const error = chartQuery.error;
 
-    const { data: explore } = useExplore(
+    // explore 的 error 必须保留：explore 加载失败时 queryEnabled 为 false、
+    // queryResult 永远不会发出请求，若丢弃 error 会让 tile 落进 loading 分支永久骨架
+    // （见 docs/visualization/chart-error-diagnostics-plan.md 第 6 节）
+    const { data: explore, error: exploreError } = useExplore(
         chartQuery.data?.metricQuery?.exploreName,
         undefined,
         dashboardUuid || undefined,
@@ -145,6 +171,65 @@ export const useDashboardChartReadyQuery = (
         }
     }, [explore, addParameterDefinitions]);
 
+    /**
+     * 图表查询的开关，以及"被哪一条挡住"的 DEV 诊断。
+     *
+     * 移动端出现"一直 loading / 数据不回来"时，先看这条日志哪一项是 false：
+     * 无 chartUuid / 无 dashboardUuid / 图表未加载 / explore 未加载 /
+     * 所属 Tab 未被访问过（isTileTabVisited）/ 类目解析未完成。
+     */
+    const queryEnabled = Boolean(
+        chartUuid &&
+            dashboardUuid &&
+            chartQuery.data &&
+            explore &&
+            isTileTabVisited &&
+            !isCategoryResolutionPending,
+    );
+    const disabledReasonRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (import.meta.env.DEV !== true) return;
+        if (queryEnabled) {
+            disabledReasonRef.current = null;
+            return;
+        }
+        const missing = [
+            !chartUuid && 'no-chart-uuid',
+            !dashboardUuid && 'no-dashboard-uuid',
+            !chartQuery.data && 'chart-loading',
+            !explore && 'explore-loading',
+            !isTileTabVisited && 'tab-not-visited',
+            isCategoryResolutionPending && 'category-pending',
+        ].filter(Boolean);
+        const signature = `${tileUuid}|${missing.join(',')}`;
+        if (disabledReasonRef.current === signature) return;
+        disabledReasonRef.current = signature;
+        // eslint-disable-next-line no-console
+        console.info('[chart-ready] query disabled', {
+            tileUuid,
+            tabUuid,
+            missing,
+            visitedTabUuids: Array.from(visitedTabUuids ?? []),
+            dashboardTabUuids: (dashboardTabs ?? []).map((tab) => tab.uuid),
+            isGlobalCategoryResolutionPending,
+            isTabCategoryResolutionPending,
+        });
+    }, [
+        queryEnabled,
+        chartUuid,
+        dashboardUuid,
+        chartQuery.data,
+        explore,
+        isTileTabVisited,
+        isCategoryResolutionPending,
+        tileUuid,
+        tabUuid,
+        visitedTabUuids,
+        dashboardTabs,
+        isGlobalCategoryResolutionPending,
+        isTabCategoryResolutionPending,
+    ]);
+
     const timezoneFixFilters = useMemo(() => {
         const sourceFilters = tabUuid ? dashboardTabFilters : dashboardFilters;
         return sourceFilters
@@ -156,6 +241,33 @@ export const useDashboardChartReadyQuery = (
         () => JSON.stringify(timezoneFixFilters ?? null),
         [timezoneFixFilters],
     );
+
+    /**
+     * 错误诊断归因用：看板筛选/排序实际作用在本 tile 查询上的字段 id。
+     * 与发送给后端的入参同源（timezoneFixFilters 派生自全局/Tab 筛选、
+     * dashboardSorts），去重 + 可选链防御历史数据缺字段。
+     */
+    const dashboardFilterFieldIds = useMemo(() => {
+        const rules = [
+            ...(timezoneFixFilters?.dimensions ?? []),
+            ...(timezoneFixFilters?.metrics ?? []),
+            ...(timezoneFixFilters?.tableCalculations ?? []),
+        ];
+        const fieldIds = rules
+            .map((rule) => rule?.target?.fieldId)
+            .filter(
+                (fieldId): fieldId is string => typeof fieldId === 'string',
+            );
+        return [...new Set(fieldIds)];
+    }, [timezoneFixFilters]);
+    const dashboardSortFieldIds = useMemo(() => {
+        const fieldIds = (dashboardSorts ?? [])
+            .map((sort) => sort?.fieldId)
+            .filter(
+                (fieldId): fieldId is string => typeof fieldId === 'string',
+            );
+        return [...new Set(fieldIds)];
+    }, [dashboardSorts]);
 
     const hasADateDimension = useMemo(() => {
         const metricQueryDimensions = [
@@ -356,13 +468,7 @@ export const useDashboardChartReadyQuery = (
                 executeQueryResponse,
             };
         },
-        enabled: Boolean(
-            chartUuid &&
-                dashboardUuid &&
-                chartQuery.data &&
-                explore &&
-                !isCategoryResolutionPending,
-        ),
+        enabled: queryEnabled,
         retry: false,
         refetchOnMount: false,
     });
@@ -410,7 +516,20 @@ export const useDashboardChartReadyQuery = (
 
     return {
         ...queryResult,
-        error: error || queryResult.error,
+        // 顶层单独暴露 chart/explore：查询失败时 queryResult.data 为 undefined，
+        // 错误诊断仍需要用到图表定义（两者与 data 同源）
+        chart: chartQuery.data ?? queryResult.data?.chart,
+        explore: explore ?? queryResult.data?.explore,
+        // explore 加载失败（如 NotExistsError）也要合并进 error，
+        // 否则 queryEnabled=false 且 error=null → tile 永久骨架；
+        // 但查询已有结果（成功出图）时忽略 explore 重拉失败，避免一次
+        // remount/invalidate 触发的重拉失败把成功 tile 翻成错误态
+        error:
+            error ||
+            queryResult.error ||
+            (queryResult.data ? null : exploreError ?? null),
         tablePagination,
+        dashboardFilterFieldIds,
+        dashboardSortFieldIds,
     };
 };

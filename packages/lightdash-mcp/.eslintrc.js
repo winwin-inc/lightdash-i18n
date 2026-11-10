@@ -24,6 +24,9 @@
             rules: {
                 '@typescript-eslint/no-floating-promises': 'off',
                 'no-await-in-loop': 'off',
+                // Tests intentionally embed dbt variable references like
+                // ${lightdash.user.dashboardSlug} in plain strings.
+                'no-template-curly-in-string': 'off',
             },
         },
         {
@@ -34,6 +37,8 @@
                 'src/rest/asyncQueryPoll.ts',
                 'src/mcp/tools/registerContentTools.ts',
                 'src/mcp/tools/registerExploreCatalogTools.ts',
+                'src/lib/dashboardContextResolver.ts',
+                'src/lib/requiredDashboardContext.ts',
             ],
             rules: {
                 'import/extensions': 'off',

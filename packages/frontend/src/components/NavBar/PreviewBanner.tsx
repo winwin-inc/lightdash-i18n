@@ -1,9 +1,9 @@
-import { Center, getDefaultZIndex, Text } from '@mantine/core';
+import { Center, Text } from '@mantine/core';
 import { IconTool } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import MantineIcon from '../common/MantineIcon';
-import { BANNER_HEIGHT } from '../common/Page/constants';
+import { BANNER_HEIGHT, NAVBAR_Z_INDEX } from '../common/Page/constants';
 
 export const PreviewBanner = () => {
     const { t } = useTranslation();
@@ -15,7 +15,7 @@ export const PreviewBanner = () => {
             h={BANNER_HEIGHT}
             bg="blue.6"
             style={{
-                zIndex: getDefaultZIndex('app'),
+                zIndex: NAVBAR_Z_INDEX,
             }}
         >
             <MantineIcon icon={IconTool} color="white" size="sm" />

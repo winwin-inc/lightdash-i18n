@@ -428,7 +428,7 @@ flowchart TD
 2. `common/backend/frontend` typecheck — **已通过**（本地 2026-09-02）。
 3. `pnpm generate-api` — **已通过**。
 4. `pnpm -F @lightdash/mcp test` — **126/126 通过**。
-5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`docs/v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
+5. Docker 镜像、OSS 直传、MCP PAT 冒烟、生产看板深链 — **待预发**（见 [`v2-implemented-features-qa.md`](v2-implemented-features-qa.md)）。
 6. 含 migration 的 PR：预发先 `migrate`（需 `LIGHTDASH_SECRET` 等 env），再发应用。
 
 #### 后续专项（主迁移完成后再做）

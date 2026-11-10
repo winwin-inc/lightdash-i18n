@@ -162,7 +162,23 @@ export type DashboardFilterRule<
     label: undefined | string;
     singleValue?: boolean;
     categoryLevel?: 1 | 2 | 3 | 4;
+    /**
+     * 父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）
+     */
     parentFieldId?: string;
+    /**
+     * 父级筛选器所在作用域：
+     * - 'global'：全局筛选器
+     * - 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）
+     *
+     * 缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。
+     */
+    parentScope?: 'global' | 'tab';
+    /**
+     * 父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。
+     * 缺省表示与当前筛选器在同一个 Tab。
+     */
+    parentTabUuid?: string;
     /** Values hidden from filter options list */
     excludedValues?: string[];
     /** Operators available to viewers; undefined/empty means no restriction */
@@ -179,6 +195,13 @@ export type DashboardFilterRule<
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
+    /**
+     * 查看者是否可以把取值清空（变回空值）。
+     * 缺省 / true：可清空（现状）。
+     * false：可在选项内切换、可重置为作者默认值，但不能清空。
+     * 仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。
+     */
+    clearable?: boolean;
     /**
      * Dashboard filters sharing a requiredGroupId form an "any-one required"
      * group: the dashboard is locked until at least one member has a value.
@@ -201,7 +224,11 @@ export type FilterDashboardToRule = DashboardFilterRule & {
 
 export type DashboardFilterRuleOverride = Omit<
     DashboardFilterRule,
-    'tileTargets' | 'lockedTabUuids' | 'required' | 'requiredGroupId'
+    | 'tileTargets'
+    | 'lockedTabUuids'
+    | 'required'
+    | 'requiredGroupId'
+    | 'clearable'
 >;
 
 export type DateFilterSettings = {
@@ -719,10 +746,14 @@ export const applyDimensionOverrides = (
                 // Preserve category filter configuration from the saved filter.
                 categoryLevel: dimension.categoryLevel,
                 parentFieldId: dimension.parentFieldId,
+                parentScope: dimension.parentScope,
+                parentTabUuid: dimension.parentTabUuid,
                 excludedValues: dimension.excludedValues,
                 allowedOperators: dimension.allowedOperators,
                 minAllowedDate: dimension.minAllowedDate,
                 maxAllowedDate: dimension.maxAllowedDate,
+                // The saved dashboard owns how viewers may interact with values.
+                clearable: dimension.clearable,
             };
         },
     );
@@ -735,6 +766,7 @@ export const applyDimensionOverrides = (
             ...o,
             required: undefined,
             requiredGroupId: undefined,
+            clearable: undefined,
         }));
     overriddenDimensions.push(...newDimensions);
 
@@ -760,6 +792,7 @@ export const applyMetricOverrides = (
                 lockedTabUuids: metric.lockedTabUuids,
                 required: metric.required,
                 requiredGroupId: metric.requiredGroupId,
+                clearable: metric.clearable,
             };
         }
         return metric;

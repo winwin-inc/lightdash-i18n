@@ -69,6 +69,7 @@ pnpm -F backend rollback-last
 
 ## 开发流程
 
+0. **分支约定**：默认在 `fix/bugs` 分支上开发/修 bug，不要擅自切到 dev；若目标代码只在 dev 有，先把 dev 合入 `fix/bugs`（fast-forward 或 merge）再改，改动一律提交在 `fix/bugs`
 1. **包管理**：使用 `pnpm`（v9.15.5+），不要用 npm 或 yarn
 2. **TypeScript**：各包使用 TypeScript project references 做类型检查
 3. **Lint**：ESLint（Airbnb 配置），包含 `no-floating-promises`
@@ -152,6 +153,15 @@ pnpm -F backend rollback-last
 
 -   dbt 相关问题时，确认仓库根目录有 python3 venv，且已安装 dbt-core、dbt-postgres
 
+## Agent 协作纪律（强制）
+
+所有 agent（含子 agent）必须遵守 `.agents/` 下的规则，要点：
+
+-   **聚焦测试**：只跑与改动直接相关的单文件/单用例测试（详见 `.agents/rules/testing-discipline.md` 与 `.agents/skills/focused-testing/SKILL.md`）；全量 test/lint/typecheck 由主控收尾统一执行，worker 不做批量验证
+-   frontend vitest 冷启动极慢（重插件 transform 40min+、默认堆会 OOM），必须按 focused-testing 技能中的方式探路；所有验证命令必须带 `timeout`
+-   环境性失败同类最多重试 2 次，之后必须上报，禁止蛮试
+-   多 agent 派发/验收/生成物同步流程见 `.agents/rules/multi-agent.md`；给既有组件新增 context 依赖时必须同步检查其既有测试的 Provider mock
+
 ## 本地数据库调试
 
 可用 `psql` 直连本地开发库，例如：
@@ -178,3 +188,11 @@ curl -H "Authorization: ApiKey $LDPAT" "$SITE_URL/api/v1/org/projects"
 # v2 content API：仅根级 space
 curl -H "Authorization: ApiKey $LDPAT" "$SITE_URL/api/v2/content?contentTypes=space&projectUuids=PROJECT_UUID&page=1&pageSize=25"
 ```
+
+## 文档
+
+设计与排查文档在 `docs/`，按主题分目录（`ops/` / `cli/` / `dashboard/` / `visualization/` / `mcp/` / `v2/` / `features/` / `dev-tooling/`）。
+
+- 总索引：`docs/README.md`；新增文档放到对应子目录，不要再堆在 `docs/` 根下
+- 文首标注状态（已实施 / 待开发 / 草案），避免把历史方案当现状
+- 交叉链接用相对路径，移动文件后跑一次 `docs/README.md` 末尾的链接自检脚本

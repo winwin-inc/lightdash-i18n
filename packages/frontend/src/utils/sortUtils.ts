@@ -121,6 +121,31 @@ export const getSortLabel = (
     }
 };
 
+/**
+ * Custom value order is only meaningful for string dimensions:
+ * the values are used to build a `CASE WHEN ... THEN rank` expression,
+ * which only makes sense for textual values.
+ */
+export const canUseValueOrder = (
+    item?: Field | TableCalculation | CustomDimension,
+): boolean =>
+    !!item &&
+    isField(item) &&
+    isDimension(item) &&
+    item.type === DimensionType.STRING;
+
+/**
+ * Label of the sort direction control when a custom value order is enabled.
+ * The direction now means "as listed" / "reversed", instead of A-Z / Z-A.
+ */
+export const getValueOrderSortLabel = (
+    direction: SortDirection,
+    t: TranslateFn,
+): string =>
+    direction === SortDirection.ASC
+        ? t('components_sort_button.sort_labels.custom_asc')
+        : t('components_sort_button.sort_labels.custom_desc');
+
 export const getSortIcon = (
     item: Field | TableCalculation | CustomDimension,
     descending: boolean,

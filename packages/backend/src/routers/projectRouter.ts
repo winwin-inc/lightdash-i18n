@@ -122,6 +122,7 @@ projectRouter.post(
                     {
                         dashboardSlug: req.body.dashboardSlug,
                         dashboardName: req.body.dashboardName,
+                        dashboardUuid: req.body.dashboardUuid,
                     },
                 );
 

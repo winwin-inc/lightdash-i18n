@@ -21,7 +21,12 @@ import {
     Tooltip,
 } from '@mantine/core';
 import { useDisclosure, useId } from '@mantine/hooks';
-import { IconGripVertical, IconLock, IconLockOpen } from '@tabler/icons-react';
+import {
+    IconGripVertical,
+    IconLock,
+    IconLockOpen,
+    IconWand,
+} from '@tabler/icons-react';
 import {
     useCallback,
     useEffect,
@@ -37,6 +42,7 @@ import {
     enqueueFilterDeleted,
     enqueueFilterUpdatedFromDiff,
 } from '../../../hooks/dashboard/dashboardOperationEventQueue';
+import { useDashboardFilterScope } from '../../../hooks/dashboard/useDashboardFilterScope';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
 import useDashboardContext from '../../../providers/Dashboard/useDashboardContext';
@@ -99,6 +105,8 @@ type Props = {
     onRemove: () => void;
     /** 类目级联解析子级中：禁用交互并提示更新中 */
     isCascadeUpdating?: boolean;
+    /** 取值被「按当前类目自动调整」过：pill 上加标记 + tooltip 原值 */
+    autoAdjustedPreviousValues?: string[];
 };
 
 const Filter: FC<Props> = ({
@@ -115,6 +123,7 @@ const Filter: FC<Props> = ({
     onUpdate,
     onRemove,
     isCascadeUpdating = false,
+    autoAdjustedPreviousValues,
 }) => {
     const { t } = useTranslation();
 
@@ -128,7 +137,6 @@ const Filter: FC<Props> = ({
     const getConditionalRuleLabelFromItem = useConditionalRuleLabelFromItem();
 
     const dashboard = useDashboardContext((c) => c.dashboard);
-    const dashboardTiles = useDashboardContext((c) => c.dashboardTiles);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     const { data: lockDashboardFiltersFlag } = useServerFeatureFlag(
         FeatureFlags.LockDashboardFilters,
@@ -183,8 +191,8 @@ const Filter: FC<Props> = ({
             ? t('components_dashboard_filter.filter.lock_unlock_tab')
             : t('components_dashboard_filter.filter.lock_unlock')
         : hasTabs
-          ? t('components_dashboard_filter.filter.lock_on_tab')
-          : t('components_dashboard_filter.filter.lock');
+        ? t('components_dashboard_filter.filter.lock_on_tab')
+        : t('components_dashboard_filter.filter.lock');
 
     const filterableFieldsByTileUuid = useDashboardContext(
         (c) => c.filterableFieldsByTileUuid,
@@ -227,6 +235,14 @@ const Filter: FC<Props> = ({
         if (isMobileDevice) {
             names.push(dropdownClasses.classes.dropdownMobile);
         }
+        // 编辑模式（含副下拉未打开时）：限高 + 内容区内滚（PC 72vh / 移动端 85vh）
+        if (isEditMode) {
+            names.push(
+                isMobileDevice
+                    ? dropdownClasses.classes.dropdownEditMobile
+                    : dropdownClasses.classes.dropdownEdit,
+            );
+        }
         if (shouldReserveSubOpenHeight) {
             names.push(
                 isEditMode
@@ -238,6 +254,8 @@ const Filter: FC<Props> = ({
     }, [
         dropdownClasses.classes.dropdown,
         dropdownClasses.classes.dropdownMobile,
+        dropdownClasses.classes.dropdownEdit,
+        dropdownClasses.classes.dropdownEditMobile,
         dropdownClasses.classes.dropdownWithSubOpen,
         dropdownClasses.classes.dropdownWithSubOpenEdit,
         isMobileDevice,
@@ -311,6 +329,16 @@ const Filter: FC<Props> = ({
     );
 
     const isDraggable = isEditMode && !isTemporary;
+
+    /**
+     * 查看模式下不允许修改筛选器：筛选器定义归作者，查看者改不了，
+     * 因此不展示 × （删除/恢复默认）入口。
+     *
+     * 这里只影响「以什么语义执行删除」：如果其他入口在查看模式移除了
+     * Tab 作用域的筛选器，只清除用户选择并恢复作者默认值，
+     * 不删除筛选器定义。
+     */
+    const isRestoreDefaultAction = !isEditMode && filterScope === 'tab';
 
     const defaultFilterRule = useMemo(() => {
         if (filterableFieldsByTileUuid && field) {
@@ -429,6 +457,11 @@ const Filter: FC<Props> = ({
     );
 
     const handleRemoveFilter = useCallback(() => {
+        if (isRestoreDefaultAction) {
+            // 查看模式：只清除用户选择，不删除筛选器定义
+            onRemove();
+            return;
+        }
         const tabName =
             dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
             null;
@@ -438,7 +471,14 @@ const Filter: FC<Props> = ({
             tabName,
         });
         onRemove();
-    }, [onRemove, filterRule, filterScope, activeTabUuid, dashboardTabs]);
+    }, [
+        onRemove,
+        filterRule,
+        filterScope,
+        activeTabUuid,
+        dashboardTabs,
+        isRestoreDefaultAction,
+    ]);
 
     const appliedDashboardTabs = useMemo(() => {
         if (filterScope === 'global') {
@@ -447,33 +487,11 @@ const Filter: FC<Props> = ({
         return dashboardTabs?.filter((tab) => tab.uuid === activeTabUuid);
     }, [dashboardTabs, activeTabUuid, filterScope]);
 
-    const appliedDashboardTiles = useMemo(() => {
-        if (filterScope === 'global') {
-            return dashboardTiles;
-        }
-        return dashboardTiles?.filter((tl) => tl.tabUuid === activeTabUuid);
-    }, [dashboardTiles, activeTabUuid, filterScope]);
-
-    const appliedFilterableFieldsByTileUuid = useMemo(() => {
-        if (filterScope === 'global') {
-            return filterableFieldsByTileUuid;
-        }
-        return Object.keys(filterableFieldsByTileUuid ?? {}).reduce(
-            (acc, tileUuid) => {
-                const tile = appliedDashboardTiles?.find(
-                    (tl) => tl.uuid === tileUuid,
-                );
-
-                if (tile) {
-                    acc[tileUuid] =
-                        filterableFieldsByTileUuid?.[tileUuid] || [];
-                }
-
-                return acc;
-            },
-            {} as Record<string, DashboardFilterableField[]>,
-        );
-    }, [filterableFieldsByTileUuid, appliedDashboardTiles, filterScope]);
+    const {
+        appliedDashboardTiles,
+        appliedFilterableFields,
+        appliedFilterableFieldsByTileUuid,
+    } = useDashboardFilterScope(filterScope, activeTabUuid);
 
     return (
         <>
@@ -539,14 +557,14 @@ const Filter: FC<Props> = ({
                                           '更新中',
                                       )
                                     : isReadOnlyLocked
-                                      ? hasTabs
-                                          ? t(
-                                                'components_dashboard_filter.filter.locked_on_tab',
-                                            )
-                                          : t(
-                                                'components_dashboard_filter.filter.locked',
-                                            )
-                                      : inactiveFilterInfo
+                                    ? hasTabs
+                                        ? t(
+                                              'components_dashboard_filter.filter.locked_on_tab',
+                                          )
+                                        : t(
+                                              'components_dashboard_filter.filter.locked',
+                                          )
+                                    : inactiveFilterInfo
                             }
                             disabled={
                                 !isCascadeUpdating &&
@@ -734,15 +752,58 @@ const Filter: FC<Props> = ({
                                                     color="gray.7"
                                                     truncate
                                                 >
-                                                    {
-                                                        filterRuleLabels?.operator
-                                                    }{' '}
+                                                    {filterRuleLabels?.operator}{' '}
                                                 </Text>
                                                 <Text fw={700} span truncate>
                                                     {filterRuleLabels?.value}
                                                 </Text>
                                             </>
                                         )}
+                                        {autoAdjustedPreviousValues ? (
+                                            <Tooltip
+                                                withinPortal
+                                                position="top"
+                                                openDelay={200}
+                                                label={
+                                                    <Text fz="xs">
+                                                        {t(
+                                                            'components_dashboard_filter.filter.auto_adjusted_hint',
+                                                        )}
+                                                        {autoAdjustedPreviousValues.length >
+                                                        0 ? (
+                                                            <Text span fw={600}>
+                                                                {autoAdjustedPreviousValues.join(
+                                                                    ', ',
+                                                                )}
+                                                            </Text>
+                                                        ) : null}
+                                                    </Text>
+                                                }
+                                            >
+                                                <Box
+                                                    component="span"
+                                                    ml={4}
+                                                    sx={{
+                                                        // 行内图标与文字垂直居中：
+                                                        // - inline-flex + height:1em 让盒子高度等于一行文字
+                                                        // - lineHeight:0 去掉 svg 自带行高带来的额外行距
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent:
+                                                            'center',
+                                                        height: '1em',
+                                                        lineHeight: 0,
+                                                        verticalAlign: 'middle',
+                                                    }}
+                                                >
+                                                    <MantineIcon
+                                                        icon={IconWand}
+                                                        size={11}
+                                                        color="gray.6"
+                                                    />
+                                                </Box>
+                                            </Tooltip>
+                                        ) : null}
                                     </Text>
                                 </Box>
                             </Button>
@@ -764,7 +825,7 @@ const Filter: FC<Props> = ({
                                 isEditMode={isEditMode}
                                 isTemporary={isTemporary}
                                 field={field}
-                                fields={allFilterableFields || []}
+                                fields={appliedFilterableFields}
                                 tiles={appliedDashboardTiles}
                                 tabs={appliedDashboardTabs}
                                 activeTabUuid={activeTabUuid}
@@ -775,6 +836,7 @@ const Filter: FC<Props> = ({
                                 defaultFilterRule={defaultFilterRule}
                                 isPopoverOpen={isPopoverOpen}
                                 onSave={handleSaveChanges}
+                                onRequestClose={handleClose}
                                 onDraftChange={handleDraftChange}
                                 popoverProps={{
                                     onOpen: openSubPopoverWrapped,
@@ -783,9 +845,12 @@ const Filter: FC<Props> = ({
                                 }}
                                 onSelectedTabChange={setFilterConfigTab}
                                 filterScope={filterScope}
+                                // 父级绑定按「筛选器所在的 Tab」解析，而不是
+                                // 第一个引用它的图块所属 Tab：跨 Tab 的 tileTargets
+                                // 会把父级候选带到错误的 Tab，导致已绑定父级显示「已失效」
                                 tabUuid={
                                     filterScope === 'tab'
-                                        ? (appliesToTabs[0] ?? activeTabUuid)
+                                        ? activeTabUuid
                                         : undefined
                                 }
                             />

@@ -10,7 +10,7 @@ import { type FC, type PropsWithChildren } from 'react';
 
 interface ConfigComponent extends FC<PropsWithChildren> {
     Section: FC<PropsWithChildren>;
-    Heading: FC<PropsWithChildren>;
+    Heading: FC<PropsWithChildren & { title?: string; truncate?: boolean }>;
     Subheading: FC<PropsWithChildren>;
     Group: FC<PropsWithChildren & GroupProps>;
     Label: FC<PropsWithChildren & TextProps>;
@@ -22,8 +22,10 @@ const Section: FC<PropsWithChildren> = ({ children }) => (
     <Stack spacing="xs">{children}</Stack>
 );
 
-const Heading: FC<PropsWithChildren> = ({ children }) => (
-    <Text c="gray.8" fz="sm" fw={600}>
+const Heading: FC<
+    PropsWithChildren & { title?: string; truncate?: boolean }
+> = ({ children, title, truncate }) => (
+    <Text c="gray.8" fz="sm" fw={600} truncate={truncate ? true : undefined} title={title}>
         {children}
     </Text>
 );

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lightdashApi } from '../api';
 import {
     clearFieldSearchCacheForTests,
+    createCategoryRequestSession,
     getCategoryFiltersSignature,
     getCategoryLevel,
     getParentFieldId,
@@ -439,6 +440,69 @@ describe('initializeCategoryFiltersAsync', () => {
         expect(api).not.toHaveBeenCalled();
     });
 
+    it('keeps a bound child without a default value empty', async () => {
+        // 绑定了父级筛选器、但自己没有任何值 → 初始化不赋值，保持「任何值」
+        mockSearchResults(['P1']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['P1'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: [],
+                parentFieldId: 'dim_categories_cls_1',
+                disabled: true,
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toEqual([]);
+    });
+
+    it('keeps a child without a parent binding empty', async () => {
+        // 没有绑定父级筛选器 → 不参与父子联动，初始化也不赋值
+        mockSearchResults(['P1']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['P1'],
+            }),
+            categoryFilter({
+                id: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                categoryLevel: 2,
+                values: [],
+                disabled: true,
+            }),
+        ]);
+
+        const result = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toEqual([]);
+        // 只有一级类目发了请求
+        expect(api).toHaveBeenCalledTimes(1);
+    });
+
     it('restores a filter that was wrongly cleared when the server still has a value', async () => {
         mockSearchResults(['方便速食']);
 
@@ -810,6 +874,213 @@ describe('initializeCategoryFiltersAsync', () => {
         await expect(p2).resolves.toBe(filters);
     });
 
+    it('serializes concurrent field/search requests to protect warehouse memory', async () => {
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['B']);
+
+        const p1 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+        );
+        const p2 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+        );
+
+        // 并发 1：第二个请求必须等第一个结束才发出
+        expect(api).toHaveBeenCalledTimes(1);
+
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+
+        await p1;
+        await p2;
+
+        expect(api).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops queued requests when the session is cancelled', async () => {
+        const session = createCategoryRequestSession();
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['B']);
+
+        const p1 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+        const p2 = initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        expect(api).toHaveBeenCalledTimes(1);
+
+        // 用户又改了一次：旧会话作废
+        session.cancel();
+
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+
+        const result1 = await p1;
+        const result2 = await p2;
+
+        // 排队中的第二个请求被丢弃：不会再发出去
+        expect(api).toHaveBeenCalledTimes(1);
+        // 取消的操作不写回：值保持原样
+        expect(result1).toEqual(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+        );
+        expect(result2).toEqual(
+            asFilters([
+                categoryFilter({
+                    id: 'l2',
+                    fieldId: 'dim_categories_cls_2',
+                    categoryLevel: 2,
+                    values: ['B'],
+                }),
+            ]),
+        );
+    });
+
+    it('does not send a request when the session is already cancelled', async () => {
+        const session = createCategoryRequestSession();
+        session.cancel();
+
+        await initializeCategoryFiltersAsync(
+            asFilters([
+                categoryFilter({
+                    id: 'l1',
+                    fieldId: 'dim_categories_cls_1',
+                    categoryLevel: 1,
+                    values: ['A'],
+                }),
+            ]),
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('does not reuse a cancelled request result in the cache', async () => {
+        const session = createCategoryRequestSession();
+        let resolveFirst: ((value: unknown) => void) | undefined;
+        api.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveFirst = resolve;
+                }) as never,
+        );
+        mockSearchResults(['A']);
+
+        const filters = asFilters([
+            categoryFilter({
+                id: 'l1',
+                fieldId: 'dim_categories_cls_1',
+                categoryLevel: 1,
+                values: ['A'],
+            }),
+        ]);
+
+        const p1 = initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { session },
+        );
+
+        // 取消会话：缓存作废、请求 abort
+        session.cancel();
+        resolveFirst?.({
+            search: '',
+            results: ['A'],
+            cached: false,
+            refreshedAt: new Date(),
+        });
+        await p1;
+
+        // 新会话重新请求（不复用被取消的那次）
+        const p2 = initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            { session: createCategoryRequestSession() },
+        );
+        await p2;
+
+        expect(api).toHaveBeenCalledTimes(2);
+    });
+
+    it('can be cancelled repeatedly without side effects', () => {
+        const session = createCategoryRequestSession();
+        expect(session.isCancelled()).toBe(false);
+        session.cancel();
+        session.cancel();
+        expect(session.isCancelled()).toBe(true);
+    });
+
     it('does not share cache across different filter contexts', async () => {
         mockSearchResults(['A']);
         mockSearchResults(['B']);
@@ -962,7 +1233,8 @@ describe('updateCategoryFilterCascadeAsync', () => {
         expect(result.dimensions[1].disabled).toBe(false);
     });
 
-    it('does not cascade into a child without a confirmed value', async () => {
+    it('does not cascade into a bound child without a confirmed value', async () => {
+        // 绑定了父级、但自己没有值（没有默认值也没筛过）→ 不联动，保持「任何值」
         mockSearchResults(['C1', 'C2']);
 
         const parent = categoryFilter({
@@ -971,12 +1243,75 @@ describe('updateCategoryFilterCascadeAsync', () => {
             categoryLevel: 1,
             values: ['P2'],
         });
-        // 下级类目既没有默认值也没有确认选中的值 → 保持为空，不发请求
         const child = categoryFilter({
             id: 'l2',
             fieldId: 'dim_categories_cls_2',
             categoryLevel: 2,
             parentFieldId: 'dim_categories_cls_1',
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).toBe(filters);
+        expect(result.dimensions[1].values).toBeUndefined();
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('cascades into a bound child that has a confirmed value', async () => {
+        // 绑定了父级、并且此时已经筛过值（即使没有默认值）→ 必须跟随父级
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            parentFieldId: 'dim_categories_cls_1',
+            values: ['OLD'],
+            disabled: true,
+        });
+        const filters = asFilters([parent, child]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+        );
+
+        expect(result).not.toBe(filters);
+        expect(result.dimensions[1].values).toEqual(['C1']);
+        expect(api).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not cascade into a child without a parent binding', async () => {
+        // 没有绑定父级筛选器 → 不参与父子联动（绑定关系是联动的必要条件）
+        mockSearchResults(['C1', 'C2']);
+
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P2'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
             disabled: true,
         });
         const filters = asFilters([parent, child]);
@@ -1072,6 +1407,149 @@ describe('updateCategoryFilterCascadeAsync', () => {
 
         expect(result).toBe(filters);
         expect(api).not.toHaveBeenCalled();
+    });
+});
+
+describe('category resolution issues', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+    });
+
+    afterEach(() => {
+        clearFieldSearchCacheForTests();
+    });
+
+    const buildParentChild = () => {
+        const parent = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P1'],
+        });
+        const child = categoryFilter({
+            id: 'l2',
+            fieldId: 'dim_categories_cls_2',
+            categoryLevel: 2,
+            values: ['OLD'],
+            parentFieldId: 'dim_categories_cls_1',
+        });
+        return { parent, child, filters: asFilters([parent, child]) };
+    };
+
+    it('reports an issue when the cascade request fails', async () => {
+        api.mockRejectedValueOnce({
+            status: 'error',
+            error: {
+                name: 'ApiError',
+                statusCode: 500,
+                message: 'HGERR_code 53200 memory limitation',
+            },
+        } as never);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        // 失败时保留原值，不清空
+        expect(result.dimensions[1].values).toEqual(['OLD']);
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'error',
+                filterId: 'l2',
+                fieldId: 'dim_categories_cls_2',
+                phase: 'cascade',
+            }),
+        );
+    });
+
+    it('reports an issue when the cascade has no candidates', async () => {
+        mockSearchResults([]);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'no-candidates',
+                filterId: 'l2',
+                phase: 'cascade',
+            }),
+        );
+    });
+
+    it('reports an issue when the initialization request fails', async () => {
+        api.mockRejectedValueOnce({
+            status: 'error',
+            error: {
+                name: 'ApiError',
+                statusCode: 500,
+                message: 'HGERR_code 53200 memory limitation',
+            },
+        } as never);
+
+        const filter = categoryFilter({
+            id: 'l1',
+            fieldId: 'dim_categories_cls_1',
+            categoryLevel: 1,
+            values: ['P1'],
+        });
+        const onResolutionIssue = vi.fn();
+
+        const result = await initializeCategoryFiltersAsync(
+            asFilters([filter]),
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(result.dimensions[0].values).toEqual(['P1']);
+        expect(onResolutionIssue).toHaveBeenCalledTimes(1);
+        expect(onResolutionIssue).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'error',
+                filterId: 'l1',
+                phase: 'init',
+                scope: 'global',
+            }),
+        );
+    });
+
+    it('does not report an issue when the resolution succeeds', async () => {
+        mockSearchResults(['C1']);
+
+        const { parent, filters } = buildParentChild();
+        const onResolutionIssue = vi.fn();
+
+        await updateCategoryFilterCascadeAsync(
+            filters,
+            parent,
+            'P2',
+            projectUuid,
+            dashboardContext,
+            { onResolutionIssue },
+        );
+
+        expect(onResolutionIssue).not.toHaveBeenCalled();
     });
 });
 

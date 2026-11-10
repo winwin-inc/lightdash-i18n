@@ -51,6 +51,7 @@ import {
     DashboardBasicDetails,
     type DashboardFilterableField,
     DashboardFilters,
+    DashboardQueryContextAttributes,
     type DataTimezonePreviewRequest,
     DateZoom,
     DbtExposure,
@@ -134,6 +135,7 @@ import {
     MergeQueryMetricSource,
     MergeTypedColumn,
     mergeWarehouseCredentials,
+    mergeDashboardSorts,
     MetricQuery,
     MetricType,
     MIN_RESULTS_CACHE_TTL_SECONDS,
@@ -283,7 +285,10 @@ import {
 } from '../../utils/QueryBuilder/utils';
 import { SubtotalsCalculator } from '../../utils/SubtotalsCalculator';
 import { BaseService } from '../BaseService';
-import { DashboardService } from '../DashboardService/DashboardService';
+import {
+    type DashboardContextUser,
+    DashboardService,
+} from '../DashboardService/DashboardService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import {
     hasDirectAccessToSpace,
@@ -672,18 +677,12 @@ export class ProjectService extends BaseService {
         | {
               account: Account;
               user?: never;
-              context?: {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              };
+              context?: DashboardQueryContextAttributes;
           }
         | {
               user: SessionUser;
               account?: never;
-              context?: {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              };
+              context?: DashboardQueryContextAttributes;
           }): Promise<UserAccessControls> {
         // Embedded JWT users may come with an email, but they aren't customers
         // within Lightdash that have verified their email.
@@ -731,6 +730,7 @@ export class ProjectService extends BaseService {
                     {
                         dashboardSlug: context.dashboardSlug,
                         dashboardName: context.dashboardName,
+                        dashboardUuid: context.dashboardUuid,
                         emailStatus: emailStatus.isVerified,
                         email,
                         intrinsicUserAttributes,
@@ -2178,27 +2178,16 @@ export class ProjectService extends BaseService {
         }
 
         // Align with AsyncQuery: resolve dashboard context for sql_filter / user attrs
-        let dashboardContext:
-            | {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              }
-            | undefined;
-        if (dashboardUuid) {
-            try {
-                const dashboard = await this.dashboardModel.getByIdOrSlug(
-                    dashboardUuid,
-                );
-                dashboardContext = {
-                    dashboardSlug: dashboard.slug,
-                    dashboardName: dashboard.name,
-                };
-            } catch (error) {
-                this.logger.warn(
-                    `Dashboard ${dashboardUuid} not found while compiling query, continuing without dashboard context`,
-                );
-            }
-        }
+        // The dashboard is resolved (and verified) on the server: the dbt
+        // `sql_filter` (row level security) relies on the canonical slug of a
+        // dashboard of this project the user is allowed to open. When the
+        // context cannot be verified the request is rejected, so the row
+        // filter cannot be silently skipped (the `NA` branch).
+        const dashboardContext = await this.resolveDashboardContextForQuery(
+            account,
+            projectUuid,
+            dashboardUuid,
+        );
 
         const explore =
             'explore' in args
@@ -2210,6 +2199,7 @@ export class ProjectService extends BaseService {
                       organizationUuid,
                       true,
                       dashboardUuid,
+                      dashboardContext,
                   );
 
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
@@ -2544,10 +2534,10 @@ export class ProjectService extends BaseService {
                 appliedDashboardFilters,
                 explore,
             ),
-            sorts:
-                dashboardSorts && dashboardSorts.length > 0
-                    ? dashboardSorts
-                    : savedChart.metricQuery.sorts,
+            sorts: mergeDashboardSorts(
+                savedChart.metricQuery.sorts,
+                dashboardSorts ?? [],
+            ),
         };
 
         const queryTags: RunQueryTags = {
@@ -3074,7 +3064,7 @@ export class ProjectService extends BaseService {
         dateZoom?: DateZoom;
         chartUuid: string | undefined; // for analytics
         parameters?: ParametersValuesMap;
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string };
+        dashboardContext?: DashboardQueryContextAttributes;
     }): Promise<{
         rows: Record<string, AnyType>[];
         cacheMetadata: CacheMetadata;
@@ -3731,6 +3721,36 @@ export class ProjectService extends BaseService {
                         filter.target.fieldId,
                     ),
             );
+            // 被丢弃的条件必须留下痕迹。
+            //
+            // 类目父子联动会把「父级类目 = 某值」作为一个过滤条件传进来，
+            // 如果父级字段不在这个 explore 里（业务库里 cls_1 与 cls_2 分属
+            // 两张表且没有 join），条件会被静默丢掉：返回的是未过滤的全集，
+            // 前端按「当前值仍在候选里 → 保留」处理，表现成「配了绑定但联动无效」，
+            // 极难排查。这里明确记录，避免再静默。
+            const droppedFilterFieldIds = filters.and
+                .filter(
+                    (filter) =>
+                        isFilterRule(filter) &&
+                        !findFieldByIdInExplore(
+                            explore as Explore,
+                            filter.target.fieldId,
+                        ),
+                )
+                .map((filter) =>
+                    isFilterRule(filter) ? filter.target.fieldId : '',
+                )
+                .filter((droppedFieldId) => droppedFieldId !== '');
+            if (droppedFilterFieldIds.length > 0) {
+                this.logger.warn(
+                    `[field-search] Dropped filter field(s) not present in explore "${
+                        explore.name
+                    }" (base table "${
+                        explore.baseTable
+                    }"): ${droppedFilterFieldIds.join(', ')}. ` +
+                        `Candidate values are returned unfiltered; category cascade relying on these fields will not work until they are joined into the same explore.`,
+                );
+            }
             autocompleteDimensionFilters.push(...filtersCompatibleWithExplore);
         }
         const metricQuery: MetricQuery = {
@@ -3794,7 +3814,7 @@ export class ProjectService extends BaseService {
         filters: AndFilterGroup | undefined,
         forceRefresh: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { organizationUuid } = await this.projectModel.getSummary(
             projectUuid,
@@ -3812,14 +3832,35 @@ export class ProjectService extends BaseService {
         // Resolve the dashboard context against the database before using it:
         // the dbt `sql_filter` (row level security) relies on the canonical slug,
         // and a client must not be able to spoof it to bypass the row filter.
+        // The client may send the dashboard uuid (preferred, globally unique) or
+        // its slug (only unique within a project, so it is resolved scoped to
+        // the requested project).
         const hasClientDashboardSlug = !!dashboardContext?.dashboardSlug;
-        const trustedDashboardContext = hasClientDashboardSlug
+        const hasClientDashboardUuid = !!dashboardContext?.dashboardUuid;
+        const hasClientDashboardName = !!dashboardContext?.dashboardName;
+        const hasClientDashboardContext =
+            hasClientDashboardSlug ||
+            hasClientDashboardUuid ||
+            hasClientDashboardName;
+        const trustedDashboardContext = hasClientDashboardContext
             ? await this.dashboardService.resolveDashboardContextForMetadata(
                   user,
                   projectUuid,
-                  dashboardContext.dashboardSlug!,
+                  dashboardContext.dashboardUuid ??
+                      dashboardContext.dashboardSlug,
+                  dashboardContext.dashboardName,
               )
             : undefined;
+
+        // Fail closed: a client that claims a dashboard context must have it
+        // verified against the database. Otherwise the dbt `sql_filter` would
+        // silently be skipped (the `NA` branch) and the user would see rows
+        // they are not allowed to see.
+        if (hasClientDashboardContext && !trustedDashboardContext) {
+            throw new ForbiddenError(
+                'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+            );
+        }
 
         const { metricQuery, explore, field } =
             await this._getFieldValuesMetricQuery({
@@ -3873,14 +3914,9 @@ export class ProjectService extends BaseService {
         // `sql_filter`. When the client sent a slug that could not be verified,
         // the client context is dropped entirely (no row filter is applied, but
         // the explore allow-list is enforced above).
-        const contextWithValues:
-            | {
-                  dashboardSlug?: string;
-                  dashboardName?: string;
-              }
-            | undefined =
+        const contextWithValues: DashboardQueryContextAttributes | undefined =
             trustedDashboardContext ??
-            (!hasClientDashboardSlug && dashboardContext?.dashboardName
+            (!hasClientDashboardContext && dashboardContext?.dashboardName
                 ? { dashboardName: dashboardContext.dashboardName }
                 : undefined);
         if (contextWithValues) {
@@ -4530,6 +4566,206 @@ export class ProjectService extends BaseService {
         };
     }
 
+    /**
+     * User information needed to resolve a dashboard context from an account.
+     *
+     * Only registered users (session, personal access token, oauth, service
+     * accounts) can have a dashboard context: anonymous users (JWT/embed) have
+     * no user uuid and no ability to open dashboards.
+     */
+    protected static dashboardContextUserFromAccount(
+        account: Account,
+    ): DashboardContextUser | undefined {
+        if (account.user.type !== 'registered') {
+            return undefined;
+        }
+        return {
+            userUuid: account.user.userUuid,
+            email: account.user.email,
+            organizationUuid: account.organization.organizationUuid,
+            ability: account.user.ability,
+        };
+    }
+
+    /**
+     * Checks that the user is allowed to open the dashboard.
+     *
+     * The dashboard drives the row level filters (dbt `sql_filter`), so a
+     * query must not be able to use the context of a dashboard the user
+     * cannot see.
+     */
+    protected async assertDashboardAccess(
+        account: Account,
+        projectUuid: string,
+        dashboard: { uuid: string; spaceUuid: string },
+    ): Promise<void> {
+        const space = await this.spaceModel.getSpaceSummary(
+            dashboard.spaceUuid,
+        );
+        const access = await this.spaceModel.getUserSpaceAccess(
+            account.user.id,
+            dashboard.spaceUuid,
+        );
+
+        if (
+            account.user.ability.cannot(
+                'view',
+                subject('Dashboard', {
+                    dashboardUuid: dashboard.uuid,
+                    organizationUuid: account.organization.organizationUuid,
+                    projectUuid,
+                    isPrivate: space.isPrivate,
+                    access,
+                }),
+            )
+        ) {
+            throw new ForbiddenError(
+                "You don't have access to the space this dashboard belongs to",
+            );
+        }
+    }
+
+    /**
+     * Resolves the dashboard context (slug + name + uuid) used by the query
+     * execution paths, from the uuid of the dashboard.
+     *
+     * @see resolveDashboardContextForRowLevelSecurity
+     */
+    protected async resolveDashboardContextForQuery(
+        account: Account,
+        projectUuid: string,
+        dashboardUuid: string | undefined,
+    ): Promise<DashboardQueryContextAttributes | undefined> {
+        if (!dashboardUuid) {
+            return undefined;
+        }
+
+        return this.resolveDashboardContextForRowLevelSecurity(
+            account,
+            projectUuid,
+            {
+                dashboardUuid,
+            },
+        );
+    }
+
+    /**
+     * Resolves the dashboard context of a dashboard of this project, without
+     * checking the permissions of the user.
+     *
+     * Used for the contexts that do not come from the client (eg: the
+     * dashboard of a query history record), where the dashboard is already
+     * bound to the project. The dashboard is looked up scoped to the project,
+     * so a slug of another project can never be used.
+     */
+    protected async resolveDashboardContextForProject(
+        projectUuid: string,
+        dashboardUuidOrSlug: string,
+    ): Promise<DashboardQueryContextAttributes> {
+        try {
+            const dashboard = await this.dashboardModel.getByIdOrSlug(
+                dashboardUuidOrSlug,
+                projectUuid,
+            );
+            return {
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+                dashboardUuid: dashboard.uuid,
+            };
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw new ForbiddenError(
+                    'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+                );
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Resolve the dashboard context sent by the client against the database.
+     *
+     * The dbt `sql_filter` (row level security) is applied with the dashboard
+     * slug, so the slug used for the query has to be the canonical one of a
+     * dashboard of this project that the user is allowed to open. A client must
+     * not be able to spoof it (eg: by sending nothing, so that the `NA` branch
+     * of the filter is used, or by sending the slug of another dashboard).
+     *
+     * Returns undefined when the client did not send any context (the query
+     * then runs without a dashboard context, as before) and throws a
+     * ForbiddenError when the client sent a context that cannot be verified.
+     */
+    protected async resolveDashboardContextForRowLevelSecurity(
+        account: Account,
+        projectUuid: string,
+        dashboardContext?: DashboardQueryContextAttributes,
+    ): Promise<DashboardQueryContextAttributes | undefined> {
+        const hasClientDashboardContext = Boolean(
+            dashboardContext?.dashboardSlug ||
+                dashboardContext?.dashboardUuid ||
+                dashboardContext?.dashboardName,
+        );
+        if (!hasClientDashboardContext || dashboardContext === undefined) {
+            return undefined;
+        }
+
+        const user = ProjectService.dashboardContextUserFromAccount(account);
+        if (user === undefined) {
+            // Anonymous (embed) users have no session user to check the
+            // dashboard permissions against (their row level security comes
+            // from the JWT controls), but the dashboard still has to be the one
+            // the token gives access to, and it has to belong to the project.
+            const dashboardUuidOrSlug =
+                dashboardContext.dashboardUuid ??
+                dashboardContext.dashboardSlug;
+            if (!dashboardUuidOrSlug) {
+                throw new ForbiddenError(
+                    'Dashboard context cannot be used by this user, the row level security filter cannot be applied',
+                );
+            }
+            const dashboard = await this.resolveDashboardContextForProject(
+                projectUuid,
+                dashboardUuidOrSlug,
+            );
+            if (
+                account.user.ability.cannot(
+                    'view',
+                    subject('Dashboard', {
+                        dashboardUuid: dashboard.dashboardUuid,
+                        organizationUuid: account.organization.organizationUuid,
+                        projectUuid,
+                    }),
+                )
+            ) {
+                throw new ForbiddenError(
+                    "You don't have access to this dashboard",
+                );
+            }
+            return dashboard;
+        }
+
+        const trustedDashboardContext =
+            await this.dashboardService.resolveDashboardContextForMetadata(
+                user,
+                projectUuid,
+                dashboardContext.dashboardUuid ??
+                    dashboardContext.dashboardSlug,
+                dashboardContext.dashboardName,
+            );
+
+        if (trustedDashboardContext === undefined) {
+            throw new ForbiddenError(
+                'Dashboard context could not be verified for this project, the row level security filter cannot be applied',
+            );
+        }
+
+        return {
+            dashboardSlug: trustedDashboardContext.dashboardSlug,
+            dashboardName: trustedDashboardContext.dashboardName,
+            dashboardUuid: trustedDashboardContext.dashboardUuid,
+        };
+    }
+
     protected async getAllowedExploreNamesForViewer(
         user: Pick<SessionUser, 'userUuid' | 'email'>,
         projectUuid: string,
@@ -4676,6 +4912,11 @@ export class ProjectService extends BaseService {
         organizationUuid?: string,
         includeUnfilteredTables: boolean = true,
         dashboardUuid?: string,
+        /**
+         * A dashboard context that has already been resolved (and verified)
+         * by the caller, to avoid resolving it twice.
+         */
+        verifiedDashboardContext?: DashboardQueryContextAttributes,
     ): Promise<Explore> {
         return Sentry.startSpan(
             {
@@ -4684,29 +4925,13 @@ export class ProjectService extends BaseService {
             },
             async () => {
                 // Get dashboard context if dashboardUuid is provided
-                let dashboardContext:
-                    | {
-                          dashboardSlug?: string;
-                          dashboardName?: string;
-                      }
-                    | undefined;
-                if (dashboardUuid) {
-                    try {
-                        const dashboard =
-                            await this.dashboardModel.getByIdOrSlug(
-                                dashboardUuid,
-                            );
-                        dashboardContext = {
-                            dashboardSlug: dashboard.slug,
-                            dashboardName: dashboard.name,
-                        };
-                    } catch (error) {
-                        // If dashboard not found, continue without context
-                        this.logger.warn(
-                            `Dashboard ${dashboardUuid} not found, continuing without dashboard context`,
-                        );
-                    }
-                }
+                const dashboardContext =
+                    verifiedDashboardContext ??
+                    (await this.resolveDashboardContextForQuery(
+                        account,
+                        projectUuid,
+                        dashboardUuid,
+                    ));
 
                 const exploresMap = await this.findExplores({
                     account,
@@ -4746,10 +4971,7 @@ export class ProjectService extends BaseService {
         projectUuid: string;
         exploreNames: string[];
         organizationUuid?: string;
-        context?: {
-            dashboardSlug?: string;
-            dashboardName?: string;
-        };
+        context?: DashboardQueryContextAttributes;
     }): Promise<Record<string, Explore | ExploreError>> {
         return Sentry.startSpan(
             {
@@ -6111,7 +6333,7 @@ export class ProjectService extends BaseService {
         metricQuery: MetricQuery,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -6189,7 +6411,7 @@ export class ProjectService extends BaseService {
         invalidateCache: boolean,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const { warehouseClient, sshTunnel } = await this._getWarehouseClient(
             projectUuid,
@@ -6275,7 +6497,7 @@ export class ProjectService extends BaseService {
         dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         assertIsAccountWithOrg(account);
 
@@ -6284,6 +6506,16 @@ export class ProjectService extends BaseService {
             undefined, // VersionUuid
         );
         const { organizationUuid, projectUuid } = savedChart;
+
+        // The dashboard context is verified against the database: the row level
+        // security filter (dbt `sql_filter`) must be applied with the canonical
+        // slug of a dashboard of this project, never with a client provided one.
+        const trustedDashboardContext =
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                dashboardContext,
+            );
 
         const explore = await this.getExplore(
             account,
@@ -6361,7 +6593,7 @@ export class ProjectService extends BaseService {
             invalidateCache,
             savedChart.organizationUuid,
             combinedParameters,
-            dashboardContext,
+            trustedDashboardContext,
         );
         return results.row;
     }
@@ -6428,10 +6660,15 @@ export class ProjectService extends BaseService {
             data.metricQuery,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
         return results.row;
     }
@@ -6515,7 +6752,7 @@ export class ProjectService extends BaseService {
         invalidateCache: boolean,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{ rowCount: number }> {
         if (
             metricQuery.dimensions.length === 0 &&
@@ -6586,7 +6823,7 @@ export class ProjectService extends BaseService {
         dashboardFilters?: DashboardFilters,
         invalidateCache: boolean = false,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{ rowCount: number }> {
         assertIsAccountWithOrg(account);
 
@@ -6595,6 +6832,16 @@ export class ProjectService extends BaseService {
             undefined, // VersionUuid
         );
         const { organizationUuid, projectUuid } = savedChart;
+
+        // The dashboard context is verified against the database: the row level
+        // security filter (dbt `sql_filter`) must be applied with the canonical
+        // slug of a dashboard of this project, never with a client provided one.
+        const trustedDashboardContext =
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                dashboardContext,
+            );
 
         const explore = await this.getExplore(
             account,
@@ -6674,7 +6921,7 @@ export class ProjectService extends BaseService {
             invalidateCache,
             savedChart.organizationUuid,
             combinedParameters,
-            dashboardContext,
+            trustedDashboardContext,
         );
     }
 
@@ -6741,10 +6988,15 @@ export class ProjectService extends BaseService {
             false,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
     }
 
@@ -6755,7 +7007,7 @@ export class ProjectService extends BaseService {
         explore: Explore,
         organizationUuid: string,
         parameters?: ParametersValuesMap,
-        dashboardContext?: { dashboardSlug?: string; dashboardName?: string },
+        dashboardContext?: DashboardQueryContextAttributes,
     ) {
         const {
             explore: exploreName,
@@ -6910,10 +7162,15 @@ export class ProjectService extends BaseService {
             explore,
             organizationUuid,
             combinedParameters,
-            {
-                dashboardSlug: data.dashboardSlug,
-                dashboardName: data.dashboardName,
-            },
+            await this.resolveDashboardContextForRowLevelSecurity(
+                account,
+                projectUuid,
+                {
+                    dashboardSlug: data.dashboardSlug,
+                    dashboardName: data.dashboardName,
+                    dashboardUuid: data.dashboardUuid,
+                },
+            ),
         );
     }
 

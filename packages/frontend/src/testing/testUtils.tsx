@@ -11,6 +11,7 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement } from 'react';
 import { vi } from 'vitest';
 import MantineProvider from '../providers/MantineProvider';
+import Mantine8Provider from '../providers/Mantine8Provider';
 import ReactQueryProvider from '../providers/ReactQuery/ReactQueryProvider';
 import TrackingProvider from '../providers/Tracking/TrackingProvider';
 import AppProviderMock, {
@@ -25,9 +26,13 @@ const getMockedProviders = (appMocks?: AppProviderMockProps['mocks']) => {
         return (
             <ReactQueryProvider>
                 <MantineProvider>
-                    <AppProviderMock mocks={appMocks}>
-                        <TrackingProvider>{children}</TrackingProvider>
-                    </AppProviderMock>
+                    {/* 部分组件（apps 等）用的是 Mantine v8（@mantine-8/core），
+                        需要单独的 provider，否则会报 “MantineProvider was not found” */}
+                    <Mantine8Provider>
+                        <AppProviderMock mocks={appMocks}>
+                            <TrackingProvider>{children}</TrackingProvider>
+                        </AppProviderMock>
+                    </Mantine8Provider>
                 </MantineProvider>
             </ReactQueryProvider>
         );

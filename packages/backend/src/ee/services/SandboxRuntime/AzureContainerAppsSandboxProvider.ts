@@ -334,7 +334,7 @@ class AzureSandboxHandle implements SandboxHandle {
  * `create`/`persist`/`resume`/`destroy`; suspend captures a full memory+disk
  * snapshot in place (sub-second resume), so there is no object-store snapshot and
  * no bespoke exec agent — the {@link AzureSandboxExecChannel} data plane speaks
- * the sandbox's native exec/file REST. See docs/sandbox-runtime.md.
+ * the sandbox's native exec/file REST.
  */
 export class AzureContainerAppsSandboxProvider implements SandboxProvider {
     readonly capabilities: SandboxCapabilities = { pauseResume: true };

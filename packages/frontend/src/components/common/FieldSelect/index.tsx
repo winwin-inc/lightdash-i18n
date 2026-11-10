@@ -82,6 +82,11 @@ type FieldSelectProps<T extends Item = Item> = Omit<
     hasGrouping?: boolean;
     baseTable?: string;
     focusOnRender?: boolean;
+    /**
+     * 搜索时同时匹配数据集（表）名称。
+     * `hasGrouping` 时下拉项 label 不含表名，默认只能按字段名搜索。
+     */
+    searchByTableLabel?: boolean;
 };
 
 const getLabel = (item: Item, hasGrouping: boolean) => {
@@ -99,6 +104,7 @@ const FieldSelect = <T extends Item = Item>({
     hasGrouping = false,
     baseTable,
     focusOnRender = false,
+    searchByTableLabel = false,
     ...rest
 }: FieldSelectProps<T>) => {
     const { t } = useTranslation();
@@ -222,6 +228,42 @@ const FieldSelect = <T extends Item = Item>({
         [items, onChange],
     );
 
+    /** 搜索：匹配字段 label、字段名，开启后额外匹配数据集（表）名称 */
+    const filterBySearchValue = useCallback(
+        (
+            query: string,
+            option: { label?: string; group?: string; item?: Item },
+        ) => {
+            const normalizedQuery = query.toLowerCase().trim();
+            if (!normalizedQuery) return true;
+
+            if (option.label?.toLowerCase().trim().includes(normalizedQuery)) {
+                return true;
+            }
+
+            if (option.item && 'name' in option.item) {
+                if (
+                    option.item.name
+                        .toLowerCase()
+                        .trim()
+                        .includes(normalizedQuery)
+                ) {
+                    return true;
+                }
+            }
+
+            if (
+                searchByTableLabel &&
+                option.group?.toLowerCase().trim().includes(normalizedQuery)
+            ) {
+                return true;
+            }
+
+            return false;
+        },
+        [searchByTableLabel],
+    );
+
     return (
         <Select
             limit={FILTER_SELECT_LIMIT}
@@ -274,6 +316,7 @@ const FieldSelect = <T extends Item = Item>({
             }
             allowDeselect={false}
             {...rest}
+            {...(searchByTableLabel ? { filter: filterBySearchValue } : {})}
             value={selectedItemId}
             data={sortedItems.map((i) => ({
                 item: i,

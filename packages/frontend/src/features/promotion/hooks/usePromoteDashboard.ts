@@ -10,9 +10,21 @@ import { useTranslation } from 'react-i18next';
 import { lightdashApi } from '../../../api';
 import useToaster from '../../../hooks/toaster/useToaster';
 
-const promoteDashboard = async (dashboardUuid: string): Promise<Dashboard> => {
+const promoteDashboard = async ({
+    dashboardUuid,
+    confirmConflicts,
+    syncDashboardName,
+}: {
+    dashboardUuid: string;
+    confirmConflicts: boolean;
+    syncDashboardName: boolean;
+}): Promise<Dashboard> => {
+    const params = new URLSearchParams({
+        confirmConflicts: String(confirmConflicts),
+        syncDashboardName: String(syncDashboardName),
+    });
     return lightdashApi<Dashboard>({
-        url: `/dashboards/${dashboardUuid}/promote`,
+        url: `/dashboards/${dashboardUuid}/promote?${params.toString()}`,
         method: 'POST',
         body: undefined,
     });
@@ -22,9 +34,15 @@ export const usePromoteDashboardMutation = () => {
     const { t } = useTranslation();
     const { showToastSuccess, showToastError } = useToaster();
 
-    return useMutation<Dashboard, ApiError, string>(
-        (data) => promoteDashboard(data),
+    return useMutation<
+        Dashboard,
+        ApiError,
         {
+            dashboardUuid: string;
+            confirmConflicts: boolean;
+            syncDashboardName: boolean;
+        }
+    >((data) => promoteDashboard(data), {
             mutationKey: ['promote_dashboard'],
             onSuccess: (data) => {
                 showToastSuccess({

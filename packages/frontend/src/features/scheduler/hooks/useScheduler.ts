@@ -260,23 +260,53 @@ export const usePaginatedSchedulers = ({
     });
 };
 
+/**
+ * How long we keep polling a scheduler job (exports) before surfacing a timeout.
+ *
+ * A job whose process died mid-flight leaves `scheduler_log` stuck on `started` forever
+ * (`maxAttempts = 1`, the `job:failed` handler only logs), so without a deadline the UI
+ * spins indefinitely and the user has to reload the page.
+ */
+export const JOB_POLL_TIMEOUT_MS = 20 * 60 * 1000;
+
+export const JOB_POLL_INTERVAL_MS = 2000;
+
+export class JobPollTimeoutError extends Error {
+    constructor(jobId: string, timeoutMs: number) {
+        super(
+            `Export job ${jobId} did not finish within ${Math.round(
+                timeoutMs / 60000,
+            )} minutes`,
+        );
+        this.name = 'JobPollTimeoutError';
+    }
+}
+
 const getJobStatus = async (
     jobId: string,
     onComplete: (response: Record<string, AnyType> | null) => void,
     onError: (error: Error) => void,
+    deadlineMs: number = Date.now() + JOB_POLL_TIMEOUT_MS,
 ) => {
     getSchedulerJobStatus(jobId)
         .then((data) => {
             if (data.status === SchedulerJobStatus.COMPLETED) {
                 return onComplete(data.details);
-            } else if (data.status === SchedulerJobStatus.ERROR) {
-                onError(new Error(data.details?.error || 'Job failed'));
-            } else {
-                setTimeout(
-                    () => getJobStatus(jobId, onComplete, onError),
-                    2000,
+            }
+            if (data.status === SchedulerJobStatus.ERROR) {
+                return onError(
+                    new Error(data.details?.error || 'Job failed'),
                 );
             }
+            if (Date.now() > deadlineMs) {
+                return onError(
+                    new JobPollTimeoutError(jobId, JOB_POLL_TIMEOUT_MS),
+                );
+            }
+            return setTimeout(
+                () => getJobStatus(jobId, onComplete, onError, deadlineMs),
+                JOB_POLL_INTERVAL_MS,
+            );
         })
         .catch((error) => {
             return onError(error);

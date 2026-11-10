@@ -63,7 +63,7 @@ export type ViewerContentScopeStatus =
 
 /**
  * Where the effective project role comes from.
- * Project level wins over organization level (see docs/client-use-viewer-content-scope.md).
+ * Project level wins over organization level (see docs/features/client-use-viewer-content-scope.md).
  */
 export type ViewerProjectRoleSource =
     | 'project_membership'

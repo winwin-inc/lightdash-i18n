@@ -87,6 +87,10 @@ curl -s http://localhost:3333/health
 | `LIGHTDASH_API_KEY` | 否 | 默认兜底 PAT；优先级低于请求头 `x-api-key` 和 tool 参数 `apiKey` |
 | `LIGHTDASH_MAX_LIMIT` | 否 | 查询 `limit` 上限 |
 | `LIGHTDASH_MCP_HTTP_PORT` | 否 | HTTP 监听端口，默认 `3333` |
+| `MCP_DASHBOARD_STRICT` | 否 | **计划中（未实现）**：强制看板模式。仅外部品牌 CT 部署设 `true`；内部不设 |
+| `MCP_DASHBOARD_CONTACT` | 否 | **计划中（未实现）**：看板无权限时的联系文案 |
+
+> 强制看板模式的设计与返回契约见 [lightdash-mcp-dashboard-strict-mode.md](./lightdash-mcp-dashboard-strict-mode.md)。当前**尚未实现**，设置上述变量不会改变运行时行为。
 
 ---
 

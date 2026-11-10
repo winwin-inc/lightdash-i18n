@@ -361,6 +361,11 @@
                 },
                 "visible": {
                     "type": "boolean"
+                },
+                "width": {
+                    "description": "列宽（px，整数）；undefined = 按内容自动",
+                    "format": "double",
+                    "type": "number"
                 }
             },
             "type": "object"
@@ -1579,6 +1584,27 @@
                     "format": "double",
                     "type": "number"
                 },
+                "baselineFieldIds": {
+                    "description": "Field ids of metrics that should be rendered as baseline (benchmark) series.\nBaseline series are drawn bolder, excluded from the legend, and keep\ntheir values in the tooltip.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "baselineStyle": {
+                    "description": "Common style applied to baseline series. Defaults: width 3, solid.",
+                    "properties": {
+                        "lineType": {
+                            "enum": ["solid", "dashed"],
+                            "type": "string"
+                        },
+                        "width": {
+                            "format": "double",
+                            "type": "number"
+                        }
+                    },
+                    "type": "object"
+                },
                 "flipAxes": {
                     "type": "boolean"
                 },
@@ -2081,6 +2107,10 @@
                 "hidden": {
                     "type": "boolean"
                 },
+                "hideMetricName": {
+                    "description": "Hide the metric label in the pivoted series display name (legend and\ntooltip show only the pivot value, e.g. `产品A` instead of\n`[产品A] 销售额市占率`).",
+                    "type": "boolean"
+                },
                 "isFilteredOut": {
                     "type": "boolean"
                 },
@@ -2163,6 +2193,13 @@
                 },
                 "nullsFirst": {
                     "type": "boolean"
+                },
+                "valueOrder": {
+                    "description": "Custom order of values for a dimension.\nThe array order is the expected order (from first to last).\nOnly applies to dimensions - empty array or undefined means\nfall back to the default A-Z / Z-A sorting.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
                 }
             },
             "required": ["descending", "fieldId"],
@@ -2463,6 +2500,10 @@
                     "$ref": "#/$defs/TableCellAlignment"
                 },
                 "showColumnCalculation": {
+                    "type": "boolean"
+                },
+                "showFieldDescriptionTooltip": {
+                    "description": "表头悬停是否显示字段描述（dbt 字段 description）。默认 true，未定义时显示。",
                     "type": "boolean"
                 },
                 "showResultsTotal": {

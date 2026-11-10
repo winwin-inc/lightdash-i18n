@@ -2,6 +2,7 @@ import type {
     ApiErrorDetail,
     ChartConfig,
     ChartType,
+    Explore,
     ItemsMap,
     MetricQuery,
     StackType,
@@ -34,6 +35,8 @@ export type TablePaginationState = {
 type VisualizationContext = {
     minimal: boolean;
     isDashboard: boolean;
+    /** Explore 编辑模式；其它场景（看板/查看/embed）为 false 或 undefined */
+    isEditMode: boolean;
     chartRef: RefObject<EChartsReact | null>;
     pivotDimensions: string[] | undefined;
     resultsData:
@@ -66,6 +69,10 @@ type VisualizationContext = {
     colorPalette: string[];
     chartConfig: ChartConfig;
     apiErrorDetail?: ApiErrorDetail | null;
+    /** 图表错误诊断用：调用方未保存的查询定义（存在时优先于 resultsData.metricQuery） */
+    unsavedMetricQuery?: MetricQuery;
+    /** 图表错误诊断用：当前 explore（编译后的字段宇宙），加载失败时为 null */
+    explore?: Explore | null;
     useHashBased: boolean;
     /**
      * 看板级颜色同步信息（仅看板且开启「同步图表颜色」时生效）。

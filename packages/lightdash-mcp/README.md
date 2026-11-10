@@ -82,6 +82,13 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 | `LIGHTDASH_MCP_LRU_MIN_IDLE_MS`  | 否   | LRU 候选最小空闲时间，默认 `300000`（5 分钟） |
 | `LIGHTDASH_MCP_SESSION_TTL_MS`   | 否   | 无业务活动（POST/DELETE）后的回收 TTL，默认 `900000`（15 分钟） |
 | `LIGHTDASH_MCP_PRUNE_INTERVAL_MS`| 否   | 后台 prune 间隔，默认 `300000`（5 分钟）                         |
+| `MCP_DASHBOARD_STRICT`           | 否   | 强制看板模式总开关（`true/false`，默认 `false`）。设为 `true` 后，**所有查询类工具**查数前必须解析出 `dashboardUuid`（与角色无关）；仅外部品牌 CT 部署设 `true` |
+| `MCP_DASHBOARD_CONTACT`          | 否   | 看板无权限时的联系文案，默认“请联系客服开通看板访问权限。” |
+
+> 强制看板模式的完整行为、权限口径与返回契约见
+> [`docs/mcp/lightdash-mcp-dashboard-strict-mode.md`](../../docs/mcp/lightdash-mcp-dashboard-strict-mode.md)（**v2 设计稿**：覆盖全部查询工具、0 候选按后端 `associatedCount` 分流、不按角色放行）。
+> 开启后，查询类工具（`run_metric_query` / `run_semantic_metric_query` / `search_field_values` / `run_saved_chart` / `run_dashboard_tiles`）会先解析看板上下文：显式传入的 `dashboardUuid` 会被校验（可打开 + 属于本项目 + 属于该数据集的关联看板），未传入时按数据集反查关联看板。解析不出就**不查数**，而是返回 `status` ∈ { `dashboard_permission_required`、`dashboard_configuration_required`、`dashboard_selection_required`、`dashboard_not_found`、`dashboard_context_unavailable` } 与对应 `action`。
+> 看板发现路径（只读、不查数）：`list_dashboards` / `find_dashboards` → `get_dashboard_tiles`；`get_my_access` 会返回 `dashboardStrict` / `dashboardContact`。
 
 ### 多用户并发与内存防护
 
@@ -108,7 +115,7 @@ claude mcp add lightdash-mcp http://npc.example.com:17808/mcp -H "x-api-key: $LI
 
 - 若频繁 **503** → 增大 `MAX_SESSIONS` / 单 owner 硬上限，或缩短 `SESSION_TTL_MS`
 - 若 **OOM** → 降低 `MAX_SESSIONS` 或增大容器 memory
-- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests` 便于监控
+- `/health` 返回 `activeSessions`、`pendingSessions`、`compatSessions`、`activeSseConnections`、`inFlightRequests`、`dashboardStrict` 便于监控
 
 **限制**：session 与 `set_project` 状态均在本进程内存；多副本部署时 session **不跨实例共享**，需 sticky session 或单实例（与原有 `set_project` 限制一致）。
 
@@ -121,7 +128,7 @@ Streamable HTTP MCP **只有** `GET /health` 与 `ALL /mcp` 两个路由。`tool
 正确冒烟流程：
 
 ```bash
-# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests）
+# 1. 健康检查（应含 activeSessions / pendingSessions / compatSessions / activeSseConnections / inFlightRequests / dashboardStrict）
 curl -s http://localhost:3333/health
 
 # 2. initialize（从响应头取 Mcp-Session-Id）
@@ -204,7 +211,7 @@ Token 解析顺序（ApiKey 路径）：MCP HTTP 请求头 `x-api-key` / `Author
 
 - `get_mcp_docs`：返回内置精简使用说明（`topic`：`overview` / `query_workflow` / `content_fields` / `session_lifecycle` / `security`）。`content_fields` 说明 `chartKind`（认图）与 `chartConfig.type`（仅 full）、`groups` 等。静态文本随构建发布，不读本地 `docs/mcp`、不访问远程 URL、不接受密钥；**不替代**客户端 transport 的 Session 清理责任。
 - `get_lightdash_version`：首条返回内容为短 **version** 文本（无则 `unknown`），第二条为完整 health JSON。
-- `get_my_access`：返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回表名单，建议同时传 `projectUuid`。非 `queryable` 表用 `run_metric_query` / `run_semantic_metric_query` 会拒绝查询；`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 与未知表。见 [`docs/mcp/mcp-get-my-access.md`](../../docs/mcp/mcp-get-my-access.md)。
+- `get_my_access`：返回当前 PAT 的组织角色和各项目有效能力。默认不返回 `explores`；`includeExplores=true` 才返回表名单，建议同时传 `projectUuid`。非 `queryable` 表用 `run_metric_query` / `run_semantic_metric_query` 会拒绝查询；`search_field_values` 允许 `queryable` 和 `metadataOnly`，仍拒绝 `attributeDenied` 与未知表。另返回 `dashboardStrict` / `dashboardContact`（强制看板模式策略与无权限联系文案）。见 [`docs/mcp/mcp-get-my-access.md`](../../docs/mcp/mcp-get-my-access.md)。
 - `find_charts` / `find_dashboards` / `find_spaces`：与上游 EE 内置 MCP 命名对齐，分别固定 `contentTypes` 为 chart / dashboard / space；`find_content` 为**不传类型过滤**的混合关键词搜索。默认 slim 图表项含 **`chartKind`**（认图；UI「自定义」=`custom`）；勿把 `chartConfig.type`（仅 `full`）当成折线/柱状。
 - `list_explores`：默认精简含 **`groups`**（嵌套 path keys）与 `groupLabel`；完整嵌套分组以本工具为准（`find_explores` 的 catalog 可能无 `groups`）。
 - `list_dashboards`：按 `spaceUuid` **层级浏览**空间下看板（非关键词搜索）；搜名称仍用 `find_dashboards`。

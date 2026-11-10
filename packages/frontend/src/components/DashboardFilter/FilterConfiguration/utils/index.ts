@@ -263,6 +263,8 @@ export const getFilterRuleRevertableObject = (
         tileTargets: filterRule.tileTargets,
         categoryLevel: filterRule.categoryLevel,
         parentFieldId: filterRule.parentFieldId,
+        parentScope: filterRule.parentScope,
+        parentTabUuid: filterRule.parentTabUuid,
         excludedValues: filterRule.excludedValues,
         allowedOperators: filterRule.allowedOperators,
         minAllowedDate: filterRule.minAllowedDate,
@@ -271,6 +273,7 @@ export const getFilterRuleRevertableObject = (
         dateRangeGranularity: filterRule.dateRangeGranularity,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
+        clearable: filterRule.clearable,
     };
 };
 

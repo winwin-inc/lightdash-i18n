@@ -1,0 +1,166 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import StickyStackProvider from './StickyStackProvider';
+import { useStickyLayer } from './useStickyLayer';
+
+const LAYER_HEIGHTS: Record<string, number> = {
+    'layer-0': 40,
+    'layer-1': 30,
+    'layer-2': 20,
+};
+
+const DEFAULT_LAYER_HEIGHTS = { ...LAYER_HEIGHTS };
+
+const Layer: React.FC<{ id: string; order: number; enabled?: boolean }> = ({
+    id,
+    order,
+    enabled = true,
+}) => {
+    const { ref, style } = useStickyLayer({ id, order, enabled });
+    return <div data-testid={id} ref={ref} style={style} />;
+};
+
+describe('StickyStack', () => {
+    beforeEach(() => {
+        Object.assign(LAYER_HEIGHTS, DEFAULT_LAYER_HEIGHTS);
+
+        vi.spyOn(
+            HTMLElement.prototype,
+            'getBoundingClientRect',
+        ).mockImplementation(function getRect(this: HTMLElement) {
+            const id = this.getAttribute('data-testid');
+            const height = (id && LAYER_HEIGHTS[id]) || 0;
+            return {
+                width: 100,
+                height,
+                top: 0,
+                left: 0,
+                right: 100,
+                bottom: height,
+                x: 0,
+                y: 0,
+                toJSON: () => ({}),
+            } as DOMRect;
+        });
+    });
+
+    it('stacks the layers below each other', () => {
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        expect(screen.getByTestId('layer-0')).toHaveStyle({
+            position: 'sticky',
+            top: '0px',
+        });
+        // 40px (layer-0) + 0px (nothing above layer-1)
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '40px' });
+        // 40px (layer-0) + 30px (layer-1)
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '70px' });
+    });
+
+    it('paints the topmost layer on top', () => {
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} />
+            </StickyStackProvider>,
+        );
+
+        expect(screen.getByTestId('layer-0')).toHaveStyle({ zIndex: '195' });
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ zIndex: '194' });
+    });
+
+    it('does not make disabled layers sticky', () => {
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} enabled={false} />
+                <Layer id="layer-1" order={1} />
+            </StickyStackProvider>,
+        );
+
+        expect(screen.getByTestId('layer-0')).not.toHaveStyle({
+            position: 'sticky',
+        });
+        // disabled layers are not part of the stack
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '0px' });
+    });
+
+    it('registers layers that are rendered conditionally', () => {
+        const ConditionalLayer: React.FC = () => {
+            const [show, setShow] = useState(false);
+            const { ref, style } = useStickyLayer({
+                id: 'layer-1',
+                order: 1,
+            });
+            return (
+                <>
+                    <button type="button" onClick={() => setShow(true)}>
+                        show
+                    </button>
+                    {show && (
+                        <div data-testid="layer-1" ref={ref} style={style} />
+                    )}
+                </>
+            );
+        };
+
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <ConditionalLayer />
+            </StickyStackProvider>,
+        );
+
+        // not rendered yet, so there is nothing between the layers
+        expect(screen.getByTestId('layer-0')).toHaveStyle({ top: '0px' });
+
+        fireEvent.click(screen.getByRole('button', { name: 'show' }));
+
+        // now the layer exists and its height (30px) is taken into account
+        expect(screen.getByTestId('layer-1')).toHaveStyle({ top: '40px' });
+    });
+
+    it('ignores empty layers when stacking', () => {
+        render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-empty" order={1} />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        // the empty layer (0px) does not take up any space
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '40px' });
+    });
+
+    it('releases the space of a layer that becomes empty', () => {
+        const { rerender } = render(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '70px' });
+
+        // the layer is empty now and gets re-measured
+        LAYER_HEIGHTS['layer-1'] = 0;
+        rerender(
+            <StickyStackProvider>
+                <Layer id="layer-0" order={0} />
+                <Layer id="layer-1" order={1} key="empty" />
+                <Layer id="layer-2" order={2} />
+            </StickyStackProvider>,
+        );
+
+        // the layer does not take up any space anymore
+        expect(screen.getByTestId('layer-2')).toHaveStyle({ top: '40px' });
+    });
+});

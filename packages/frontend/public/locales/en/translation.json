@@ -243,7 +243,10 @@
     "validation_error": "Validation error",
     "validation_error_subtitle": "Invalid field {{keys}} with value {{values}}. The team has been already notified, we'll fix it soon",
     "unknown_validation_error": "Unknown validation error",
-    "chart_error": "Chart '{{chartName}}': Error"
+    "chart_error": "Chart '{{chartName}}': Error",
+    "warehouse_resource_limit": "The warehouse query ran out of resources (engine memory limit reached). Please try again later or narrow down the filters.",
+    "category_resolution_failed": "Failed to resolve the category filter. The previous value was kept, so cascading may not have applied.",
+    "category_no_candidates": "There are no category options under the parent. The child filter kept its previous value."
   },
   "hooks_explorer_route": {
     "parse_url_error": "Error parsing url",
@@ -1207,10 +1210,24 @@
       "groups": {
         "spaces": "Spaces",
         "dashboards": "Dashboards",
-        "charts": "Charts"
+        "charts": "Charts",
+        "sql_charts": "SQL charts",
+        "apps": "Data apps"
       },
       "no_changes": "No changes to promote",
       "without_changes": "We only promote content that is more recent in this project.",
+      "conflicts": {
+        "upstream_changed": {
+          "title": "The dashboard was changed in the upstream project",
+          "description": "The dashboard in the upstream project was updated after it was promoted for the last time. Promoting again will overwrite those changes.",
+          "confirm": "I confirm that the changes in the upstream project can be overwritten"
+        },
+        "name_mismatch": {
+          "title": "The dashboard has a different name in the upstream project",
+          "description": "The dashboard in the upstream project is named \"{{upstreamName}}\" and the one in this project is named \"{{sourceName}}\". The name in the upstream project is kept unless you sync it.",
+          "sync": "Sync the name to the upstream project"
+        }
+      },
       "cancel": "Cancel",
       "promote": "Promote"
     },
@@ -2394,10 +2411,6 @@
       "save_changes": "Save changes"
     },
     "cancel": "Cancel",
-    "tooltip_fullscreen": {
-      "exit_fullscreen_mode": "Exit Fullscreen Mode",
-      "enter_fullscreen_mode": "Enter Fullscreen Mode"
-    },
     "tooltip_eidt_dashboard": {
       "edit_dashboard": "Edit dashboard"
     },
@@ -2672,6 +2685,8 @@
     "drill_into": "Drill into"
   },
   "components_common_table": {
+    "resize_column": "Drag to resize column",
+    "reset_column_width": "Double-click to reset column width",
     "copied_to_clipboard": "Copied to clipboard!",
     "pagination": {
       "pages": "Pages",
@@ -2767,18 +2782,29 @@
         "requires_default_value": "Turn on \"Provide default value\" to configure single/multiple selection"
       },
       "category_level": {
+        "follow_parent_label": "Follow parent filter",
+        "follow_parent_placeholder": "Select a category filter",
+        "follow_parent_hint": "Values are re-validated against the current category when the parent changes",
         "label": "Category Level",
         "tooltip": "Bind this filter to a category field for category filter cascade",
         "placeholder": "No category binding",
+        "derived_hint": "Derived as a level {{level}} category from its column or label (not declared; leave empty to keep the derived level)",
         "level1": "Level 1 Category",
         "level2": "Level 2 Category",
         "level3": "Level 3 Category",
         "level4": "Level 4 Category",
         "parent_filter_label": "Parent filter",
-        "parent_filter_placeholder": "No parent filter"
+        "parent_filter_placeholder": "No parent filter",
+        "parent_scope_global": "Global",
+        "parent_scope_tab": "Current tab",
+        "parent_scope_hint": "Tab filters can bind a global filter as parent. If a parent has no value, the levels below it are cleared.",
+        "parent_invalid": "Missing parent",
+        "parent_option_label": "{{label}} • {{level}} ({{scope}})",
+        "parent_option_label_short": "{{level}} ({{scope}})"
       },
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",
+      "filter_no_clear": "Cannot be cleared",
       "date_range": {
         "min_label": "Earliest selectable date",
         "max_label": "Latest selectable date",
@@ -2804,7 +2830,37 @@
         "label": "Limit filter methods",
         "description": "Leave empty for no limit; viewers can use all filter methods",
         "placeholder": "Select filter methods available to viewers"
+      },
+      "section": {
+        "value": "Condition",
+        "value_policy": "Value policy",
+        "viewer_limits": "Viewer limits",
+        "option_limits": "Option limits",
+        "linkage": "Field linkage"
       }
+    },
+    "batch_bind": {
+      "button": "Batch bind",
+      "title": "Batch bind category filters",
+      "bind_hint": "Parent relationships are generated from category names and levels; the parent does not need a value yet. Selected rows are written to the current scope.",
+      "bind_hint_global": "Parent relationships are generated from category names and levels for global filters. Global relationships apply to all tabs.",
+      "no_changes": "All category filters are already bound as expected; nothing to update.",
+      "no_category_filters": "This tab has no category filters. Set a category level on a filter first.",
+      "select_filters": "Filters to update",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "category_level_change": "Category level: {{from}} → {{to}}",
+      "parent_filter_change": "Parent filter: {{from}} → {{to}}",
+      "none": "None",
+      "unset": "Not set",
+      "parent_bound": "Parent filter: {{parent}} (bound)",
+      "unbound_no_parent": "A lower-level filter exists but has no category level set, so it cannot be used as a parent. Set its category level first.",
+      "orphan_parent": "The existing parent is no longer resolvable and no parent candidate is available; the binding is kept.",
+      "root_no_parent": "This is the top category level; no parent is needed.",
+      "ambiguous_parent": "Multiple filters share this level; the existing binding or a same-table candidate is preferred. Please check the binding.",
+      "implicit_level": "A selected filter below uses this as its parent, so its category level is applied too.",
+      "cancel": "Cancel",
+      "apply": "Apply"
     },
     "tabs": {
       "tooltip_filter": {
@@ -2843,6 +2899,8 @@
       }
     },
     "filter": {
+      "auto_adjusted_hint": "Auto-adjusted for the current category (previous: ",
+      "cascade_updating": "Updating",
       "tooltip_creating_new": {
         "label": {
           "part_1": "Only filters added in",
@@ -5433,7 +5491,13 @@
       },
       "stack_series_sort_by_value": "Sort stacked series",
       "series_sort": "Sort series",
-      "tried": "Tried to reference field with unknown id:"
+      "tried": "Tried to reference field with unknown id:",
+      "baseline": "Show as baseline",
+      "baseline_style_width": "Line width",
+      "baseline_style_line_type": "Line style",
+      "baseline_line_type_solid": "Solid",
+      "baseline_line_type_dashed": "Dashed",
+      "hide_metric_name": "Hide metric name"
     }
   },
   "components_visualization_configs_chart_funnel": {
@@ -5524,7 +5588,9 @@
         "part_4": "Show column"
       },
       "unfreeze": "Unfreeze column",
-      "freeze": "Freeze column"
+      "freeze": "Freeze column",
+      "width": "Column width",
+      "reset_width": "Reset column width to auto"
     },
     "formatting_item": {
       "single": "single",
@@ -5575,16 +5641,18 @@
       "pivot_metric_header_top_disabled": "Only available for pivot tables with metrics as columns",
       "pivot_auto_fill_width": "Fill leftover space",
       "pivot_auto_fill_width_hint": "Only distributes leftover space when total column width is smaller than the container; does not size by header text. Header-fitting auto width is on by default.",
-      "pivot_auto_fill_width_tooltip": "Off: columns still auto-size to content; leftover space is not filled.\nOn: when total width is smaller than the container, leftover space is distributed evenly.",
+      "pivot_auto_fill_width_tooltip": "Off: column widths stay content-based and do not fill empty space.\nOn: when the total column width is smaller than the container, share the remaining space evenly.\nNote: ignored once a column has been resized by hand (per-column width wins); the switch is disabled in that case.",
       "pivot_dimension_column_max_width": "Max row dimension column width (px)",
       "pivot_dimension_column_max_width_placeholder": "300",
-      "pivot_dimension_column_max_width_tooltip": "Caps left row-dimension columns. Leave empty for default 450; overflow is ellipsized (hover for full text).",
+      "pivot_dimension_column_max_width_tooltip": "Caps the width of row dimension columns on the left. Defaults to 450 when empty; overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_data_column_max_width": "Max data column width (px)",
       "pivot_data_column_max_width_placeholder": "240",
-      "pivot_data_column_max_width_tooltip": "Caps metric data columns. Leave empty for default 450; placeholder 240 is a tighter suggestion. Overflow is ellipsized (hover for full text).",
+      "pivot_data_column_max_width_tooltip": "Caps the width of metric data columns. Defaults to 450 when empty (240 is a tighter suggestion); overflow is truncated with a tooltip. Columns resized by hand ignore this cap.",
       "pivot_column_max_width_hint": "Limits both content auto-width and fill stretch; leave empty to use the default cap of 450 (placeholders are tighter suggestions)",
       "display": "Display",
       "show_table_names": "Show table names",
+      "show_field_description_tooltip": "Show field descriptions",
+      "show_field_description_tooltip_hint": "Show the field's description (from dbt) when hovering a column header",
       "show_row_numbers": "Show row numbers",
       "value_alignment": "Value alignment",
       "alignment": "Alignment",
@@ -6713,6 +6781,21 @@
     }
   },
   "components_sort_button": {
+    "custom_order": "Custom order",
+    "custom_order_tooltip": "Sort by a fixed value order",
+    "custom_order_candidates": "Values in this result",
+    "custom_order_others_hint": "Values not listed come last, sorted A-Z / Z-A",
+    "custom_order_limit_hint": "Showing first 500 values, search to narrow down",
+    "custom_order_missing_value": "Not found in current data",
+    "custom_order_all_selected": "All values selected",
+    "custom_order_max_selected": "Up to 200 values; extra values are ignored",
+    "custom_order_move_up": "Move up",
+    "custom_order_move_down": "Move down",
+    "custom_order_remove": "Remove value",
+    "custom_order_short": "Custom",
+    "custom_order_search_placeholder": "Search values from the database",
+    "custom_order_no_candidates": "No values found",
+    "custom_order_badge": "Custom order",
     "no_sort": "No sort",
     "fields": "fields",
     "field": "1 field",
@@ -6730,7 +6813,9 @@
       "old_new": "Old-New",
       "new_old": "New-Old",
       "false_true": "False-True",
-      "true_false": "True-False"
+      "true_false": "True-False",
+      "custom_asc": "Ascending",
+      "custom_desc": "Descending"
     }
   },
   "components_export_csv": {
@@ -6775,14 +6860,17 @@
   "components_export_results": {
     "exporting": {
       "title": "Exporting results",
-      "subtitle": "This may take a few minutes..."
+      "subtitle": "This may take a few minutes...",
+      "subtitle_elapsed": "Elapsed {{seconds}}s - large exports can take several minutes, the download starts automatically..."
     },
     "warning": {
       "title": "The results in this export have been limited.",
       "subtitle": "The export was truncated due to size constraints."
     },
     "error": {
-      "title": "Unable to download CSV"
+      "title": "Unable to download CSV",
+      "no_file": "The export finished but no file URL was returned. Please retry or contact your admin.",
+      "timeout": "The export did not finish within 20 minutes and we stopped waiting. Try a smaller range (fewer months or columns) or ask your admin to check the background job."
     },
     "no_data_to_export": "No data to export",
     "file_format": "File format",
@@ -8276,6 +8364,32 @@
   "components_lightdash_visualization": {
     "unable_to_load_visualization": "Unable to load visualization"
   },
+  "components_chart_error_details": {
+    "summary_invalid_one": "This chart has 1 unavailable field",
+    "summary_invalid_other": "This chart has {{count}} unavailable fields",
+    "summary_none": "No unavailable fields found; the error may come from elsewhere",
+    "summary_uncertain": "This query uses {{count}} fields; the error may come from one of them",
+    "error_short": "Chart failed to load",
+    "view_details": "View details",
+    "technical_details": "Technical details",
+    "group_dimension": "Dimensions",
+    "group_metric": "Metrics",
+    "group_table_calculation": "Table calculations",
+    "more_in_group": "{{count}} more",
+    "invalid_badge": "Unavailable",
+    "origin_query": "Chart field",
+    "origin_filter": "Chart filter",
+    "origin_sort": "Chart sort",
+    "origin_dashboard_filter": "Dashboard filter",
+    "origin_dashboard_sort": "Dashboard sort",
+    "origin_date_zoom": "Date zoom",
+    "origin_unknown": "Unknown origin",
+    "permission": "No permission to access this chart's data",
+    "not_found": "The model is unavailable",
+    "parameter": "Missing required parameters",
+    "chart_type_label": "Type: {{type}}",
+    "note_query_fields_only": "Only query fields are listed"
+  },
   "components_run_query_settings": {
     "auto_fetch_results": "Auto-fetch results",
     "automatically_rerun_query_on_change": "Automatically re-run query on change (e.g. add fields, change sort)"
@@ -9627,6 +9741,7 @@
       "dashboard_filters_add_button_visibility_changed": "Show/hide add filter",
       "dashboard_filters_read_only_changed": "Set filter read-only",
       "dashboard_filters_hidden_changed": "Set filter hidden",
+      "dashboard_filters_clearable_changed": "Set filter value locked",
       "dashboard_filters_allowed_operators_changed": "Change allowed operators",
       "dashboard_filters_input_mode_changed": "Change single/multi select",
       "project_member_added": "Added project member",
@@ -9718,6 +9833,7 @@
       "visible": "Visible",
       "readOnly": "Read-only",
       "hidden": "Hidden",
+      "clearable": "Cannot be cleared",
       "allowedOperators": "Allowed operators",
       "singleValue": "Single value",
       "required": "Required to run",

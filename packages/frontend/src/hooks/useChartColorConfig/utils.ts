@@ -1,4 +1,8 @@
-import { type Series } from '@lightdash/common';
+import {
+    ChartType,
+    type ChartConfig,
+    type Series,
+} from '@lightdash/common';
 import { type EChartSeries } from '../echarts/useEchartsCartesianConfig';
 import { type SeriesLike } from './types';
 
@@ -69,4 +73,42 @@ export const calculateSeriesLikeIdentifier = (series: SeriesLike) => {
         }`,
         completeIdentifier,
     ];
+};
+
+/**
+ * 系列声明的指标字段（基准线判断用）：运行时 echarts 系列优先取 pivotReference，
+ * 图表配置中的 Series 取 encode.yRef（与 calculateSeriesLikeIdentifier 的取法一致）。
+ */
+const getSeriesLikeField = (series: SeriesLike): string | undefined =>
+    (series as EChartSeries).pivotReference?.field ??
+    (series as Series).encode.yRef?.field;
+
+/**
+ * 基准线系列（layout.baselineFieldIds 声明的指标，仅 line/area）是用户特意配色的
+ * 参考线：即使在看板「同步图表颜色」(useHashBased) 模式下，也应保留用户自定义色，
+ * 不被看板色表覆盖。
+ *
+ * 取色优先级与非哈希分支一致：
+ * 1. 系列对象上的 color（SingleSeriesConfiguration → updateSingleSeries 写入）
+ * 2. chartConfig.config.metadata[seriesId].color（同一面板 → updateMetadata 写入，
+ *    key 为 calculateSeriesLikeIdentifier(series).join('.')）
+ *
+ * 非基准线系列 / 非 CARTESIAN 图表 / 无自定义色时返回 null，调用方维持原取色路径。
+ */
+export const getBaselineUserColor = (
+    seriesLike: SeriesLike,
+    chartConfig: ChartConfig,
+): string | null => {
+    if (chartConfig.type !== ChartType.CARTESIAN) return null;
+
+    const baselineFieldIds = chartConfig.config?.layout?.baselineFieldIds;
+    if (!baselineFieldIds || baselineFieldIds.length === 0) return null;
+
+    const field = getSeriesLikeField(seriesLike);
+    if (!field || !baselineFieldIds.includes(field)) return null;
+
+    if (seriesLike.color) return seriesLike.color;
+
+    const serieId = calculateSeriesLikeIdentifier(seriesLike).join('.');
+    return chartConfig.config?.metadata?.[serieId]?.color ?? null;
 };

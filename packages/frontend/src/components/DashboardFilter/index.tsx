@@ -13,6 +13,7 @@ import {
     enqueueAddFilterButtonVisibilityChanged,
     enqueueFilterBarVisibilityChanged,
 } from '../../hooks/dashboard/dashboardOperationEventQueue';
+import { useVisibleDashboardFilters } from '../../hooks/dashboard/useVisibleDashboardFilters';
 import { useProject } from '../../hooks/useProject';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
 import useTracking from '../../providers/Tracking/useTracking';
@@ -77,7 +78,7 @@ const DashboardFilter: FC<Props> = ({
     const isFilterEnabled =
         filterScope === 'global'
             ? isGlobalFilterEnabled
-            : (isTabFilterEnabled[activeTabUuid || ''] ?? true);
+            : isTabFilterEnabled[activeTabUuid || ''] ?? true;
     const setIsFilterEnabled =
         filterScope === 'global'
             ? setIsGlobalFilterEnabled
@@ -94,7 +95,7 @@ const DashboardFilter: FC<Props> = ({
     const showAddFilterButton =
         filterScope === 'global'
             ? showGlobalAddFilterButton
-            : (showTabAddFilterButton[activeTabUuid || ''] ?? false);
+            : showTabAddFilterButton[activeTabUuid || ''] ?? false;
     const setShowAddFilterButton =
         filterScope === 'global'
             ? setShowGlobalAddFilterButton
@@ -109,6 +110,8 @@ const DashboardFilter: FC<Props> = ({
 
     // all filters
     const allFilters = useDashboardContext((c) => c.allFilters);
+    // 作者保存的全局筛选器（不含临时筛选器）：批量绑定的父级候选只能是它们
+    const dashboardFilters = useDashboardContext((c) => c.dashboardFilters);
     const resetDashboardFilters = useDashboardContext(
         (c) => c.resetDashboardFilters,
     );
@@ -198,13 +201,12 @@ const DashboardFilter: FC<Props> = ({
     }, []);
 
     // 批量绑定相关
-    const tiles = useDashboardContext((c) => c.dashboardTiles);
-    const filterableFieldsByTileUuid = useDashboardContext(
-        (c) => c.filterableFieldsByTileUuid,
-    );
     const tabFilters = useDashboardContext((c) => c.tabFilters);
     const updateTabDimensionFilter = useDashboardContext(
         (c) => c.updateTabDimensionFilter,
+    );
+    const updateDimensionDashboardFilter = useDashboardContext(
+        (c) => c.updateDimensionDashboardFilter,
     );
 
     const currentFilters = useMemo(() => {
@@ -214,28 +216,140 @@ const DashboardFilter: FC<Props> = ({
         return tabFilters?.[activeTabUuid || '']?.dimensions || [];
     }, [filterScope, allFilters, tabFilters, activeTabUuid]);
 
+    // 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级 → Tab 四级）。
+    // 用永久筛选器（dashboardFilters）而不是 allFilters：临时/交叉筛选器不写回配置，
+    // 绑定到临时筛选器会在移除后断链。
+    const globalFilters = useMemo(
+        () => dashboardFilters?.dimensions || [],
+        [dashboardFilters],
+    );
+
+    // 批量绑定入口：当前作用域有筛选器就显示（不要求筛选器行已启用）
+    const hasBatchBindableFilters =
+        filterScope === 'global'
+            ? globalFilters.length > 0
+            : currentFilters.length > 0;
+
+    // The filter row must not take up any space when there is nothing to
+    // show, otherwise it leaves a gap in the sticky stack of the dashboard.
+    const { hasVisibleContent } = useVisibleDashboardFilters({
+        filterScope,
+        activeTabUuid,
+        isEditMode,
+    });
+
     const handleBatchBind = useCallback(
         (updatedFilters: DashboardFilterRule[]) => {
-            if (filterScope === 'tab' && activeTabUuid) {
-                // 批量更新筛选器
-                updatedFilters.forEach((filter, index) => {
-                    updateTabDimensionFilter(
-                        activeTabUuid,
-                        filter,
+            // 批量绑定只改「类目层级 + 父级」四个字段；合并到最新规则上，
+            // 避免 modal 打开期间被级联改掉的取值 / 生效状态被旧快照覆盖。
+            const mergeBindingFields = (
+                latest: DashboardFilterRule,
+                filter: DashboardFilterRule,
+            ): DashboardFilterRule => ({
+                ...latest,
+                categoryLevel: filter.categoryLevel,
+                parentFieldId: filter.parentFieldId,
+                parentScope: filter.parentScope,
+                parentTabUuid: filter.parentTabUuid,
+            });
+            const hasBindingDiff = (
+                latest: DashboardFilterRule,
+                merged: DashboardFilterRule,
+            ) =>
+                merged.categoryLevel !== latest.categoryLevel ||
+                merged.parentFieldId !== latest.parentFieldId ||
+                merged.parentScope !== latest.parentScope ||
+                merged.parentTabUuid !== latest.parentTabUuid;
+
+            // 全局行：写全局筛选器（编辑模式直接落值，不触发级联）
+            if (filterScope === 'global') {
+                const latestFilters = dashboardFilters?.dimensions ?? [];
+                updatedFilters.forEach((filter) => {
+                    const index = latestFilters.findIndex(
+                        (latestRule) => latestRule.id === filter.id,
+                    );
+                    if (index === -1) return;
+                    const latest = latestFilters[index];
+                    const merged = mergeBindingFields(latest, filter);
+                    if (!hasBindingDiff(latest, merged)) return;
+                    updateDimensionDashboardFilter(
+                        merged,
                         index,
                         false,
+                        isEditMode,
                     );
                 });
+                return;
             }
+
+            if (!activeTabUuid) return;
+            // Tab 行：写当前 Tab。
+            // 下标按最新 tabFilters 的 id 重新求（modal 打开期间筛选器可能被
+            // 重新加载/初始化改写，闭包里的旧下标会写错位置）。
+            const latestFilters = tabFilters?.[activeTabUuid]?.dimensions ?? [];
+            updatedFilters.forEach((filter) => {
+                const index = latestFilters.findIndex(
+                    (latestRule) => latestRule.id === filter.id,
+                );
+                if (index === -1) return;
+
+                const latest = latestFilters[index];
+                const merged = mergeBindingFields(latest, filter);
+                if (!hasBindingDiff(latest, merged)) return;
+                updateTabDimensionFilter(activeTabUuid, merged, index, false);
+            });
         },
-        [filterScope, activeTabUuid, updateTabDimensionFilter],
+        [
+            filterScope,
+            activeTabUuid,
+            dashboardFilters,
+            tabFilters,
+            isEditMode,
+            updateDimensionDashboardFilter,
+            updateTabDimensionFilter,
+        ],
     );
+
+    // 批量绑定 Modal：全局行只写全局；Tab 行只写当前 Tab（父级可绑全局）
+    const batchBindModal = (
+        <BatchBindModal
+            opened={batchBindModalOpened}
+            onClose={() => setBatchBindModalOpened(false)}
+            filters={filterScope === 'global' ? globalFilters : currentFilters}
+            onApply={handleBatchBind}
+            // 始终传稳定引用：global scope 下 plan 会忽略它，
+            // 但传新数组会触发 plan/effect 无限重算
+            globalFilters={globalFilters}
+            tabUuid={filterScope === 'tab' ? activeTabUuid : undefined}
+            scope={filterScope}
+        />
+    );
+
+    // Nothing to show: the row is not rendered at all, so it doesn't take up
+    // any space in the sticky stack of the dashboard.
+    if (!hasVisibleContent) {
+        return (
+            <FiltersProvider<Record<string, DashboardFilterableField>>
+                projectUuid={projectUuid}
+                dashboardSlug={dashboard?.slug}
+                dashboardName={dashboard?.name}
+                itemsMap={allFilterableFieldsMap}
+                startOfWeek={
+                    project.data?.warehouseConnection?.startOfWeek ?? undefined
+                }
+                dashboardFilters={appliedFilters}
+            >
+                {batchBindModal}
+            </FiltersProvider>
+        );
+    }
 
     return (
         <FiltersProvider<Record<string, DashboardFilterableField>>
             projectUuid={projectUuid}
             dashboardSlug={dashboard?.slug}
             dashboardName={dashboard?.name}
+            dashboardUuid={dashboard?.uuid}
             itemsMap={allFilterableFieldsMap}
             startOfWeek={
                 project.data?.warehouseConnection?.startOfWeek ?? undefined
@@ -304,8 +418,8 @@ const DashboardFilter: FC<Props> = ({
                                         ? 'xl'
                                         : 'none'
                                     : isFilterEnabled
-                                      ? 'xl'
-                                      : 'xs'
+                                    ? 'xl'
+                                    : 'xs'
                             }
                             styles={{
                                 input: { cursor: 'pointer' },
@@ -351,46 +465,33 @@ const DashboardFilter: FC<Props> = ({
                                         'components_dashboard_filter.show_add_filter_button',
                                     )}
                                 />
-                                {filterScope === 'tab' &&
-                                    currentFilters.length > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="subtle"
-                                            compact
-                                            ml="sm"
-                                            onClick={() =>
-                                                setBatchBindModalOpened(true)
-                                            }
-                                            styles={{
-                                                root: {
-                                                    fontWeight: 400,
-                                                    fontSize: '14px',
-                                                },
-                                            }}
-                                        >
-                                            {t(
-                                                'components_dashboard_filter.batch_bind.button',
-                                            )}
-                                        </Button>
-                                    )}
                             </>
+                        )}
+                        {hasBatchBindableFilters && (
+                            <Button
+                                size="sm"
+                                variant="subtle"
+                                compact
+                                ml="sm"
+                                onClick={() => setBatchBindModalOpened(true)}
+                                styles={{
+                                    root: {
+                                        fontWeight: 400,
+                                        fontSize: '14px',
+                                    },
+                                }}
+                            >
+                                {t(
+                                    'components_dashboard_filter.batch_bind.button',
+                                )}
+                            </Button>
                         )}
                     </>
                 )}
             </Flex>
 
             {/* 批量绑定 Modal */}
-            {filterScope === 'tab' && (
-                <BatchBindModal
-                    opened={batchBindModalOpened}
-                    onClose={() => setBatchBindModalOpened(false)}
-                    filters={currentFilters}
-                    tiles={tiles || []}
-                    availableTileFilters={filterableFieldsByTileUuid || {}}
-                    allFilterableFieldsMap={allFilterableFieldsMap}
-                    onApply={handleBatchBind}
-                />
-            )}
+            {batchBindModal}
         </FiltersProvider>
     );
 };

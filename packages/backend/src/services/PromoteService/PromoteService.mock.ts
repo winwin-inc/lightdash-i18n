@@ -1,7 +1,10 @@
 import { Ability } from '@casl/ability';
 import {
+    AllVizChartConfig,
     ChartType,
     DashboardChartTile,
+    DashboardDataAppTile,
+    DashboardSqlChartTile,
     DashboardTileTypes,
     OrganizationMemberRole,
     PossibleAbilities,
@@ -230,6 +233,7 @@ export const existingUpstreamDashboard: UpstreamDashboard = {
         description: '',
         uuid: 'upstream-dashboard-uuid',
         spaceUuid: upstreamSpace.uuid,
+        updatedAt: new Date(),
     },
     projectUuid: upstreamProjectUuid,
     space: upstreamSpace,
@@ -276,5 +280,94 @@ export const promotedDashboardWithNewPrivateSpace = {
         ...promotedDashboard.space,
         name: 'Private space',
         isPrivate: true,
+    },
+};
+
+export const sqlChartConfig = {
+    type: 'cartesian',
+    x: { fieldId: 'orders_total' },
+    y: [{ fieldId: 'orders_count', aggregation: 'sum' }],
+} as unknown as AllVizChartConfig;
+
+/**
+ * A SQL chart of the source project, owned by a space.
+ */
+export const sourceSqlChart = {
+    savedSqlUuid: 'source-sql-chart-uuid',
+    name: 'sql chart',
+    description: 'a sql chart',
+    slug: 'sql-chart',
+    sql: 'select 1',
+    limit: 500,
+    config: sqlChartConfig,
+    chartKind: ChartType.CARTESIAN,
+    createdAt: new Date(),
+    createdBy: updatedByUser,
+    lastUpdatedAt: new Date(),
+    lastUpdatedBy: updatedByUser,
+    space: {
+        uuid: promotedSpace.uuid,
+        name: promotedSpace.name,
+        isPrivate: false,
+    },
+    dashboard: null,
+    project: { projectUuid: promotedProjectUuid },
+    organization: { organizationUuid },
+    views: 0,
+    firstViewedAt: new Date(),
+    lastViewedAt: new Date(),
+};
+
+/**
+ * The same SQL chart, already promoted to the upstream project.
+ */
+export const upstreamSqlChart = {
+    ...sourceSqlChart,
+    savedSqlUuid: 'upstream-sql-chart-uuid',
+    project: { projectUuid: upstreamProjectUuid },
+};
+
+export const sqlChartTile: DashboardSqlChartTile = {
+    uuid: 'sql-chart-tile-uuid',
+    type: DashboardTileTypes.SQL_CHART,
+    x: 0,
+    y: 0,
+    h: 10,
+    w: 10,
+    tabUuid: undefined,
+    properties: {
+        title: 'sql chart tile',
+        savedSqlUuid: sourceSqlChart.savedSqlUuid,
+        chartName: sourceSqlChart.name,
+        chartSlug: sourceSqlChart.slug,
+    },
+};
+
+export const dataAppTile: DashboardDataAppTile = {
+    uuid: 'data-app-tile-uuid',
+    type: DashboardTileTypes.DATA_APP,
+    x: 0,
+    y: 0,
+    h: 10,
+    w: 10,
+    tabUuid: undefined,
+    properties: {
+        title: 'data app tile',
+        appUuid: 'source-app-uuid',
+        appSlug: 'source-app',
+    },
+};
+
+/**
+ * A dashboard of the source project with a SQL chart tile and a data app
+ * tile.
+ */
+export const promotedDashboardWithSqlChartAndDataApp = {
+    ...promotedDashboard,
+    dashboard: {
+        ...promotedDashboard.dashboard,
+        name: 'dashboard with sql chart and data app',
+        uuid: 'promoted-dashboard-with-sql-chart-uuid',
+        tiles: [sqlChartTile, dataAppTile],
     },
 };

@@ -8,6 +8,7 @@ import {
 } from '@lightdash/common';
 import fs from 'fs';
 import { PassThrough, Readable, Writable } from 'stream';
+import { createGunzip, createGzip } from 'zlib';
 import Logger from '../../logging/logger';
 import { createContentDispositionHeader } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { buildPublicDownloadUrl } from '../Aws/buildPublicDownloadUrl';
@@ -19,11 +20,15 @@ import {
 export class S3ResultsFileStorageClient extends S3CacheClient {
     private readonly s3ExpiresIn: number | undefined;
 
+    /** Compress result files with gzip. Readers detect it via `ContentEncoding`. */
+    private readonly jsonlGzip: boolean;
+
     constructor(args: S3CacheClientArguments) {
         super(args);
 
         const { lightdashConfig } = args;
         this.s3ExpiresIn = lightdashConfig.s3?.expirationTime;
+        this.jsonlGzip = lightdashConfig.results?.jsonlGzip ?? false;
     }
 
     static sanitizeFileExtension(
@@ -46,6 +51,15 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             contentType: string;
         },
         attachmentDownloadName?: string,
+        uploadOptions?: {
+            /**
+             * Override `RESULTS_JSONL_GZIP` for this object. Result JSONL files keep the
+             * configured behaviour, but formatted exports (CSV/XLSX) must stay plain: the
+             * browser would decode a gzip body, while scripts/Excel/`curl` get binary
+             * bytes with a `.csv` extension.
+             */
+            compress?: boolean;
+        },
     ) {
         if (!this.configuration || !this.s3) {
             throw new MissingConfigError('S3 configuration is not set');
@@ -62,18 +76,81 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
         );
 
         const prefixedKey = this.getPrefixedFileId(fileName);
+
+        const shouldCompress = uploadOptions?.compress ?? this.jsonlGzip;
+
+        // When gzip is on we pipe the raw sink through a gzip stream and upload the
+        // compressed output. `write()` and `close()` stay untouched, so callers keep
+        // pushing JSONL text exactly as before.
+        const uploadBody: Readable = shouldCompress
+            ? passThrough.pipe(createGzip({ level: 3 }))
+            : passThrough;
+
         const upload = new Upload({
             client: this.s3,
             params: {
                 Bucket: this.configuration.bucket,
                 Key: prefixedKey,
-                Body: passThrough,
+                Body: uploadBody,
                 ContentType: opts.contentType,
+                ...(shouldCompress ? { ContentEncoding: 'gzip' } : {}),
                 ContentDisposition: contentDisposition,
             },
         });
 
         let isClosed = false;
+
+        // An upload failure destroys the body stream with its error. Without a listener that
+        // emits an unhandled `error` event, and Node terminates the whole process (a 100M-row
+        // export used to take the pod down this way). Keep the first error and surface it from
+        // `close()` instead.
+        let uploadError: Error | undefined;
+        const recordUploadError = (error: Error) => {
+            uploadError ??= error;
+            Logger.warn(
+                `Upload body failed for ${
+                    this.configuration?.bucket
+                }/${fileName}: ${getErrorMessage(error)}`,
+            );
+        };
+        passThrough.on('error', recordUploadError);
+        if (uploadBody !== passThrough) {
+            uploadBody.on('error', recordUploadError);
+        }
+
+        // `@aws-sdk/lib-storage` does not read `params.Body` until `done()` is called, and
+        // callers write the whole export before calling `close()`. Without this the body just
+        // fills the PassThrough (64 KB) and backpressure never reaches the producer: the
+        // export hangs and buffers the entire result in memory (the 1M-row OOM). Starting the
+        // upload here makes lib-storage consume the body while it is being written, so
+        // `write()` backpressure works end to end.
+        const uploadDone: Promise<unknown> = upload
+            .done()
+            .catch((error: unknown) => {
+                uploadError ??=
+                    error instanceof Error ? error : new Error(String(error));
+                throw uploadError;
+            });
+        // `close()` is the only place that awaits this; keep Node from reporting an
+        // unhandled rejection when nothing else consumed it yet.
+        void uploadDone.catch(() => undefined);
+
+        const abortAndRelease = async () => {
+            await upload.abort().catch((abortError) => {
+                Logger.warn(
+                    `Failed to abort upload to ${
+                        this.configuration?.bucket
+                    }/${fileName}: ${getErrorMessage(abortError)}`,
+                );
+            });
+            if (!uploadBody.destroyed) {
+                uploadBody.destroy();
+            }
+            if (!passThrough.destroyed) {
+                passThrough.destroy();
+            }
+        };
+
         const close = async () => {
             if (!this.configuration) {
                 throw new MissingConfigError('S3 configuration is not set');
@@ -81,9 +158,15 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
 
             if (isClosed) return;
             isClosed = true;
+
+            if (uploadError) {
+                await abortAndRelease();
+                throw uploadError;
+            }
+
             try {
                 passThrough.end(); // signal EOF
-                await upload.done(); // wait for upload to finish
+                await uploadDone; // resolves when the eager upload finishes
                 Logger.debug(
                     `Successfully closed upload stream to ${this.configuration.bucket}/${fileName}`,
                 );
@@ -94,6 +177,12 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                     }/${fileName}: ${getErrorMessage(error)}`,
                 );
                 Logger.debug(`Full error: ${JSON.stringify(error)}`);
+
+                // Nothing else will drain these streams: abort the multipart upload and
+                // release the gzip sink, otherwise a failed upload keeps its buffers alive
+                // and leaves an incomplete object in the bucket.
+                await abortAndRelease();
+
                 throw error;
             }
         };
@@ -127,7 +216,37 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
                 throw new Error('No results found');
             }
 
-            return results.Body as Readable;
+            const body = results.Body as Readable;
+            // Result files may be gzip compressed (see `createUploadStream`). Older
+            // objects have no `ContentEncoding`, so they keep streaming as-is.
+            if (results.ContentEncoding !== 'gzip') {
+                return body;
+            }
+
+            const decompressed = createGunzip();
+
+            // `pipe()` only moves data: destroying the destination does not destroy the
+            // source. Callers stop reading as soon as they have a full page
+            // (`AsyncQueryService.getResultsPageFromS3` calls `destroy()` in `finally`),
+            // so without this the S3 response stays half-read with its socket open until
+            // `S3_REQUEST_TIMEOUT` (30 min by default) — one leaked connection per page
+            // read, until S3 requests queue forever and every query hangs.
+            const releaseSource = () => {
+                if (!body.destroyed) {
+                    body.destroy();
+                }
+            };
+            decompressed.once('close', releaseSource);
+
+            // `pipe()` does not forward errors either; propagate them so the reader fails
+            // instead of waiting for the request timeout.
+            body.once('error', (bodyError: Error) => {
+                decompressed.destroy(bodyError);
+            });
+
+            body.pipe(decompressed);
+
+            return decompressed;
         } catch (error) {
             if (error instanceof NotFound) {
                 throw new Error(`Cache key ${cacheKey} not found`);
@@ -206,6 +325,10 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             formatConfig.get(fileExtension) || formatConfig.get('jsonl')!;
 
         // Create upload stream
+        // The sink is usually a formatted export (CSV/XLSX) that users download directly, so
+        // it is not compressed: `Content-Encoding: gzip` on a `.csv` object breaks scripts,
+        // Excel/curl and anything that does not decode the body for us. A `.jsonl` sink keeps
+        // following `RESULTS_JSONL_GZIP`.
         const { writeStream, close } = this.createUploadStream(
             sinkFileName,
             {
@@ -214,6 +337,7 @@ export class S3ResultsFileStorageClient extends S3CacheClient {
             attachmentDownloadName
                 ? `${attachmentDownloadName}.${config.extension}`
                 : undefined,
+            { compress: fileExtension === 'jsonl' ? undefined : false },
         );
 
         // Get the results stream

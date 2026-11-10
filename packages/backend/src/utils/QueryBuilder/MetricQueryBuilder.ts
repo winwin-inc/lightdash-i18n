@@ -86,7 +86,9 @@ import {
     hasBlockingTotalFilters,
     isInflationProofMetric,
     replaceUserAttributesAsStrings,
+    normalizeValueOrder,
     replaceUserAttributesRaw,
+    sortByValueOrder,
     sortDayOfWeekName,
     sortMonthName,
     type TotalConfiguration,
@@ -1414,8 +1416,12 @@ export class MetricQueryBuilder {
                   : sorts;
         const fieldQuoteChar = warehouseSqlBuilder.getFieldQuoteChar();
         const startOfWeek = warehouseSqlBuilder.getStartOfWeek();
+        const adapterType = warehouseSqlBuilder.getAdapterType();
         const compiledDimensions = getDimensions(explore);
         let requiresQueryInCTE = false;
+        // 自定义值顺序需要按同方向再排一个「字段本身」作为兜底，
+        // 让「未列出的值」桶内部保持确定性（A-Z / Z-A）
+        let valueOrderTieBreak: string | undefined;
         const fieldOrders = effectiveSorts.reduce<string[]>((acc, sort) => {
             // Default sort
             let fieldSort: string = `${fieldQuoteChar}${
@@ -1428,7 +1434,36 @@ export class MetricQueryBuilder {
                 (d) => getItemId(d) === sort.fieldId,
             );
 
-            if (
+            const valueOrder =
+                sort.valueOrder === undefined
+                    ? []
+                    : normalizeValueOrder(sort.valueOrder);
+
+            // Custom value order for string dimensions: the values are ranked with a CASE expression.
+            // In BigQuery we cannot use an expression in the ORDER BY clause that references a column
+            // that is not aggregated or grouped, so we wrap the query in a CTE; for consistency we do
+            // it for all warehouses.
+            const valueOrderSort =
+                valueOrder.length > 0 &&
+                sortedDimension !== undefined &&
+                // 只有字符串维度才有「值顺序」语义，避免 WHEN num_col = 'abc' 这类类型错误
+                sortedDimension.type === DimensionType.STRING
+                    ? sortByValueOrder(
+                          sortedDimension,
+                          valueOrder,
+                          fieldQuoteChar,
+                          adapterType,
+                          sort.descending,
+                      )
+                    : null;
+
+            if (valueOrderSort !== null) {
+                requiresQueryInCTE = true;
+                fieldSort = valueOrderSort;
+                valueOrderTieBreak = `${fieldQuoteChar}${
+                    sort.fieldId
+                }${fieldQuoteChar}${sort.descending ? ' DESC' : ''}`;
+            } else if (
                 compiledCustomDimensions &&
                 compiledCustomDimensions.find(
                     (customDimension) =>
@@ -1484,6 +1519,10 @@ export class MetricQueryBuilder {
                 }
             }
             acc.push(fieldSort);
+            if (valueOrderTieBreak !== undefined) {
+                acc.push(valueOrderTieBreak);
+                valueOrderTieBreak = undefined;
+            }
             return acc;
         }, []);
 

@@ -101,6 +101,10 @@
                             "enum": [1, 2, 3, 4],
                             "type": "number"
                         },
+                        "clearable": {
+                            "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
+                            "type": "boolean"
+                        },
                         "enableDynamicMaxAllowedDate": {
                             "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off.",
                             "type": "boolean"
@@ -134,6 +138,16 @@
                             "type": "string"
                         },
                         "parentFieldId": {
+                            "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                            "type": "string"
+                        },
+                        "parentScope": {
+                            "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                            "enum": ["global", "tab"],
+                            "type": "string"
+                        },
+                        "parentTabUuid": {
+                            "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                             "type": "string"
                         },
                         "readOnly": {
@@ -172,6 +186,10 @@
                             "enum": [1, 2, 3, 4],
                             "type": "number"
                         },
+                        "clearable": {
+                            "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
+                            "type": "boolean"
+                        },
                         "enableDynamicMaxAllowedDate": {
                             "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off.",
                             "type": "boolean"
@@ -205,6 +223,16 @@
                             "type": "string"
                         },
                         "parentFieldId": {
+                            "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                            "type": "string"
+                        },
+                        "parentScope": {
+                            "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                            "enum": ["global", "tab"],
+                            "type": "string"
+                        },
+                        "parentTabUuid": {
+                            "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                             "type": "string"
                         },
                         "readOnly": {
@@ -626,6 +654,10 @@
                     "enum": [1, 2, 3, 4],
                     "type": "number"
                 },
+                "clearable": {
+                    "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
+                    "type": "boolean"
+                },
                 "dateRangeGranularity": {
                     "$ref": "#/$defs/TimeFrames",
                     "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
@@ -669,6 +701,16 @@
                     "$ref": "#/$defs/FilterOperator"
                 },
                 "parentFieldId": {
+                    "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）",
+                    "type": "string"
+                },
+                "parentScope": {
+                    "description": "父级筛选器所在作用域：\n- 'global'：全局筛选器\n- 'tab'：Tab 筛选器（配合 parentTabUuid 定位具体 Tab）\n\n缺省时按「同作用域优先，其次全局」解析（兼容旧数据）。",
+                    "enum": ["global", "tab"],
+                    "type": "string"
+                },
+                "parentTabUuid": {
+                    "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。",
                     "type": "string"
                 },
                 "readOnly": {

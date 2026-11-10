@@ -10,6 +10,7 @@ import {
     JoinRelationship,
     MetricType,
     SortByDirection,
+    SortField,
     TableCalculationTotalMode,
     TableCalculationType,
     TimeFrames,
@@ -980,6 +981,266 @@ describe('Query builder', () => {
             expect(queryWithCustomDimAndNullsFirst.query).toContain(
                 '"age_range_order" NULLS FIRST',
             );
+        });
+    });
+
+    describe('custom value order in sort queries', () => {
+        // table1_shared 是 EXPLORE 里的 STRING 维度（table1_dim1 是 NUMBER）
+        const STRING_DIM = 'table1_shared';
+
+        const buildSortQuery = (sorts: SortField[]) =>
+            replaceWhitespace(
+                buildQuery({
+                    explore: EXPLORE,
+                    compiledMetricQuery: {
+                        ...METRIC_QUERY,
+                        dimensions: [STRING_DIM, 'table1_dim1'],
+                        sorts,
+                    },
+                    warehouseSqlBuilder: warehouseClientMock,
+                    intrinsicUserAttributes: INTRINSIC_USER_ATTRIBUTES,
+                    timezone: QUERY_BUILDER_UTC_TIMEZONE,
+                }).query,
+            );
+
+        test('Should sort a string dimension by a custom value order in ascending order', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A', 'B', 'C'],
+                },
+            ]);
+
+            expect(query).toContain(
+                `ORDER BY ( CASE WHEN "table1_shared" = 'A' THEN 1 WHEN "table1_shared" = 'B' THEN 2 WHEN "table1_shared" = 'C' THEN 3 ELSE 4 END ), "table1_shared"`,
+            );
+            expect(query).not.toContain('END ) DESC');
+        });
+
+        test('Should keep values verbatim, remove empty strings and duplicates', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    // 注意：`replaceWhitespace` 会折叠连续空格，这里用单侧空格断言「没被 trim」
+                    valueOrder: [' A ', '', 'B', 'A'],
+                },
+            ]);
+
+            // 值必须和库里的字面量完全一致：不做 trim
+            expect(query).toContain(
+                `CASE WHEN "table1_shared" = ' A ' THEN 1 WHEN "table1_shared" = 'B' THEN 2 WHEN "table1_shared" = 'A' THEN 3 ELSE 4 END`,
+            );
+        });
+
+        test('Should fall back to the default sort when the value order normalizes to empty', () => {
+            const queryWithEmptyValues = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: [''],
+                },
+            ]);
+            const queryWithEmptyValueOrder = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: [],
+                },
+            ]);
+
+            // 空列表不能生成没有 WHEN 的 CASE（非法 SQL），也不能白加一层 CTE
+            expect(queryWithEmptyValues).not.toContain('CASE');
+            expect(queryWithEmptyValues).toStrictEqual(
+                queryWithEmptyValueOrder,
+            );
+        });
+
+        test('Should keep the literal untouched (no unicode normalization / comment stripping)', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['McDonald\u2019s', 'A--B', 'C\\D'],
+                },
+            ]);
+
+            // 弯引号、`--`、反斜杠都必须原样保留（Postgres 不做反斜杠转义）
+            expect(query).toContain(`'McDonald\u2019s'`);
+            expect(query).toContain(`'A--B'`);
+            expect(query).toContain(`'C\\D'`);
+        });
+
+        test('Should wrap the query in a CTE when a custom value order is used', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A'],
+                },
+            ]);
+
+            expect(query.startsWith('WITH metrics AS')).toBe(true);
+        });
+
+        test('Should keep both value order sorts apart (two sort fields)', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A'],
+                },
+                {
+                    fieldId: 'table1_dim1',
+                    descending: false,
+                },
+            ]);
+
+            expect(
+                (query.match(/WHEN /g) ?? []).length,
+            ).toBe(1);
+            expect(query).toContain(
+                `ORDER BY ( CASE WHEN "table1_shared" = 'A' THEN 1 ELSE 2 END ), "table1_shared", "table1_dim1"`,
+            );
+        });
+
+        test('Should reverse the ranks and keep unlisted values last when sorting descending', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: true,
+                    valueOrder: ['A', 'B', 'C'],
+                },
+            ]);
+
+            expect(query).toContain(
+                `CASE WHEN "table1_shared" = 'A' THEN 3 WHEN "table1_shared" = 'B' THEN 2 WHEN "table1_shared" = 'C' THEN 1 ELSE 0 END`,
+            );
+            expect(query).toContain('END ) DESC, "table1_shared" DESC');
+        });
+
+        test('Should escape single quotes in the value order', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ["O'Reilly"],
+                },
+            ]);
+
+            expect(query).toContain(
+                `WHEN "table1_shared" = 'O''Reilly' THEN 1`,
+            );
+        });
+
+        test('Should ignore an empty value order', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: [],
+                },
+            ]);
+
+            expect(query).not.toContain('CASE');
+            expect(query).toContain('ORDER BY "table1_shared"');
+        });
+
+        test('Should not change the query when the value order is not set', () => {
+            const queryWithValueOrder = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: undefined,
+                },
+            ]);
+            const queryWithoutValueOrder = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                },
+            ]);
+
+            expect(queryWithValueOrder).toStrictEqual(queryWithoutValueOrder);
+            expect(queryWithValueOrder).not.toContain('CASE');
+        });
+
+        test('Should ignore the value order for metrics', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: 'table1_metric1',
+                    descending: true,
+                    valueOrder: ['A', 'B'],
+                },
+            ]);
+
+            expect(query).not.toContain('CASE');
+            expect(query).toContain('ORDER BY "table1_metric1" DESC');
+        });
+
+        test('Should ignore the value order for numeric dimensions', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: 'table1_dim1',
+                    descending: false,
+                    valueOrder: ['A', 'B'],
+                },
+            ]);
+
+            expect(query).not.toContain('CASE');
+            expect(query).toContain('ORDER BY "table1_dim1"');
+        });
+
+        test('Should ignore the value order when the field is not a dimension of the explore', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: 'unknown_field',
+                    descending: false,
+                    valueOrder: ['A', 'B'],
+                },
+            ]);
+
+            expect(query).not.toContain('CASE');
+            expect(query).toContain('ORDER BY "unknown_field"');
+        });
+
+        test('Should combine a custom value order with another sort field', () => {
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder: ['A', 'B'],
+                },
+                {
+                    fieldId: 'table1_metric1',
+                    descending: true,
+                },
+            ]);
+
+            expect(query).toContain(
+                `ORDER BY ( CASE WHEN "table1_shared" = 'A' THEN 1 WHEN "table1_shared" = 'B' THEN 2 ELSE 3 END ), "table1_shared", "table1_metric1" DESC`,
+            );
+        });
+
+        test('Should limit the number of values in the value order to 200', () => {
+            const valueOrder = Array.from(
+                { length: 250 },
+                (_, index) => `value_${index}`,
+            );
+            const query = buildSortQuery([
+                {
+                    fieldId: STRING_DIM,
+                    descending: false,
+                    valueOrder,
+                },
+            ]);
+
+            expect(query.match(/WHEN /g)).toHaveLength(200);
+            expect(query).toContain(
+                `WHEN "table1_shared" = 'value_199' THEN 200`,
+            );
+            expect(query).toContain('ELSE 201');
         });
     });
 

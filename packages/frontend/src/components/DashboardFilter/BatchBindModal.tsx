@@ -1,8 +1,4 @@
-import {
-    type DashboardFilterableField,
-    type DashboardFilterRule,
-    type DashboardTile,
-} from '@lightdash/common';
+import { type DashboardFilterRule } from '@lightdash/common';
 import {
     Box,
     Button,
@@ -13,140 +9,155 @@ import {
     Stack,
     Text,
 } from '@mantine/core';
-import { useCallback, useMemo, useState, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getCategoryLevel } from '../../utils/categoryFilters';
-
-// 检测类目筛选器：基于字段名或 label
-const detectCategoryLevel = (filter: DashboardFilterRule): number | null => {
-    // 优先使用已设置的 categoryLevel
-    const existingLevel = getCategoryLevel(filter);
-    if (existingLevel) return existingLevel;
-
-    // 基于字段名检测
-    const fieldName = filter.target.fieldId.split('_').pop() || '';
-    if (['cls1', 'cls_1'].includes(fieldName.toLowerCase())) return 1;
-    if (['cls2', 'cls_2'].includes(fieldName.toLowerCase())) return 2;
-    if (['cls3', 'cls_3'].includes(fieldName.toLowerCase())) return 3;
-    if (['cls4', 'cls_4'].includes(fieldName.toLowerCase())) return 4;
-
-    // 基于 label 检测
-    const label = filter.label || filter.target.fieldLabel || '';
-    if (label.includes('一级类目')) return 1;
-    if (label.includes('二级类目')) return 2;
-    if (label.includes('三级类目')) return 3;
-    if (label.includes('四级类目')) return 4;
-
-    return null;
-};
+import { type CategoryLevel } from '../../utils/categoryLevel';
+import {
+    applyBatchCategoryBindingPlan,
+    buildBatchCategoryBindingPlan,
+    getImplicitCategoryLevelEntries,
+    isBatchCategoryBindingEntryActionable,
+    type BatchCategoryBindingEntry,
+    type BatchCategoryBindingPlan,
+    type CategoryBindingCandidate,
+} from './common/batchCategoryBinding';
 
 interface BatchBindModalProps {
     opened: boolean;
     onClose: () => void;
+    /** 当前 Tab 的筛选器（批量绑定只写它们） */
     filters: DashboardFilterRule[];
-    tiles: DashboardTile[];
-    availableTileFilters: Record<
-        string,
-        DashboardFilterableField[] | undefined
-    >;
-    allFilterableFieldsMap: Record<string, DashboardFilterableField>;
+    /** 全局筛选器：Tab 筛选器可以绑定全局父级（全局二级 → Tab 三级） */
+    globalFilters?: DashboardFilterRule[];
+    /** 当前 Tab uuid（父级在同 Tab 时写入） */
+    tabUuid?: string;
+    /**
+     * 本次批量绑定的目标作用域：
+     * - tab（默认）：写当前 Tab，父级可以是本 Tab 或全局
+     * - global：写全局筛选器，父级只能是全局
+     */
+    scope?: 'global' | 'tab';
     onApply: (updatedFilters: DashboardFilterRule[]) => void;
 }
 
-interface FilterBindingPreview {
-    filter: DashboardFilterRule;
-    currentTileCount: number;
-    expectedTileCount: number;
-    currentCategoryLevel?: 1 | 2 | 3 | 4;
-    expectedCategoryLevel?: 1 | 2 | 3 | 4;
-    currentParentFieldId?: string;
-    expectedParentFieldId?: string;
-}
+const getFilterDisplayName = (filter: DashboardFilterRule): string =>
+    filter.label || filter.target.fieldLabel || filter.target.fieldId;
+
+/** 稳定的空数组：避免默认参数每次渲染都产生新引用，导致 plan / effect 无限重算 */
+const EMPTY_FILTERS: DashboardFilterRule[] = [];
 
 const BatchBindModal: FC<BatchBindModalProps> = ({
     opened,
     onClose,
     filters,
-    allFilterableFieldsMap,
+    globalFilters = EMPTY_FILTERS,
+    tabUuid,
+    scope = 'tab',
     onApply,
 }) => {
     const { t } = useTranslation();
-    const [selectedFilterIds, setSelectedFilterIds] = useState<Set<string>>(
-        new Set(),
+    const [selectedFilterIds, setSelectedFilterIds] = useState<
+        ReadonlySet<string>
+    >(() => new Set());
+
+    const plan = useMemo<BatchCategoryBindingPlan>(
+        () =>
+            buildBatchCategoryBindingPlan({
+                filters,
+                globalFilters,
+                tabUuid: tabUuid ?? null,
+                scope,
+            }),
+        [filters, globalFilters, tabUuid, scope],
     );
 
-    // 计算每个筛选器的绑定预览
-    const bindingPreviews = useMemo<FilterBindingPreview[]>(() => {
-        const categoryFilters = filters
-            .map((filter) => ({
-                filter,
-                categoryLevel: detectCategoryLevel(filter),
-            }))
-            .filter((item) => item.categoryLevel !== null);
+    const actionableEntries = useMemo(
+        () => plan.filter(isBatchCategoryBindingEntryActionable),
+        [plan],
+    );
+    // 展示全部识别到的类目筛选器（按层级排序）：即使没有变化也要能看到
+    // 当前绑定关系，否则「三级/四级已绑定」会被误认为批量绑定没生效
+    const orderedEntries = useMemo(
+        () =>
+            plan
+                .map((entry, index) => ({ entry, index }))
+                .sort(
+                    (a, b) =>
+                        a.entry.categoryLevel - b.entry.categoryLevel ||
+                        a.index - b.index,
+                )
+                .map(({ entry }) => entry),
+        [plan],
+    );
 
-        return categoryFilters.map(({ filter, categoryLevel }) => {
-            const field = allFilterableFieldsMap[filter.target.fieldId];
-            if (!field) {
-                return {
-                    filter,
-                    currentTileCount: 0,
-                    expectedTileCount: 0,
-                };
-            }
+    // 被选中的子级依赖的父级层级：会自动写入，但不受勾选控制
+    const implicitLevelFilterIds = useMemo(
+        () =>
+            new Set(
+                getImplicitCategoryLevelEntries(plan, selectedFilterIds).map(
+                    (entry) => entry.filter.id,
+                ),
+            ),
+        [plan, selectedFilterIds],
+    );
 
-            // 计算 categoryLevel 变化
-            const currentCategoryLevel = getCategoryLevel(filter) ?? undefined;
-            const expectedCategoryLevel = categoryLevel as
-                | 1
-                | 2
-                | 3
-                | 4
-                | undefined;
+    // 编辑模式的批量绑定 = 构建绑定关系：默认勾选全部类目筛选器，
+    // 作者只需取消不想改的条目（无需把行做成禁用态）
+    useEffect(() => {
+        if (!opened) return;
+        setSelectedFilterIds(new Set(plan.map((entry) => entry.filter.id)));
+    }, [opened, plan]);
 
-            // 计算父级筛选器
-            let currentParentFieldId: string | undefined;
-            let expectedParentFieldId: string | undefined;
+    const levelLabel = useCallback(
+        (level: CategoryLevel) =>
+            t(
+                `components_dashboard_filter.configuration.category_level.level${level}`,
+            ),
+        [t],
+    );
 
-            currentParentFieldId = (
-                filter as DashboardFilterRule & { parentFieldId?: string }
-            ).parentFieldId;
+    const scopeLabel = useCallback(
+        (candidateScope: CategoryBindingCandidate['scope']) =>
+            candidateScope === 'global'
+                ? t(
+                      'components_dashboard_filter.configuration.category_level.parent_scope_global',
+                  )
+                : t(
+                      'components_dashboard_filter.configuration.category_level.parent_scope_tab',
+                  ),
+        [t],
+    );
 
-            if (categoryLevel && categoryLevel > 1) {
-                // 查找对应的父级筛选器
-                const targetParentLevel = categoryLevel - 1;
-                const parentFilter = categoryFilters.find(
-                    (item) => item.categoryLevel === targetParentLevel,
-                )?.filter;
-                expectedParentFieldId = parentFilter?.target.fieldId;
-            }
+    const candidateLabel = useCallback(
+        (candidate: CategoryBindingCandidate) =>
+            t(
+                'components_dashboard_filter.configuration.category_level.parent_option_label',
+                {
+                    label: getFilterDisplayName(candidate.rule),
+                    level: levelLabel(candidate.level),
+                    scope: scopeLabel(candidate.scope),
+                },
+            ),
+        [levelLabel, scopeLabel, t],
+    );
 
-            return {
-                filter,
-                currentTileCount: 0,
-                expectedTileCount: 0,
-                currentCategoryLevel,
-                expectedCategoryLevel,
-                currentParentFieldId,
-                expectedParentFieldId,
-            };
-        });
-    }, [filters, allFilterableFieldsMap]);
+    const currentParentLabel = useCallback(
+        (entry: BatchCategoryBindingEntry) =>
+            entry.currentParent
+                ? candidateLabel(entry.currentParent)
+                : entry.filter.parentFieldId ??
+                  t('components_dashboard_filter.batch_bind.none'),
+        [candidateLabel, t],
+    );
 
-    // 初始化选中所有有变化的筛选器
-    useMemo(() => {
-        const changedFilterIds = new Set<string>();
-        bindingPreviews.forEach((preview) => {
-            const hasCategoryLevelChange =
-                preview.currentCategoryLevel !== preview.expectedCategoryLevel;
-            const hasParentChange =
-                preview.currentParentFieldId !== preview.expectedParentFieldId;
-            if (hasCategoryLevelChange || hasParentChange) {
-                changedFilterIds.add(preview.filter.id);
-            }
-        });
-        setSelectedFilterIds(changedFilterIds);
-    }, [bindingPreviews]);
+    const resolvedParentLabel = useCallback(
+        (entry: BatchCategoryBindingEntry) =>
+            entry.resolvedParent
+                ? candidateLabel(entry.resolvedParent)
+                : t('components_dashboard_filter.batch_bind.none'),
+        [candidateLabel, t],
+    );
 
     const handleToggleFilter = useCallback((filterId: string) => {
         setSelectedFilterIds((prev) => {
@@ -161,64 +172,28 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
     }, []);
 
     const handleToggleAll = useCallback(() => {
-        if (selectedFilterIds.size === bindingPreviews.length) {
-            setSelectedFilterIds(new Set());
-        } else {
-            setSelectedFilterIds(
-                new Set(bindingPreviews.map((p) => p.filter.id)),
-            );
-        }
-    }, [selectedFilterIds.size, bindingPreviews]);
+        const allSelected = plan.every((entry) =>
+            selectedFilterIds.has(entry.filter.id),
+        );
+        setSelectedFilterIds(
+            allSelected
+                ? new Set()
+                : new Set(plan.map((entry) => entry.filter.id)),
+        );
+    }, [plan, selectedFilterIds]);
 
     const handleApply = useCallback(() => {
-        const updatedFilters = filters.map((filter) => {
-            if (!selectedFilterIds.has(filter.id)) {
-                return filter;
-            }
-
-            const categoryLevel = detectCategoryLevel(filter);
-            if (!categoryLevel) {
-                return filter;
-            }
-
-            // 设置 categoryLevel 和 parentFieldId
-            const updates: Partial<
-                DashboardFilterRule & {
-                    parentFieldId?: string;
-                    categoryLevel?: 1 | 2 | 3 | 4;
-                }
-            > = {
-                categoryLevel: categoryLevel as 1 | 2 | 3 | 4,
-            };
-
-            if (categoryLevel > 1) {
-                const targetParentLevel = categoryLevel - 1;
-                const parentFilter = filters.find(
-                    (f) => detectCategoryLevel(f) === targetParentLevel,
-                );
-                if (parentFilter) {
-                    updates.parentFieldId = parentFilter.target.fieldId;
-                }
-            }
-
-            return {
-                ...filter,
-                ...updates,
-            } as DashboardFilterRule & {
-                parentFieldId?: string;
-                categoryLevel?: 1 | 2 | 3 | 4;
-            };
-        });
-
-        onApply(updatedFilters);
+        onApply(
+            applyBatchCategoryBindingPlan(filters, plan, selectedFilterIds),
+        );
         onClose();
-    }, [filters, selectedFilterIds, onApply, onClose]);
+    }, [filters, plan, selectedFilterIds, onApply, onClose]);
 
-    const hasChanges = bindingPreviews.some(
-        (preview) =>
-            preview.currentCategoryLevel !== preview.expectedCategoryLevel ||
-            preview.currentParentFieldId !== preview.expectedParentFieldId,
-    );
+    const hasChanges = actionableEntries.length > 0;
+    const selectedCount = plan.filter((entry) =>
+        selectedFilterIds.has(entry.filter.id),
+    ).length;
+    const allSelected = plan.length > 0 && selectedCount === plan.length;
 
     return (
         <Modal
@@ -228,13 +203,29 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
             size="lg"
         >
             <Stack spacing="md">
-                {!hasChanges && (
+                <Text size="xs" c="dimmed">
+                    {t(
+                        scope === 'global'
+                            ? 'components_dashboard_filter.batch_bind.bind_hint_global'
+                            : 'components_dashboard_filter.batch_bind.bind_hint',
+                    )}
+                </Text>
+
+                {plan.length === 0 && (
+                    <Text size="sm" c="dimmed">
+                        {t(
+                            'components_dashboard_filter.batch_bind.no_category_filters',
+                        )}
+                    </Text>
+                )}
+
+                {plan.length > 0 && !hasChanges && (
                     <Text size="sm" c="dimmed">
                         {t('components_dashboard_filter.batch_bind.no_changes')}
                     </Text>
                 )}
 
-                {hasChanges && (
+                {plan.length > 0 && (
                     <>
                         <Flex justify="space-between" align="center">
                             <Text size="sm" fw={500}>
@@ -247,8 +238,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                                 size="xs"
                                 onClick={handleToggleAll}
                             >
-                                {selectedFilterIds.size ===
-                                bindingPreviews.length
+                                {allSelected
                                     ? t(
                                           'components_dashboard_filter.batch_bind.deselect_all',
                                       )
@@ -257,150 +247,161 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                                       )}
                             </Button>
                         </Flex>
+                    </>
+                )}
 
-                        <Stack spacing="xs">
-                            {bindingPreviews.map((preview) => {
-                                const hasCategoryLevelChange =
-                                    preview.currentCategoryLevel !==
-                                    preview.expectedCategoryLevel;
-                                const hasParentChange =
-                                    preview.currentParentFieldId !==
-                                    preview.expectedParentFieldId;
-
-                                if (!hasCategoryLevelChange && !hasParentChange)
-                                    return null;
-
-                                const categoryLevel =
-                                    preview.expectedCategoryLevel;
-                                const levelLabel = categoryLevel
-                                    ? t(
-                                          `components_dashboard_filter.configuration.category_level.level${categoryLevel}`,
-                                      )
-                                    : undefined;
-
-                                return (
-                                    <Box
-                                        key={preview.filter.id}
-                                        p="sm"
-                                        sx={(theme) => ({
-                                            border: `1px solid ${theme.colors.gray[3]}`,
-                                            borderRadius: theme.radius.sm,
-                                        })}
-                                    >
-                                        <Flex gap="md" align="flex-start">
-                                            <Checkbox
-                                                checked={selectedFilterIds.has(
-                                                    preview.filter.id,
-                                                )}
-                                                onChange={() =>
-                                                    handleToggleFilter(
-                                                        preview.filter.id,
-                                                    )
-                                                }
-                                                mt={2}
-                                            />
-                                            <Stack spacing={4} sx={{ flex: 1 }}>
-                                                <Group spacing="xs">
-                                                    <Text size="sm" fw={500}>
-                                                        {preview.filter.label ||
-                                                            preview.filter
-                                                                .target
-                                                                .fieldLabel ||
-                                                            preview.filter
-                                                                .target.fieldId}
-                                                    </Text>
-                                                    {levelLabel && (
-                                                        <Text
-                                                            size="xs"
-                                                            c="dimmed"
-                                                        >
-                                                            • {levelLabel}
-                                                        </Text>
+                {orderedEntries.length > 0 && (
+                    <Stack spacing="xs">
+                        {orderedEntries.map((entry) => {
+                            const implicit = implicitLevelFilterIds.has(
+                                entry.filter.id,
+                            );
+                            return (
+                                <Box
+                                    key={entry.filter.id}
+                                    p="sm"
+                                    sx={(theme) => ({
+                                        border: `1px solid ${theme.colors.gray[3]}`,
+                                        borderRadius: theme.radius.sm,
+                                    })}
+                                >
+                                    <Flex gap="md" align="flex-start">
+                                        <Checkbox
+                                            aria-label={getFilterDisplayName(
+                                                entry.filter,
+                                            )}
+                                            checked={
+                                                selectedFilterIds.has(
+                                                    entry.filter.id,
+                                                ) || implicit
+                                            }
+                                            disabled={implicit}
+                                            onChange={() =>
+                                                handleToggleFilter(
+                                                    entry.filter.id,
+                                                )
+                                            }
+                                            mt={2}
+                                        />
+                                        <Stack spacing={4} sx={{ flex: 1 }}>
+                                            <Group spacing="xs">
+                                                <Text size="sm" fw={500}>
+                                                    {getFilterDisplayName(
+                                                        entry.filter,
                                                     )}
-                                                </Group>
+                                                </Text>
+                                                <Text size="xs" c="dimmed">
+                                                    •{' '}
+                                                    {levelLabel(
+                                                        entry.categoryLevel,
+                                                    )}
+                                                </Text>
+                                            </Group>
 
-                                                {hasCategoryLevelChange && (
-                                                    <Text size="xs" c="dimmed">
+                                            {entry.categoryLevelChanged && (
+                                                <Text size="xs" c="dimmed">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.category_level_change',
+                                                        {
+                                                            from: entry.filter
+                                                                .categoryLevel
+                                                                ? levelLabel(
+                                                                      entry
+                                                                          .filter
+                                                                          .categoryLevel,
+                                                                  )
+                                                                : t(
+                                                                      'components_dashboard_filter.batch_bind.unset',
+                                                                  ),
+                                                            to: levelLabel(
+                                                                entry.categoryLevel,
+                                                            ),
+                                                        },
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {entry.parentChanged && (
+                                                <Text size="xs" c="dimmed">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.parent_filter_change',
+                                                        {
+                                                            from: currentParentLabel(
+                                                                entry,
+                                                            ),
+                                                            to: resolvedParentLabel(
+                                                                entry,
+                                                            ),
+                                                        },
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {!entry.parentChanged &&
+                                                entry.currentParent !==
+                                                    null && (
+                                                    <Text size="xs" c="green">
                                                         {t(
-                                                            'components_dashboard_filter.batch_bind.category_level_change',
+                                                            'components_dashboard_filter.batch_bind.parent_bound',
                                                             {
-                                                                from: preview.currentCategoryLevel
-                                                                    ? t(
-                                                                          `components_dashboard_filter.configuration.category_level.level${preview.currentCategoryLevel}`,
-                                                                      )
-                                                                    : t(
-                                                                          'components_dashboard_filter.batch_bind.unset',
-                                                                      ),
-                                                                to: preview.expectedCategoryLevel
-                                                                    ? t(
-                                                                          `components_dashboard_filter.configuration.category_level.level${preview.expectedCategoryLevel}`,
-                                                                      )
-                                                                    : t(
-                                                                          'components_dashboard_filter.batch_bind.unset',
-                                                                      ),
+                                                                parent: candidateLabel(
+                                                                    entry.currentParent,
+                                                                ),
                                                             },
                                                         )}
                                                     </Text>
                                                 )}
 
-                                                {hasParentChange && (
+                                            {entry.skipReason ===
+                                                'parent-missing-level' && (
+                                                <Text size="xs" c="orange">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.unbound_no_parent',
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {entry.skipReason ===
+                                                'orphan-parent' && (
+                                                <Text size="xs" c="orange">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.orphan_parent',
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {entry.skipReason === null &&
+                                                !entry.parentChanged &&
+                                                entry.currentParent ===
+                                                    null && (
                                                     <Text size="xs" c="dimmed">
-                                                        {(() => {
-                                                            const currentParent =
-                                                                preview.currentParentFieldId
-                                                                    ? filters.find(
-                                                                          (f) =>
-                                                                              f
-                                                                                  .target
-                                                                                  .fieldId ===
-                                                                              preview.currentParentFieldId,
-                                                                      )
-                                                                    : null;
-                                                            const expectedParent =
-                                                                preview.expectedParentFieldId
-                                                                    ? filters.find(
-                                                                          (f) =>
-                                                                              f
-                                                                                  .target
-                                                                                  .fieldId ===
-                                                                              preview.expectedParentFieldId,
-                                                                      )
-                                                                    : null;
-
-                                                            const currentLabel =
-                                                                currentParent?.label ||
-                                                                currentParent
-                                                                    ?.target
-                                                                    .fieldLabel ||
-                                                                t(
-                                                                    'components_dashboard_filter.batch_bind.none',
-                                                                );
-                                                            const expectedLabel =
-                                                                expectedParent?.label ||
-                                                                expectedParent
-                                                                    ?.target
-                                                                    .fieldLabel ||
-                                                                t(
-                                                                    'components_dashboard_filter.batch_bind.none',
-                                                                );
-
-                                                            return t(
-                                                                'components_dashboard_filter.batch_bind.parent_filter_change',
-                                                                {
-                                                                    from: currentLabel,
-                                                                    to: expectedLabel,
-                                                                },
-                                                            );
-                                                        })()}
+                                                        {t(
+                                                            'components_dashboard_filter.batch_bind.root_no_parent',
+                                                        )}
                                                     </Text>
                                                 )}
-                                            </Stack>
-                                        </Flex>
-                                    </Box>
-                                );
-                            })}
-                        </Stack>
-                    </>
+
+                                            {entry.ambiguousParentCandidates && (
+                                                <Text size="xs" c="orange">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.ambiguous_parent',
+                                                    )}
+                                                </Text>
+                                            )}
+
+                                            {implicit && (
+                                                <Text size="xs" c="dimmed">
+                                                    {t(
+                                                        'components_dashboard_filter.batch_bind.implicit_level',
+                                                    )}
+                                                </Text>
+                                            )}
+                                        </Stack>
+                                    </Flex>
+                                </Box>
+                            );
+                        })}
+                    </Stack>
                 )}
 
                 <Group position="right" mt="md">
@@ -409,7 +410,7 @@ const BatchBindModal: FC<BatchBindModalProps> = ({
                     </Button>
                     <Button
                         onClick={handleApply}
-                        disabled={!hasChanges || selectedFilterIds.size === 0}
+                        disabled={selectedCount === 0}
                     >
                         {t('components_dashboard_filter.batch_bind.apply')}
                     </Button>

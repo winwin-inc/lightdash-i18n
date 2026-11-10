@@ -20,20 +20,36 @@ const DOCS: Record<McpDocsTopic, string> = {
 - 无 Mcp-Session-Id 的 tools/call 走 compat 兼容通道（按鉴权身份隔离）。
 - 需要细节时再调用 get_mcp_docs，topic 可选：overview | query_workflow | content_fields | session_lifecycle | security。
 - 查当前令牌权限用 get_my_access；选表与查询步骤见 topic=query_workflow。
+- get_my_access 还会返回 dashboardStrict / dashboardContact：强制看板模式是否开启、无看板权限时的联系文案。
 - 字段约定（chartKind / groups 等）见 topic=content_fields。
 `,
 
     query_workflow: `# 查询工作流
 
-1. get_my_access 查看组织角色和各项目有效能力。默认不返回 explores。
+1. get_my_access 查看组织角色和各项目有效能力。默认不返回 explores；另含 dashboardStrict / dashboardContact（强制看板模式策略）。
 2. 要选表时再调 get_my_access，传 includeExplores=true，建议同时带 projectUuid。
 3. list_projects / set_project 或工具参数传 projectUuid。
 4. 临时指标查询只从 queryable 选表。attributeDenied / metadataOnly / 未知表会被拒绝查询，不会返回空结果。list_explores / find_explores → find_fields，确认 explore 与 fieldId。
 5. 需要枚举值时用 search_field_values：queryable 和 metadataOnly 都可搜，attributeDenied 与未知表会拒绝。
-6. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
-7. 已知看板传 dashboardUuid。未传时有候选会自动选用（多个则取排序后第一个），看 resolvedDashboardContext；不要干等 dashboard_selection_required（仅 0 个候选才返回）。
-8. 大结果先缩小 limit / filters；不要猜测 fieldId。
-9. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+6. 被拒文案按身份分流，转述时不要张冠李戴：受控角色（客户使用模式白名单生效，见 get_my_access 的 clientUse.scopeApplied=true）只会看到"你的账号没有这张数据表的权限"，此时**不要说"表不存在"**，让用户联系客服开通；非受控角色（管理员/客服）的文案会明确区分"没权限（用户属性 / 看板未授权）"与"没这张表 / 未索引"，可直接按提示排查。
+7. 复杂查询优先 run_semantic_metric_query（Explorer JSON）；简单扁平字段用 run_metric_query。
+8. 已知看板传 dashboardUuid。未传时有候选会自动选用（多个则取排序后第一个），看 resolvedDashboardContext；强制看板模式下多个候选会返回 dashboard_selection_required 让调用方选择。
+9. 大结果先缩小 limit / filters；不要猜测 fieldId。
+10. 看板内认图/统计自定义图：list_charts 或 get_dashboard_tiles，数 chartKind==="custom"（详见 content_fields）。
+
+## 强制看板模式（dashboardStrict=true）
+
+- 开启后，所有会执行查询的工具（run_metric_query / run_semantic_metric_query / search_field_values / run_saved_chart / run_dashboard_tiles）都必须先解析出 dashboardUuid，解析不出就不查数。
+- 显式传入的 dashboardUuid 会被校验：可打开 + 属于本项目 + 属于该数据集（explore / chart）的关联看板。
+- 未传入时按数据集反查关联看板：唯一则自动使用；多个则让调用方选择；0 个则按“是否已配置看板”阻断。
+- 阻断状态枚举（返回 status + action）：
+  - dashboard_permission_required（action=request_dashboard_access）：没权限或看不到关联看板，需要申请看板权限。
+  - dashboard_configuration_required（action=configure_dashboard）：该数据集没挂任何看板，需要管理员先配置看板。
+  - dashboard_selection_required（action=select_dashboard）：关联多个看板，需选一个并带 dashboardUuid 重试（不算错误）。
+  - dashboard_not_found（action=verify_dashboard_uuid）：看板不存在、不属于本项目，或不属于该数据集的关联看板。
+  - dashboard_context_unavailable（action=retry_later）：看板上下文暂时取不到（含后端未返回关联看板数量），稍后重试。
+- 看板发现路径（只读、不查数）：list_dashboards / find_dashboards → get_dashboard_tiles；也可直接用上一次 dashboard_selection_required 返回的 candidates 里的 dashboardUuid 重试。
+- 看板链接看返回的 dashboardUrl；无权限时的联系文案见 get_my_access 的 dashboardContact。
 `,
 
     content_fields: `# 内容字段约定（默认 slim）

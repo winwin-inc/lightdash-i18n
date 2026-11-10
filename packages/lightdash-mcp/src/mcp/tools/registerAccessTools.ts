@@ -12,7 +12,11 @@ import {
 import {
     classifyExplores,
     collectExploreAccessItems,
+    isRestrictedScope,
+    toExploreScopeInfo,
+    unknownExploreScope,
     type ClassifiedExplores,
+    type ExploreScopeInfo,
 } from '../access/classifyExplores';
 import { listAllCatalogTables } from '../access/listCatalogTables';
 import { resolveCoreToolsApiKey } from '../coreToolsContext';
@@ -78,6 +82,41 @@ export function withOptionalExplores(
     return { ...project, explores };
 }
 
+/**
+ * 从 `clientUse` 诊断里抽可安全外发的字段。
+ *
+ * 不透出 allowedDashboardNames 等看板元数据；保留 `reason`（客服排查用的中文说明）。
+ */
+export function toClientUseDiagnostics(
+    clientUse: unknown,
+    restrictedScope: boolean,
+): {
+    scopeApplied: boolean | null;
+    restrictedRole: boolean;
+    status: string | null;
+    effectiveProjectRole: string | null;
+    reason: string | null;
+} | null {
+    const row = asRecord(clientUse);
+    if (!row) {
+        return null;
+    }
+    const status = stringOrNull(row.status);
+    return {
+        scopeApplied:
+            typeof row.scopeApplied === 'boolean' ? row.scopeApplied : null,
+        restrictedRole: restrictedScope,
+        status,
+        effectiveProjectRole: stringOrNull(row.effectiveProjectRole),
+        // 后端 reason 在 rpc_ok / rpc_empty 里内嵌手机号（email 前缀），
+        // 这两种状态只给 status，不透出原文；其余状态是纯状态说明。
+        reason:
+            status === 'rpc_ok' || status === 'rpc_empty'
+                ? null
+                : stringOrNull(row.reason),
+    };
+}
+
 async function buildProjectAccess(
     api: LightdashRestClient,
     apiKey: string,
@@ -85,6 +124,7 @@ async function buildProjectAccess(
     rules: ReturnType<typeof parseAbilityRules>,
     organizationCapabilities: AccessCapabilities,
     includeExplores: boolean,
+    scope: ExploreScopeInfo = unknownExploreScope(),
 ) {
     const projectCapabilities = capabilitiesFromRules(rules, {
         type: 'project',
@@ -115,6 +155,7 @@ async function buildProjectAccess(
             collectExploreAccessItems(exploresRaw),
             collectExploreAccessItems(catalogRaw),
             effectiveCapabilities.runMetricQuery,
+            scope,
         ),
     );
 }
@@ -140,8 +181,13 @@ export function registerAccessTools(
         },
         async (args) => {
             const apiKey = resolveCoreToolsApiKey(config);
+            const requestedProjectUuid = stringOrNull(args.projectUuid);
             const [userRaw, projectsRaw] = await Promise.all([
-                api.getAuthenticatedUser(apiKey),
+                // 带 projectUuid 才会返回 clientUse 诊断（受控角色 / 白名单是否生效）
+                api.getAuthenticatedUser(
+                    apiKey,
+                    requestedProjectUuid ?? undefined,
+                ),
                 api.listProjects(apiKey),
             ]);
             const user = asRecord(userRaw) ?? {};
@@ -149,13 +195,13 @@ export function registerAccessTools(
             const organizationCapabilities = capabilitiesFromRules(rules, {
                 type: 'org',
             });
-            const requestedProjectUuid = stringOrNull(args.projectUuid);
             const includeExplores = args.includeExplores === true;
             const projects = collectProjects(projectsRaw).filter((project) =>
                 requestedProjectUuid
                     ? project.projectUuid === requestedProjectUuid
                     : true,
             );
+            const scope = toExploreScopeInfo(user.clientUse);
             const projectAccess = await Promise.all(
                 projects.map((project) =>
                     buildProjectAccess(
@@ -165,6 +211,7 @@ export function registerAccessTools(
                         rules,
                         organizationCapabilities,
                         includeExplores,
+                        scope,
                     ),
                 ),
             );
@@ -178,6 +225,15 @@ export function registerAccessTools(
                                 firstName: stringOrNull(user.firstName),
                                 lastName: stringOrNull(user.lastName),
                                 userUuid: stringOrNull(user.userUuid),
+                                // 强制看板模式策略（让 agent 一次问清，避免靠失败试错）
+                                dashboardStrict: config.dashboardStrict,
+                                dashboardContact: config.dashboardContact,
+                                // 客户使用模式诊断：受控角色白名单生效时，
+                                // 「查不到表」要按「没权限」解释，而不是「表不存在」
+                                clientUse: toClientUseDiagnostics(
+                                    user.clientUse,
+                                    isRestrictedScope(scope),
+                                ),
                                 organization: {
                                     organizationUuid: stringOrNull(
                                         user.organizationUuid,
