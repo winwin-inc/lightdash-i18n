@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { assertExploreQueryable } from './access/assertExploreQueryable';
 import { createRequiredDashboardGuard } from './access/requiredDashboardContext';
+import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -298,10 +299,10 @@ export const registerQueryTools = (
     deps: McpToolDeps,
 ): void => {
     const strict = isDashboardStrict(deps);
-    // 严格模式 guard（仅 strict 时创建；反查/预检缓存在 guard 模块内共享）
-    const dashboardGuard = strict
-        ? createRequiredDashboardGuard(deps)
-        : null;
+    // 看板上下文 guard（反查/预检缓存在 guard 模块内共享）。strict 时所有
+    // 查数工具无条件解析；非 strict 时仅在 explore 需要（sql_filter 引用
+    // 看板 slug）或调用方显式传 dashboardUuid 时解析（v1 对齐）。
+    const dashboardGuard = createRequiredDashboardGuard(deps);
 
     registry.register(
         McpToolName.LIST_EXPLORES,
@@ -423,9 +424,25 @@ export const registerQueryTools = (
                 { dashboardStrict: strict },
             );
 
-            // 强制看板模式：查数前必须解析出已验证的 dashboardUuid，
-            // blocked 时直接返回 guard 构造的结构化 payload，不执行查询。
-            if (dashboardGuard) {
+            const explore = await deps.projectService.getExplore(
+                context.account,
+                projectUuid,
+                exploreName,
+            );
+
+            // 看板上下文解析（v1 对齐）：strict 无条件；否则 explore 需要
+            // （sql_filter 引用看板 slug）或显式传了 dashboardUuid 才解析。
+            // blocked（未绑看板/需选择/无权限）时返回结构化 payload，不执行查询。
+            // 解析出的上下文传进 runMetricQuery——dbt sql_filter 行级权限
+            // 依赖看板 slug，缺省会把行级过滤按 NA 跳过。
+            let dashboardContext:
+                | { dashboardUuid: string; dashboardSlug: string; dashboardName: string }
+                | undefined;
+            if (
+                strict ||
+                exploreRequiresDashboardContext(explore) ||
+                dashboardUuid !== undefined
+            ) {
                 const guardResult = await dashboardGuard.ensure(context, {
                     projectUuid,
                     dashboardUuid,
@@ -434,13 +451,12 @@ export const registerQueryTools = (
                 if (!guardResult.ok) {
                     return guardResult.result;
                 }
+                dashboardContext = {
+                    dashboardUuid: guardResult.context.dashboardUuid,
+                    dashboardSlug: guardResult.context.dashboardSlug,
+                    dashboardName: guardResult.context.dashboardName,
+                };
             }
-
-            const explore = await deps.projectService.getExplore(
-                context.account,
-                projectUuid,
-                exploreName,
-            );
 
             const metricIds = metrics.map((metric) =>
                 resolveFieldId(explore, metric, FieldType.METRIC),
@@ -484,6 +500,7 @@ export const registerQueryTools = (
                 csvLimit: effectiveLimit,
                 context: QueryExecutionContext.MCP,
                 chartUuid: undefined,
+                dashboardContext,
                 queryTags: {
                     project_uuid: projectUuid,
                     user_uuid: context.user.userUuid,

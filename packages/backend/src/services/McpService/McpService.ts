@@ -23,6 +23,7 @@ import {
     toolRunMetricQueryArgsSchema,
     ToolSearchFieldValuesArgs,
     toolSearchFieldValuesArgsSchema,
+    type DashboardQueryContextAttributes,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
 // eslint-disable-next-line import/extensions
@@ -91,6 +92,7 @@ import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
 import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
 import { createRequiredDashboardGuard } from './tools/access/requiredDashboardContext';
+import { exploreRequiresDashboardContext } from './tools/access/exploreRequiresDashboardContext';
 import { registerContentSearchTools } from './tools/contentSearchTools';
 import { registerContentListTools } from './tools/contentListTools';
 import { registerSavedChartTools } from './tools/savedChartTools';
@@ -639,6 +641,9 @@ export class McpService extends BaseService {
                 // schema 必填，实际恒有值；缺失时交由后续 parse 报参数错误）
                 const exploreName =
                     argsWithProject.vizConfig?.exploreName;
+                let dashboardContextForQuery:
+                    | DashboardQueryContextAttributes
+                    | undefined;
                 if (exploreName) {
                     await assertExploreQueryable(
                         this.getToolDeps(),
@@ -648,20 +653,40 @@ export class McpService extends BaseService {
                         'metric',
                         { dashboardStrict: strict },
                     );
-                    if (strict) {
+                    // 看板上下文（v1 对齐）：strict 无条件；否则 explore 需要
+                    // （sql_filter 引用看板 slug）或显式传了 dashboardUuid 才解析；
+                    // 解析出的上下文传进查询——行级权限依赖看板 slug。
+                    const explicitDashboardUuid = (
+                        argsWithProject as { dashboardUuid?: string }
+                    ).dashboardUuid;
+                    const explore =
+                        await this.projectService.getExplore(
+                            context.account,
+                            projectUuid,
+                            exploreName,
+                        );
+                    if (
+                        strict ||
+                        exploreRequiresDashboardContext(explore) ||
+                        explicitDashboardUuid !== undefined
+                    ) {
                         const guard = createRequiredDashboardGuard(
                             this.getToolDeps(),
                         );
                         const guardResult = await guard.ensure(context, {
                             projectUuid,
-                            dashboardUuid: (
-                                argsWithProject as { dashboardUuid?: string }
-                            ).dashboardUuid,
+                            dashboardUuid: explicitDashboardUuid,
                             exploreName,
                         });
                         if (!guardResult.ok) {
                             return guardResult.result;
                         }
+                        const c = guardResult.context;
+                        dashboardContextForQuery = {
+                            dashboardUuid: c.dashboardUuid,
+                            dashboardSlug: c.dashboardSlug,
+                            dashboardName: c.dashboardName,
+                        };
                     }
                 }
 
@@ -669,6 +694,7 @@ export class McpService extends BaseService {
                     await this.getRunMetricQueryDependencies(
                         argsWithProject,
                         context,
+                        dashboardContextForQuery,
                     );
 
                 const result = await runRunMetricQuery(
@@ -1090,6 +1116,7 @@ export class McpService extends BaseService {
             projectUuid: string;
         },
         context: McpToolContext,
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{
         getExplore: GetExploreFn;
         runMiniMetricQuery: RunMiniMetricQueryFn;
@@ -1144,6 +1171,7 @@ export class McpService extends BaseService {
                 csvLimit: maxLimit,
                 context: QueryExecutionContext.MCP,
                 chartUuid: undefined,
+                dashboardContext,
                 queryTags: {
                     project_uuid: projectUuid,
                     user_uuid: user.userUuid,

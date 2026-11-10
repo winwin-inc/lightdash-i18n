@@ -8,6 +8,7 @@ import {
     MetricQuery,
     QueryExecutionContext,
     SavedChart,
+    type DashboardQueryContextAttributes,
 } from '@lightdash/common';
 // eslint-disable-next-line import/extensions
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -175,6 +176,7 @@ const runChartQuery = async (
     projectUuid: string,
     chart: SavedChart,
     limit: number | undefined,
+    dashboardContext?: DashboardQueryContextAttributes,
 ): Promise<ChartRunResult> => {
     const rowLimit = resolveRowLimit(deps, limit);
     const metricQuery: MetricQuery = {
@@ -191,6 +193,7 @@ const runChartQuery = async (
         csvLimit: effectiveLimit,
         context: QueryExecutionContext.MCP,
         chartUuid: chart.uuid,
+        dashboardContext,
         parameters: chart.parameters ?? {},
         queryTags: {
             project_uuid: projectUuid,
@@ -222,6 +225,8 @@ const runDashboardTile = async (
     limit: number | undefined,
     /** 严格模式下用于看板类 403/404 映射的 dashboardUuid */
     dashboardUuid: string,
+    /** 磁贴查询的行级口径：所属看板的上下文（v1 对齐，sql_filter 依赖 slug） */
+    dashboardContext: DashboardQueryContextAttributes,
 ): Promise<DashboardTileRunOutcome> => {
     const tileName = tile.properties.title ?? chartUuid;
 
@@ -339,6 +344,11 @@ export const registerChartRunTools = (
             // 查数前必须拿到已验证的 dashboardUuid，blocked 时直接返回
             // guard 构造的结构化 payload，不执行查询。
             let dashboardUuidForQuery: string | undefined = dashboardUuid;
+            // 解析出的看板上下文传进查询（v1 对齐）：dbt sql_filter 行级权限
+            // 依赖看板 slug，缺省会把行级过滤按 NA 跳过。
+            let dashboardContextForQuery:
+                | DashboardQueryContextAttributes
+                | undefined;
             if (dashboardGuard) {
                 const guardResult = await dashboardGuard.ensure(context, {
                     projectUuid,
@@ -349,6 +359,11 @@ export const registerChartRunTools = (
                     return guardResult.result;
                 }
                 dashboardUuidForQuery = guardResult.context.dashboardUuid;
+                dashboardContextForQuery = {
+                    dashboardUuid: guardResult.context.dashboardUuid,
+                    dashboardSlug: guardResult.context.dashboardSlug,
+                    dashboardName: guardResult.context.dashboardName,
+                };
             }
 
             let result: ChartRunResult;
@@ -359,6 +374,7 @@ export const registerChartRunTools = (
                     projectUuid,
                     chart,
                     limit,
+                    dashboardContextForQuery,
                 );
             } catch (error) {
                 if (strict) {
@@ -472,6 +488,11 @@ export const registerChartRunTools = (
                         chartUuid,
                         limit,
                         dashboardUuid,
+                        {
+                            dashboardUuid: dashboard.uuid,
+                            dashboardSlug: dashboard.slug,
+                            dashboardName: dashboard.name,
+                        },
                     );
                     if ('content' in tileResult) {
                         // 整批中止：返回看板类阻断结果（已在执行的磁贴无法取消）
