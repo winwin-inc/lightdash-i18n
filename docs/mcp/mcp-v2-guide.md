@@ -232,6 +232,7 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 
 - `status`：`ok` / `disabled`（`MCP_ENABLED` 未开或用户无权限）/ `error`。
 - 该端点**不需要 MCP 会话**，适合探活与 LB 检查。
+- **陷阱：`curl` + PAT 打 `/health` 恒返回 `disabled`**。该路由不挂认证中间件、不解析 PAT 头，`req.user` 只有浏览器 session cookie 才会填充。判断 MCP 是否启用请直接 `POST /api/v1/mcp`（返回 `serverInfo` = 已启用，403 = 未启用）。
 
 工具调用埋点：`mcp_tool_call` 事件含 `toolName`、`user`、`organization`、`project`、`authType`（`oauth`/`pat`）、`durationMs`、`success`；scope 拒绝发生在埋点之前，因此不会计入工具调用。
 
@@ -280,6 +281,18 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 - 多副本天然一致（上下文在 PG，无内存态）。
 - OAuth client 的 scope 由 DCR 写入；历史 client 通过迁移 `20261012090000_add_mcp_read_scope_to_oauth_clients.ts` 补齐 `mcp:read`。
 
+### OAuth token 有效期与重启影响
+
+| Token | 默认有效期 | 环境变量（秒，可覆盖） |
+|---|---|---|
+| Access token | 1 小时 | `AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME` |
+| Refresh token | 2 周 | `AUTH_OAUTH_SERVER_REFRESH_TOKEN_LIFETIME` |
+| 授权码 | 5 分钟、一次性（`@node-oauth/oauth2-server` 默认） | 未开放配置 |
+
+- 全部是 **opaque token 存 PG**（`oauth2_access_tokens` / `oauth2_refresh_tokens` / `oauth2_authorization_codes`），非 JWT、无签名密钥；每次认证查库比对 `expires_at`，无内存缓存。
+- **服务重启零影响**：已登录 CLI 的 access / refresh token 继续有效，无需重新登录；access 到期由 refresh 静默换新，两周内免登录。
+- 已知限制：过期 token 行**无自动清理任务**，表会缓慢增长（CLI 登录频率低，短期无碍）；后续可在 backend 加 cron 清理。
+
 ---
 
 ## 8. 排错
@@ -293,6 +306,8 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | `404 Session not found` | 客户端还在用 v1 的 session 逻辑 | 去掉 `Mcp-Session-Id` |
 | 工具报权限不足 | 真实用户权限不足（v2 按调用者本人算） | 用 `get_my_access` 看能力；或换 PAT |
 | `list_verified_content` 返回 `supported: false` | 部署未启用 content-verification | 改用 `list_charts` / `list_dashboards` |
+| `prompts/get` 返回 `-32602 Invalid arguments`（未传 `arguments`） | MCP SDK 1.17.5 对带参 prompt 要求 `arguments` 为对象 | 空参时传 `arguments: {}` |
+| `prompts/list` 返回 `-32603 field.isOptional is not a function` | v2.6.8-test.2 及之前版本的 prompt 注册方式 bug | 升级到 ≥ v2.6.8-test.3，详见[统一改造归档 §6](./mcp-unified-backend-status.md) |
 
 ---
 

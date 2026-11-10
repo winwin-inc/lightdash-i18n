@@ -434,7 +434,33 @@ export const NO_DEFAULT_PROJECT_HINT =
 
 ---
 
-## 6. 参考资料
+## 6. 上线排障记录（预发上线，2026-11-10）
+
+### 6.1 迁移失败 `malformed array literal: "mcp:read"`（v2.6.8-test.2 修复）
+
+- **现象**：`knex migrate:latest` 在 `20261012090000_add_mcp_read_scope_to_oauth_clients` 报 `malformed array literal: "mcp:read" / Array value must start with "{"`。
+- **根因**：迁移写了 `SET scopes = scopes || 'mcp:read'`。PG 中字符串字面量是 **unknown 类型**，`||` 按「与另一参数同类型」规则被解析为**数组拼接**（`anyarray || anyarray`），把 `'mcp:read'` 当数组字面量解析失败。与表结构 / 数据无关，任何 PG 上必挂（`SELECT ARRAY['a'] || 'c'` 同样报错）。
+- **修复**：改用 `array_append(scopes, 'mcp:read')`，`down` 用 `array_remove`（commit `f28a5a796`，随 `v2.6.8-test.2` 上线）。失败迁移未写入 `knex_migrations`，修复后直接重跑即可。
+- **教训**：`array_col || 数字` 能跑（数字类型已知），`array_col || '字符串'` 必挂，只有裸字符串字面量踩坑；原生 SQL 迁移合并前应先在本地 / CI 真跑一遍 `migrate:latest`。
+
+### 6.2 `prompts/list` 报 `field.isOptional is not a function`（v2.6.8-test.3 修复）
+
+- **现象**：所有 MCP 客户端调 `prompts/list` 返回 `-32603 field.isOptional is not a function`，`tools/*` 正常。
+- **根因**：`McpToolRegistry.registerPrompt` 误用 `server.prompt(name, config, cb)`。SDK 1.17.5 中三参 `prompt()` 重载是 `(name, argsSchema: ZodRawShape, cb)`，整个 `{description, argsSchema}` config 被包成 `z.object()`，list 时对字符串 `description` 调 `.isOptional()` 报错。config 对象形式只存在于 `server.registerPrompt(name, config, cb)`。
+- **修复**：`server.prompt` → `server.registerPrompt`（commit `691057d50`，随 `v2.6.8-test.3` 上线）。
+- **遗留**（SDK 1.17.5 自身行为，非 bug）：带参 prompt 的 `prompts/get` 必须传 `arguments` 对象（空参传 `{}`），否则 `-32602`。
+
+### 6.3 上线版本链
+
+| tag | 内容 |
+|---|---|
+| `v2.6.8-test.1` | MCP 统一后端首次上线预发（含 scopes 迁移 bug） |
+| `v2.6.8-test.2` | 修复 scopes 迁移（§6.1），部署得以完成 |
+| `v2.6.8-test.3` | 修复 `prompts/list`（§6.2） |
+
+---
+
+## 7. 参考资料
 
 | 资料 | 路径 / 位置 |
 |------|------------|

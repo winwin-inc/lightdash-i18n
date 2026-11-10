@@ -9,7 +9,7 @@
 | 文档 | 给谁 |
 |------|------|
 | **[v2 接入指南（主站正式版）](./mcp-v2-guide.md)** | **新接入方 / 运维**：URL、OAuth + PAT、26 工具、无状态语义、v1→v2 迁移清单 |
-| [**统一改造归档（含 P8 规划）**](./mcp-unified-backend-status.md) | **接手方**：已完成阶段与提交、当前代码状态、已定稿决策、P8「默认项目语义 + 四级兜底链」完整规划 |
+| [**统一改造归档（含 P8 规划）**](./mcp-unified-backend-status.md) | **接手方**：已完成阶段与提交、当前代码状态、已定稿决策、P8「默认项目语义 + 四级兜底链」完整规划；含上线排障记录（§6） |
 | [**独立包去留评估**](./lightdash-mcp-retirement-evaluation.md) | **决策者**：独立包继续维护 / 转薄壳 / 退役的对比与推荐路径 |
 | [**外部接入指南**](./lightdash-mcp-external-guide.md) | **可单独转发给外部接入方**（含流程图） |
 | [**内置 MCP 部署与验收（v2）**](./mcp-builtin-deploy.md) | **上线负责人**：主站内置 `/api/v1/mcp` 的预发/上线配置清单（`MCP_ENABLED`、PAT/OAuth 二选一）、curl 验收步骤、回滚 |
