@@ -464,7 +464,14 @@ export const NO_DEFAULT_PROJECT_HINT =
 - GET SSE 无限流/并发上限；`/register` DCR 无鉴权无限流（公网暴露时需加）
 - MINOR：授权码兑换 TOCTOU（建议 `DELETE ... RETURNING` 原子化）、`revokeToken` 只删 refresh token、`MCP_TOOL_SCOPES` 未知工具 fail-open（建议 fail-closed）、`/health` 泄露版本号、OPTIONS 走鉴权链致浏览器预检 401
 
-### 6.4 上线版本链
+### 6.4 事故：v2.6.8 上线后 OAuth 客户端无法获取 token（热修）
+
+- **现象**：正式版上线后 MCP 客户端（Worker）连接失败，日志大量 `OAuth authentication failed: 401 unauthorized_request / invalid_token`（旧 token 失效后无法重新签发）。
+- **根因**：§6.3 的 M1 修复首版 `validateScope` 是「全有或全无 + 空 scope 拒绝」，而 `.well-known` 元数据通告 `scopes_supported: [mcp:read, mcp:write]`，标准 MCP 客户端会请求全部通告 scope（`mcp:read mcp:write`）；只注册了 `mcp:read` 的 client 被整单拒成 400 invalid_scope，token 签发链路断裂。
+- **修复**：`validateScope` 改为**发放交集**（未注册的丢弃并告警，交集非空即发）；空 scope 回退到 client 注册的 mcp scope；M1 安全性不变（未注册 scope 永不发放）。已用真实 `oauth2-server@5.2.0` 验证全部场景。
+- **教训**：收紧授权时必须核对己方元数据通告（`scopes_supported`）与标准客户端的默认行为（请求全部通告 scope）。
+
+### 6.5 上线版本链
 
 | tag | 内容 |
 |---|---|

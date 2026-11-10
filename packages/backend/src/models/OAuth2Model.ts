@@ -10,6 +10,7 @@ import type {
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
 import { Scope } from 'oauth2-server';
+import Logger from '../logging/logger';
 
 export const DEFAULT_OAUTH_CLIENT_ID = 'lightdash-cli';
 
@@ -44,11 +45,17 @@ export class OAuth2Model implements AuthorizationCodeModel {
     }
 
     /**
-     * Restricts requested scopes to those registered on the OAuth client.
+     * Restricts issued scopes to those registered on the OAuth client.
      * Without this, `@node-oauth/oauth2-server` honours any requested scope
-     * at `/authorize` (e.g. a read-only client could request `mcp:write`),
-     * making the client-level scope promise unenforceable.
-     * Returns `false` for an entirely invalid request (invalid_scope).
+     * (e.g. a read-only client could request `mcp:write`), making the
+     * client-level scope promise unenforceable.
+     *
+     * Unregistered requested scopes are DROPPED (not fatal): MCP clients
+     * commonly request every scope advertised in `.well-known`
+     * (`mcp:read mcp:write`) even when the client only registered `mcp:read`
+     * — rejecting the whole request broke those clients (v2.6.8 incident).
+     * A request whose scopes are all unregistered, or a client with no
+     * registered scopes, still fails with `invalid_scope`.
      */
     async validateScope(
         _user: User,
@@ -59,17 +66,34 @@ export class OAuth2Model implements AuthorizationCodeModel {
             ? client.scopes
             : [client.scopes].filter(Boolean);
 
-        const requestedScopes = (scope ?? []).filter((s) => s.length > 0);
-        if (requestedScopes.length === 0 || allowedScopes.length === 0) {
+        if (allowedScopes.length === 0) {
             return false;
+        }
+
+        const requestedScopes = (scope ?? []).filter((s) => s.length > 0);
+        if (requestedScopes.length === 0) {
+            // No scope requested: default to the client's registered MCP
+            // scopes (mirrors OAuthService.applyDefaultScope), falling back
+            // to all registered scopes for non-MCP clients (e.g. lightdash-cli).
+            const mcpScopes = allowedScopes.filter((s) => s.startsWith('mcp:'));
+            return mcpScopes.length > 0 ? mcpScopes : allowedScopes;
         }
 
         const allowed = new Set<string>(allowedScopes);
         const validScopes = requestedScopes.filter((s) => allowed.has(s));
+        if (validScopes.length === 0) {
+            return false;
+        }
 
-        return validScopes.length === requestedScopes.length
-            ? validScopes
-            : false;
+        if (validScopes.length !== requestedScopes.length) {
+            Logger.warn(
+                `OAuth: dropping unregistered scopes for client ${client.id}: requested ${requestedScopes.join(
+                    ' ',
+                )}, granted ${validScopes.join(' ')}`,
+            );
+        }
+
+        return validScopes;
     }
 
     async getClientScopes(clientId: string): Promise<string[]> {
