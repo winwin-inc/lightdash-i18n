@@ -999,6 +999,14 @@ export type LightdashConfig = {
          * on per-level permission checks for safety.
          */
         defaultProjectUuid: string | null;
+        /**
+         * 强制看板模式（MCP_DASHBOARD_STRICT，对齐 v1 独立包同名义）：
+         * 查数工具必须先解析出关联看板（dashboardUuid），否则阻断并返回
+         * 配置/权限/选择类结构化文案。默认 false（内部分析师不受影响）。
+         */
+        dashboardStrict: boolean;
+        /** 无看板权限时给客户的联系文案（MCP_DASHBOARD_CONTACT） */
+        dashboardContact: string;
     };
     customRoles: {
         enabled: boolean;
@@ -2270,6 +2278,11 @@ export const parseConfig = (): LightdashConfig => {
                 .map((scope) => scope.trim())
                 .filter((scope) => scope.length > 0),
             defaultProjectUuid: process.env.LIGHTDASH_PROJECT_UUID ?? null,
+            dashboardStrict:
+                process.env.MCP_DASHBOARD_STRICT === 'true',
+            dashboardContact:
+                process.env.MCP_DASHBOARD_CONTACT ??
+                '请联系客服开通看板访问权限。',
         },
         customRoles: {
             enabled: process.env.CUSTOM_ROLES_ENABLED === 'true',
