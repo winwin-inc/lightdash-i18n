@@ -7,6 +7,16 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.1 (2026-11-10)
+
+-   **内置 MCP：受控角色权限层对齐 v1 独立包**（`feat/mcp-unified-backend`，默认关闭，开启见 `docs/mcp/mcp-builtin-deploy.md` §7）
+    -   查询预检：explore 不可查时按「受控角色 / 非受控角色」两套中文文案拒绝（含授权服务不可用、查看者不支持临时查询等四类原因）；5 分钟分类缓存 + 阻断路径绕缓存重查，进程内直调（clientUse 诊断走 DashboardService，不再 HTTP）
+    -   强制看板模式（`MCP_DASHBOARD_STRICT`，默认 false）：查数工具必须解析出已验证的看板上下文（显式 uuid 归属校验 / 唯一关联看板自动解析 / 多候选要求选择），五类结构化阻断 payload 与 v1 逐字一致；`MCP_DASHBOARD_CONTACT` 自定义联系文案
+    -   行级口径：guard / 看板自身的 uuid・slug・name 传入查询执行，dbt `sql_filter` 引用看板 slug 的行级权限不再按 NA 跳过；非 strict 下 explore 需要看板上下文时同样自动解析（对齐 v1）
+    -   `get_my_access`：每项目新增 `clientUse` 诊断（scopeApplied/restrictedRole/status/effectiveProjectRole/reason，不含看板清单/手机号），顶层暴露 `dashboardStrict` / `dashboardContact`；受控角色「查不到表」文案不再误报「表不存在」
+    -   覆盖工具：run_metric_query / run_semantic_metric_query / search_field_values / run_saved_chart / run_dashboard_tiles（预检 + 门控 + 上下文传递），只读图表看板工具（看板类 403/404 结构化映射）
+    -   工程：模块级缓存加 1000 条上限；独立评审交叉验证（文案逐字一致）；新增 64 例单测；CI/镜像无需改动，预发 compose 已补变量
+
 ## v2.7.0 (2026-11-10)
 
 > 累积 v2.6.6 ~ v2.6.9 与 v2.7.0 同批发布，生产以 v2.7.0 为落点（v2.6.8-test.x 为预发测试版本）。MCP 包级变更明细见 `CHANGELOG-mcp.md`，此处只收产品级条目。
