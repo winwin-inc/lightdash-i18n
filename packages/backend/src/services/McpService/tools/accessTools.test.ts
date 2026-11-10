@@ -29,10 +29,19 @@ const buildRegistry = () => {
 
 const buildDeps = ({
     projects,
+    clientUse = undefined,
 }: {
     projects: { projectUuid: string; name: string }[];
+    /** clientUse 诊断（ViewerContentScopeDiagnostics），缺省 = 取不到 */
+    clientUse?: AnyType;
 }) => {
     const getAllByOrganizationUuid = jest.fn().mockResolvedValue(projects);
+    const lightdashConfig = {
+        mcp: {
+            dashboardStrict: false,
+            dashboardContact: '请联系客服开通看板访问权限。',
+        },
+    } as AnyType;
     const getAllExploresSummary = jest.fn().mockResolvedValue([
         { name: 'orders', label: 'Orders', groupLabel: null },
     ]);
@@ -50,8 +59,12 @@ const buildDeps = ({
             },
         ],
     });
+    const getViewerContentScopeDiagnostics = jest
+        .fn()
+        .mockResolvedValue(clientUse);
 
     const deps = {
+        lightdashConfig,
         projectModel: {
             getAllByOrganizationUuid,
             getAllExploreSummaries,
@@ -62,6 +75,9 @@ const buildDeps = ({
         catalogService: {
             getCatalog,
         },
+        dashboardService: {
+            getViewerContentScopeDiagnostics,
+        },
     } as unknown as McpToolDeps;
 
     return {
@@ -70,6 +86,7 @@ const buildDeps = ({
         getAllExploresSummary,
         getAllExploreSummaries,
         getCatalog,
+        getViewerContentScopeDiagnostics,
     };
 };
 
@@ -227,5 +244,126 @@ describe('registerAccessTools', () => {
         expect(explores.attributeDenied.map((e: AnyType) => e.name)).toEqual([
             'users',
         ]);
+    });
+
+    const buildClientUseDiagnostics = (
+        overrides: AnyType = {},
+    ): AnyType => ({
+        projectUuid: 'project-uuid',
+        clientUseEnabled: true,
+        rpcConfigured: true,
+        effectiveProjectRole: 'viewer',
+        roleSource: 'project_membership',
+        scopeApplied: true,
+        restrictedRole: true,
+        status: 'rpc_ok',
+        reason: '客户授权接口返回该手机号（13800000000）在本项目下有授权看板。',
+        mobile: '13800000000',
+        allowedDashboardCount: 1,
+        allowedDashboardUuids: ['dashboard-uuid-1'],
+        allowedDashboardNames: ['类目看板'],
+        scopeCounts: { dashboards: 1, charts: 2, spaces: 1, explores: 1 },
+        ...overrides,
+    });
+
+    it('exposes the clientUse diagnostic per project without dashboard metadata', async () => {
+        const { registry, registered } = buildRegistry();
+        const { deps, getViewerContentScopeDiagnostics } = buildDeps({
+            projects: [{ projectUuid: 'project-uuid', name: 'Demo' }],
+            clientUse: buildClientUseDiagnostics(),
+        });
+        registerAccessTools(registry, deps);
+
+        const context = buildContext({
+            visibleProjectUuids: ['project-uuid'],
+        });
+        const result = parseResult(
+            await registered[0].handler({ includeExplores: true }, context),
+        );
+
+        expect(getViewerContentScopeDiagnostics).toHaveBeenCalledWith(
+            expect.objectContaining({
+                userUuid: 'user-uuid',
+                email: 'demo@lightdash.com',
+            }),
+            'project-uuid',
+        );
+
+        const project = result.projects[0];
+        // rpc_ok 的 reason 内嵌手机号，只给 status 不透出原文（v1 口径）
+        expect(project.clientUse).toEqual({
+            scopeApplied: true,
+            restrictedRole: true,
+            status: 'rpc_ok',
+            effectiveProjectRole: 'viewer',
+            reason: null,
+        });
+        // 看板清单 / 数量 / scope 统计 / 手机号都不外发（v1 刻意不泄看板元数据）
+        const serialized = JSON.stringify(result);
+        expect(serialized).not.toMatch(
+            /类目看板|dashboard-uuid-1|13800000000|allowedDashboard|scopeCounts|mobile/,
+        );
+        // explores 分类的 scope 与 clientUse 同源
+        expect(project.explores.scope).toEqual({
+            scopeApplied: true,
+            clientUseStatus: 'rpc_ok',
+        });
+    });
+
+    it('keeps the clientUse reason when the status does not embed the mobile number', async () => {
+        const { registry, registered } = buildRegistry();
+        const { deps } = buildDeps({
+            projects: [{ projectUuid: 'project-uuid', name: 'Demo' }],
+            clientUse: buildClientUseDiagnostics({
+                scopeApplied: false,
+                status: 'not_client_use',
+                reason: '项目未开启客户使用模式，不启用内容范围限制。',
+                mobile: null,
+                allowedDashboardCount: 0,
+                allowedDashboardUuids: [],
+                allowedDashboardNames: [],
+                scopeCounts: null,
+            }),
+        });
+        registerAccessTools(registry, deps);
+
+        const context = buildContext({
+            visibleProjectUuids: ['project-uuid'],
+        });
+        const result = parseResult(
+            await registered[0].handler({ includeExplores: false }, context),
+        );
+
+        expect(result.projects[0].clientUse).toEqual({
+            scopeApplied: false,
+            restrictedRole: false,
+            status: 'not_client_use',
+            effectiveProjectRole: 'viewer',
+            reason: '项目未开启客户使用模式，不启用内容范围限制。',
+        });
+    });
+
+    it('sets clientUse to null and the explores scope to unknown when the diagnostics call fails', async () => {
+        const { registry, registered } = buildRegistry();
+        const { deps, getViewerContentScopeDiagnostics } = buildDeps({
+            projects: [{ projectUuid: 'project-uuid', name: 'Demo' }],
+        });
+        getViewerContentScopeDiagnostics.mockRejectedValue(
+            new Error('rpc down'),
+        );
+        registerAccessTools(registry, deps);
+
+        const context = buildContext({
+            visibleProjectUuids: ['project-uuid'],
+        });
+        const result = parseResult(
+            await registered[0].handler({ includeExplores: true }, context),
+        );
+
+        expect(result.projects[0].clientUse).toBeNull();
+        expect(result.projects[0].explores.scope).toEqual({
+            scopeApplied: null,
+            clientUseStatus: null,
+        });
     });
 });

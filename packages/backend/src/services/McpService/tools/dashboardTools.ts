@@ -1,12 +1,16 @@
 import {
     assertUnreachable,
     ChartKind,
+    Dashboard,
     DashboardTile,
     DashboardTileTypes,
     ForbiddenError,
 } from '@lightdash/common';
+// eslint-disable-next-line import/extensions
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
+import { formatDashboardAccessError } from './access/requiredDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -115,35 +119,63 @@ const summariseTile = (tile: DashboardTile): DashboardTileSummary => {
 };
 
 /**
+ * 强制看板模式（MCP_DASHBOARD_STRICT，对齐 v1 环境变量同名义）。
+ *
+ * 默认 false：内部分析师零影响，非 strict 路径行为完全不变。
+ */
+const isDashboardStrict = (deps: McpToolDeps): boolean =>
+    deps.lightdashConfig.mcp?.dashboardStrict === true;
+
+/**
  * Reads a dashboard, enforcing the project scope and the user permissions.
+ *
+ * 强制看板模式下，看板类 403/404 映射成 dashboard_* 状态的结构化 payload
+ * （blocked=true）；非看板类错误与非 strict 路径原样抛出，行为不变。
  */
 const readDashboard = async (
     deps: McpToolDeps,
     context: McpToolContext,
     dashboardUuidOrSlug: string,
     explicitProjectUuid?: string,
-) => {
+): Promise<
+    | { blocked: false; projectUuid: string; dashboard: Dashboard }
+    | { blocked: true; result: CallToolResult }
+> => {
     const { projectUuid } = await resolveProjectContext(
         deps,
         context,
         explicitProjectUuid,
     );
 
-    // `DashboardService.getByIdOrSlug` applies the space permission filtering
-    // and the viewer dashboard allow list of the calling user.
-    const dashboard = await deps.dashboardService.getByIdOrSlug(
-        context.user,
-        dashboardUuidOrSlug,
-        { projectUuid },
-    );
-
-    if (dashboard.projectUuid !== projectUuid) {
-        throw new ForbiddenError(
-            `Dashboard does not belong to project ${projectUuid}`,
+    try {
+        // `DashboardService.getByIdOrSlug` applies the space permission filtering
+        // and the viewer dashboard allow list of the calling user.
+        const dashboard = await deps.dashboardService.getByIdOrSlug(
+            context.user,
+            dashboardUuidOrSlug,
+            { projectUuid },
         );
-    }
 
-    return { projectUuid, dashboard };
+        if (dashboard.projectUuid !== projectUuid) {
+            throw new ForbiddenError(
+                `Dashboard does not belong to project ${projectUuid}`,
+            );
+        }
+
+        return { blocked: false, projectUuid, dashboard };
+    } catch (error) {
+        if (isDashboardStrict(deps)) {
+            const mapped = formatDashboardAccessError({
+                error,
+                projectUuid,
+                dashboardUuid: dashboardUuidOrSlug,
+            });
+            if (mapped) {
+                return { blocked: true, result: mapped };
+            }
+        }
+        throw error;
+    }
 };
 
 const dashboardWebUrl = (
@@ -176,12 +208,16 @@ export const registerDashboardTools = (
                 full = false,
             } = args as GetDashboardArgs;
 
-            const { projectUuid, dashboard } = await readDashboard(
+            const read = await readDashboard(
                 deps,
                 context,
                 dashboardUuid,
                 explicitProjectUuid,
             );
+            if (read.blocked) {
+                return read.result;
+            }
+            const { projectUuid, dashboard } = read;
 
             const tiles = dashboard.tiles.map(summariseTile);
 
@@ -229,12 +265,16 @@ export const registerDashboardTools = (
             const { dashboardUuid, projectUuid: explicitProjectUuid } =
                 args as GetDashboardArgs;
 
-            const { projectUuid, dashboard } = await readDashboard(
+            const read = await readDashboard(
                 deps,
                 context,
                 dashboardUuid,
                 explicitProjectUuid,
             );
+            if (read.blocked) {
+                return read.result;
+            }
+            const { projectUuid, dashboard } = read;
 
             const tiles = dashboard.tiles.map(summariseTile);
 

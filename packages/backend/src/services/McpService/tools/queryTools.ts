@@ -16,6 +16,12 @@ import {
 } from '@lightdash/common';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
+import { assertExploreQueryable } from './access/assertExploreQueryable';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './access/requiredDashboardContext';
+import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -72,6 +78,8 @@ type RunSemanticMetricQueryArgs = {
     dimensions?: string[];
     filters?: FiltersArgs;
     limit?: number;
+    /** 强制看板模式（dashboardStrict）下传入的关联看板 UUID */
+    dashboardUuid?: string;
 };
 
 type ExploreSummary = {
@@ -150,6 +158,21 @@ const runSemanticMetricQueryArgsSchema = {
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
         ),
 };
+
+/**
+ * 强制看板模式（MCP_DASHBOARD_STRICT，对齐 v1 环境变量同名义）。
+ *
+ * 默认 false：内部分析师零影响，除「预检文案口径」外路径行为完全不变。
+ */
+const isDashboardStrict = (deps: McpToolDeps): boolean =>
+    deps.lightdashConfig.mcp?.dashboardStrict === true;
+
+const dashboardUuidStrictParamSchema = z
+    .string()
+    .optional()
+    .describe(
+        '强制看板模式：本次查询关联的看板 UUID。未传时按 exploreName 反查关联看板（唯一则自动使用；多个返回 status=dashboard_selection_required；一个都没有返回 dashboard_configuration_required）。',
+    );
 
 const matchesExploreName = (
     exploreName: string,
@@ -278,6 +301,12 @@ export const registerQueryTools = (
     registry: McpToolRegistry,
     deps: McpToolDeps,
 ): void => {
+    const strict = isDashboardStrict(deps);
+    // 看板上下文 guard（反查/预检缓存在 guard 模块内共享）。strict 时所有
+    // 查数工具无条件解析；非 strict 时仅在 explore 需要（sql_filter 引用
+    // 看板 slug）或调用方显式传 dashboardUuid 时解析（v1 对齐）。
+    const dashboardGuard = createRequiredDashboardGuard(deps);
+
     registry.register(
         McpToolName.LIST_EXPLORES,
         {
@@ -355,7 +384,13 @@ export const registerQueryTools = (
         {
             description:
                 'Run a semantic (dbt) metric query on a Lightdash explore and get the resulting rows. Provide the explore name, the metrics to compute and optionally the dimensions to group by, filters and a row limit.',
-            inputSchema: runSemanticMetricQueryArgsSchema,
+            // 强制看板模式：schema 增加可选 dashboardUuid 参数（非 strict 时保持原 schema）
+            inputSchema: strict
+                ? {
+                      ...runSemanticMetricQueryArgsSchema,
+                      dashboardUuid: dashboardUuidStrictParamSchema,
+                  }
+                : runSemanticMetricQueryArgsSchema,
         },
         async (args, context) => {
             const {
@@ -365,6 +400,7 @@ export const registerQueryTools = (
                 dimensions = [],
                 filters,
                 limit,
+                dashboardUuid,
             } = args as RunSemanticMetricQueryArgs;
 
             const { projectUuid } = await resolveProjectContext(
@@ -379,11 +415,51 @@ export const registerQueryTools = (
                 );
             }
 
+            // v1 对齐（registerQueryTools）：执行前预检 explore 可查，
+            // 拒绝时抛出「受控角色 / 非受控角色」两行中文文案，不会跑数。
+            // 预检在 strict 与非 strict 下都执行（dashboardStrict 只影响文案口径）。
+            await assertExploreQueryable(
+                deps,
+                context,
+                projectUuid,
+                exploreName,
+                'metric',
+                { dashboardStrict: strict },
+            );
+
             const explore = await deps.projectService.getExplore(
                 context.account,
                 projectUuid,
                 exploreName,
             );
+
+            // 看板上下文解析（v1 对齐）：strict 无条件；否则 explore 需要
+            // （sql_filter 引用看板 slug）或显式传了 dashboardUuid 才解析。
+            // blocked（未绑看板/需选择/无权限）时返回结构化 payload，不执行查询。
+            // 解析出的上下文传进 runMetricQuery——dbt sql_filter 行级权限
+            // 依赖看板 slug，缺省会把行级过滤按 NA 跳过。
+            let dashboardContext:
+                | { dashboardUuid: string; dashboardSlug: string; dashboardName: string }
+                | undefined;
+            if (
+                strict ||
+                exploreRequiresDashboardContext(explore) ||
+                dashboardUuid !== undefined
+            ) {
+                const guardResult = await dashboardGuard.ensure(context, {
+                    projectUuid,
+                    dashboardUuid,
+                    exploreName,
+                });
+                if (!guardResult.ok) {
+                    return guardResult.result;
+                }
+                dashboardContext = {
+                    dashboardUuid: guardResult.context.dashboardUuid,
+                    dashboardSlug: guardResult.context.dashboardSlug,
+                    dashboardName: guardResult.context.dashboardName,
+                };
+            }
 
             const metricIds = metrics.map((metric) =>
                 resolveFieldId(explore, metric, FieldType.METRIC),
@@ -419,20 +495,39 @@ export const registerQueryTools = (
                 tableCalculations: [],
             };
 
-            const results = await deps.projectService.runMetricQuery({
-                account: context.account,
-                projectUuid,
-                metricQuery,
-                exploreName,
-                csvLimit: effectiveLimit,
-                context: QueryExecutionContext.MCP,
-                chartUuid: undefined,
-                queryTags: {
-                    project_uuid: projectUuid,
-                    user_uuid: context.user.userUuid,
-                    organization_uuid: context.organizationUuid,
-                },
-            });
+            let results;
+            try {
+                results = await deps.projectService.runMetricQuery({
+                    account: context.account,
+                    projectUuid,
+                    metricQuery,
+                    exploreName,
+                    csvLimit: effectiveLimit,
+                    context: QueryExecutionContext.MCP,
+                    chartUuid: undefined,
+                    dashboardContext,
+                    queryTags: {
+                        project_uuid: projectUuid,
+                        user_uuid: context.user.userUuid,
+                        organization_uuid: context.organizationUuid,
+                    },
+                });
+            } catch (error) {
+                if (strict) {
+                    // 看板类 403/404（含 RLS 无法应用）映射为 dashboard_* 结构化
+                    // payload（v1 对齐）；其余错误原样抛出
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid:
+                            dashboardContext?.dashboardUuid ?? null,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
+            }
 
             const columns: QueryColumn[] = Object.entries(
                 results.fields,

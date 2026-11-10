@@ -23,6 +23,7 @@ import {
     toolRunMetricQueryArgsSchema,
     ToolSearchFieldValuesArgs,
     toolSearchFieldValuesArgsSchema,
+    type DashboardQueryContextAttributes,
 } from '@lightdash/common';
 import * as Sentry from '@sentry/node';
 // eslint-disable-next-line import/extensions
@@ -89,6 +90,12 @@ import { registerOrgTools } from './tools/orgTools';
 import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
+import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './tools/access/requiredDashboardContext';
+import { exploreRequiresDashboardContext } from './tools/access/exploreRequiresDashboardContext';
 import { registerContentSearchTools } from './tools/contentSearchTools';
 import { registerContentListTools } from './tools/contentListTools';
 import { registerSavedChartTools } from './tools/savedChartTools';
@@ -610,7 +617,12 @@ export class McpService extends BaseService {
             {
                 description: toolRunMetricQueryArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
-                    toolRunMetricQueryArgsSchema,
+                    // 强制看板模式：schema 增加可选 dashboardUuid（非 strict 保持原 schema）
+                    this.lightdashConfig.mcp?.dashboardStrict === true
+                        ? toolRunMetricQueryArgsSchema.extend({
+                              dashboardUuid: z.string().optional(),
+                          })
+                        : toolRunMetricQueryArgsSchema,
                     { projectUuid: true },
                 ) as AnyType,
             },
@@ -623,21 +635,98 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
+                // v1 对齐（registerQueryTools run-query）：执行前预检 explore
+                // 可查，拒绝时抛受控/非受控两行中文文案，不跑数；strict 时还须
+                // 解析出已验证的看板上下文（dashboardUuid 可选参数）。
+                const strict =
+                    this.lightdashConfig.mcp?.dashboardStrict === true;
+                // v1 对齐：exploreName 存在才预检（vizConfig.exploreName 为
+                // schema 必填，实际恒有值；缺失时交由后续 parse 报参数错误）
+                const exploreName =
+                    argsWithProject.vizConfig?.exploreName;
+                let dashboardContextForQuery:
+                    | DashboardQueryContextAttributes
+                    | undefined;
+                if (exploreName) {
+                    await assertExploreQueryable(
+                        this.getToolDeps(),
+                        context,
+                        projectUuid,
+                        exploreName,
+                        'metric',
+                        { dashboardStrict: strict },
+                    );
+                    // 看板上下文（v1 对齐）：strict 无条件；否则 explore 需要
+                    // （sql_filter 引用看板 slug）或显式传了 dashboardUuid 才解析；
+                    // 解析出的上下文传进查询——行级权限依赖看板 slug。
+                    const explicitDashboardUuid = (
+                        argsWithProject as { dashboardUuid?: string }
+                    ).dashboardUuid;
+                    const explore =
+                        await this.projectService.getExplore(
+                            context.account,
+                            projectUuid,
+                            exploreName,
+                        );
+                    if (
+                        strict ||
+                        exploreRequiresDashboardContext(explore) ||
+                        explicitDashboardUuid !== undefined
+                    ) {
+                        const guard = createRequiredDashboardGuard(
+                            this.getToolDeps(),
+                        );
+                        const guardResult = await guard.ensure(context, {
+                            projectUuid,
+                            dashboardUuid: explicitDashboardUuid,
+                            exploreName,
+                        });
+                        if (!guardResult.ok) {
+                            return guardResult.result;
+                        }
+                        const c = guardResult.context;
+                        dashboardContextForQuery = {
+                            dashboardUuid: c.dashboardUuid,
+                            dashboardSlug: c.dashboardSlug,
+                            dashboardName: c.dashboardName,
+                        };
+                    }
+                }
 
                 const { getExplore, runMiniMetricQuery } =
                     await this.getRunMetricQueryDependencies(
                         argsWithProject,
                         context,
+                        dashboardContextForQuery,
                     );
 
-                const result = await runRunMetricQuery(
-                    {
-                        getExplore,
-                        runMiniMetricQuery,
-                        maxLimit: this.lightdashConfig.ai.copilot.maxQueryLimit,
-                    },
-                    argsWithProject,
-                );
+                let result: string;
+                try {
+                    result = await runRunMetricQuery(
+                        {
+                            getExplore,
+                            runMiniMetricQuery,
+                            maxLimit: this.lightdashConfig.ai.copilot
+                                .maxQueryLimit,
+                        },
+                        argsWithProject,
+                    );
+                } catch (error) {
+                    if (strict) {
+                        // 看板类 403/404（含 RLS 无法应用）映射为 dashboard_*
+                        // 结构化 payload（v1 对齐）；其余错误原样抛出
+                        const mapped = formatDashboardAccessError({
+                            error,
+                            projectUuid,
+                            dashboardUuid:
+                                dashboardContextForQuery?.dashboardUuid ?? null,
+                        });
+                        if (mapped) {
+                            return mapped;
+                        }
+                    }
+                    throw error;
+                }
 
                 return {
                     content: [
@@ -655,7 +744,11 @@ export class McpService extends BaseService {
             {
                 description: toolSearchFieldValuesArgsSchema.description,
                 inputSchema: this.getMcpCompatibleSchema(
-                    toolSearchFieldValuesArgsSchema,
+                    this.lightdashConfig.mcp?.dashboardStrict === true
+                        ? toolSearchFieldValuesArgsSchema.extend({
+                              dashboardUuid: z.string().optional(),
+                          })
+                        : toolSearchFieldValuesArgsSchema,
                     { projectUuid: true },
                 ) as AnyType,
             },
@@ -668,11 +761,49 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
+                // v1 对齐（registerQueryTools search_field_values）：fieldValues
+                // 口径预检（metadataOnly 也可查值）+ strict 看板门控。
+                const strict =
+                    this.lightdashConfig.mcp?.dashboardStrict === true;
+                await assertExploreQueryable(
+                    this.getToolDeps(),
+                    context,
+                    projectUuid,
+                    argsWithProject.table,
+                    'fieldValues',
+                    { dashboardStrict: strict },
+                );
+                let dashboardContextForSearch:
+                    | DashboardQueryContextAttributes
+                    | undefined;
+                if (strict) {
+                    const guard = createRequiredDashboardGuard(
+                        this.getToolDeps(),
+                    );
+                    const guardResult = await guard.ensure(context, {
+                        projectUuid,
+                        dashboardUuid: (
+                            argsWithProject as { dashboardUuid?: string }
+                        ).dashboardUuid,
+                        exploreName: argsWithProject.table,
+                    });
+                    if (!guardResult.ok) {
+                        return guardResult.result;
+                    }
+                    // 保留解析出的上下文传给字段值查询（v1 对齐：
+                    // dashboardUuidForQuery）——行级口径
+                    dashboardContextForSearch = {
+                        dashboardUuid: guardResult.context.dashboardUuid,
+                        dashboardSlug: guardResult.context.dashboardSlug,
+                        dashboardName: guardResult.context.dashboardName,
+                    };
+                }
 
                 const searchFieldValues: SearchFieldValuesFn =
                     await this.getSearchFieldValuesFunction(
                         argsWithProject,
                         context,
+                        dashboardContextForSearch,
                     );
 
                 const result = await runSearchFieldValues(
@@ -1018,6 +1149,7 @@ export class McpService extends BaseService {
             projectUuid: string;
         },
         context: McpToolContext,
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<{
         getExplore: GetExploreFn;
         runMiniMetricQuery: RunMiniMetricQueryFn;
@@ -1072,6 +1204,7 @@ export class McpService extends BaseService {
                 csvLimit: maxLimit,
                 context: QueryExecutionContext.MCP,
                 chartUuid: undefined,
+                dashboardContext,
                 queryTags: {
                     project_uuid: projectUuid,
                     user_uuid: user.userUuid,
@@ -1085,6 +1218,7 @@ export class McpService extends BaseService {
     async getSearchFieldValuesFunction(
         toolArgs: ToolSearchFieldValuesArgs & { projectUuid: string },
         context: McpToolContext,
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<SearchFieldValuesFn> {
         const { user, account } = context;
         const { organizationUuid } = user;
@@ -1133,6 +1267,7 @@ export class McpService extends BaseService {
                             andFilters,
                             false,
                             undefined,
+                            dashboardContext,
                         );
                     return results;
                 },
