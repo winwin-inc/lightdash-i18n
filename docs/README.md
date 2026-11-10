@@ -81,7 +81,7 @@
 | [受限角色内容可见性（client-use）](./features/client-use-viewer-content-scope.md) | viewer / interactive_viewer 的可见范围与排障对照（**已实施**） |
 | [操作日志 + 使用分析导出 i18n](./features/operation-audit-log-plan.md) | migration、列表展示、清除接口（**待开发**） |
 | [维度按自定义值顺序排序（业态排序）](./features/custom-sort-order-plan.md) | `SortField.valueOrder` + CASE 排名 SQL + 排序面板多值编辑器（**草案/待确认**） |
-| [自建 MCP 服务与 OAuth 认证](./features/self-hosted-mcp-with-oauth.md) | **已实施**：从 Lightdash 内嵌实现抽离的复用要点——无状态 Streamable HTTP、双通道鉴权、`validateScope` 交集发放、三起真实事故根因、自建 OAuth 客户端清单与抽离切分线 |
+| [自建 MCP 服务与 OAuth 认证](./features/self-hosted-mcp-with-oauth.md) | **已实施**：从 Lightdash 内嵌实现抽离的复用要点——无状态 Streamable HTTP、双通道鉴权、`validateScope` 交集发放、三起真实事故根因、最小可运行骨架、自建 OAuth 客户端清单与抽离切分线 |
 
 ## dev-tooling/
 
