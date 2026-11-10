@@ -450,13 +450,28 @@ export const NO_DEFAULT_PROJECT_HINT =
 - **修复**：`server.prompt` → `server.registerPrompt`（commit `691057d50`，随 `v2.6.8-test.3` 上线）。
 - **遗留**（SDK 1.17.5 自身行为，非 bug）：带参 prompt 的 `prompts/get` 必须传 `arguments` 对象（空参传 `{}`），否则 `-32602`。
 
-### 6.3 上线版本链
+### 6.3 上线安全审查（2026-11-10，v2.6.8 前置）
+
+独立安全审查（0 BLOCKER / 3 MAJOR / 10 MINOR）后修复三项 MAJOR（commit `17b4d354a`）：
+
+- **M1** OAuth scope 不受约束：`/authorize` 原样 honoring任意请求 scope（只读 client 可申请 `mcp:write`）→ `OAuth2Model.validateScope` 限制请求 scope ⊆ client 注册 scope（已用真实 `@node-oauth/oauth2-server@5.2.0` 验证拦截，CLI `read write` 流程不受影响）
+- **M3** GET SSE 绕过 `canAccessMcp` 且 `Access-Control-Allow-Origin: *` → GET 分支补齐与 POST 一致的 `buildMcpAuthInfo` + `canAccessMcp` 门禁，移除 ACAO 头
+- **M2（部分）** `canAccessMcp` 在 `mcpServer.connect()` 之后执行 → 提前到 connect 前，被拒请求不再把 transport 挂到共享 server
+
+**已知残留风险**（审查报告 `mcp-core-security-review-r2.md`，均非阻塞）：
+
+- M2 残留：进程级单例 `McpServer` + 每请求 transport、无显式 `close()`；当前无 notification/serving 请求，未证实串扰，SDK 升级需回归
+- GET SSE 无限流/并发上限；`/register` DCR 无鉴权无限流（公网暴露时需加）
+- MINOR：授权码兑换 TOCTOU（建议 `DELETE ... RETURNING` 原子化）、`revokeToken` 只删 refresh token、`MCP_TOOL_SCOPES` 未知工具 fail-open（建议 fail-closed）、`/health` 泄露版本号、OPTIONS 走鉴权链致浏览器预检 401
+
+### 6.4 上线版本链
 
 | tag | 内容 |
 |---|---|
 | `v2.6.8-test.1` | MCP 统一后端首次上线预发（含 scopes 迁移 bug） |
 | `v2.6.8-test.2` | 修复 scopes 迁移（§6.1），部署得以完成 |
 | `v2.6.8-test.3` | 修复 `prompts/list`（§6.2） |
+| `v2.6.8` | 上线前安全审查修复 M1/M3/M2（§6.3），正式发布 |
 
 ---
 
