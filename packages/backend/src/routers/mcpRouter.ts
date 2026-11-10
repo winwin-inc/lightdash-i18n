@@ -113,14 +113,20 @@ mcpRouter.all(
 
             const mcpServer = mcpService.getServer();
 
+            // Validate MCP access for every transport (POST and GET): tokens
+            // without the required scopes must not open an SSE stream either.
+            // NOTE: this must run BEFORE mcpServer.connect() so a rejected
+            // request never attaches its transport to the shared server.
+            const authInfo = buildMcpAuthInfo(req.user, req.account);
+            mcpService.canAccessMcp(authInfo.extra);
+            const authContext = authInfo.extra as McpAuthContext;
+
             if (req.method === 'GET') {
                 // Handle SSE transport for MCP
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
                     Connection: 'keep-alive',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Cache-Control',
                 });
 
                 // Keep connection alive with periodic heartbeat
@@ -144,21 +150,12 @@ mcpRouter.all(
                     enableJsonResponse: true,
                     sessionIdGenerator: undefined,
                 });
-                await mcpServer.connect(transport);
 
-                // Add auth info to request for the transport
                 // The token details is loaded on the authentication middleware allowOauthAuthentication
                 const authReq: IncomingMessage & {
                     auth?: AuthInfo;
                 } = req;
 
-                const authInfo = buildMcpAuthInfo(req.user, req.account);
-
-                // Reject tokens that are not allowed to use MCP at all
-                // (e.g. OAuth tokens without the required MCP scopes)
-                mcpService.canAccessMcp(authInfo.extra);
-
-                const authContext = authInfo.extra as McpAuthContext;
                 Logger.info('MCP request authenticated', {
                     userId: req.user?.userUuid,
                     organizationUuid: authContext?.user?.organizationUuid,
@@ -169,6 +166,7 @@ mcpRouter.all(
 
                 authReq.auth = authInfo;
 
+                await mcpServer.connect(transport);
                 return await transport.handleRequest(authReq, res, req.body);
             }
 
