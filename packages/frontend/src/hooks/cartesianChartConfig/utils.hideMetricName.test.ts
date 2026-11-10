@@ -238,6 +238,81 @@ describe('mergeExistingAndExpectedSeries：看板链路用户属性不丢失', (
         expect(rebuilt?.name).toBeUndefined();
     });
 
+    it('哨兵 id 漂移（pivot 维度变化）时，改名从哨兵残留而非逐值残留携带', () => {
+        // 看板/重进场景：期望哨兵带两个 pivot 维度，存量哨兵只有一个（id 不同），
+        // 走重建路径；改名存在存量哨兵上，且逐值残留排在数组前面 ——
+        // donor 必须优先取哨兵残留，否则从无改名的逐值残留取属性，改名丢失
+        const TWO_DIM_RESULTS = {
+            rows: [
+                {
+                    dim_month: { value: { raw: 'M1', formatted: 'M1' } },
+                    'metric_target.pro_name.region.产品A.华东': {
+                        value: { raw: 100, formatted: '100' },
+                    },
+                },
+            ],
+            pivotDetails: {
+                indexColumn: { reference: 'dim_month' },
+                groupByColumns: [
+                    { reference: 'pro_name' },
+                    { reference: 'region' },
+                ],
+                valuesColumns: [
+                    {
+                        referenceField: 'metric_target',
+                        pivotColumnName:
+                            'metric_target.pro_name.region.产品A.华东',
+                        aggregation: 'any',
+                        pivotValues: [
+                            { referenceField: 'pro_name', value: '产品A' },
+                            { referenceField: 'region', value: '华东' },
+                        ],
+                    },
+                ],
+            },
+        } as unknown as InfiniteQueryResults;
+
+        const existingSeries = [
+            makePivotSeriesConfig('metric_target', '产品A'),
+            {
+                ...makePivotSeriesConfig('metric_target', '产品B'),
+                encode: {
+                    xRef: { field: 'dim_month' },
+                    yRef: {
+                        field: 'metric_target',
+                        pivotValues: [
+                            {
+                                field: 'pro_name',
+                                value: BASELINE_MERGED_PIVOT_VALUE,
+                            },
+                        ],
+                    },
+                },
+                name: '单店马力®APSM基准线',
+            },
+        ];
+        const expectedSeriesMap = getExpectedMap({
+            resultsData: TWO_DIM_RESULTS,
+            yFields: ['metric_target'],
+            baselineFieldIds: ['metric_target'],
+        });
+
+        const merged = mergeExistingAndExpectedSeries({
+            expectedSeriesMap,
+            existingSeries,
+        });
+
+        const rebuilt = merged.find((serie) =>
+            serie.encode.yRef.pivotValues?.every(
+                (pv) =>
+                    pv.value === BASELINE_MERGED_PIVOT_VALUE &&
+                    serie.encode.yRef.pivotValues?.length === 2,
+            ),
+        );
+        expect(rebuilt).toBeDefined();
+        expect(rebuilt?.name).toBe('单店马力®APSM基准线');
+    });
+
     it('回归：id 匹配的存量系列原样保留（属性不被改写）', () => {
         const existingSeries = [
             makePivotSeriesConfig('metric_actual', '产品A', {

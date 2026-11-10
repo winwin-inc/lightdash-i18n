@@ -212,7 +212,6 @@ const getGroupUserPropertiesFromExistingSeries = (
     const firstVisibleSeries = fieldSeries.find(
         (serie) => serie.hidden !== true,
     );
-    const donorSeries = firstVisibleSeries ?? fieldSeries[0];
 
     // 逐值自定义颜色是系列级意图，不随新分组值继承；仅当合并基准线哨兵
     // 替换同 field 的逐值系列（同一条参考线）时携带用户色。改名同理：
@@ -222,17 +221,32 @@ const getGroupUserPropertiesFromExistingSeries = (
         expectedSeries.encode.yRef.pivotValues,
     );
 
+    // 携带源与渲染层 collapseBaselineSeries 的 donor 规则对齐：哨兵残留是
+    // 面板上唯一可见行，用户的改名/颜色都在它上面；id 漂移（pivot 维度
+    // 变化等）导致哨兵重建时，若仍从第一个同 field 系列（通常是逐值残留）
+    // 取属性，改名会丢失，看板 tooltip 回落原始指标名。
+    const carryDonor =
+        (replacesMergedBaseline &&
+            fieldSeries.find(
+                (serie) =>
+                    isBaselineMergedPivotValues(
+                        serie.encode.yRef.pivotValues,
+                    ) && serie.hidden !== true,
+            )) ||
+        firstVisibleSeries ||
+        fieldSeries[0];
+
     return {
-        ...(donorSeries.hideMetricName !== undefined && {
-            hideMetricName: donorSeries.hideMetricName,
+        ...(carryDonor.hideMetricName !== undefined && {
+            hideMetricName: carryDonor.hideMetricName,
         }),
         ...(replacesMergedBaseline &&
-            firstVisibleSeries?.color !== undefined && {
-                color: firstVisibleSeries.color,
+            carryDonor.color !== undefined && {
+                color: carryDonor.color,
             }),
         ...(replacesMergedBaseline &&
-            firstVisibleSeries?.name !== undefined && {
-                name: firstVisibleSeries.name,
+            carryDonor.name !== undefined && {
+                name: carryDonor.name,
             }),
     };
 };
