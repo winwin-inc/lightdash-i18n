@@ -6,6 +6,7 @@ import {
 } from '@lightdash/common';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { registerContentSearchTools } from './contentSearchTools';
 import { McpToolContext } from './types';
@@ -57,7 +58,11 @@ const buildContent = (overrides: AnyType = {}): SummaryContent =>
 
 const buildDeps = ({
     contextProjectUuid,
-}: { contextProjectUuid?: string } = {}) => {
+    visibleProjectUuids = ['project-uuid'],
+}: {
+    contextProjectUuid?: string;
+    visibleProjectUuids?: string[];
+} = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
             ? {
@@ -71,6 +76,19 @@ const buildDeps = ({
               }
             : undefined,
     );
+
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
+            projectUuid,
+            organizationUuid: 'org-uuid',
+            name: 'Demo project',
+        };
+    });
 
     const find = jest.fn().mockResolvedValue({
         data: [buildContent()],
@@ -87,10 +105,17 @@ const buildDeps = ({
             siteUrl: 'https://lightdash.example.com',
         },
         contentService: { find },
+        projectService: { getProject },
         mcpContextModel: { getContext },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
+        },
     } as unknown as McpToolDeps;
 
-    return { deps, getContext, find };
+    return { deps, getContext, getProject, find };
 };
 
 const buildContext = ({
@@ -155,6 +180,7 @@ describe('registerContentSearchTools', () => {
             const { registry, registered } = buildRegistry();
             const { deps, getContext, find } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['explicit-project-uuid'],
             });
             registerContentSearchTools(registry, deps);
 
@@ -181,6 +207,7 @@ describe('registerContentSearchTools', () => {
             const { registry, registered } = buildRegistry();
             const { deps, getContext, find } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['context-project-uuid'],
             });
             registerContentSearchTools(registry, deps);
 
@@ -200,7 +227,7 @@ describe('registerContentSearchTools', () => {
             );
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerContentSearchTools(registry, deps);
@@ -218,15 +245,14 @@ describe('registerContentSearchTools', () => {
                     { searchQueries: [{ label: 'revenue' }] },
                     context,
                 ),
-            ).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
+            ).rejects.toThrow(NO_DEFAULT_PROJECT_ERROR);
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps, find } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',
+                visibleProjectUuids: ['other-project-uuid'],
             });
             registerContentSearchTools(registry, deps);
 

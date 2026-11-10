@@ -8,6 +8,7 @@ import {
 import { McpToolName } from '../McpToolName';
 import { registerContentListTools } from './contentListTools';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -60,10 +61,12 @@ const buildDeps = ({
     contextProjectUuid,
     contents = [buildContent()],
     supportsContentVerification = false,
+    visibleProjectUuids = ['project-uuid'],
 }: {
     contextProjectUuid?: string;
     contents?: SummaryContent[];
     supportsContentVerification?: boolean;
+    visibleProjectUuids?: string[];
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -78,6 +81,19 @@ const buildDeps = ({
               }
             : undefined,
     );
+
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
+            projectUuid,
+            organizationUuid: 'org-uuid',
+            name: 'Demo project',
+        };
+    });
 
     const find = jest.fn().mockResolvedValue({
         data: contents,
@@ -134,11 +150,18 @@ const buildDeps = ({
             siteUrl: 'https://lightdash.example.com',
         },
         contentService,
+        projectService: { getProject },
         dashboardService: { getByIdOrSlug },
         mcpContextModel: { getContext },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
+        },
     } as unknown as McpToolDeps;
 
-    return { deps, getContext, find, getByIdOrSlug };
+    return { deps, getContext, getProject, find, getByIdOrSlug };
 };
 
 const buildContext = ({
@@ -203,6 +226,7 @@ describe('registerContentListTools', () => {
             const { registry, registered } = buildRegistry();
             const { deps, getContext, find } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['explicit-project-uuid'],
             });
             registerContentListTools(registry, deps);
 
@@ -223,6 +247,7 @@ describe('registerContentListTools', () => {
             const { registry, registered } = buildRegistry();
             const { deps, getContext, find } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['context-project-uuid'],
             });
             registerContentListTools(registry, deps);
 
@@ -239,7 +264,7 @@ describe('registerContentListTools', () => {
             );
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerContentListTools(registry, deps);
@@ -249,12 +274,10 @@ describe('registerContentListTools', () => {
             ).rejects.toBeInstanceOf(ForbiddenError);
             await expect(
                 registered[0].handler({}, buildContext()),
-            ).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
+            ).rejects.toThrow(NO_DEFAULT_PROJECT_ERROR);
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps, find } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',

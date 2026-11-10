@@ -27,6 +27,12 @@ export const toolFindFieldsArgsSchema = createToolSchema({
                 label: z.string().describe('Full field label'),
             }),
         ),
+        catalogTags: z
+            .array(z.string())
+            .optional()
+            .describe(
+                'Optional catalog tags to filter fields by. Overrides the tags stored by set_project for this call. Pass an empty array to disable tag filtering.',
+            ),
     })
     .withPagination()
     .build();

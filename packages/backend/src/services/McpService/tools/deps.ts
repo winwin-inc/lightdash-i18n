@@ -1,6 +1,7 @@
 import { LightdashAnalytics } from '../../../analytics/LightdashAnalytics';
 import { LightdashConfig } from '../../../config/parseConfig';
 import { McpContextModel } from '../../../models/McpContextModel';
+import { OrganizationModel } from '../../../models/OrganizationModel';
 import { ProjectModel } from '../../../models/ProjectModel/ProjectModel';
 import { SearchModel } from '../../../models/SearchModel';
 import { SpaceModel } from '../../../models/SpaceModel';
@@ -35,5 +36,7 @@ export type McpToolDeps = {
     savedChartService: SavedChartService;
     dashboardService: DashboardService;
     mcpContextModel: McpContextModel;
+    /** Used to fall back to the organization-level default project. */
+    organizationModel: OrganizationModel;
     featureFlagService: FeatureFlagService;
 };

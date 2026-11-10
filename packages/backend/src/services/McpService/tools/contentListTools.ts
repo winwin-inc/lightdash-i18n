@@ -6,11 +6,14 @@ import {
     ForbiddenError,
     SummaryContent,
 } from '@lightdash/common';
-import { subject } from '@casl/ability';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
+import {
+    PROJECT_UUID_PARAM_DESCRIPTION,
+    resolveProjectContext,
+} from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -111,9 +114,7 @@ const listSpacesArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID to list the spaces of. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
 };
@@ -125,9 +126,7 @@ const listDashboardsArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID the space belongs to. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
 };
@@ -141,9 +140,7 @@ const listChartsArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID the dashboard belongs to. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     full: fullSchema,
 };
 
@@ -151,59 +148,9 @@ const listVerifiedContentArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID to list the verified content of. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
-};
-
-/**
- * Resolves the project to work on: explicit argument first, then the project
- * stored in the MCP context (set with `set_project`).
- */
-const resolveProjectUuid = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    explicitProjectUuid?: string,
-): Promise<string> => {
-    if (explicitProjectUuid) {
-        return explicitProjectUuid;
-    }
-
-    const contextRow = await deps.mcpContextModel.getContext(
-        context.user.userUuid,
-        context.organizationUuid,
-    );
-    const projectUuid = contextRow?.context.projectUuid;
-
-    if (!projectUuid) {
-        throw new ForbiddenError(
-            'No project context set. Use set_project or provide projectUuid parameter.',
-        );
-    }
-
-    return projectUuid;
-};
-
-/**
- * Throws when the user is not allowed to view the project.
- */
-const assertCanViewProject = (
-    context: McpToolContext,
-    projectUuid: string,
-): void => {
-    if (
-        !context.ability.can(
-            'view',
-            subject('Project', {
-                organizationUuid: context.organizationUuid,
-                projectUuid,
-            }),
-        )
-    ) {
-        throw new ForbiddenError('You do not have access to this project');
-    }
 };
 
 /**
@@ -352,13 +299,11 @@ export const registerContentListTools = (
                 full = false,
             } = args as ListSpacesArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            assertCanViewProject(context, projectUuid);
 
             const contents = await listContent(
                 deps,
@@ -397,13 +342,11 @@ export const registerContentListTools = (
                 full = false,
             } = args as ListDashboardsArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            assertCanViewProject(context, projectUuid);
 
             const contents = await listContent(
                 deps,
@@ -438,13 +381,11 @@ export const registerContentListTools = (
             const { dashboardUuid, projectUuid: explicitProjectUuid, full = false } =
                 args as ListChartsArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            assertCanViewProject(context, projectUuid);
 
             // `getByIdOrSlug` applies the dashboard/space permission checks.
             const dashboard = await deps.dashboardService.getByIdOrSlug(
@@ -527,13 +468,11 @@ export const registerContentListTools = (
                 full = false,
             } = args as ListVerifiedContentArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            assertCanViewProject(context, projectUuid);
 
             if (!isContentVerificationSupported(deps)) {
                 return jsonToolResult({

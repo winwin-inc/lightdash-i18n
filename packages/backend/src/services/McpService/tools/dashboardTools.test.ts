@@ -7,6 +7,7 @@ import {
 import { McpToolName } from '../McpToolName';
 import { registerDashboardTools } from './dashboardTools';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -88,9 +89,11 @@ const buildDashboard = (projectUuid = 'project-uuid') => ({
 const buildDeps = ({
     contextProjectUuid,
     dashboardProjectUuid = 'project-uuid',
+    visibleProjectUuids = ['project-uuid'],
 }: {
     contextProjectUuid?: string;
     dashboardProjectUuid?: string;
+    visibleProjectUuids?: string[];
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -106,12 +109,18 @@ const buildDeps = ({
             : undefined,
     );
 
-    const getProject = jest.fn().mockImplementation(
-        async (projectUuid: string) => ({
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
             projectUuid,
             organizationUuid: 'org-uuid',
-        }),
-    );
+            name: 'Demo project',
+        };
+    });
 
     const getByIdOrSlug = jest
         .fn()
@@ -120,6 +129,12 @@ const buildDeps = ({
     const deps = {
         projectService: { getProject },
         mcpContextModel: { getContext },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
+        },
         dashboardService: { getByIdOrSlug },
         lightdashConfig: { siteUrl: 'https://lightdash.example.com' },
     } as unknown as McpToolDeps;
@@ -182,6 +197,7 @@ describe('registerDashboardTools', () => {
             const { deps, getByIdOrSlug, getContext } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
                 dashboardProjectUuid: 'explicit-project-uuid',
+                visibleProjectUuids: ['explicit-project-uuid'],
             });
             registerDashboardTools(registry, deps);
 
@@ -209,6 +225,7 @@ describe('registerDashboardTools', () => {
             const { deps, getByIdOrSlug, getContext } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
                 dashboardProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['context-project-uuid'],
             });
             registerDashboardTools(registry, deps);
 
@@ -228,7 +245,7 @@ describe('registerDashboardTools', () => {
             );
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerDashboardTools(registry, deps);
@@ -246,16 +263,15 @@ describe('registerDashboardTools', () => {
                     { dashboardUuid: 'dashboard-uuid' },
                     context,
                 ),
-            ).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
+            ).rejects.toThrow(NO_DEFAULT_PROJECT_ERROR);
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',
                 dashboardProjectUuid: 'hidden-project-uuid',
+                visibleProjectUuids: ['other-project-uuid'],
             });
             registerDashboardTools(registry, deps);
 

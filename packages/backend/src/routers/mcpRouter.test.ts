@@ -93,6 +93,7 @@ const buildMcpService = (): McpService => {
         spaceModel: {} as AnyType,
         spaceService: {} as AnyType,
         mcpContextModel: {} as AnyType,
+        organizationModel: {} as AnyType,
         featureFlagService: {} as AnyType,
         contentService: {} as AnyType,
         savedChartService: {} as AnyType,

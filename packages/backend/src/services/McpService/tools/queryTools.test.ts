@@ -8,6 +8,7 @@ import {
 } from '@lightdash/common';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { registerQueryTools } from './queryTools';
 import { McpToolContext } from './types';
@@ -100,12 +101,18 @@ const buildDeps = ({
             : undefined,
     );
 
-    const getProject = jest.fn().mockImplementation(
-        async (projectUuid: string) => ({
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
             projectUuid,
             organizationUuid: 'org-uuid',
-        }),
-    );
+            name: 'Demo project',
+        };
+    });
 
     const getAllExploresSummary = jest.fn().mockResolvedValue([
         {
@@ -171,6 +178,12 @@ const buildDeps = ({
         },
         mcpContextModel: {
             getContext,
+        },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
         },
         analytics: {
             track,
@@ -297,7 +310,7 @@ describe('registerQueryTools', () => {
             );
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerQueryTools(registry, deps);
@@ -308,11 +321,11 @@ describe('registerQueryTools', () => {
                 registered[0].handler({}, context),
             ).rejects.toBeInstanceOf(ForbiddenError);
             await expect(registered[0].handler({}, context)).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
+                NO_DEFAULT_PROJECT_ERROR,
             );
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',
@@ -518,7 +531,7 @@ describe('registerQueryTools', () => {
             expect(result.rowCount).toEqual(1);
         });
 
-        it('throws when there is no project context', async () => {
+        it('throws when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerQueryTools(registry, deps);

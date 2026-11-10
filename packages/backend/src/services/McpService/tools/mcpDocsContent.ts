@@ -42,10 +42,11 @@ export const MCP_DOCS_SECTIONS: McpDocsSection[] = [
 - The Lightdash MCP server is exposed over Streamable HTTP at \`/api/v1/mcp\` on your Lightdash site. Point the MCP client at that URL and configure the authentication header (\`Authorization: ApiKey <personal access token>\` or \`Authorization: Bearer <OAuth access token>\`).
 - The server is stateless: it never returns an \`Mcp-Session-Id\` header and does not require one. Every request is self-contained.
 - Every tool is read-only: they explore content and run queries, they never modify Lightdash content.
-- Always pass \`projectUuid\` explicitly to query tools. The project set with \`set_project\` is only a convenience fallback.
+- Always pass \`projectUuid\` explicitly to query tools. The default project set with \`set_project\` is only a convenience fallback and may be stale.
 - The MCP server exposes the following tools:
   - Site and access: \`get_site_info\`, \`get_lightdash_version\`, \`get_my_access\`.
   - Project context: \`list_projects\`, \`set_project\`, \`get_current_project\`.
+  - Project resolution order: explicit \`projectUuid\` > user default (\`set_project\`) > organization default > server default.
   - Catalog / metadata: \`find_explores\`, \`list_explores\`, \`find_fields\`, \`search_field_values\`.
   - Content search: \`find_content\`, \`find_spaces\`, \`find_charts\`, \`find_dashboards\`, \`list_spaces\`, \`list_dashboards\`, \`list_charts\`, \`list_verified_content\`.
   - Saved content: \`get_saved_chart\`, \`run_saved_chart\`, \`get_dashboard_tiles\`, \`run_dashboard_tiles\`, \`get_dashboard_code\`.
@@ -81,7 +82,7 @@ curl -X POST "$SITE_URL/api/v1/mcp" \\
 
 1. Call \`get_my_access\` to see the organisation role and the effective capabilities of each project. By default the explores are not returned.
 2. When you need to pick a table, call \`get_my_access\` again with \`includeExplores=true\`, preferably together with \`projectUuid\`. The explores are split into \`queryable\`, \`metadataOnly\` and \`attributeDenied\`.
-3. Resolve the project with \`list_projects\` / \`set_project\`, or pass \`projectUuid\` to the tool call.
+3. Resolve the project with \`list_projects\` / \`set_project\`, or pass \`projectUuid\` to the tool call. An explicit \`projectUuid\` always wins over any default.
 4. Only query tables that are \`queryable\`. \`attributeDenied\`, \`metadataOnly\` and unknown tables are rejected instead of returning an empty result. Use \`list_explores\` or \`find_explores\` to browse, then \`find_fields\` to confirm the explore and the \`fieldId\`.
 5. Use \`search_field_values\` to enumerate values. It works on \`queryable\` and \`metadataOnly\` tables; \`attributeDenied\` and unknown tables are rejected.
 6. Prefer \`run_semantic_metric_query\` (Explorer metric query JSON) for complex queries. Use \`run_metric_query\` for simple flat field selections.
@@ -150,8 +151,8 @@ The Lightdash MCP server is stateless:
 
 Notes:
 - Older documentation described a session based protocol (\`Mcp-Session-Id\`, idle TTL, session capacity). That was the standalone MCP package. The Lightdash site endpoint is stateless since v2.
-- Business state that used to live in the session is now stored per user and organization in the database: \`set_project\` writes the current project for the calling user, and \`get_current_project\` reads it back. It survives restarts and works across replicas.
-- Because the context is per user, two different users of the same Lightdash site have independent current projects.
+- Business state that used to live in the session is now stored per user and organization in the database: \`set_project\` writes the **default** project for the calling user, and \`get_current_project\` reads it back. It survives restarts and works across replicas. When no default is set, the organization default and then the server default are used.
+- Because the context is per user, two different users of the same Lightdash site have independent default projects.
 `,
     },
     {

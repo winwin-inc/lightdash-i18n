@@ -6,6 +6,7 @@ import {
 } from '@lightdash/common';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { registerSavedChartTools } from './savedChartTools';
 import { McpToolContext } from './types';
@@ -61,9 +62,11 @@ const buildChart = (projectUuid = 'project-uuid') => ({
 const buildDeps = ({
     contextProjectUuid,
     chartProjectUuid = 'project-uuid',
+    visibleProjectUuids = ['project-uuid'],
 }: {
     contextProjectUuid?: string;
     chartProjectUuid?: string;
+    visibleProjectUuids?: string[];
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
         contextProjectUuid
@@ -79,18 +82,30 @@ const buildDeps = ({
             : undefined,
     );
 
-    const getProject = jest.fn().mockImplementation(
-        async (projectUuid: string) => ({
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
             projectUuid,
             organizationUuid: 'org-uuid',
-        }),
-    );
+            name: 'Demo project',
+        };
+    });
 
     const get = jest.fn().mockResolvedValue(buildChart(chartProjectUuid));
 
     const deps = {
         projectService: { getProject },
         mcpContextModel: { getContext },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
+        },
         savedChartService: { get },
         lightdashConfig: { siteUrl: 'https://lightdash.example.com' },
     } as unknown as McpToolDeps;
@@ -155,6 +170,7 @@ describe('registerSavedChartTools', () => {
             const { deps, get, getContext } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
                 chartProjectUuid: 'explicit-project-uuid',
+                visibleProjectUuids: ['explicit-project-uuid'],
             });
             registerSavedChartTools(registry, deps);
 
@@ -180,6 +196,7 @@ describe('registerSavedChartTools', () => {
             const { deps, get, getContext } = buildDeps({
                 contextProjectUuid: 'context-project-uuid',
                 chartProjectUuid: 'context-project-uuid',
+                visibleProjectUuids: ['context-project-uuid'],
             });
             registerSavedChartTools(registry, deps);
 
@@ -197,7 +214,7 @@ describe('registerSavedChartTools', () => {
             });
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerSavedChartTools(registry, deps);
@@ -215,16 +232,15 @@ describe('registerSavedChartTools', () => {
                     { savedChartUuid: 'chart-uuid' },
                     context,
                 ),
-            ).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
+            ).rejects.toThrow(NO_DEFAULT_PROJECT_ERROR);
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',
                 chartProjectUuid: 'hidden-project-uuid',
+                visibleProjectUuids: ['other-project-uuid'],
             });
             registerSavedChartTools(registry, deps);
 

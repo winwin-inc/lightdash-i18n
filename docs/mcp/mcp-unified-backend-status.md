@@ -1,9 +1,9 @@
 # MCP 统一改造归档（分支 `feat/mcp-unified-backend`）
 
-> **归档日期**：2026-10-27
-> **状态**：✅ P0–P7 全部完成；🟡 **P8「项目上下文改造」规划中，代码未改动**
+> **归档日期**：2026-10-27（P8 实施于 2026-11-10）
+> **状态**：✅ P0–P8 全部完成
 > **分支**：`feat/mcp-unified-backend`（未合入主干，代码可完整保留）
-> **恢复方式**：切回该分支，从本文档 [§4 P8 规划](#4-未完成工作主站项目上下文改造p8) 开始；调研结论已全部沉淀，无需重做。
+> **P8 已落地**：四级兜底链已实施，见 §4 与 git 提交记录。
 
 ---
 
@@ -11,7 +11,7 @@
 
 主站 MCP 已完成 P1–P7 全部阶段：核心能力从 `src/ee/` 下沉到非 EE 后端、鉴权统一为「OAuth + PAT」并落实 scope 校验、26 个工具全部模块化迁移并带单测、埋点收口、健康检查与文档齐备。
 
-**唯一未落地的是最后一步：把 MCP 的项目上下文语义从「当前项目」收敛为「默认项目」**，建立「显式参数 → 用户级默认 → 组织级默认 → 部署级默认」四级兜底链。**保留**服务端持久记忆与 26 个工具（不删除 `set_project` / `get_current_project`）。该步骤的实施规划见 §4。
+**最后一步已于 2026-11-10 落地：MCP 的项目上下文语义从「当前项目」收敛为「默认项目」**，建立「显式参数 → 用户级默认 → 组织级默认 → 部署级默认」四级兜底链。**保留**服务端持久记忆与 26 个工具（不删除 `set_project` / `get_current_project`）。实施记录见 §4。
 
 ---
 
@@ -146,7 +146,7 @@ search_field_values      set_project
 
 ## 4. 未完成工作：主站项目上下文改造（P8）
 
-> ⏸️ **本节为规划阶段，代码未改动。**
+> ✅ **本节已实施（2026-11-10，多 agent 并行交付：P8.1 配置注入 / P8.2 核心解析 / P8.3 文案 / P8.4 文档）**。以下规划文本保留作为实施依据。
 
 ### 4.0 方向变更（2026-10-27 复盘后修订）
 
@@ -243,7 +243,7 @@ search_field_values      set_project
 
 | 文件 | 改动 |
 |---|---|
-| `packages/backend/src/config/parseConfig.ts` | `mcp` 配置新增 `defaultProjectUuid?: string`（`process.env.LIGHTDASH_PROJECT_UUID`） |
+| `packages/backend/src/config/parseConfig.ts` | `mcp` 配置新增 `defaultProjectUuid: string \| null`（`process.env.LIGHTDASH_PROJECT_UUID ?? null`，不设默认值） |
 | `packages/backend/src/config/lightdashConfig.mock.ts` | 同步 mock |
 | `packages/backend/src/services/McpService/tools/deps.ts` | `McpToolDeps` 增加 `organizationModel: OrganizationModel` |
 | `packages/backend/src/services/McpService/tools/projectContext.ts` | **新增**：统一项目解析 + 权限校验 helper + 共享文案常量（§4.10.1） |
@@ -419,6 +419,13 @@ export const NO_DEFAULT_PROJECT_HINT =
 ## 5. 后续路线图（工具收敛 26 → 18）
 
 > 本阶段**未启动**。收敛必须无损优先，且存量客户端与 Skills 提示词都按工具名引用，不能直接删。
+
+**P8 收尾遗留（来自 2026-11-10 独立审查，均非阻塞）**：
+
+- **观测口径**：`getTrackedProjectUuid()` 仍只读「显式参数 → mcp_context」，经组织级/部署级解析成功的工具调用 `mcp_tool_call.projectId` 为空，且 `source` 未进埋点——需跟随四级链更新。
+- **性能**：组织级默认走 `OrganizationModel.get()`（附带查颜色调色板），可换轻量 `getDefaultProjectUuid(orgUuid)`。
+- **copilot UX**：`catalogTags` 参数同时暴露给 EE AI copilot 的输入 schema，但 copilot 依赖实现忽略它（描述有「虚假承诺」嫌疑）；后续或让 copilot 支持，或 MCP 侧单独 extend schema。
+- **语义文档**：`get_current_project` 在用户默认已失效回落时返回 `hasUserDefault: true` + `source: 'organization_default'`，`selectedTags` 仍来自失效 context——需在 guide 里写清组合语义。
 
 **v2.1（无损）**：新增 `list_content`；参数化 `find_content` / `get_dashboard_tiles` / `get_site_info` / `list_projects`；旧工具标 deprecated，**输出结构不变**。
 

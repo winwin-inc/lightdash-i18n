@@ -990,6 +990,15 @@ export type LightdashConfig = {
          * metadata endpoint (RFC9728).
          */
         oauthRequiredScopes: string[];
+        /**
+         * Deployment-level default project UUID (from LIGHTDASH_PROJECT_UUID).
+         * Used as the last fallback when resolving a project for MCP tools
+         * (after explicit argument, user-level default and organization-level
+         * default). Not set by default - it must be configured explicitly by
+         * the deployment; in multi-tenant deployments leave it unset and rely
+         * on per-level permission checks for safety.
+         */
+        defaultProjectUuid: string | null;
     };
     customRoles: {
         enabled: boolean;
@@ -2260,6 +2269,7 @@ export const parseConfig = (): LightdashConfig => {
                 .split(',')
                 .map((scope) => scope.trim())
                 .filter((scope) => scope.length > 0),
+            defaultProjectUuid: process.env.LIGHTDASH_PROJECT_UUID ?? null,
         },
         customRoles: {
             enabled: process.env.CUSTOM_ROLES_ENABLED === 'true',

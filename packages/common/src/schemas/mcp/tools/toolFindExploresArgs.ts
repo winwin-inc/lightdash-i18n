@@ -38,6 +38,12 @@ export const toolFindExploresArgsSchemaV2 = createToolSchema({
         exploreName: z
             .string()
             .describe('Name of the explore that you have access to'),
+        catalogTags: z
+            .array(z.string())
+            .optional()
+            .describe(
+                'Optional catalog tags to filter explores by. Overrides the tags stored by set_project for this call. Pass an empty array to disable tag filtering.',
+            ),
     })
     .build();
 

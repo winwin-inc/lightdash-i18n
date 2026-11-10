@@ -1,9 +1,12 @@
 import { ForbiddenError, getChartKind } from '@lightdash/common';
-import { subject } from '@casl/ability';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
+import {
+    PROJECT_UUID_PARAM_DESCRIPTION,
+    resolveProjectContext,
+} from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -20,69 +23,13 @@ const getSavedChartArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID the chart belongs to. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     full: z
         .boolean()
         .optional()
         .describe(
             'When true the full chart configuration (metric query, chart config, parameters) is returned. Defaults to false, which returns a summary only.',
         ),
-};
-
-/**
- * Resolves the project to work on: explicit argument first, then the project
- * stored in the MCP context (set with `set_project`).
- */
-const resolveProjectUuid = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    explicitProjectUuid?: string,
-): Promise<string> => {
-    if (explicitProjectUuid) {
-        return explicitProjectUuid;
-    }
-
-    const contextRow = await deps.mcpContextModel.getContext(
-        context.user.userUuid,
-        context.organizationUuid,
-    );
-    const projectUuid = contextRow?.context.projectUuid;
-
-    if (!projectUuid) {
-        throw new ForbiddenError(
-            'No project context set. Use set_project or provide projectUuid parameter.',
-        );
-    }
-
-    return projectUuid;
-};
-
-/**
- * Throws when the user is not allowed to view the project.
- */
-const assertCanViewProject = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    projectUuid: string,
-): Promise<void> => {
-    const project = await deps.projectService.getProject(
-        projectUuid,
-        context.account,
-    );
-
-    if (
-        !context.ability.can(
-            'view',
-            subject('Project', {
-                organizationUuid: project.organizationUuid,
-                projectUuid,
-            }),
-        )
-    ) {
-        throw new ForbiddenError('You do not have access to this project');
-    }
 };
 
 /**
@@ -106,13 +53,11 @@ export const registerSavedChartTools = (
                 full = false,
             } = args as GetSavedChartArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            await assertCanViewProject(deps, context, projectUuid);
 
             // `SavedChartService.get` applies the space permission filtering
             // and the viewer content scope of the calling user.

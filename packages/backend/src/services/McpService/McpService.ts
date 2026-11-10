@@ -41,6 +41,7 @@ import {
 import { LightdashConfig } from '../../config/parseConfig';
 import { CatalogSearchContext } from '../../models/CatalogModel/CatalogModel';
 import { McpContextModel } from '../../models/McpContextModel';
+import { OrganizationModel } from '../../models/OrganizationModel';
 import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SearchModel } from '../../models/SearchModel';
 import { SpaceModel } from '../../models/SpaceModel';
@@ -78,6 +79,12 @@ import { McpToolCallInfo, McpToolRegistry } from './tools/registry';
 import { McpToolScope } from './tools/scopes';
 import { McpToolContext } from './tools/types';
 import { McpToolDeps } from './tools/deps';
+import {
+    NO_DEFAULT_PROJECT_ERROR,
+    NO_DEFAULT_PROJECT_HINT,
+    PROJECT_UUID_PARAM_DESCRIPTION,
+    resolveProjectContext,
+} from './tools/projectContext';
 import { registerOrgTools } from './tools/orgTools';
 import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
@@ -100,6 +107,7 @@ type McpServiceArguments = {
     spaceModel: SpaceModel;
     spaceService: SpaceService;
     mcpContextModel: McpContextModel;
+    organizationModel: OrganizationModel;
     featureFlagService: FeatureFlagService;
     contentService: ContentService;
     savedChartService: SavedChartService;
@@ -139,6 +147,8 @@ export class McpService extends BaseService {
 
     private mcpContextModel: McpContextModel;
 
+    private organizationModel: OrganizationModel;
+
     private featureFlagService: FeatureFlagService;
 
     private contentService: ContentService;
@@ -166,6 +176,7 @@ export class McpService extends BaseService {
         spaceService,
         projectModel,
         mcpContextModel,
+        organizationModel,
         featureFlagService,
         contentService,
         savedChartService,
@@ -183,6 +194,7 @@ export class McpService extends BaseService {
         this.projectModel = projectModel;
         this.spaceService = spaceService;
         this.mcpContextModel = mcpContextModel;
+        this.organizationModel = organizationModel;
         this.featureFlagService = featureFlagService;
         this.contentService = contentService;
         this.savedChartService = savedChartService;
@@ -239,9 +251,7 @@ export class McpService extends BaseService {
                 projectUuid: z
                     .string()
                     .optional()
-                    .describe(
-                        'Project to use for this call. Defaults to the project set with set_project.',
-                    ),
+                    .describe(PROJECT_UUID_PARAM_DESCRIPTION),
             };
         }
 
@@ -267,6 +277,7 @@ export class McpService extends BaseService {
             savedChartService: this.savedChartService,
             dashboardService: this.dashboardService,
             mcpContextModel: this.mcpContextModel,
+            organizationModel: this.organizationModel,
             featureFlagService: this.featureFlagService,
         };
     }
@@ -441,10 +452,19 @@ export class McpService extends BaseService {
             McpToolName.SET_PROJECT,
             {
                 description:
-                    'Set the active project for subsequent MCP operations',
+                    'Set the default project for subsequent MCP operations. This is a per-user, per-organization preference stored in the database; it does not affect other users. An explicit projectUuid argument on a tool call always takes precedence over this default.',
                 inputSchema: {
-                    projectUuid: z.string() as AnyType,
-                    tags: z.array(z.string()).optional() as AnyType,
+                    projectUuid: z
+                        .string()
+                        .describe(
+                            'Project UUID to use as the default. Must be a project you can view.',
+                        ) as AnyType,
+                    tags: z
+                        .array(z.string())
+                        .optional()
+                        .describe(
+                            'Optional catalog tags to filter explores and fields by default. Overrides any previously stored tags. Pass an empty array to clear them.',
+                        ) as AnyType,
                 },
             },
             async (_args, context) => {
@@ -515,28 +535,46 @@ export class McpService extends BaseService {
         this.registerMcpTool(
             McpToolName.GET_CURRENT_PROJECT,
             {
-                description: 'Get the currently active project',
+                description:
+                    'Get the default project for the current user and organization, and show which fallback level it came from.',
                 inputSchema: {},
             },
             async (_args, context) => {
-                const { user, organizationUuid } = this.getAccount(
+                const { user, organizationUuid, account } = this.getAccount(
                     context,
                 );
-
 
                 const contextRow = await this.mcpContextModel.getContext(
                     user.userUuid,
                     organizationUuid,
                 );
+                const storedContext = contextRow?.context;
+                const hasUserDefault = !!storedContext?.projectUuid;
 
-                if (!contextRow || !contextRow.context.projectUuid) {
+                try {
+                    const resolved = await resolveProjectContext(
+                        this.getToolDeps(),
+                        context,
+                    );
+
+                    // The stored name may be stale for the fallback levels;
+                    // always report the live project name.
+                    const project = await this.projectService.getProject(
+                        resolved.projectUuid,
+                        account,
+                    );
+
                     return {
                         content: [
                             {
                                 type: 'text',
                                 text: JSON.stringify(
                                     {
-                                        error: 'No active project set. Use set_project to set one.',
+                                        projectUuid: resolved.projectUuid,
+                                        projectName: project.name,
+                                        selectedTags: storedContext?.tags ?? null,
+                                        source: resolved.source,
+                                        hasUserDefault,
                                     },
                                     null,
                                     2,
@@ -544,26 +582,26 @@ export class McpService extends BaseService {
                             },
                         ],
                     };
-                }
-
-                const { projectUuid, projectName, tags } = contextRow.context;
-
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(
+                } catch (error) {
+                    if (error instanceof ForbiddenError) {
+                        return {
+                            content: [
                                 {
-                                    projectUuid,
-                                    projectName,
-                                    selectedTags: tags,
+                                    type: 'text',
+                                    text: JSON.stringify(
+                                        {
+                                            error: NO_DEFAULT_PROJECT_ERROR,
+                                            hint: NO_DEFAULT_PROJECT_HINT,
+                                        },
+                                        null,
+                                        2,
+                                    ),
                                 },
-                                null,
-                                2,
-                            ),
-                        },
-                    ],
-                };
+                            ],
+                        };
+                    }
+                    throw error;
+                }
             },
         );
 
@@ -654,22 +692,28 @@ export class McpService extends BaseService {
         );
     }
 
+    /**
+     * Returns the default project of the current user and organization:
+     * the user-level default stored with `set_project`, falling back to the
+     * organization-level default and then the deployment-level default.
+     *
+     * Returns `undefined` when no level resolves.
+     */
     async getProjectUuidFromContext(
         context: McpToolContext,
     ): Promise<string | undefined> {
-        const { user } = context;
-        const { organizationUuid } = user;
-
-        if (!user || !organizationUuid) {
-            return undefined;
+        try {
+            const { projectUuid } = await resolveProjectContext(
+                this.getToolDeps(),
+                context,
+            );
+            return projectUuid;
+        } catch (error) {
+            if (error instanceof ForbiddenError) {
+                return undefined;
+            }
+            throw error;
         }
-
-        const contextRow = await this.mcpContextModel.getContext(
-            user.userUuid,
-            organizationUuid,
-        );
-
-        return contextRow?.context.projectUuid;
     }
 
     async getTagsFromContext(
@@ -690,20 +734,20 @@ export class McpService extends BaseService {
         return contextRow?.context.tags || null;
     }
 
+    /**
+     * Resolves the project of a tool call: an explicit `projectUuid`
+     * argument always wins; otherwise the four level fallback chain is
+     * applied (user default > organization default > server default).
+     */
     async resolveProjectUuid(
         context: McpToolContext,
         args?: { projectUuid?: string },
     ): Promise<string> {
-        // Use projectUuid from args or get from context
-        if (args?.projectUuid) {
-            return args.projectUuid;
-        }
-        const projectUuid = await this.getProjectUuidFromContext(context);
-        if (!projectUuid) {
-            throw new ForbiddenError(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
-        }
+        const { projectUuid } = await resolveProjectContext(
+            this.getToolDeps(),
+            context,
+            args?.projectUuid,
+        );
         return projectUuid;
     }
 
@@ -809,8 +853,16 @@ export class McpService extends BaseService {
             throw new ForbiddenError();
         }
 
-        // Get tags from context for filtering
+        // Get tags from context for filtering. An explicit `catalogTags`
+        // argument overrides the tags stored by `set_project` for this call;
+        // an empty array disables tag filtering (it does not fall back to
+        // the stored tags).
         const tagsFromContext = await this.getTagsFromContext(context);
+        const effectiveTags = toolArgs.catalogTags ?? tagsFromContext;
+        const yamlTags =
+            effectiveTags && effectiveTags.length > 0
+                ? effectiveTags
+                : undefined;
 
         const findExplores: FindExploresFn = (args) =>
             wrapSentryTransaction('McpService.findExplores', args, async () => {
@@ -825,7 +877,7 @@ export class McpService extends BaseService {
                 const explore = await this.getExplore(
                     user,
                     projectUuid,
-                    tagsFromContext,
+                    effectiveTags,
                     args.exploreName,
                 );
 
@@ -833,7 +885,7 @@ export class McpService extends BaseService {
                     projectUuid,
                     catalogSearch: {
                         type: CatalogType.Field,
-                        yamlTags: tagsFromContext || undefined,
+                        yamlTags,
                         tables: [args.exploreName],
                     },
                     userAttributes,
@@ -911,8 +963,12 @@ export class McpService extends BaseService {
             throw new ForbiddenError();
         }
 
-        // Get tags from context for filtering
+        // Get tags from context for filtering. An explicit `catalogTags`
+        // argument overrides the tags stored by `set_project` for this call;
+        // an empty array disables tag filtering (it does not fall back to
+        // the stored tags).
         const tagsFromContext = await this.getTagsFromContext(context);
+        const effectiveTags = toolArgs.catalogTags ?? tagsFromContext;
 
         const findFields: FindFieldFn = (args) =>
             wrapSentryTransaction('McpService.findFields', args, async () => {
@@ -927,7 +983,7 @@ export class McpService extends BaseService {
                 const explore = await this.getExplore(
                     user,
                     projectUuid,
-                    tagsFromContext,
+                    effectiveTags,
                     args.table,
                 );
 

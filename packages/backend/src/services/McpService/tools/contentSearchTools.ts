@@ -2,14 +2,16 @@ import {
     AnyType,
     ContentSortByColumns,
     ContentType,
-    ForbiddenError,
     SummaryContent,
 } from '@lightdash/common';
-import { subject } from '@casl/ability';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
+import {
+    PROJECT_UUID_PARAM_DESCRIPTION,
+    resolveProjectContext,
+} from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -50,9 +52,7 @@ const searchQueriesSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID to search in. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     searchQueries: z
         .array(
             z.object({
@@ -87,54 +87,6 @@ const searchQueriesSchema = {
         .describe(
             'When false (default) only a compact summary of every result is returned. When true the full content summary is returned.',
         ),
-};
-
-/**
- * Resolves the project to search in: explicit argument first, then the project
- * stored in the MCP context (set with `set_project`).
- */
-const resolveProjectUuid = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    explicitProjectUuid?: string,
-): Promise<string> => {
-    if (explicitProjectUuid) {
-        return explicitProjectUuid;
-    }
-
-    const contextRow = await deps.mcpContextModel.getContext(
-        context.user.userUuid,
-        context.organizationUuid,
-    );
-    const projectUuid = contextRow?.context.projectUuid;
-
-    if (!projectUuid) {
-        throw new ForbiddenError(
-            'No project context set. Use set_project or provide projectUuid parameter.',
-        );
-    }
-
-    return projectUuid;
-};
-
-/**
- * Throws when the user is not allowed to view the project.
- */
-const assertCanViewProject = (
-    context: McpToolContext,
-    projectUuid: string,
-): void => {
-    if (
-        !context.ability.can(
-            'view',
-            subject('Project', {
-                organizationUuid: context.organizationUuid,
-                projectUuid,
-            }),
-        )
-    ) {
-        throw new ForbiddenError('You do not have access to this project');
-    }
 };
 
 /**
@@ -255,13 +207,11 @@ const runSearch = async (
         full = false,
     } = args;
 
-    const projectUuid = await resolveProjectUuid(
+    const { projectUuid } = await resolveProjectContext(
         deps,
         context,
         explicitProjectUuid,
     );
-
-    assertCanViewProject(context, projectUuid);
 
     const results = await Promise.all(
         searchQueries.map((query) =>

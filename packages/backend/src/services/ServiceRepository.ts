@@ -1137,6 +1137,7 @@ export class ServiceRepository
                     spaceModel: this.models.getSpaceModel(),
                     spaceService: this.getSpaceService(),
                     mcpContextModel: this.models.getMcpContextModel(),
+                    organizationModel: this.models.getOrganizationModel(),
                     projectModel: this.models.getProjectModel(),
                     featureFlagService: this.getFeatureFlagService(),
                     contentService: this.getContentService(),

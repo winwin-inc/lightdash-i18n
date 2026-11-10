@@ -20,7 +20,7 @@ export const registerAnalystPrompt = (registry: McpToolRegistry): void => {
                     .string()
                     .optional()
                     .describe(
-                        'Optional project the agent should work on. The agent still has to select it with set_project.',
+                        'Optional project the agent should work on. The agent still has to select it with set_project. Prefer passing this explicitly over relying on the stored default.',
                     ),
             },
         },

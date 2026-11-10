@@ -6,7 +6,6 @@ import {
     FilterOperator,
     Filters,
     FilterGroup,
-    ForbiddenError,
     getFields,
     getItemId,
     getItemLabelWithoutTableName,
@@ -15,11 +14,14 @@ import {
     ParameterError,
     QueryExecutionContext,
 } from '@lightdash/common';
-import { subject } from '@casl/ability';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
+import {
+    PROJECT_UUID_PARAM_DESCRIPTION,
+    resolveProjectContext,
+} from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -91,9 +93,7 @@ const listExploresArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID to list the explores of. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     exploreName: z
         .string()
         .optional()
@@ -121,9 +121,7 @@ const runSemanticMetricQueryArgsSchema = {
     projectUuid: z
         .string()
         .optional()
-        .describe(
-            'Project UUID to run the query on. Defaults to the project set with set_project.',
-        ),
+        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
     exploreName: z
         .string()
         .describe('Name of the explore (table) to query, e.g. "orders".'),
@@ -152,61 +150,6 @@ const runSemanticMetricQueryArgsSchema = {
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
         ),
 };
-
-/**
- * Resolves the project to work on: explicit argument first, then the project
- * stored in the MCP context (set with `set_project`).
- */
-const resolveProjectUuid = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    explicitProjectUuid?: string,
-): Promise<string> => {
-    if (explicitProjectUuid) {
-        return explicitProjectUuid;
-    }
-
-    const contextRow = await deps.mcpContextModel.getContext(
-        context.user.userUuid,
-        context.organizationUuid,
-    );
-    const projectUuid = contextRow?.context.projectUuid;
-
-    if (!projectUuid) {
-        throw new ForbiddenError(
-            'No project context set. Use set_project or provide projectUuid parameter.',
-        );
-    }
-
-    return projectUuid;
-};
-
-/**
- * Throws when the user is not allowed to view the project.
- */
-const assertCanViewProject = async (
-    deps: McpToolDeps,
-    context: McpToolContext,
-    projectUuid: string,
-): Promise<void> => {
-    const project = await deps.projectService.getProject(
-        projectUuid,
-        context.account,
-    );
-
-    if (
-        !context.ability.can(
-            'view',
-            subject('Project', {
-                organizationUuid: project.organizationUuid,
-                projectUuid,
-            }),
-        )
-    ) {
-        throw new ForbiddenError('You do not have access to this project');
-    }
-};
-
 
 const matchesExploreName = (
     exploreName: string,
@@ -350,14 +293,11 @@ export const registerQueryTools = (
                 pageSize = DEFAULT_PAGE_SIZE,
             } = args as ListExploresArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            await assertCanViewProject(deps, context, projectUuid);
-
 
             // `getAllExploresSummary` applies the project view permission, the
             // viewer explore allow list and the user attribute filtering.
@@ -427,14 +367,11 @@ export const registerQueryTools = (
                 limit,
             } = args as RunSemanticMetricQueryArgs;
 
-            const projectUuid = await resolveProjectUuid(
+            const { projectUuid } = await resolveProjectContext(
                 deps,
                 context,
                 explicitProjectUuid,
             );
-
-            await assertCanViewProject(deps, context, projectUuid);
-
 
             if (metrics.length === 0 && dimensions.length === 0) {
                 throw new ParameterError(

@@ -9,6 +9,7 @@ import {
 import { McpToolName } from '../McpToolName';
 import { registerChartRunTools } from './chartRunTools';
 import { McpToolDeps } from './deps';
+import { NO_DEFAULT_PROJECT_ERROR } from './projectContext';
 import { McpToolRegistry } from './registry';
 import { McpToolContext } from './types';
 
@@ -103,12 +104,18 @@ const buildDeps = ({
             : undefined,
     );
 
-    const getProject = jest.fn().mockImplementation(
-        async (projectUuid: string) => ({
+    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
+        // Mirrors ProjectService.getProject: it enforces the CASL view
+        // check of the account.
+        if (!visibleProjectUuids.includes(projectUuid)) {
+            throw new ForbiddenError();
+        }
+        return {
             projectUuid,
             organizationUuid: 'org-uuid',
-        }),
-    );
+            name: 'Demo project',
+        };
+    });
 
     const get = jest.fn().mockImplementation(async (uuid: string) => {
         const chart = charts.find((c: AnyType) => c.uuid === uuid);
@@ -201,6 +208,12 @@ const buildDeps = ({
         },
         mcpContextModel: {
             getContext,
+        },
+        organizationModel: {
+            get: jest.fn().mockResolvedValue({
+                organizationUuid: 'org-uuid',
+                defaultProjectUuid: undefined,
+            }),
         },
         analytics: {
             track,
@@ -332,7 +345,7 @@ describe('registerChartRunTools', () => {
             );
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerChartRunTools(registry, deps);
@@ -350,12 +363,10 @@ describe('registerChartRunTools', () => {
                     { savedChartUuid: 'chart-uuid' },
                     context,
                 ),
-            ).rejects.toThrow(
-                'No project context set. Use set_project or provide projectUuid parameter.',
-            );
+            ).rejects.toThrow(NO_DEFAULT_PROJECT_ERROR);
         });
 
-        it('throws a ForbiddenError when the user cannot view the project', async () => {
+        it('throws a ForbiddenError when no level of the fallback chain is viewable', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({
                 contextProjectUuid: 'hidden-project-uuid',
@@ -553,7 +564,7 @@ describe('registerChartRunTools', () => {
             expect(result.rowCount).toEqual(1);
         });
 
-        it('throws a ForbiddenError when there is no project context', async () => {
+        it('throws a ForbiddenError when no default project resolves', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps();
             registerChartRunTools(registry, deps);

@@ -142,7 +142,7 @@ curl -X POST "$SITE_URL/api/v1/mcp" \
 
 ## 3. 无状态与项目上下文
 
-> 🟡 **P8 规划中**：本节描述的是**当前实现**。P8 将把项目上下文语义从「当前项目」收敛为「默认项目」，并把解析链从 2 级扩展为 4 级（显式参数 → 用户级默认 → 组织级默认 → 部署级默认），同时逐级回落。工具名与入参不变。规划见 [`mcp-unified-backend-status.md` §4](./mcp-unified-backend-status.md)。
+> ✅ **P8 已实施**：项目上下文语义已从「当前项目」收敛为「默认项目」，解析链为 4 级（显式参数 → 用户级默认 → 组织级默认 → 部署级默认），并逐级回落。工具名与入参不变，`get_current_project` 新增 `source` / `hasUserDefault` 返回字段。背景见 [`mcp-unified-backend-status.md` §4](./mcp-unified-backend-status.md)。
 
 ### 3.1 无状态
 
@@ -151,27 +151,56 @@ v2 **不返回也不接受** `Mcp-Session-Id`。每个请求自带全部信息�
 - 主站多副本、滚动发布都不影响；不存在「会话过期 404」这类错误。
 - 客户端若强制要求 session 头，需关闭该依赖（多数标准 MCP 客户端本来就支持无 session 模式）。
 
-### 3.2 项目上下文解析顺序
+### 3.2 项目上下文解析顺序（四级兜底链）
 
 所有需要项目的工具，统一按下面顺序解析：
 
-1. **工具参数里的显式 `projectUuid`**（最高优先级）
-2. **当前用户在该组织的「当前项目」**（PG `mcp_context`，按 `user_uuid + organization_uuid` 隔离）
-3. 都没有 → 抛 `ForbiddenError`：
-   `No project context set. Use set_project or provide projectUuid parameter.`
+```
+① args.projectUuid    显式参数 —— 永远最高优先级
+② mcp_context         用户级默认项目（per user + per org，set_project 写入，PG 持久化）
+③ organizations.default_project_uuid   组织级默认项目（管理员配置）
+④ 部署级 LIGHTDASH_PROJECT_UUID        可选，self-hosted 单组织场景
+⑤ 都没有               报错
+```
+
+**逐级回落的权限校验规则（关键）**：
+
+| 级别 | 校验失败时的行为 | 理由 |
+|---|---|---|
+| ① 显式参数 | **直接报错**，不回落 | 用户明确指定了项目，静默换成别的更危险 |
+| ②③④ 隐式兜底 | **继续往下一级** | 默认值可能已失效（项目被删 / 权限被回收），应自动降级而不是整条链路失败 |
+
+- 每级解析结果都统一做一次 `view Project` 权限校验；任何一级命中即返回，并记录来源。
+- ② 是**用户偏好**，不是组织配置：A 用户 `set_project` 不影响 B 用户，也不会改组织默认。
+- ④ 是**部署级全局值**，多租户下会指向同一个项目 —— 其他组织的用户校验失败后会自动回落到 ③。
 
 配套工具：
 
 | 工具 | 作用 |
 |---|---|
 | `list_projects` | 列出当前用户可见的项目 |
-| `set_project` | 设置当前用户 + 当前组织的默认项目（只改上下文，不改内容） |
-| `get_current_project` | 读回当前项目 |
+| `set_project` | 为当前用户 + 当前组织记住**默认项目**（持久化到数据库，跨重启/跨副本一致；只改默认值，不改内容） |
+| `get_current_project` | 读取默认项目及其来源 |
+
+`get_current_project` 返回结构（原字段全部保留，仅新增两个字段）：
+
+| 字段 | 说明 |
+|---|---|
+| `projectUuid` / `projectName` / `selectedTags` | 命中的默认项目、项目名与默认标签过滤（沿用原字段） |
+| `source` | 本次命中的兜底级别：`user_default`（用户级）/ `organization_default`（组织级）/ `server_default`（部署级） |
+| `hasUserDefault` | 用户是否用 `set_project` 显式设置过自己的默认项目 |
+
+无可用默认时的错误（保留 `error` 键，附 `hint` 说明解析顺序）：
+
+```text
+error: No default project available. Call set_project to set one, or pass projectUuid explicitly.
+hint:  Resolution order: explicit projectUuid > user default (set_project) > organization default > server default (LIGHTDASH_PROJECT_UUID).
+```
 
 > 上下文按**用户**隔离：A 用户 `set_project` 不会影响 B 用户。
 > 因为存在数据库里，**重启不丢、跨设备一致**（v1 是进程内存，重启即丢）。
 
-**最佳实践**：自动化 / 跨副本场景，永远显式传 `projectUuid`；`set_project` 只作为人工交互的便利手段。
+**最佳实践**：自动化 / 跨副本场景，永远显式传 `projectUuid`；`set_project` 存储的默认值可能过期（项目被删、权限被回收时会自动逐级回落），只作为人工交互的便利手段。
 
 ---
 
@@ -220,7 +249,7 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | `Mcp-Session-Id` | 必须回传 | 不返回也不需要 | **删掉 session 逻辑** |
 | session 错误码 | `mcp_session_missing_header` / `mcp_session_not_found` / `mcp_session_capacity` | 不存在 | 错误处理分支可删 |
 | 项目上下文 | 内存，按 PAT 隔离，重启丢 | PG，按 user+org 隔离 | 无需改代码，行为更可靠 |
-| 项目解析 | session 项目 → 环境变量 → 参数 | **参数 → 当前项目 → 报错** | 注意顺序变了：显式参数优先 |
+| 项目解析 | session 项目 → 环境变量 → 参数 | **显式参数 → 用户级默认 → 组织级默认 → 部署级默认 → 报错**（显式参数校验失败不回落；隐式兜底逐级回落） | 注意顺序变了：显式参数优先 |
 | 无项目时 | 可能报错也可能回退 | 明确 `ForbiddenError` | 补错误处理 |
 | 身份 | 服务端 PAT 的主人 | 调用者本人 | 权限可能变多/变少，按真实用户算 |
 | 错误文案 | 压平文本 | 原生错误（更详细） | 若按文本匹配需回归 |
@@ -260,7 +289,7 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | `401` + `WWW-Authenticate: Bearer resource_metadata="..."` | 没带凭据 / 凭据无效 / PAT 通道被关 | 加 `Authorization` 头；按 `WWW-Authenticate` 里的元数据地址走 OAuth 发现流程 |
 | `403` | OAuth token 缺 `mcp:read`，或 MCP 未启用（`MCP_ENABLED` + AiCopilot flag 都不满足） | 补 scope；检查开关 |
 | `406 Not Acceptable` | `POST` 少了 `Accept: application/json, text/event-stream` | 补请求头 |
-| `No project context set. Use set_project or provide projectUuid parameter.` | 没有当前项目也没传参 | 先 `list_projects` → `set_project`，或直接传 `projectUuid` |
+| `No default project available. Call set_project to set one, or pass projectUuid explicitly.` | 四级兜底链都没有命中（没传参，且用户级 / 组织级 / 部署级默认都不可用） | 先 `list_projects` → `set_project`，或直接传 `projectUuid`；错误自带 `hint` 说明解析顺序 |
 | `404 Session not found` | 客户端还在用 v1 的 session 逻辑 | 去掉 `Mcp-Session-Id` |
 | 工具报权限不足 | 真实用户权限不足（v2 按调用者本人算） | 用 `get_my_access` 看能力；或换 PAT |
 | `list_verified_content` 返回 `supported: false` | 部署未启用 content-verification | 改用 `list_charts` / `list_dashboards` |
