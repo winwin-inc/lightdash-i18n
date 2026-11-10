@@ -695,6 +695,39 @@ describe('E. 编辑页（重建链路）与看板（仅渲染链路）', () => {
         expect(nonBaselineSeriesOf(series)).toHaveLength(2);
     });
 
+    test('哨兵系列上的改名优先于遗留逐值系列（看板改名不回落指标名）', () => {
+        // 编辑页改过名后保存的真实形态：逐值存量仍在（仅存时被标 isFilteredOut，
+        // 保存时剥离标记）+ 哨兵携带用户改名。渲染层 donor 必须取哨兵，
+        // 否则看板/编辑页的基准线名称回落为指标名（用户反馈：改名只在编辑页生效）。
+        const results = makePivotDetailsResults(false);
+        const { rowKeyMap } = getPivotedDataFromPivotDetails(
+            results,
+            undefined,
+            [METRIC_TARGET],
+        );
+        const chart = makeCartesianChart(
+            [
+                makePivotSerie(METRIC_ACTUAL, '产品A'),
+                makePivotSerie(METRIC_ACTUAL, '产品B'),
+                makePivotSerie(METRIC_TARGET, '产品A'),
+                makePivotSerie(METRIC_TARGET, '产品B'),
+                makeSentinelSerie(METRIC_TARGET, { name: '门店数量基准' }),
+            ],
+            { baselineFieldIds: [METRIC_TARGET] },
+        );
+
+        const series = getEchartsSeriesFromPivotedData(
+            itemsMap,
+            chart,
+            rowKeyMap,
+            pivotValuesColumnsMapFromResults(results),
+        );
+
+        const baselines = baselineSeriesOf(series);
+        expect(baselines).toHaveLength(1);
+        expect(getEchartsSeriesLegendName(baselines[0])).toBe('门店数量基准');
+    });
+
     test('看板不重建（hasFetchedAllRows=false）：渲染层独立坍缩（等价 A.1 输入直渲染）', () => {
         // 与 A.1 相同输入，不经过 merge 重建 —— 渲染层必须独立正确
         const results = makePivotDetailsResults(false);

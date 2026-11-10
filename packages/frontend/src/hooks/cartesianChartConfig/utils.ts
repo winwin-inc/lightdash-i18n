@@ -199,7 +199,7 @@ export const getExpectedSeriesMap = ({
 const getGroupUserPropertiesFromExistingSeries = (
     expectedSeries: Series,
     existingSeries: Series[],
-): Pick<Series, 'hideMetricName' | 'color'> => {
+): Pick<Series, 'hideMetricName' | 'color' | 'name'> => {
     const fieldSeries = existingSeries.filter(
         (serie) =>
             serie.encode.yRef.field === expectedSeries.encode.yRef.field,
@@ -215,7 +215,9 @@ const getGroupUserPropertiesFromExistingSeries = (
     const donorSeries = firstVisibleSeries ?? fieldSeries[0];
 
     // 逐值自定义颜色是系列级意图，不随新分组值继承；仅当合并基准线哨兵
-    // 替换同 field 的逐值系列（同一条参考线）时携带用户色。
+    // 替换同 field 的逐值系列（同一条参考线）时携带用户色。改名同理：
+    // 哨兵重建后逐值系列会被坍缩丢弃，用户改过的那条参考线上的改名
+    // 必须随哨兵存活，否则看板与编辑页表现不一致。
     const replacesMergedBaseline = isBaselineMergedPivotValues(
         expectedSeries.encode.yRef.pivotValues,
     );
@@ -227,6 +229,10 @@ const getGroupUserPropertiesFromExistingSeries = (
         ...(replacesMergedBaseline &&
             firstVisibleSeries?.color !== undefined && {
                 color: firstVisibleSeries.color,
+            }),
+        ...(replacesMergedBaseline &&
+            firstVisibleSeries?.name !== undefined && {
+                name: firstVisibleSeries.name,
             }),
     };
 };

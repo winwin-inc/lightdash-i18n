@@ -1178,14 +1178,23 @@ export const collapseBaselineSeries = ({
         if (collapsedFields.has(field)) return acc;
         collapsedFields.add(field);
 
-        // User properties come from the field's first non-hidden series; if
-        // every series of the field is hidden the user hid the baseline.
+        // The sentinel series is the canonical user-facing row (the config
+        // panel only shows it): its rename/color must win over leftover
+        // per-value series. Fall back to the first non-hidden series for
+        // legacy configs saved before the sentinel existed.
+        const fieldSeries = series.filter(
+            (candidate) => candidate.encode.yRef.field === field,
+        );
         const donorSeries =
-            series.find(
+            fieldSeries.find(
                 (candidate) =>
-                    candidate.encode.yRef.field === field &&
-                    candidate.hidden !== true,
-            ) ?? serie;
+                    isBaselineMergedPivotValues(
+                        candidate.encode.yRef.pivotValues,
+                    ) && candidate.hidden !== true,
+            ) ??
+            fieldSeries.find((candidate) => candidate.hidden !== true) ??
+            serie;
+        // Every series of the field hidden means the user hid the baseline.
         if (donorSeries.hidden === true) return acc;
 
         return [

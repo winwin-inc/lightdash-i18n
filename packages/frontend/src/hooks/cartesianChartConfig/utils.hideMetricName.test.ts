@@ -188,6 +188,56 @@ describe('mergeExistingAndExpectedSeries：看板链路用户属性不丢失', (
         expect(sentinel?.color).toBe('#9a60b4');
     });
 
+    it('基准线合并哨兵替换逐值存量系列时，携带用户改名', () => {
+        // 勾基准线前改过名：改名落在逐值系列上，哨兵重建时必须携带，
+        // 否则看板重建后基准线名称回落为指标名
+        const existingSeries = [
+            makePivotSeriesConfig('metric_target', '产品A', {
+                name: '门店数量基准',
+            }),
+            makePivotSeriesConfig('metric_target', '产品B'),
+        ];
+        const expectedSeriesMap = getExpectedMap({
+            resultsData: PIVOT_DETAILS_RESULTS,
+            yFields: ['metric_target'],
+            baselineFieldIds: ['metric_target'],
+        });
+
+        const merged = mergeExistingAndExpectedSeries({
+            expectedSeriesMap,
+            existingSeries,
+        });
+
+        const sentinel = merged.find((serie) =>
+            serie.encode.yRef.pivotValues?.every(
+                (pv) => pv.value === BASELINE_MERGED_PIVOT_VALUE,
+            ),
+        );
+        expect(sentinel?.name).toBe('门店数量基准');
+    });
+
+    it('重建的非哨兵系列不继承逐值改名（改名是系列级意图）', () => {
+        const existingSeries = [
+            makePivotSeriesConfig('metric_actual', '产品A', {
+                name: '产品A改名',
+            }),
+        ];
+        const expectedSeriesMap = getExpectedMap({
+            resultsData: DASHBOARD_FILTERED_RESULTS,
+            yFields: ['metric_actual'],
+        });
+
+        const merged = mergeExistingAndExpectedSeries({
+            expectedSeriesMap,
+            existingSeries,
+        });
+
+        const rebuilt = merged.find(
+            (serie) => serie.encode.yRef.pivotValues?.[0]?.value === '产品C',
+        );
+        expect(rebuilt?.name).toBeUndefined();
+    });
+
     it('回归：id 匹配的存量系列原样保留（属性不被改写）', () => {
         const existingSeries = [
             makePivotSeriesConfig('metric_actual', '产品A', {

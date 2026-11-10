@@ -501,6 +501,11 @@ const useCartesianChartConfig = ({
     /**
      * Declares (enabled) or removes (disabled) a metric field as a baseline
      * series in the chart layout.
+     *
+     * Enabling also resets `hideMetricName` on the field's series: the merged
+     * baseline is a single reference line whose label is always the metric
+     * name, so a leftover "hide metric name" check from the pivoted state
+     * would stay visible in the panel but do nothing.
      */
     const setBaselineFieldEnabled = useCallback(
         (fieldId: string, enabled: boolean) => {
@@ -517,6 +522,25 @@ const useCartesianChartConfig = ({
                     baselineFieldIds: nextFieldIds,
                 };
             });
+            if (enabled) {
+                setDirtyEchartsConfig((prev) => {
+                    if (!prev?.series) return prev;
+                    const hasStaleHideMetricName = prev.series.some(
+                        (serie) =>
+                            serie.encode?.yRef?.field === fieldId &&
+                            serie.hideMetricName !== undefined,
+                    );
+                    if (!hasStaleHideMetricName) return prev;
+                    return {
+                        ...prev,
+                        series: prev.series.map((serie) =>
+                            serie.encode?.yRef?.field === fieldId
+                                ? { ...serie, hideMetricName: undefined }
+                                : serie,
+                        ),
+                    };
+                });
+            }
         },
         [],
     );

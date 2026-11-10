@@ -666,6 +666,70 @@ describe('baseline config', () => {
         expect(result.current.dirtyLayout?.baselineFieldIds).toEqual([]);
     });
 
+    test('enabling baseline resets stale hideMetricName on the field series', () => {
+        // 合并基准线是单条参考线（标签恒为指标名），遗留的“隐藏指标名”
+        // 勾选无意义且会误导，勾选基准线时必须重置
+        const paramsMock = {
+            ...useCartesianChartConfigParamsMock,
+            initialChartConfig: {
+                ...useCartesianChartConfigParamsMock.initialChartConfig,
+                eChartsConfig: {
+                    series: [
+                        {
+                            type: CartesianSeriesType.LINE,
+                            yAxisIndex: 0,
+                            hideMetricName: true,
+                            encode: {
+                                xRef: { field: 'orders_customer_id' },
+                                yRef: {
+                                    field: 'orders_total_order_amount',
+                                    pivotValues: [
+                                        { field: 'dimension_x', value: 'a' },
+                                    ],
+                                },
+                            },
+                        },
+                        {
+                            type: CartesianSeriesType.LINE,
+                            yAxisIndex: 0,
+                            hideMetricName: true,
+                            encode: {
+                                xRef: { field: 'orders_customer_id' },
+                                yRef: {
+                                    field: 'orders_fulfillment_rate',
+                                    pivotValues: [
+                                        { field: 'dimension_x', value: 'a' },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        };
+        const { result } = renderHook(
+            // @ts-expect-error partially mock params for hook
+            () => useCartesianChartConfig(paramsMock),
+        );
+
+        act(() => {
+            result.current.setBaselineFieldEnabled(
+                'orders_total_order_amount',
+                true,
+            );
+        });
+
+        const series = result.current.dirtyEchartsConfig?.series ?? [];
+        series.forEach((serie) => {
+            if (serie.encode?.yRef?.field === 'orders_total_order_amount') {
+                expect(serie.hideMetricName).toBeUndefined();
+            } else {
+                // 其他 field 的勾选不受影响
+                expect(serie.hideMetricName).toBe(true);
+            }
+        });
+    });
+
     test('updateBaselineStyle should merge partial updates', () => {
         const { result } = renderHook(
             // @ts-expect-error partially mock params for hook
