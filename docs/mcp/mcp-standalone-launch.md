@@ -1,0 +1,552 @@
+# MCP 服务上线流程文档（v1 独立包）
+
+> **适用范围（2026-11 更新）**：本文档仅适用于 **v1 独立包** `packages/lightdash-mcp` 的发布流程（仍在线上运行，计划分阶段退役，见[退役评估](./lightdash-mcp-retirement-evaluation.md)）。
+> **v2 主站内置 MCP**（`/api/v1/mcp`，随主站镜像发布）请见 [内置 MCP 部署与验收](./mcp-builtin-deploy.md)。
+
+| 项 | 内容 |
+|---|---|
+| 主题 | MCP 服务（`packages/lightdash-mcp`）从打 tag → 镜像 → 集群发布的**端到端上线流程**，含配置清单、关联关系、权限模型、验收与回滚 |
+| 涉及系统 | **admin 后台**（看板管理与授权数据源）、**Lightdash**（主站 + MCP 服务）、**GitHub Actions**（构建镜像）、**Jenkins**（发布到集群）、k8s-config（部署清单）、Apisix（网关） |
+| 部署目标 | **2 个预发 + 2 个线上**：预发·内部、预发·外部品牌CT、线上·内部、线上·外部品牌CT（见 [§3.3](#33-四套部署目标)） |
+| 适用范围 | 当前 `main` 分支的 MCP 服务（`@lightdash/mcp`） |
+
+---
+
+## 1. 一页速览
+
+```
+① 打 tag（mcp-v*）→ ② GitHub Actions 构建并推送镜像 → ③ Jenkins 发布（写入 tag / apply 清单）
+→ ④ 滚动更新 Pod → ⑤ 验证 /health、PAT 鉴权、权限与口径
+```
+
+**发布顺序：先主站（若本次有改动），后 MCP 服务。**
+
+---
+
+## 2. 系统与职责
+
+| 系统 | 在 MCP 上线中的职责 | 位置 |
+|---|---|---|
+| **Lightdash 主站** | 提供 REST API、看板权限判定、行级 `sql_filter` 执行；发放 PAT | `packages/backend`、`packages/common` |
+| **Lightdash MCP 服务** | 独立进程，把主站 REST 能力以 MCP 协议暴露给 Cursor / Claude Code 等客户端 | `packages/lightdash-mcp`、`Dockerfile` |
+| **GitHub Actions** | 打 tag 触发构建镜像并推送到阿里云镜像仓 | `.github/workflows/build-docker-mcp.yml` |
+| **Jenkins** | 发布：更新镜像 tag / 应用 k8s-config 清单，滚动更新集群 | [jenkins.banmahui.cn](https://jenkins.banmahui.cn/)，入口见 [§3.2](#32-jenkins-发布关键) |
+| **k8s-config** | 部署清单：Deployment / Service / ConfigMap / ApisixRoute | `msy/ops/k8s-config`（分支 `pre` / `master`） |
+| **admin 后台** | **看板管理**（[admin.banmahui.cn/report/x-platform/manage](https://admin.banmahui.cn/report/x-platform/manage)）：看板登记、`short_name` 维护、用户看板授权。**入口唯一**（服务品牌CT Lightdash）；内部平台开启客户使用模式后同样受此约束。开通与授权由**运维**处理 | `winwin-report`（JSON-RPC）+ brand-fe 管理后台 |
+| **dbt（hologres_analytices）** | 看板口径与行级权限的**唯一来源**（`meta.sql_filter`） | `models/marts/*/schema_*.yml` |
+| **Apisix** | 对外域名、证书、限流 | k8s-config `apisix/` |
+
+---
+
+## 3. 发布流程
+
+```mermaid
+flowchart TD
+  dev[开发提 tag: mcp-vX.Y.Z] --> gha["GitHub Actions<br/>build-docker-mcp.yml"]
+  gha -->|"winwin/lightdash-mcp:X.Y.Z + :latest"| reg[(阿里云镜像仓)]
+  dev2[主站 tag: vX.Y.Z] --> gha2["GitHub Actions<br/>build-docker-with-i18n.yml"]
+  gha2 -->|"winwin/lightdash:X.Y.Z"| reg2[(阿里云镜像仓)]
+  reg --> k8scfg["k8s-config<br/>pre / master 分支<br/>lightdash-mcp/ 或 lightdash-internal-mcp/ 镜像 tag"]
+  reg2 --> k8scfg2["k8s-config<br/>lightdash/ 或 lightdash-internal/ 镜像 tag"]
+  k8scfg --> jenkins["Jenkins 发布（写入 tag）<br/>线上：data-platform/lightdash-mcp、data-platform/lightdash-internal-mcp<br/>预发：预发布data-platform/lightdash-mcp、预发布data-platform/lightdash-internal-mcp"]
+  k8scfg2 --> jenkins
+  jenkins --> rollout["kubectl apply / rollout<br/>Deployment: lightdash-mcp / lightdash-internal-mcp"]
+  rollout --> check["验证：/health、PAT 鉴权、list_projects、看板与口径"]
+```
+
+### 3.1 tag 与镜像规则
+
+| 组件 | tag 规则 | 触发 workflow | 镜像 |
+|---|---|---|---|
+| MCP 服务 | `mcp-vX.Y.Z` | `.github/workflows/build-docker-mcp.yml` | `registry.cn-hangzhou.aliyuncs.com/winwin/lightdash-mcp` → 推 `:X.Y.Z` 与 `:latest` |
+| Lightdash 主站 | `vX.Y.Z`（排除 `mcp-v*` / `cli-v*`） | `.github/workflows/build-docker-with-i18n.yml` | `registry.cn-hangzhou.aliyuncs.com/winwin/lightdash` |
+
+- 非 tag 构建会推 `sha-<12位>` 镜像，仅供调试，**不能上线**。
+- 集群清单用的是 **VPC 镜像仓** `registry-vpc.cn-hangzhou.aliyuncs.com/...`，需确认 tag 已同步/可见。
+- MCP 包版本由 `pnpm bump-mcp -- X.Y.Z`（`scripts/bump-versions.mjs`）写入 `packages/lightdash-mcp/package.json`，tag 需与之对应。
+
+### 3.2 Jenkins 发布（关键）
+
+**入口：** [https://jenkins.banmahui.cn/](https://jenkins.banmahui.cn/)
+
+| 环境 | 线 | job 链接 | 对应 k8s-config |
+|---|---|---|---|
+| 线上 | 外部品牌CT | https://jenkins.banmahui.cn/job/data-platform/job/lightdash-mcp/ | `master` 分支 `lightdash-mcp/` |
+| 线上 | 内部 | https://jenkins.banmahui.cn/job/data-platform/job/lightdash-internal-mcp/ | `master` 分支 `lightdash-internal-mcp/` |
+| 预发 | 外部品牌CT | https://jenkins.banmahui.cn/job/%E9%A2%84%E5%8F%91%E5%B8%83data-platform/job/lightdash-mcp/ | `pre` 分支 `lightdash-mcp/` |
+| 预发 | 内部 | https://jenkins.banmahui.cn/job/%E9%A2%84%E5%8F%91%E5%B8%83data-platform/job/lightdash-internal-mcp/ | `pre` 分支 `lightdash-internal-mcp/` |
+
+（预发布目录 URL 编码形式：`%E9%A2%84%E5%8F%91%E5%B8%83data-platform`）
+
+**步骤：**
+
+1. 确认 GitHub Actions 已把 `mcp-vX.Y.Z` 镜像推上（`winwin/lightdash-mcp:X.Y.Z`）。
+2. 打开对应环境、对应线的 job，**写入 tag**（镜像版本号）→ 构建。
+3. job 拉取 k8s-config 对应分支并 apply / 更新 Deployment 镜像后滚动更新。
+4. 观察 Pod 滚动更新与 `/health`。
+
+本地等价操作（不经过 Jenkins）：
+
+```bash
+cd k8s-config && git checkout pre        # 或 master
+# 编辑 lightdash-mcp/lightdash-mcp.yml（或 lightdash-internal-mcp/lightdash-internal-mcp.yml）的 image tag
+./utils/k8s-apply lightdash-mcp          # 内部按分支自动选 namespace：prod / tars-pre
+kubectl -n pre rollout status deploy/lightdash-mcp
+```
+
+### 3.3 四套部署目标
+
+| | 线上·外部品牌CT | 预发·外部品牌CT | 线上·内部 | 预发·内部 |
+|---|---|---|---|---|
+| 客户端 URL | `https://mcp-x.brandct.com/mcp` | `https://mcp-x.pre.banmahui.cn/mcp` | `https://mcp-lightdash.banmahui.cn/mcp` | `https://mcp-lightdash.pre.banmahui.cn/mcp` |
+| Apisix hosts | `mcp-x.brandct.com`、`mcp.x.brandct.com` | `mcp-x.pre.banmahui.cn`、`mcp.x.pre.banmahui.cn` | `mcp-lightdash.banmahui.cn`、`mcp.lightdash.banmahui.cn` | `mcp-lightdash.pre.banmahui.cn`（`mcp.lightdash.pre…`） |
+| K8s 目录 | `lightdash-mcp/` | `lightdash-mcp/` | `lightdash-internal-mcp/` | `lightdash-internal-mcp/` |
+| Deployment | `lightdash-mcp` | `lightdash-mcp` | `lightdash-internal-mcp` | `lightdash-internal-mcp` |
+| namespace | `prod` | `tars-pre` | `prod` | `tars-pre` |
+| 集群内主站 | `http://lightdash.default:8080` | `http://lightdash:8080` | `http://lightdash-internal.default:8080` | `http://lightdash-internal:8080` |
+| 主站清单 | `lightdash/` | `lightdash/` | `lightdash-internal/` | `lightdash-internal/` |
+| 默认项目 | 品牌账号项目 | 同左 | POS DB 项目 | 同左 |
+
+> 域名一律**优先用连字符形式**（`mcp-x…` / `mcp-lightdash…`），点分旧名（`mcp.x…`）可能与通配证书不匹配。
+
+---
+
+## 4. 配置清单
+
+### 4.1 MCP 服务（k8s-config：ConfigMap + Secret）
+
+| 变量 | 放哪 | 必填 | 说明 |
+|---|---|---|---|
+| `PORT` / `LIGHTDASH_MCP_HTTP_PORT` | ConfigMap | 否 | 监听端口，默认 `3333` |
+| `LIGHTDASH_SITE_URL` | ConfigMap | 是 | 集群内主站根（MCP 调 REST） |
+| `LIGHTDASH_PUBLIC_SITE_URL` | ConfigMap | 否 | 浏览器打开用的公网根（拼 webUrl 用），未设则回退 `LIGHTDASH_SITE_URL` |
+| `LIGHTDASH_PROJECT_UUID` | ConfigMap | 建议 | MCP 默认项目；客户端也可显式传 `projectUuid` |
+| `LIGHTDASH_API_KEY` | Secret / ConfigMap | 否 | 服务端兜底 PAT。**线上不配置**：客户使用 MCP 时必须自行填写 PAT（`x-api-key`），MCP 侧不做兜底 |
+| `LIGHTDASH_MAX_LIMIT` | ConfigMap | 否 | 查询类接口的 `limit` 上限 |
+| `LIGHTDASH_MCP_MAX_SESSIONS` / `LIGHTDASH_MCP_SOFT_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_MAX_SESSIONS_PER_OWNER` / `LIGHTDASH_MCP_SESSION_TTL_MS` / `LIGHTDASH_MCP_PRUNE_INTERVAL_MS` / `LIGHTDASH_MCP_LRU_MIN_IDLE_MS` | ConfigMap | 否 | 并发与内存防护，默认 100 / 10 / 20 / 15min / 5min / 5min；容器 2GB 建议 `MAX_SESSIONS` 50~100，4GB 建议 150~200 |
+| `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` | ConfigMap | 否 | 强制看板模式。**外部品牌 CT 两部设 `MCP_DASHBOARD_STRICT=true`，内部保持不设（默认 `false`）**；`MCP_DASHBOARD_CONTACT` 配客服文案。详见 [强制看板模式](./lightdash-mcp-dashboard-strict-mode.md) 与 [§5.7 上线顺序](#57-严格模式的上线顺序必读) |
+
+> MCP 服务为**单进程内存态**（session、`set_project` 状态不跨实例）→ 多副本需 sticky session 或保持单实例。
+>
+> 强制看板模式已实现，**默认关闭**：不设 `MCP_DASHBOARD_STRICT` 时行为与改造前一致。
+
+### 4.2 Lightdash 主站
+
+| 项 | 放哪 | 必填 | 说明 |
+|---|---|---|---|
+| `ADMIN_API_HOST` / `ADMIN_API_KEY` | Secret / ConfigMap | **客户使用模式必需** | 看板白名单 RPC（见 [§6](#6-权限模型必读)） |
+| 客户使用模式开关 | 界面 | **必需** | 主站「项目管理」页开启 → 落库 `projects.is_client_use`（见 [§6.1](#61-三个必要条件)） |
+| `MCP_ENABLED` | — | 否 | 只管主站 EE 内置 `/api/v1/mcp`，与本 MCP 服务无关 |
+
+---
+
+## 5. 关联关系
+
+### 5.1 全链路
+
+```mermaid
+flowchart TD
+  subgraph admin[admin 后台 · 看板管理]
+    cfg["看板配置<br/>dashboard_name / short_name / dashboard_uuid<br/>project_uuid / space_uuid / categories"]
+    auth["用户看板授权<br/>（授权后落到项目角色 interactive_viewer）"]
+  end
+  subgraph dbt[数据侧]
+    yml["hologres_analytices schema_*.yml<br/>meta.sql_filter:<br/>${lightdash.user.dashboardSlug} / ${lightdash.user.email}"]
+    dim[("dim_ld_employee_categories<br/>category / email / short_name")]
+  end
+  subgraph ld[Lightdash 主站]
+    proj[("projects.is_client_use<br/>客户使用模式（界面开启）")]
+    role[("project_memberships.role<br/>viewer / interactive_viewer")]
+    rpc["Admin RPC<br/>findAllDashboardByMobile(mobile)"]
+    ctx["DashboardService<br/>getDashboardContexts /<br/>getAllowedDashboardUuidsForViewer"]
+  end
+  subgraph mcp[MCP 服务]
+    resolver["dashboardContextResolver<br/>反查关联看板 → 权限过滤 → 选一个"]
+  end
+
+  cfg -->|short_name = 看板 slug| yml
+  auth -->|白名单数据| rpc
+  yml --> dim
+  proj --> ctx
+  role --> ctx
+  rpc --> ctx
+  ctx -->|"GET /dashboards/context"| resolver
+  resolver -->|dashboardUuid| ctx
+  ctx -->|dashboardUuid → dashboardSlug| yml
+```
+
+### 5.2 关联主键：`short_name`
+
+| 环节 | 系统 | 关联键 | 落点 |
+|---|---|---|---|
+| ① 看板登记 | admin 后台（看板管理 `x-platform/manage`，入口唯一） | `short_name` ↔ `dashboard_uuid` ↔ `project_uuid` / `space_uuid` ↔ `categories` | `BiDashboard.DashboardInfo` / `LightdashUserInfo` |
+| ② 行级口径 | dbt（hologres_analytices） | `meta.sql_filter` 中的 `${lightdash.user.dashboardSlug}`、`${lightdash.user.email}` | `models/marts/*/schema_*.yml` |
+| ③ 权限映射 | Lightdash 主站 | `projects.is_client_use` + 项目角色 + Admin RPC 白名单 | `DashboardService.getAllowedDashboardUuidsForViewer` |
+| ④ 关系映射 | Lightdash 主站 | explore ↔ dashboard（看板磁贴里的图表） | `GET /api/v1/projects/:projectUuid/dashboards/context` |
+| ⑤ 消费 | MCP 服务 | `dashboardUuid` → `dashboardSlug` → `lightdash.user` 上下文 | `dashboardContextResolver` |
+
+dbt 侧典型写法：
+
+```sql
+${lightdash.user.dashboardSlug} = 'NA' or
+EXISTS (
+  SELECT 1
+  FROM marts.dim_ld_employee_categories
+  WHERE category = ${TABLE}.cls_2
+    AND email = ${lightdash.user.email}
+    AND short_name = ${lightdash.user.dashboardSlug}
+)
+```
+
+- `dim_ld_employee_categories` 实际来源：`public.dim_lightdash_dashboard_employee_categories`。
+- `short_name` = 看板 slug，与 admin 后台看板配置一一对应；`category` 对应 explore 上的类目维度（如 `${TABLE}.cls_2`），`email` = 用户主邮箱。
+
+### 5.3 两种「关联」
+
+| 关联 | 方向 | 用途 | 载体 |
+|---|---|---|---|
+| **图表关联**（结构） | dashboard → chart → explore | 反查「哪些看板用了这张表 / 这个图表」 | 看板磁贴 `tiles[].properties.savedChartUuid` |
+| **口径关联**（数据） | explore → dashboard（`sql_filter` 依赖 `dashboardSlug`） | 决定查询必须带哪个看板上下文 | dbt `meta.sql_filter` |
+
+### 5.4 口径一致性的三个必要条件
+
+| 条件 | 满足方式 | 不满足的后果 |
+|---|---|---|
+| ① 上下文带对 | 查询带 `dashboardUuid`（显式传入 > MCP 反查自动选） | `dashboardSlug` 取默认 `'NA'` → `sql_filter` 首个分支为真 → **不按类目过滤，返回全量** |
+| ② 候选不为空 | 该 explore/图表至少关联 1 个当前用户可见的看板 | 有候选 → 自动选用（多个时取排序后第一个）；**0 候选**才返回 `dashboard_selection_required` 空列表（⚠️ **仅 `MCP_DASHBOARD_STRICT=false`**；严格模式见 §5.6） |
+| ③ 候选在白名单内 | 客户使用模式 + viewer/interactive_viewer + RPC 命中 | 候选被过滤 → 与看板 UI 行数不一致 |
+
+> ⚠️ 条件 ① 是**口径风险**而非报错：MCP 不带看板上下文查数会拿到比看板更宽的数据。建议客户侧默认显式传 `dashboardUuid`，或使用 `run_dashboard_tiles`（内部走 `/query/dashboard-chart`，天然带看板上下文）。
+
+### 5.5 MCP 侧看板上下文解析流程
+
+```mermaid
+flowchart TD
+  q[查询请求] --> hasUuid{"已传 dashboardUuid?"}
+  hasUuid -->|是| use[后端解析 dashboardSlug → 注入 lightdash.user]
+  hasUuid -->|否| need{"explore 依赖 dashboardSlug?"}
+  need -->|否| plain[普通查询]
+  need -->|是| rev["GET /dashboards/context<br/>(exploreName / chartUuid)"]
+  rev --> perm["权限过滤：CASL + Space ∩ 客户白名单"]
+  perm --> n{"候选数"}
+  n -->|0| empty["返回 dashboard_selection_required 空列表"]
+  n -->|≥1| pick["自动选用 1 个<br/>多候选：排序（名称→slug→uuid）后取第一个<br/>source=first*Context，返回 candidates"]
+  pick --> use
+  use --> res["返回结果 + resolvedDashboardContext（含 candidates）"]
+```
+
+### 5.6 严格模式分支（`MCP_DASHBOARD_STRICT=true`，仅外部部署）
+
+上图是**开关关闭**时（内部部署）的行为。开关打开后流程图变化：
+
+- 不再判断"explore 依赖 `dashboardSlug`"，**所有查询工具**都必须解析出 `dashboardUuid`；
+- 候选数 `1` → 自动选用；`≥2` → 阻断并要求选择（不再取排序第一个）；`0` → 按后端 `associatedCount` 区分 `dashboard_permission_required` / `dashboard_configuration_required`；
+- 显式 `dashboardUuid` 预检失败（403/404/跨项目/不属该数据集关联看板）一律阻断，**不降级为 `NA`**。
+
+完整口径见 [强制看板模式设计稿 v2](./lightdash-mcp-dashboard-strict-mode.md)。
+
+### 5.7 严格模式的上线顺序（**必读**）
+
+> **开关默认关闭**（`MCP_DASHBOARD_STRICT` 默认 `false`）。不设该变量时行为与现状完全一致，本节只适用于外部品牌 CT 部署开启严格模式的场景。
+
+| 步骤 | 动作 | 不做的后果 |
+|---|---|---|
+| 1 | **先升级后端**（含 `associatedCount` 字段） | 只有「反查 0 个可见关联看板」与「显式 uuid 不属于关联候选」两类查询会被判 `dashboard_context_unavailable`（fail-closed，不猜）；有可见关联看板的查询不受影响。字段是新增、向后兼容，不需与 MCP 同时发版 |
+| 2 | 用**管理员 PAT** 盘点「无看板数据集」 | 外部客户会集中报「某张表突然不能查」 |
+| 3 | 给客户交付方重申：PAT 不得交给未受控终端（MCP 层是护栏，不是安全边界） | 客户可绕过 MCP 直连后端拿宽数据 |
+| 4 | 设 `MCP_DASHBOARD_STRICT=true` + `MCP_DASHBOARD_CONTACT` → 发布 | — |
+
+**后端未升级（旧版）时的精确表现**——是**报错阻断**，不是文案差异：
+
+| 查询走到的分支 | 后端已升级 | 后端未升级（旧版） |
+|---|---|---|
+| 反查到 ≥1 个可见关联看板 | 正常（唯一自动 / 多个要求选择） | **正常**（不依赖新字段） |
+| 显式 `dashboardUuid` 命中关联候选 | 正常 | **正常** |
+| 未传 uuid + 反查 **0 个可见关联看板** | `associatedCount=0` → `dashboard_configuration_required`；`>0` → `dashboard_permission_required` | `dashboard_context_unavailable`（`isError: true`、`action: retry_later`，**不查数**） |
+| 显式 uuid **不属**关联候选 | `0` → `dashboard_configuration_required`；`>0` → 403 → `permission_required` / 404 → `not_found` | `dashboard_context_unavailable`（**不查数**） |
+
+影响面：只有最后两行。它们本来就该被严格模式阻断，差别只是**原因和下一步给不出来**——`retry_later` 会让"其实该去配看板"的客户反复重试，产生客服噪音。因此建议后端先发（或同批发）。
+
+盘点命令（第 2 步；`associatedCount` 落地后可直接用）：
+
+```bash
+for e in $(curl -s -H "Authorization: ApiKey $LDPAT" \
+  "$SITE_URL/api/v1/projects/$PROJECT_UUID/explores" | jq -r '.results[].name'); do
+  n=$(curl -s -H "Authorization: ApiKey $LDPAT" \
+    "$SITE_URL/api/v1/projects/$PROJECT_UUID/dashboards/context?exploreName=$e" \
+    | jq '.results.associatedCount // (.results.contexts|length)')
+  [ "$n" = "0" ] && echo "NO_DASHBOARD $e"
+done
+```
+
+> 盘点必须用**管理员 PAT**（受限账号只能看到白名单内的看板，数量会偏少）。
+
+---
+
+### 5.8 一图看懂：配置归属、请求流程、角色关系
+
+#### 5.8.1 谁配什么（环境变量放哪）
+
+```mermaid
+flowchart LR
+  subgraph CLIENT["客户端（客户自己填）"]
+    P1["PAT<br/>（x-api-key，线上不做服务端兜底）"]
+  end
+
+  subgraph MCP["MCP 服务 Deployment（ConfigMap / Secret）"]
+    E1["LIGHTDASH_SITE_URL"]
+    E2["LIGHTDASH_PUBLIC_SITE_URL"]
+    E3["LIGHTDASH_PROJECT_UUID"]
+    E4["MCP_DASHBOARD_STRICT=true"]
+    E5["MCP_DASHBOARD_CONTACT=…"]
+    E6["MCP_OAUTH_ENABLED / session 容量等"]
+  end
+
+  subgraph MAIN["Lightdash 主站（Secret / 界面 / 数据库）"]
+    B1["ADMIN_API_HOST + ADMIN_API_KEY<br/>（看板白名单 RPC）"]
+    B2["projects.is_client_use = true<br/>（界面开启客户使用模式）"]
+    B3["项目角色 = viewer / interactive_viewer<br/>（后台授权）"]
+    B4["客户后台：按手机号授权看板<br/>（RPC 白名单数据）"]
+  end
+
+  subgraph DATA["dbt 项目 + 看板数据"]
+    D1["数据集挂到看板<br/>（saved chart tile）"]
+    D2["sql_filter 引用 lightdash.user.dashboardSlug"]
+  end
+
+  P1 --> MCP
+  MCP -- "同一 PAT 调 REST" --> MAIN
+  B2 --> B1
+  B3 --> B1
+  B4 --> B1
+  D1 --> D2
+```
+
+要点：
+
+- **`MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT` 只配在 MCP 服务**（ConfigMap），不进主站 `.env`；改这两项只需重启 MCP Pod。
+- 主站侧只有两类东西：**RPC 凭证**（`ADMIN_API_HOST` / `ADMIN_API_KEY`）与**业务配置**（客户使用模式开关、项目角色、看板授权数据）。
+- PAT 是客户端自己填的，MCP 不保存（线上不配 `LIGHTDASH_API_KEY` 兜底）。
+
+#### 5.8.2 一次查询走完的五道闸（严格模式）
+
+```mermaid
+flowchart TD
+  S["MCP 查询请求<br/>run_metric_query / run_semantic_metric_query / run_saved_chart / search_field_values / run_dashboard_tiles"] --> G1
+
+  G1{"① 认证<br/>PAT / OAuth 有效？"} -- 否 --> R401["401"]
+  G1 -- 是 --> G2
+
+  G2{"② 能力位 + 可查表预检<br/>view Explore / runMetricQuery<br/>（受限角色还会被看板白名单收窄）"} -- 否 --> X2["已拒绝查询…<br/>（可能没授权，也可能没挂看板）"]
+  G2 -- 是 --> G3
+
+  G3{"③ 解析 dashboardUuid<br/>MCP_DASHBOARD_STRICT"} -->|"显式 uuid 命中关联候选"| OK
+  G3 -->|"未传 + 反查唯一"| OK
+  G3 -->|"未传 + 反查多个"| X3A["dashboard_selection_required<br/>（非错误，附候选链接）"]
+  G3 -->|"未传 + 反查 0"| X3B{"associatedCount"}
+  X3B -->|"= 0"| X3B0["dashboard_configuration_required<br/>管理员去配看板"]
+  X3B -->|"> 0"| X3B1["dashboard_permission_required<br/>客服开权限"]
+  X3B -->|"缺失"| X3B2["dashboard_context_unavailable"]
+  G3 -->|"显式 uuid 未命中候选"| X3C{"associatedCount"}
+  X3C -->|"= 0"| X3B0
+  X3C -->|"> 0"| X3D["查 GET /dashboards/{uuid}<br/>403 → permission_required<br/>404/跨项目 → not_found"]
+
+  OK["④ 后端校验看板<br/>项目归属 + CASL 空间权限 + client-use 白名单<br/>→ canonical dashboardSlug"] --> G5
+  OK -- "403" --> X4["dashboard_permission_required"]
+  G5["⑤ 注入 lightdash.user.dashboardSlug<br/>→ dbt sql_filter 生效 → 执行查询"]
+  G5 --> OUT["返回数据 + resolvedDashboardContext<br/>（含 dashboardUuid / dashboardUrl）"]
+```
+
+#### 5.8.3 角色和权限到底是什么关系
+
+```mermaid
+flowchart LR
+  ROLE["项目角色<br/>viewer / interactive_viewer / editor / developer / admin"] --> G2["决定②③④能过几道闸"]
+  CU["客户使用模式 + RPC 白名单<br/>（按手机号）"] --> G4["额外收窄看板/图表/空间/数据集"]
+  ROLE --> G4
+  STRICT["MCP_DASHBOARD_STRICT<br/>（部署级开关）"] --> G3["决定是否必须带看板上下文<br/>与角色无关"]
+```
+
+| 角色 | ② 可查表 | ③ 必须带看板 | ④ 能打开的看板 | 净效果 |
+|---|---|---|---|---|
+| 客户 `viewer` | 白名单派生的 explore | **是** | 白名单内的看板 | 只能按白名单看板口径查 |
+| 客户 `interactive_viewer` | 同上 + 可跑临时指标查询 | **是** | 同上 | 同上，能力更宽 |
+| `editor` / `developer` / `admin` | 项目内可见 explore（不受白名单收窄） | **是**（严格模式） | 自己能打开的看板 | 仍必须选一张**关联该数据集**的看板 |
+| 任意角色 + `MCP_DASHBOARD_STRICT=false` | 按各自能力位 | 否 | — | 行为与改造前一致（可能落 `NA`） |
+
+一句话：**角色决定"能看多宽"，严格模式决定"必须落在哪张看板上"，两者叠加而不是互相替代**；升角色不会绕过第③道闸。
+
+## 6. 权限模型（必读）
+
+### 6.1 三个必要条件
+
+| 条件 | 字段 | 开启 / 说明 |
+|---|---|---|
+| ① 客户使用模式 | `projects.is_client_use`（项目级） | **在界面开启**：主站「项目管理」页 → [x.brandct.com/generalSettings/projectManagement](https://x.brandct.com/generalSettings/projectManagement)，**所有项目**由**管理员**逐个开启。**不开启则看板白名单整套逻辑不生效**，只走 CASL |
+| ② 项目角色受限 | `project_memberships.role ∈ {viewer, interactive_viewer}` | 客户账号固定为：组织角色=**成员**，项目角色=**查看者 / 交互式查看者**；其他角色（editor/developer/admin）不收窄 |
+| ③ Admin RPC 可用 | `ADMIN_API_HOST` + `ADMIN_API_KEY` | 未配置 → 不收窄（只 CASL）；RPC 失败 → 空集合 → **一张看板都看不到** |
+
+> admin 后台做看板授权时落库为**交互式查看者**（`interactive_viewer`），用户在组织内的角色是**成员**（`member`）；组织角色本身不产生项目角色，项目角色必须由后台授权写入。
+> **客户账号生效前提**：开启客户使用模式 + 项目角色为查看者/交互式查看者，缺一则不按白名单收窄。
+> **内部平台同理**：开启客户使用模式后，内部用户同样按看板管理入口配置的白名单收窄。
+
+### 6.2 看板可见性判定顺序
+
+```mermaid
+flowchart TD
+  req[看板 / 空间 / 搜索 / explore 列表请求] --> casl["CASL + Space 权限<br/>没有 view Dashboard 的丢掉"]
+  casl --> cu{"项目 is_client_use?"}
+  cu -->|否| vis[返回可见集合]
+  cu -->|是| role{"项目角色 viewer / interactive_viewer?"}
+  role -->|否| vis
+  role -->|是| rpc{"ADMIN_API 已配置?"}
+  rpc -->|否| vis
+  rpc -->|是| mail["从主邮箱前缀取 mobile"]
+  mail --> rpcCall["findAllDashboardByMobile(mobile)"]
+  rpcCall --> inter["与关联看板取交集"]
+  inter --> vis
+```
+
+该过滤在主站服务层统一生效；**MCP 调用这些 REST 接口时天然继承**。
+
+### 6.3 MCP 工具最低角色（组织角色 = 成员时）
+
+| 工具组 | 最低项目角色 | 说明 |
+|---|---|---|
+| `get_site_info` / `get_lightdash_version` / `get_mcp_docs` / `get_my_access` | 无（认证即可） | `get_my_access` 返回组织角色 + 各项目有效能力 |
+| `list_projects` / `list_spaces` / `find_content` / `find_dashboards` / `list_dashboards` / `find_charts` / `get_saved_chart` / `get_dashboard_tiles` / `list_charts` / `run_saved_chart` / `run_dashboard_tiles` / `list_explores` / `find_explores` / `find_fields` / `search_field_values` / `list_verified_content` | **查看者 viewer** | 客户使用模式下 explore / 看板列表已按白名单收窄 |
+| `run_metric_query` / `run_semantic_metric_query` | **交互式查看者 interactive_viewer** | 需要 `view Explore` |
+| `get_dashboard_code` | 编辑者 editor | `view ContentAsCode` |
+
+---
+
+## 7. 上线前置条件（Checklist）
+
+### 7.1 代码与镜像
+
+- [ ] MCP 包版本已 bump（`pnpm bump-mcp -- X.Y.Z`），与 tag `mcp-vX.Y.Z` 一致
+- [ ] GitHub Actions `build-docker-mcp.yml` 构建成功，镜像仓出现 `:X.Y.Z` 与 `:latest`
+- [ ] VPC 镜像仓（`registry-vpc…`）可见同一 tag
+- [ ] 主站若本次有改动，已先发布
+
+### 7.2 MCP 服务配置
+
+- [ ] ConfigMap：`LIGHTDASH_SITE_URL` / `LIGHTDASH_PUBLIC_SITE_URL` / `LIGHTDASH_PROJECT_UUID` 正确
+- [ ] 兜底 PAT（`LIGHTDASH_API_KEY`）**线上不配置**（客户必须自填 PAT），已写入接入说明
+- [ ] 会话/内存参数按容器规格设置（2GB → `MAX_SESSIONS` 50~100）
+- [ ] 多副本场景已确认 sticky session 或保持单实例
+
+### 7.3 主站
+
+- [ ] `ADMIN_API_HOST` / `ADMIN_API_KEY` 已配置（客户使用模式项目）
+- [ ] 目标项目**已在项目管理页开启客户使用模式**（`projects.is_client_use = true`）
+
+### 7.4 网关
+
+- [ ] 证书覆盖实际主机名（优先连字符域名）
+- [ ] Apisix 限流策略确认（是否仍按 `http_x_api_key`）
+- [ ] 客户端 URL 与 §3.3 一致
+
+### 7.5 数据与账号
+
+- [ ] 客户账号已在 admin 后台授权看板，且**主邮箱**与登录邮箱一致
+- [ ] 用户已加入组织，项目角色为 查看者 / 交互式查看者
+- [ ] dbt `sql_filter` 用的 `short_name` 与 admin 后台看板配置一致
+- [ ] 客户已在主站**自行申请 PAT**（个人访问令牌），并配置进客户端 `x-api-key`（线上无兜底 PAT，漏填即 401）
+
+---
+
+## 8. 验收清单
+
+### 8.1 基础设施
+
+| # | 检查 | 期望 |
+|---|---|---|
+| 1 | `GET /health` | `ok=true`、含 `activeSessions` / `pendingSessions` / `compatSessions` / `activeSseConnections` / `inFlightRequests` |
+| 2 | 不带 `x-api-key` 访问 `/mcp` | 401（未认证）——线上无兜底 PAT，必须自填 |
+| 3 | 镜像 | Pod 运行的镜像 tag = 本次发布 tag |
+| 4 | Apisix 限流 | 策略符合预期，不误伤 |
+
+### 8.2 业务与权限（用客户账号 + 其 PAT 跑）
+
+| # | 场景 | 期望 |
+|---|---|---|
+| 1 | 客户 PAT 调用 `list_projects` | 成功 |
+| 2 | `get_my_access`（带 `projectUuid` + `includeExplores=true`） | 组织角色=成员；项目角色=interactive_viewer；`queryable` 含目标看板所用 explore |
+| 3 | `list_dashboards` | 只返回**已授权**看板（白名单生效） |
+| 4 | `find_explores` / `list_explores` | 只返回白名单看板用到的表 |
+| 5 | `run_dashboard_tiles` | 数据与看板 UI 一致（自动带看板上下文） |
+| 6 | `run_semantic_metric_query` 不带 `dashboardUuid`（explore 依赖 `dashboardSlug`） | `MCP_DASHBOARD_STRICT=false`：有候选 → 自动选用并返回 `resolvedDashboardContext`（含 `candidates`）；0 候选才返回 `dashboard_selection_required`。**`=true`**：必须带或反查到唯一看板；多候选 / 0 候选（按 `associatedCount` 区分）均阻断 |
+| 7 | 同一查询带 `dashboardUuid` 重试 | 行数与看板 UI 一致 |
+| 8 | 未授权账号 | 看不到授权看板；`run_metric_query` 拒绝非 `queryable` 表 |
+
+### 8.3 关联关系专项
+
+| # | 场景 | 期望 |
+|---|---|---|
+| 1 | 看板 A（`short_name=A`）的图表经 MCP 查数 | `lightdash.user.dashboardSlug = A` 生效，行数与看板一致 |
+| 2 | 同一 explore 关联多个看板 | 自动选用排序后第一个并返回完整 `candidates`；显式传 `dashboardUuid` 可复现指定看板口径 |
+| 3 | dbt 改名 / 新增 `short_name` | 与 admin 后台看板配置、RPC 白名单三处对齐 |
+
+---
+
+## 9. 回滚
+
+| 场景 | 操作 |
+|---|---|
+| MCP 服务异常 | 用上一版 tag 走同一 Jenkins 发布流程（或 `rollout undo`）；客户端 URL 不变，无需改配置 |
+| 主站异常 | 先回滚主站；MCP 侧表现为调用报错 |
+| 口径异常 | 回滚 dbt 版本；或让调用方显式传 `dashboardUuid` 绕过自动反查 |
+| 权限异常（该看的不该看 / 该不该看的看不到） | 先查客户使用模式开关、项目角色、`ADMIN_API_*`、用户主邮箱；确需临时放宽才把 `is_client_use` 置 false（**放宽，慎用，需同步安全**） |
+
+---
+
+## 10. 排障速查
+
+| 现象 | 常见原因 | 排查 |
+|---|---|---|
+| 客户端连不上 / 证书错误 | 主机名与证书不匹配 | 用连字符域名；`curl -I https://…/mcp` |
+| 401 | 未带 `x-api-key`，或 PAT 失效/过期 | 客户端请求头；主站侧校验 PAT 状态 |
+| 403 / 工具不可用 | PAT 对应用户无该项目权限 | `get_my_access` 看能力 |
+| 能登录但查不到数 | 项目角色是 viewer（不是 interactive_viewer） | `get_my_access` 看能力 |
+| 能查但看不到目标看板 | 未开启客户使用模式 / RPC 未配置 / 邮箱前缀取不到 mobile | 查项目开关、`ADMIN_API_*`、用户主邮箱 |
+| 看板有数据 MCP 没数据（或相反） | 未带 `dashboardUuid` → `sql_filter` 走 `'NA'` 分支 | 显式传 `dashboardUuid`，或用 `run_dashboard_tiles` |
+| MCP 与看板行数不一致 | `short_name` 三处（admin 后台 / dbt / RPC 白名单）不对齐 | 逐一对齐 |
+| Pod 起来但 `/health` 503 | 必填环境变量缺失 | 日志会列出 `missingEnv`；改 ConfigMap/Secret 后重建 Pod |
+| 频繁 503 / OOM | session 堆积 | 调 `LIGHTDASH_MCP_MAX_SESSIONS` / 缩短 `SESSION_TTL_MS`；确认容器内存与副本数 |
+| 429 频繁 | Apisix `limit-req` 策略 | 调整限流维度（`remote_addr` / `http_x_api_key`） |
+
+---
+
+## 11. 附录
+
+### 11.1 关键接口
+
+| 接口 | 用途 |
+|---|---|
+| `GET /api/v1/projects/:projectUuid/dashboards/context` | 反查 explore/chart 关联看板（已带权限过滤） |
+| `GET /health` | MCP 健康检查 |
+| `ALL /mcp` | MCP 入口（Streamable HTTP；`tools/list`、`tools/call` 是 JSON-RPC method，不是 URL 子路径） |
+
+### 11.2 关键路径
+
+| 路径 | 说明 |
+|---|---|
+| `packages/lightdash-mcp/` | MCP 服务源码与 Dockerfile |
+| `.github/workflows/build-docker-mcp.yml` | MCP 镜像构建（tag `mcp-v*`） |
+| `.github/workflows/build-docker-with-i18n.yml` | 主站镜像构建（tag `v*`） |
+| `scripts/bump-versions.mjs` | `pnpm bump-mcp -- X.Y.Z` |
+| `k8s-config/lightdash-mcp/`、`lightdash-internal-mcp/` | MCP 部署清单（分支 `pre` / `master`） |
+| `k8s-config/lightdash/`、`lightdash-internal/` | 主站部署清单与 Secret |
+| `packages/backend/src/services/DashboardService/DashboardService.ts` | 看板白名单与关联看板 |
+| `packages/lightdash-mcp/src/lib/dashboardContextResolver.ts` | MCP 看板上下文解析 |
+
+### 11.3 相关仓库
+
+| 仓库 | 作用 |
+|---|---|
+| `lightdash-i18n`（本仓） | MCP 服务 + Lightdash 主站 |
+| `k8s-config` | 部署清单 / Secret / Apisix |
+| `brand-fe` | admin 后台前端（看板管理界面） |
+| `winwin-report` | admin 后台服务（`findAllDashboardByMobile` 等 JSON-RPC） |
+| `hologres_analytices` | dbt 语义层与 `meta.sql_filter`（看板口径与行级权限） |

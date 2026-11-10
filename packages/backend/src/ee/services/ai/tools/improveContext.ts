@@ -4,8 +4,8 @@ import {
 } from '@lightdash/common';
 import { tool } from 'ai';
 import Logger from '../../../../logging/logger';
-import { toModelOutput } from '../utils/toModelOutput';
-import { toolErrorHandler } from '../utils/toolErrorHandler';
+import { toModelOutput } from '../../../../services/ai/utils/toModelOutput';
+import { toolErrorHandler } from '../../../../services/ai/utils/toolErrorHandler';
 
 export const getImproveContext = () =>
     tool({

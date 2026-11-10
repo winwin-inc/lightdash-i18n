@@ -4,8 +4,8 @@ import type { Filters } from '../../../../types/filter';
 import { AI_DEFAULT_MAX_QUERY_LIMIT } from '../../constants';
 import type { AiMetricQueryWithFilters } from '../../types';
 import { getValidAiQueryLimit } from '../../validators';
-import { getFieldIdSchema } from '../fieldId';
-import sortFieldSchema from '../sortField';
+import { getFieldIdSchema } from '../../../../schemas/mcp/fieldId';
+import sortFieldSchema from '../../../../schemas/mcp/sortField';
 import type { ToolVerticalBarArgsTransformed } from '../tools';
 
 export const verticalBarMetricVizConfigSchema = z.object({

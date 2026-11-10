@@ -39,7 +39,50 @@ export class OAuth2Model implements AuthorizationCodeModel {
             id: client.client_id,
             redirectUris: client.redirect_uris,
             grants: client.grants,
+            scopes: (client.scopes ?? []) as string[],
         };
+    }
+
+    /**
+     * Restricts requested scopes to those registered on the OAuth client.
+     * Without this, `@node-oauth/oauth2-server` honours any requested scope
+     * at `/authorize` (e.g. a read-only client could request `mcp:write`),
+     * making the client-level scope promise unenforceable.
+     * Returns `false` for an entirely invalid request (invalid_scope).
+     */
+    async validateScope(
+        _user: User,
+        client: Client,
+        scope?: string[],
+    ): Promise<string[] | false> {
+        const allowedScopes = Array.isArray(client.scopes)
+            ? client.scopes
+            : [client.scopes].filter(Boolean);
+
+        const requestedScopes = (scope ?? []).filter((s) => s.length > 0);
+        if (requestedScopes.length === 0 || allowedScopes.length === 0) {
+            return false;
+        }
+
+        const allowed = new Set<string>(allowedScopes);
+        const validScopes = requestedScopes.filter((s) => allowed.has(s));
+
+        return validScopes.length === requestedScopes.length
+            ? validScopes
+            : false;
+    }
+
+    async getClientScopes(clientId: string): Promise<string[]> {
+        const client = await this.database('oauth2_clients')
+            .select('scopes')
+            .where('client_id', clientId)
+            .first();
+
+        if (!client) {
+            return [];
+        }
+
+        return (client.scopes ?? []) as string[];
     }
 
     async saveAuthorizationCode(

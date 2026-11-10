@@ -1,6 +1,6 @@
 import { AI_DEFAULT_MAX_QUERY_LIMIT } from './constants';
+import { convertAiTableCalcsSchemaToTableCalcs } from '../../schemas/mcp/tableCalcs/tableCalcs';
 import {
-    convertAiTableCalcsSchemaToTableCalcs,
     metricQueryTableViz,
     metricQueryTimeSeriesViz,
     metricQueryVerticalBarViz,

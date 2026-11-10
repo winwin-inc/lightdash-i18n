@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AiResultType } from '../../types';
-import { baseOutputMetadataSchema } from '../outputMetadata';
-import { createToolSchema } from '../toolSchemaBuilder';
+import { baseOutputMetadataSchema } from '../../../../schemas/mcp/outputMetadata';
+import { createToolSchema } from '../../../../schemas/mcp/toolSchemaBuilder';
 
 export const TOOL_IMPROVE_CONTEXT_DESCRIPTION = `
 Captures learnings from user corrections, clarifications, and guidance to improve future responses.
