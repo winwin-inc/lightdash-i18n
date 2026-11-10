@@ -471,6 +471,21 @@ export const NO_DEFAULT_PROJECT_HINT =
 - **修复**：`validateScope` 改为**发放交集**（未注册的丢弃并告警，交集非空即发）；空 scope 回退到 client 注册的 mcp scope；M1 安全性不变（未注册 scope 永不发放）。已用真实 `oauth2-server@5.2.0` 验证全部场景。
 - **教训**：收紧授权时必须核对己方元数据通告（`scopes_supported`）与标准客户端的默认行为（请求全部通告 scope）。
 
+**恢复方式（重要，运维必读）**：修复上线后**旧连接不会自动恢复**，必须重新授权（删掉连接重建，或重新点授权）才会拿到 scope 正确的新 token。原因：
+
+- access token 过期后走 `refresh_token` 续期，而 `@node-oauth/oauth2-server` 的 refresh 流程**不调用 `validateScope`**（`refresh-token-grant-type.js` 的 `saveToken` 直接沿用旧 scope）——坏 scope 会被继承下去，永久 403。
+- 坏窗口期（v2.6.8 上线 → v2.6.9 部署）内尝试连接过的客户端，要么一直拿不到 token（日志 `unauthorized_request`），要么持有缺 `mcp:read` 的 token（403 `Missing required OAuth scope(s)`）。
+
+排障对照（三种失败签名含义完全不同）：
+
+| 日志 | 含义 |
+|---|---|
+| `OAuth authentication failed: unauthorized_request` | 请求里**没有** Bearer token（客户端没拿到/没带上） |
+| `OAuth authentication failed: invalid_token` | 有 token 但库里查不到或已过期 |
+| `MCP endpoint error: Missing required OAuth scope(s): mcp:read` | token 有效但 scope 不足 → 403，需重新授权 |
+
+> 注意：`OAuth authentication failed` 这条 warn 对**每个非 session 请求**都会打印（`allowOauthAuthentication` 挂在 MCP 端点与 `/api/v1/user/*` 上），PAT 请求也会产生 `unauthorized_request`。只看这条无法判断 MCP 是否失败，要配合 `MCP request without authentication` / `MCP request authenticated`（含 `authType`、`scopes`）一起看。
+
 ### 6.5 上线版本链
 
 | tag | 内容 |

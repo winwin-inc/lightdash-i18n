@@ -332,6 +332,13 @@ registerTool(name, config, handler) {
 1. 收紧授权逻辑时，必须对照**己方元数据通告**（`scopes_supported`）核对标准客户端行为——它会请求你通告的一切
 2. 鉴权改动必须用**出问题的那条通道**验证（OAuth 就要用 OAuth 测，不能拿 PAT 测完就算）
 
+**修复上线 ≠ 用户恢复。** 这是本次最反直觉的一点：坏窗口期签发的 token **不会自愈**。
+
+- `@node-oauth/oauth2-server` 的 refresh 流程**不调用 `validateScope`**（`refresh-token-grant-type.js` 的 `saveToken` 直接沿用旧 scope）。scope 错了就一路错下去，1 小时 access token 过期后靠 refresh 续命，坏 scope 被永久继承。
+- 结果：服务端修好了，客户端还是 401/403，直到**重新走一次完整授权**（删掉连接重建）。
+
+因此这类事故的处置清单里必须有一条：**列出受影响用户，通知他们重建连接**，而不是修完代码就宣布恢复。
+
 ### 事故 2：迁移里 `text[] || 'literal'` 必挂
 
 ```sql
