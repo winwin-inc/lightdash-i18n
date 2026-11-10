@@ -1,4 +1,7 @@
-# MCP 服务上线流程文档
+# MCP 服务上线流程文档（v1 独立包）
+
+> **适用范围（2026-11 更新）**：本文档仅适用于 **v1 独立包** `packages/lightdash-mcp` 的发布流程（仍在线上运行，计划分阶段退役，见[退役评估](./lightdash-mcp-retirement-evaluation.md)）。
+> **v2 主站内置 MCP**（`/api/v1/mcp`，随主站镜像发布）请见 [内置 MCP 部署与验收](./mcp-builtin-deploy.md)。
 
 | 项 | 内容 |
 |---|---|
