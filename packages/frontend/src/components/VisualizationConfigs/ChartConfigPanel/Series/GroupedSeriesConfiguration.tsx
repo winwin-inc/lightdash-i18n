@@ -237,14 +237,20 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
             : String(pv.field);
     });
     const metricLabel = getItemLabelWithoutTableName(item);
-    const groupHeadingLabel =
-        pivotDimLabels.length > 0
-            ? `${metricLabel}（按 ${pivotDimLabels.join('、')} 分组）`
-            : `${metricLabel}${t(
-                  'components_visualization_configs_chart.series.grouped_suffix',
-              )}`;
-    const groupHeadingTitle = groupHeadingLabel;
     const isBaselineField = (layout?.baselineFieldIds ?? []).includes(fieldKey);
+    // 基准线是按 x 轴合并的单条参考线，不随分组维度变化：标题不带
+    // “（按 X 分组）”后缀，避免误导用户它仍会按筛选项展开。
+    const groupHeadingLabel =
+        pivotDimLabels.length > 0 && !isBaselineField
+            ? `${metricLabel}（按 ${pivotDimLabels.join('、')} 分组）`
+            : `${metricLabel}${
+                  isBaselineField
+                      ? ''
+                      : t(
+                            'components_visualization_configs_chart.series.grouped_suffix',
+                        )
+              }`;
+    const groupHeadingTitle = groupHeadingLabel;
     const canSortStackSeriesByValue =
         Boolean(seriesGroup[0].stack) &&
         chartValue === CartesianSeriesType.BAR &&
@@ -468,23 +474,29 @@ const GroupedSeriesConfiguration: FC<GroupedSeriesConfigurationProps> = ({
                                         });
                                     }}
                                 />
-                                <Checkbox
-                                    checked={
-                                        seriesGroup[0].hideMetricName === true
-                                    }
-                                    label={t(
-                                        'components_visualization_configs_chart.series.hide_metric_name',
-                                    )}
-                                    onChange={() => {
-                                        updateAllGroupedSeries(fieldKey, {
-                                            hideMetricName:
-                                                seriesGroup[0].hideMetricName ===
-                                                true
-                                                    ? undefined
-                                                    : true,
-                                        });
-                                    }}
-                                />
+                                {/* 隐藏指标名称只作用于逐分组值展开的系列；
+                                    基准线是合并的单条参考线（标签恒为指标名），
+                                    勾选无意义且会误导，故不展示。 */}
+                                {!isBaselineField && (
+                                    <Checkbox
+                                        checked={
+                                            seriesGroup[0].hideMetricName ===
+                                            true
+                                        }
+                                        label={t(
+                                            'components_visualization_configs_chart.series.hide_metric_name',
+                                        )}
+                                        onChange={() => {
+                                            updateAllGroupedSeries(fieldKey, {
+                                                hideMetricName:
+                                                    seriesGroup[0]
+                                                        .hideMetricName === true
+                                                        ? undefined
+                                                        : true,
+                                            });
+                                        }}
+                                    />
+                                )}
                             </Group>
                             <Stack spacing="xs">
                                 <Group spacing="xs">

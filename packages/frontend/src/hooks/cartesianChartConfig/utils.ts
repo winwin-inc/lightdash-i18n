@@ -199,7 +199,16 @@ export const getExpectedSeriesMap = ({
 const getGroupUserPropertiesFromExistingSeries = (
     expectedSeries: Series,
     existingSeries: Series[],
-): Pick<Series, 'hideMetricName' | 'color'> => {
+): Pick<
+    Series,
+    | 'hideMetricName'
+    | 'color'
+    | 'name'
+    | 'label'
+    | 'smooth'
+    | 'showSymbol'
+    | 'filledSymbol'
+> => {
     const fieldSeries = existingSeries.filter(
         (serie) =>
             serie.encode.yRef.field === expectedSeries.encode.yRef.field,
@@ -212,21 +221,53 @@ const getGroupUserPropertiesFromExistingSeries = (
     const firstVisibleSeries = fieldSeries.find(
         (serie) => serie.hidden !== true,
     );
-    const donorSeries = firstVisibleSeries ?? fieldSeries[0];
 
     // 逐值自定义颜色是系列级意图，不随新分组值继承；仅当合并基准线哨兵
-    // 替换同 field 的逐值系列（同一条参考线）时携带用户色。
+    // 替换同 field 的逐值系列（同一条参考线）时携带用户色。改名同理：
+    // 哨兵重建后逐值系列会被坍缩丢弃，用户改过的那条参考线上的改名
+    // 必须随哨兵存活，否则看板与编辑页表现不一致。
     const replacesMergedBaseline = isBaselineMergedPivotValues(
         expectedSeries.encode.yRef.pivotValues,
     );
 
+    // 哨兵残留 = 该 field 是基准线，且面板上只有它一行可见（改名/颜色
+    // 都在它上面）。看板重建时 pivot 形态可能与编辑页不一致（如 pivot
+    // 维度丢失后会生成无 pivotValues 的简单系列），此时 expected 不再是
+    // 哨兵，但仍属同一条基准线：用户属性照样必须从哨兵携带，否则
+    // tooltip 回落原始指标名。
+    const sentinelSeries = fieldSeries.find(
+        (serie) =>
+            isBaselineMergedPivotValues(serie.encode.yRef.pivotValues) &&
+            serie.hidden !== true,
+    );
+    const carriesBaselineIdentity = replacesMergedBaseline || !!sentinelSeries;
+
+    // 携带源与渲染层 collapseBaselineSeries 的 donor 规则对齐：哨兵残留优先
+    const carryDonor =
+        sentinelSeries || firstVisibleSeries || fieldSeries[0];
+
     return {
-        ...(donorSeries.hideMetricName !== undefined && {
-            hideMetricName: donorSeries.hideMetricName,
+        ...(carryDonor.hideMetricName !== undefined && {
+            hideMetricName: carryDonor.hideMetricName,
         }),
-        ...(replacesMergedBaseline &&
-            firstVisibleSeries?.color !== undefined && {
-                color: firstVisibleSeries.color,
+        // 组级视觉属性（面板上 updateAllGroupedSeries 一次写给整组）：值标签、
+        // 平滑、符号。重建时若从 defaultProperties 取模板系列的值，基准线
+        // 开了值标签也会在看板丢失（编辑页能看到、看板看不到）。
+        ...(carryDonor.label !== undefined && { label: carryDonor.label }),
+        ...(carryDonor.smooth !== undefined && { smooth: carryDonor.smooth }),
+        ...(carryDonor.showSymbol !== undefined && {
+            showSymbol: carryDonor.showSymbol,
+        }),
+        ...(carryDonor.filledSymbol !== undefined && {
+            filledSymbol: carryDonor.filledSymbol,
+        }),
+        ...(carriesBaselineIdentity &&
+            carryDonor.color !== undefined && {
+                color: carryDonor.color,
+            }),
+        ...(carriesBaselineIdentity &&
+            carryDonor.name !== undefined && {
+                name: carryDonor.name,
             }),
     };
 };

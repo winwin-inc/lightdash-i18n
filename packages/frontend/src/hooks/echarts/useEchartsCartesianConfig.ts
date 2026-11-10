@@ -70,6 +70,7 @@ import { EMPTY_X_AXIS } from '../cartesianChartConfig/useCartesianChartConfig';
 import {
     getSeriesSortDirection,
     getStackSeriesSortDirection,
+    type SeriesSortDirection,
 } from '../cartesianChartConfig/utils';
 import {
     BASELINE_MERGED_PIVOT_VALUE,
@@ -1178,14 +1179,23 @@ export const collapseBaselineSeries = ({
         if (collapsedFields.has(field)) return acc;
         collapsedFields.add(field);
 
-        // User properties come from the field's first non-hidden series; if
-        // every series of the field is hidden the user hid the baseline.
+        // The sentinel series is the canonical user-facing row (the config
+        // panel only shows it): its rename/color must win over leftover
+        // per-value series. Fall back to the first non-hidden series for
+        // legacy configs saved before the sentinel existed.
+        const fieldSeries = series.filter(
+            (candidate) => candidate.encode.yRef.field === field,
+        );
         const donorSeries =
-            series.find(
+            fieldSeries.find(
                 (candidate) =>
-                    candidate.encode.yRef.field === field &&
-                    candidate.hidden !== true,
-            ) ?? serie;
+                    isBaselineMergedPivotValues(
+                        candidate.encode.yRef.pivotValues,
+                    ) && candidate.hidden !== true,
+            ) ??
+            fieldSeries.find((candidate) => candidate.hidden !== true) ??
+            serie;
+        // Every series of the field hidden means the user hid the baseline.
         if (donorSeries.hidden === true) return acc;
 
         return [
@@ -1942,6 +1952,78 @@ export const sortTooltipParamsByLegendOrder = (
         const safeB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
         return safeA - safeB;
     });
+};
+
+/**
+ * Value of one tooltip row at the hovered axis point.
+ * ECharts passes `value` keyed by dataset dimension name; the series' own
+ * `encode.y` (index or name) resolves the value column, mirroring the logic
+ * used when rendering the row.
+ */
+const getTooltipParamAxisValue = (
+    param: unknown,
+    flipAxes: boolean,
+): number | null => {
+    if (typeof param !== 'object' || param === null) return null;
+    const entry = param as {
+        value?: unknown;
+        encode?: { y?: number | number[] | string };
+        dimensionNames?: string[];
+    };
+    const { value, encode, dimensionNames } = entry;
+    if (!value || typeof value !== 'object') return null;
+
+    let dim: string | undefined;
+    if (dimensionNames) {
+        if (flipAxes) {
+            dim = dimensionNames[1];
+        } else {
+            const yIndex = Array.isArray(encode?.y) ? encode?.y[0] : encode?.y;
+            dim =
+                typeof yIndex === 'number' ? dimensionNames[yIndex] : undefined;
+        }
+    } else if (typeof encode?.y === 'string') {
+        dim = encode.y;
+    }
+    if (!dim) return null;
+
+    const raw = (value as Record<string, unknown>)[dim];
+    const num = toNumber(
+        typeof raw === 'object' && raw !== null && 'value' in (raw as object)
+            ? (raw as { value?: unknown }).value
+            : raw,
+    );
+    return Number.isFinite(num) ? num : null;
+};
+
+/**
+ * Orders tooltip rows by their value at the hovered axis point when the chart
+ * has a value sort enabled. Series/legend order stays global (by total) — only
+ * the per-point tooltip list is value-sorted, because a tooltip describes a
+ * single x value while the drawing order cannot change per point.
+ */
+export const sortTooltipParamsByAxisValue = (
+    params: unknown[],
+    flipAxes: boolean,
+    direction: SeriesSortDirection,
+): unknown[] => {
+    const withValues = params.map((param, index) => ({
+        param,
+        index,
+        value: getTooltipParamAxisValue(param, flipAxes),
+    }));
+
+    // Rows without a numeric value (e.g. reference/baseline entries missing on
+    // this point) keep their relative position at the end.
+    withValues.sort((a, b) => {
+        if (a.value === null && b.value === null) return a.index - b.index;
+        if (a.value === null) return 1;
+        if (b.value === null) return -1;
+        const diff = direction === 'desc' ? b.value - a.value : a.value - b.value;
+        return diff !== 0 ? diff : a.index - b.index;
+    });
+
+    return withValues.map((entry) => entry.param);
 };
 
 export const mergeValueSortLegendData = (
@@ -4859,9 +4941,28 @@ const useEchartsCartesianConfig = (
             formatter: (params) => {
                 if (!Array.isArray(params) || !itemsMap) return '';
 
-                const orderedParams = sortTooltipParamsByLegendOrder(
+                const orderedParamsByLegend = sortTooltipParamsByLegendOrder(
                     params,
                     valueSortLegendData,
+                );
+                // 值排序（系列排序/堆叠排序）开启时，tooltip 行按**当前 x 点**的
+                // 数值排序；图例/系列顺序仍是按总和的全局顺序（绘制顺序无法
+                // 逐点变化）。不开值排序时保持原有图例顺序。
+                const tooltipValueSortDirection =
+                    getSeriesSortDirection(
+                        validCartesianConfig?.eChartsConfig.series,
+                    ) ??
+                    getStackSeriesSortDirection(
+                        validCartesianConfig?.eChartsConfig.series,
+                    );
+                const orderedParams = (
+                    tooltipValueSortDirection
+                        ? sortTooltipParamsByAxisValue(
+                              orderedParamsByLegend,
+                              validCartesianConfig?.layout?.flipAxes ?? false,
+                              tooltipValueSortDirection,
+                          )
+                        : orderedParamsByLegend
                 ) as typeof params;
 
                 // Check if 100% stacking is enabled and we have original values
@@ -5044,6 +5145,9 @@ const useEchartsCartesianConfig = (
             pivotValuesColumnsMap,
             originalValues,
             valueSortLegendData,
+            // 值排序方向直接取自系列配置；列表本身已在上方 memo 里生成，
+            // 这里只需在配置变化时重算 tooltip
+            validCartesianConfig?.eChartsConfig.series,
         ],
     );
 
