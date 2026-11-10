@@ -221,30 +221,31 @@ const getGroupUserPropertiesFromExistingSeries = (
         expectedSeries.encode.yRef.pivotValues,
     );
 
-    // 携带源与渲染层 collapseBaselineSeries 的 donor 规则对齐：哨兵残留是
-    // 面板上唯一可见行，用户的改名/颜色都在它上面；id 漂移（pivot 维度
-    // 变化等）导致哨兵重建时，若仍从第一个同 field 系列（通常是逐值残留）
-    // 取属性，改名会丢失，看板 tooltip 回落原始指标名。
+    // 哨兵残留 = 该 field 是基准线，且面板上只有它一行可见（改名/颜色
+    // 都在它上面）。看板重建时 pivot 形态可能与编辑页不一致（如 pivot
+    // 维度丢失后会生成无 pivotValues 的简单系列），此时 expected 不再是
+    // 哨兵，但仍属同一条基准线：用户属性照样必须从哨兵携带，否则
+    // tooltip 回落原始指标名。
+    const sentinelSeries = fieldSeries.find(
+        (serie) =>
+            isBaselineMergedPivotValues(serie.encode.yRef.pivotValues) &&
+            serie.hidden !== true,
+    );
+    const carriesBaselineIdentity = replacesMergedBaseline || !!sentinelSeries;
+
+    // 携带源与渲染层 collapseBaselineSeries 的 donor 规则对齐：哨兵残留优先
     const carryDonor =
-        (replacesMergedBaseline &&
-            fieldSeries.find(
-                (serie) =>
-                    isBaselineMergedPivotValues(
-                        serie.encode.yRef.pivotValues,
-                    ) && serie.hidden !== true,
-            )) ||
-        firstVisibleSeries ||
-        fieldSeries[0];
+        sentinelSeries || firstVisibleSeries || fieldSeries[0];
 
     return {
         ...(carryDonor.hideMetricName !== undefined && {
             hideMetricName: carryDonor.hideMetricName,
         }),
-        ...(replacesMergedBaseline &&
+        ...(carriesBaselineIdentity &&
             carryDonor.color !== undefined && {
                 color: carryDonor.color,
             }),
-        ...(replacesMergedBaseline &&
+        ...(carriesBaselineIdentity &&
             carryDonor.name !== undefined && {
                 name: carryDonor.name,
             }),

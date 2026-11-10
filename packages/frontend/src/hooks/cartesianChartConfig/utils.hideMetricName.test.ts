@@ -389,3 +389,85 @@ describe('mergeExistingAndExpectedSeries：看板链路用户属性不丢失', (
         expect(echartSerie.dimensions?.[1]?.displayName).toBe('产品C');
     });
 });
+
+describe('基准线改名：看板重建形态与编辑页不一致时不丢失', () => {
+    const BASELINE_FIELD = 'numerical_market_rate_jizhun';
+    const RENAMED = '数值铺市率基准线';
+
+    /** 编辑页保存的真实形态：合并哨兵系列 + 用户改名 */
+    const savedSentinel = (field: string): Series => ({
+        encode: {
+            xRef: { field: 'dim_month' },
+            yRef: {
+                field,
+                pivotValues: [
+                    { field: 'pro_name', value: BASELINE_MERGED_PIVOT_VALUE },
+                ],
+            },
+        },
+        type: CartesianSeriesType.LINE,
+        name: RENAMED,
+    });
+
+    it('看板无 pivotDetails 且有 pivotKeys：合并哨兵系列保留改名', () => {
+        // PIVOT_DETAILS_RESULTS 里的基准线指标是 metric_target
+        const field = 'metric_target';
+        const expectedSeriesMap = getExpectedMap({
+            resultsData: PIVOT_DETAILS_RESULTS,
+            yFields: [field],
+            baselineFieldIds: [field],
+        });
+
+        const merged = mergeExistingAndExpectedSeries({
+            expectedSeriesMap,
+            existingSeries: [savedSentinel(field)],
+        });
+
+        const sentinel = merged.find((serie) =>
+            serie.encode.yRef.pivotValues?.every(
+                (pv) => pv.value === BASELINE_MERGED_PIVOT_VALUE,
+            ),
+        );
+        expect(sentinel?.name).toBe(RENAMED);
+    });
+
+    it('看板 pivot 维度丢失（重建为无 pivotValues 的简单系列）时改名仍从哨兵携带', () => {
+        // 回归：此时 expected 不再是哨兵（yRef 无 pivotValues），按“只有
+        // 哨兵替换才携带改名”的旧规则会丢失改名，看板 tooltip 回落原始指标名
+        const expectedSeriesMap = getExpectedSeriesMap({
+            defaultSmooth: undefined,
+            defaultShowSymbol: undefined,
+            defaultFilledSymbol: undefined,
+            defaultCartesianType: CartesianSeriesType.LINE,
+            defaultAreaStyle: undefined,
+            isStacked: false,
+            pivotKeys: [],
+            resultsData: {
+                rows: [
+                    {
+                        dim_month: { value: { raw: 'M1', formatted: 'M1' } },
+                        [BASELINE_FIELD]: { value: { raw: 1, formatted: '1' } },
+                    },
+                ],
+            } as unknown as InfiniteQueryResults,
+            xField: 'dim_month',
+            yFields: [BASELINE_FIELD],
+            availableDimensions: ['dim_month'],
+            itemsMap: undefined,
+            baselineFieldIds: [BASELINE_FIELD],
+        });
+
+        const expected = Object.values(expectedSeriesMap)[0];
+        expect(expected.encode.yRef.pivotValues).toBeUndefined();
+
+        const merged = mergeExistingAndExpectedSeries({
+            expectedSeriesMap,
+            existingSeries: [savedSentinel(BASELINE_FIELD)],
+        });
+
+        const rebuilt = merged.find(
+            (serie) => serie.encode.yRef.field === BASELINE_FIELD,
+        );
+        expect(rebuilt?.name).toBe(RENAMED);
+    });
+});
