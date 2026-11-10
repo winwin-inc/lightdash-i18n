@@ -227,6 +227,11 @@ export const useGetReadyQueryResults = (
             useSqlPivotResults,
         ],
         keepPreviousData: true, // needed to keep the last metric query which could break cartesian chart config
+        // 探索页的 13 个订阅组件（ResultsCard/RefreshButton 等可折叠卡片）会随
+        // 面板开合卸载重挂；默认 refetchOnMount=true 时，数据过期（>30s）后的任何
+        // 重挂都会触发一次真实仓查询（invalidateCache: true，后端不走缓存）。
+        // mount 一律复用已有结果，刷新只由 Run 按钮 / query key 内容变化触发。
+        refetchOnMount: false,
         queryFn: ({ signal }) => {
             return executeAsyncQuery(
                 data

@@ -107,8 +107,15 @@ export const Series: FC<Props> = ({ items }) => {
                 {(dropProps) => (
                     <div {...dropProps.droppableProps} ref={dropProps.innerRef}>
                         {seriesGroupedByField?.map((seriesGroup, i) => {
-                            const isGroup = seriesGroup.value.length > 1;
                             const seriesEntry = seriesGroup.value[0];
+                            // 基准线组固定走分组布局（标题 + 控件 + 灰盒系列行）：
+                            // 合并重建后组内只剩哨兵一行，若按行数判断会落则单系列
+                            // 布局，改名行从灰盒底部跳到顶部，反复进出编辑页体验不一致
+                            const isGroup =
+                                seriesGroup.value.length > 1 ||
+                                (dirtyLayout?.baselineFieldIds ?? []).includes(
+                                    seriesEntry.encode.yRef.field,
+                                );
                             const field = items.find(
                                 (item) =>
                                     getItemId(item) ===

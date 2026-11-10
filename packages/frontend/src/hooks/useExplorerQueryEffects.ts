@@ -16,6 +16,14 @@ import useExplorerContext from '../providers/Explorer/useExplorerContext';
 import { useExplorerQueryManager } from './useExplorerQueryManager';
 
 /**
+ * Debounce window for auto-fetch triggers. Frequent config edits (filters,
+ * fields, chart type) re-fire this effect in rapid bursts; only the last
+ * trigger within the window dispatches a query, so intermediate states never
+ * hit the warehouse. Manual Run (fetchResults) is not debounced.
+ */
+const AUTO_FETCH_DEBOUNCE_MS = 300;
+
+/**
  * Effects layer for Explorer query orchestration
  *
  * This hook handles:
@@ -56,7 +64,8 @@ export const useExplorerQueryEffects = ({
     );
 
     // Effect 1: Auto-fetch logic
-    // Handles both initial fetch and reactive auto-fetch
+    // Handles both initial fetch and reactive auto-fetch.
+    // Debounced: bursts of edits collapse into a single query dispatch.
     useEffect(() => {
         if (
             autoFetchEnabled ||
@@ -65,7 +74,11 @@ export const useExplorerQueryEffects = ({
                 !query.isFetched) ||
             (isEditMode && !query.isFetched && (isSavedChart || fromDashboard))
         ) {
-            runQuery();
+            const timer = setTimeout(
+                () => runQuery(),
+                AUTO_FETCH_DEBOUNCE_MS,
+            );
+            return () => clearTimeout(timer);
         }
     }, [
         autoFetchEnabled,

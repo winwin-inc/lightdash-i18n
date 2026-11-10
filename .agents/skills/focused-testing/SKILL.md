@@ -46,7 +46,17 @@ description: 聚焦测试纪律：只跑与改动直接相关的单文件/单用
 - 冷缓存直接跑大文件整轮 —— 先单用例探路。
 - 无 `timeout` 的验证命令。
 
+## 排障路径：跨层行为不一致 bug
+
+编辑页/看板表现不一致这类横跨多层（面板 → hook 重建 → merge utils → 渲染层）的问题：
+优先写**全链路纯函数复现测试**（把保存形态的 series 直接喂给 expected+merge+render
+纯函数链，断言最终输出），两轮即可钉死丢失点；不要逐层静态追踪源码，分叉多且互相
+矛盾，耗时数倍。复现测试随后可直接转正式回归用例。
+
 ## 判定规则
 
 - 单用例 240s 挂起且 CPU 持续 >100%：判定环境问题（Node v26 兼容性），上报主控，改由 CI/标准 Node 验证。既有同类用例同样挂起 = 既有问题，不是本次回归。
 - 测试崩溃在 import 阶段（localStorage/ipc）：按上面环境绕过方案处理，1 次不行即上报。
+- **全文件挂起结案规则**：`-t` 单用例探路已通过 + 全文件运行挂起（症状：collect 0ms / no tests / run 不退出）= 环境问题结案，禁止重试全文件（同类最多加堆重试 1 次）。hook+waitFor、组件渲染类重件测试文件**只允许** `-t` 单用例验证。
+- `tsc` core dump（Exit 134/SIGABRT，内存不足）：`NODE_OPTIONS="--max-old-space-size=8192" npx tsc --project tsconfig.json --noEmit --skipLibCheck` 重试 1 次，成功即结案。
+- 组件测试 collect 0ms：jsdom 缺 localStorage，直接用上面绕过配置，不要反复跑默认配置。
