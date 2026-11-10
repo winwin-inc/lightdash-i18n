@@ -274,10 +274,16 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 |---|---|---|
 | `MCP_ENABLED` | 关 | MCP 总开关；也可由 AiCopilot feature flag 单独放开 |
 | `MCP_OAUTH_REQUIRED_SCOPES` | `mcp:read` | OAuth 访问 MCP 所需的基础 scope（逗号分隔） |
+| `MCP_DASHBOARD_STRICT` | 关（v2.7.1+） | 强制看板模式：查数工具必须解析出已验证的看板上下文；受控角色预检中文文案。面向外部客户部署，内部不设。详见 [内置部署指南 §7](./mcp-builtin-deploy.md) |
+| `MCP_DASHBOARD_CONTACT` | `请联系客服开通看板访问权限。` | 无看板权限时给客户的联系文案（v2.7.1+） |
 
 - MCP 是否可用：`MCP_ENABLED=true` **或** 当前用户命中 AiCopilot feature flag；都不满足时 `/api/v1/mcp` 返回 403、`/health` 返回 `disabled`。
 
 - 无需为 MCP 单独部署进程 / 镜像 / 端口。
+
+### 受控角色与强制看板模式（v2.7.1+，默认关闭）
+
+对齐 v1 独立包的完整权限层已内置（v2.7.1）：查询预检两套中文文案、强制看板门控（五类结构化阻断）、行级口径传递、`get_my_access` 的 `clientUse` 诊断。默认关闭不影响任何现有行为；面向外部品牌客户的部署按需开启，验收清单与变量注入位置见 [内置部署指南 §7](./mcp-builtin-deploy.md)。
 - 多副本天然一致（上下文在 PG，无内存态）。
 - OAuth client 的 scope 由 DCR 写入；历史 client 通过迁移 `20261012090000_add_mcp_read_scope_to_oauth_clients.ts` 补齐 `mcp:read`。
 

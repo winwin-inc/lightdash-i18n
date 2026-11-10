@@ -4,6 +4,8 @@
 
 本工具加在 v1 包 `packages/lightdash-mcp`。最低要求是 PAT 已认证，不要求更高项目角色。对照表见 [mcp-tools-permissions.md](./mcp-tools-permissions.md)。
 
+> **内置 MCP（主站 v2.7.1+）同语义实现**：同名工具已内置，返回结构一致，并额外在项目条目上增加 `clientUse` 诊断（scopeApplied / restrictedRole / status / effectiveProjectRole / reason，不含看板清单；顶层另有 `dashboardStrict` / `dashboardContact`）。见 [mcp-v2-guide.md](./mcp-v2-guide.md)。
+
 ## 入参
 
 | 参数 | 必填 | 说明 |
