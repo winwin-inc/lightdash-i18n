@@ -2,7 +2,22 @@
 
 > 状态：**已实施并上线**（Lightdash 主站内置 MCP，`v2.6.9`）
 > 适用读者：要自建 MCP Server、给现有产品加 MCP 入口、或想搞清 OAuth 授权服务器怎么落地的工程师
-> 本文从 `lightdash-i18n` 的实现中提炼，删去业务细节，保留可复用的架构与踩坑结论。附录给出「把 OAuth 从业务服务里抽离成独立组件」的设计取向。
+> 本文从 `lightdash-i18n` 的实现中提炼，删去业务细节，保留可复用的架构与踩坑结论；第 9 节给出「把 OAuth 从业务服务里抽离成独立组件」的设计取向。
+
+**目录**
+
+- [1. 结论先行](#1-结论先行)
+- [2. 为什么 MCP 要自己带一套 OAuth](#2-为什么-mcp-要自己带一套-oauth)
+- [3. 端点清单（最小集）](#3-端点清单最小集)
+- [4. OAuth 落地的六个关键设计](#4-oauth-落地的六个关键设计)
+- [5. 工具注册层的两个坑](#5-工具注册层的两个坑)
+- [6. 客户端实际请求序列](#6-客户端实际请求序列)
+- [7. 三个真实事故与根因](#7-三个真实事故与根因)
+- [8. 如果要自己写 OAuth 客户端](#8-如果要自己写-oauth-客户端)
+- [9. 把 OAuth 从业务服务抽离的取向](#9-把-oauth-从业务服务抽离的取向)
+- [10. 最小可运行骨架](#10-最小可运行骨架)
+- [11. 上线 Checklist](#11-上线-checklist)
+- [12. 相关文档](#12-相关文档)
 
 ---
 
@@ -283,7 +298,7 @@ registerTool(name, config, handler) {
 
 ---
 
-## 6. 客户端会怎么打你（实测行为）
+## 6. 客户端实际请求序列
 
 接入 Apifox / 标准客户端后的真实请求序列：
 
@@ -353,9 +368,46 @@ UPDATE oauth2_clients SET scopes = array_append(scopes, 'mcp:read') WHERE ...;
 
 注意：`array_col || 42` 能跑（数字类型已知），**只有裸字符串字面量踩坑**。原生 SQL 迁移合并前必须在真库跑一遍 `migrate:latest`。
 
-### 事故 3：`Access-Control-Allow-Origin: *` 挂在 SSE 上
+### 事故 3：`GET /mcp` 的 SSE 分支漏掉鉴权与 scope 闸门
 
-SSE 分支为了「兼容」加了通配 CORS，等于允许任意站点发起带凭据的长连接。SSE 场景其实不需要 CORS（标准客户端都是服务端到服务端），直接去掉。
+MCP 的 Streamable HTTP 里，`POST` 是业务请求，`GET` 是**服务端 → 客户端的 SSE 通道**。两者在同一个 `router.all()` 里，但代码上是**两个提前 return 的分支**——鉴权只写在了 `POST` 分支里：
+
+```ts
+// ❌ 出事版本：GET 在 scope 校验之前就 return 了
+if (req.method === 'GET') {
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Access-Control-Allow-Origin': '*',   // ← 通配 CORS
+        ...
+    });
+    const heartbeat = setInterval(() => res.write('event: heartbeat\n\n'), 30000);
+    return;                                    // ← 走了，下面才校验
+}
+if (req.method === 'POST') {
+    const authInfo = buildMcpAuthInfo(req.user, req.account);
+    mcpService.canAccessMcp(authInfo.extra);   // ← 只有 POST 校验
+    ...
+}
+```
+
+叠加出三个问题：
+
+1. **鉴权口径不一致**：`POST` 缺 scope 给 403，`GET` 却直接 200。任何「已登录会话」或「持有 token 但缺 `mcp:read` 的客户端」都能开 SSE。
+2. **无限流、无并发上限**：每个连接还带一个 30s 心跳 `setInterval`，且不随进程关闭清理 → 廉价的资源耗尽面。
+3. **通配 CORS**：`Access-Control-Allow-Origin: *` 让任意站点能发起带凭据的长连接。MCP 客户端基本是服务端到服务端，这条根本不需要。
+
+**修复**：把鉴权提到方法分支**之前**，让 `GET`/`POST` 共享同一道闸门，并去掉通配 CORS：
+
+```ts
+// ✅ 鉴权前置，两个分支共享
+const authInfo = buildMcpAuthInfo(req.user, req.account);
+mcpService.canAccessMcp(authInfo.extra);
+
+if (req.method === 'GET') { /* SSE */ }
+if (req.method === 'POST') { /* JSON-RPC */ }
+```
+
+**教训**：`router.all()` + 分支内提前 return 是鉴权漏洞的经典温床。凡是有多个 HTTP 方法共享一个 handler，鉴权必须写在**方法判断之前**；同时要意识到 MCP 的 `GET` 不是「读接口」，而是一条长期占用的通道。
 
 ---
 
@@ -437,7 +489,46 @@ interface OAuthIntegration {
 
 ---
 
-## 10. 上线 Checklist
+## 10. 最小可运行骨架
+
+前面各节拆开讲了原理，这里给一份**文件职责清单**，可以直接照着搭。关键点是：**鉴权与 scope 闸门只出现在两个地方**（`mcp/router` 的入口 + `registry` 的注册层），工具实现里不要再散落权限判断。
+
+```
+src/
+├── oauth/
+│   ├── model.ts        # OAuth2Model：getClient / saveToken / getAccessToken
+│   │                   #   / getRefreshToken / validateScope  ← 交集发放
+│   └── router.ts       # GET /authorize     （渲染同意页，未登录先跳登录）
+│                       # POST /authorize    （签发 code）
+│                       # POST /token        （code / refresh / client_credentials）
+│                       # POST /introspect   （RFC 7662）
+│                       # POST /revoke       （RFC 7009）
+│                       # POST /register     （RFC 7591 动态注册）
+│                       # GET  /.well-known/*（RFC 8414 + 9728）
+├── mcp/
+│   ├── router.ts       # POST /mcp（JSON-RPC）+ GET /mcp（SSE）
+│   │                   #   ← 鉴权链 + canAccessMcp（方法分支之前）
+│   ├── authInfo.ts     # buildMcpAuthInfo：把 OAuth token / PAT / session
+│   │                   #   统一成 { user, account, authType, scopes }
+│   └── tools/
+│       ├── registry.ts # registerTool / registerPrompt 包装器
+│       │               #   ← assertToolAccess（工具级 scope 闸门，单点）
+│       ├── deps.ts     # 依赖注入（service 集合），便于测试
+│       └── *.ts        # 各工具实现：只做业务，不碰鉴权
+└── db/migrations/
+    └── *_oauth_tables.ts  # oauth2_clients / access_tokens / refresh_tokens
+                           #   / authorization_codes
+```
+
+三层职责边界：
+
+| 层 | 只管 | 绝不碰 |
+|---|---|---|
+| `mcp/router` | HTTP 方法分发、MCP 通道、**入口鉴权** | 业务查询 |
+| `mcp/tools/registry` | 工具注册、参数透传、**scope 闸门**、埋点 | HTTP 语义 |
+| `mcp/tools/*.ts` | 业务实现 | 鉴权、scope、埋点 |
+
+## 11. 上线 Checklist
 
 - [ ] `POST /mcp` 未认证返回 401 + `WWW-Authenticate`（**不是** 403，否则客户端不会启动发现流程）
 - [ ] `.well-known` 挂在**站点根**（不只是 API 子路径）
@@ -452,7 +543,7 @@ interface OAuthIntegration {
 
 ---
 
-## 11. 相关文档
+## 12. 相关文档
 
 - [统一后端 MCP 模式与上线排障](../mcp/mcp-unified-backend-status.md)：Lightdash 侧的实施归档与事故记录
 - [v2 接入指南](../mcp/mcp-v2-guide.md)：客户端接入、工具清单、配置项
