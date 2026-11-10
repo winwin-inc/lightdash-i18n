@@ -242,6 +242,8 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 
 ### 6.1 差异清单
 
+**接入层差异（必改项）：**
+
 | 差异点 | v1 | v2 | 迁移动作 |
 |---|---|---|---|
 | URL | `http://<host>:<port>/mcp` | `https://<site>/api/v1/mcp` | **必改** |
@@ -254,6 +256,16 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | 无项目时 | 可能报错也可能回退 | 明确 `ForbiddenError` | 补错误处理 |
 | 身份 | 服务端 PAT 的主人 | 调用者本人 | 权限可能变多/变少，按真实用户算 |
 | 错误文案 | 压平文本 | 原生错误（更详细） | 若按文本匹配需回归 |
+
+**功能层差异（v2.7.1 权限层对齐后的残留差异）：**
+
+| 差异点 | v1 | v2 | 说明 |
+|---|---|---|---|
+| 受控角色权限层 | 预检两套中文文案 / 强制看板门控 / 行级口径 / clientUse 诊断 | **v2.7.1 起同等实现**（`MCP_DASHBOARD_STRICT`，默认关；文案/判定/guard 契约逐字一致） | 已对齐，无需迁移动作 |
+| `search_field_values` 回退链 | 三级回退（field-values → SQL DISTINCT → metric-query）+ 三态错误 | 单次调用（进程内无「端点缺失」场景，回退链本为兼容老后端的补丁） | 极端场景（接口异常时空结果重试）行为略不同 |
+| `run_metric_query` 参数面 | 扁平参数 + `requiredFilterFieldIds`（必填筛选缺失时友好提示） | vizConfig 结构化 schema（与 AI copilot 共用实现）；扁平风格用 `run_semantic_metric_query` | 参数需改造；requiredFilterFieldIds 提示暂无对应物 |
+| `get_my_access` | clientUse 诊断（v2.5.3+） | v2.7.1 起一致，另多顶层 `dashboardStrict`/`dashboardContact` | 已对齐 |
+| 内容检索 | 单一 `search_content` | `find_*` / `list_*` 工具族（复用主站检索基建） | v2 更强 |
 
 ### 6.2 迁移自查清单
 
