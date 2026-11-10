@@ -188,7 +188,12 @@ export class McpToolRegistry {
         },
         handler: (args: AnyType) => Promise<{ messages: AnyType[] }>,
     ): void {
-        const registerPrompt = this.server.prompt.bind(
+        // NOTE: `server.prompt(...)` with three positional arguments resolves
+        // to the (name, argsSchema, cb) overload, which wraps the whole config
+        // object as a zod shape and breaks prompts/list with
+        // "field.isOptional is not a function". The config-object form is only
+        // exposed by `server.registerPrompt(...)`.
+        const registerPrompt = this.server.registerPrompt.bind(
             this.server,
         ) as unknown as (
             name: string,
