@@ -207,6 +207,10 @@ const buildDeps = ({
         projectService: {
             getProject,
             runMetricQuery,
+            // M3：非 strict 时按需解析看板上下文需要 explore 元数据
+            getExplore: jest
+                .fn()
+                .mockResolvedValue({ baseTable: 't', tables: {} }),
         },
         mcpContextModel: {
             getContext,
@@ -831,5 +835,68 @@ describe('registerChartRunTools', () => {
             expect(result.tiles[1].rowCount).toEqual(1);
             expect(result.rowCount).toEqual(1);
         });
+        it('run_dashboard_tiles passes the dashboard context to every tile query (row-level scope)', async () => {
+        // M1 回归：磁贴查询必须携带所属看板的 uuid/slug/name——
+        // sql_filter 行级权限依赖看板 slug，缺省会按 NA 跳过行级过滤
+        const { registry, registered } = buildRegistry();
+        const { deps, runMetricQuery } = buildDeps({
+            contextProjectUuid: 'project-uuid',
+        });
+        registerChartRunTools(registry, deps);
+
+        await registered[1].handler(
+            { dashboardUuid: 'dashboard-uuid' },
+            buildContext(),
+        );
+
+        expect(runMetricQuery).toHaveBeenCalledTimes(1);
+        const call = (runMetricQuery as jest.Mock).mock.calls[0][0] as {
+            dashboardContext?: {
+                dashboardUuid: string;
+                dashboardSlug: string;
+                dashboardName: string;
+            };
+        };
+        expect(call.dashboardContext).toEqual({
+            dashboardUuid: 'dashboard-uuid',
+            dashboardSlug: 'sales-dashboard',
+            dashboardName: 'Sales dashboard',
+        });
     });
+
+    it('run_saved_chart resolves the dashboard context for dashboards-requiring explores even when strict is off', async () => {
+        // M3 回归：非 strict 下，图表的 explore 引用了看板 slug 时也要解析并
+        // 携带看板上下文（v1 对齐），否则行级过滤失效
+        const { registry, registered } = buildRegistry();
+        const { deps, runMetricQuery } = buildDeps({
+            contextProjectUuid: 'project-uuid',
+            dashboardStrict: false,
+        });
+        (
+            deps.projectService.getExplore as jest.Mock
+        ).mockResolvedValueOnce({
+            baseTable: 'orders',
+            tables: {
+                orders: { sqlWhere: "{{ lightdash.user.dashboardSlug }}" },
+            },
+        });
+        registerChartRunTools(registry, deps);
+
+        const result = parseResult(
+            await registered[0].handler(
+                { savedChartUuid: 'chart-uuid' },
+                buildContext(),
+            ),
+        );
+
+        expect(mockGuardEnsure).toHaveBeenCalledTimes(1);
+        expect(runMetricQuery).toHaveBeenCalledTimes(1);
+        const call = (runMetricQuery as jest.Mock).mock.calls[0][0] as {
+            dashboardContext?: { dashboardUuid: string };
+        };
+        expect(call.dashboardContext?.dashboardUuid).toBe('dashboard-uuid');
+        expect(result.error).toBeUndefined();
+    });
+
+});
 });

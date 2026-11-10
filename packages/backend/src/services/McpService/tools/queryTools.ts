@@ -17,7 +17,10 @@ import {
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import { assertExploreQueryable } from './access/assertExploreQueryable';
-import { createRequiredDashboardGuard } from './access/requiredDashboardContext';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './access/requiredDashboardContext';
 import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
@@ -492,21 +495,39 @@ export const registerQueryTools = (
                 tableCalculations: [],
             };
 
-            const results = await deps.projectService.runMetricQuery({
-                account: context.account,
-                projectUuid,
-                metricQuery,
-                exploreName,
-                csvLimit: effectiveLimit,
-                context: QueryExecutionContext.MCP,
-                chartUuid: undefined,
-                dashboardContext,
-                queryTags: {
-                    project_uuid: projectUuid,
-                    user_uuid: context.user.userUuid,
-                    organization_uuid: context.organizationUuid,
-                },
-            });
+            let results;
+            try {
+                results = await deps.projectService.runMetricQuery({
+                    account: context.account,
+                    projectUuid,
+                    metricQuery,
+                    exploreName,
+                    csvLimit: effectiveLimit,
+                    context: QueryExecutionContext.MCP,
+                    chartUuid: undefined,
+                    dashboardContext,
+                    queryTags: {
+                        project_uuid: projectUuid,
+                        user_uuid: context.user.userUuid,
+                        organization_uuid: context.organizationUuid,
+                    },
+                });
+            } catch (error) {
+                if (strict) {
+                    // 看板类 403/404（含 RLS 无法应用）映射为 dashboard_* 结构化
+                    // payload（v1 对齐）；其余错误原样抛出
+                    const mapped = formatDashboardAccessError({
+                        error,
+                        projectUuid,
+                        dashboardUuid:
+                            dashboardContext?.dashboardUuid ?? null,
+                    });
+                    if (mapped) {
+                        return mapped;
+                    }
+                }
+                throw error;
+            }
 
             const columns: QueryColumn[] = Object.entries(
                 results.fields,

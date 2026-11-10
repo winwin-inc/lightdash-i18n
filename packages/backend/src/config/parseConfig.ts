@@ -2278,10 +2278,11 @@ export const parseConfig = (): LightdashConfig => {
                 .map((scope) => scope.trim())
                 .filter((scope) => scope.length > 0),
             defaultProjectUuid: process.env.LIGHTDASH_PROJECT_UUID ?? null,
+            // v1 对齐：trim 后判定；contact 空串/全空白回落默认文案
             dashboardStrict:
-                process.env.MCP_DASHBOARD_STRICT === 'true',
+                (process.env.MCP_DASHBOARD_STRICT ?? '').trim() === 'true',
             dashboardContact:
-                process.env.MCP_DASHBOARD_CONTACT ??
+                process.env.MCP_DASHBOARD_CONTACT?.trim() ||
                 '请联系客服开通看板访问权限。',
         },
         customRoles: {

@@ -91,7 +91,10 @@ import { registerAccessTools } from './tools/accessTools';
 import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
 import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
-import { createRequiredDashboardGuard } from './tools/access/requiredDashboardContext';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './tools/access/requiredDashboardContext';
 import { exploreRequiresDashboardContext } from './tools/access/exploreRequiresDashboardContext';
 import { registerContentSearchTools } from './tools/contentSearchTools';
 import { registerContentListTools } from './tools/contentListTools';
@@ -697,14 +700,33 @@ export class McpService extends BaseService {
                         dashboardContextForQuery,
                     );
 
-                const result = await runRunMetricQuery(
-                    {
-                        getExplore,
-                        runMiniMetricQuery,
-                        maxLimit: this.lightdashConfig.ai.copilot.maxQueryLimit,
-                    },
-                    argsWithProject,
-                );
+                let result: string;
+                try {
+                    result = await runRunMetricQuery(
+                        {
+                            getExplore,
+                            runMiniMetricQuery,
+                            maxLimit: this.lightdashConfig.ai.copilot
+                                .maxQueryLimit,
+                        },
+                        argsWithProject,
+                    );
+                } catch (error) {
+                    if (strict) {
+                        // 看板类 403/404（含 RLS 无法应用）映射为 dashboard_*
+                        // 结构化 payload（v1 对齐）；其余错误原样抛出
+                        const mapped = formatDashboardAccessError({
+                            error,
+                            projectUuid,
+                            dashboardUuid:
+                                dashboardContextForQuery?.dashboardUuid ?? null,
+                        });
+                        if (mapped) {
+                            return mapped;
+                        }
+                    }
+                    throw error;
+                }
 
                 return {
                     content: [
@@ -751,6 +773,9 @@ export class McpService extends BaseService {
                     'fieldValues',
                     { dashboardStrict: strict },
                 );
+                let dashboardContextForSearch:
+                    | DashboardQueryContextAttributes
+                    | undefined;
                 if (strict) {
                     const guard = createRequiredDashboardGuard(
                         this.getToolDeps(),
@@ -765,12 +790,20 @@ export class McpService extends BaseService {
                     if (!guardResult.ok) {
                         return guardResult.result;
                     }
+                    // 保留解析出的上下文传给字段值查询（v1 对齐：
+                    // dashboardUuidForQuery）——行级口径
+                    dashboardContextForSearch = {
+                        dashboardUuid: guardResult.context.dashboardUuid,
+                        dashboardSlug: guardResult.context.dashboardSlug,
+                        dashboardName: guardResult.context.dashboardName,
+                    };
                 }
 
                 const searchFieldValues: SearchFieldValuesFn =
                     await this.getSearchFieldValuesFunction(
                         argsWithProject,
                         context,
+                        dashboardContextForSearch,
                     );
 
                 const result = await runSearchFieldValues(
@@ -1185,6 +1218,7 @@ export class McpService extends BaseService {
     async getSearchFieldValuesFunction(
         toolArgs: ToolSearchFieldValuesArgs & { projectUuid: string },
         context: McpToolContext,
+        dashboardContext?: DashboardQueryContextAttributes,
     ): Promise<SearchFieldValuesFn> {
         const { user, account } = context;
         const { organizationUuid } = user;
@@ -1233,6 +1267,7 @@ export class McpService extends BaseService {
                             andFilters,
                             false,
                             undefined,
+                            dashboardContext,
                         );
                     return results;
                 },

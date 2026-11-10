@@ -100,6 +100,15 @@ type PreflightEntry = {
  * 用户 + 项目 + 过滤条件。
  */
 const CONTEXT_CACHE_TTL_MS = 60_000;
+/** 长驻进程的模块级缓存防无界增长：超上限按插入序淘汰最旧条目 */
+function evictCacheIfOversized<K, V>(cache: Map<K, V>, cap = 1000): void {
+    while (cache.size > cap) {
+        const oldest = cache.keys().next();
+        if (oldest.done) break;
+        cache.delete(oldest.value);
+    }
+}
+
 const contextCache = new Map<string, ContextCacheEntry>();
 
 /**
@@ -459,7 +468,7 @@ export function createRequiredDashboardGuard(
             filters,
             true,
         );
-        contextCache.set(cacheKey, {
+        evictCacheIfOversized(contextCache); contextCache.set(cacheKey, {
             contexts: result.contexts,
             associatedCount: result.associatedCount,
             expiresAt: now + CONTEXT_CACHE_TTL_MS,
@@ -563,7 +572,7 @@ export function createRequiredDashboardGuard(
                 name: dashboard.name,
                 projectUuid: dashboard.projectUuid,
             };
-            preflightCache.set(cacheKey, {
+            evictCacheIfOversized(preflightCache); preflightCache.set(cacheKey, {
                 dashboard: summary,
                 expiresAt: now + PREFLIGHT_CACHE_TTL_MS,
             });

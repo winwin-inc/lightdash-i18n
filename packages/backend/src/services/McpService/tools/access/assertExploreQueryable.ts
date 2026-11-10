@@ -56,6 +56,15 @@ type ClassifiedExploresCacheEntry = {
  * HTTP 侧管理员代查用的；v2 进程内每次都以当前 user 直查，键只需
  * 用户 + 项目。
  */
+/** 长驻进程的模块级缓存防无界增长：超上限按插入序淘汰最旧条目 */
+function evictCacheIfOversized<K, V>(cache: Map<K, V>, cap = 1000): void {
+    while (cache.size > cap) {
+        const oldest = cache.keys().next();
+        if (oldest.done) break;
+        cache.delete(oldest.value);
+    }
+}
+
 const classifiedExploresCache = new Map<string, ClassifiedExploresCacheEntry>();
 
 export function createClassifiedExploresCacheKey(
@@ -256,7 +265,7 @@ export async function loadClassifiedExplores(
         return cached.classified;
     }
     const classified = await fetchClassifiedExplores(deps, context, projectUuid);
-    classifiedExploresCache.set(cacheKey, {
+    evictCacheIfOversized(classifiedExploresCache); classifiedExploresCache.set(cacheKey, {
         classified,
         expiresAtMs: now + CLASSIFIED_EXPLORES_CACHE_TTL_MS,
     });

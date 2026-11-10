@@ -15,9 +15,10 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { McpToolName } from '../McpToolName';
 import {
-    createRequiredDashboardGuard,
+    createRequiredDashboardGuard as createRequiredDashboardContextGuard,
     formatDashboardAccessError,
 } from './access/requiredDashboardContext';
+import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
 import { jsonToolResult } from './helpers';
 import {
@@ -249,6 +250,7 @@ const runDashboardTile = async (
             projectUuid,
             chart,
             limit,
+            dashboardContext,
         );
 
         return {
@@ -294,10 +296,10 @@ export const registerChartRunTools = (
     deps: McpToolDeps,
 ): void => {
     const strict = isDashboardStrict(deps);
-    // 严格模式 guard（仅 strict 时创建；反查/预检缓存在 guard 模块内共享）
-    const dashboardGuard = strict
-        ? createRequiredDashboardGuard(deps)
-        : null;
+    // 看板上下文 guard（缓存共享）。strict 无条件 ensure；非 strict 时图表的
+    // explore 需要看板上下文（sql_filter 引用 slug）或显式传 dashboardUuid
+    // 才解析（v1 对齐）。
+    const dashboardGuard = createRequiredDashboardContextGuard(deps);
 
     registry.register(
         McpToolName.RUN_SAVED_CHART,
@@ -340,16 +342,25 @@ export const registerChartRunTools = (
                 );
             }
 
-            // 强制看板模式（v1 对齐：先取图表，再解析看板上下文）：
-            // 查数前必须拿到已验证的 dashboardUuid，blocked 时直接返回
-            // guard 构造的结构化 payload，不执行查询。
+            // 看板上下文（v1 对齐：先取图表，再解析）：strict 无条件；非 strict
+            // 时图表 explore 需要上下文（sql_filter 引用看板 slug）或显式传了
+            // dashboardUuid 才解析。blocked 返回结构化 payload，不执行查询。
+            // 解析出的上下文传进查询：dbt sql_filter 行级权限依赖看板 slug，
+            // 缺省会把行级过滤按 NA 跳过。
             let dashboardUuidForQuery: string | undefined = dashboardUuid;
-            // 解析出的看板上下文传进查询（v1 对齐）：dbt sql_filter 行级权限
-            // 依赖看板 slug，缺省会把行级过滤按 NA 跳过。
             let dashboardContextForQuery:
                 | DashboardQueryContextAttributes
                 | undefined;
-            if (dashboardGuard) {
+            const chartExplore = await deps.projectService.getExplore(
+                context.account,
+                projectUuid,
+                chart.metricQuery.exploreName,
+            );
+            if (
+                strict ||
+                exploreRequiresDashboardContext(chartExplore) ||
+                dashboardUuid !== undefined
+            ) {
                 const guardResult = await dashboardGuard.ensure(context, {
                     projectUuid,
                     dashboardUuid,
