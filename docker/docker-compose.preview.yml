@@ -76,6 +76,10 @@ services:
             S3_PATH_PREFIX: ${S3_PATH_PREFIX}
             S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
             MCP_ENABLED: true
+            # 强制看板模式（对齐独立包 lightdash-mcp）：查数工具须解析出已验证的
+            # dashboardUuid；受控角色预检中文文案。默认关闭，内部分析师不受影响。
+            MCP_DASHBOARD_STRICT: ${MCP_DASHBOARD_STRICT:-false}
+            MCP_DASHBOARD_CONTACT: ${MCP_DASHBOARD_CONTACT:-请联系客服开通看板访问权限。}
             CUSTOM_ROLES_ENABLED: true
 
             # these were set in https://dashboard.render.com/env-group/evg-cfn4dlhmbjst4ho7s160 but can be public
