@@ -143,3 +143,5 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$SITE_URL/api/v1/mcp" \
 - **受控角色预检文案**：客户使用模式下看板白名单生效的查看者 / 交互式查看者（`get_my_access` 里项目条目的 `clientUse.scopeApplied=true`）查表被拒时，文案只说「没有这张数据表的权限，请联系客服开通」，不提「表不存在」，也不抛看板 / 白名单 / 用户属性等内部术语；客服可用 `clientUse` 的 `status` / `reason` 判断「是没授权还是没挂看板」（诊断不含看板清单等元数据）。
 
 > 该模式**默认关闭**：仅外部品牌 CT 部署按需设 `true`；内部部署保持不设或 `false`。详细设计见 [强制看板模式设计](./lightdash-mcp-dashboard-strict-mode.md)。
+>
+> **变量写在哪**：镜像构建链路（GitHub Actions）不注入任何运行时环境变量，无需改 CI。预发 Okteto 环境写在 `docker/docker-compose.preview.yml`（`${VAR:-default}` 透传）；生产/预发主站写在 `k8s-config` 仓库对应 `lightdash` Deployment 的 env（Jenkins apply，改后 `rollout restart`，属配置变更无需重建镜像）；v1 独立包部署则写在 `lightdash-mcp` 的 ConfigMap（见 [独立包上线](./mcp-standalone-launch.md)）。
