@@ -127,3 +127,19 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$SITE_URL/api/v1/mcp" \
 
 - `mcp_tool_call` 埋点的 `projectId` 尚未跟随四级兜底链（经组织级/部署级解析成功的调用埋点 projectId 为空）——见 [归档文档 §5](./mcp-unified-backend-status.md)。
 - `OrganizationModel.get()` 附带调色板查询，未设用户默认时每次多 2–3 次轻量查询。
+
+## 7. 强制看板模式与受控角色（默认关闭）
+
+面向外部客户的部署可开启**强制看板模式**（对齐 v1 独立包同名义配置，进程内实现）：
+
+| 环境变量 | 必需 | 默认 | 说明 |
+|---|---|---|---|
+| `MCP_DASHBOARD_STRICT` | — | `false` | 总开关。开启后**所有会执行查询的工具**必须先解析出一个已验证的 `dashboardUuid`（显式传参需通过关联看板归属校验；未传时从 explore / chart 反查关联看板，唯一则自动使用，多个要求选择），解析不出一律 fail-closed 阻断，不降级为无看板上下文查询 |
+| `MCP_DASHBOARD_CONTACT` | — | `请联系客服开通看板访问权限。` | 无看板权限时给客户的联系文案，可填电话 / 群 / 邮箱 |
+
+行为摘要（开启后）：
+
+- **查数工具需要 `dashboardUuid`**：`run_metric_query`、`run_saved_chart` 等执行查询的工具解析不出已验证的看板上下文时直接阻断，返回 `dashboard_permission_required` / `dashboard_configuration_required` 等状态，附候选看板链接与 `MCP_DASHBOARD_CONTACT` 文案。
+- **受控角色预检文案**：客户使用模式下看板白名单生效的查看者 / 交互式查看者（`get_my_access` 里项目条目的 `clientUse.scopeApplied=true`）查表被拒时，文案只说「没有这张数据表的权限，请联系客服开通」，不提「表不存在」，也不抛看板 / 白名单 / 用户属性等内部术语；客服可用 `clientUse` 的 `status` / `reason` 判断「是没授权还是没挂看板」（诊断不含看板清单等元数据）。
+
+> 该模式**默认关闭**：仅外部品牌 CT 部署按需设 `true`；内部部署保持不设或 `false`。详细设计见 [强制看板模式设计](./lightdash-mcp-dashboard-strict-mode.md)。
