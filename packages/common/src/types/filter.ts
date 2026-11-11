@@ -192,6 +192,20 @@ export type DashboardFilterRule<
      * last month; quarters: last complete quarter). Default is off.
      */
     enableDynamicMaxAllowedDate?: boolean;
+    /**
+     * Rolling lower bound for month-granularity IN_BETWEEN filters, expressed
+     * as the number N of complete months in the selectable window:
+     * min = start of the month of the resolved latest selectable month,
+     * minus (N - 1) months. The window rolls forward automatically as the
+     * latest selectable month advances (dynamic max) or stays static when
+     * anchored to a fixed maxAllowedDate.
+     * undefined = not enabled. Only consumed when operator is IN_BETWEEN and
+     * dateRangeGranularity is MONTH; other operators/granularities
+     * short-circuit it. Save-time validation should reject the combination
+     * "rolling without any latest selectable month" (no maxAllowedDate and
+     * enableDynamicMaxAllowedDate off).
+     */
+    rollingMinAllowedMonths?: number;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
@@ -277,6 +291,45 @@ export type SingleDateSetting = {
  * Before this day, only the month-before-last is considered available.
  */
 export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
+
+/** Lower bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
+export const ROLLING_MIN_ALLOWED_MONTHS_MIN = 1;
+
+/** Upper bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
+export const ROLLING_MIN_ALLOWED_MONTHS_MAX = 120;
+
+/**
+ * Whether a rolling window size is a valid integer within
+ * [ROLLING_MIN_ALLOWED_MONTHS_MIN, ROLLING_MIN_ALLOWED_MONTHS_MAX].
+ * Invalid sizes are treated as "not configured" by resolvers
+ * (N = 0 / negative would invert min > max and lock the picker; NaN /
+ * fractions would produce Invalid Dates or silently floored windows).
+ */
+export const isValidRollingMinAllowedMonths = (
+    value: number | null | undefined,
+): value is number =>
+    value != null &&
+    Number.isInteger(value) &&
+    value >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
+    value <= ROLLING_MIN_ALLOWED_MONTHS_MAX;
+
+/**
+ * Whether a rule's rolling lower bound is actually consumed: only
+ * IN_BETWEEN + MONTH granularity + a valid N activate it. Other
+ * operator/granularity combinations short-circuit (clamping
+ * NOT_IN_BETWEEN would invert the exclusion semantics; the quarter
+ * picker's alignment is not rolling-safe yet).
+ */
+export const isRollingMinAllowedMonthsActive = (
+    rule: {
+        operator?: FilterOperator;
+        dateRangeGranularity?: TimeFrames;
+        rollingMinAllowedMonths?: number;
+    },
+): boolean =>
+    rule.operator === FilterOperator.IN_BETWEEN &&
+    rule.dateRangeGranularity === TimeFrames.MONTH &&
+    isValidRollingMinAllowedMonths(rule.rollingMinAllowedMonths);
 
 /**
  * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,
@@ -669,6 +722,64 @@ type DashboardDimensionOverrideMatch = {
     overrideIndex: number;
 };
 
+/**
+ * Drop dynamic-default metadata (`dateRange` / `singleDate`) from settings,
+ * keeping value-carrying keys such as `unitOfTime`. Returns undefined when
+ * nothing remains.
+ */
+const stripDynamicDateSettings = (
+    settings: DateFilterSettings | undefined,
+): DateFilterSettings | undefined => {
+    if (settings == null) return undefined;
+    const rest: DateFilterSettings = { ...settings };
+    delete rest.dateRange;
+    delete rest.singleDate;
+    return Object.keys(rest).length > 0 ? rest : undefined;
+};
+
+/**
+ * Merge an override's settings onto a saved rule's settings. The saved
+ * dashboard owns dynamic-default metadata (`dateRange` / `singleDate`);
+ * the override keeps value-carrying settings for relative operators
+ * (e.g. `unitOfTime`). Returns undefined when nothing survives the merge.
+ */
+const mergeOverrideSettings = (
+    savedSettings: DateFilterSettings | undefined,
+    overrideSettings: DateFilterSettings | undefined,
+): DateFilterSettings | undefined => {
+    const merged: DateFilterSettings = {
+        ...overrideSettings,
+        dateRange: savedSettings?.dateRange,
+        singleDate: savedSettings?.singleDate,
+    };
+    return Object.values(merged).some((value) => value !== undefined)
+        ? merged
+        : undefined;
+};
+
+/**
+ * Strip saved-owned metadata from an override that matched no saved filter,
+ * so URL/embed/SDK injections cannot add requirement flags, viewer-interaction
+ * policy, date constraints, dynamic defaults or value restrictions.
+ * Value-carrying settings (e.g. `unitOfTime`) survive.
+ */
+const stripUnmatchedOverrideMetadata = <T extends DashboardFilterRule>(
+    override: T,
+): T => ({
+    ...override,
+    required: undefined,
+    requiredGroupId: undefined,
+    clearable: undefined,
+    settings: stripDynamicDateSettings(override.settings),
+    minAllowedDate: undefined,
+    maxAllowedDate: undefined,
+    enableDynamicMaxAllowedDate: undefined,
+    dateRangeGranularity: undefined,
+    rollingMinAllowedMonths: undefined,
+    excludedValues: undefined,
+    allowedOperators: undefined,
+});
+
 export const getDashboardDimensionOverrideMatches = (
     savedFilters: DashboardFilterRule[],
     overrides: DashboardFilterRuleOverride[],
@@ -754,20 +865,27 @@ export const applyDimensionOverrides = (
                 maxAllowedDate: dimension.maxAllowedDate,
                 // The saved dashboard owns how viewers may interact with values.
                 clearable: dimension.clearable,
+                // The saved dashboard owns dynamic-default metadata and the
+                // date-constraint config; the override only carries
+                // values/operator.
+                settings: mergeOverrideSettings(
+                    dimension.settings,
+                    override.settings,
+                ),
+                enableDynamicMaxAllowedDate:
+                    dimension.enableDynamicMaxAllowedDate,
+                dateRangeGranularity: dimension.dateRangeGranularity,
+                rollingMinAllowedMonths: dimension.rollingMinAllowedMonths,
             };
         },
     );
 
     // Append overrides that matched no saved filter by id or field. Strip
-    // requirement flags so URL overrides cannot inject required metadata.
+    // saved-owned metadata so URL/embed/SDK overrides cannot inject
+    // constraints, dynamic defaults or requirement metadata.
     const newDimensions = overrideArray
         .filter((o) => !savedIds.has(o.id) && !appliedOverrideIds.has(o.id))
-        .map((o) => ({
-            ...o,
-            required: undefined,
-            requiredGroupId: undefined,
-            clearable: undefined,
-        }));
+        .map((o) => stripUnmatchedOverrideMetadata(o));
     overriddenDimensions.push(...newDimensions);
 
     return overriddenDimensions;
