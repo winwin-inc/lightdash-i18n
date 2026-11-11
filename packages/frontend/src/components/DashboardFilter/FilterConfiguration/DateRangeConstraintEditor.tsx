@@ -1,11 +1,26 @@
 import {
     FilterOperator,
+    isRollingMinAllowedMonthsActive,
+    isValidRollingMinAllowedMonths,
+    ROLLING_MIN_ALLOWED_MONTHS_MAX,
+    ROLLING_MIN_ALLOWED_MONTHS_MIN,
     TimeFrames,
     type DashboardFilterRule,
 } from '@lightdash/common';
-import { Group, Stack, Switch, Text, type PopoverProps } from '@mantine/core';
+import {
+    Badge,
+    Box,
+    Group,
+    NumberInput,
+    Stack,
+    Switch,
+    Text,
+    Tooltip,
+    type PopoverProps,
+} from '@mantine/core';
+import { IconInfoCircle } from '@tabler/icons-react';
 import dayjs from 'dayjs';
-import { type FC } from 'react';
+import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FilterDatePicker from '../../common/Filters/FilterInputs/FilterDatePicker';
@@ -13,13 +28,37 @@ import FilterMonthAndYearPicker from '../../common/Filters/FilterInputs/FilterMo
 import FilterQuarterPicker from '../../common/Filters/FilterInputs/FilterQuarterPicker';
 import FilterYearPicker from '../../common/Filters/FilterInputs/FilterYearPicker';
 import useFiltersContext from '../../common/Filters/useFiltersContext';
-import { getFirstDayOfWeek } from '../../common/Filters/utils/filterDateUtils';
+import {
+    getFirstDayOfWeek,
+    resolveRuleBounds,
+} from '../../common/Filters/utils/filterDateUtils';
+import MantineIcon from '../../common/MantineIcon';
 
 type Props = {
     filterRule: DashboardFilterRule;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
 };
+
+/** Window size seeded when the rolling-earliest switch is first enabled. */
+const DEFAULT_ROLLING_MIN_ALLOWED_MONTHS = 12;
+
+/**
+ * ⓘ tooltip with keyboard access (focusable via tabIndex, focus shows the
+ * Mantine tooltip). Replaces the former long-form hint/description texts.
+ */
+const InfoTooltip: FC<{ label: string }> = ({ label }) => (
+    <Tooltip withinPortal variant="xs" position="top" label={label}>
+        <Box
+            component="span"
+            display="inline-flex"
+            tabIndex={0}
+            sx={{ cursor: 'help', outline: 'none' }}
+        >
+            <MantineIcon icon={IconInfoCircle} size="sm" color="dimmed" />
+        </Box>
+    </Tooltip>
+);
 
 const DateRangeConstraintEditor: FC<Props> = ({
     filterRule,
@@ -42,6 +81,65 @@ const DateRangeConstraintEditor: FC<Props> = ({
     const granularity = isRangeOperator
         ? filterRule.dateRangeGranularity ?? TimeFrames.DAY
         : TimeFrames.DAY;
+
+    const showDynamicMaxSwitch =
+        filterRule.operator === FilterOperator.IN_BETWEEN &&
+        (granularity === TimeFrames.MONTH ||
+            granularity === TimeFrames.QUARTER);
+
+    // Rolling earliest bound ("last N months") is month + IN_BETWEEN only —
+    // the quarter picker's alignment is not rolling-safe (see design doc §3.2).
+    const showRollingWindowInput =
+        filterRule.operator === FilterOperator.IN_BETWEEN &&
+        granularity === TimeFrames.MONTH;
+    const rollingConfigured = filterRule.rollingMinAllowedMonths != null;
+
+    // Effective selectable bounds — same resolution entry as the pickers'
+    // graying (rolling lower bound merged with the fixed earliest date,
+    // dynamic max when no fixed latest date). Runtime data-availability
+    // delay (4th-of-month rule) applies, matching what viewers see.
+    const effectiveBounds = useMemo(
+        () => resolveRuleBounds(filterRule),
+        [filterRule],
+    );
+    const rollingActive = isRollingMinAllowedMonthsActive({
+        operator: filterRule.operator,
+        dateRangeGranularity: granularity,
+        rollingMinAllowedMonths: filterRule.rollingMinAllowedMonths,
+    });
+    // Fixed maxAllowedDate takes precedence over the dynamic max switch.
+    const dynamicMaxInEffect =
+        !filterRule.maxAllowedDate && !!filterRule.enableDynamicMaxAllowedDate;
+
+    const handleRollingSwitchChange = (enabled: boolean) => {
+        onChangeFilterRule({
+            ...filterRule,
+            rollingMinAllowedMonths: enabled
+                ? isValidRollingMinAllowedMonths(
+                      filterRule.rollingMinAllowedMonths,
+                  )
+                    ? filterRule.rollingMinAllowedMonths
+                    : DEFAULT_ROLLING_MIN_ALLOWED_MONTHS
+                : undefined,
+        });
+    };
+
+    const handleRollingCountChange = (value: string | number) => {
+        const n =
+            typeof value === 'number'
+                ? value
+                : Number.parseInt(String(value ?? ''), 10);
+        // Empty / non-numeric input: keep the last valid value while typing.
+        if (!Number.isFinite(n)) return;
+        const clamped = Math.min(
+            ROLLING_MIN_ALLOWED_MONTHS_MAX,
+            Math.max(ROLLING_MIN_ALLOWED_MONTHS_MIN, Math.round(n)),
+        );
+        onChangeFilterRule({
+            ...filterRule,
+            rollingMinAllowedMonths: clamped,
+        });
+    };
 
     const normalizeBoundaryValue = (d: Date | null, isMax: boolean) => {
         if (!d) return undefined;
@@ -97,42 +195,122 @@ const DateRangeConstraintEditor: FC<Props> = ({
         ? dayjs(filterRule.maxAllowedDate).toDate()
         : null;
 
-    const showDynamicMaxSwitch =
-        filterRule.operator === FilterOperator.IN_BETWEEN &&
-        (granularity === TimeFrames.MONTH ||
-            granularity === TimeFrames.QUARTER);
+    const formatBadgeMonth = (d: Date) => dayjs(d).format('YYYY-MM');
+    const rollingBadge =
+        rollingActive && effectiveBounds.maxDate != null ? (
+            dynamicMaxInEffect ? (
+                <Badge size="xs" variant="light" color="blue">
+                    {t(
+                        'components_dashboard_filter.configuration.date_range.rolling_badge_dynamic',
+                        {
+                            value: effectiveBounds.minDate
+                                ? `${formatBadgeMonth(
+                                      effectiveBounds.minDate,
+                                  )} – ${formatBadgeMonth(
+                                      effectiveBounds.maxDate,
+                                  )}`
+                                : formatBadgeMonth(effectiveBounds.maxDate),
+                        },
+                    )}
+                </Badge>
+            ) : (
+                <Badge size="xs" variant="light" color="gray">
+                    {t(
+                        'components_dashboard_filter.configuration.date_range.rolling_badge_fixed',
+                    )}
+                </Badge>
+            )
+        ) : null;
 
     return (
         <Stack spacing="xs" mt="xs">
-            {showDynamicMaxSwitch && (
-                <Switch
-                    size="xs"
-                    label={
-                        <Text size="xs" fw={500}>
-                            {t(
-                                'components_dashboard_filter.configuration.date_range.dynamic_max_label',
-                            )}
-                        </Text>
-                    }
-                    description={t(
-                        'components_dashboard_filter.configuration.date_range.dynamic_max_description',
+            {showRollingWindowInput && (
+                <Group spacing="xs" noWrap align="center">
+                    <Switch
+                        size="xs"
+                        labelPosition="right"
+                        checked={rollingConfigured}
+                        onChange={(e) =>
+                            handleRollingSwitchChange(e.currentTarget.checked)
+                        }
+                        label={
+                            <Text size="xs" fw={500}>
+                                {t(
+                                    'components_dashboard_filter.configuration.date_range.rolling_label',
+                                )}
+                            </Text>
+                        }
+                    />
+                    {rollingConfigured && (
+                        <>
+                            <NumberInput
+                                size="xs"
+                                w={56}
+                                min={ROLLING_MIN_ALLOWED_MONTHS_MIN}
+                                max={ROLLING_MIN_ALLOWED_MONTHS_MAX}
+                                step={1}
+                                hideControls
+                                value={filterRule.rollingMinAllowedMonths}
+                                onChange={handleRollingCountChange}
+                            />
+                            <Text size="xs" c="dimmed">
+                                {t(
+                                    'components_dashboard_filter.configuration.date_range.rolling_unit_months',
+                                )}
+                            </Text>
+                        </>
                     )}
-                    checked={!!filterRule.enableDynamicMaxAllowedDate}
-                    onChange={(e) => {
-                        const enabled = e.currentTarget.checked;
-                        onChangeFilterRule({
-                            ...filterRule,
-                            enableDynamicMaxAllowedDate: enabled || undefined,
-                            maxAllowedDate: enabled
-                                ? undefined
-                                : filterRule.maxAllowedDate,
-                        });
-                    }}
-                />
+                    <InfoTooltip
+                        label={t(
+                            'components_dashboard_filter.configuration.date_range.rolling_tooltip',
+                        )}
+                    />
+                </Group>
             )}
-            <Text size="xs" color="dimmed">
-                {t('components_dashboard_filter.configuration.date_range.hint')}
-            </Text>
+            {showRollingWindowInput &&
+                rollingConfigured &&
+                (rollingBadge ?? (
+                    // Rolling without any latest selectable month: the window
+                    // cannot resolve. Save-time validation (S3) rejects this
+                    // combination; surface it inline too.
+                    <Text size="xs" c="red">
+                        {t(
+                            'components_dashboard_filter.configuration.date_range.rolling_requires_max',
+                        )}
+                    </Text>
+                ))}
+            {showDynamicMaxSwitch && (
+                <Group spacing="xs" noWrap align="center">
+                    <Switch
+                        size="xs"
+                        labelPosition="right"
+                        checked={!!filterRule.enableDynamicMaxAllowedDate}
+                        onChange={(e) => {
+                            const enabled = e.currentTarget.checked;
+                            onChangeFilterRule({
+                                ...filterRule,
+                                enableDynamicMaxAllowedDate:
+                                    enabled || undefined,
+                                maxAllowedDate: enabled
+                                    ? undefined
+                                    : filterRule.maxAllowedDate,
+                            });
+                        }}
+                        label={
+                            <Text size="xs" fw={500}>
+                                {t(
+                                    'components_dashboard_filter.configuration.date_range.dynamic_max_label',
+                                )}
+                            </Text>
+                        }
+                    />
+                    <InfoTooltip
+                        label={t(
+                            'components_dashboard_filter.configuration.date_range.dynamic_max_tooltip',
+                        )}
+                    />
+                </Group>
+            )}
             <Group
                 grow
                 noWrap

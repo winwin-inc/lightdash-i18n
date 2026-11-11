@@ -2809,9 +2809,19 @@
         "min_label": "Earliest selectable date",
         "max_label": "Latest selectable date",
         "placeholder": "YYYY-MM-DD",
-        "hint": "Leave earliest date empty for no lower limit. Leave latest date empty for no upper limit unless the data-update limit is enabled. You can also set a fixed latest date.",
         "dynamic_max_label": "Limit latest date by data refresh",
-        "dynamic_max_description": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+        "dynamic_max_tooltip": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+        "rolling_label": "Earliest = last",
+        "rolling_unit_months": "months",
+        "rolling_tooltip": "Anchored to the latest selectable month: only the last N complete months are selectable. The window rolls forward monthly while the latest date follows data refresh; it stays static with a fixed latest date. When both are set, the later of this and the fixed earliest date applies. A latest selectable date (fixed or data-refresh) is required.",
+        "rolling_badge_dynamic": "Dynamic · current={{value}}",
+        "rolling_badge_fixed": "Fixed window (not rolling)",
+        "rolling_requires_max": "\"Earliest = last N months\" needs a latest selectable date: set a latest selectable date, or enable \"Limit latest date by data refresh\"",
+        "mode": {
+          "dynamic": "Dynamic dates",
+          "fixed": "Fixed dates"
+        },
+        "mode_tooltip": "Shape of the default range: \"Dynamic dates\" rolls forward month by month relative to now; \"Fixed dates\" uses literal dates. Only \"is between\" filters use this switch; single-value filters set their dynamic default inside the value control.",
         "default_out_of_range": "The default date is outside the allowed range",
         "start_after_end": "Start date cannot be later than end date",
         "granularity_label": "Date selector",
@@ -2836,7 +2846,9 @@
         "value_policy": "Value policy",
         "viewer_limits": "Viewer limits",
         "option_limits": "Option limits",
-        "linkage": "Field linkage"
+        "linkage": "Field linkage",
+        "date_range_default": "Default range",
+        "date_range_constraints": "Selectable range"
       }
     },
     "batch_bind": {

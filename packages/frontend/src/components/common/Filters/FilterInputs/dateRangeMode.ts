@@ -1,0 +1,186 @@
+import {
+    resolveDateRangeValues,
+    TimeFrames,
+    UnitOfTime,
+    type DateRangeBoundSetting,
+    type DateRangeMode,
+    type DateRangeSetting,
+} from '@lightdash/common';
+
+/**
+ * Pure helpers for the fixed ↔ dynamic date-range default mode.
+ *
+ * Shared by `FilterDynamicDateRangePicker` (value input, in common/Filters)
+ * and the dashboard `FilterSettings` card-level mode Radio, so the mode
+ * switch logic (including the `values` recomputation that keeps the
+ * "apply" button / `hasFilterValueSet` consistent) is defined exactly once
+ * and no common → DashboardFilter reverse dependency is introduced.
+ */
+
+/** Window seeded when switching to dynamic mode with no prior dynamic
+ * config: last 12 months → last 1 month (counts are in bound units). */
+export const DYNAMIC_DATE_RANGE_DEFAULT_START: Required<DateRangeBoundSetting> =
+    {
+        direction: 'ago',
+        count: 12,
+        unit: UnitOfTime.months,
+    };
+export const DYNAMIC_DATE_RANGE_DEFAULT_END: Required<DateRangeBoundSetting> = {
+    direction: 'ago',
+    count: 1,
+    unit: UnitOfTime.months,
+};
+
+export const isDateRangeMode = (value: string | null): value is DateRangeMode =>
+    value === 'fixed' || value === 'dynamic';
+
+/**
+ * Dynamic date-range defaults are only enabled for month / quarter
+ * granularity. Day / year granularities use fixed dates only.
+ */
+export const isDynamicDateRangeAllowed = (granularity: TimeFrames): boolean =>
+    granularity === TimeFrames.MONTH || granularity === TimeFrames.QUARTER;
+
+/**
+ * Map the picker's date-range granularity to the dynamic unit it must use
+ * (month → months, quarter → quarters). The user cannot change the unit.
+ */
+export const getLockedDynamicUnit = (
+    granularity: TimeFrames,
+): UnitOfTime | undefined => {
+    if (granularity === TimeFrames.MONTH) return UnitOfTime.months;
+    if (granularity === TimeFrames.QUARTER) return UnitOfTime.quarters;
+    return undefined;
+};
+
+/**
+ * Resolve the effective mode from stored settings. When dynamic mode is not
+ * allowed for the granularity (day / year), stored dynamic configs are
+ * ignored so the UI never shows a dynamic branch for them.
+ */
+export const resolveDateRangeMode = (
+    dateRange: DateRangeSetting | undefined,
+    granularity: TimeFrames,
+): DateRangeMode => {
+    if (!isDynamicDateRangeAllowed(granularity)) return 'fixed';
+    const storedMode = dateRange?.mode ?? null;
+    return isDateRangeMode(storedMode) ? storedMode : 'fixed';
+};
+
+/**
+ * Resolve a dynamic DateRangeSetting into [startStr, endStr] so that the
+ * `values` array always reflects the current dynamic configuration. The SQL
+ * compiler re-resolves from `settings.dateRange` at query time, but
+ * `values` must also be populated for validation (`hasFilterValueSet`) and
+ * for any code path that reads `values` directly.
+ */
+export const resolveDynamicDateRangeValues = (
+    dateRange: DateRangeSetting,
+    granularity: TimeFrames,
+): string[] =>
+    resolveDateRangeValues(
+        { settings: { dateRange }, values: [] },
+        granularity,
+    ).filter((value): value is string => value !== null);
+
+/**
+ * Normalize stored dynamic settings before writing them back:
+ * direction is always 'ago' and the unit is forced to the granularity's
+ * locked unit (existing storage may carry stale units from a previous
+ * granularity).
+ */
+export const normalizeDateRangeSetting = (
+    dateRange: DateRangeSetting,
+    lockedUnit: UnitOfTime | undefined,
+): DateRangeSetting => ({
+    ...dateRange,
+    start: dateRange.start
+        ? {
+              ...dateRange.start,
+              direction: 'ago',
+              unit:
+                  lockedUnit ??
+                  dateRange.start.unit ??
+                  DYNAMIC_DATE_RANGE_DEFAULT_START.unit,
+          }
+        : dateRange.start,
+    end: dateRange.end
+        ? {
+              ...dateRange.end,
+              direction: 'ago',
+              unit:
+                  lockedUnit ??
+                  dateRange.end.unit ??
+                  DYNAMIC_DATE_RANGE_DEFAULT_END.unit,
+          }
+        : dateRange.end,
+});
+
+export const parseDateRangeCount = (raw: unknown): number => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    if (typeof raw === 'string') {
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 1;
+    }
+    return 1;
+};
+
+/**
+ * Minimal structural shape consumed by `buildDateRangeModeChangeRule`.
+ * Both `FilterRule`-based explore rules and `DashboardFilterRule` satisfy it.
+ */
+export type DateRangeModeRule = {
+    values?: (string | null)[] | null;
+    settings?: { dateRange?: DateRangeSetting } | null;
+};
+
+/**
+ * Build the next rule for a fixed ↔ dynamic mode switch.
+ *
+ * - `dynamic`: seed start/end from the existing dynamic config when present,
+ *   otherwise from the documented defaults (12 → 1 months), normalize units
+ *   to the granularity's locked unit, and re-resolve `values` so validation
+ *   and query stay consistent.
+ * - `fixed`: drop only `settings.dateRange` (other settings such as
+ *   `singleDate` / `unitOfTime` are preserved); existing `values` (if any)
+ *   continue to drive the fixed pickers. min/max constraints are untouched —
+ *   the mode switch only decides the default value's shape.
+ */
+export const buildDateRangeModeChangeRule = <T extends DateRangeModeRule>(
+    rule: T,
+    nextMode: DateRangeMode,
+    granularity: TimeFrames,
+): T => {
+    if (nextMode !== 'dynamic') {
+        const { dateRange: _dropped, ...restSettings } = rule.settings ?? {};
+        return { ...rule, settings: restSettings } as T;
+    }
+
+    const lockedUnit = getLockedDynamicUnit(granularity);
+    const previous = rule.settings?.dateRange;
+    const seedBound = (
+        bound: DateRangeBoundSetting | undefined,
+        fallback: Required<DateRangeBoundSetting>,
+    ): DateRangeBoundSetting => ({
+        direction: 'ago',
+        count:
+            bound?.count != null
+                ? parseDateRangeCount(bound.count)
+                : fallback.count,
+        unit: lockedUnit ?? bound?.unit ?? fallback.unit,
+    });
+
+    const nextDateRange: DateRangeSetting = normalizeDateRangeSetting(
+        {
+            mode: 'dynamic',
+            start: seedBound(previous?.start, DYNAMIC_DATE_RANGE_DEFAULT_START),
+            end: seedBound(previous?.end, DYNAMIC_DATE_RANGE_DEFAULT_END),
+        },
+        lockedUnit,
+    );
+    return {
+        ...rule,
+        values: resolveDynamicDateRangeValues(nextDateRange, granularity),
+        settings: { ...rule.settings, dateRange: nextDateRange },
+    } as T;
+};
