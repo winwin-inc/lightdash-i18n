@@ -10,6 +10,7 @@
 | [`visualization/`](./visualization/)   | 自定义图表（Vega-Lite）、图表颜色、表格 |
 | [`mcp/`](./mcp/README.md)              | Lightdash MCP 服务（接入 / 上线 / 权限）|
 | [`v2/`](./v2/README.md)                | V2 上游对齐迁移、发版说明、交测清单     |
+| [`v3/`](./v3/README.md)                | V3 上游对齐评估（2.57 → 3.208 窗口）    |
 | [`features/`](./features/)             | 其他产品能力（可见性范围、操作日志）    |
 | [`dev-tooling/`](./dev-tooling/)       | 本地开发/编码工具链增强                 |
 
@@ -73,6 +74,13 @@
 | [表格列宽可拖拽调整（W1 详版）](./visualization/table-column-resize-plan.md) | 分支/实现细节、上游 PR 对照与已知坑 |
 | [表格滚动卡顿排查](./visualization/table-scroll-performance.md) | 平表虚拟化 / 透视表 v2（Canvas）现状与逐项结论 |
 | [图表错误态诊断与可恢复](./visualization/chart-error-diagnostics-plan.md) | 图打不开时看不到字段/类型；判定链以 explore 为准（v2）、P0 三步拆分、embed/minimal 门控（**草案**） |
+
+## v3/ — V3 上游对齐评估
+
+| 文档 | 说明 |
+|------|------|
+| [上游 3.x 新功能评估](./v3/v3-upstream-evaluation.md) | 3.0 跳版性质（pre-aggregates 唯一破坏性变更）、2.57.0 → 3.208.0 新功能全景与 PR 对照、工具链差距、P0/P1/暂缓建议（**草案**） |
+| [用户分组现状与上游增量](./v3/v3-user-groups-status.md) | **已实施（默认关闭）**：三层能力盘点、`GROUPS_ENABLED` 启用链、上游 3.179 常开后增量对照与决策建议 |
 
 ## features/ — 其他产品能力
 
