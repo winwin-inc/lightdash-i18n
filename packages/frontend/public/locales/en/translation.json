@@ -2807,12 +2807,28 @@
       "filter_no_clear": "Cannot be cleared",
       "date_range": {
         "min_label": "Earliest selectable date",
+        "min_tooltip": "Leave empty for no limit; this value stays fixed. Disabled while \"Limit earliest by data updates\" is on — the viewer-pickable range = last N whole months (rolling with data).",
+        "max_tooltip": "Leave empty for no limit; this value stays fixed. Disabled while \"Limit latest by data updates\" is on — the latest month viewers can pick rolls with data (months: before the 4th → two months back, from the 4th → last month; quarters → last complete quarter).",
         "max_label": "Latest selectable date",
         "placeholder": "YYYY-MM-DD",
-        "hint": "Leave earliest date empty for no lower limit. Leave latest date empty for no upper limit unless the data-update limit is enabled. You can also set a fixed latest date.",
-        "dynamic_max_label": "Limit latest date by data refresh",
-        "dynamic_max_description": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+        "dynamic_max_label": "Limit latest by data updates",
+        "dynamic_max_tooltip": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+        "rolling_label": "Limit earliest by data updates",
+        "rolling_unit_months": "whole months",
+        "rolling_tooltip": "Applies to the range viewers can pick: when on, earliest selectable = last N whole months, rolling monthly with the latest selectable month; when off, you can set a fixed earliest date.",
+        "rolling_badge_dynamic": "Dynamic: {{value}}",
+        "rolling_badge_fixed": "Fixed window (not rolling)",
+        "rolling_requires_max": "Enabling \"Limit earliest by data updates\" requires a latest selectable date: set a fixed latest date, or enable \"Limit latest by data updates\"",
+        "rolling_near_label": "Last",
+        "rolling_fixed_window_warning": "\"Limit earliest by data updates\" is currently a fixed window (not rolling): enable \"Limit latest by data updates\" to make it roll monthly",
+        "mode": {
+          "dynamic": "Dynamic dates",
+          "fixed": "Fixed dates"
+        },
+        "mode_tooltip": "Shape of the default range: \"Dynamic dates\" rolls forward month by month relative to now; \"Fixed dates\" uses literal dates. Only \"is between\" filters use this switch; single-value filters set their dynamic default inside the value control.",
         "default_out_of_range": "The default date is outside the allowed range",
+        "default_after_max_bounds": "Latest selectable: {{max}}",
+        "default_before_min_bounds": "Earliest selectable: {{min}}",
         "start_after_end": "Start date cannot be later than end date",
         "granularity_label": "Date selector",
         "granularity": {
@@ -2836,7 +2852,9 @@
         "value_policy": "Value policy",
         "viewer_limits": "Viewer limits",
         "option_limits": "Option limits",
-        "linkage": "Field linkage"
+        "linkage": "Field linkage",
+        "date_range_default": "Default range",
+        "date_range_constraints": "Selectable range"
       }
     },
     "batch_bind": {

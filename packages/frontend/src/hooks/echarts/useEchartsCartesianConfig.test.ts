@@ -2394,8 +2394,29 @@ describe('指标基准线 baseline series', () => {
 
         expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
         expect(serie.symbol).toBe('circle');
-        expect(serie.symbolSize).toBe(4);
+        // 圆点跟随基准线粗细：2 倍线宽 = 6
+        expect(serie.symbolSize).toBe(6);
         expect(serie.isBaseline).toBe(true);
+    });
+
+    test('simple 系列：baselineStyle 加粗时圆点同步放大（粗细 6 → 圆点 12）', () => {
+        const serie = getSimpleSeries({
+            series: {
+                ...makeSourceSeries('metric_target'),
+                showSymbol: true,
+            },
+            itemsMap: {},
+            cartesianChart: makeChart({
+                baselineFieldIds: ['metric_target'],
+                baselineStyle: { width: 6, lineType: 'solid' },
+            }),
+            flipAxes: false,
+            yFieldHash: 'metric_target',
+            xFieldHash: 'dim_month',
+        }) as EChartSeries;
+
+        expect(serie.lineStyle).toEqual({ width: 6, type: 'solid' });
+        expect(serie.symbolSize).toBe(12);
     });
 
     test('simple 系列：baselineStyle 覆盖宽度与线型', () => {

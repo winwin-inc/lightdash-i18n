@@ -2807,12 +2807,28 @@
       "filter_no_clear": "不可清空",
       "date_range": {
         "min_label": "可选最早日期",
+        "min_tooltip": "留空＝不限制；此处为固定值，不会随时间变化。开启「按数据更新限制最早」后此处停用——查看者可选范围＝最近 N 个整月（随数据滚动）。",
+        "max_tooltip": "留空＝不限制；此处为固定值，不会随时间变化。开启「按数据更新限制最晚」后此处停用——查看者可选范围的最晚月随数据滚动（月粒度 4 号前可选到上上月、4 号及以后到上月；季度为最近完整季度）。",
         "max_label": "可选最晚日期",
         "placeholder": "YYYY-MM-DD",
-        "hint": "最早日期留空表示不限制；最晚日期留空且未开启数据更新限制时表示不限制。也可手动选择固定日期。",
-        "dynamic_max_label": "按数据更新限制最晚可选日期",
-        "dynamic_max_description": "开启后：月粒度 4 号前只能选到上上月，4 号及以后可选到上月；季度为最近一个完整季度",
+        "dynamic_max_label": "按数据更新限制最晚",
+        "dynamic_max_tooltip": "开启后：月粒度 4 号前只能选到上上月，4 号及以后可选到上月；季度为最近一个完整季度",
+        "rolling_label": "按数据更新限制最早",
+        "rolling_unit_months": "个整月",
+        "rolling_tooltip": "作用于查看者可选范围：开启后最早可选＝最近 N 个整月，随最晚可选月逐月自动滚动；关闭时可设置固定最早日期。",
+        "rolling_badge_dynamic": "动态：{{value}}",
+        "rolling_badge_fixed": "固定窗口（不滚动）",
+        "rolling_requires_max": "开启「按数据更新限制最早」需要最晚可选日期：请设置固定最晚，或开启「按数据更新限制最晚」",
+        "rolling_near_label": "近",
+        "rolling_fixed_window_warning": "「按数据更新限制最早」当前为固定窗口（不滚动）：需开启「按数据更新限制最晚」才会逐月滚动",
+        "mode": {
+          "dynamic": "动态日期",
+          "fixed": "固定日期"
+        },
+        "mode_tooltip": "默认区间形态：「动态日期」按「距今 N 个月」逐月自动滚动；「固定日期」使用固定日期。仅「在之间」类筛选器使用此开关；单值筛选器的动态默认在取值控件内设置。",
         "default_out_of_range": "默认值日期超出了限制范围",
+        "default_after_max_bounds": "实际最晚可选：{{max}}",
+        "default_before_min_bounds": "实际最早可选：{{min}}",
         "start_after_end": "开始日期不能晚于结束日期",
         "granularity_label": "日期选择器",
         "granularity": {
@@ -2836,7 +2852,9 @@
         "value_policy": "取值策略",
         "viewer_limits": "查看者限制",
         "option_limits": "选项约束",
-        "linkage": "维度联动"
+        "linkage": "维度联动",
+        "date_range_default": "默认区间",
+        "date_range_constraints": "可选范围"
       }
     },
     "batch_bind": {

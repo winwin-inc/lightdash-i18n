@@ -17,6 +17,7 @@ import {
     Divider,
     Group,
     MultiSelect,
+    Radio,
     Select,
     Stack,
     Switch,
@@ -36,6 +37,12 @@ import {
 } from '../../../utils/categoryLevel';
 import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
+import {
+    buildDateRangeModeChangeRule,
+    isDateRangeMode,
+    isDynamicDateRangeAllowed,
+    resolveDateRangeMode,
+} from '../../common/Filters/FilterInputs/dateRangeMode';
 import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import useFiltersContext from '../../common/Filters/useFiltersContext';
@@ -213,11 +220,19 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     }, [filterLabel, filterRule.label, field]);
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
+        // getFilterRuleWithDefaultValue resets `settings` (dropping any
+        // dynamic dateRange default); the rolling window is a rule-level
+        // field and must be cleaned explicitly — it is only consumed by
+        // IN_BETWEEN rules, so leaving it on other operators would be a
+        // silent stale residue (design doc §3.2).
+        const nextRule = getFilterRuleWithDefaultValue(filterType, field, {
+            ...filterRule,
+            operator,
+        });
         onChangeFilterRule(
-            getFilterRuleWithDefaultValue(filterType, field, {
-                ...filterRule,
-                operator,
-            }),
+            operator === FilterOperator.IN_BETWEEN
+                ? nextRule
+                : { ...nextRule, rollingMinAllowedMonths: undefined },
         );
     };
 
@@ -244,6 +259,65 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         }
         return true;
     }, [isFilterDisabled, isEditMode]);
+
+    // ── 日期区间重组（M1/M2/M3）：模式 Radio 提到卡片层 ──
+    const isDateRangeOperator =
+        filterType === FilterType.DATE &&
+        (filterRule.operator === FilterOperator.IN_BETWEEN ||
+            filterRule.operator === FilterOperator.NOT_IN_BETWEEN);
+    const dateRangeGranularity =
+        filterRule.dateRangeGranularity ?? TimeFrames.DAY;
+    const dateRangeMode = resolveDateRangeMode(
+        filterRule.settings?.dateRange,
+        dateRangeGranularity,
+    );
+    // Card-level fixed/dynamic Radio: edit mode + DATE + IN_BETWEEN +
+    // month/quarter granularity, gated by the same showValueInput gate as
+    // the default-range value input (disabled filters cannot change the
+    // default's shape). NOT_IN_BETWEEN / single-value EQUALS keep their
+    // existing controls (single-value month EQUALS has its own in-control
+    // switch — wording stays distinct, see mode_tooltip).
+    const showDateRangeModeRadio =
+        isEditMode &&
+        filterType === FilterType.DATE &&
+        filterRule.operator === FilterOperator.IN_BETWEEN &&
+        isDynamicDateRangeAllowed(dateRangeGranularity) &&
+        showValueInput;
+
+    /**
+     * M1: granularity changes must not leave stale dynamic configs behind.
+     * - month ↔ quarter with a dynamic default: rebuild the dynamic config
+     *   for the new granularity (units normalised + values re-resolved);
+     * - downgrading to day / year: strip the dynamic default (it is not
+     *   representable there; previously it silently survived and queries
+     *   kept resolving dynamically while the UI showed fixed pickers);
+     * - leaving month granularity: drop the rolling window (month-only).
+     */
+    const handleDateRangeGranularityChange = (value: TimeFrames) => {
+        const previousMode = resolveDateRangeMode(
+            filterRule.settings?.dateRange,
+            dateRangeGranularity,
+        );
+        let nextRule: DashboardFilterRuleWithAllowedOperators = {
+            ...filterRule,
+            dateRangeGranularity: value,
+        };
+        const carryDynamicOver =
+            previousMode === 'dynamic' &&
+            filterRule.operator === FilterOperator.IN_BETWEEN &&
+            isDynamicDateRangeAllowed(value);
+        if (carryDynamicOver) {
+            nextRule = buildDateRangeModeChangeRule(nextRule, 'dynamic', value);
+        } else if (previousMode === 'dynamic') {
+            // Downgrade (day/year) or non-IN_BETWEEN residue: drop the
+            // dynamic default so the UI and the query compiler agree.
+            nextRule = buildDateRangeModeChangeRule(nextRule, 'fixed', value);
+        }
+        if (value !== TimeFrames.MONTH) {
+            nextRule = { ...nextRule, rollingMinAllowedMonths: undefined };
+        }
+        onChangeFilterRule(nextRule);
+    };
 
     const showAnyValueDisabledInput = useMemo(() => {
         return (
@@ -486,6 +560,129 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
+                {isEditMode && isDateRangeOperator && (
+                    <Stack spacing={4}>
+                        <Text size="xs" fw={500}>
+                            {t(
+                                'components_dashboard_filter.configuration.date_range.granularity_label',
+                            )}
+                        </Text>
+                        <Select
+                            size="xs"
+                            withinPortal={popoverProps?.withinPortal ?? true}
+                            onDropdownOpen={popoverProps?.onOpen}
+                            onDropdownClose={popoverProps?.onClose}
+                            value={dateRangeGranularity}
+                            onChange={(value) => {
+                                if (!value) return;
+                                if (
+                                    value !== TimeFrames.DAY &&
+                                    value !== TimeFrames.MONTH &&
+                                    value !== TimeFrames.QUARTER &&
+                                    value !== TimeFrames.YEAR
+                                ) {
+                                    return;
+                                }
+                                handleDateRangeGranularityChange(value);
+                            }}
+                            data={[
+                                {
+                                    value: TimeFrames.DAY,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.day',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.MONTH,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.month',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.QUARTER,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.quarter',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.YEAR,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.year',
+                                    ),
+                                },
+                            ]}
+                        />
+                    </Stack>
+                )}
+
+                {showDateRangeModeRadio && (
+                    <Group spacing="xs" noWrap align="center" mt={2}>
+                        <Radio.Group
+                            value={dateRangeMode}
+                            onChange={(value) => {
+                                if (isDateRangeMode(value)) {
+                                    onChangeFilterRule(
+                                        buildDateRangeModeChangeRule(
+                                            filterRule,
+                                            value,
+                                            dateRangeGranularity,
+                                        ),
+                                    );
+                                }
+                            }}
+                        >
+                            <Group spacing="lg">
+                                <Radio
+                                    value="dynamic"
+                                    size="xs"
+                                    label={t(
+                                        'components_dashboard_filter.configuration.date_range.mode.dynamic',
+                                    )}
+                                />
+                                <Radio
+                                    value="fixed"
+                                    size="xs"
+                                    label={t(
+                                        'components_dashboard_filter.configuration.date_range.mode.fixed',
+                                    )}
+                                />
+                            </Group>
+                        </Radio.Group>
+                        <Tooltip
+                            withinPortal
+                            variant="xs"
+                            label={t(
+                                'components_dashboard_filter.configuration.date_range.mode_tooltip',
+                            )}
+                        >
+                            <Box
+                                component="span"
+                                display="inline-flex"
+                                tabIndex={0}
+                                sx={{ cursor: 'help', outline: 'none' }}
+                            >
+                                <MantineIcon
+                                    icon={IconHelpCircle}
+                                    size="sm"
+                                    color="dimmed"
+                                />
+                            </Box>
+                        </Tooltip>
+                    </Group>
+                )}
+
+                {isEditMode &&
+                    isDateRangeOperator &&
+                    (showValueInput || filterRule.required) && (
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.date_range_default',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
+                    )}
+
                 {(showValueInput || filterRule.required) && (
                     <FilterInputComponent
                         popoverProps={popoverProps}
@@ -503,79 +700,21 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
-                {isEditMode &&
-                    filterType === FilterType.DATE &&
-                    (filterRule.operator === FilterOperator.IN_BETWEEN ||
-                        filterRule.operator ===
-                            FilterOperator.NOT_IN_BETWEEN) && (
-                        <Stack spacing={4}>
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.granularity_label',
-                                )}
-                            </Text>
-                            <Select
-                                size="xs"
-                                withinPortal={
-                                    popoverProps?.withinPortal ?? true
-                                }
-                                onDropdownOpen={popoverProps?.onOpen}
-                                onDropdownClose={popoverProps?.onClose}
-                                value={
-                                    filterRule.dateRangeGranularity ??
-                                    TimeFrames.DAY
-                                }
-                                onChange={(value) => {
-                                    if (!value) return;
-                                    if (
-                                        value !== TimeFrames.DAY &&
-                                        value !== TimeFrames.MONTH &&
-                                        value !== TimeFrames.QUARTER &&
-                                        value !== TimeFrames.YEAR
-                                    ) {
-                                        return;
-                                    }
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        dateRangeGranularity: value,
-                                    });
-                                }}
-                                data={[
-                                    {
-                                        value: TimeFrames.DAY,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.day',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.MONTH,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.month',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.QUARTER,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.quarter',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.YEAR,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.year',
-                                        ),
-                                    },
-                                ]}
-                            />
-                        </Stack>
-                    )}
-
                 {isEditMode && filterType === FilterType.DATE && (
-                    <DateRangeConstraintEditor
-                        filterRule={filterRule}
-                        popoverProps={popoverProps}
-                        onChangeFilterRule={onChangeFilterRule}
-                    />
+                    <>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.date_range_constraints',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
+                        <DateRangeConstraintEditor
+                            filterRule={filterRule}
+                            popoverProps={popoverProps}
+                            onChangeFilterRule={onChangeFilterRule}
+                        />
+                    </>
                 )}
 
                 {isEditMode &&

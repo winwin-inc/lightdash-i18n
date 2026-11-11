@@ -90,6 +90,7 @@ const FILTER_SUMMARY_KEYS = [
     'requiredGroupId',
     'lockedTabUuids',
     'dateRangeGranularity',
+    'rollingMinAllowedMonths',
 ] as const;
 
 const pickFilterSummary = (rule: DashboardFilterRule) => {
