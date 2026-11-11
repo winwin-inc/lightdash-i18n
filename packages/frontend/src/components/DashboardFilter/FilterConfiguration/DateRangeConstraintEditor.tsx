@@ -8,7 +8,6 @@ import {
     type DashboardFilterRule,
 } from '@lightdash/common';
 import {
-    Badge,
     Box,
     Group,
     NumberInput,
@@ -234,34 +233,9 @@ const DateRangeConstraintEditor: FC<Props> = ({
             </Group>
         );
     };
-    const rollingBadge =
-        rollingActive && effectiveBounds.maxDate != null ? (
-            dynamicMaxInEffect ? (
-                <Badge size="xs" variant="light" color="blue">
-                    {t(
-                        'components_dashboard_filter.configuration.date_range.rolling_badge_dynamic',
-                        {
-                            value: effectiveBounds.minDate
-                                ? `${formatBadgeMonth(
-                                      effectiveBounds.minDate,
-                                  )} – ${formatBadgeMonth(
-                                      effectiveBounds.maxDate,
-                                  )}`
-                                : formatBadgeMonth(effectiveBounds.maxDate),
-                        },
-                    )}
-                </Badge>
-            ) : (
-                <Badge size="xs" variant="light" color="gray">
-                    {t(
-                        'components_dashboard_filter.configuration.date_range.rolling_badge_fixed',
-                    )}
-                </Badge>
-            )
-        ) : null;
 
     return (
-        <Stack spacing="xs" mt="xs">
+        <Stack spacing="xs" mt={4}>
             {showRollingWindowInput && isDynamicMode && (
                 <Stack spacing={4}>
                     <Group spacing="xs" noWrap align="center">
@@ -301,7 +275,8 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             </Text>
                             <NumberInput
                                 size="xs"
-                                w={56}
+                                w={44}
+                                styles={{ input: { height: 26 } }}
                                 min={ROLLING_MIN_ALLOWED_MONTHS_MIN}
                                 max={ROLLING_MIN_ALLOWED_MONTHS_MAX}
                                 step={1}
@@ -314,6 +289,32 @@ const DateRangeConstraintEditor: FC<Props> = ({
                                     'components_dashboard_filter.configuration.date_range.rolling_unit_months',
                                 )}
                             </Text>
+                            {rollingActive &&
+                                effectiveBounds.maxDate != null &&
+                                (dynamicMaxInEffect ? (
+                                    <Text size="xs" c="blue.6">
+                                        {t(
+                                            'components_dashboard_filter.configuration.date_range.rolling_badge_dynamic',
+                                            {
+                                                value: effectiveBounds.minDate
+                                                    ? `${formatBadgeMonth(
+                                                          effectiveBounds.minDate,
+                                                      )} – ${formatBadgeMonth(
+                                                          effectiveBounds.maxDate,
+                                                      )}`
+                                                    : formatBadgeMonth(
+                                                          effectiveBounds.maxDate,
+                                                      ),
+                                            },
+                                        )}
+                                    </Text>
+                                ) : (
+                                    <Text size="xs" c="dimmed">
+                                        {t(
+                                            'components_dashboard_filter.configuration.date_range.rolling_badge_fixed',
+                                        )}
+                                    </Text>
+                                ))}
                         </Group>
                     )}
                 </Stack>
@@ -322,7 +323,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                 isDynamicMode &&
                 rollingConfigured &&
                 rollingActive &&
-                (rollingBadge ?? (
+                effectiveBounds.maxDate == null && (
                     // Rolling without any latest selectable month: the window
                     // cannot resolve. Save-time validation (S3) rejects this
                     // combination; surface it inline too.
@@ -334,7 +335,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             'components_dashboard_filter.configuration.date_range.rolling_requires_max',
                         )}
                     </Text>
-                ))}
+                )}
             {showDynamicMaxSwitch && isDynamicMode && (
                 <Group spacing="xs" noWrap align="center">
                     <Switch
