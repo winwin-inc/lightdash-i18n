@@ -738,20 +738,42 @@ const stripDynamicDateSettings = (
 };
 
 /**
- * Merge an override's settings onto a saved rule's settings. The saved
- * dashboard owns dynamic-default metadata (`dateRange` / `singleDate`);
- * the override keeps value-carrying settings for relative operators
- * (e.g. `unitOfTime`). Returns undefined when nothing survives the merge.
+ * Merge an override's settings onto a saved rule's settings (P2-1):
+ * - the saved rule owns value-semantics keys the override may omit — a
+ *   values-only override (URL/embed/SDK) must not drop a saved-only
+ *   `unitOfTime` / `completed` (the compiler defaults missing `unitOfTime`
+ *   for IN_THE_PAST to days, silently changing e.g. "last 6 months" to
+ *   "last 6 days");
+ * - the override's own value-carrying settings win on conflicts;
+ * - dynamic-default metadata (`dateRange` / `singleDate`) is saved-owned
+ *   and only backfilled while the merged operator still accepts that
+ *   value shape. After an operator change a stale `dateRange` (two bounds)
+ *   or `singleDate` (single value) would be re-resolved into the wrong
+ *   number of values, so it is dropped instead.
+ * Returns undefined when nothing survives the merge.
  */
 const mergeOverrideSettings = (
     savedSettings: DateFilterSettings | undefined,
     overrideSettings: DateFilterSettings | undefined,
+    operator: FilterOperator | undefined,
 ): DateFilterSettings | undefined => {
     const merged: DateFilterSettings = {
+        ...savedSettings,
         ...overrideSettings,
-        dateRange: savedSettings?.dateRange,
-        singleDate: savedSettings?.singleDate,
     };
+    if (
+        operator === FilterOperator.IN_BETWEEN ||
+        operator === FilterOperator.NOT_IN_BETWEEN
+    ) {
+        merged.dateRange = savedSettings?.dateRange;
+        delete merged.singleDate;
+    } else if (operator === FilterOperator.EQUALS) {
+        merged.singleDate = savedSettings?.singleDate;
+        delete merged.dateRange;
+    } else {
+        delete merged.dateRange;
+        delete merged.singleDate;
+    }
     return Object.values(merged).some((value) => value !== undefined)
         ? merged
         : undefined;
@@ -871,6 +893,7 @@ export const applyDimensionOverrides = (
                 settings: mergeOverrideSettings(
                     dimension.settings,
                     override.settings,
+                    override.operator,
                 ),
                 enableDynamicMaxAllowedDate:
                     dimension.enableDynamicMaxAllowedDate,

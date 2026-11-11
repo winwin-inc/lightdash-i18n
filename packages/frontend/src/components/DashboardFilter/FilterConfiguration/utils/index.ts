@@ -46,12 +46,21 @@ const getCompareUnit = (
 };
 
 /**
- * 编辑看板筛选器保存时校验默认日期区间（P1-5 修订）：
- * - 开始不能晚于结束
- * - 起止需落在可选范围内（固定值默认值也校验；动态默认从 settings 解析）
+ * 编辑看板筛选器保存时校验默认日期区间（P1-5 修订，含 P1-2/P2-2/P3-5 修复）：
+ * - 开始不能晚于结束（IN_BETWEEN 与 NOT_IN_BETWEEN 都查）
+ * - 起止需落在可选范围内，且仅对 IN_BETWEEN 生效（D5/P2-2）：
+ *   NOT_IN_BETWEEN 运行时不钳制（夹紧会反转排除语义）、取值控件是
+ *   无 min/max 的自由文本，按可选范围拦截会禁止合法的「排除可选范围外
+ *   区间」配置
+ * - 固定值默认值也校验（P3-5：resolveDateRangeValues 对固定值按
+ *   YYYY-MM-DD 严格解析，带时间部分的 timestamp 值会判无效被跳过，
+ *   这里对固定值单独解析以支持 timestamp）
+ * - 口径（P1-2）：动态默认用「从宽」口径（applyDataAvailabilityDelay=false）。
+ *   运行时口径在每月 1–3 号会把最晚可选月提前一个月，标准动态默认
+ *   （… → 1 个月前）必被误拦；运行时仍会按自身口径钳制展示/查询，保存
+ *   期只需确认配置与从宽边界一致。固定值默认仍用运行时口径，与查看者
+ *   看到的可选范围一致
  * - rolling 已启用但没有任何最晚可选月（无固定 max 且未开启动态 max）→ 拒绝保存
- * - 口径统一：与运行时同用 applyDataAvailabilityDelay=true（原 false 会在每月
- *   1–3 号与页面行为差 1 个月）
  * 返回错误对象（含解析后的实际边界，供文案展示）；通过则返回 null。
  */
 export const validateDashboardFilterDateRange = (
@@ -79,13 +88,38 @@ export const validateDashboardFilterDateRange = (
 
     // 固定值默认值也校验：动态模式从 settings 解析，固定模式取真实 values
     // （原实现固定传 values:[] 导致固定值恒 [null,null] 被跳过）
-    const [startStr, endStr] = resolveDateRangeValues(
-        { settings: filterRule.settings, values: filterRule.values },
-        granularity,
-        referenceDate,
-    );
-    const start = startStr ? dayjs(startStr) : null;
-    const end = endStr ? dayjs(endStr) : null;
+    const dynamicDefault = isDateRangeDynamic(filterRule);
+    const parseFixedSlot = (raw: unknown): dayjs.Dayjs | null => {
+        // 仅接受 YYYY-MM-DD（可带时间部分/时区后缀）形态，避免把 '2026-01'
+        // 之类的残缺值当作合法日期（与原严格解析口径一致地跳过）
+        if (
+            typeof raw !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}([T ].*)?$/.test(raw)
+        ) {
+            return null;
+        }
+        const parsed = dayjs(raw);
+        return parsed.isValid() ? parsed : null;
+    };
+    const [start, end]: Array<dayjs.Dayjs | null> = dynamicDefault
+        ? (() => {
+              const [startStr, endStr] = resolveDateRangeValues(
+                  {
+                      settings: filterRule.settings,
+                      values: filterRule.values,
+                  },
+                  granularity,
+                  referenceDate,
+              );
+              return [
+                  startStr ? dayjs(startStr) : null,
+                  endStr ? dayjs(endStr) : null,
+              ];
+          })()
+        : [
+              parseFixedSlot(filterRule.values?.[0]),
+              parseFixedSlot(filterRule.values?.[1]),
+          ];
 
     // 半边/空取值不在本校验范围（保存路径由 hasFilterValueSet 把关）
     if (!start?.isValid() || !end?.isValid()) {
@@ -98,8 +132,16 @@ export const validateDashboardFilterDateRange = (
         return { code: 'start_after_end' };
     }
 
-    // 与运行时同口径（applyDataAvailabilityDelay=true）
-    const { minDate, maxDate } = resolveRuleBounds(filterRule, referenceDate);
+    // D5/P2-2：NOT_IN_BETWEEN 不做可选范围校验（运行时不钳制、控件无
+    // min/max）；仅保留 start_after_end
+    if (filterRule.operator !== FilterOperator.IN_BETWEEN) {
+        return null;
+    }
+
+    // P1-2：动态默认用从宽口径（false），固定值与运行时同口径
+    const { minDate, maxDate } = resolveRuleBounds(filterRule, referenceDate, {
+        applyDataAvailabilityDelay: !dynamicDefault,
+    });
 
     if (maxDate && end.isAfter(dayjs(maxDate), unit)) {
         return { code: 'end_after_max', minDate, maxDate };

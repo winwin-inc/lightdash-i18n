@@ -134,6 +134,20 @@ export type DateRangeModeRule = {
     settings?: { dateRange?: DateRangeSetting } | null;
 };
 
+/** `DateRangeModeRule` + 规则级粒度字段（保存期规范化用）。 */
+export type GranularDateRangeModeRule = DateRangeModeRule & {
+    dateRangeGranularity?: TimeFrames;
+};
+
+/**
+ * 保存期规范化（P2-4/M1）：剥离与粒度门禁不兼容的动态 dateRange 残留。
+ *
+ * 旧 UI 的粒度下拉不清理 `settings.dateRange`，存量数据可能存在
+ * 「日/年粒度 + dateRange.mode='dynamic'」的已保存筛选器 —— 改动后
+ * 编辑页 Radio 显示固定日期，但查询编译仍按动态解析，UI 与查询持续
+ * 不一致；只有作者重新切一次粒度才会被清理。保存时在此按粒度门禁
+ * 剥离，让存储回到与 UI/查询一致的单一口径（月/季粒度不交）。
+
 /**
  * Build the next rule for a fixed ↔ dynamic mode switch.
  *
@@ -182,5 +196,25 @@ export const buildDateRangeModeChangeRule = <T extends DateRangeModeRule>(
         ...rule,
         values: resolveDynamicDateRangeValues(nextDateRange, granularity),
         settings: { ...rule.settings, dateRange: nextDateRange },
+    } as T;
+};
+
+/**
+ * 保存前剥除「粒度不允许动态默认」时残留的 `settings.dateRange`（见
+ * `GranularDateRangeModeRule` 上的说明）。其余 settings（singleDate /
+ * unitOfTime 等）与 values 原样保留；无可剥除内容时返回原引用。
+ */
+export const stripDisallowedDynamicDateRange = <
+    T extends GranularDateRangeModeRule,
+>(
+    rule: T,
+): T => {
+    const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
+    if (isDynamicDateRangeAllowed(granularity)) return rule;
+    if (rule.settings?.dateRange == null) return rule;
+    const { dateRange: _dropped, ...restSettings } = rule.settings;
+    return {
+        ...rule,
+        settings: Object.keys(restSettings).length > 0 ? restSettings : undefined,
     } as T;
 };

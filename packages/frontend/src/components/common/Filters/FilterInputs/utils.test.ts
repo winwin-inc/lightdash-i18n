@@ -4,8 +4,10 @@ import {
     UnitOfTime,
     type DashboardFilterRule,
 } from '@lightdash/common';
+import dayjs from 'dayjs';
 import { describe, expect, it } from 'vitest';
 
+import { stripDisallowedDynamicDateRange } from './dateRangeMode';
 import {
     clampFixedDateRangeValues,
     getDateRangeRuleWithFixedValues,
@@ -470,5 +472,161 @@ describe('single-date dynamic month equals', () => {
             (prepared.settings as { singleDate?: unknown } | undefined)
                 ?.singleDate,
         ).toBeUndefined();
+    });
+});
+
+describe('clampFixedDateRangeValues — timestamp values (P1-1)', () => {
+    // 日粒度（未配置 dateRangeGranularity）+ 固定 min/max 的 timestamp 筛选器：
+    // 夹紧端必须保留时间部分，不能截成 YYYY-MM-DD（否则 end 按 00:00 比较、
+    // 丢当天数据，跨 tab 同步还会把截断值写回存储）
+    const createTimestampRule = (): DashboardFilterRule => ({
+        id: 'filter-ts',
+        label: 'Created at',
+        operator: FilterOperator.IN_BETWEEN,
+        target: {
+            fieldId: 'orders_created_at',
+            tableName: 'orders',
+        },
+        minAllowedDate: '2025-06-01',
+        maxAllowedDate: '2026-05-31',
+    });
+
+    it('keeps the time part on clamped out-of-bounds timestamp ends', () => {
+        expect(
+            clampFixedDateRangeValues(
+                createTimestampRule(),
+                ['2025-07-01T10:30:00+08:00', '2026-07-15T08:15:00+08:00'],
+                new Date('2026-11-11'),
+            ),
+        ).toEqual([
+            '2025-07-01T10:30:00+08:00',
+            dayjs('2026-05-31')
+                .endOf('day')
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+        ]);
+    });
+
+    it('keeps the time part on a clamped out-of-bounds timestamp start', () => {
+        expect(
+            clampFixedDateRangeValues(
+                createTimestampRule(),
+                ['2024-01-01T10:30:00+08:00', '2026-04-15T08:15:00+08:00'],
+                new Date('2026-11-11'),
+            ),
+        ).toEqual([
+            dayjs('2025-06-01')
+                .startOf('day')
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+            '2026-04-15T08:15:00+08:00',
+        ]);
+    });
+
+    it('returns in-bounds timestamp values unchanged', () => {
+        const values = [
+            '2025-07-01T10:30:00+08:00',
+            '2026-05-01T08:15:00+08:00',
+        ];
+        expect(
+            clampFixedDateRangeValues(
+                createTimestampRule(),
+                values,
+                new Date('2026-11-11'),
+            ),
+        ).toEqual(values);
+    });
+});
+
+describe('stripDisallowedDynamicDateRange (P2-4)', () => {
+    const dynamicSettings = {
+        dateRange: {
+            mode: 'dynamic' as const,
+            start: { direction: 'ago' as const, count: 12 },
+            end: { direction: 'ago' as const, count: 1 },
+        },
+    };
+
+    it('strips dynamic dateRange residue for day granularity', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created at',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_at',
+                tableName: 'orders',
+            },
+            values: ['2026-01-01', '2026-03-31'],
+            dateRangeGranularity: TimeFrames.DAY,
+            settings: dynamicSettings,
+        };
+        expect(stripDisallowedDynamicDateRange(rule)).toEqual({
+            ...rule,
+            settings: undefined,
+        });
+    });
+
+    it('strips for year granularity but keeps other settings', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created year',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_year',
+                tableName: 'orders',
+            },
+            values: ['2025-01-01', '2026-12-31'],
+            dateRangeGranularity: TimeFrames.YEAR,
+            settings: { ...dynamicSettings, completed: true },
+        };
+        expect(stripDisallowedDynamicDateRange(rule)).toEqual({
+            ...rule,
+            settings: { completed: true },
+        });
+    });
+
+    it('keeps dynamic dateRange for month granularity (allowed)', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_month',
+                tableName: 'orders',
+            },
+            values: ['2026-01-01', '2026-03-31'],
+            dateRangeGranularity: TimeFrames.MONTH,
+            settings: dynamicSettings,
+        };
+        expect(stripDisallowedDynamicDateRange(rule)).toBe(rule);
+    });
+
+    it('treats missing granularity as day and strips residue', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created at',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_at',
+                tableName: 'orders',
+            },
+            values: ['2026-01-01', '2026-03-31'],
+            settings: dynamicSettings,
+        };
+        expect(stripDisallowedDynamicDateRange(rule).settings).toBeUndefined();
+    });
+
+    it('returns the same reference when there is nothing to strip', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created at',
+            operator: FilterOperator.IN_BETWEEN,
+            target: {
+                fieldId: 'orders_created_at',
+                tableName: 'orders',
+            },
+            values: ['2026-01-01', '2026-03-31'],
+            dateRangeGranularity: TimeFrames.DAY,
+            settings: { completed: true },
+        };
+        expect(stripDisallowedDynamicDateRange(rule)).toBe(rule);
     });
 });

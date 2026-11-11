@@ -269,10 +269,14 @@ const DateRangeConstraintEditor: FC<Props> = ({
             )}
             {showRollingWindowInput &&
                 rollingConfigured &&
+                rollingActive &&
                 (rollingBadge ?? (
                     // Rolling without any latest selectable month: the window
                     // cannot resolve. Save-time validation (S3) rejects this
                     // combination; surface it inline too.
+                    // P3-2：无效 N（0/NaN，API/as-code 注入）时 rollingActive
+                    // 为 false —— 不显示红字（有 max 也不是 requires_max），
+                    // 避免误导；仅真正激活但无最晚可选月时提示
                     <Text size="xs" c="red">
                         {t(
                             'components_dashboard_filter.configuration.date_range.rolling_requires_max',

@@ -453,6 +453,67 @@ describe('clampDateRangeValuesToBounds', () => {
             ),
         ).toEqual(['2025-07-01']);
     });
+
+    // P1-1：TIMESTAMP 值夹紧后不能截断时间部分（否则 end 按 00:00 比较、
+    // 丢当天数据，跨 tab 同步还会把截断值写回存储）
+    it('keeps the time part when clamping a timestamp end (P1-1)', () => {
+        expect(
+            clampDateRangeValuesToBounds(
+                ['2025-07-01T10:30:00', '2026-07-15T08:15:00'],
+                dayjs('2025-06-01').startOf('day').toDate(),
+                dayjs('2026-05-31').endOf('day').toDate(),
+                TimeFrames.DAY,
+            ),
+        ).toEqual([
+            '2025-07-01T10:30:00',
+            dayjs('2026-05-31').endOf('day').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+        ]);
+    });
+
+    it('keeps the time part when clamping a timestamp start (P1-1)', () => {
+        expect(
+            clampDateRangeValuesToBounds(
+                ['2024-01-01T10:30:00', '2026-04-15T08:15:00'],
+                dayjs('2025-06-01').startOf('day').toDate(),
+                dayjs('2026-05-31').endOf('day').toDate(),
+                TimeFrames.DAY,
+            ),
+        ).toEqual([
+            dayjs('2025-06-01')
+                .startOf('day')
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+            '2026-04-15T08:15:00',
+        ]);
+    });
+
+    it('returns in-bounds timestamp values byte-identical (P1-1)', () => {
+        expect(
+            clampDateRangeValuesToBounds(
+                ['2025-07-01T10:30:00+08:00', '2026-05-01T08:15:00+08:00'],
+                dayjs('2025-06-01').startOf('day').toDate(),
+                dayjs('2026-05-31').endOf('day').toDate(),
+                TimeFrames.DAY,
+            ),
+        ).toEqual(['2025-07-01T10:30:00+08:00', '2026-05-01T08:15:00+08:00']);
+    });
+
+    it('aligns a clamped timestamp to the period boundary keeping time (MONTH)', () => {
+        expect(
+            clampDateRangeValuesToBounds(
+                ['2024-06-15T10:30:00', '2026-09-20T08:15:00'],
+                dayjs('2025-01-01').startOf('month').toDate(),
+                dayjs('2026-05-31').endOf('month').toDate(),
+                TimeFrames.MONTH,
+            ),
+        ).toEqual([
+            dayjs('2025-01-01')
+                .startOf('month')
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+            dayjs('2026-05-31')
+                .endOf('month')
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+        ]);
+    });
 });
 
 describe('DATA_MONTH_AVAILABLE_FROM_DAY', () => {

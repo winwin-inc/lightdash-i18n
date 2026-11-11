@@ -11,6 +11,7 @@ import {
     getItemId,
     isFilterableField,
     isMetric,
+    isRollingMinAllowedMonthsActive,
     isTableCalculation,
     TimeFrames,
     type DashboardFieldTarget,
@@ -56,6 +57,7 @@ import {
 import FieldSelect from '../../common/FieldSelect';
 import FieldIcon from '../../common/Filters/FieldIcon';
 import FieldLabel from '../../common/Filters/FieldLabel';
+import { stripDisallowedDynamicDateRange } from '../../common/Filters/FilterInputs/dateRangeMode';
 import MantineIcon from '../../common/MantineIcon';
 import { encodeParentFilterRef } from '../common/parentFilterRef';
 import FilterSettings from './FilterSettings';
@@ -133,7 +135,7 @@ const FilterConfiguration: FC<Props> = ({
     onSelectedTabChange,
 }) => {
     const { t } = useTranslation();
-    const { showToastError } = useToaster();
+    const { showToastError, showToastWarning } = useToaster();
     const isMobileDevice = useIsMobileDevice();
 
     /**
@@ -1039,14 +1041,21 @@ const FilterConfiguration: FC<Props> = ({
                                     }
 
                                     if (draftFilterRule) {
+                                        // P2-4/M1：保存前剥除与粒度门禁不
+                                        // 兼容的动态 dateRange 残留（旧 UI 的
+                                        // 粒度下拉不清理，存量「日/年粒度 +
+                                        // 动态默认」会 UI 显示固定、查询仍按
+                                        // 动态解析）；月/季粒度不交
                                         const ruleToSave =
-                                            removeValuesExcludedFromFilterRule(
-                                                getRuleWithPendingExcludedValue(
-                                                    draftFilterRule,
-                                                ),
-                                                mergeExcludedValues(
-                                                    draftFilterRule.excludedValues,
-                                                    pendingExcludedValue,
+                                            stripDisallowedDynamicDateRange(
+                                                removeValuesExcludedFromFilterRule(
+                                                    getRuleWithPendingExcludedValue(
+                                                        draftFilterRule,
+                                                    ),
+                                                    mergeExcludedValues(
+                                                        draftFilterRule.excludedValues,
+                                                        pendingExcludedValue,
+                                                    ),
                                                 ),
                                             );
 
@@ -1064,6 +1073,29 @@ const FilterConfiguration: FC<Props> = ({
                                                     autoClose: 3000,
                                                 });
                                                 return;
+                                            }
+                                            // P2-3（§3.1/§8.3 后半句）：
+                                            // rolling + 固定 max = 固定窗口（不滚动）。
+                                            // 保存放行，但给出非阻断提示：
+                                            // 需开启「按数据更新限制最晚可选日期」
+                                            // 窗口才会滚动
+                                            if (
+                                                isRollingMinAllowedMonthsActive(
+                                                    ruleToSave,
+                                                ) &&
+                                                ruleToSave.maxAllowedDate != null
+                                            ) {
+                                                showToastWarning({
+                                                    key: 'dashboard-filter-rolling-fixed-window',
+                                                    title: t(
+                                                        'components_dashboard_filter.configuration.date_range.rolling_fixed_window_warning',
+                                                        {
+                                                            defaultValue:
+                                                                '「最早＝近 N 个月」当前为固定窗口（不滚动）：需开启「按数据更新限制最晚可选日期」才会滚动',
+                                                        },
+                                                    ),
+                                                    autoClose: 5000,
+                                                });
                                             }
                                         }
 

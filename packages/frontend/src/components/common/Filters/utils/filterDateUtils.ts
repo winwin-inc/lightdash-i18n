@@ -104,6 +104,7 @@ const formatBound = (
     date: dayjs.Dayjs,
     isEnd: boolean,
     timeInterval?: string,
+    keepTimePart = false,
 ): string => {
     const upper = timeInterval?.toUpperCase();
     let aligned = date;
@@ -116,8 +117,19 @@ const formatBound = (
     } else {
         aligned = isEnd ? date.endOf('day') : date.startOf('day');
     }
+    // P1-1: TIMESTAMP 字段的取值带时间部分（形如 2026-07-15T08:15:00+08:00），
+    // 夹紧端必须保留时间部分输出（start 对齐周期开头 00:00、end 对齐周期末
+    // 23:59:59.999），截成 YYYY-MM-DD 会把 end 当 00:00 比较、丢失当天数据，
+    // 且跨 tab 同步会把截断值写回存储（静默数据损坏）。
+    if (keepTimePart) {
+        return aligned.format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+    }
     return aligned.format('YYYY-MM-DD');
 };
+
+/** 值是否带时间部分（TIMESTAMP 字段取值形如 2026-07-15T08:15:00+08:00）。 */
+const hasTimePart = (value: string | null | undefined): boolean =>
+    value != null && /T\d{2}:\d{2}/.test(value);
 
 /**
  * 未配置固定最晚日期时，按月/季粒度计算动态上限（对齐周期末）。
@@ -167,6 +179,8 @@ export const getLastAvailableMonth = (
  *   隐式填充，IN_BETWEEN 语义被改写）；输出槽位数与输入一致。
  * - 只改写被夹紧的那一端并按周期对齐；界内值原样返回，不做周期对齐
  *   重写（否则月中日期会被静默扩成整月）。
+ * - 带时间部分的值（TIMESTAMP）夹紧端保留时间部分（P1-1）：start 夹到
+ *   周期开头 00:00:00.000、end 夹到周期末 23:59:59.999，输出本地 ISO 串。
  * - `start > end` 时退化保留既有行为（start 跟随 end 的输出）。
  */
 export const clampDateRangeValuesToBounds = (
@@ -204,14 +218,17 @@ export const clampDateRangeValuesToBounds = (
         endClamped = true;
     }
 
+    const startHasTime = hasTimePart(values[0]);
+    const endHasTime = hasTimePart(values[1]);
+
     const startOutput = start
         ? startClamped
-            ? formatBound(start, false, timeInterval)
+            ? formatBound(start, false, timeInterval, startHasTime)
             : String(values[0])
         : values[0] ?? '';
     const endOutput = end
         ? endClamped
-            ? formatBound(end, true, timeInterval)
+            ? formatBound(end, true, timeInterval, endHasTime)
             : String(values[1])
         : values[1] ?? '';
 

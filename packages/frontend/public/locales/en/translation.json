@@ -2817,6 +2817,7 @@
         "rolling_badge_dynamic": "Dynamic · current={{value}}",
         "rolling_badge_fixed": "Fixed window (not rolling)",
         "rolling_requires_max": "\"Earliest = last N months\" needs a latest selectable date: set a latest selectable date, or enable \"Limit latest date by data refresh\"",
+        "rolling_fixed_window_warning": "\"Earliest = last N months\" is currently a fixed window (not rolling): enable \"Limit latest selectable date by data updates\" to make it roll",
         "mode": {
           "dynamic": "Dynamic dates",
           "fixed": "Fixed dates"

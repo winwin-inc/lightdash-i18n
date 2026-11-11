@@ -2817,6 +2817,7 @@
         "rolling_badge_dynamic": "动态 · 当前={{value}}",
         "rolling_badge_fixed": "固定窗口（不滚动）",
         "rolling_requires_max": "「最早＝近 N 个月」需要最晚可选日期：请设置可选最晚日期，或开启「按数据更新限制最晚可选日期」",
+        "rolling_fixed_window_warning": "「最早＝近 N 个月」当前为固定窗口（不滚动）：需开启「按数据更新限制最晚可选日期」才会滚动",
         "mode": {
           "dynamic": "动态日期",
           "fixed": "固定日期"

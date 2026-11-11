@@ -342,10 +342,8 @@ describe('applyDimensionOverrides', () => {
                 required: baseDashboardFilters.dimensions[0].required,
                 requiredGroupId:
                     baseDashboardFilters.dimensions[0].requiredGroupId,
-                categoryLevel:
-                    baseDashboardFilters.dimensions[0].categoryLevel,
-                parentFieldId:
-                    baseDashboardFilters.dimensions[0].parentFieldId,
+                categoryLevel: baseDashboardFilters.dimensions[0].categoryLevel,
+                parentFieldId: baseDashboardFilters.dimensions[0].parentFieldId,
                 excludedValues:
                     baseDashboardFilters.dimensions[0].excludedValues,
                 allowedOperators:
@@ -758,6 +756,212 @@ describe('applyDimensionOverrides', () => {
             expect(appended.required).toBeUndefined();
             expect(appended.requiredGroupId).toBeUndefined();
             expect(appended.clearable).toBeUndefined();
+        });
+
+        describe('settings merge (P2-1)', () => {
+            it('keeps saved-only unitOfTime/completed for a values-only override', () => {
+                const saved: DashboardFilters = {
+                    dimensions: [
+                        {
+                            id: 'filter-relative',
+                            label: 'Created at',
+                            operator: FilterOperator.IN_THE_PAST,
+                            target: {
+                                fieldId: 'orders_created_at',
+                                tableName: 'orders',
+                            },
+                            disabled: false,
+                            values: [12],
+                            settings: {
+                                unitOfTime: UnitOfTime.months,
+                                completed: false,
+                            },
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                };
+                // 文档 §4.4/D2 声明的合法 override 形态：只带 values/operator
+                const overrides: DashboardFilterRule[] = [
+                    {
+                        id: 'filter-relative',
+                        label: 'Created at (from URL)',
+                        operator: FilterOperator.IN_THE_PAST,
+                        target: {
+                            fieldId: 'orders_created_at',
+                            tableName: 'orders',
+                        },
+                        disabled: false,
+                        values: [6],
+                    },
+                ];
+
+                const result = applyDimensionOverrides(saved, overrides);
+
+                // 修复前：override 为基底导致 settings=undefined，saved 的
+                // 「近 6 个月」被 compiler 默认成「近 6 天」
+                expect(result[0].settings).toEqual({
+                    unitOfTime: UnitOfTime.months,
+                    completed: false,
+                });
+                expect(result[0].values).toEqual([6]);
+            });
+
+            it('lets the override win on value-carrying settings conflicts', () => {
+                const saved: DashboardFilters = {
+                    dimensions: [
+                        {
+                            id: 'filter-relative',
+                            label: 'Created at',
+                            operator: FilterOperator.IN_THE_PAST,
+                            target: {
+                                fieldId: 'orders_created_at',
+                                tableName: 'orders',
+                            },
+                            disabled: false,
+                            values: [12],
+                            settings: {
+                                unitOfTime: UnitOfTime.months,
+                                completed: false,
+                            },
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                };
+                const overrides: DashboardFilterRule[] = [
+                    {
+                        id: 'filter-relative',
+                        label: 'Created at (scheduler)',
+                        operator: FilterOperator.IN_THE_PAST,
+                        target: {
+                            fieldId: 'orders_created_at',
+                            tableName: 'orders',
+                        },
+                        disabled: false,
+                        values: [30],
+                        settings: {
+                            unitOfTime: UnitOfTime.days,
+                            completed: true,
+                        },
+                    },
+                ];
+
+                const result = applyDimensionOverrides(saved, overrides);
+
+                expect(result[0].settings).toEqual({
+                    unitOfTime: UnitOfTime.days,
+                    completed: true,
+                });
+            });
+
+            it('drops the saved dynamic dateRange when the override changes the operator to EQUALS', () => {
+                const saved: DashboardFilters = {
+                    dimensions: [
+                        {
+                            ...createSavedRollingDateFilter(),
+                            id: 'filter-date',
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                };
+                const overrides: DashboardFilterRule[] = [
+                    {
+                        id: 'filter-date',
+                        label: 'Exact day (from URL)',
+                        operator: FilterOperator.EQUALS,
+                        target: {
+                            fieldId: 'orders_created_month',
+                            tableName: 'orders',
+                        },
+                        disabled: false,
+                        values: ['2026-01-01'],
+                    },
+                ];
+
+                const result = applyDimensionOverrides(saved, overrides);
+
+                // 修复前：operator 已改 EQUALS 仍回填动态 dateRange，prepare 会把
+                // 默认值解析成 2 个日期，而 EQUALS 只要 1 个值
+                expect(result[0].operator).toBe(FilterOperator.EQUALS);
+                expect(result[0].settings).toBeUndefined();
+            });
+
+            it('keeps the saved dynamic dateRange when the override stays IN_BETWEEN', () => {
+                const saved: DashboardFilters = {
+                    dimensions: [createSavedRollingDateFilter()],
+                    metrics: [],
+                    tableCalculations: [],
+                };
+                const overrides: DashboardFilterRule[] = [
+                    {
+                        id: 'filter-date',
+                        label: 'Narrower window (from URL)',
+                        operator: FilterOperator.IN_BETWEEN,
+                        target: {
+                            fieldId: 'orders_created_month',
+                            tableName: 'orders',
+                        },
+                        disabled: false,
+                        values: ['2025-02-01', '2025-05-31'],
+                    },
+                ];
+
+                const result = applyDimensionOverrides(saved, overrides);
+
+                expect(result[0].settings).toEqual(
+                    createSavedRollingDateFilter().settings,
+                );
+            });
+
+            it('backfills the saved dynamic singleDate for an EQUALS override', () => {
+                const saved: DashboardFilters = {
+                    dimensions: [
+                        {
+                            id: 'filter-single',
+                            label: 'Order month',
+                            operator: FilterOperator.EQUALS,
+                            target: {
+                                fieldId: 'orders_created_month',
+                                tableName: 'orders',
+                            },
+                            disabled: false,
+                            values: ['2026-01'],
+                            settings: {
+                                singleDate: {
+                                    mode: 'dynamic',
+                                    preset: 'lastAvailableMonth',
+                                },
+                            },
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                };
+                const overrides: DashboardFilterRule[] = [
+                    {
+                        id: 'filter-single',
+                        label: 'Order month (from URL)',
+                        operator: FilterOperator.EQUALS,
+                        target: {
+                            fieldId: 'orders_created_month',
+                            tableName: 'orders',
+                        },
+                        disabled: false,
+                        values: ['2026-02'],
+                    },
+                ];
+
+                const result = applyDimensionOverrides(saved, overrides);
+
+                expect(result[0].settings).toEqual({
+                    singleDate: {
+                        mode: 'dynamic',
+                        preset: 'lastAvailableMonth',
+                    },
+                });
+            });
         });
     });
 

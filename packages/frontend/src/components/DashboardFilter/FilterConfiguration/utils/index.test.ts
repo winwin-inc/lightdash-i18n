@@ -270,7 +270,7 @@ describe('validateDashboardFilterDateRange', () => {
         ).toBeNull();
     });
 
-    it('rejects a 1-month-ago end before the 4th (runtime caliber, P1-5)', () => {
+    it('passes the standard dynamic default before the 4th (lenient caliber, P1-2)', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
@@ -292,17 +292,56 @@ describe('validateDashboardFilterDateRange', () => {
             },
         });
 
-        // 2026-03-03（4 号前）：校验与运行时同口径（applyDataAvailabilityDelay=true）
-        // → 最晚可选 = 2026-01-31，动态 end=2026-02-28 越界。
-        // 旧口径（false）会在这里放行，导致每月 1–3 号保存与页面行为差 1 个月。
+        // 2026-03-03（4 号前）：动态默认用从宽口径（applyDataAvailabilityDelay=false）
+        // → 最晚可选 = 2026-02-28，动态 end=2026-02-28 界内，放行保存。
+        // 修复前（运行时口径）每月 1–3 号标准动态默认必被误拦（P1-2），
+        // 与验收 §8.6「1–3 号与 4 号后行为一致」冲突；运行时展示/查询仍按
+        // 运行时口径自行钳制。
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-03-03')),
+        ).toBeNull();
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-03-04')),
+        ).toBeNull();
+    });
+
+    it('still rejects dynamic defaults outside the rolling window (lenient caliber)', () => {
+        // rolling N=6：窗口最早月被锚定在最晚可选月前推 5 个月；切到动态时
+        // seed 的默认 start=12 个月前落在窗口外，需作者手动改小 start ——
+        // 从宽口径下依旧拒绝（这是真实的永久越界，不是月初误拦）
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 6,
+            settings: {
+                dateRange: {
+                    mode: 'dynamic',
+                    start: {
+                        direction: 'ago',
+                        count: 12,
+                        unit: UnitOfTime.months,
+                    },
+                    end: {
+                        direction: 'ago',
+                        count: 1,
+                        unit: UnitOfTime.months,
+                    },
+                },
+            },
+        });
+
+        // 2026-03-03（4 号前）：从宽口径 → 最晚可选 = 2026-02-28，
+        // rolling 下限 = 2026-02-01 前推 5 个月 = 2025-09-01；
+        // 动态 start = 2025-03-01 越界
         const error = validateDashboardFilterDateRange(
             rule,
             new Date('2026-03-03'),
         );
-        expect(error?.code).toBe('end_after_max');
+        expect(error?.code).toBe('start_before_min');
         expect(
-            error?.maxDate && dayjs(error.maxDate).format('YYYY-MM-DD'),
-        ).toBe('2026-01-31');
+            error?.minDate && dayjs(error.minDate).format('YYYY-MM'),
+        ).toBe('2025-09');
     });
 
     it('passes when dynamic end is within rolling max', () => {
@@ -440,6 +479,34 @@ describe('validateDashboardFilterDateRange', () => {
         ).toBeNull();
     });
 
+    it('skips selectable-bounds checks for NOT_IN_BETWEEN (D5/P2-2)', () => {
+        // 排除区间落在可选范围外是合法配置（如「排除 2020 年以前」）；
+        // 运行时不钳制 NOT_IN_BETWEEN，保存校验也不按可选范围拦截
+        const rule = createFilterRule({
+            operator: FilterOperator.NOT_IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-06-30',
+            values: ['2020-01-01', '2024-12-31'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toBeNull();
+    });
+
+    it('still checks start_after_end for NOT_IN_BETWEEN', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.NOT_IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            values: ['2026-06-30', '2025-07-01'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toEqual({ code: 'start_after_end' });
+    });
+
     it('treats an invalid rolling N as not configured', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
@@ -464,6 +531,41 @@ describe('validateDashboardFilterDateRange', () => {
 
         expect(
             validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toBeNull();
+    });
+
+    it('validates timestamp fixed values against the bounds (P3-5)', () => {
+        // 修复前：resolveDateRangeValues 对固定值用 YYYY-MM-DD 严格解析，
+        // ISO 时间串判为无效 → timestamp 固定默认值完全不参与保存校验
+        const outOfBounds = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.DAY,
+            minAllowedDate: '2025-06-01',
+            maxAllowedDate: '2026-05-31',
+            values: [
+                '2025-07-01T10:30:00+08:00',
+                '2026-07-15T08:15:00+08:00',
+            ],
+        });
+        expect(
+            validateDashboardFilterDateRange(
+                outOfBounds,
+                new Date('2026-07-10'),
+            )?.code,
+        ).toBe('end_after_max');
+
+        const inBounds = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.DAY,
+            minAllowedDate: '2025-06-01',
+            maxAllowedDate: '2026-05-31',
+            values: [
+                '2025-07-01T10:30:00+08:00',
+                '2026-05-01T08:15:00+08:00',
+            ],
+        });
+        expect(
+            validateDashboardFilterDateRange(inBounds, new Date('2026-07-10')),
         ).toBeNull();
     });
 
