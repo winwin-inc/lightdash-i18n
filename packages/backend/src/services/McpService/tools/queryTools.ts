@@ -1,5 +1,4 @@
 import {
-    AnyType,
     CompiledField,
     Explore,
     FieldType,
@@ -23,6 +22,10 @@ import {
 } from './access/requiredDashboardContext';
 import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
+import {
+    rowsToScalarFlat,
+    type MetricQueryValueFormat,
+} from './flatRows';
 import { jsonToolResult } from './helpers';
 import {
     PROJECT_UUID_PARAM_DESCRIPTION,
@@ -78,6 +81,8 @@ type RunSemanticMetricQueryArgs = {
     dimensions?: string[];
     filters?: FiltersArgs;
     limit?: number;
+    /** 单元格取值格式：raw（默认）取底层值，formatted 取展示格式化值 */
+    valueFormat?: MetricQueryValueFormat;
     /** 强制看板模式（dashboardStrict）下传入的关联看板 UUID */
     dashboardUuid?: string;
 };
@@ -156,6 +161,12 @@ const runSemanticMetricQueryArgsSchema = {
         .optional()
         .describe(
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
+        ),
+    valueFormat: z
+        .enum(['raw', 'formatted'])
+        .optional()
+        .describe(
+            "Cell value format: 'raw' returns the underlying value, 'formatted' returns the display-formatted value. Defaults to 'raw'.",
         ),
 };
 
@@ -400,6 +411,7 @@ export const registerQueryTools = (
                 dimensions = [],
                 filters,
                 limit,
+                valueFormat,
                 dashboardUuid,
             } = args as RunSemanticMetricQueryArgs;
 
@@ -537,7 +549,9 @@ export const registerQueryTools = (
                 type: getItemType(item),
             }));
 
-            const rows = results.rows as Record<string, AnyType>[];
+            // v1 对齐：嵌套 cell（{ value: { raw, formatted } }）拍平成标量行，
+            // valueFormat 决定取 raw 还是 formatted（默认 raw）。
+            const rows = rowsToScalarFlat(results.rows, valueFormat);
 
             return jsonToolResult({
                 projectUuid,

@@ -142,7 +142,18 @@ const buildDeps = ({
     const getExplore = jest.fn().mockResolvedValue(buildExplore());
 
     const runMetricQuery = jest.fn().mockResolvedValue({
-        rows: [{ orders_status: 'completed', orders_total_revenue: 100 }],
+        // v1 对齐：真实 API 返回嵌套 cell（{ value: { raw, formatted } }），
+        // 工具层负责拍平成标量行
+        rows: [
+            {
+                orders_status: {
+                    value: { raw: 'completed', formatted: 'completed' },
+                },
+                orders_total_revenue: {
+                    value: { raw: 100, formatted: '100.00' },
+                },
+            },
+        ],
         fields: {
             orders_status: {
                 fieldType: FieldType.DIMENSION,
@@ -473,6 +484,31 @@ describe('registerQueryTools', () => {
             ]);
         });
 
+        it('returns formatted cell values when valueFormat is formatted', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerQueryTools(registry, deps);
+
+            const context = buildContext();
+            const result = parseResult(
+                await registered[1].handler(
+                    {
+                        exploreName: 'orders',
+                        metrics: ['orders_total_revenue'],
+                        dimensions: ['orders_status'],
+                        valueFormat: 'formatted',
+                    },
+                    context,
+                ),
+            );
+
+            expect(result.rows).toEqual([
+                { orders_status: 'completed', orders_total_revenue: '100.00' },
+            ]);
+        });
+
         it('throws when a field does not exist in the explore', async () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({ contextProjectUuid: 'project-uuid' });
@@ -554,7 +590,9 @@ describe('registerQueryTools', () => {
             const { registry, registered } = buildRegistry();
             const { deps } = buildDeps({ contextProjectUuid: 'project-uuid' });
             deps.projectService.runMetricQuery = jest.fn().mockResolvedValue({
-                rows: [{ orders_total_revenue: 1 }],
+                rows: [
+                    { orders_total_revenue: { value: { raw: 1, formatted: '1' } } },
+                ],
                 fields: {},
                 cacheMetadata: { cacheHit: false },
             });
