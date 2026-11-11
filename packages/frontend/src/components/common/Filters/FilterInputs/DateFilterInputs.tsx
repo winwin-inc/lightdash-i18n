@@ -85,6 +85,9 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
         dateRangeGranularity: boundsGranularity,
         enableDynamicMaxAllowedDate: dashboardRule?.enableDynamicMaxAllowedDate,
         rollingMinAllowedMonths: dashboardRule?.rollingMinAllowedMonths,
+        // 必须透传 settings：字段归属按默认值模式（dynamic/fixed）判定，
+        // 缺失时 isDynamicMode 恒为 false，动态约束（rolling/跟随数据更新）不生效
+        settings: dashboardRule?.settings,
     });
 
     switch (rule.operator) {

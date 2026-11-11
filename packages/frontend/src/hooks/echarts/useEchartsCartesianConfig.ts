@@ -594,7 +594,9 @@ export const getBaselineSeriesOverrides = (
         },
         z: BASELINE_SERIES_Z,
         isBaseline: true,
-        symbolSize: showSymbol ? Math.max(4, width + 2) : 0,
+        // 圆点直径 = 2 倍线宽（min 6）：叠加在线上时两侧各留出线宽/2 的可见边缘，
+        // 粗细调整时圆点同步放大，避免「粗线配小点」
+        symbolSize: showSymbol ? Math.max(6, width * 2) : 0,
     };
 };
 

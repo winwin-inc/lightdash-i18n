@@ -2394,12 +2394,12 @@ describe('指标基准线 baseline series', () => {
 
         expect(serie.lineStyle).toEqual({ width: 3, type: 'solid' });
         expect(serie.symbol).toBe('circle');
-        // 圆点跟随基准线粗细：max(4, width+2) = 5
-        expect(serie.symbolSize).toBe(5);
+        // 圆点跟随基准线粗细：2 倍线宽 = 6
+        expect(serie.symbolSize).toBe(6);
         expect(serie.isBaseline).toBe(true);
     });
 
-    test('simple 系列：baselineStyle 加粗时圆点同步放大（粗细 6 → 圆点 8）', () => {
+    test('simple 系列：baselineStyle 加粗时圆点同步放大（粗细 6 → 圆点 12）', () => {
         const serie = getSimpleSeries({
             series: {
                 ...makeSourceSeries('metric_target'),
@@ -2416,7 +2416,7 @@ describe('指标基准线 baseline series', () => {
         }) as EChartSeries;
 
         expect(serie.lineStyle).toEqual({ width: 6, type: 'solid' });
-        expect(serie.symbolSize).toBe(8);
+        expect(serie.symbolSize).toBe(12);
     });
 
     test('simple 系列：baselineStyle 覆盖宽度与线型', () => {
