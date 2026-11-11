@@ -44,6 +44,35 @@ type Props = {
 const DEFAULT_ROLLING_MIN_ALLOWED_MONTHS = 12;
 
 /**
+ * 开启滚动开关时的初始窗口推断（避免作者已设好的窗口在开启瞬间跳变）：
+ * 1) 固定最早+最晚并存 → 区间整月数（2024-11 ~ 2026-10 → 24）；
+ * 2) 动态默认区间存在 → 其跨度（距今 12~1 → 12 个整月，恰好填满窗口）；
+ * 3) 兜底默认 12。
+ */
+const inferRollingSeedMonths = (rule: DashboardFilterRule): number => {
+    if (rule.minAllowedDate && rule.maxAllowedDate) {
+        const months =
+            dayjs(rule.maxAllowedDate).diff(dayjs(rule.minAllowedDate), 'month') +
+            1;
+        if (
+            months >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
+            months <= ROLLING_MIN_ALLOWED_MONTHS_MAX
+        ) {
+            return months;
+        }
+    }
+    const startCount = rule.settings?.dateRange?.start?.count;
+    if (
+        typeof startCount === 'number' &&
+        startCount >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
+        startCount <= ROLLING_MIN_ALLOWED_MONTHS_MAX
+    ) {
+        return startCount;
+    }
+    return DEFAULT_ROLLING_MIN_ALLOWED_MONTHS;
+};
+
+/**
  * ⓘ tooltip with keyboard access (focusable via tabIndex, focus shows the
  * Mantine tooltip). Replaces the former long-form hint/description texts.
  */
@@ -132,7 +161,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                       filterRule.rollingMinAllowedMonths,
                   )
                     ? filterRule.rollingMinAllowedMonths
-                    : DEFAULT_ROLLING_MIN_ALLOWED_MONTHS
+                    : inferRollingSeedMonths(filterRule)
                 : undefined,
         });
     };
@@ -256,30 +285,42 @@ const DateRangeConstraintEditor: FC<Props> = ({
     return (
         <Stack spacing="xs" mt="xs">
             {showRollingWindowInput && (
-                <Group spacing="xs" noWrap align="center">
-                    <Switch
-                        size="xs"
-                        labelPosition="right"
-                        checked={rollingConfigured}
-                        onChange={(e) =>
-                            handleRollingSwitchChange(e.currentTarget.checked)
-                        }
-                        label={
-                            <InfoTooltip
-                                label={t(
-                                    'components_dashboard_filter.configuration.date_range.rolling_tooltip',
-                                )}
-                            >
-                                <Text size="xs" fw={500}>
-                                    {t(
-                                        'components_dashboard_filter.configuration.date_range.rolling_label',
+                <Stack spacing={4}>
+                    <Group spacing="xs" noWrap align="center">
+                        <Switch
+                            size="xs"
+                            labelPosition="right"
+                            checked={rollingConfigured}
+                            onChange={(e) =>
+                                handleRollingSwitchChange(e.currentTarget.checked)
+                            }
+                            label={
+                                <InfoTooltip
+                                    label={t(
+                                        'components_dashboard_filter.configuration.date_range.rolling_tooltip',
                                     )}
-                                </Text>
-                            </InfoTooltip>
-                        }
-                    />
+                                >
+                                    <Text size="xs" fw={500}>
+                                        {t(
+                                            'components_dashboard_filter.configuration.date_range.rolling_label',
+                                        )}
+                                    </Text>
+                                </InfoTooltip>
+                            }
+                        />
+                        <InfoTooltip
+                            label={t(
+                                'components_dashboard_filter.configuration.date_range.rolling_tooltip',
+                            )}
+                        />
+                    </Group>
                     {rollingConfigured && (
-                        <>
+                        <Group spacing="xs" noWrap align="center">
+                            <Text size="xs" c="dimmed">
+                                {t(
+                                    'components_dashboard_filter.configuration.date_range.rolling_near_label',
+                                )}
+                            </Text>
                             <NumberInput
                                 size="xs"
                                 w={56}
@@ -295,14 +336,9 @@ const DateRangeConstraintEditor: FC<Props> = ({
                                     'components_dashboard_filter.configuration.date_range.rolling_unit_months',
                                 )}
                             </Text>
-                        </>
+                        </Group>
                     )}
-                    <InfoTooltip
-                        label={t(
-                            'components_dashboard_filter.configuration.date_range.rolling_tooltip',
-                        )}
-                    />
-                </Group>
+                </Stack>
             )}
             {showRollingWindowInput &&
                 rollingConfigured &&
