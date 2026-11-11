@@ -52,7 +52,14 @@ const InfoTooltip: FC<{ label: string; children?: ReactNode }> = ({
     label,
     children,
 }) => (
-    <Tooltip withinPortal variant="xs" position="top" label={label}>
+    <Tooltip
+        withinPortal
+        variant="xs"
+        multiline
+        maw={280}
+        position="top"
+        label={label}
+    >
         {children ?? (
             <Box
                 component="span"
@@ -351,16 +358,12 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     />
                 </Group>
             )}
-            <Group
-                grow
-                noWrap
-                align="flex-start"
-                sx={{ '& > *': { minWidth: 0, flex: 1 } }}
-            >
+            <Group noWrap align="flex-start">
                 {granularity === TimeFrames.MONTH ? (
                     <>
                         <FilterMonthAndYearPicker
                             clearable
+                            w={160}
                             disabled={rollingConfigured}
                             label={labelWithHint('min_label')}
                             value={minDateValue}
@@ -373,6 +376,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterMonthAndYearPicker
                             clearable
+                            w={160}
                             disabled={!!filterRule.enableDynamicMaxAllowedDate}
                             label={labelWithHint('max_label')}
                             value={maxDateValue}
@@ -388,6 +392,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <>
                         <FilterYearPicker
                             clearable
+                            w={160}
                             label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
@@ -399,6 +404,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterYearPicker
                             clearable
+                            w={160}
                             label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
@@ -443,6 +449,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <>
                         <FilterDatePicker
                             clearable
+                            w={160}
                             label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
@@ -455,6 +462,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterDatePicker
                             clearable
+                            w={160}
                             label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
